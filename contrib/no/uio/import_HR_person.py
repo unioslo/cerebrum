@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2005-2014 University of Oslo, Norway
+# Copyright 2005-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -38,6 +38,8 @@ import cereconf
 import sys
 import getopt
 
+from collections import defaultdict
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
@@ -53,7 +55,6 @@ const = Factory.get('Constants')(db)
 group = Factory.get("Group")(db)
 person = Factory.get("Person")(db)
 logger = Factory.get_logger("cronjob")
-
 
 ou_cache = {}
 
@@ -383,7 +384,7 @@ def determine_affiliations(xmlperson, source_system):
 # end determine_affiliations
 
 
-def make_reservation(to_be_reserved, p_id, group):
+def make_reservation(to_be_reserved, p_id, group_members):
     """Register reservation for a person.
 
     When a person is marked as reserved in the XML data, we register him/her
@@ -396,23 +397,21 @@ def make_reservation(to_be_reserved, p_id, group):
         whether to make reservation (True) or remove it (False)
       p_id : int
         person_id
-      group : Group instance
-        Special group for reservations.
+      group_members : dict
+        Current members, also used to store new and to be removed members.
     """
 
-    if to_be_reserved and not group.has_member(p_id):
-        group.add_member(p_id)
-        group.write_db()
+    if to_be_reserved and p_id not in group_members['current']:
+        group_members['add'].add(p_id)
         logger.info("Reservation registered for %s", p_id)
-    elif not to_be_reserved and group.has_member(p_id):
-        group.remove_member(p_id)
-        group.write_db()
+    elif not to_be_reserved and p_id in group_members['current']:
+        group_members['remove'].add(p_id)
         logger.info("Reservation removed for %s", p_id)
 # end make_reservation
 
 
-def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits,
-               dryrun=True):
+def parse_data(parser, source_system, group, group_members, gen_groups,
+               old_affs, old_traits, old_external_ids, dryrun=True):
     """Process all people data available.
 
     For each person extracted from XML, register the changes in Cerebrum.  We
@@ -432,6 +431,10 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits,
       his/her reservations for online directory publishing are expressed as
       the membership in this group.
 
+    :type group_members: set
+    :param group_members:
+      Members of L{group}.
+
     :type old_affs: dict
     :param old_affs:
       This mapping contains affiliations for every person currently present in
@@ -448,6 +451,12 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits,
       are removed from old_traits. Whatever old_traits is left with, when we
       are done here, are the traits that have no longer basis in the
       authoritative system data. Thus, they can be deleted.
+
+    :type old_external_ids: dict
+    :param old_external_ids:
+      This mapping contains external_id for every person currently present in
+      Cerebrum for the given L{source_system}. It is used later to cleanup
+      data from L{source_system} for persons no longer there.
 
     :type dryrun: bool
     :param dryrun: To run in dryrun-mode or not. Defaults to true. Will then
@@ -505,7 +514,7 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits,
             continue
 
         if gen_groups == 1:
-            make_reservation(xmlperson.reserved, p_id, group)
+            make_reservation(xmlperson.reserved, p_id, group_members)
 
         # Now we mark current affiliations as valid (in case deletion is
         # requested later). Whatever remains in old_affs when we are done is
@@ -514,6 +523,9 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits,
             for my_ou, my_affiliation, my_status in affiliations:
                 tmp = (int(p_id), int(my_ou), int(my_affiliation))
                 old_affs.discard(tmp)
+
+        if p_id in old_external_ids:
+            del old_external_ids[p_id]
 
         # Now we update the cache with traits (in case trait synchronisation
         # is requested later). This is similar to affiliation processing,
@@ -666,6 +678,80 @@ def load_old_traits():
 # end load_old_traits
 
 
+def load_old_person2external(source_system):
+    person2external = dict()
+    id_type = None
+    if source_system == const.system_sap:
+        id_type = const.externalid_sap_ansattnr
+    for row in person.search_external_ids(source_system=source_system,
+                                          id_type=id_type,
+                                          entity_type=const.entity_person):
+        person2external[int(row['entity_id'])] = str(row['external_id'])
+    return person2external
+
+
+
+def remove_old_addresses(source_system, person2external):
+    addresses = defaultdict(list)
+    for row in person.list_entity_addresses(source_system=source_system,
+                                            entity_type=const.entity_person,
+                                            entity_id=person2external.keys()):
+        addresses[int(row['entity_id'])].append(int(row['address_type']))
+
+    for e_id, address_types in addresses.iteritems():
+        person.clear()
+        person.find(e_id)
+        for at in address_types:
+            person.delete_entity_address(source_system, at)
+    logger.debug('Deleted %d addresses from %d persons' %
+                 (sum(len(v) for v in addresses.itervalues()),
+                  len(addresses.keys())))
+
+
+def remove_old_contactinfo(source_system, person2external):
+    contactinfo = defaultdict(list)
+    for row in person.list_contact_info(source_system=source_system,
+                                        entity_type=const.entity_person,
+                                        entity_id=person2external.keys()):
+        contactinfo[int(row['entity_id'])].append(int(row['contact_type']))
+
+    for e_id, contact_types in contactinfo.iteritems():
+        person.clear()
+        person.find(e_id)
+        for ct in contact_types:
+            person.delete_contact_info(source_system, ct)
+    logger.debug('Deleted %d contacts from %d persons' %
+                 (sum(len(v) for v in contactinfo.itervalues()),
+                  len(contactinfo.keys())))
+
+
+def remove_old_titles(person2external):
+    titles = {const.personal_title: defaultdict(list),
+              const.work_title: defaultdict(list)}
+    for row in person.search_name_with_language(
+            entity_type=const.entity_person,
+            name_variant=titles.keys(),
+            entity_id=person2external.keys()):
+        titles[row['name_variant']][row['entity_id']].append(
+            [row['name_language'], row['name']])
+
+    for name_variant, blob in titles.iteritems():
+        for entity_id, oldnames in blob.iteritems():
+            person.clear()
+            person.find(entity_id)
+            for name_language, name in oldnames:
+                person.delete_name_with_language(name_variant=name_variant,
+                                                 name_language=name_language,
+                                                 name=name)
+
+    logger.debug('Deleted %d personal_titles from %d persons' %
+                 (sum(len(v) for v in titles[const.personal_title].itervalues()),
+                  len(titles[const.personal_title].keys())))
+    logger.debug('Deleted %d work_titles from %d persons' %
+                 (sum(len(v) for v in titles[const.work_title].itervalues()),
+                  len(titles[const.work_title].keys())))
+
+
 def remove_traits(leftover_traits):
     """Remove traits from Cerebrum to synchronise the information.
 
@@ -723,11 +809,15 @@ def locate_and_build((group_name, group_desc)):
         Group description, in case the group needs to be built, the name for
         the group.
     :Returns:
-      Group instance that is associated with group_name.
+      Group instance that is associated with group_name, and the members.
     """
+    
+    members = {'current': set(), 'add': set(), 'remove': set()}
 
     try:
         group.find_by_name(group_name)
+        for row in group.search_members(group_id=group.entity_id):
+            members['current'].add(int(row['member_id']))
     except:
         group.clear()
         account = Factory.get("Account")(db)
@@ -736,8 +826,24 @@ def locate_and_build((group_name, group_desc)):
                        group_name, group_desc)
         group.write_db()
 
-    return group
+    return group, members
 # end locate_and_build
+
+
+def update_reservations(group, group_members, person2external):
+    group_members['remove'] |= group_members['current'] & set(person2external.keys())
+
+    logger.debug("Adding %d persons to %s",
+                 len(group_members['add']), group.group_name)
+    for i in group_members['add']:
+        group.add_member(i)
+
+    logger.debug("Removing %d persons from %s",
+                 len(group_members['remove']), group.group_name)
+    for i in group_members['remove']:
+        group.remove_member(i)
+
+    group.write_db()
 
 
 def usage(exitcode=0):
@@ -796,25 +902,32 @@ def main():
         parser = system2parser(system_name)
 
         # Locate the proper reservation group
-        group = locate_and_build(system2group[system_name])
+        group, group_members = locate_and_build(system2group[system_name])
 
         # Load old affiliations
         cerebrum_affs = dict()
         if include_del:
             cerebrum_affs = load_old_affiliations(source_system)
+            person2external = load_old_person2external(source_system)
 
         # Read in the file, and register the information in cerebrum
         if filename is not None:
             parse_data(parser(filename, logger, False),
                        source_system,
                        group,
+                       group_members,
                        gen_groups,
                        include_del and cerebrum_affs or dict(),
                        include_del and cerebrum_traits or dict(),
+                       include_del and person2external or dict(),
                        dryrun)
 
         if include_del:
             clean_old_affiliations(source_system, cerebrum_affs)
+            remove_old_addresses(source_system, person2external)
+            remove_old_contactinfo(source_system, person2external)
+            remove_old_titles(person2external)
+            update_reservations(group, group_members, person2external)
 
     if include_del:
         remove_traits(cerebrum_traits)
