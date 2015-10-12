@@ -20,8 +20,7 @@
 """
 from Cerebrum.modules.event import TargetSystemConstants
 
+
 class TargetSystemConstants(TargetSystemConstants.TargetSystemConstants):
     target_system_exchange = TargetSystemConstants._TargetSystemCode(
-                                'Exchange',
-                                'Exchange as an destination system')
-
+        'Exchange', 'Exchange as an destination system')

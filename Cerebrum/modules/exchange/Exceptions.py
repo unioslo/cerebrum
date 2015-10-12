@@ -21,7 +21,6 @@
 """Exceptions used by the Exchange Client."""
 
 from Cerebrum.modules.ad2.winrm import PowershellException
-from urllib2 import URLError
 
 
 class ObjectNotFoundException(PowershellException):
