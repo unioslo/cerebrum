@@ -493,34 +493,12 @@ class ExchangeClient(PowershellClient):
 
         :raise ExchangeException: If the command failed to run for some reason
         """
-        kwargs = {'LinkedDomainController': self.ad_server,
-                  'LinkedMasterAccount': '%s\%s' % (self.ad_domain, uname),
-                  'Alias': uname,
-                  'Name': uname,
-                  'DisplayName': display_name,
-                  }
-
-        if first_name:
-            kwargs['FirstName'] = first_name
-        if last_name:
-            kwargs['LastName'] = last_name
-
-        if db:
-            kwargs['Database'] = db
-        if ou:
-            kwargs['OrganizationalUnit'] = ou
-
-        nva = ('LinkedCredential $ad_cred',)
-        cmd = self._generate_exchange_command('New-Mailbox', kwargs, nva)
-
-        # We set the mailbox as hidden, in the same call. We won't
-        # risk exposing in the really far-fetched case that the integration
-        # crashes in between new-mailbox and set-mailbox.
-
-        cmd += '; ' + self._generate_exchange_command(
-            'Set-Mailbox',
-            {'Identity': uname,
-             'HiddenFromAddressListsEnabled': True})
+        assert(isinstance(self.exchange_commands, dict) and
+               'execute_on_new_mailbox' in self.exchange_commands)
+        cmd_str = self.exchange_commands['execute_on_new_mailbox']
+        cmd_str = cmd_str.replace('%u', uname)
+        cmd = self._generate_exchange_command(
+            cmd_str, {}, ('UiOCredential $ad_cred',))
 
         out = self.run(cmd)
         if 'stderr' in out:
