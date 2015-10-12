@@ -187,6 +187,7 @@ def build_employee_cache(db, sysname, filename):
 
     # IVR 2007-07-13 FIXME: Is this actually useful?
     del fnr2uname
+    del pnr2uname
     logger.debug("employee_cache has %d uname->employment status mappings",
                  len(employee_cache))
     return employee_cache
