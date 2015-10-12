@@ -169,7 +169,10 @@ def build_employee_cache(db, sysname, filename):
                        x.kind == x.BILAG,
                        xmlperson.iteremployment())
 
-        # Add to cache, if found in Cerebrum either by fnr or passport-nr
+        # Add to cache, if found in Cerebrum either by fnr or passport-nr.
+        # each entry is a pair, telling whether the person has active
+        # tilsetting and bilag (in that order). We do not need to know *what*
+        # they are, only that they exist.
         if fnr in fnr2uname:
             employee_cache[fnr2uname[fnr]] = (xmlperson.
                                               has_active_employments(),
