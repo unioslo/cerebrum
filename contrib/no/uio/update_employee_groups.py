@@ -330,7 +330,7 @@ def main():
     """Start method for this script."""
 
     global logger
-    logger = Factory.get_logger("console")
+    logger = Factory.get_logger("cronjob")
     logger.info("Performing uio-tils/uio-ans group updates")
 
     try:
