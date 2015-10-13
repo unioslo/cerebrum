@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
+#
 # Copyright 2013-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -27,7 +27,6 @@ from Cerebrum.modules.Email import EmailQuota
 from Cerebrum.modules.Email import EmailForward
 from Cerebrum.modules.exchange.v2013.ExchangeGroups import DistributionGroup
 from Cerebrum import Errors
-#from Cerebrum.modules.exchange.Exceptions import ExchangeException
 
 import pickle
 
@@ -59,17 +58,17 @@ class CerebrumUtils(object):
 ####
     def get_person_accounts(self, person_id, spread=None):
         """Return a list of account information
-        
+
         @type person_id: int
         @param person_id: The person id to look up by
 
         @rtype: list
         @return: A list of (account_id, username) tuples
         """
-        ret = [(x['account_id'], x['name']) for x in \
-                        self.ac.search(owner_id=person_id,
-                                       owner_type=self.co.entity_person,
-                                       spread=self.co.spread_exchange_account)]
+        ret = [(x['account_id'], x['name']) for x in
+               self.ac.search(owner_id=person_id,
+                              owner_type=self.co.entity_person,
+                              spread=self.co.spread_exchange_account)]
         self.db.rollback()
         return ret
 
@@ -106,19 +105,17 @@ class CerebrumUtils(object):
 
     def get_person_membership_groupnames(self, person_id):
         """List all the groups the person is a member of
-        
+
         @type person_id: int
         @param person_id: The persons entity_id
-        
+
         @rtype: list
         @return: list(string) of groupnames
         """
         ret = [x['group_name'] for x in self.gr.search_members(
-                                    member_id=person_id, indirect_members=True)]
+            member_id=person_id, indirect_members=True)]
         self.db.rollback()
         return ret
-
-
 
     def is_electronic_reserved(self, person_id=None, account_id=None):
         """Check if a person has reserved themself from listing
@@ -128,7 +125,7 @@ class CerebrumUtils(object):
 
         @type account_id: int
         @param account_id: The accounts entity_id
-        
+
         @rtype: bool
         @return: True if reserved, False otherwise
         """
@@ -161,8 +158,8 @@ class CerebrumUtils(object):
         """
         self.et.clear()
         self.et.find_by_target_entity(account_id)
-        addrs = ['%s@%s' % (x['local_part'], x['domain']) \
-                for x in self.et.get_addresses()]
+        addrs = ['%s@%s' % (x['local_part'], x['domain'])
+                 for x in self.et.get_addresses()]
         self.db.rollback()
         return addrs
 
@@ -182,7 +179,6 @@ class CerebrumUtils(object):
         self.db.rollback()
         return r
 
-
     def get_account_name(self, account_id):
         """Return information about the account.
 
@@ -197,7 +193,7 @@ class CerebrumUtils(object):
         ret = self.ac.account_name
         self.db.rollback()
         return ret
-    
+
     def get_account_owner_info(self, account_id):
         """Return the type and id of the accounts owner.
 
@@ -212,7 +208,7 @@ class CerebrumUtils(object):
         ret = (self.ac.owner_type, self.ac.owner_id)
         self.db.rollback()
         return ret
-    
+
     def get_account_spreads(self, account_id):
         """Return the accounts spread codes.
 
@@ -227,7 +223,7 @@ class CerebrumUtils(object):
         ret = [x['spread'] for x in self.ac.get_spread()]
         self.db.rollback()
         return ret
-    
+
     def get_account_primary_email(self, account_id):
         """Return the accounts primary address
 
@@ -325,7 +321,6 @@ class CerebrumUtils(object):
         dn = '%s (owner: %s)' % (uname, gname)
         return (fn, ln, dn)
 
-
     def get_group_information(self, group_id):
         """Get a groups name and description
 
@@ -341,7 +336,7 @@ class CerebrumUtils(object):
         ret = (r['name'], r['description'])
         self.db.rollback()
         return ret
-    
+
     def get_group_id(self, group_name):
         """Get a groups entity_id
 
@@ -380,7 +375,7 @@ class CerebrumUtils(object):
 
         @type spread: _SpreadCode
         @param spread: The spread to filter by
-        
+
         @type filter_spread: _SpreadCode
         @param filter_spread: A spread that the user must also have
 
@@ -418,8 +413,8 @@ class CerebrumUtils(object):
                     # If/elif used to allow usage without filter and
                     # filter_spread params
                     if spreads and \
-                        set(spreads).issubset(set([x['spread']
-                                            for x in self.ac.get_spread()])):
+                        set(spreads).issubset(
+                            set([x['spread'] for x in self.ac.get_spread()])):
                         r.append({'name': self.ac.account_name,
                                   'account_id': self.ac.entity_id})
                         found_accounts.append(self.ac.entity_id)
@@ -429,7 +424,7 @@ class CerebrumUtils(object):
                         found_accounts.append(self.ac.entity_id)
         self.db.rollback()
         return r
-    
+
     def get_parent_groups(self, id, spread=None, name_prefix=None):
         """Return all groups that the group is an indirect member of. Filter
         by spread and the start of the group name.
@@ -554,7 +549,7 @@ class CerebrumUtils(object):
 
         @type target_id: int
         @param target_id: The EmailTargets id
-        
+
         @type target_entity: int
         @param target_entity: The targets target entity id
 
@@ -579,7 +574,7 @@ class CerebrumUtils(object):
         else:
             self.db.rollback()
             raise Errors.ProgrammingError(
-                    'Must define either target_id og target_entity')
+                'Must define either target_id og target_entity')
         ret = (self.et.entity_id,
                self.et.email_target_entity_id,
                self.et.email_target_entity_type,
@@ -589,7 +584,7 @@ class CerebrumUtils(object):
         return ret
 
     def get_email_domain_info(self, email_domain_id=None,
-                                    email_domain_name=None):
+                              email_domain_name=None):
         """Return info about an EmailDomain.
 
         @type email_domain_id: int
@@ -624,8 +619,9 @@ class CerebrumUtils(object):
     def get_distgroup_displayname(self, subj_id):
         self.dg.clear()
         self.dg.find(subj_id)
-        ret = self.dg.search_name_with_language(entity_id=subj_id,
-                                     name_variant=self.co.dl_group_displ_name,
-                                     name_language=self.co.language_nb)
+        ret = self.dg.search_name_with_language(
+            entity_id=subj_id,
+            name_variant=self.co.dl_group_displ_name,
+            name_language=self.co.language_nb)
         self.db.rollback()
         return ret
