@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """Module used for provisioning in Exchange 2013 via powershell.
 
 This is a subclass of PowershellClient.
@@ -26,13 +25,14 @@ This is a subclass of PowershellClient.
 This module can be used by exports or an event daemon for creating,
 deleting and updating mailboxes and distribution groups in Exchange 2013."""
 
+import re
 
 import cerebrum_path
+import eventconf
 from Cerebrum.Utils import read_password
 from Cerebrum.modules.ad2.winrm import PowershellClient
 from Cerebrum.modules.ad2.winrm import WinRMServerException
 from Cerebrum.modules.exchange.Exceptions import *
-import re
 
 
 # Reeeaally  simple and stupid mock of the client…
@@ -215,7 +215,7 @@ class ExchangeClient(PowershellClient):
             -Credential $cred -Name %(session_key)s;
             
             Import-Module ActiveDirectory 2> $null > $null;
-            
+
             Invoke-Command { . RemoteExchange.ps1 } -Session $ses;
            
             Invoke-Command { $pass = ConvertTo-SecureString -Force `
@@ -240,6 +240,9 @@ class ExchangeClient(PowershellClient):
             Invoke-Command { Connect-ExchangeServer `
             -ServerFqdn %(management_server)s -UserName %(ex_user)s } `
             -Session $ses;
+
+            Invoke-Command { Import-Module C:\Modules\CerebrumExchange } -Session $ses;
+
         }
         write-output EOB;"""
 
@@ -727,13 +730,22 @@ class ExchangeClient(PowershellClient):
 
         @raises ExchangeException: If the command fails to run
         """
-        cmd = self._generate_exchange_command(
-                'Remove-Mailbox',
-               {'Identity': uname},
-               ('Confirm:$false',))
+        try:
+            ex_cmd_dict = eventconf.CONFIG['Exchange']['exchange_commands']
+            cmd_str = ex_cmd_dict['execute_on_remove_mailbox']  # should be str
+            cmd_str = cmd_str.replace('%u', uname)
+            cmd = self._generate_exchange_command(
+                cmd_str,
+                {'Identity': uname},
+                ('Confirm:$false',))
+        except KeyError:
+            cmd = self._generate_exchange_command(
+                'Remove-UiOExchangeMailbox %u',
+                {'Identity': uname},
+                ('Confirm:$false',))
         # TODO: Verify how this is to be done
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True

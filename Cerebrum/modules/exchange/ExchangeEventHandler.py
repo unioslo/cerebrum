@@ -49,7 +49,6 @@ from Cerebrum import Errors
 
 
 class ExchangeEventHandler(processing.Process):
-
     """Event handler for Exchange.
 
     This event handler is started by the event daemon.
