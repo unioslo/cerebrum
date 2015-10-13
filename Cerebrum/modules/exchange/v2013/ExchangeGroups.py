@@ -28,6 +28,7 @@ Note that distribution groups come in two flavors, based on what kind
 of members they accept. For now only accounts and rooms are allowed.
 """
 import cerebrum_path
+getattr(cerebrum_path, "linter", "is noisy!")
 import cereconf
 
 from Cerebrum.Utils import Factory
@@ -49,10 +50,10 @@ class SecurityGroup(Group_class):
     # nothing to do here for now
     pass
 
+
 class DistributionGroup(Group_class):
-# roomlist are a variant of DistributionGroups
     __read_attr__ = ('__in_db',)
-    __write_attr__ = ('roomlist', 'mngdby_addrid', 'modenable','modby',
+    __write_attr__ = ('roomlist', 'mngdby_addrid', 'modenable', 'modby',
                       'deprestr', 'joinrestr', 'hidden')
 
     def clear(self):
@@ -233,7 +234,7 @@ class DistributionGroup(Group_class):
     # set managedby, which is at any point in time equal to
     # an e-mail address known in Cerebrum
     def set_managedby(self, emailaddress):
-        """ Use this method to modify the ManagedBy attribute 
+        """ Use this method to modify the ManagedBy attribute
             for a distribution group. Managed by is, by convention
             an e-mail address in order to accomodate relevant
             administrative processes. """
@@ -256,10 +257,10 @@ class DistributionGroup(Group_class):
     # help remove modby if modenable is changed to F
     # removal is done via client
     # TODO: def remove_modby(self):
-     #   self.modby = None
+    #   self.modby = None
 
     # set modenable, to decide if the dist group will be moderated
-    # in Exchange. default is True, but we may make groups 
+    # in Exchange. default is True, but we may make groups
     # non-moderated at will
     def set_modenable(self, enable='T'):
         """ Use this method to make distribution groups
@@ -279,15 +280,16 @@ class DistributionGroup(Group_class):
                                     'enable': enable})
 
     # set moderatedby value for the dist_group in Cerebrum
-    # this is a string of uname, separated by a ',', 
+    # this is a string of uname, separated by a ',',
     def set_modby(self, modby):
         """ Use this method to set moderators for a dist group.
             this value is a list of user names separated by a comma.
-            modby is mandatory if the group is moderated, otherwise 
+            modby is mandatory if the group is moderated, otherwise
             it should not be registered. """
         if self.modenable == 'F':
-            raise self._db.IntegrityError, \
-                "Cannot set ModeratedBy for a non-moderated group (%s)" % self.group_name
+            raise self._db.IntegrityError(
+                "Cannot set ModeratedBy for a non-moderated group (%s)" %
+                self.group_name)
         self._db.log_change(self.entity_id, self.const.dl_group_modby,
                             None,
                             change_params={'modby': modby})
@@ -295,12 +297,12 @@ class DistributionGroup(Group_class):
           UPDATE [:table schema=cerebrum name=distribution_group]
             SET modby=:modby
           WHERE group_id=:g_id""", {'g_id': self.entity_id,
-                                    'modby': modby})                
-    
+                                    'modby': modby})
+
     # change the visibility in address list for a distribution group
     # default is visible
     def set_hidden(self, hidden='F'):
-        """ Use this method to modify address list visibility. 
+        """ Use this method to modify address list visibility.
             Initially all groups are made invisible, but are then made
             visible (due to protection requirement). """
         print "hidden: %s" % hidden
@@ -312,7 +314,7 @@ class DistributionGroup(Group_class):
             SET hidden=:hidden
           WHERE group_id=:g_id""", {'g_id': self.entity_id,
                                     'hidden': hidden})
-    
+
     # return standard values for distgroups
     def ret_standard_attr_values(self, room=False):
         if not room:
@@ -341,13 +343,14 @@ class DistributionGroup(Group_class):
     # if we should change standard language for display name
     # in dist groups it should be done here in stead of in different
     # client code
+
     def ret_standard_language(self):
         return 'nb'
 
     # this method could be split up a bit in the future
     # i.e. the methods for finding the em
-    def get_distgroup_attributes_and_targetdata(self, 
-                                                display_name_lang='nb', 
+    def get_distgroup_attributes_and_targetdata(self,
+                                                display_name_lang='nb',
                                                 roomlist=False):
         all_data = {}
         ea = Email.EmailAddress(self._db)
@@ -368,9 +371,7 @@ class DistributionGroup(Group_class):
             name_language = self.const.language_nb
         else:
             name_language = int(_LanguageCode(display_name_lang))
-            # TODO: Why does we print here? Remove?
-            #print "entity: %s" % self.entity_id
-        display_name = self.get_name_with_language(name_variant, 
+        display_name = self.get_name_with_language(name_variant,
                                                    name_language,
                                                    default=self.group_name)
 
@@ -384,11 +385,11 @@ class DistributionGroup(Group_class):
             ed.find(ea.email_addr_domain_id)
         except Errors.NotFoundError:
             # Could not find the domain recorded. this should never happen
-            return None            
+            return None
         mngdby_address = "%s@%s" % (ea.email_addr_local_part,
                                     ed.email_domain_name)
 
-        # in roomlists we only care about name, description, 
+        # in roomlists we only care about name, description,
         # displayname and the roomlist-status, the other attributes
         # don't need to be set in Exchange
         if roomlist:
@@ -405,7 +406,7 @@ class DistributionGroup(Group_class):
         try:
             et.find_by_target_entity(self.entity_id)
         except Errors.NotFoundError:
-            # could not find e-mail target for group. this should 
+            # could not find e-mail target for group. this should
             # normally not happen
             return None
         try:
@@ -415,12 +416,13 @@ class DistributionGroup(Group_class):
             # this happens from time to time, and we should be able
             # to identify the error
             raise self._db.IntegrityError, \
-                "No primary addresse registered for %s" % self.group_name 
+                "No primary addresse registered for %s" % self.group_name
         ea.clear()
         ea.find(epat.email_primaddr_id)
         ed.clear()
         ed.find(ea.email_addr_domain_id)
-        primary_address = "%s@%s" % (ea.email_addr_local_part, ed.email_domain_name)
+        primary_address = "%s@%s" % (ea.email_addr_local_part,
+                                     ed.email_domain_name)
         for r in et.get_addresses(special=True):
             ad = "%s@%s" % (r['local_part'], r['domain'])
             addrs.append(ad)
@@ -434,7 +436,7 @@ class DistributionGroup(Group_class):
         # name is expanded with prefix 'dl-' by the export
         all_data = {'name': self.group_name,
                     'description': self.description,
-                    'displayname': display_name,                  
+                    'displayname': display_name,
                     'group_id': self.entity_id,
                     'roomlist': self.roomlist,
                     'mngdby_address': mngdby_address,
@@ -450,24 +452,21 @@ class DistributionGroup(Group_class):
     # exchange-relatert-jazz
     #
     # the following three methods could be placed into a separate
-    # Email-mixin class for Distribution groups, but as there 
+    # Email-mixin class for Distribution groups, but as there
     # are no clear plans to expand usage of mail functionality for
-    # distribution groups we are, at this time, satisfied to let 
+    # distribution groups we are, at this time, satisfied to let
     # them be a part of the main DistGroup-class. (Jazz, 2013-13)
     def create_distgroup_mailtarget(self):
         et = Email.EmailTarget(self._db)
         target_type = self.const.email_target_dl_group
         if self.is_expired():
-            raise self._db.IntegrityError, \
-                "Cannot make e-mail target for the expired group %s." % self.group_name 
+            raise self._db.IntegrityError(
+                "Cannot make e-mail target for the expired group %s." %
+                self.group_name)
         try:
-            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            et.find_by_email_target_attrs(target_entity_id=self.entity_id)
             if et.email_target_type != target_type:
-                changed = True
                 et.email_target_type = target_type
-#            else:
-#                raise self._db.IntegrityError, \
-#                    "E-mail target alredy exist for %s" % self.group_name
         except Errors.NotFoundError:
             et.populate(target_type, self.entity_id, self.const.entity_group)
         et.write_db()
@@ -480,8 +479,8 @@ class DistributionGroup(Group_class):
         # move this to a variable
         # no need to wash the address, group will not be created
         # if the name is not valid for Exchange
-        lp = "%s%s" % (cereconf.DISTGROUP_PRIMARY_ADDR_PREFIX, 
-                        self.group_name)
+        lp = "%s%s" % (cereconf.DISTGROUP_PRIMARY_ADDR_PREFIX,
+                       self.group_name)
         dom = Email.EmailDomain(self._db)
         dom.find_by_domain(cereconf.DISTGROUP_DEFAULT_DOMAIN)
         addr_str = lp + '@' + cereconf.DISTGROUP_DEFAULT_DOMAIN
@@ -499,7 +498,7 @@ class DistributionGroup(Group_class):
             epat.populate(ea.entity_id)
         except Errors.NotFoundError:
             epat.clear()
-            epat.populate(ea.entity_id, parent = et)
+            epat.populate(ea.entity_id, parent=et)
         epat.write_db()
 
     # set e-mail target for this group to deleted
@@ -520,7 +519,3 @@ class DistributionGroup(Group_class):
             # as the situation is not likely to occur at all
             # (Jazz, 2013-12)
             return
-
-
-
-    

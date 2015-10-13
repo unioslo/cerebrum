@@ -310,7 +310,7 @@ def check_schema_versions(db, strict=False):
         'email': 'Cerebrum.modules.Email',
         'entity_trait': 'Cerebrum.modules.EntityTrait',
         'note': 'Cerebrum.modules.Note',
-        'password_history': 'Cerebrum.modules.PasswordHistory',
+        'password_history': 'Cerebrum.modules.pwcheck.history',
         'posixuser': 'Cerebrum.modules.PosixUser',
         'stedkode': 'Cerebrum.modules.no.Stedkode',
         'consent': 'Cerebrum.modules.consent.Consent',

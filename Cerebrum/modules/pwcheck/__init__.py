@@ -1,5 +1,7 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2014 University of Oslo, Norway
+#
+# Copyright 2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,11 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Definition of the target system constant for Exchange
+"""The pwcheck sub-package implements mixins for password checks.
+
+Each module in this sub-package provides mixins that can be used to check if a
+password is strong enough to be accepted for use.
+
 """
-from Cerebrum.modules.event import TargetSystemConstants
-
-
-class TargetSystemConstants(TargetSystemConstants.TargetSystemConstants):
-    target_system_exchange = TargetSystemConstants._TargetSystemCode(
-        'Exchange', 'Exchange as an destination system')

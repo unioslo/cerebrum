@@ -66,6 +66,7 @@ from Cerebrum.modules.ad2 import ADUtils, ConfigUtils
 from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.ConfigUtils import ConfigError
 from Cerebrum.modules.ad2.winrm import PowershellException, CRYPTO
+from Cerebrum.QuarantineHandler import QuarantineHandler
 
 
 class BaseSync(object):
@@ -829,26 +830,25 @@ class BaseSync(object):
 
         """
         self.logger.debug("Fetch quarantines...")
-        # TODO: is it okay to make use of the EntityQuarantine class like this?
-        # Or is it okay to add EntityQuarantine to cereconf.CLASS_ENTITY, so we
-        # could get it from Factory.get('Entity') instead? We could then ignore
-        # deactivation for those instances which doesn't use quarantines.
-        ent = Entity.EntityQuarantine(self.db)
 
         # Limit the search to the entity_type the target_spread is meant for:
         target_type = self.config['target_type']
         ids = None
         if self.config['subset']:
             ids = self.id2entity.keys()
-        i = 0
-        for row in ent.list_entity_quarantines(only_active=True,
-                                               entity_types=target_type,
-                                               entity_ids=ids):
-            found = self.id2entity.get(int(row['entity_id']))
+
+        quarantined_accounts = QuarantineHandler.get_locked_entities(
+            self.db,
+            entity_types=target_type,
+            entity_ids=ids)
+
+        for entity_id in quarantined_accounts:
+            found = self.id2entity.get(entity_id)
             if found:
                 found.active = False
-                i += 1
-        self.logger.debug("Flagged %d entities as deactivated" % i)
+
+        self.logger.debug("Flagged %d entities as deactivated",
+                          len(quarantined_accounts))
 
     def fetch_spreads(self):
         """Get all spreads from Cerebrum and update L{self.entities} with this.
@@ -2716,14 +2716,6 @@ class UserSync(BaseSync):
                                        self.co.quarantine_refresh):
             change = self.co.ChangeType(row['change_type_id'])
 
-            # We don't care which quarantine type triggered this
-            #   try:
-            #       q_type = pickle.loads(str(row['change_params']))['q_type']
-            #   except (IndexError, KeyError, TypeError):
-            #       self.logger.warning("Missing quarantine type in changelog")
-            #       return False
-            #   q_type = self.co.Quarantine(q_type)
-
             try:
                 self.ac.find(row['subject_entity'])
             except Errors.NotFoundError:
@@ -2732,8 +2724,6 @@ class UserSync(BaseSync):
                     change, row['subject_entity'])
                 return False
 
-            # TODO: Should all quarantines lock out?
-
             ent = self.cache_entity(self.ac.entity_id,
                                     self.ac.account_name)
 
@@ -2741,7 +2731,9 @@ class UserSync(BaseSync):
             # have no AD-object to pass to the self.script function...
             #     simple_object = dict(DistinguishedName=ent.dn)
             #     self.*able_object(simple_object)
-            if bool(self.ac.get_entity_quarantine(only_active=True)):
+
+            if QuarantineHandler.check_entity_quarantines(
+                    self.db, self.ac.entity_id).is_locked():
                 return self.server.disable_object(ent.dn)
             else:
                 return self.server.enable_object(ent.dn)

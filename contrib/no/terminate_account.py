@@ -40,7 +40,6 @@ import getopt
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules import Email
-from Cerebrum.modules import PasswordHistory
 
 logger = Factory.get_logger("console")
 

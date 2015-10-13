@@ -46,7 +46,7 @@ from Cerebrum import Person
 from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum.modules import PosixGroup
-from Cerebrum.modules import PasswordHistory
+from Cerebrum.modules.pwcheck.history import PasswordHistory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.bofhd.auth \
@@ -88,7 +88,7 @@ disk2id = {}
 account = Account.Account(db)
 account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 acc_creator_id = account.entity_id
-pwdhist = PasswordHistory.PasswordHistory(db)
+pwdhist = PasswordHistory(db)
 pquotas = PrinterQuotas.PrinterQuotas(db)
 
 maildom = Email.EmailDomain(db)

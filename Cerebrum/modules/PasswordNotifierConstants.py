@@ -1,5 +1,7 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2014 University of Oslo, Norway
+# 
+# Copyright 2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,11 +18,23 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Definition of the target system constant for Exchange
-"""
-from Cerebrum.modules.event import TargetSystemConstants
+"""Constants for the PasswordNotifier."""
+
+from Cerebrum import Constants as _c
+from Cerebrum.modules.EntityTrait import _EntityTraitCode
 
 
-class TargetSystemConstants(TargetSystemConstants.TargetSystemConstants):
-    target_system_exchange = TargetSystemConstants._TargetSystemCode(
-        'Exchange', 'Exchange as an destination system')
+class Constants(_c.Constants):
+    """
+    Constants used by PasswordNotifier
+    """
+    trait_passwordnotifier_excepted = _EntityTraitCode(
+        'autopass_except',
+        _c.Constants.entity_account,
+        "Trait marking accounts whose password's change is not enforced "
+        "by PasswordNotifier.")
+
+    trait_passwordnotifier_notifications = _EntityTraitCode(
+        'pw_notifications',
+        _c.Constants.entity_account,
+        "Trait for PasswordNotifier's bookkeeping.")

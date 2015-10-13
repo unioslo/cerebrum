@@ -1,5 +1,7 @@
-# -*- coding: utf-8 -*-
-# Copyright 2014 University of Oslo, Norway
+#!/usr/bin/env python
+# coding: utf-8
+#
+# Copyright 2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,11 +18,20 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Definition of the target system constant for Exchange
+
 """
-from Cerebrum.modules.event import TargetSystemConstants
+Password check mixin to insert default args from cereconf.
+Important: add this to cereconf.CLASS_ACCOUNT before the other
+PasswordCheckers
+"""
+
+from .common import PasswordChecker
+import cereconf
 
 
-class TargetSystemConstants(TargetSystemConstants.TargetSystemConstants):
-    target_system_exchange = TargetSystemConstants._TargetSystemCode(
-        'Exchange', 'Exchange as an destination system')
+class CereconfMixin(PasswordChecker):
+    def password_good_enough(self, password, **kw):
+        """Insert cereconf.PASSWORD_TEST_ARGUMENTS into keywords"""
+        dta = cereconf.PASSWORD_TEST_ARGUMENTS.copy()
+        dta.update(kw)
+        super(CereconfMixin, self).password_good_enough(password, **dta)
