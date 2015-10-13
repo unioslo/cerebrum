@@ -252,7 +252,8 @@ class ExchangeClient(PowershellClient):
             -ServerFqdn %(management_server)s -UserName %(ex_user)s } `
             -Session $ses;
 
-            Invoke-Command { Import-Module C:\Modules\CerebrumExchange } -Session $ses;
+            Invoke-Command { Import-Module C:\Modules\CerebrumExchange }
+            -Session $ses;
 
         }
         write-output EOB;"""
@@ -826,7 +827,7 @@ class ExchangeClient(PowershellClient):
             nva)
 
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
@@ -839,23 +840,21 @@ class ExchangeClient(PowershellClient):
 
         @type ou: string
         @param ou: Which container to put the object into
-        
+
         @raise ExchangeException: If the command cannot be run, raise.
         """
         # Yeah, we need to specify the Confirm-option as a NVA,
         # due to the silly syntax.
         param = {'Name': gname,
-                'Type': 'Distribution'}
+                 'Type': 'Distribution'}
         if ou:
             param['OrganizationalUnit'] = ou
-
         cmd = self._generate_exchange_command(
-                'New-DistributionGroup',
-                param,
-                ('RoomList', 'Confirm:$false',))
-
+            'New-DistributionGroup',
+            param,
+            ('RoomList', 'Confirm:$false',))
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
