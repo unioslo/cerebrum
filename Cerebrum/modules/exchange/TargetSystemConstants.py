@@ -16,8 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Definition of the target system constant for Exchange
-"""
+"""Definition of the target system constants for Exchange."""
 from Cerebrum.modules.event import TargetSystemConstants
 
 
