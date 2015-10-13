@@ -128,6 +128,7 @@ class ExchangeEventHandler(processing.Process):
                     domain_admin=self.config['domain_admin'],
                     ex_domain_admin=self.config['ex_domain_admin'],
                     management_server=self.config['management_server'],
+                    exchange_commands=self.config.get('exchange_commands'),
                     session_key=gen_key(),
                     logger=self.logger,
                     host=self.config['server'],

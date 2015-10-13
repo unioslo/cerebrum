@@ -28,7 +28,6 @@ deleting and updating mailboxes and distribution groups in Exchange 2013."""
 import re
 
 import cerebrum_path
-import eventconf
 from Cerebrum.Utils import read_password
 from Cerebrum.modules.ad2.winrm import PowershellClient
 from Cerebrum.modules.ad2.winrm import WinRMServerException
@@ -48,8 +47,15 @@ class ExchangeClient(PowershellClient):
 
     """A PowerShell client implementing function calls against Exchange."""
 
-    def __init__(self, auth_user, domain_admin, ex_domain_admin,
-                 management_server, session_key=None, *args, **kwargs):
+    def __init__(self,
+                 auth_user,
+                 domain_admin,
+                 ex_domain_admin,
+                 management_server,
+                 exchange_commands,
+                 session_key=None,
+                 *args,
+                 **kwargs):
         """Set up the WinRM client to be used with running Exchange commands.
 
         @type auth_user: string
@@ -59,7 +65,6 @@ class ExchangeClient(PowershellClient):
         @type domain_admin: string
         @param domain_admin: The username of the account we use to connect to
             the AD domain we are going to synchronize with.
-
         """
         # TODO: THIS IS ONLY FOR TESTING DNC, REMOVE AFTER THAT
         self.deliberate_failure = 0
@@ -74,6 +79,7 @@ class ExchangeClient(PowershellClient):
         self.wash_output_patterns = [
             re.compile('ConvertTo-SecureString.*\\w*...', flags=re.DOTALL)]
         self.management_server = management_server
+        self.exchange_commands = exchange_commands
         self.session_key = session_key if session_key else 'cereauth'
 
         # TODO: Make the following line pretty
@@ -730,19 +736,11 @@ class ExchangeClient(PowershellClient):
 
         @raises ExchangeException: If the command fails to run
         """
-        try:
-            ex_cmd_dict = eventconf.CONFIG['Exchange']['exchange_commands']
-            cmd_str = ex_cmd_dict['execute_on_remove_mailbox']  # should be str
-            cmd_str = cmd_str.replace('%u', uname)
-            cmd = self._generate_exchange_command(
-                cmd_str,
-                {'Identity': uname},
-                ('Confirm:$false',))
-        except KeyError:
-            cmd = self._generate_exchange_command(
-                'Remove-UiOExchangeMailbox %u',
-                {'Identity': uname},
-                ('Confirm:$false',))
+        assert(isinstance(self.exchange_commands, dict) and
+               'execute_on_remove_mailbox' in self.exchange_commands)
+        cmd_str = self.exchange_commands['execute_on_remove_mailbox']
+        cmd_str = cmd_str.replace('%u', uname)
+        cmd = self._generate_exchange_command(cmd_str)
         # TODO: Verify how this is to be done
         out = self.run(cmd)
         if 'stderr' in out:
