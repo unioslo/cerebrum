@@ -1,8 +1,6 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-# vim: encoding=iso-8859-1:fileencoding=iso-8859-1
-# vim: ts=4:sw=4:expandtab
-# 
+# -*- coding: utf-8 -*-
+
 # Copyright 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -40,7 +38,6 @@ IMAP@uio-spread without a primary email address.
         get_accounts_wo_primary_email():
             Searches the database for user accounts that belongs to a person,
             has IMAP-spread, but is missing a primary email address.
-
 
         get_accounts_with_missing_imap_spr():
             Searches the database for user accounts that belongs to a person,
@@ -287,7 +284,6 @@ def gen_html_report(output, title, account_names):
         output.write('<li>%s</li>\n' % name)
 
     output.write('</ul>\n</body>\n</html>\n')
-
 
 
 def main(argv=None):
