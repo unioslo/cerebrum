@@ -26,6 +26,8 @@ This is a subclass of PowershellClient.
 This module can be used by exports or an event daemon for creating,
 deleting and updating mailboxes and distribution groups in Exchange 2013."""
 
+import re
+from urllib2 import URLError
 
 import cerebrum_path
 getattr(cerebrum_path, "linter", "must be supressed!")
@@ -38,8 +40,6 @@ from Cerebrum.modules.exchange.Exceptions import (ServerUnavailableException,
                                                   ExchangeException,
                                                   ADError,
                                                   AlreadyPerformedException)
-import re
-from urllib2 import URLError
 
 
 # Reeeaally  simple and stupid mock of the client…
@@ -55,8 +55,15 @@ class ExchangeClient(PowershellClient):
 
     """A PowerShell client implementing function calls against Exchange."""
 
-    def __init__(self, auth_user, domain_admin, ex_domain_admin,
-                 management_server, session_key=None, *args, **kwargs):
+    def __init__(self,
+                 auth_user,
+                 domain_admin,
+                 ex_domain_admin,
+                 management_server,
+                 exchange_commands,
+                 session_key=None,
+                 *args,
+                 **kwargs):
         """Set up the WinRM client to be used with running Exchange commands.
 
         @type auth_user: string
@@ -66,7 +73,6 @@ class ExchangeClient(PowershellClient):
         @type domain_admin: string
         @param domain_admin: The username of the account we use to connect to
             the AD domain we are going to synchronize with.
-
         """
         super(ExchangeClient, self).__init__(*args, **kwargs)
         self.add_credentials(
@@ -78,6 +84,7 @@ class ExchangeClient(PowershellClient):
         self.wash_output_patterns = [
             re.compile('ConvertTo-SecureString.*\\w*...', flags=re.DOTALL)]
         self.management_server = management_server
+        self.exchange_commands = exchange_commands
         self.session_key = session_key if session_key else 'cereauth'
 
         # TODO: Make the following line pretty
@@ -244,6 +251,10 @@ class ExchangeClient(PowershellClient):
             Invoke-Command { Connect-ExchangeServer `
             -ServerFqdn %(management_server)s -UserName %(ex_user)s } `
             -Session $ses;
+
+            Invoke-Command { Import-Module C:\Modules\CerebrumExchange }
+            -Session $ses;
+
         }
         write-output EOB;"""
 
@@ -721,10 +732,11 @@ class ExchangeClient(PowershellClient):
 
         @raises ExchangeException: If the command fails to run
         """
-        cmd = self._generate_exchange_command(
-            'Remove-Mailbox',
-            {'Identity': uname},
-            ('Confirm:$false',))
+        assert(isinstance(self.exchange_commands, dict) and
+               'execute_on_remove_mailbox' in self.exchange_commands)
+        cmd_str = self.exchange_commands['execute_on_remove_mailbox']
+        cmd_str = cmd_str.replace('%u', uname)
+        cmd = self._generate_exchange_command(cmd_str)
         # TODO: Verify how this is to be done
         out = self.run(cmd)
         if 'stderr' in out:
@@ -837,12 +849,10 @@ class ExchangeClient(PowershellClient):
                  'Type': 'Distribution'}
         if ou:
             param['OrganizationalUnit'] = ou
-
         cmd = self._generate_exchange_command(
             'New-DistributionGroup',
             param,
             ('RoomList', 'Confirm:$false',))
-
         out = self.run(cmd)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
