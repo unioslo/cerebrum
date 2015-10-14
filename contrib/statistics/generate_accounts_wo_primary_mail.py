@@ -21,46 +21,12 @@
 
 import sys
 import cerebrum_path
-import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-from Cerebrum.modules.Email import EmailTarget
 """
 Generate an HTML formatted report of accounts belonging to a person with
 the specified spread, that are missing primary email addresses.
 """
-# This program reports users that belong to a person, and that has an
-# specified spread without a primary email address.
-#
-#         get_accounts_wo_primary_email():
-#             Searches the database for user accounts that belongs to a person,
-#             has IMAP-spread, but is missing a primary email address.
-#
-#         get_accounts_with_missing_imap_spr():
-#             Searches the database for user accounts that belongs to a person,
-#             DOESN'T have IMAP-spread, but has email target type 'account'.
-#
-#         gen_html_report():
-#             Writes a HTML-formatted report to file or filestream.
-#
-#         group_names_to_gids():
-#             Finds the group id's of a list of group names
-#
-#     The flow of execution looks like:
-#         main():
-#             - Parses command line arguments
-#             - Initializes database connections
-#             - Runs 'get_accounts_wo_primary_email()'
-#               OR   'get_accounts_wo_imap_spr()'
-#             - Runs 'gen_html_report'
-#             - Close output file handle
-#
-#         get_accounts_wo_primary_email():
-#             - Looks up users that are owned by a person, and that has
-#               IMAP-spread.
-#             - Look through the list and pick out users without primary
-#               email address.
-# """
 
 def get_accounts_wo_primary_email(logger, expired, spread_name):
     """
@@ -91,7 +57,6 @@ def get_accounts_wo_primary_email(logger, expired, spread_name):
         sys.exit(2)
 
     # Return-list
-    users = []           # All accounts owned by a person
     users_wo_pri = []    # List to contain results
 
     # Fetch account list
@@ -100,7 +65,7 @@ def get_accounts_wo_primary_email(logger, expired, spread_name):
                           owner_type=co.entity_person,
                           expire_start=None)
     else:
-        users = ac.search(spread=co.spread_uio_imap,
+        users = ac.search(spread=spread,
                           owner_type=co.entity_person)
 
     for user in users:
@@ -151,12 +116,7 @@ def main():
                         required=True)
     parser.add_argument('-o', '--output',
                         dest='output_file',
-                        help='Output file for report')
-    # parser.add_argument('-g', '--exclude_groups',
-    #                     dest='excluded_groups',
-    #                     help='Comma-separated list of groups to be excluded. '
-    #                          'This will only have an effect if a spread is '
-    #                          'specified with the -s/--spread option')
+                        help='Output file for report. Default is stdout.')
     parser.add_argument('-i', '--include-expired',
                         action='store_true',
                         help='Include expired accounts.')
@@ -177,7 +137,6 @@ def main():
     else:
         output = sys.stdout
 
-    print args
     logger.info('Reporting accounts w/o primary email and spread: %s' %
                 args.spread)
     accounts = get_accounts_wo_primary_email(logger,
@@ -187,6 +146,9 @@ def main():
     gen_html_report(output, title, accounts)
     logger.info('Done reporting accounts w/o primary email and spread: %s' %
                 args.spread)
+
+    if args.output_file is not None:
+        output.close()
 
 if __name__ == '__main__':
     main()
