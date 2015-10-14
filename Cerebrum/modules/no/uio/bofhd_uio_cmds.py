@@ -1240,7 +1240,7 @@ class BofhdExtension(BofhdCommonMethods):
         fw.find_by_target_entity(acc.entity_id)
 
         if addr not in [r['forward_to'] for r in fw.get_forward()]:
-            raise CerebrumError("Forward address not registred in target")
+            raise CerebrumError("Forward address not registered in target")
 
         on_off = on_off.lower()
         if on_off == 'on':
@@ -1278,7 +1278,7 @@ class BofhdExtension(BofhdCommonMethods):
         if self._forward_exists(fw, addr):
             raise CerebrumError("Forward address added already (%s)" % addr)
 
-        if fw.get_addresses():
+        if fw.get_forward():
             raise CerebrumError("Only one forward allowed at a time")
 
         fw.add_forward(addr)
@@ -1306,8 +1306,7 @@ class BofhdExtension(BofhdCommonMethods):
             # but if one exists, we require the user to supply that
             # address, not an arbitrary alias.
             if address != self._get_address(epat):
-                raise CerebrumError("%s is not the primary address of "
-                                    "the target" % address)
+                raise CerebrumError("%s is not the primary address of the target" % address)
             epat.delete()
         except Errors.NotFoundError:
             # a forward address does not need a primary address
@@ -1848,21 +1847,14 @@ class BofhdExtension(BofhdCommonMethods):
     def _email_info_forwarding(self, target, addrs):
         info = []
         forw = []
-        local_copy = ""
         ef = Email.EmailForward(self.db)
         ef.find(target.entity_id)
         for r in ef.get_forward():
-            if r['enable'] == 'T':
-                enabled = "on"
-            else:
-                enabled = "off"
-            if r['forward_to'] in addrs:
-                local_copy = "+ local delivery (%s)" % enabled
-            else:
-                forw.append("%s (%s) " % (r['forward_to'], enabled))
+            enabled = 'on' if (r['enable'] == 'T') else 'off'
+            forw.append("%s (%s) " % (r['forward_to'], enabled))
         # for aesthetic reasons, print "+ local delivery" last
-        if local_copy:
-            forw.append(local_copy)
+        if ef.local_delivery:
+            forw.append("+ local delivery (on)")
         if forw:
             info.append({'forward_1': forw[0]})
             for idx in range(1, len(forw)):
