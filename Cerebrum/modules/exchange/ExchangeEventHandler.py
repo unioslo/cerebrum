@@ -387,33 +387,6 @@ class ExchangeEventHandler(processing.Process):
                                  (event['event_id'], uname, e))
                 raise EventExecutionException
 
-            # Disable the email address policy
-            try:
-                self.ec.set_mailbox_address_policy(uname,
-                                                   enabled=False)
-            except (ExchangeException, ServerUnavailableException), e:
-                self.logger.warn(
-                    'eid:%d: Failed disabling address policy for %s',
-                    event['event_id'], uname)
-                self.ut.log_event(event, 'exchange:set_ea_policy')
-                # TODO: Should we do this here? Should we rather do it in the
-                # address policy handler?
-                ev_mod = event.copy()
-                etid, tra, sh, hq, sq = self.ut.get_email_target_info(
-                    target_entity=event['subject_entity'])
-                ev_mod['subject_entity'] = etid
-                self.ut.log_event(ev_mod, 'email_primary_address:add_primary')
-
-            # Activate SingleItemRecoveryEnabled
-            try:
-                self.ec.set_mailbox_singleitemrecovery(
-                    uname, enabled=True)
-            except (ExchangeException, ServerUnavailableException), e:
-                self.logger.warn(
-                    'eid:%d: Failed enabling singleitemrecovery for %s',
-                    event['event_id'], uname)
-                self.ut.log_event(event, 'exchange:item_recovery')
-
             if not hide_from_address_book:
                 try:
                     self.ec.set_mailbox_visibility(
@@ -1642,66 +1615,6 @@ class ExchangeEventHandler(processing.Process):
                 raise EventExecutionException
         else:
             # TODO: Will we ever arrive here? Log this?
-            raise UnrelatedEvent
-
-    @EventDecorator.RegisterHandler(['exchange:item_recovery'])
-    def set_item_recovery(self, event):
-        """Set SingleItemRecovery for mailboxes.
-
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog."""
-        try:
-            name = self.ut.get_account_name(event['subject_entity'])
-        except Errors.NotFoundError:
-            raise UnrelatedEvent
-
-        try:
-            self.ec.set_mailbox_singleitemrecovery(name, enabled=True)
-            self.logger.info(
-                'eid:%d: SIR enabled on %s' % (event['event_id'], name))
-        except (ExchangeException, ServerUnavailableException), e:
-            self.logger.warn(
-                'eid:%d: Can\'t enable SIR on account %s: %s' % (
-                    event['event_id'], name, e))
-            raise EventExecutionException
-
-    @EventDecorator.RegisterHandler(['exchange:set_ea_policy'])
-    def set_address_policy(self, event):
-        """Disable the address policy on mailboxes or groups.
-
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog."""
-        try:
-            et = self.ut.get_entity_type(event['subject_entity'])
-            if not et == self.co.entity_person:
-                raise Errors.NotFoundError
-            # If we can't find a person with this entity id, we silently
-            # discard the event by doing nothing
-        except Errors.NotFoundError:
-            raise EntityTypeError
-
-        if et == self.co.entity_account:
-            name = self.ut.get_account_name(event['subject_entity'])
-            try:
-                self.ec.set_mailbox_address_policy(name)
-                self.logger.info(
-                    'eid:%d: EAP disabled on %s' %
-                    (event['event_id'], name))
-            except (ExchangeException, ServerUnavailableException), e:
-                self.logger.warn(
-                    'eid:%d: Can\'t disable EAP on account %s: %s'
-                    % (event['event_id'], name, e))
-                raise EventExecutionException
-        elif et == self.co.entity_group:
-            name, desc = self.ut.get_group_information(event['subject_entity'])
-            try:
-                self.ec.set_distgroup_address_policy(name)
-                self.logger.info('eid:%d: EAP disabled on %s' %
-                                 (event['event_id'], name))
-            except (ExchangeException, ServerUnavailableException), e:
-                self.logger.warn('eid:%d: Can\'t disable EAP for %s: %s' %
-                                 (event['event_id'], name, e))
-        else:
             raise UnrelatedEvent
 
     @EventDecorator.RegisterHandler(['dlgroup:modmanby'])

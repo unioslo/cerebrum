@@ -34,17 +34,6 @@ class CLConstants(CLConstants):
     # when events are handled by the recieving system
     #
 
-    # Temporary hack, we need this in order to requeue the setting of
-    # the adress book policy for a mailbox if someone pulls the plug on
-    # one of the Exchange-servers at exactly the right time.
-    # Ask jsama about this.
-    ea_policy = _ChangeTypeCode('exchange', 'set_ea_policy',
-                                'Address book policy changed')
-    # SingleItemRecoveryEnabled
-    # Fake event to be able to requeue if fail
-    item_recovery = _ChangeTypeCode('exchange', 'item_recovery',
-                                    'Set SingleItemRecovery')
-
     # Account mailbox created/deleted
     acc_mbox_create = _ChangeTypeCode('exchange', 'acc_mbox_create',
                                       'account mailbox added')
