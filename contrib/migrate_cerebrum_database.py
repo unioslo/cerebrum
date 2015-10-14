@@ -41,7 +41,7 @@ targets = {
              'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16',),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3',),
     'changelog': ('changelog_1_2', 'changelog_1_3'),
-    'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3'),
+    'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4'),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
     'stedkode': ('stedkode_1_1', ),
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
@@ -871,6 +871,58 @@ def migrate_to_email_1_3():
     meta.set_metainfo("sqlmodule_email", "1.3")
     db.commit()
     print "Migration to email 1.3 completed successfully %s" % time_spent(start)
+
+
+def migrate_to_email_1_4():
+    print "\ndone."
+    assert_db_version("1.3", component='email')
+    makedb('email_1_4', 'pre')
+
+    from Cerebrum.modules import Email
+    from collections import defaultdict
+    ef = Email.EmailForward(db)
+
+    print 'Fetching forwards...'
+    forwards = defaultdict(list)
+    for fw in ef.search(enable=True):
+        forwards[fw['target_id']].append(dict(fw))
+
+    print 'Fetching primary addresses...'
+    primary_addrs = {}
+    for pa in ef.list_email_target_primary_addresses(target_type=co.email_target_account):
+        addr = "%s@%s" % (pa['local_part'], pa['domain'])
+        primary_addrs[pa['target_id']] = addr
+
+    def target_has_forward(target_id, addr):
+        for fw in forwards[target_id]:
+            if fw['forward_to'] == addr:
+                return True
+        return False
+
+    print 'Converting primary -> primary address forwards to local delivery flag...'
+    stats = {True: 0, False: 0}
+    seen = 0
+    for target_id, addr in primary_addrs.items():
+        seen += 1
+        if seen % 1000 == 0:
+            print 'Processed %s of %s' % (seen, len(primary_addrs))
+        has_forward_to_primary = target_has_forward(target_id, addr)
+        stats[has_forward_to_primary] += 1
+
+        if has_forward_to_primary:
+            ef.clear()
+            ef.find(target_id)
+            ef.delete_forward(addr)
+            ef.enable_local_delivery()
+            ef.write_db()
+
+    print 'Action taken for', stats[True], 'of', stats[False], 'email targets'
+    print 'Committing, stay calm...'
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_email", "1.4")
+    db.commit()
+    print "Migration to email 1.4 completed successfully"
+
 
 def migrate_to_ephorte_1_1():
     print "\ndone."
