@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2014 University of Oslo, Norway
+# Copyright 2013-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Mainly refactored code from ExchangeEventHandler"""
-# TODO: Give me some other name?
+"""Utility functions used by ExchangeEventHandler.
+
+This file consists mainly of badly refactored code."""
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.Email import EmailDomain
@@ -35,12 +36,9 @@ import pickle
 
 
 class CerebrumUtils(object):
-    """Utility-class containing often used functions for Exchange
-    """
+    """Utility-class containing often used functions for Exchange."""
     def __init__(self):
-        """
-        Initialize the Utils
-        """
+        """Initialize the Utils."""
         self.db = Factory.get('Database')(client_encoding='UTF-8')
         self.en = Factory.get('Entity')(self.db)
         self.ac = Factory.get('Account')(self.db)
@@ -57,14 +55,13 @@ class CerebrumUtils(object):
 # Person related methods
 ####
     def get_person_accounts(self, person_id, spread=None):
-        """Return a list of account information
+        """Return a list of account information.
 
-        @type person_id: int
-        @param person_id: The person id to look up by
+        :type person_id: int
+        :param person_id: The person id to look up by.
 
-        @rtype: list
-        @return: A list of (account_id, username) tuples
-        """
+        :rtype: list
+        :return: A list of (account_id, username) tuples."""
         ret = [(x['account_id'], x['name']) for x in
                self.ac.search(owner_id=person_id,
                               owner_type=self.co.entity_person,
@@ -73,17 +70,16 @@ class CerebrumUtils(object):
         return ret
 
     def get_person_names(self, account_id=None, person_id=None):
-        """Return a persons names
+        """Return a persons names.
 
-        @type account_id: int
-        @param account_id: The user to look up names by
+        :type account_id: int
+        :param account_id: The user to look up names by.
 
-        @type person_id: int
-        @param person_id: The person to look up names by
+        :type person_id: int
+        :param person_id: The person to look up names by.
 
-        @rtype: tuple
-        @return: A tuple consisting of first_name, last_name and the full name
-        """
+        :rtype: tuple
+        :return: A tuple consisting of first_name, last_name and the full name."""
 
         # TODO: search_name_with_language?
         if account_id:
@@ -104,31 +100,29 @@ class CerebrumUtils(object):
         return ret
 
     def get_person_membership_groupnames(self, person_id):
-        """List all the groups the person is a member of
+        """List all the groups the person is a member of.
 
-        @type person_id: int
-        @param person_id: The persons entity_id
+        :type person_id: int
+        :param person_id: The persons entity_id.
 
-        @rtype: list
-        @return: list(string) of groupnames
-        """
+        :rtype: list
+        :return: list(string) of groupnames."""
         ret = [x['group_name'] for x in self.gr.search_members(
             member_id=person_id, indirect_members=True)]
         self.db.rollback()
         return ret
 
     def is_electronic_reserved(self, person_id=None, account_id=None):
-        """Check if a person has reserved themself from listing
+        """Check if a person has reserved themself from listing.
 
-        @type person_id: int
-        @param person_id: The persons entity_id
+        :type person_id: int
+        :param person_id: The persons entity_id.
 
-        @type account_id: int
-        @param account_id: The accounts entity_id
+        :type account_id: int
+        :param account_id: The accounts entity_id.
 
-        @rtype: bool
-        @return: True if reserved, False otherwise
-        """
+        :rtype: bool
+        :return: True if reserved, False otherwise."""
         if person_id:
             self.pe.clear()
             self.pe.find(person_id)
@@ -148,14 +142,13 @@ class CerebrumUtils(object):
 ####
 
     def get_account_mailaddrs(self, account_id):
-        """Collect mailaddresses of an account
+        """Collect mailaddresses of an account.
 
-        @type account_id: int
-        @param account_id: The account_id representing the object
+        :type account_id: int
+        :param account_id: The account_id representing the object.
 
-        @rtype: list
-        @return: A list of addresses
-        """
+        :rtype: list
+        :return: A list of addresses."""
         self.et.clear()
         self.et.find_by_target_entity(account_id)
         addrs = ['%s@%s' % (x['local_part'], x['domain'])
@@ -167,8 +160,7 @@ class CerebrumUtils(object):
         """Collect an accounts forward addresses.
 
         :param int account_id: The account_id representing the object.
-        :return: A list of forward addresses.
-        """
+        :return: A list of forward addresses."""
         self.ef.clear()
         self.ef.find_by_target_entity(account_id)
         r = []
@@ -182,12 +174,11 @@ class CerebrumUtils(object):
     def get_account_name(self, account_id):
         """Return information about the account.
 
-        @type account_id: int
-        @param acccount_id: The accounts entity id
+        :type account_id: int
+        :param acccount_id: The accounts entity id.
 
-        @rtype: string
-        @return: The accounts name
-        """
+        :rtype: string
+        :return: The accounts name."""
         self.ac.clear()
         self.ac.find(account_id)
         ret = self.ac.account_name
@@ -197,12 +188,11 @@ class CerebrumUtils(object):
     def get_account_owner_info(self, account_id):
         """Return the type and id of the accounts owner.
 
-        @type account_id: int
-        @param acccount_id: The accounts entity id
+        :type account_id: int
+        :param acccount_id: The accounts entity id.
 
-        @rtype: tuple
-        @return: (entity_type, entity_id)
-        """
+        :rtype: tuple
+        :return: (entity_type, entity_id)."""
         self.ac.clear()
         self.ac.find(account_id)
         ret = (self.ac.owner_type, self.ac.owner_id)
@@ -212,12 +202,11 @@ class CerebrumUtils(object):
     def get_account_spreads(self, account_id):
         """Return the accounts spread codes.
 
-        @type account_id: int
-        @param acccount_id: The accounts entity id
+        :type account_id: int
+        :param acccount_id: The accounts entity id.
 
-        @rtype: list
-        @return: A list of the accounts spread codes
-        """
+        :rtype: list
+        :return: A list of the accounts spread codes."""
         self.ac.clear()
         self.ac.find(account_id)
         ret = [x['spread'] for x in self.ac.get_spread()]
@@ -225,14 +214,13 @@ class CerebrumUtils(object):
         return ret
 
     def get_account_primary_email(self, account_id):
-        """Return the accounts primary address
+        """Return the accounts primary address.
 
-        @type account_id: int
-        @param acccount_id: The accounts entity id
+        :type account_id: int
+        :param acccount_id: The accounts entity id.
 
-        @rtype: str
-        @return: The accounts primary email-address
-        """
+        :rtype: str
+        :return: The accounts primary email-address."""
         self.ac.clear()
         self.ac.find(account_id)
         ret = self.ac.get_primary_mailaddress()
@@ -242,12 +230,11 @@ class CerebrumUtils(object):
     def get_account_id(self, uname):
         """Get an accounts entity id.
 
-        @type uname: str
-        @param uname: The users name
+        :type uname: str
+        :param uname: The users name.
 
-        @rtype: int
-        @return: The entity id of the account
-        """
+        :rtype: int
+        :return: The entity id of the account."""
         self.ac.clear()
         self.ac.find_by_name(uname)
         ret = self.ac.entity_id
@@ -255,14 +242,13 @@ class CerebrumUtils(object):
         return ret
 
     def get_primary_account(self, person_id):
-        """Get a persons primary account
+        """Get a persons primary account.
 
-        @type person_id: int
-        @param person_id: The persons entity id
+        :type person_id: int
+        :param person_id: The persons entity id.
 
-        @rtype: int
-        @return: The primary accounts entity_id or None if no primary
-        """
+        :rtype: int
+        :return: The primary accounts entity_id or None if no primary."""
         self.pe.clear()
         self.pe.find(person_id)
         ret = self.pe.get_primary_account()
@@ -273,15 +259,14 @@ class CerebrumUtils(object):
         """Get a list of group names, which the user (and users owner, if
         person), is a member of.
 
-        @type uname: string
-        @param uname: The accounts name
+        :type uname: string
+        :param uname: The accounts name.
 
-        @type group_spread: _SpreadCode
-        @param group_spread: Spread to filter groups by
+        :type group_spread: _SpreadCode
+        :param group_spread: Spread to filter groups by.
 
-        @rtype: list(tuple)
-        @return: A list of tuples contining group-name and -id
-        """
+        :rtype: list(tuple)
+        :return: A list of tuples contining group-name and -id."""
         self.ac.clear()
         self.ac.find_by_name(uname)
 
@@ -314,22 +299,20 @@ class CerebrumUtils(object):
         :param str gname: The owning groups groupname.
 
         :rtype: tuple(str)
-        :return: A tuple consisting of FirstName, LastName and DisplayName.
-        """
+        :return: A tuple consisting of FirstName, LastName and DisplayName."""
         fn = uname
         ln = '(owner: %s)' % gname
         dn = '%s (owner: %s)' % (uname, gname)
         return (fn, ln, dn)
 
     def get_group_information(self, group_id):
-        """Get a groups name and description
+        """Get a groups name and description.
 
-        @type group_id: int
-        @param group_id: The groups entity id
+        :type group_id: int
+        :param group_id: The groups entity id.
 
-        @rtype: tuple
-        @return: The groups name and description
-        """
+        :rtype: tuple
+        :return: The groups name and description."""
         # This function is kinda generic. We don't care
         # (yet) if it's a distribution or security group.
         r = self.gr.search(group_id=group_id)[0]
@@ -338,14 +321,13 @@ class CerebrumUtils(object):
         return ret
 
     def get_group_id(self, group_name):
-        """Get a groups entity_id
+        """Get a groups entity_id.
 
-        @type group_name: str
-        @param group_name: The groups name
+        :type group_name: str
+        :param group_name: The groups name.
 
-        @rtype: int
-        @return: The groups entity_id
-        """
+        :rtype: int
+        :return: The groups entity_id."""
         self.gr.clear()
         self.gr.find_by_name(group_name)
         ret = self.gr.entity_id
@@ -355,12 +337,11 @@ class CerebrumUtils(object):
     def get_group_spreads(self, group_id):
         """Return the groupss spread codes.
 
-        @type group_id: int
-        @param group_id: The accounts entity id
+        :type group_id: int
+        :param group_id: The accounts entity id.
 
-        @rtype: list
-        @return: A list of the accounts spread codes
-        """
+        :rtype: list
+        :return: A list of the accounts spread codes."""
         self.gr.clear()
         self.gr.find(group_id)
         ret = [x['spread'] for x in self.gr.get_spread()]
@@ -370,18 +351,17 @@ class CerebrumUtils(object):
     def get_group_members(self, group_id, spread=None, filter_spread=None):
         """Collect a list of the usernames of all users in a group.
 
-        @type group_id: int
-        @param group_id: The groups entity_id
+        :type group_id: int
+        :param group_id: The groups entity_id.
 
-        @type spread: _SpreadCode
-        @param spread: The spread to filter by
+        :type spread: _SpreadCode
+        :param spread: The spread to filter by.
 
-        @type filter_spread: _SpreadCode
-        @param filter_spread: A spread that the user must also have
+        :type filter_spread: _SpreadCode
+        :param filter_spread: A spread that the user must also have.
 
-        @rtype: list
-        @return: A list of usernames who are members of group_id
-        """
+        :rtype: list
+        :return: A list of usernames who are members of group_id."""
         found_accounts = []
         r = []
         for x in self.gr.search_members(group_id=group_id,
@@ -429,18 +409,17 @@ class CerebrumUtils(object):
         """Return all groups that the group is an indirect member of. Filter
         by spread and the start of the group name.
 
-        @type id: int
-        @param id: The entity_id
+        :type id: int
+        :param id: The entity_id.
 
-        @type spread: _SpreadCode
-        @param _SpreadCode: The spread code to filter by, default is None
+        :type spread: _SpreadCode
+        :param _SpreadCode: The spread code to filter by, default is None.
 
-        @type name_prefix: str
-        @param name_prefix: Check if the group starts with this, default None
+        :type name_prefix: str
+        :param name_prefix: Check if the group starts with this, default None.
 
-        @rtype: list
-        @return: A list of appropriate groups
-        """
+        :rtype: list
+        :return: A list of appropriate groups."""
         if name_prefix:
             np = '%s%%' % name_prefix
         else:
@@ -457,14 +436,13 @@ class CerebrumUtils(object):
 ####
 
     def unpickle_event_params(self, event):
-        """Unpickle the change params of an event
+        """Unpickle the change params of an event.
 
-        @type event: dbrow
-        @param event: The db row returned by Change- or EventLog
+        :type event: dbrow
+        :param event: The db row returned by Change- or EventLog.
 
-        @rtype: string
-        @return: The change params
-        """
+        :rtype: string
+        :return: The change params."""
         # Hopefully, evertyhin will use UTF in the end
         try:
             return pickle.loads(event['change_params'])
@@ -472,14 +450,13 @@ class CerebrumUtils(object):
             return pickle.loads(event['change_params'].encode('ISO_8859_15'))
 
     def get_entity_type(self, entity_id):
-        """Fetch the entity type code of an entity
+        """Fetch the entity type code of an entity.
 
-        @type entity_id: int
-        @param entity_id: The entity id
+        :type entity_id: int
+        :param entity_id: The entity id.
 
-        @rtype: long
-        @return: The entity type code
-        """
+        :rtype: long
+        :return: The entity type code."""
         self.en.clear()
         self.en.find(entity_id)
         ret = self.en.entity_type
@@ -489,13 +466,12 @@ class CerebrumUtils(object):
     def log_event(self, event, trigger):
         """Utility method used to create an event only in the EventLog.
 
-        @type event: dict
-        @param event: Dict representing an event (as returned from get_event).
+        :type event: dict
+        :param event: Dict representing an event (as returned from get_event).
 
-        @param trigger: str or list or tuple
-        @param trigger: The change type code we want to associate with the
-            event. Only the first value will be used.
-        """
+        :param trigger: str or list or tuple
+        :param trigger: The change type code we want to associate with the
+            event. Only the first value will be used."""
         if isinstance(trigger, (list, tuple)):
             trigger = trigger[0]
         trigger = trigger.split(':')
@@ -511,15 +487,14 @@ class CerebrumUtils(object):
         self.db.commit()
 
     def log_event_receipt(self, event, trigger):
-        """Utility method used to log the "receipt" of a completed event in CL.
+        """Log the "receipt" of a completed event in ChangeLog.
 
         :type event: dict
         :param event: Dict representing an event (as returned from get_event).
 
         :param trigger: str or list or tuple
         :param trigger: The change type code we want to associate with the
-            event. Only the first value will be used.
-        """
+            event. Only the first value will be used."""
         # TODO: Set change_program from a sensible source to something smart
         if isinstance(trigger, (list, tuple)):
             trigger = trigger[0]
@@ -547,16 +522,15 @@ class CerebrumUtils(object):
         """Return the entity_type and entity_id of the entity the EmailTarget
         points at. Look up by _either_ target_id or target_entity.
 
-        @type target_id: int
-        @param target_id: The EmailTargets id
+        :type target_id: int
+        :param target_id: The EmailTargets id.
 
-        @type target_entity: int
-        @param target_entity: The targets target entity id
+        :type target_entity: int
+        :param target_entity: The targets target entity id.
 
-        @rtype: typle
-        @return: (entity_id, target_entity_id, target_entity_type, hard_quota,
-            soft_quota)
-        """
+        :rtype: typle
+        :return: (entity_id, target_entity_id, target_entity_type, hard_quota,
+            soft_quota)."""
         self.et.clear()
         self.eq.clear()
         if target_id:
@@ -587,12 +561,11 @@ class CerebrumUtils(object):
                               email_domain_name=None):
         """Return info about an EmailDomain.
 
-        @type email_domain_id: int
-        @param email_domain_id: The email domains id
+        :type email_domain_id: int
+        :param email_domain_id: The email domains id.
 
-        @rtype: dict
-        @return: {name: EmailDomain name, id: EmailDomain id}
-        """
+        :rtype: dict
+        :return: {name: EmailDomain name, id: EmailDomain id}."""
         self.ed.clear()
         if email_domain_id:
             self.ed.find(email_domain_id)
@@ -607,6 +580,13 @@ class CerebrumUtils(object):
 ####
 
     def get_distgroup_attributes_and_targetdata(self, subj_id):
+        """Collect DistributionGroup specific information.
+
+        :type subj_id: int
+        :param subj_id: The entity-id of the DistributionGroup.
+
+        :rtype: dict
+        :return: A dict with DistributionGroup-specific data."""
         # TODO: This might crash if someone where to add a spread, on a group
         # which is not a DistributionGroup in Cerebrum
         self.dg.clear()
@@ -617,6 +597,13 @@ class CerebrumUtils(object):
         return ret
 
     def get_distgroup_displayname(self, subj_id):
+        """Get DisplayName for a DistributionGroup.
+
+        :type subj_id: int
+        :param subj_id: The DistributionGroups entity-id.
+
+        @rtype: Cerebrum.extlib.db_row.row
+        @return: Rows as returned by Entity.search_name_with_language()."""
         self.dg.clear()
         self.dg.find(subj_id)
         ret = self.dg.search_name_with_language(
