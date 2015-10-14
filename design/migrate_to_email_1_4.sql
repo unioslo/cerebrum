@@ -18,7 +18,7 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-/* SQL script for migrating a mod_email 1.4 to 1.5 */
+/* SQL script for migrating mod_email 1.3 to 1.4 */
 /* Creates table for local-delivery flag */
 
 category:pre;
