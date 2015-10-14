@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2011 University of Oslo, Norway
+# Copyright 2002-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1511,12 +1511,6 @@ class BofhdExtension(BofhdCommonMethods):
          ("deprestr", )),
         ("Join restriction: %s",
          ("joinrestr", )),
-        ("Moderated:        %s",
-         ("modenable", )),
-        ("Moderated by:     %s",
-         ("modby", )),
-        ("Managed by:       %s",
-         ("mngdby_address", )),
         ("Hidden addr list: %s",
          ('hidden', )),
         #
@@ -5465,19 +5459,14 @@ Addresses and settings:
         GroupName(help_ref="group_name_new"),
         SimpleString(help_ref="group_disp_name", optional='true'),
         SimpleString(help_ref="string_dl_desc"),
-        EmailAddress(help_ref="group_dl_managedby",
-                     default=cereconf.DISTGROUP_DEFAULT_ADMIN),
-        SimpleString(help_ref='group_dl_modby'),
         YesNo(help_ref='yes_no_from_existing', default='No'),
         fs=FormatSuggestion("Group created, internal id: %i", ("group_id",)),
         perm_filter='is_postmaster')
-    def group_exchangegroup_create(self, operator, groupname, displayname, description, managedby, moderatedby, from_existing=None):
+    def group_exchangegroup_create(self, operator, groupname, displayname, description, from_existing=None):
         # check for appropriate priviledge
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to group')
         existing_group = False
-        modby_unames = []
-        mngdby_addr = None
         dl_group = Utils.Factory.get("DistributionGroup")(self.db)
         std_values = dl_group.ret_standard_attr_values(room=False)
         # although cerebrum supports different visibility levels
@@ -5488,6 +5477,7 @@ Addresses and settings:
         # display name language is standard for dist groups
         disp_name_language = dl_group.ret_standard_language()
         disp_name_variant = self.const.dl_group_displ_name
+        managedby = cereconf.DISTGROUP_DEFAULT_ADMIN
         grp = Utils.Factory.get("Group")(self.db)
         try:
             grp.find_by_name(groupname)
@@ -5498,17 +5488,9 @@ Addresses and settings:
             pass
         if not displayname:
             displayname = groupname
-        # all moderators must be valid accounts in Cerebrum and Exchange
-        modby_unames = self._valid_unames_exchange(moderatedby)
-        if not modby_unames:
-            return "Can't create Exchange group, no valid moderators in %s" % moderatedby
         if existing_group and not self._is_yes(from_existing):
-            return "You choose not to create Exchange group from the existing group %s" % groupname
-        mngdby_addr = self._valid_address_exchange(managedby)
-        if not managedby or \
-                 (managedby != cereconf.DISTGROUP_DEFAULT_ADMIN and \
-                      not mngdby_addr):
-            return "Cannot create Exchange group without setting ManagedBy attr"
+            return ('You choose not to create Exchange group from the '
+                    'existing group %s' % groupname)
         try:
             if not existing_group:
                 # one could imagine making a helper function in the future
@@ -5518,17 +5500,11 @@ Addresses and settings:
                             group_vis,
                             groupname, description=description,
                             roomlist=std_values['roomlist'],
-                            mngdby_addrid=mngdby_addr,
-                            modenable=std_values['modenable'],
-                            modby=moderatedby,
                             deprestr=std_values['deprestr'],
                             joinrestr=std_values['joinrestr'],
                             hidden=std_values['hidden'])
             else:
                 dl_group.populate(roomlist=std_values['roomlist'],
-                                mngdby_addrid=mngdby_addr,
-                                modenable=std_values['modenable'],
-                                modby=moderatedby,
                                 deprestr=std_values['deprestr'],
                                 joinrestr=std_values['joinrestr'],
                                 hidden=std_values['hidden'],
@@ -5542,55 +5518,6 @@ Addresses and settings:
         dl_group.add_spread(self.const.Spread(cereconf.EXCHANGE_GROUP_SPREAD))
         dl_group.write_db()
         return "Created Exchange group %s" % groupname
-
-    def _valid_unames_exchange(self, moderatedby):
-        # TODO: Do we want to check fo errors for single users?
-        ret = []
-        if re.match(r'.*,.*', moderatedby):
-            # there seems to be a list of unames to deal with
-            tmp = moderatedby.split(',')
-            for x in tmp:
-                name = x.strip()
-                acc = self._get_account(name)
-                if acc.has_spread(int(self.const.Spread(cereconf.EXCHANGE_ACCOUNT_SPREAD))):
-                    ret.append(name)
-        else:
-            # only a single moderator is given or a wrong delimiter used
-            ret.append(moderatedby)
-        return ret
-
-    def _valid_address_exchange(self, address):
-        ea = Email.EmailAddress(self.db)
-        try:
-            ea.find_by_address(address)
-        except Errors.NotFoundError:
-            # no such address in Cerebrum
-            return False
-        et = Email.EmailTarget(self.db)
-        try:
-            et.find(int(ea.email_addr_target_id))
-        except Errors.NotFoundError:
-            # e-mail target is missing, this should never happen
-            return False
-        if et.email_target_type == self.const.email_target_dl_group:
-            dl_group = Utils.Factory.get("DistributionGroup")(self.db)
-            try:
-                dl_group.find(int(et.email_target_entity_id))
-            except Errors.NotFoundError:
-                # no dist group associated with the target,
-                # this should never happen
-                return False
-            # address belongs to a valid distribution group and is
-            # therefore connected to an existing mailbox in
-            # Exchange
-            return ea.entity_id
-        elif et.email_target_type == self.const.email_target_account:
-            acc = self._get_account(int(et.email_target_entity_id),
-                                    idtype='id')
-            if acc.has_spread(
-                    int(self.const.Spread(cereconf.EXCHANGE_ACCOUNT_SPREAD))):
-                return ea.entity_id
-        return False
 
     # group info
     all_commands['group_exchangegroup_info'] = Command(
@@ -5613,14 +5540,6 @@ Addresses and settings:
                                  ('displayname',)),
                              ("Roomlist:     %s",
                                  ('roomlist',)),
-                             ("ManagedBy:    %s",
-                                 ('mngdby_address',)),
-                             ("ModEnable:    %s",
-                                 ('modenable',)),
-                             ("ModeratedBy:  %s",
-                                 ('modby_1',)),
-                             ("              %s",
-                                 ('modby',)),
                              ("Depart res.:  %s",
                                  ('deprestr',)),
                              ("Join restr.:  %s",
@@ -5699,18 +5618,10 @@ Addresses and settings:
 
         # Yes, I'm gonna do it!
         tmp = {}
-        for attr in ['displayname', 'roomlist', 'mngdby_address', 'modenable']:
+        for attr in ['displayname', 'roomlist']:
             if dgr_info.has_key(attr):
                 tmp[attr] = dgr_info[attr]
         ret.append(tmp)
-
-        if not roomlist:
-            if dgr_info.has_key('modby'):
-                if len(dgr_info['modby']) > 0:
-                    ret.append({'modby_1': dgr_info['modby'].pop(0)})
-
-            for mod in dgr_info['modby']:
-                ret.append({'modby': mod})
 
         tmp = {}
         for attr in ['deprestr', 'joinrestr', 'hidden', 'primary']:
@@ -5761,10 +5672,7 @@ Addresses and settings:
     #  Valid attributes are:
     #    - depart_restriction (Open, Close, Approval, Required)
     #    - join_restriction (Open, Close, Approval, Required)
-    #    - moderation_enabled T/F
     #    - addrbook_hidden T/F
-    #    - moderated_by 'uname1, uname2,...'
-    #    - managed_by email_address
     all_commands['group_exchangegroup_attr_set'] = Command(
         ("group", "exchangegroup_attr_set"),
         GroupName(help_ref="group_name"),
@@ -5780,7 +5688,6 @@ Addresses and settings:
         # check for appropriate priviledges
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to group')
-        modby_unames = []
         dl_group = self._get_group(groupname, idtype='name',
                                    grtype="DistributionGroup")
         if attr == 'depart_restriction':
@@ -5790,9 +5697,6 @@ Addresses and settings:
         elif attr == 'join_restriction':
             if val in dl_group.ret_valid_restrictions():
                 dl_group.set_depjoin_restriction(restriction=val)
-        elif attr == 'moderation_enabled':
-            if val in ['T', 'F']:
-                dl_group.set_modenable(enable=val)
         elif attr == 'addrbook_visibility':
             # We translate the argument. V and H are not ambiguous.
             if val == 'V':
@@ -5802,17 +5706,6 @@ Addresses and settings:
             else:
                 return 'Choose either \'V\' or \'H\''
             dl_group.set_hidden(hidden=t_val)
-        elif attr == 'moderated_by':
-            modby_unames = self._valid_unames_exchange(val)
-            if modby_unames:
-                dl_group.set_modby(val)
-            else:
-                return "Moderators are not valid, check for existance in Cerebrum and exchange spread"
-        elif attr == 'managed_by':
-            if self._valid_address_exchange(val):
-                dl_group.set_managedby(val)
-            else:
-                return "Could not set ManagedBy, addr not valid in Exchange"
         else:
             return "No such attribute %s" % attr
         dl_group.write_db()
@@ -5864,8 +5757,8 @@ Addresses and settings:
         except Errors.NotFoundError:
             # should never happen unless default admin
             # dist group is deleted from Cerebrum
-            return "Default admin address does not exist, please contact" + \
-                " cerebrum-drift@usit.uio.no for help!"
+            return ('Default admin address does not exist, please contact'
+                    ' cerebrum-drift@usit.uio.no for help!')
         if not displayname:
             displayname = groupname
         # using DistributionGroup.new(...)
@@ -5873,8 +5766,6 @@ Addresses and settings:
                       group_vis,
                       groupname, description=description,
                       roomlist=std_values['roomlist'],
-                      mngdby_addrid=ea.entity_id,
-                      modenable=std_values['modenable'],
                       deprestr=std_values['deprestr'],
                       joinrestr=std_values['joinrestr'],
                       hidden=std_values['hidden'])

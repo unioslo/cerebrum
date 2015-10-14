@@ -249,9 +249,7 @@ class StateChecker(object):
                  'info',
                  'proxyAddresses',
                  'managedBy',
-                 'msExchHideFromAddressLists',
-                 'msExchModeratedByLink',
-                 'msExchEnableModeration']
+                 'msExchHideFromAddressLists']
 
         r = self.search(group_ou, attrs)
 
@@ -279,11 +277,6 @@ class StateChecker(object):
                     if tmp_man == 'Default group moderator':
                         tmp_man = u'groupadmin'
                     tmp[u'ManagedBy'] = [tmp_man]
-                elif key == 'msExchModeratedByLink':
-                    mods = []
-                    for mod in data[key]:
-                        mods.append(mod[3:].split(',')[0].decode('UTF-8'))
-                    tmp[u'ModeratedBy'] = sorted(mods)
 
             # Skip reporting memberships for roomlists, since we don't manage
             # those memberships.
@@ -303,15 +296,6 @@ class StateChecker(object):
                     False)
             else:
                 tmp[u'HiddenFromAddressListsEnabled'] = False
-
-            if 'msExchEnableModeration' in data:
-                tmp_key = 'msExchEnableModeration'
-                tmp[u'ModerationEnabled'] = (
-                    True if data[tmp_key][0].decode('UTF-8') == 'TRUE' else
-                    False)
-            else:
-                tmp[u'ModerationEnabled'] = False
-
             ret[name] = tmp
         return ret
 
@@ -372,24 +356,7 @@ class StateChecker(object):
             if not roomlist:
                 # Split up the moderated by field, and resolve group members
                 # from groups if there are groups in the moderated by field!
-                moderators = []
-                for mod in data['modby']:
-                    try:
-                        self.gr.clear()
-                        self.gr.find_by_name(mod)
-                        membs = self.gr.search_members(
-                            group_id=self.gr.entity_id,
-                            indirect_members=True,
-                            member_spread=self.co.spread_exchange_account,
-                            include_member_entity_name=True)
-                        for row in membs:
-                            moderators.append(row['member_name'])
-                    except Errors.NotFoundError:
-                        moderators.append(mod)
-
                 tmp[self.dg.group_name].update({
-                    u'ModerationEnabled': _true_or_false(data['modenable']),
-                    u'ModeratedBy': sorted(moderators),
                     u'HiddenFromAddressListsEnabled':
                         _true_or_false(data['hidden']),
                     u'Primary': data['primary'],
@@ -501,7 +468,7 @@ class StateChecker(object):
                 if diff_group[key][attr][u'Time'] < now - delta:
                     t = time.strftime(u'%d%m%Y-%H:%M', time.localtime(
                         diff_group[key][attr][u'Time']))
-                    if attr in (u'ModeratedBy', u'Aliases', u'Members',):
+                    if attr in (u'Aliases', u'Members',):
                         # We report the difference for these types, for
                         # redability
                         s_ce_attr = set(diff_group[key][attr][u'Cerebrum'])

@@ -62,12 +62,6 @@ class CLConstants(CLConstants):
                                   'dist group address added')
     dl_addr_rem = _ChangeTypeCode('exchange', 'dl_addr_rem',
                                   'dist group address deleted')
-    # Dist group set managed by
-    dl_manby_set = _ChangeTypeCode('exchange', 'dl_manby_set',
-                                   'dist group set Managedby')
-    # Dist group set moderated by
-    dl_modby_set = _ChangeTypeCode('exchange', 'dl_modby_set',
-                                   'dist group set Moderatedby')
     # Dist group set hidden
     dl_hidden_set = _ChangeTypeCode('exchange', 'dl_hidden_set',
                                     'dist group set HiddenAddr')
@@ -116,12 +110,6 @@ class CLConstants(CLConstants):
     dl_group_manby = _ChangeTypeCode('dlgroup', 'modmanby',
                                      'group mod managed by for %(subject)s',
                                      ('manby:%(str:manby)'))
-    dl_group_modby = _ChangeTypeCode('dlgroup', 'modmodby',
-                                     'group mod modify by for %(subject)s',
-                                     ('modby:%(str:modby)'))
     dl_group_room = _ChangeTypeCode('dlgroup', 'modroom',
                                     'group mod room stat for %(subject)s',
                                     ('roomlist:%(str:roomlist)'))
-    dl_group_modrt = _ChangeTypeCode('dlgroup', 'moderate',
-                                     'group mod room stat for %(subject)s',
-                                     ('modenable:%(str:enable)'))

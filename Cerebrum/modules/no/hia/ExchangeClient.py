@@ -1023,27 +1023,6 @@ class UiAExchangeClient(PowershellClient):
         else:
             return True
 
-    def set_distgroup_moderation(self, gname, enabled=True):
-        """Enable/disable moderation of group
-
-        @type gname: string
-        @param gname: The groups name
-
-        @type enabled: bool
-        @param enabled: Enable or disable moderation
-
-        @raise ExchangeException: If the command cannot be run, raise.
-        """
-        cmd = self._generate_exchange_command(
-            'Set-DistributionGroup',
-            {'Identity':  gname,
-             'ModerationEnabled': enabled})
-        out = self.run(cmd)
-        if 'stderr' in out:
-            raise ExchangeException(out['stderr'])
-        else:
-            return True
-
     def set_distgroup_manager(self, gname, addr):
         """Set the manager of a distribution group.
 
@@ -1060,34 +1039,6 @@ class UiAExchangeClient(PowershellClient):
             {'Identity':  gname,
              'ManagedBy': addr},
             ('BypassSecurityGroupManagerCheck',))
-        out = self.run(cmd)
-        if 'stderr' in out:
-            raise ExchangeException(out['stderr'])
-        else:
-            return True
-
-    def set_distgroup_moderator(self, gname, addr):
-        """Set the moderators of a distribution group.
-
-        @type gname: string
-        @param gname: The groups name
-
-        @type addr: str
-        @param uname: The e-mail addresses which moderates this group
-
-        @raise ExchangeException: If the command cannot be run, raise.
-        """
-        # TODO: Make ModeratedBy a kwarg that accepts a list
-        params = {'Identity':  gname}
-        if addr == '':
-            params['ModerationEnabled'] = False
-            addr = '$null'
-        else:
-            params['ModerationEnabled'] = True
-
-        cmd = self._generate_exchange_command('Set-DistributionGroup',
-                                              params,
-                                              ('ModeratedBy ' + addr,))
         out = self.run(cmd)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
