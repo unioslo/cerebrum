@@ -937,7 +937,7 @@ def init_globals():
     # tegn.
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
-    dump_dir = '/cerebrum/dumps/FS'
+    dump_dir = cereconf.FS_DATA_DIR
     dryrun = False
     logger = Factory.get_logger("cronjob")
     immediate_evu_expire = False

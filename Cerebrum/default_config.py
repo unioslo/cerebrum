@@ -404,7 +404,7 @@ AUTOADMIN_WELCOME_SMS = 'Welcome\nYour username is: %(username)s'
 # The default directory for where the data from FS is put. This could be used by
 # jobs that needs to get many of the XML files with data from FS. If this is not
 # defined, you need to specify the absolute path to each XML file.
-FS_DATADIR = pj(prefix, 'var/cache/FS')
+FS_DATA_DIR = pj(prefix, 'var', 'cache', 'FS')
 
 # Sets the number of days after a student is considered not active anymore,
 # before the STUDENT affiliation gets removed. This is not the correct way of
@@ -415,6 +415,11 @@ FS_DATADIR = pj(prefix, 'var/cache/FS')
 # Note: The instance' import_FS script must be updated to handle this, this is
 # mainly implemented for UiO (and UiA).
 FS_STUDENT_REMOVE_AFF_GRACE_DAYS = 0
+
+# Sets the default name and description of the group used for students in FS who
+# have given their consent to be published in the catalogue.
+FS_GROUP_NAME = "FS-aktivt-samtykke"
+FS_GROUP_DESC = "Internal group for students which will be shown online."
 
 # make autostud use studentnr as uname
 USE_STUDENTNR_AS_UNAME = False

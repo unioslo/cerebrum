@@ -37,11 +37,11 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 from Cerebrum.modules.no.uio import AutoStud
 
-default_personfile = "/cerebrum/var/cache/FS/merged_persons.xml"
-default_studieprogramfile = "/cerebrum/var/cache/FS/studieprogrammer.xml"
-default_emnefile = "/cerebrum/var/cache/FS/emner.xml"
-group_name = "FS-aktivt-samtykke"
-group_desc = "Internal group for students which will be shown online."
+default_personfile = pj(cereconf.FS_DATA_DIR, "merged_persons.xml")
+default_studieprogramfile = pj(cereconf.FS_DATA_DIR, "studieprog.xml")
+default_emnefile = pj(cereconf.FS_DATA_DIR, "emner.xml")
+group_name = cereconf.FS_GROUP_NAME
+group_desc = cereconf.FS_GROUP_DESC
 
 
 studieprog2sko = {}
