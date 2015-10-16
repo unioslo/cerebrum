@@ -91,6 +91,7 @@ class ExchangeEventHandler(multiprocessing.Process):
         self.mock = mock
 
         super(ExchangeEventHandler, self).__init__()
+        self.logger.debug("Hello from event handler class %s", self.__class__)
 
     def _post_fork_init(self):
         r"""Post-fork init method.
@@ -122,8 +123,12 @@ class ExchangeEventHandler(multiprocessing.Process):
         else:
             from Cerebrum.modules.exchange.v2013.ExchangeClient \
                 import ExchangeClient
+        self.logger.debug("EventHandler post fork")
 
+        i = 0
         while self.run_state.value:
+            i = i + 1
+            self.logger.debug("Trying to connect to springboard (%d)", i)
             try:
                 self.ec = ExchangeClient(
                     auth_user=self.config['auth_user'],
@@ -151,6 +156,7 @@ class ExchangeEventHandler(multiprocessing.Process):
                     time.sleep(3*60)
             else:
                 break
+        self.logger.debug("Connected to springboard")
 
         # Initialize the Database and Constants object
         self.db = Factory.get('Database')(client_encoding='UTF-8')
