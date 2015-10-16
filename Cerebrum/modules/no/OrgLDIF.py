@@ -507,10 +507,13 @@ class norEduLDIFMixin(OrgLDIF):
 
         # Add populated template to norEduPersonAuthnMethod for each configured
         # method, if the contact data exists
+        authn_methods = list()
         for authn_entry in self.person_authn_methods.get(person_id, []):
             for aff, selection in self.person_authn_selection.iteritems():
                 if (aff in person_affs
                         and (authn_entry['source_system'],
                              authn_entry['contact_type']) in selection):
-                    entry.setdefault('norEduPersonAuthnMethod', list()).append(
+                    authn_methods.append(
                         template.substitute(authn_entry))
+        entry['norEduPersonAuthnMethod'] = self.attr_unique(
+            authn_methods, normalize=normalize_string)
