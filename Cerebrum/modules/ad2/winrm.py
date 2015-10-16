@@ -377,8 +377,8 @@ class WinRMProtocol(object):
             if client_cert or client_key:
                 ssl_config.set_cert(client_cert, client_key)
 
-            self.logger.debug2("Connection settings: timeout=%r, ssl=%s",
-                               self.connection_timeout, ssl_config)
+            self.logger.debug("Connection settings: timeout=%r, ssl=%s",
+                              self.connection_timeout, ssl_config)
 
             conn = https.HTTPSConnection.configure(
                 ssl_config, timeout=self.connection_timeout)
@@ -394,6 +394,7 @@ class WinRMProtocol(object):
             'User-Agent': self._useragent}
         # Set up the XML parser to expect input in utf-8
         self.xmlparser = etree.XMLParser(encoding='utf-8')
+        self.logger.debug("WinRMProtocol: init done")
 
     def _http_url(self, sub=''):
         """Return a string with the HTTP URL of the service."""
