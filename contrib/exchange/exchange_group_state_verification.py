@@ -248,11 +248,8 @@ class StateChecker(object):
         attrs = ['displayName',
                  'info',
                  'proxyAddresses',
-                 'managedBy',
                  'msExchHideFromAddressLists']
-
         r = self.search(group_ou, attrs)
-
         ret = {}
         for cn, data in r:
             tmp = {}
@@ -327,30 +324,9 @@ class StateChecker(object):
             data = self.dg.get_distgroup_attributes_and_targetdata(
                 roomlist=roomlist)
 
-            # Yes. We must look up the user/group name......!!11
-            try:
-                self.ea.clear()
-                self.ea.find_by_address(data['mngdby_address'])
-                self.et.clear()
-                self.et.find(self.ea.get_target_id())
-                if self.et.email_target_entity_type == self.co.entity_group:
-                    self.gr.clear()
-                    self.gr.find(self.et.email_target_entity_id)
-                    manager = self.gr.group_name
-                elif (self.et.email_target_entity_type ==
-                        self.co.entity_account):
-                    self.ac.clear()
-                    self.ac.find(self.et.email_target_entity_id)
-                    manager = self.ac.account_name
-                else:
-                    raise Exception
-            except:
-                manager = u'Unknown'
-
             tmp[self.dg.group_name] = {
                 u'Description': self.dg.description,
                 u'DisplayName': data['displayname'],
-                u'ManagedBy': [manager],
             }
 
             if not roomlist:

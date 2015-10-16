@@ -1168,19 +1168,20 @@ class ExchangeEventHandler(processing.Process):
                     self.ut.log_event(ev_mod, 'dlgroup:modhidden')
 
             # Set manager
+            mngdby_address = cereconf.DISTGROUP_DEFAULT_ADMIN
             try:
-                self.ec.set_distgroup_manager(gname, data['mngdby_address'])
+                self.ec.set_distgroup_manager(gname, mngdby_address)
                 self.logger.info(
                     'eid:%d: Set manager of %s to %s',
-                    event['event_id'], gname, data['mngdby_address'])
+                    event['event_id'], gname, mngdby_address)
                 self.ut.log_event_receipt(event, 'dlgroup:modmanby')
             except ExchangeException, e:
                 self.logger.warn(
                     'eid:%d: Can\'t set manager of %s to %s: %s',
-                    event['event_id'], gname, data['mngdby_address'], e)
+                    event['event_id'], gname, mngdby_address, e)
                 ev_mod = event.copy()
                 ev_mod['change_params'] = pickle.dumps(
-                    {'manby': data['mngdby_address']})
+                    {'manby': mngdby_address})
                 self.ut.log_event(ev_mod, 'dlgroup:modmanby')
             tmp_fail = False
             # Set displayname
@@ -1500,11 +1501,12 @@ class ExchangeEventHandler(processing.Process):
         gname, description = self.ut.get_group_information(
                                                         event['subject_entity'])
         params = self.ut.unpickle_event_params(event)
+        mngdby_address = cereconf.DISTGROUP_DEFAULT_ADMIN
         try:
-            self.ec.set_distgroup_manager(gname, params['manby'])
+            self.ec.set_distgroup_manager(gname, mngdby_address)
             # TODO: Better logging
             self.logger.info('eid:%d: Setting manager %s for %s',
-                             event['event_id'], params['manby'], gname)
+                             event['event_id'], mngdby_address, gname)
 
             # Log a reciept that represents completion of the operation
             # in ChangeLog.
@@ -1512,7 +1514,7 @@ class ExchangeEventHandler(processing.Process):
             self.ut.log_event_receipt(event, 'dlgroup:modmanby')
         except ExchangeException, e:
             self.logger.warn('eid:%d: Failed to set manager %s for %s: %s',
-                             event['event_id'], params['manby'], gname, e)
+                             event['event_id'], mngdby_address, gname, e)
             raise EventExecutionException
 
     @EventDecorator.RegisterHandler(['dlgroup:moddepres', 'dlgroup:modjoinre'])

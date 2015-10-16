@@ -337,7 +337,6 @@ class DistributionGroup(Group_class):
         ed = Email.EmailDomain(self._db)
         et = Email.EmailTarget(self._db)
         epat = Email.EmailPrimaryAddressTarget(self._db)
-        mngdby_address = ""
         primary_address = ""
         display_name = ""
         name_language = ""
