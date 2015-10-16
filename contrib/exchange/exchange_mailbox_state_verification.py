@@ -156,16 +156,12 @@ class StateChecker(object):
 
         data = []
 
-        control_types = [
-            k for k, v in
-            ldap.controls.libldap.KNOWN_RESPONSE_CONTROLS.iteritems()
-            if v == ldap.controls.SimplePagedResultsControl]
+        ctrltype = ldap.controls.SimplePagedResultsControl.controlType
         while True:
             time.sleep(1)
             rtype, rdata, rmsgid, sc = self._recvr(msgid)
             data.extend(rdata)
-            pctrls = [c for c in sc if
-                      c.controlType in control_types]
+            pctrls = [c for c in sc if c.controlType == ctrltype]
             if pctrls:
                 cookie = pctrls[0].cookie
                 if cookie:
