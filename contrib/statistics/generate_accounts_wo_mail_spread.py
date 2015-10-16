@@ -216,10 +216,8 @@ def main():
     if args.excluded_groups is not None:
         excluded_groups.extend(args.excluded_groups.split(','))
 
-    print args
     logger.info(('Reporting accounts with email_target of type "account", '
                 'without spread: %s ' % args.spread))
-    print excluded_groups
     accounts = get_accs_with_missing_mail_spread(logger,
                                                  args.spread,
                                                  args.include_expired,
