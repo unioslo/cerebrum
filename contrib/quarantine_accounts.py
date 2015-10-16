@@ -237,6 +237,10 @@ def find_candidates(exclude_aff=[], grace=0, quarantine=None):
         Defines a grace period for when affiliations are still considered
         active, after their end period.
 
+    :param None/QuarantineCode/sequence(QuarantineCode) quarantine:
+        If not None, will filter the `quarantined` return value only to have
+        these quarantines.
+
     :rtype: dict
     :return:
         Three elements are included in the dict:
