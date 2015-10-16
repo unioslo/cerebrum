@@ -274,7 +274,7 @@ class StateChecker(object):
             try:
                 tid = self._cache_targets[acc['account_id']]['target_id']
             except KeyError:
-                self.logger.warn('Could not find account with id: %d in list '
+                self.logger.warn('Could not find account with id:%d in list '
                                  'of targets, skipping..' % acc['account_id'])
                 continue
             # Fetch addresses
