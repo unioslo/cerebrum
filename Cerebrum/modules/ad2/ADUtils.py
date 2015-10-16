@@ -506,7 +506,7 @@ class ADclient(PowershellClient):
                 first_round = False
             yield code, out
 
-    def start_list_objects(self, ou, attributes, object_class):
+    def start_list_objects(self, ou, attributes, object_class, names=[]):
         """Start to search for objects in AD, but do not retrieve the data yet.
 
         The server is asked to generate a list of the objects, and returns an ID
@@ -544,7 +544,12 @@ class ADclient(PowershellClient):
                                  for a in attributes],
                   }
         cmd = 'Get-ADObject'
-        filter = "Filter {objectClass -eq '%s'}" % object_class
+        if names:
+            filter = "Filter {objectClass -eq '%s' -and (%s)}" % (
+                object_class, ' -or '.join(["%s -eq '%s'" % ('name', name)
+                                            for name in names]))
+        else:
+            filter = "Filter {objectClass -eq '%s'}" % object_class
         # User objects requires special care, as Get-ADObject will not return
         # the attribute Enabled, and also, the filtering by objectclass='user'
         # also includes computer objects for some reason. See
@@ -1339,6 +1344,55 @@ class ADclient(PowershellClient):
                         'Set-ADObject',
                         {'Identity': groupid,
                          'Remove': {attribute_name: members}})
+        if self.dryrun:
+            return True
+        output = self.run(cmd)
+        return not output.get('stderr')
+
+    def add_group_members(self, group_id, member_ids):
+        """ Adds members from AD-group.
+
+        Command will succeed, even if one or all member IDs are already members
+        of the group.
+
+        :param str group_id: The AD-group DN or GUID.
+        :param list member_ids: A list of AD-account DNs or GUIDs.
+
+        :return bool: True on success, False on failure.
+        """
+        if type(member_ids) != list:
+            member_ids = [member_ids, ]
+        self.logger.debug("Removing %d members for group: %s",
+                          len(member_ids), group_id)
+        cmd = self._generate_ad_command(
+            'Add-ADGroupMember',
+            {'Identity': group_id,
+             'Members': ','.join(["%s" % i for i in member_ids])})
+        if self.dryrun:
+            return True
+        output = self.run(cmd)
+        return not output.get('stderr')
+
+    def remove_group_members(self, group_id, member_ids):
+        """ Removes members from AD-group.
+
+        Command will succeed, even if one or all account IDs aren't members of
+        the group.
+
+        :param str group_id: The AD-group DN or GUID.
+        :param list member_ids: A list of AD-account DNs or GUIDs.
+
+        :return bool: True on success, False on failure.
+        """
+        if type(member_ids) != list:
+            member_ids = [member_ids, ]
+        self.logger.debug("Removing %d members for group: %s",
+                          len(member_ids), group_id)
+        cmd = self._generate_ad_command(
+            'Remove-ADGroupMember',
+            {'Identity': group_id,
+             'Members': ','.join(["%s" % i for i in member_ids])},
+            ('Confirm:$false', ))
         if self.dryrun:
             return True
         output = self.run(cmd)
