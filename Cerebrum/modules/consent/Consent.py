@@ -219,7 +219,7 @@ class EntityConsentMixin(Entity):
                 argument_to_sql(consent_type, 'consent_type', args, int))
         if entity_id:
             filters.add(
-                argument_to_sql(entity_id, 'entity_id', args, int))
+                argument_to_sql(entity_id, 'entity_id', args))
         if filter_expired:
             filters.add('(expiry is null or expiry < [:now])')
         sql = """SELECT entity_consent.*
