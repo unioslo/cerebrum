@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2003-2009 University of Oslo, Norway
+# Copyright 2003-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -51,7 +51,6 @@ default_spam_level = 9999
 default_spam_action = 0
 mail_dn = ldapconf('MAIL', 'dn')
 
-
 def dict_to_ldif_string(d):
     """Stringify a dict LDIF-style.
 
@@ -97,7 +96,7 @@ def write_ldif():
         t = int(row['target_id'])
         if verbose > 1:
             logger.debug("Processing target id=%d", t)
-        if not ldap.targ2addr.has_key(t):
+        if t not in ldap.targ2addr:
             # There are no addresses for this target; hence, no mail
             # can reach it.  Move on.
             if verbose > 1:
@@ -137,7 +136,7 @@ def write_ldif():
             target = ""
             home = ""
             if et == co.entity_account:
-                if ldap.acc2name.has_key(ei):
+                if ei in ldap.acc2name:
                     target, home = ldap.acc2name[ei]
                 else:
                     logger.warn("Target id=%s (type %s): no user id=%s found",
@@ -149,13 +148,13 @@ def write_ldif():
                 continue
 
             # Find quota-settings:
-            if ldap.targ2quota.has_key(t):
+            if t in ldap.targ2quota:
                 soft, hard = ldap.targ2quota[t]
                 rest += "softQuota: %s\n" % soft
                 rest += "hardQuota: %s\n" % hard
 
             # Find vacations-settings:
-            if ldap.targ2vacation.has_key(t):
+            if t in ldap.targ2vacation:
                 txt, start, end = ldap.targ2vacation[t]
                 rest += "tripnote:: %s\n" % \
                         base64.encodestring(txt or "<No message>\n"
@@ -197,7 +196,7 @@ def write_ldif():
             # the error message returned to the sender.  The text
             # is taken from email_target.alias_value
             if et == co.entity_account:
-                if ldap.acc2name.has_key(ei):
+                if ei in ldap.acc2name:
                     target = ldap.acc2name[ei][0]
             if alias:
                 rest += "forwardDestination: %s\n" % alias
@@ -236,7 +235,7 @@ def write_ldif():
                 continue
 
             if run_as_id is not None:
-                if ldap.acc2name.has_key(run_as_id):
+                if run_as_id in ldap.acc2name:
                     uid = ldap.acc2name[run_as_id][0]
                 else:
                     logger.warn("Target id=%s (type %s) no user id=%s found",
@@ -289,19 +288,28 @@ def write_ldif():
             f.write(rest)
 
         # Find primary mail-address:
-        if ldap.targ2prim.has_key(t):
-            if ldap.aid2addr.has_key(ldap.targ2prim[t]):
-                f.write("defaultMailAddress: %s\n" % ldap.aid2addr[ldap.targ2prim[t]])
+        primary_address = None
+        if t in ldap.targ2prim:
+            if ldap.targ2prim[t] in ldap.aid2addr:
+                primary_address = ldap.aid2addr[ldap.targ2prim[t]]
+                f.write("defaultMailAddress: %s\n" % primary_address)
             else:
-                logger.debug("Strange: target id=%d, targ2prim[t]: %d, but no aid2addr",
-                             t, ldap.targ2prim[t])
+                logger.warning("Strange: target id=%d, targ2prim[t]: %d, but no aid2addr",
+                               t, ldap.targ2prim[t])
 
         # Find addresses for target:
         for a in ldap.targ2addr[t]:
             f.write("mail: %s\n" % a)
 
         # Find forward-settings:
-        if ldap.targ2forward.has_key(t):
+        if t in ldap.targ2forward:
+            if tt == co.email_target_account and t in ldap.targ2localdelivery:
+                if primary_address:
+                    f.write("forwardDestination: %s\n" % primary_address)
+                else:
+                    logger.warning("Missing primary address when setting local delivery"
+                                   " for account_id:%s target_id:%s",
+                                   ldap.targ2prim.get(t), t)
             for addr in ldap.targ2forward[t]:
                 # Skip local forward addresses when the account is deleted, else
                 # they will create an unnecessary bounce message.
@@ -310,7 +318,7 @@ def write_ldif():
                 f.write("forwardDestination: %s\n" % addr)
 
         # Find spam-settings:
-        if ldap.targ2spam.has_key(t):
+        if t in ldap.targ2spam:
             level, action = ldap.targ2spam[t]
             f.write("spamLevel: %s\n" % level)
             f.write("spamAction: %s\n" % action)
@@ -325,14 +333,13 @@ def write_ldif():
 
         # Populate auth-data:
         if auth and tt == co.email_target_account:
-            if ldap.e_id2passwd.has_key(ei):
+            if ei in ldap.e_id2passwd:
                 passwd = ldap.e_id2passwd[ei]
                 if not passwd:
                     passwd = "*invalid"
                 f.write("userPassword: {crypt}%s\n" % passwd)
             else:
-                txt = "No auth-data for user: %s\n" % (target or ei)
-                logger.error(txt)
+                logger.error("No auth-data for user: %s\n" % (target or ei))
 
         misc = ldap.get_misc(row)
         if misc:
@@ -380,6 +387,11 @@ def get_data(spread):
         logger.debug("Starting read_forward()...")
         curr = now()
     ldap.read_forward()
+    if verbose:
+        logger.debug("  done in %d sec." % (now() - curr))
+        logger.debug("Starting read_local_delivery()...")
+        curr = now()
+    ldap.read_local_delivery()
     if verbose:
         logger.debug("  done in %d sec." % (now() - curr))
         logger.debug("Starting read_accounts()...")

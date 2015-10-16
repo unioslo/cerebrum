@@ -60,6 +60,7 @@ class EmailLDAP(DatabaseAccessor):
         self.serv_id2server = {}
         self.targ2server_id = {}
         self.targ2forward = defaultdict(list)
+        self.targ2localdelivery = set()
         self.targ2vacation = {}
         self.acc2name = {}
         self.pending = {}
@@ -200,6 +201,10 @@ class EmailLDAP(DatabaseAccessor):
         mail_forw = Email.EmailForward(self._db)
         for row in mail_forw.search(enable=True):
             self.targ2forward[int(row['target_id'])].append(row['forward_to'])
+
+    def read_local_delivery(self):
+        mail_forw = Email.EmailForward(self._db)
+        self.targ2localdelivery = set([x['target_id'] for x in mail_forw.list_local_delivery()])
 
     def read_vacation(self):
         mail_vaca = Email.EmailVacation(self._db)
