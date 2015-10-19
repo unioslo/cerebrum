@@ -40,9 +40,6 @@ from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum import Errors
 
 
-
-
-
 class BaseVirtHomeAccount(Account,
                           EntityTrait):
     """Common functionality for VirtHome accounts.

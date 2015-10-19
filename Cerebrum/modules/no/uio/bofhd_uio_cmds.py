@@ -41,8 +41,8 @@ from Cerebrum.Constants import _CerebrumCode, _SpreadCode, _LanguageCode
 from Cerebrum import Utils
 from Cerebrum.modules import Email
 from Cerebrum.modules.Email import _EmailDomainCategoryCode
-from Cerebrum.modules import PasswordChecker
-from Cerebrum.modules import PasswordHistory
+from Cerebrum.modules.pwcheck.history import PasswordHistory
+from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
@@ -6663,12 +6663,11 @@ Addresses and settings:
     all_commands['misc_check_password'] = Command(
         ("misc", "check_password"), AccountPassword())
     def misc_check_password(self, operator, password):
-        pc = PasswordChecker.PasswordChecker(self.db)
-        try:
-            pc.goodenough(None, password, uname="foobar")
-        except PasswordChecker.PasswordGoodEnoughException, m:
-            raise CerebrumError, "Bad password: %s" % m
         ac = self.Account_class(self.db)
+        try:
+            ac.password_good_enough(password)
+        except PasswordNotGoodEnough, m:
+            raise CerebrumError("Bad password: %s" % m)
         crypt = ac.encrypt_password(self.const.Authentication("crypt3-DES"),
                                     password)
         md5 = ac.encrypt_password(self.const.Authentication("MD5-crypt"),
@@ -7534,10 +7533,10 @@ Addresses and settings:
         self.ba.can_set_password(operator.get_entity_id(), ac)
         if ac.verify_auth(password):
             return "Password is correct"
-        ph = PasswordHistory.PasswordHistory(self.db)
-        hash = ph.encode_for_history(ac, password)
+        ph = PasswordHistory(self.db)
+        histhash = ph.encode_for_history(ac.account_name, password)
         for r in ph.get_history(ac.entity_id):
-            if hash == r['md5base64']:
+            if histhash == r['md5base64']:
                 return ("The password is obsolete, it was set on %s" %
                         r['set_at'])
         return "Incorrect password"
@@ -9863,8 +9862,8 @@ Addresses and settings:
                 raise CerebrumError(
                     "Cannot specify password for another user.")
         try:
-            account.goodenough(account, password)
-        except PasswordChecker.PasswordGoodEnoughException, m:
+            account.password_good_enough(password)
+        except PasswordNotGoodEnough, m:
             raise CerebrumError("Bad password: %s" % m)
         account.set_password(password)
         account.write_db()

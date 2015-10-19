@@ -41,6 +41,7 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hine import PasswordChecker
+from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
@@ -259,25 +260,27 @@ class BofhdExtension(BofhdCommonMethods):
         operator.store_state("new_account_passwd", {'account_id': int(account.entity_id),
                                                     'password': passwd})
         return {'account_id': int(account.entity_id)}
-    
+
     # misc check_password
     all_commands['misc_check_password'] = Command(
         ("misc", "check_password"), AccountPassword())
     def misc_check_password(self, operator, password):
-        pc = PasswordChecker.HiNePasswordChecker(self.db)
-        try:
-            pc.goodenough(None, password, uname="foobar")
-        except PasswordChecker.PasswordGoodEnoughException, m:
-            raise CerebrumError, "Bad password: %s" % m
         ac = self.Account_class(self.db)
-        crypt = ac.encrypt_password(self.const.Authentication("crypt3-DES"),
-                                    password)
-        md5 = ac.encrypt_password(self.const.Authentication("MD5-crypt"),
-                                  password)
-        sha256 = ac.encrypt_password(self.const.auth_type_sha256_crypt, password)
-        sha512 = ac.encrypt_password(self.const.auth_type_sha512_crypt, password)
-        return ("OK.\n  crypt3-DES:   %s\n  MD5-crypt:    %s\n" % (crypt, md5) +
-                "  SHA256-crypt: %s\n  SHA512-crypt: %s" % (sha256, sha512))
+        try:
+            ac.password_good_enough(password)
+        except PasswordNotGoodEnough, m:
+            raise CerebrumError("Bad password: %s" % m)
+        crypt = ac.encrypt_password(
+            self.const.Authentication("crypt3-DES"), password)
+        md5 = ac.encrypt_password(
+            self.const.Authentication("MD5-crypt"), password)
+        sha256 = ac.encrypt_password(
+            self.const.auth_type_sha256_crypt, password)
+        sha512 = ac.encrypt_password(
+            self.const.auth_type_sha512_crypt, password)
+        return ("OK.\n  crypt3-DES:   %s\n  MD5-crypt:    %s\n"
+                "  SHA256-crypt: %s\n  SHA512-crypt: %s") % (
+                    crypt, md5, sha256, sha512)
 
     def _person_affiliation_add_helper(self, operator, person, ou, aff, aff_status):
         """Helper-function for adding an affiliation to a person with
@@ -295,8 +298,8 @@ class BofhdExtension(BofhdCommonMethods):
                 if a['status'] == aff_status:
                     has_aff = True
                 elif a['source_system'] == self.const.system_manual:
-                    raise CerebrumError, ("Person has conflicting aff_status "
-                                          "for this OU/affiliation combination")
+                    raise CerebrumError("Person has conflicting aff_status "
+                                        "for this OU/affiliation combination")
         if not has_aff:
             self.ba.can_add_affiliation(operator.get_entity_id(),
                                         person, ou, aff, aff_status)
