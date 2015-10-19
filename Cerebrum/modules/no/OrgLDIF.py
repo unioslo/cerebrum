@@ -239,6 +239,7 @@ class norEduLDIFMixin(OrgLDIF):
         if ldapconf('PERSON', 'entitlements_pickle_file') and person_id in self.person2entitlements:
             entry['eduPersonEntitlement'] = self.person2entitlements[person_id]
 
+        entry['objectClass'].append('schacContactLocation')
         entry['schacHomeOrganization'] = self.homeOrg
 
         return dn, entry, alias_info
