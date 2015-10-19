@@ -156,7 +156,7 @@ class AccountHiOfMixin(Account.Account):
             pass
         epat = Email.EmailPrimaryAddressTarget(self._db)
         for domain in domains:
-            if ed.email_domain_name <> domain:
+            if ed.email_domain_name != domain:
                 ed.clear()
                 ed.find_by_domain(domain)
             # Check for 'cnaddr' category before 'uidaddr', to prefer
@@ -175,7 +175,7 @@ class AccountHiOfMixin(Account.Account):
                 ea.clear()
                 try:
                    ea.find_by_local_part_and_domain(lp, ed.entity_id)
-                   if ea.email_addr_target_id <> et.entity_id:
+                   if ea.email_addr_target_id != et.entity_id:
                        # Address already exists, and points to a
                        # target not owned by this Account.
                        continue

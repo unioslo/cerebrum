@@ -159,7 +159,7 @@ class BofhdExtension(BofhdCommonMethods):
     external_id_mappings = {}
 
     # This little class is used to store connections to the LDAP servers, and
-    # the LDAP modules needed. 
+    # the LDAP modules needed. The reason for doing things like this instead
     # instead of importing the LDAP module for the entire bofhd_uio_cmds,
     # are amongst others:
     # 1. bofhd_uio_cmds is partially used at other institutions in some form,
@@ -245,7 +245,7 @@ class BofhdExtension(BofhdCommonMethods):
             # I don't think connect_ex() can ever return success immediately,
             # it has to wait for a roundtrip.
             assert err
-            if err <> errno.EINPROGRESS:
+            if err != errno.EINPROGRESS:
                 raise ConnectException(errno.errorcode[err])
 
             ignore, wset, ignore = select.select([], [self.sock], [], 1.0)
@@ -726,7 +726,7 @@ class BofhdExtension(BofhdCommonMethods):
 
 
     def _get_access_id_global_group(self, group):
-        if group is not None and group <> "":
+        if group is not None and group != "":
             raise CerebrumError, "Cannot set domain for global access"
         return None, self.const.auth_target_type_global_group, None
     def _validate_access_global_group(self, opset, attr):
@@ -748,7 +748,7 @@ class BofhdExtension(BofhdCommonMethods):
                 raise CerebrumError, ("Syntax error in regexp: %s" % e)
 
     def _get_access_id_global_host(self, target_name):
-        if target_name is not None and target_name <> "":
+        if target_name is not None and target_name != "":
             raise CerebrumError, ("You can't specify a hostname")
         return None, self.const.auth_target_type_global_host, None
     def _validate_access_global_host(self, opset, attr):
@@ -765,7 +765,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError, ("No attribute with maildom.")
 
     def _get_access_id_global_maildom(self, dom):
-        if dom is not None and dom <> '':
+        if dom is not None and dom != '':
             raise CerebrumError, "Cannot set domain for global access"
         return None, self.const.auth_target_type_global_maildomain, None
     def _validate_access_global_maildom(self, opset, attr):
@@ -1169,13 +1169,13 @@ class BofhdExtension(BofhdCommonMethods):
             dest_et.find_by_target_entity(dest_acc.entity_id)
         except Errors.NotFoundError:
             raise CerebrumError, "Account %s has no e-mail target" % dest
-        if dest_et.email_target_type <> self.const.email_target_account:
+        if dest_et.email_target_type != self.const.email_target_account:
             raise CerebrumError, ("Can't reassign e-mail address to target "+
                                   "type %s") % self.const.EmailTarget(ttype)
         if source_et.entity_id == dest_et.entity_id:
             return "%s is already connected to %s" % (address, dest)
-        if (source_acc.owner_type <> dest_acc.owner_type or
-            source_acc.owner_id <> dest_acc.owner_id):
+        if (source_acc.owner_type != dest_acc.owner_type or
+            source_acc.owner_id != dest_acc.owner_id):
             raise CerebrumError, ("Can't reassign e-mail address to a "+
                                   "different person.")
 
@@ -2321,7 +2321,7 @@ class BofhdExtension(BofhdCommonMethods):
         lp, dom = self._split_email_address(addr, with_checks=False)
         ed = self._get_email_domain(dom)
         et, acc = self._get_email_target_and_account(addr)
-        if et.email_target_type <> self.const.email_target_pipe:
+        if et.email_target_type != self.const.email_target_pipe:
             raise CerebrumError, "%s: Not an archive target" % addr
         # we can imagine passing along the name of the mailing list
         # to the auth function in the future.
@@ -2676,7 +2676,7 @@ class BofhdExtension(BofhdCommonMethods):
             return "OK, %d accounts updated" % count
         else:
             old_dom = eed.entity_email_domain_id
-            if old_dom <> ed.entity_id:
+            if old_dom != ed.entity_id:
                 eed.entity_email_domain_id = ed.entity_id
                 eed.write_db()
                 count = self._update_email_for_ou(ou.entity_id, aff_id)
@@ -2726,7 +2726,7 @@ class BofhdExtension(BofhdCommonMethods):
             eed.find(ou.entity_id, aff_id)
         except Errors.NotFoundError:
             raise CerebrumError, "No such affiliation for domain"
-        if eed.entity_email_domain_id <> ed.entity_id:
+        if eed.entity_email_domain_id != ed.entity_id:
             raise CerebrumError, "No such affiliation for domain"
         eed.delete()
         return "OK, removed domain-affiliation for '%s'" % domainname
@@ -4104,9 +4104,9 @@ Addresses and settings:
         lp, dom = self._split_email_address(addr)
         ed = self._get_email_domain(dom)
         et, acc = self._get_email_target_and_account(addr)
-        if et.email_target_type <> self.const.email_target_multi:
+        if et.email_target_type != self.const.email_target_multi:
             raise CerebrumError, "%s: Not a multi target" % addr
-        if et.email_target_entity_type <> self.const.entity_group:
+        if et.email_target_entity_type != self.const.entity_group:
             raise CerebrumError, "%s: Does not point to a group!" % addr
         gr = self._get_group(et.email_target_entity_id, idtype="id")
         self.ba.can_email_multi_delete(operator.get_entity_id(), ed, gr)
@@ -4119,7 +4119,7 @@ Addresses and settings:
         else:
             # but if one exists, we require the user to supply that
             # address, not an arbitrary alias.
-            if addr <> self._get_address(epat):
+            if addr != self._get_address(epat):
                 raise CerebrumError, ("%s is not the primary address of "+
                                       "the target") % addr
             epat.delete()
@@ -4421,7 +4421,7 @@ Addresses and settings:
             if r['spread'] == int(self.const.spread_uio_imap):
                 raise CerebrumError, "%s is already an IMAP user" % uname
         acc.add_spread(self.const.spread_uio_imap)
-        if op <> acc.entity_id:
+        if op != acc.entity_id:
             # the local sysadmin should get a report as well, if
             # possible, so change the request add_spread() put in so
             # that he is named as the requestee.  the list of requests

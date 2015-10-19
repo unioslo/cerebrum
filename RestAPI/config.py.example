@@ -1,0 +1,31 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import cereconf
+
+DEBUG = True
+
+PORT = 5000
+HOST = 'localhost'
+
+APPNAME = u"cerebrum-rest"
+
+
+AUTH = [
+    {
+        'name': 'CertAuth',
+        'certs': {
+            '1a56e3bfd0a0974110894a73fa2ad31897dbf76d': 'bootstrap_account',
+        }
+    },
+    {
+        'name': 'BasicAuth',
+        'realm': cereconf.INSTITUTION_DOMAIN_NAME,
+        'challenge': True,
+    },
+    #{
+    #    'name': 'HeaderAuth',
+    #    'header': 'Foo',
+    #    'values': ['Bar', 'Baz', ],
+    #},
+]

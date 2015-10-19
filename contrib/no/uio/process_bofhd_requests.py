@@ -26,11 +26,11 @@ import imaplib
 import mx
 import os
 import pickle
-import popen2
 import re
 import sys
 import time
 import socket
+import subprocess
 from select import select
 
 import cerebrum_path
@@ -55,7 +55,7 @@ logger = Factory.get_logger("bofhd_req")
 max_requests = 999999
 ou_perspective = None
 
-SSH_CMD = "/local/bin/ssh"
+SSH_CMD = "/usr/bin/ssh"
 SUDO_CMD = "sudo"
 SSH_CEREBELLUM = [SSH_CMD, "cerebrum@cerebellum"]
 
@@ -407,13 +407,15 @@ def email_move_child(host, r):
            '--useheader', 'Message-ID',
            '--regexmess', 's/\\0/ /g',
            '--ssl', '--subscribe', '--nofoldersizes']
-    proc = popen2.Popen3(cmd, capturestderr=True, bufsize=10240)
+    proc = subprocess.Popen(cmd, capturestderr=True, bufsize=10240,
+                            close_fds=True, stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     pid = proc.pid
     logger.debug("Called cmd(%d): '%s'", pid, cmd)
-    proc.tochild.close()
+    proc.stdin.close()
     # Stolen from Utils.py:spawn_and_log_output()
-    descriptor = {proc.fromchild: logger.debug,
-                  proc.childerr: logger.info}
+    descriptor = {proc.stdout: logger.debug,
+                  proc.stderr: logger.info}
     while descriptor:
         # select() is called for _every_ line, since we can't inspect
         # the buffering in Python's file object.  This works OK since
@@ -583,7 +585,7 @@ def cyrus_delete(host, uname, generation):
         logger.error("bofh_email_delete: %s: %s" % (host.name, e))
         return False
     res, listresp = cyradm.list("user.", pattern=uname)
-    if res <> 'OK' or listresp[0] == None:
+    if res != 'OK' or listresp[0] == None:
         logger.error("bofh_email_delete: %s: no mailboxes", uname)
         cyradm.logout()
         return True
@@ -603,7 +605,7 @@ def cyrus_delete(host, uname, generation):
         logger.debug("deleting %s ... ", folder)
         cyradm.setacl(folder, cereconf.CYRUS_ADMIN, 'c')
         res = cyradm.delete(folder)
-        if res[0] <> 'OK':
+        if res[0] != 'OK':
             logger.error("IMAP delete %s failed: %s", folder, res[1])
             cyradm.logout()
             return False

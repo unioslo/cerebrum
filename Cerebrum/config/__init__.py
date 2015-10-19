@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,9 +27,28 @@ Cerebrum's common configuration is mostly put into a local file named:
     cereconf.py
 
 To avoid putting too much settings into L{cereconf}, the various Cerebrum
-modules should have their own config files, if they require more than just a few
-configuration variables. Examples are adconf.py and cisconf. Modules with their
-own config settings should then also have their own default config file, which
-should exist in this directory.
-
+modules should have their own config files, if they require more than just a
+few configuration variables. Examples are adconf.py and cisconf. Modules with
+their own config settings should then also have their own default config file,
+which should exist in this directory.
 """
+
+
+def get_config(component):
+    """Return instantiated config for a component.
+
+    >>> from Cerebrum.config import get_config
+    >>> conf = get_config(__name__.split('.')[-1])
+    >>> MyStuff(conf)
+    """
+    # TODO: Snarf component name from caller?
+    import json
+    import os
+    import cereconf
+    if not os.path.exists(component):
+        fname = os.path.join(cereconf.CONFIG_PATH, component)
+    else:
+        fname = component
+
+    with open(fname, 'r') as f:
+        return json.load(f)

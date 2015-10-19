@@ -57,11 +57,9 @@ import traceback
 import getopt
 import os
 
-import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory, dyn_import
 from Cerebrum import Metainfo
-from Cerebrum import Errors
 import Cerebrum
 
 all_ok = True
@@ -309,6 +307,9 @@ def check_schema_versions(db, strict=False):
         'dns': 'Cerebrum.modules.dns',
         'email': 'Cerebrum.modules.Email',
         'entity_trait': 'Cerebrum.modules.EntityTrait',
+        'eventlog': 'Cerebrum.modules.EventLog',
+        'event-publisher': 'Cerebrum.modules.event_publisher',
+        'hostpolicy': 'Cerebrum.modules.hostpolicy',
         'note': 'Cerebrum.modules.Note',
         'password_history': 'Cerebrum.modules.pwcheck.history',
         'posixuser': 'Cerebrum.modules.PosixUser',
@@ -319,9 +320,10 @@ def check_schema_versions(db, strict=False):
     for name, value in meta.list():
         if name == Metainfo.SCHEMA_VERSION_KEY:
             if not Cerebrum._version == value:
-                print "WARNING: cerebrum version %s does not match schema version %s" % (
-                    "%d.%d.%d" % Cerebrum._version,
-                    "%d.%d.%d" % value)
+                print("WARNING: cerebrum version %s does not"
+                      " match schema version %s" % (
+                          "%d.%d.%d" % Cerebrum._version,
+                          "%d.%d.%d" % value))
                 if strict:
                     exit(1)
         elif name.startswith('sqlmodule_'):
@@ -337,9 +339,10 @@ def check_schema_versions(db, strict=False):
                 print "ERROR: can't find version of module %s: %s" % (
                     name, e)
                 continue
-            if not module.__version__ == value:
-                print "WARNING: module %s version %s does not match schema version %s" % (
-                    name, module.__version__, value)
+            if not version == value:
+                print("WARNING: module %s version %s does"
+                      " not match schema version %s" %
+                      (name, version, value))
                 if strict:
                     exit(1)
         else:
@@ -442,7 +445,7 @@ def parsefile(fname):
             continue
 
         # Handle functions correctly, as they might contain semi-colons
-        if 'FUNCTION' in x and not 'DROP FUNCTION' in x:
+        if 'FUNCTION' in x and 'DROP FUNCTION' not in x:
             function_join_mode = True
             join_str += x
         elif 'LANGUAGE' in x:
@@ -499,8 +502,8 @@ def runfile(fname, db, debug, phase):
         if state == NO_CATEGORY:
             (type_id, for_phase) = stmt.split(":", 1)
             if type_id != 'category':
-                raise ValueError, \
-                    "Illegal type_id in file %s: %s" % (fname, type_id)
+                raise ValueError("Illegal type_id in file %s: %s" %
+                                 (fname, type_id))
             for_rdbms = None
             if for_phase == 'metainfo':
                 state = SET_METAINFO
@@ -566,8 +569,8 @@ def runfile(fname, db, debug, phase):
         meta.set_metainfo(name, version)
         db.commit()
     if state != NO_CATEGORY:
-        raise ValueError, \
-            "Found more category specs than statements in file %s." % fname
+        raise ValueError("Found more category specs than statements in file %s."
+                         % fname)
     if output_col is not None:
         print
 

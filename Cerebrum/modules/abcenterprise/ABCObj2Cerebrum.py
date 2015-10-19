@@ -141,8 +141,8 @@ class ABCObj2Cerebrum(object):
         Verify that the file is an accepted file."""
         
         # Verify the XML-file 
-        if self.sett.variables['datasource'] <> abcconf.SOURCE['datasource'] or \
-           self.sett.variables['target'] <> abcconf.SOURCE['target']:
+        if self.sett.variables['datasource'] != abcconf.SOURCE['datasource'] or \
+           self.sett.variables['target'] != abcconf.SOURCE['target']:
             raise ABCConfigError, "datasource and/or target doesn't match." 
 
     def parse_orgs(self, iterator):
@@ -258,7 +258,7 @@ class ABCObj2Cerebrum(object):
                     if type == "memberof":
                         self._o2c.add_group_member(sub, o, ob)
                     elif type == "affiliation":
-                        if len(rest) <> 1:
+                        if len(rest) != 1:
                             raise ABCDataError, "error in 'rest'"
                         status = abcconf.AFF_STATUS[rest[0]]
                         self._o2c.add_person_affiliation(sub, ob, rest[0], status)

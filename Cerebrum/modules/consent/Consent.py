@@ -78,7 +78,7 @@ respectively. The last is sent when consent is removed.
 import Cerebrum.Constants as cereconst
 from Cerebrum.Entity import Entity
 from Cerebrum.Errors import PolicyException
-from Cerebrum.Utils import NotSet
+from Cerebrum.Utils import NotSet, argument_to_sql
 
 
 __version__ = "1.0"
@@ -186,14 +186,20 @@ class EntityConsentMixin(Entity):
                       filter_expired=True):
         """List all entities filtered by argument.
 
+        Note: consent_code, entity_type, consent_type and entity_id can also be
+        a tuple, set or list of the type specified below.
+
         :type consent_code: Constants.EntityConsent
-        :param consent_code: The consent code corresponding to proposition.
+        :param consent_code: The consent code(s) corresponding to proposition.
 
         :type entity_type: Constants.EntityType
-        :param entity_type: Filter for entity_type (part of consent code).
+        :param entity_type: Filter for entity_type(s) (part of consent code).
+
+        :type consent_type: Constants.ConsentType
+        :param consent_type: The type(s) of consents to list.
 
         :type entity_id: int
-        :param entity_id: List consents for this entity.
+        :param entity_id: List consents for given entity(ies).
 
         :type filter_expired: Bool
         :param filter_expired: Iff true, remove expired consents.
@@ -203,17 +209,17 @@ class EntityConsentMixin(Entity):
         filters = set()
         args = {}
         if consent_code:
-            filters.add('consent_code = :consent_code')
-            args['consent_code'] = int(consent_code)
+            filters.add(
+                argument_to_sql(consent_code, 'consent_code', args, int))
         if entity_type:
-            filters.add('entity_type = :entity_type')
-            args['entity_type'] = int(entity_type)
+            filters.add(
+                argument_to_sql(entity_type, 'entity_type', args, int))
         if consent_type:
-            filters.add('consent_type = :consent_type')
-            args['consent_type'] = int(consent_type)
+            filters.add(
+                argument_to_sql(consent_type, 'consent_type', args, int))
         if entity_id:
-            filters.add('entity_id = :entity_id')
-            args['entity_id'] = entity_id
+            filters.add(
+                argument_to_sql(entity_id, 'entity_id', args))
         if filter_expired:
             filters.add('(expiry is null or expiry < [:now])')
         sql = """SELECT entity_consent.*

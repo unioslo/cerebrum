@@ -26,6 +26,7 @@ import getopt
 
 import cerebrum_path
 import cereconf
+from os.path import join as pj
 from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.extlib import xmlprinter
@@ -33,16 +34,16 @@ from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
 from Cerebrum.modules.no.nih.access_FS import FS
 from Cerebrum.Utils import Factory
 
-default_person_file = "/cerebrum/nih/dumps/FS/person.xml"
-default_role_file = "/cerebrum/nih/dumps/FS/roles.xml"
-default_undvenh_file = "/cerebrum/nih/dumps/FS/underv_enhet.xml"
-default_undenh_student_file = "/cerebrum/nih/dumps/FS/student_undenh.xml"
-default_studieprogram_file = "/cerebrum/nih/dumps/FS/studieprog.xml"
-default_ou_file = "/cerebrum/nih/dumps/FS/ou.xml"
-default_emne_file = "/cerebrum/nih/dumps/FS/emner.xml"
-default_fnr_update_file = "/cerebrum/nih/dumps/FS/fnr_update.xml"
-default_evu_kursinfo_file = "/cerebrum/nih/dumps/FS/evu_kursinfo.xml"
-default_kull_info_file = "/cerebrum/nih/dumps/FS/kull_info.xml"
+default_person_file = pj(cereconf.FS_DATA_DIR, "person.xml")
+default_role_file = pj(cereconf.FS_DATA_DIR, "roles.xml")
+default_undvenh_file = pj(cereconf.FS_DATA_DIR, "underv_enhet.xml")
+default_undenh_student_file = pj(cereconf.FS_DATA_DIR, "student_undenh.xml")
+default_studieprogram_file = pj(cereconf.FS_DATA_DIR, "studieprog.xml")
+default_ou_file = pj(cereconf.FS_DATA_DIR, "ou.xml")
+default_emne_file = pj(cereconf.FS_DATA_DIR, "emner.xml")
+default_fnr_update_file = pj(cereconf.FS_DATA_DIR, "fnr_update.xml")
+default_evu_kursinfo_file = pj(cereconf.FS_DATA_DIR, "evu_kursinfo.xml")
+default_kull_info_file = pj(cereconf.FS_DATA_DIR, "kull_info.xml")
 
 xml = XMLHelper()
 fs = None

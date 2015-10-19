@@ -130,7 +130,7 @@ def beregn_sjekksum(fnr):
             #
             # Lag vektet sum av alle siffer, utenom det
             # kontrollsifferet vi forsøker å beregne.
-            if x <> idx:
+            if x != idx:
                 sum = sum + int(nr[x]) * int(vekt[x])
         # Kontrollsifferet har vekt 1; evt. etterfølgende
         # kontrollsiffer har vekt 0.  Riktig kontrollsiffer er det som
