@@ -75,7 +75,7 @@ def delete_email_address(address):
 def update_email_address(address, group):
     et, ea = get_email_target_and_address(address)
     if et:
-        if et.email_target_type <> co.email_target_multi:
+        if et.email_target_type != co.email_target_multi:
             logger.error("Wrong existing target type for <%s>", address)
             return
         if et.email_target_entity_id == group.entity_id:

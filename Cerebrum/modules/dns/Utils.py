@@ -411,7 +411,7 @@ class Find(object):
         self._arecord.clear()
         try:
             if target_ip:
-                raise NotImplemented
+                raise NotImplementedError
             else:
                 self._arecord.find_by_dns_owner_id(owner_id)
             return self._arecord, self._arecord.entity_id

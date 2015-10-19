@@ -1,6 +1,7 @@
-#!/bin/sh
-
-# Copyright 2003 University of Oslo, Norway
+#!/usr/bin/env python
+# encoding: utf-8
+#
+# Copyright 2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,17 +19,22 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# Oppdater LDAP databasen på marvin og beeblebrox.
+"""Mock client usable with the EventPublisher.
 
-# Lag full.ldif
-PT=/cerebrum/dumps/LDAP
-cat $PT/org.ldif $PT/pers.ldif $PT/posixgroup.ldif $PT/posixnetgroup.ldif $PT/posixuser.ldif > $PT/full.ldif
+Messages and operations (i.e. publish and commit) are logged."""
 
-# Sync filene på beeblebrox og marvin
-/local/bin/rsync -a /u2/dumps/LDAPv3/ldif/$LDIF marvin:/ldap/var/
-/local/bin/rsync -a /u2/dumps/LDAPv3/ldif/$LDIF beeblebrox:/ldap/var/
+from Cerebrum.Utils import Factory
 
-# Køyr resten i bakgrunnen, updateLDAP.sh låser sjølv.
-/local/bin/ssh marvin     /ldap/sbin/updateLDAP.sh 
-/local/bin/ssh beeblebrox /ldap/sbin/updateLDAP.sh 
 
+class MockClient(object):
+    def __init__(self, config):
+        self.logger = Factory.get_logger("cronjob")
+
+    def publish(self, messages, durable=True):
+        self.logger.info("Publishing: %s", str(messages))
+
+    def rollback(self):
+        self.logger.info("Rolling back")
+
+    def commit(self):
+        self.logger.info("Commiting")

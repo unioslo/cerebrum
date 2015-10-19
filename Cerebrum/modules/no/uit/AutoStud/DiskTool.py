@@ -16,7 +16,7 @@ class DiskSorters(object):
         m_y = regexp.match(self._disks[y].path)
         pre_x, num_x = m_x.group(1), m_x.group(2)
         pre_y, num_y = m_y.group(1), m_y.group(2)
-        if pre_x <> pre_y:
+        if pre_x != pre_y:
             return cmp(pre_x, pre_y)
         try:
             return cmp(int(num_x), int(num_y))

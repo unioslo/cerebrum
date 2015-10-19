@@ -29,7 +29,7 @@ from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
 from Cerebrum.Utils import Factory
 
-basefsdir = pj("/cerebrum", "hine", "dumps", "FS")
+basefsdir = cereconf.FS_DATA_DIR
 default_ou_file = pj(basefsdir, "ou.xml")
 default_person_file = pj(basefsdir, "person.xml")
 default_studieprogram_file = pj(basefsdir, "studieprog.xml")

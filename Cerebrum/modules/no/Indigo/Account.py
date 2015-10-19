@@ -22,6 +22,7 @@ import random
 import string
 import time
 import pickle
+import base64
 
 import cereconf
 from Cerebrum import Account
@@ -171,6 +172,27 @@ class AccountOfkMixin (Account.Account):
             count += 1
         random.shuffle(pwd)
         return string.join(pwd,'')
+
+    def verify_password(self, method, plaintext, cryptstring):
+        """Returns True if the plaintext matches the cryptstring,
+        False if it doesn't.  If the method doesn't support
+        verification, NotImplemented is returned.
+        """
+        if method in (self.const.auth_type_md5_crypt,
+                      self.const.auth_type_md5_unsalt,
+                      self.const.auth_type_ha1_md5,
+                      self.const.auth_type_crypt3_des,
+                      self.const.auth_type_md4_nt,
+                      self.const.auth_type_ssha,
+                      self.const.auth_type_sha256_crypt,
+                      self.const.auth_type_sha512_crypt,
+                      self.const.auth_type_plaintext):
+            salt = cryptstring
+            if method == self.const.auth_type_ssha:
+                salt = base64.decodestring(cryptstring)[20:]
+            return (self.encrypt_password(method, plaintext, salt=salt) ==
+                    cryptstring)
+        raise ValueError("Unknown method " + repr(method))
 
 ##
 ## due to the user name space being partially used up, we will start
@@ -394,7 +416,7 @@ class AccountOfkMixin (Account.Account):
         primary_set = False
         epat = Email.EmailPrimaryAddressTarget(self._db)
         for domain in domains:
-            if ed.email_domain_name <> domain:
+            if ed.email_domain_name != domain:
                 ed.clear()
                 ed.find_by_domain(domain)
             # Check for 'uidaddr' category before 'cnaddr', to prefer
@@ -413,7 +435,7 @@ class AccountOfkMixin (Account.Account):
                 ea.clear()
                 try:
                     ea.find_by_local_part_and_domain(lp, ed.entity_id)
-                    if ea.email_addr_target_id <> et.entity_id:
+                    if ea.email_addr_target_id != et.entity_id:
                         # Address already exists, and points to a
                         # target not owned by this Account.
                         #

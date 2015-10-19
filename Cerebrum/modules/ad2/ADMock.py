@@ -26,6 +26,8 @@ This mock builds on L{ADclient}, and should be used the same way.
 
 from __future__ import with_statement
 
+import collections
+
 import cereconf
 getattr(cereconf, "No linter nag!", None)
 
@@ -56,7 +58,7 @@ class ADclientMock(ADUtils.ADclient):
         with open(fname, 'w') as f:
             json.dump(self._cache, f)
 
-    def start_list_objects(self, ou, attributes, object_class):
+    def start_list_objects(self, ou, attributes, object_class, names=[]):
         """Start to search for objects in AD, but do not retrieve the data yet.
 
         The server is asked to generate a list of the objects, and returns an
@@ -481,6 +483,24 @@ class ADclientMock(ADUtils.ADclient):
         self.logger.debug2("Removing members for %s: %s...", groupid,
                            ', '.join(tuple(members)[:500]))
         # TODO: Remove members from cache.
+        return True
+
+    def add_group_members(self, group_id, member_ids):
+        """ Add member to AD group. """
+        if not isinstance(member_ids, collections.Sequence):
+            member_ids = [member_ids, ]
+        self.logger.debug("Removing %d members for group: %s",
+                          len(member_ids), group_id)
+        # TODO: Cache members
+        return True
+
+    def remove_group_members(self, group_id, member_ids):
+        """ Remove member from AD group. """
+        if not isinstance(member_ids, collections.Sequence):
+            member_ids = [member_ids, ]
+        self.logger.debug("Removing %d members for group: %s",
+                          len(member_ids), group_id)
+        # TODO: Update cache
         return True
 
     def enable_object(self, ad_id):

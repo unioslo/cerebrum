@@ -1,4 +1,4 @@
-#!/local/bin/python 
+#! /usr/bin/env python 
 # -*- coding: iso-8859-1 -*-
 #
 # Copyright 2006 University of Oslo, Norway
@@ -95,7 +95,7 @@ def get_old_and_new_unames():
         person.find(row['entity_id'])
         old_uname = row['external_id']
         acc_id = person.get_primary_account()
-        if acc_id <> None:
+        if acc_id != None:
             account.clear()
             account.find(acc_id)
             new_uname = account.account_name

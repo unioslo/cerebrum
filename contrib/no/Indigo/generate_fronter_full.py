@@ -38,8 +38,8 @@ from Cerebrum.Utils import AtomicFileWriter, SimilarSizeWriter
 from Cerebrum.modules.no.uio.fronter_lib import XMLWriter
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
 
-cf_dir = '/cerebrum/ofk/dumps/Fronter'
-infile = '/cerebrum/ofk/dumps/ofk-data/abc_enterprise-ofk.xml'
+cf_dir = '/cerebrum/var/cache/Fronter'
+infile = '/cerebrum/var/cache/ofk-data/abc_enterprise-ofk.xml'
 
 db = const = logger = None 
 fronter = fxml = None
@@ -391,7 +391,7 @@ def init_globals():
     ou = Factory.get("OU")(db)
     logger = Factory.get_logger("cronjob")
 
-    cf_dir = '/cerebrum/dumps/Fronter'
+    cf_dir = '/cerebrum/var/cache/Fronter'
     try:
         opts, args = getopt.getopt(sys.argv[1:], '',
                                    ['debug-file=', 'debug-level=',
@@ -423,7 +423,7 @@ def init_globals():
     filename = os.path.join(cf_dir, 'test.xml')
     if len(args) == 1:
         filename = args[0]
-    elif len(args) <> 0:
+    elif len(args) != 0:
         usage(2)
 
     global fxml
