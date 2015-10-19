@@ -1471,7 +1471,7 @@ def argument_to_sql(argument, sql_attr_name, binds,
 
     if isinstance(argument, (tuple, set, list)):
         assert len(argument) > 0, "List can not be empty."
-        if len(argument) == 1:
+        if len(argument) == 1 and isinstance(argument, (tuple, list)):
             # Sequence with only one scalar, let's unpack and treat as scalar.
             # Has no real effect, but the SQL looks prettier.
             argument = argument[0]
