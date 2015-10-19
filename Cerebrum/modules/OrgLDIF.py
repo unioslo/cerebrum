@@ -203,6 +203,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
     def generate_ou(self, outfile):
         """Output the org. unit (OU) tree if cereconf.LDAP_OU['dn'] is set."""
         if not self.ou_dn:
+            self.logger.info("Skipping OUs, no DN has been set.")
             return
         self.init_ou_dump()
         timer = make_timer(self.logger, "Processing OUs...")
@@ -388,7 +389,8 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
                                               'ou_id': row['ou_id']}
 
         self.persons = self.person_cache.keys()
-        timer("... caching done.")
+        timer("...caching done, got %d persons and %d accounts." %
+              (len(self.persons), len(self.accounts)))
 
     def init_person_basic(self):
         # Set variables to dump or extract some person info
@@ -579,11 +581,12 @@ from None and LDAP_PERSON['dn'].""")
             outfile.write(container_entry_string('PERSON'))
         timer = make_timer(self.logger, "Processing persons...")
         round_timer = make_timer(self.logger)
-        round = 0
+        rounds = 0
+        exported = 0
         for person_id, row in self.person_cache.iteritems():
-            if round % 10000 == 0:
-                round_timer("...rounded %d rows..." % round)
-            round += 1
+            if rounds % 10000 == 0 and rounds != 0:
+                round_timer("...processed %d rows..." % rounds)
+            rounds += 1
             dn, entry, alias_info = self.make_person_entry(row, person_id)
             if dn:
                 if dn in self.used_DNs:
@@ -595,7 +598,9 @@ from None and LDAP_PERSON['dn'].""")
                     if self.aliases and alias_info:
                         self.write_person_alias(alias_outfile,
                                                 dn, entry, alias_info)
-        timer("...persons done.")
+                    exported += 1
+        timer("...persons done, %d exported and %d omitted." %
+              (exported, rounds - exported))
 
     def list_persons(self):
         # Return a list or iterator of persons to consider for output.
@@ -618,6 +623,8 @@ from None and LDAP_PERSON['dn'].""")
 
         p_affiliations = self.affiliations.get(person_id)
         if not p_affiliations:
+            self.logger.debug3("Omitting person id=%d, no affiliations",
+                               person_id)
             return None, None, None
 
         names = self.person_names.get(person_id)
@@ -653,6 +660,8 @@ from None and LDAP_PERSON['dn'].""")
         if qt:
             qh = QuarantineHandler(self.db, qt)
             if qh.should_skip():
+                self.logger.debug3("Omitting person id=%d, quarantined",
+                                   person_id)
                 return None, None, None
             if self.acc_locked_quarantines is not self.acc_quarantines:
                 qt = self.acc_locked_quarantines.get(account_id)
@@ -667,6 +676,7 @@ from None and LDAP_PERSON['dn'].""")
 
         dn, primary_ou_dn = self.person_dn_primaryOU(entry, row, person_id)
         if not dn:
+            self.logger.debug3("Omitting person id=%d, no DN", person_id)
             return None, None, None
 
         if self.org_dn:

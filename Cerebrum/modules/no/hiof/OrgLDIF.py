@@ -17,7 +17,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cerebrum.modules.OrgLDIF import *
+from Cerebrum.modules.OrgLDIF import OrgLDIF
+
 
 class hiofLDIFMixin(OrgLDIF):
     def init_person_addresses(self):
