@@ -513,6 +513,12 @@ EMAIL_DEFAULT_FILTERS = {}
 # If this value is set to False, no changes are made.
 EMAIL_EXPIRE_ADDRESSES = 180
 
+# Some instances may have EmailTargets with actual e-mail addresses that are
+# not listed in the corresponding account's mail-domains. These mail-domains
+# will be marked as deletable, when they should remain non-deletable. Adding
+# such domains to this list will ensure they are *not* marked as deletable.
+EMAIL_NON_DELETABLE_DOMAINS = []
+
 # contrib/no/uio/process_bofhd_requests.py needs a list of servers to
 # pass off to cereconf.IMAPSYNC_SCRIPT.
 PROC_BOFH_REQ_MOVE_SERVERS = []
