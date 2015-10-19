@@ -30,7 +30,6 @@ from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
-from Cerebrum.modules import PasswordHistory
 
 class AccountHiOfMixin(Account.Account):
     """Account mixin class providing functionality specific to HiOf.
@@ -157,7 +156,7 @@ class AccountHiOfMixin(Account.Account):
             pass
         epat = Email.EmailPrimaryAddressTarget(self._db)
         for domain in domains:
-            if ed.email_domain_name <> domain:
+            if ed.email_domain_name != domain:
                 ed.clear()
                 ed.find_by_domain(domain)
             # Check for 'cnaddr' category before 'uidaddr', to prefer
@@ -176,7 +175,7 @@ class AccountHiOfMixin(Account.Account):
                 ea.clear()
                 try:
                    ea.find_by_local_part_and_domain(lp, ed.entity_id)
-                   if ea.email_addr_target_id <> et.entity_id:
+                   if ea.email_addr_target_id != et.entity_id:
                        # Address already exists, and points to a
                        # target not owned by this Account.
                        continue
@@ -215,23 +214,6 @@ class AccountHiOfMixin(Account.Account):
         et.email_server_id = es.entity_id
         et.write_db()
         return et
-
-    def set_password(self, plaintext):
-        # Override Account.set_password so that we get a copy of the
-        # plaintext password
-        self.__plaintext_password = plaintext
-        self.__super.set_password(plaintext)
-
-    def write_db(self):
-        try:
-            plain = self.__plaintext_password
-        except AttributeError:
-            plain = None
-        ret = self.__super.write_db()
-        if plain is not None:
-            ph = PasswordHistory.PasswordHistory(self._db)
-            ph.add_history(self, plain)
-        return ret
 
     def is_employee(self):
         for r in self.get_account_types():

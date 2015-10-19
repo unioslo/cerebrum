@@ -153,7 +153,7 @@ class FronterUtils(object):
                       "ERROR: Unknown terminkode <%s> for emnekode <%s>." % (
                     termk, emnekode)
 
-        while termnr > 1 and (termk, aar) <> ('høst', 2004):
+        while termnr > 1 and (termk, aar) != ('høst', 2004):
             (termk, aar) = forrige_semester(termk, aar)
             termnr -= 1
 

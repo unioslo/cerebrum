@@ -401,7 +401,6 @@ class norEduLDIFMixin(OrgLDIF):
         if fnr or self.FEIDE_schema_version >= '1.5.1':
             entry['objectClass'].append('norEduPerson')
             entry['displayName'] = entry['norEduPersonLegalName'] = entry['cn']
-            entry['norEduPersonNIN'] = (str(fnr),)
 
             if birth_date:
                 entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (

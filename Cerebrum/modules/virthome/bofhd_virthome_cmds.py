@@ -59,8 +59,13 @@ from Cerebrum.modules.bofhd.cmd_param import QuarantineType
 from Cerebrum.modules.virthome.bofhd_auth import BofhdVirtHomeAuth
 from Cerebrum.modules.virthome.VirtAccount import VirtAccount 
 from Cerebrum.modules.virthome.VirtAccount import FEDAccount
-from Cerebrum.modules.virthome.PasswordChecker import PasswordGoodEnoughException
+
 from Cerebrum.modules.virthome.PasswordChecker import PasswordChecker
+from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
+
+
+
+
 from Cerebrum.modules.virthome.bofhd_virthome_help import arg_help
 
 # TODO: Ideally, all the utility methods and 'workflows' from this file needs
@@ -557,10 +562,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """
 
         try:
-            pwd_checker = PasswordChecker(self.db)
-            pwd_checker.goodenough(account, password, uname)
-        except PasswordGoodEnoughException:
-            _, m, _ = sys.exc_info()
+            pwd_checker = PasswordChecker()
+            pwd_checker.password_good_enough(password)
+        except PasswordNotGoodEnough, m:
             raise CerebrumError("Password too weak: %s" % str(m))
     # end __check_password
 

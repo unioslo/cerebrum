@@ -102,7 +102,7 @@ class PersonTestCase(Person_createTestCase):
         new_person = Person.Person(self.Cerebrum)
         new_person.clear()
         self._myPopulatePerson(new_person)
-        assert(person <> new_person)
+        assert(person != new_person)
         person.birth_date = self.person_dta['birth']
         assert(new_person == person)
         self.person_dta['birth'] = birth
@@ -117,7 +117,7 @@ class PersonTestCase(Person_createTestCase):
         assert(person == new_person)
         person.birth_date = self.person_dta['birth']
         person.gender = self.co.gender_female
-        assert(new_person <> person)
+        assert(new_person != person)
 
     def testDeletePerson(self):
         "Delete the person"

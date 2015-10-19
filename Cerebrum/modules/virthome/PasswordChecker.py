@@ -1,8 +1,7 @@
 #!/usr/bin/env python
-# -*- encoding: iso-8859-1-*-
+# encoding: utf-8
 #
-#
-# Copyright 2009 University of Oslo, Norway
+# Copyright 2009-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,87 +18,42 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """VirtHome's extension to password strength checking.
 
 This module is a stub. We don't know yet what rules we should implement
-here. 
+here.
 """
 
-import re
-
-from Cerebrum.modules.PasswordChecker import msgs
-from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
-import Cerebrum.modules.PasswordChecker as MPC
-
-
+from Cerebrum.modules.pwcheck.simple import CheckLengthMixin
+from Cerebrum.modules.pwcheck.simple import CheckInvalidCharsMixin
+from Cerebrum.modules.pwcheck.simple import CheckCharSeqMixin
+from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
+from Cerebrum.modules.pwcheck.common import PasswordChecker as PC
 
 
-class PasswordChecker(MPC.PasswordChecker):
+class VirthomePasswordCheckerMixin(CheckLengthMixin,
+                                   CheckInvalidCharsMixin,
+                                   CheckCharSeqMixin):
+
+    # CheckLengthMixin
+    _password_min_length = 12
+    _password_max_length = None
+
+    # CheckInvalidCharsMixin
+    _password_illegal_chars = {
+        '\0': "Password cannot contain the null character.", }
+    _password_illegal_regex = {
+        r'[\200-\376]':
+            "Password cannot contain 8-bit characters (e.g.  æøå).", }
+
+    def password_good_enough(self, password):
+        """ Virthome password check. """
+        if not isinstance(password, basestring):
+            raise PasswordNotGoodEnough(
+                "Attempting to set non-string password %s" % password)
+        super(VirthomePasswordCheckerMixin,
+              self).password_good_enough(password)
 
 
-    def _check_password_has_no_invalid_characters(self, password):
-        """Check that only valid characters are allowed.
-        """
-
-        # nul is not allowed
-        if '\0' in password:
-            raise PasswordGoodEnoughException(msgs['not_null_char'])
-
-        # 8-bit chars are problematic 
-        if re.search(r'[\200-\376]', password):
-            raise PasswordGoodEnoughException(msgs['8bit'])
-    # end _check_password_has_no_invalid_characters
-
-
-
-    def goodenough(self, account, plaintext, uname=None):
-        """Check whether plaintext makes for a sufficiently good password.
-        
-        This method performs a number of checks on L{plaintext} to determine
-        whether it makes a sufficienly good password in VirtHome (FIXME:
-        outline the specific procedure below).
-
-        @type account: VirtAccount instance or None.
-        @param account:
-          Account (VirtAccount) that we check the password for. If it's None,
-          no account-specific checks will be performed (typically password
-          history).
-
-        @type plaintext: str
-        @param plaintext:
-          Plaintext password we want to test.
-
-        @type uname: str:
-        @param uname:
-          Username we want to check. If None, no username-specific checks can
-          be performed.
-
-        @rtype: None
-        @return:
-          If all checks pass, this method returns nothing. If any of the
-          requirements are not fullfilled, PasswordGoodEnoughException is
-          raised. 
-        """
-
-        # Passwords must be strings...
-        if not isinstance(plaintext, basestring):
-            raise PasswordGoodEnoughException("Attempting to set non-string "
-                                              "password %s" % plaintext)
-        
-        # Passwords must be printable ascii chars
-        self._check_password_has_no_invalid_characters(plaintext)
-
-        # Passwords must be at least 12 chars long
-        if len(plaintext.strip()) < 12:
-            raise PasswordGoodEnoughException("Password too short")
-
-        # Passwords cannot be sequences
-        self._check_sequence(plaintext)
-
-        # Passwords must be printable ascii chars
-        self._check_password_has_no_invalid_characters(plaintext)
-    # end goodenough
-# end class PasswordChecker        
-
-
+class PasswordChecker(VirthomePasswordCheckerMixin, PC):
+    pass

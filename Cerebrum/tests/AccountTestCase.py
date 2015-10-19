@@ -84,7 +84,7 @@ class AccountTestCase(Account_createTestCase):
         account.find(self.account_id)
         new_account = Account.Account(self.Cerebrum)
         self._myPopulateAccount(new_account)
-        self.failIf(new_account <> account, "Error: should be equal")
+        self.failIf(new_account != account, "Error: should be equal")
         new_account.account_name = 'foobar'
         self.failIf(new_account == account, "Error: should be different")
 

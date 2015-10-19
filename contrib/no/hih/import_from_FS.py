@@ -32,15 +32,15 @@ from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
 from Cerebrum.modules.no.hih.access_FS import FS
 from Cerebrum.Utils import Factory
 
-default_person_file = "/cerebrum/hih/dumps/FS/person.xml"
-default_role_file = "/cerebrum/hih/dumps/FS/roles.xml"
-default_undvenh_file = "/cerebrum/hih/dumps/FS/underv_enhet.xml"
-default_undenh_student_file = "/cerebrum/hih/dumps/FS/student_undenh.xml"
-default_studieprogram_file = "/cerebrum/hih/dumps/FS/studieprog.xml"
-default_ou_file = "/cerebrum/hih/dumps/FS/ou.xml"
-default_emne_file = "/cerebrum/hih/dumps/FS/emner.xml"
-default_fnr_update_file = "/cerebrum/hih/dumps/FS/fnr_update.xml"
-default_evu_kursinfo_file = "/cerebrum/hih/dumps/FS/evu_kursinfo.xml"
+default_person_file = "/cerebrum/var/cache/FS/person.xml"
+default_role_file = "/cerebrum/var/cache/FS/roles.xml"
+default_undvenh_file = "/cerebrum/var/cache/FS/underv_enhet.xml"
+default_undenh_student_file = "/cerebrum/var/cache/FS/student_undenh.xml"
+default_studieprogram_file = "/cerebrum/var/cache/FS/studieprog.xml"
+default_ou_file = "/cerebrum/var/cache/FS/ou.xml"
+default_emne_file = "/cerebrum/var/cache/FS/emner.xml"
+default_fnr_update_file = "/cerebrum/var/cache/FS/fnr_update.xml"
+default_evu_kursinfo_file = "/cerebrum/var/cache/FS/evu_kursinfo.xml"
 
 xml = XMLHelper()
 fs = None

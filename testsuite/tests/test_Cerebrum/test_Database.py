@@ -131,7 +131,7 @@ def test_rollback(db, table_name):
     except Cerebrum.Database.DatabaseError, e:
         # Note that this test will break if the exception doesn't have an sql
         # attr.
-        assert e.operation == select_sql
+        assert e.operation == repr(select_sql)
     else:
         # Should raise error
         assert False, 'No error raised'
@@ -231,42 +231,39 @@ def test_db_unicode_interaction(db, table_name):
 def test_db_exception_types():
     """ Database.Error, correct class types. """
 
-    # TODO: Compare instance db.Error, db._db_mod.Error
-
     # We can't wrap methods that yield other functions.
     db = Factory.get('Database')()
-    gr = Factory.get('Group')(db)
+
+    tests = [
+        (Cerebrum.Database.Error, db.IntegrityError(
+            'Database error is not instance of Cerebrum.Database.Error')),
+        (Cerebrum.Database.Warning, db.Warning(
+            'Database warning is not instance of Cerebrum.Database.Warning')),
+        (db.Error, db.IntegrityError(
+            'Database error is not instance of self.Error')), ]
 
     # We can't wrap a statement...
     def raise_exception(e):
         """ Raise a given exception. """
         raise e
 
-    # Wrap, to expect given exceptions
-    assert_error = raises(Cerebrum.Database.Error)(raise_exception)
-    assert_warn = raises(Cerebrum.Database.Warning)(raise_exception)
-
-    tests = [
-        (assert_error, db.IntegrityError('Should be expected')),
-        (assert_warn, db.Warning('Should be expected')),
-        (assert_error, gr._db.IntegrityError('Should be expected')),
-        (assert_warn, gr._db.Warning('Should be expected'))]
-
-    for func, exc in tests:
-        yield func, exc
+    for catch_with, throw in tests:
+        func = raises(catch_with)(raise_exception)
+        yield func, throw
 
 
-@raises(Cerebrum.Database.Error)
 @use_db()
-def test_raise_error(db):
-    raise db.IntegrityError('Should be expected')
-
-
-def test_sane_error_hierarchy():
-    """Check that exception hierarchy will work with >=2.5."""
-
-    db = Factory.get("Database")()
+def test_exception_catch_base(db):
+    """ Catch exception raised by the db-driver with Database.Error. """
     assert_raises(Cerebrum.Database.Error,
+                  db.execute,
+                  "create table foo")
+
+
+@use_db()
+def test_exception_catch_instance(db):
+    """ Catch exception raised by the db-driver with db.Error. """
+    assert_raises(db.Error,
                   db.execute,
                   "create table foo")
 

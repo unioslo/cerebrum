@@ -115,7 +115,7 @@ class SQLDriverTestCase(unittest.TestCase):
         text = self.db.query_1("""
         SELECT value FROM [:table schema=cerebrum name=test_db_utf8]
         WHERE key=3""")
-        self.failIf(text <> teststring)
+        self.failIf(text != teststring)
         self.db.commit()
 
     def testBrokenDateBefore1901(self):
