@@ -26,6 +26,8 @@ This mock builds on L{ADclient}, and should be used the same way.
 
 from __future__ import with_statement
 
+import collections
+
 import cereconf
 getattr(cereconf, "No linter nag!", None)
 
@@ -485,7 +487,7 @@ class ADclientMock(ADUtils.ADclient):
 
     def add_group_members(self, group_id, member_ids):
         """ Add member to AD group. """
-        if type(member_ids) != list:
+        if not isinstance(member_ids, collections.Sequence):
             member_ids = [member_ids, ]
         self.logger.debug("Removing %d members for group: %s",
                           len(member_ids), group_id)
@@ -494,7 +496,7 @@ class ADclientMock(ADUtils.ADclient):
 
     def remove_group_members(self, group_id, member_ids):
         """ Remove member from AD group. """
-        if type(member_ids) != list:
+        if not isinstance(member_ids, collections.Sequence):
             member_ids = [member_ids, ]
         self.logger.debug("Removing %d members for group: %s",
                           len(member_ids), group_id)

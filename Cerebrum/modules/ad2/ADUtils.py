@@ -44,7 +44,6 @@ import re
 import base64
 import functools
 import collections
-import json
 
 import cerebrum_path
 import cereconf
@@ -1360,7 +1359,7 @@ class ADclient(PowershellClient):
 
         :return bool: True on success, False on failure.
         """
-        if type(member_ids) != list:
+        if not isinstance(member_ids, collections.Sequence):
             member_ids = [member_ids, ]
         self.logger.debug("Removing %d members for group: %s",
                           len(member_ids), group_id)
@@ -1384,7 +1383,7 @@ class ADclient(PowershellClient):
 
         :return bool: True on success, False on failure.
         """
-        if type(member_ids) != list:
+        if not isinstance(member_ids, collections.Sequence):
             member_ids = [member_ids, ]
         self.logger.debug("Removing %d members for group: %s",
                           len(member_ids), group_id)
