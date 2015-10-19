@@ -19,8 +19,9 @@
 
 from collections import defaultdict
 
-from Cerebrum.modules.LDIFutils import normalize_string
-from Cerebrum.modules.no.OrgLDIF import *
+from Cerebrum import Entity
+from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
+from Cerebrum.modules.LDIFutils import normalize_string, iso2utf
 from Cerebrum.Utils import make_timer
 
 
@@ -38,16 +39,17 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
         # - Add mobile and roomNumber.
         sap, manual = self.const.system_sap, self.const.system_manual
 
-        contacts = [(attr, self.get_contacts(contact_type=contact_type,
-                                             source_system=source_system,
-                                             convert=self.attr2syntax[attr][0],
-                                             verify=self.attr2syntax[attr][1],
-                                             normalize=self.attr2syntax[attr][2]))
-                    for attr, source_system, contact_type in (
-                        ('telephoneNumber', manual, self.const.contact_phone),
-                        ('facsimileTelephoneNumber', manual, self.const.contact_fax),
-                        ('mobile', sap, self.const.contact_mobile_phone),
-                        ('labeledURI', None, self.const.contact_url))]
+        contacts = [
+            (attr, self.get_contacts(contact_type=contact_type,
+                                     source_system=source_system,
+                                     convert=self.attr2syntax[attr][0],
+                                     verify=self.attr2syntax[attr][1],
+                                     normalize=self.attr2syntax[attr][2]))
+            for attr, source_system, contact_type in (
+                ('telephoneNumber', manual, self.const.contact_phone),
+                ('facsimileTelephoneNumber', manual, self.const.contact_fax),
+                ('mobile', sap, self.const.contact_mobile_phone),
+                ('labeledURI', None, self.const.contact_url))]
 
         self.id2labeledURI = contacts[-1][1]
         self.attr2id2contacts = [v for v in contacts if v[1]]
@@ -57,16 +59,17 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
         # this as co.contact_office. The roomNumber is the alias.
         attr = 'roomNumber'
         syntax = self.attr2syntax[attr]
-        contacts = self.get_contact_aliases(contact_type=self.const.contact_office,
-                                            source_system=self.const.system_sap,
-                                            convert=syntax[0],
-                                            verify=syntax[1],
-                                            normalize=syntax[2])
+        contacts = self.get_contact_aliases(
+            contact_type=self.const.contact_office,
+            source_system=self.const.system_sap,
+            convert=syntax[0],
+            verify=syntax[1],
+            normalize=syntax[2])
         if contacts:
             self.attr2id2contacts.append((attr, contacts))
 
-    def get_contact_aliases(self, contact_type=None, source_system=None, convert=None,
-                            verify=None, normalize=None):
+    def get_contact_aliases(self, contact_type=None, source_system=None,
+                            convert=None, verify=None, normalize=None):
         """Return a dict {entity_id: [list of contact aliases]}."""
         # The code mimics a reduced modules/OrgLDIF.py:get_contacts().
         entity = Entity.EntityContactInfo(self.db)

@@ -64,7 +64,7 @@ class Constants(Constants.Constants):
         'Pensjonist ved HiOf, ikke registrert i SAP')
     affiliation_status_manuell_gjest = _PersonAffStatusCode(
         affiliation_manuell, 'gjest', 'Gjesteopphold ved HiOf')
-    
+
     ## Posix-shell definitions
     ##
     ## We override the default Cerebrum paths for shells, thus this
@@ -92,7 +92,7 @@ class Constants(Constants.Constants):
         'Account included in domain ADM in Active Directory')
     spread_ad_account_stud = _SpreadCode(
         'account@ad_stud', Constants.Constants.entity_account,
-        'Account included in domain STUD in Active Directory')    
+        'Account included in domain STUD in Active Directory')
 
     ## Spread definitions - group related
     spread_nis_fg = _SpreadCode(
@@ -125,6 +125,10 @@ class Constants(Constants.Constants):
         'ad_account_ou', Constants.Constants.entity_account,
         "AD OU for account")
 
+    trait_phone_exchange = _EntityTraitCode(
+        'phone_exchange', Constants.Constants.entity_account,
+        "ID of telephone exchange, PBX")
+
     trait_cf_group = _EntityTraitCode(
         'cf_group', Constants.Constants.entity_group,
         'Trait for tagging Fronter groups')
@@ -153,17 +157,7 @@ class HiOfConstantsActiveDirectory(ConstantsActiveDirectory):
         'extensionAttribute1 for an object in AD',
         False)
 
-    ad_attribute_extensionattribute2 = _ADAttrCode(
-        'extensionAttribute2',
-        'extensionAttribute2 for an object in AD',
-        False)
-
     ad_attribute_extensionattribute3 = _ADAttrCode(
         'extensionAttribute3',
         'extensionAttribute3 for an object in AD',
-        False)
-
-    ad_attribute_extensionattribute4 = _ADAttrCode(
-        'extensionAttribute4',
-        'extensionAttribute4 for an object in AD',
         False)

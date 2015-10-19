@@ -483,7 +483,8 @@ class CerebrumUtils(object):
                            int(ct),
                            event['dest_entity'],
                            change_params=param,
-                           skip_change=True)
+                           skip_change=True,
+                           skip_publish=True)
         self.db.commit()
 
     def log_event_receipt(self, event, trigger):
@@ -501,7 +502,8 @@ class CerebrumUtils(object):
         trigger = trigger.split(':')
         ct = self.co.ChangeType(trigger[0], trigger[1])
         parm = {'change_program': 'ExchangeIntegration',
-                'skip_event': True}
+                'skip_event': True,
+                'skip_publish': True}
 
         # Only log params if they actually contain something.
         param = self.unpickle_event_params(event)

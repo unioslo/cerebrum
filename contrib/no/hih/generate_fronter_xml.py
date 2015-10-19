@@ -39,7 +39,7 @@ from Cerebrum.modules.no.uio.fronter_lib import XMLWriter
 
 from Cerebrum.modules.no.hih.access_FS import FS
 
-cf_dir = '/cerebrum/hih/dumps/Fronter'
+cf_dir = '/cerebrum/var/cache/Fronter'
 
 db = const = logger = None 
 fronter = fxml = None
@@ -337,7 +337,7 @@ def init_globals():
                             DB_driver='cx_Oracle') 
     fs = FS(fsdb)
 
-    cf_dir = '/cerebrum/hih/dumps/Fronter'
+    cf_dir = '/cerebrum/var/cache/Fronter'
     try:
         opts, args = getopt.getopt(sys.argv[1:], '',
                                    ['debug-file=', 'debug-level=',
@@ -369,7 +369,7 @@ def init_globals():
     filename = os.path.join(cf_dir, 'test.xml')
     if len(args) == 1:
         filename = args[0]
-    elif len(args) <> 0:
+    elif len(args) != 0:
         usage(2)
 
     global fxml

@@ -80,7 +80,7 @@ class PosixUserTestCase(PosixUser_createTestCase):
         new_posix_user.clear()
         self._myPopulatePosixUser(new_posix_user)
 
-        self.failIf(new_posix_user <> posix_user, "Error: should be equal")
+        self.failIf(new_posix_user != posix_user, "Error: should be equal")
         new_posix_user.posix_uid = 42
         self.failIf(new_posix_user == posix_user, "Error: should be different")
 

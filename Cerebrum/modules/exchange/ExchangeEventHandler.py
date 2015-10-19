@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2015 University of Oslo, Norway
+# Copyright 2013-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,7 +25,7 @@ import cerebrum_path
 getattr(cereconf, "linter", "should not nag")
 getattr(cerebrum_path, "linter", "should not nag")
 
-import processing
+import multiprocessing
 
 from Queue import Empty
 import pickle
@@ -50,7 +50,8 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
 
-class ExchangeEventHandler(processing.Process):
+class ExchangeEventHandler(multiprocessing.Process):
+
     """Event handler for Exchange.
 
     This event handler is started by the event daemon.
@@ -68,14 +69,14 @@ class ExchangeEventHandler(processing.Process):
         :param config: Dict containing the config for the ExchangeClient
             and handler
 
-        :type event_queue: processing.Queue
+        :type event_queue: multiprocessing.Queue
         :param event_queue: The queue that events get queued on
 
-        :type logger: processing.Queue
+        :type logger: multiprocessing.Queue
         :param logger: Put tuples like ('warn', 'my message') onto this
             queue in order to have them logged
 
-        :type run_state: processing.Value(ctypes.c_int)
+        :type run_state: multiprocessing.Value(ctypes.c_int)
         :param run_state: A shared object used to determine if we should
             stop execution or not
 
@@ -91,6 +92,7 @@ class ExchangeEventHandler(processing.Process):
         self.mock = mock
 
         super(ExchangeEventHandler, self).__init__()
+        self.logger.debug("Hello from event handler class %s", self.__class__)
 
     def _post_fork_init(self):
         r"""Post-fork init method.
@@ -122,8 +124,12 @@ class ExchangeEventHandler(processing.Process):
         else:
             from Cerebrum.modules.exchange.v2013.ExchangeClient \
                 import ExchangeClient
+        self.logger.debug("EventHandler post fork")
 
+        i = 0
         while self.run_state.value:
+            i = i + 1
+            self.logger.debug("Trying to connect to springboard (%d)", i)
             try:
                 self.ec = ExchangeClient(
                     auth_user=self.config['auth_user'],
@@ -152,6 +158,7 @@ class ExchangeEventHandler(processing.Process):
                     time.sleep(3*60)
             else:
                 break
+        self.logger.debug("Connected to springboard")
 
         # Initialize the Database and Constants object
         self.db = Factory.get('Database')(client_encoding='UTF-8')
@@ -175,15 +182,15 @@ class ExchangeEventHandler(processing.Process):
         self.ut = CerebrumUtils()
 
     def run(self):
-        """Main event-processing loop.
+        """Main event-multiprocessing loop.
 
-        Spawned by processing.Process.__init__
+        Spawned by multiprocessing.Process.__init__
         """
         # When we execute code here, we have forked. We can now initialize
         # the database (and more)
         self._post_fork_init()
 
-        # It is a bit ugly to directly access a processing.Value object
+        # It is a bit ugly to directly access a multiprocessing.Value object
         # like this, but it is simple and it works. Doing something like
         # this with more "pythonic" types adds a lot of complexity.
         self.logger.info('Listening for events')
@@ -220,7 +227,7 @@ class ExchangeEventHandler(processing.Process):
                 try:
                     self.db.remove_event(ev['event_id'])
                 except Errors.NotFoundError:
-                    self.logger.debug3('Event deleted while processing: %s' %
+                    self.logger.debug3('Event deleted while multiprocessing: %s' %
                                        str(ev))
                     self.db.commit()
                     continue

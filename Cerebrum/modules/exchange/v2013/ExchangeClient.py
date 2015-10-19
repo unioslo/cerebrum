@@ -74,6 +74,8 @@ class ExchangeClient(PowershellClient):
         :param domain_admin: The username of the account we use to connect to
             the AD domain we are going to synchronize with."""
         super(ExchangeClient, self).__init__(*args, **kwargs)
+        self.logger.debug("ExchangeClient super returned")
+
         self.add_credentials(
             username=auth_user,
             password=unicode(read_password(auth_user, self.host), 'utf-8'))
@@ -102,7 +104,9 @@ class ExchangeClient(PowershellClient):
             read_password(self.ex_user, self.ex_domain),
             'utf-8')
         # Set up the winrm / PowerShell connection
+        self.logger.debug("ExchangeClient: Preparing to connect")
         self.connect()
+        self.logger.debug("ExchangeClient: Connected")
 
         # Collect AD-controllers
         controllers = self._get_domain_controllers(self.ad_domain,
@@ -111,6 +115,7 @@ class ExchangeClient(PowershellClient):
         self.resource_ad_server = controllers['resource_domain']
         # TODO: For all commands. Use the two variables above, and specify
         # which DC we use
+        self.logger.debug("ExchangeClient: Init done")
 
     def _split_domain_username(self, name):
         """Separate the domain and username from a full domain username.

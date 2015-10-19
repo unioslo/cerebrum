@@ -78,7 +78,7 @@ GUEST_REQUIRE_MOBILE = False
 
 # LDAP export stuff
 
-LDAP = {'dump_dir': '/cerebrum/dumps/LDAP/',
+LDAP = {'dump_dir': '/cerebrum/var/cache/LDAP/',
         'max_change': 10, }
 
 LDAP_GUESTS = {'file': 'guests.ldif',

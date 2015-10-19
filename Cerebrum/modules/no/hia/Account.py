@@ -53,6 +53,7 @@ class AccountHiAMixin(Account.Account):
             # To be available in Exchange, you need to be in AD
             if not self.has_spread(self.const.spread_hia_ad_account):
                 self.add_spread(self.const.spread_hia_ad_account)
+
             if spread == self.const.spread_exchange_acc_old:
                 if self.has_spread(self.const.spread_exchange_account):
                     raise self._db.IntegrityError("User already has new "

@@ -28,26 +28,26 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.event.HackedLogger import Logger
 
-import processing
+import multiprocessing
 import time
 
-class DelayedNotificationCollector(processing.Process):
+class DelayedNotificationCollector(multiprocessing.Process):
     def __init__(self, event_queue, config, logger_queue, run_state):
         """
         DelayedNotificationCollector initzialization. This class
         implements functionality for stuffing old events into the
         event_queue.
         
-        @type event_queue: processing.Queue
+        @type event_queue: multiprocessing.Queue
         @param event_queue: The queue that events get queued on
 
         @type config: dict
         @param config: Dict containing configuration parameters
 
-        @type logger_queue: processing.Queue
+        @type logger_queue: multiprocessing.Queue
         @param logger_queue: The queue used for logging
 
-        @type run_state: processing.Value(ctypes.c_int)
+        @type run_state: multiprocessing.Value(ctypes.c_int)
         @param run_state: A shared object used to determine if we should
             stop execution or not
         """
@@ -85,7 +85,7 @@ class DelayedNotificationCollector(processing.Process):
 
     def run(self):
         """Main event-fetching loop. This is spawned by
-        processing.Process.__init__"""
+        multiprocessing.Process.__init__"""
         # Do post-initialization
         self._post_fork_init()
         

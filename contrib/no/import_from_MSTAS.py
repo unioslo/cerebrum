@@ -29,7 +29,7 @@ import cereconf
 from Cerebrum import Database,Errors
 from Utils import XMLHelper
 
-default_personfile = "/cerebrum/dumps/MSTAS/persons.dat"
+default_personfile = "/cerebrum/var/cache/MSTAS/persons.dat"
 
 Cerebrum = Database.connect(user="cerebrum", service="MSTAS.hiof.no",
                             DB_driver=cereconf.DB_DRIVER_ORACLE)

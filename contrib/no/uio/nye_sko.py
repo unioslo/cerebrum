@@ -71,7 +71,7 @@ def reorganise_users(fac, inst=None, aff=None, persaff=None):
             user.find(r.account_id)
             got_aff = {}
             for r2 in user.get_account_types():
-                if persaff and r2.affiliation <> persaff:
+                if persaff and r2.affiliation != persaff:
                     continue
                 got_aff[(r2.ou_id,r2.affiliation)] = 1
             for r2 in person.list_affiliations(person_id=r.person_id,
@@ -83,9 +83,9 @@ def reorganise_users(fac, inst=None, aff=None, persaff=None):
                 ou.find(r2.ou_id)
                 # perhaps we should allow this fac to be different from
                 # the source fac.  (likewise for inst below)
-                if ou.fakultet <> fac:
+                if ou.fakultet != fac:
                     continue
-                if inst and ou.institutt <> inst:
+                if inst and ou.institutt != inst:
                     continue
                 logger.info("...... %-8s adding %02d%02d%02d %d %d" %
                             (user.account_name, ou.fakultet, ou.institutt,
