@@ -272,7 +272,12 @@ class StateChecker(object):
         res = {}
         for acc in self._cache_accounts:
             tmp = {}
-            tid = self._cache_targets[acc['account_id']]['target_id']
+            try:
+                tid = self._cache_targets[acc['account_id']]['target_id']
+            except KeyError:
+                self.logger.warn('Could not find account with id:%d in list '
+                                 'of targets, skipping..' % acc['account_id'])
+                continue
             # Fetch addresses
             tmp[u'EmailAddresses'] = sorted(self._cache_addresses[tid])
             # Fetch primary address
