@@ -71,9 +71,11 @@ class norEduLDIFMixin(OrgLDIF):
 
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
-        orgnum = int(cereconf.DEFAULT_INSTITUSJONSNR)
-        # Note: 000 = Norway in FEIDE.
-        self.norEduOrgUniqueID = ("000%05d" % orgnum,)
+        try:
+            orgnum = int(cereconf.DEFAULT_INSTITUSJONSNR)
+            self.norEduOrgUniqueID = ("000%05d" % orgnum,)
+        except (AttributeError, TypeError):
+            self.norEduOrgUniqueID = None
         self.FEIDE_ou_common_attrs = {}
         # '@<security domain>' for the eduPersonPrincipalName attribute.
         self.homeOrg = cereconf.INSTITUTION_DOMAIN_NAME
