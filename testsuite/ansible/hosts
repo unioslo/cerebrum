@@ -15,7 +15,7 @@ tsd
 tsd.localhost config=tsd
 
 [uio]
-uio.localhost config=uio
+uio.localhost config=uio gnupgtest=yes
 
 [localtests:vars]
 ansible_connection=local
