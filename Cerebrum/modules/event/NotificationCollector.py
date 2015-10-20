@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2014 University of Oslo, Norway
+# Copyright 2013-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -40,7 +40,7 @@ class NotificationCollector(multiprocessing.Process):
 
         @type event_queue: multiprocessing.Queue
         @param event_queue: The queue that events get queued on
-        
+
         @type channels: list
         @param channels: A list of channel names that should be listened on
 
@@ -54,20 +54,18 @@ class NotificationCollector(multiprocessing.Process):
 
         dsn_fmt = 'dbname=%(db)s user=%(usr)s password=%(pass)s host=%(host)s'
         self.DSN = dsn_fmt % \
-                {'db': cereconf.CEREBRUM_DATABASE_NAME,
-                 'usr': cereconf.CEREBRUM_DATABASE_CONNECT_DATA['user'],
-                 'host': cereconf.CEREBRUM_DATABASE_CONNECT_DATA['host'],
-                 'pass': read_password(
-                            cereconf.CEREBRUM_DATABASE_CONNECT_DATA['user'],
-                            cereconf.CEREBRUM_DATABASE_NAME,
-                            cereconf.CEREBRUM_DATABASE_CONNECT_DATA['host']
-                         )
-                }
-        
+            {'db': cereconf.CEREBRUM_DATABASE_NAME,
+             'usr': cereconf.CEREBRUM_DATABASE_CONNECT_DATA['user'],
+             'host': cereconf.CEREBRUM_DATABASE_CONNECT_DATA['host'],
+             'pass': read_password(
+                 cereconf.CEREBRUM_DATABASE_CONNECT_DATA['user'],
+                 cereconf.CEREBRUM_DATABASE_NAME,
+                 cereconf.CEREBRUM_DATABASE_CONNECT_DATA['host'])}
+
         self.event_queue = event_queue
         self.run_state = run_state
         self.channels = channels
-        
+
         # TODO: This is a hack. Fix it
         self.logger_queue = logger_queue
         self.logger = Logger(self.logger_queue)
@@ -87,15 +85,15 @@ class NotificationCollector(multiprocessing.Process):
         # Initzialize connection for listening
         self.conn = psycopg2.connect(self.DSN)
         self.conn.set_isolation_level(
-                psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT
+            psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT
         )
 
         self.curs = self.conn.cursor()
         for x in channels:
             # It is important to put the channel name in quotation marks. If we
             # don't do that, the channel name gets case folded.
-            # (http://www.postgresql.org/message-id/AANLkTi=qi0DXZcDoMy5hHJQGJ \
-            #        P5upJPsGKVt+ySh5tmS@mail.gmail.com)
+            # (http://www.postgresql.org/message-id/AANLkTi=qi0DXZcDoMy5hHJQG \
+            #        JP5upJPsGKVt+ySh5tmS@mail.gmail.com)
             self.curs.execute('LISTEN "%s";' % x)
 
     def run(self):
@@ -114,15 +112,17 @@ class NotificationCollector(multiprocessing.Process):
                 try:
                     self._connect_db(self.channels)
                     connected = True
-                    self.logger.info("NotificationCollecor connected to database")
+                    self.logger.info(
+                        'NotificationCollecor connected to database')
                 except OperationalError:
                     self.logger.warn(
-                    'OperationalError occured, failed reconnection to database')
+                        'OperationalError occured, failed reconnection to '
+                        'database')
                     time.sleep(5)
                     continue
 
             # Wait for something to happen on the connection
-            if select.select([self.conn],[],[],5) == ([],[],[]):
+            if select.select([self.conn], [], [], 5) == ([], [], []):
                 pass
             else:
                 # Something has indeed happende. Poll the connection. If
@@ -135,7 +135,8 @@ class NotificationCollector(multiprocessing.Process):
                     # We set connected to fals, this results in indefinate
                     # reconnection attempts.
                     self.logger.warn(
-                        'OperationalError occured, lost connection to database')
+                        'OperationalError occured, lost connection '
+                        'to database')
                     connected = False
                     time.sleep(5)
 
