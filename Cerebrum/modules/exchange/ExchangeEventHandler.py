@@ -35,7 +35,7 @@ import os
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
 from Cerebrum.modules.exchange.Exceptions import ServerUnavailableException
 from Cerebrum.modules.exchange.Exceptions import AlreadyPerformedException
-from Cerebrum.modules.exchange.Exceptions import URLError
+from urllib2 import URLError
 
 from Cerebrum.modules.event.EventExceptions import EventExecutionException
 from Cerebrum.modules.event.EventExceptions import EventHandlerNotImplemented
