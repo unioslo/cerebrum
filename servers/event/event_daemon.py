@@ -71,8 +71,10 @@ def log_it(queue, run_state):
         log_func(*entry[1])
     logger.info('Shutting down logger thread')
 
+
 def signal_hup_handler(signal, frame):
     frame.f_locals['run_state'].value = 0
+
 
 def main():
     log_queue = multiprocessing.Queue()
@@ -83,7 +85,7 @@ def main():
     # Start the thread that writes to the log
     logger_thread = threading.Thread(target=log_it,
                                      args=(log_queue, logger_run_state,))
-    
+
     logger_thread.start()
 
     # Parse args
@@ -137,8 +139,8 @@ def main():
     # We look for classes that we can import dynamically, but if that is not
     # defined, we fall back to the BaseQueue-class, which really is
     # multiprocessing.Queue (as of now).
-    # TODO: This is not totally sane? Should we support mixins? We should define
-    # a manager in BaseQueue, and implement everything on top of that?
+    # TODO: This is not totally sane? Should we support mixins? We should
+    # define a manager in BaseQueue, and implement everything on top of that?
     try:
         event_queue_class_name = conf['event_queue_class']
     except KeyError:
@@ -147,7 +149,8 @@ def main():
     class QueueManager(managers.BaseManager):
         pass
 
-    QueueManager.register(event_queue_class_name, dyn_import(event_queue_class_name))
+    QueueManager.register(event_queue_class_name,
+                          dyn_import(event_queue_class_name))
     q_manager = QueueManager()
     q_manager.start()
     event_queue = getattr(q_manager, event_queue_class_name)()
@@ -195,13 +198,14 @@ def main():
     for x in procs:
         x.join()
 
-    manager.shutdown()
+    q_manager.shutdown()
 
     # Stop the logger
     logger_run_state.value = 0
     logger_thread.join()
 
-    # TODO: Instead of signal.pause, wait for joinage of proccesses or something
+    # TODO: Instead of signal.pause, wait for joinage of proccesses or
+    # something
 
     # TODO: Here
     # - Trap singals. We want to exit cleanly <- Done to some extent.
