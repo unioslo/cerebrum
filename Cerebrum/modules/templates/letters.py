@@ -27,36 +27,39 @@ from Cerebrum import Utils
 class TemplateHandler(object):
     """Handling of templates for letters.
 
-Templates are stored in directories like this:
-   no/new_password.tex
-   no/new_password_body.tex
-   en/new_password.tex
-   en/new_password_body.tex
+    Templates are stored in directories like this:
+       no/new_password.tex
+       no/new_password_body.tex
+       en/new_password.tex
+       en/new_password_body.tex
 
-Where no/en is the language, and new_password is the main template
-file.  When reading the template, the contents of the file named _body
-will be replace the string <BODY> in the main template.  If no <BODY>
-tag is present, hdr and footer will be empty.
+    ...where no/en is the language, and new_password is the main template
+    file. When reading the template, the contents of the file named _body
+    will be replace the string <BODY> in the main template.  If no <BODY>
+    tag is present, hdr and footer will be empty.
 
-    def make_letter():
-        (hdr, body, footer) = read_templates('no', 'new_password')
-        print hdr
-        for u in users:
-            print apply_template(body, {'username': u.user, ...})
-        print footer
-        """
+    Example:
+      def make_letter():
+          (hdr, body, footer) = read_templates('no', 'new_password')
+          print hdr
+          for u in users:
+              print apply_template(body, {'username': u.user, ...})
+          print footer
+
+    """
+
     def __init__(self, lang=None, tplname=None, type=None):
         if lang is not None:
-            self._type=type
+            self._type = type
             (self._hdr, self._body, self._footer) = self.read_templates(lang, tplname)
 
     def read_templates(self, lang, tplname):
-        pathinfo = (cereconf.TEMPLATE_DIR,lang, tplname, self._type)
+        pathinfo = (cereconf.TEMPLATE_DIR, lang, tplname, self._type)
         f = open("%s/%s/%s.%s" % pathinfo, 'rb')
         hdr = body = footer = ''
         for t in f.readlines():
             if t.startswith("<BODY>"):
-                f2 = open("%s/%s/%s_body.%s" %  pathinfo, 'rb')
+                f2 = open("%s/%s/%s_body.%s" % pathinfo, 'rb')
                 for t2 in f2.readlines():
                     body += t2
             else:
@@ -109,6 +112,7 @@ tag is present, hdr and footer will be empty.
         if ret:
             raise IOError("Bardode returned %s" % ret)
 
+    # TODO: Remove use of spool_job, and get rid of:
     def _tail(self, fname, num=-1):
         f = file(fname)
         ret = f.readlines()[-num]
@@ -145,7 +149,7 @@ tag is present, hdr and footer will be empty.
             if not skip_lpr:
                 if printer is not None and re.search(r'[^a-z0-9\-_]', printer):
                     raise IOError("Bad printer name")
-                
+
                 if def_lpr_cmd:
                     lpr_cmd = string.Template(def_lpr_cmd)
                 else:
@@ -177,4 +181,3 @@ if __name__ == '__main__':
         f.write(th._footer)
     f.close()
     th.spool_job("t.ps", th._type, 'nosuchprinter', skip_lpr=False)
-

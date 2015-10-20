@@ -17,9 +17,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cerebrum.modules.no.OrgLDIF import *
-from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.OrgLDIF import OrgLDIF
+
 
 class HiNeOrgLDIFMixin(OrgLDIF):
     def __init__(self, db, logger):
@@ -59,4 +60,3 @@ class HiNeOrgLDIFMixin(OrgLDIF):
             entry['sambaNTPassword'] = (pw4,)
             entry['sambaSID'] = ('-1',)
             entry['objectClass'].append('sambaSamAccount')
-        

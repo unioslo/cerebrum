@@ -131,7 +131,7 @@ db = logger = fnr2account_id = const = None
 def safe_join(elements, sep=' '):
     """As string.join(), but ensures `sep` isn't part of any element."""
     for i in range(len(elements)):
-        if elements[i].find(sep) <> -1:
+        if elements[i].find(sep) != -1:
             raise ValueError, \
                   "Join separator %r found in element #%d (%r)" % (
                 sep, i, elements[i])
@@ -413,13 +413,13 @@ class fs_undenh_1(fs_undenh_group):
                 cereconf.INSTITUTION_DOMAIN_NAME_LMS)
 
     def list_matches(self, gtype, data, category):
-        if gtype <> 'undenh':
+        if gtype != 'undenh':
             return ()
         if access_FS.roles_xml_parser.target_key in data:
             target = data[access_FS.roles_xml_parser.target_key]
             if not (len(target) == 1 and target[0] == 'undenh'):
                 return ()
-        if data.get('institusjonsnr', self._prefix[0]) <> self._prefix[0]:
+        if data.get('institusjonsnr', self._prefix[0]) != self._prefix[0]:
             return ()
         return super(fs_undenh_1, self).list_matches(gtype, data, category)
 
@@ -439,9 +439,9 @@ class fs_undenh_2(fs_undenh_group):
                             self._prefix[1], self._prefix[0]))
 
     def list_matches(self, gtype, data, category):
-        if data.get('arstall', self._prefix[0]) <> self._prefix[0]:
+        if data.get('arstall', self._prefix[0]) != self._prefix[0]:
             return ()
-        if data.get('terminkode', self._prefix[1]) <> self._prefix[1]:
+        if data.get('terminkode', self._prefix[1]) != self._prefix[1]:
             return ()
         return super(fs_undenh_2, self).list_matches(gtype, data, category)
 
@@ -479,11 +479,11 @@ class fs_undenh_3(fs_undenh_group):
                 " %s%s" % (self._multi_id, self.multi_suffix()))
 
     def list_matches(self, gtype, data, category):
-        if data.get('emnekode', self._prefix[0]) <> self._prefix[0]:
+        if data.get('emnekode', self._prefix[0]) != self._prefix[0]:
             return ()
-        if data.get('versjonskode', self._prefix[1]) <> self._prefix[1]:
+        if data.get('versjonskode', self._prefix[1]) != self._prefix[1]:
             return ()
-        if data.get('terminnr', self._prefix[2]) <> self._prefix[2]:
+        if data.get('terminnr', self._prefix[2]) != self._prefix[2]:
             return ()
         return super(fs_undenh_3, self).list_matches(gtype, data, category)
 
@@ -567,13 +567,13 @@ class fs_stprog_1(fs_stprog_group):
                 (cereconf.INSTITUTION_DOMAIN_NAME_LMS,))
 
     def list_matches(self, gtype, data, category):
-        if gtype <> 'studieprogram':
+        if gtype != 'studieprogram':
             return ()
         if access_FS.roles_xml_parser.target_key in data:
             target = data[access_FS.roles_xml_parser.target_key]
             if not (len(target) == 1 and target[0] == 'stprog'):
                 return ()
-        if data.get('institusjonsnr', self._prefix[0]) <> self._prefix[0]:
+        if data.get('institusjonsnr', self._prefix[0]) != self._prefix[0]:
             return ()
         return super(fs_stprog_1, self).list_matches(gtype, data, category)
 
@@ -603,7 +603,7 @@ class fs_stprog_2(fs_stprog_group):
             self.child_class = old
 
     def list_matches(self, gtype, data, category):
-        if data.get('studieprogramkode', self._prefix[0]) <> self._prefix[0]:
+        if data.get('studieprogramkode', self._prefix[0]) != self._prefix[0]:
             return ()
         return super(fs_stprog_2, self).list_matches(gtype, data, category)
 
@@ -902,7 +902,7 @@ def prefetch_primaryusers():
         p_id = int(row['entity_id'])
         fnr = row['external_id']
         src_sys = int(row['source_system'])
-        if fnr_source.has_key(fnr) and fnr_source[fnr][0] <> p_id:
+        if fnr_source.has_key(fnr) and fnr_source[fnr][0] != p_id:
             # Multiple person_info rows have the same fnr (presumably
             # the different fnrs come from different source systems).
             logger.error("Multiple persons share fnr %s: (%d, %d)",
@@ -937,7 +937,7 @@ def init_globals():
     # tegn.
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
-    dump_dir = '/cerebrum/dumps/FS'
+    dump_dir = cereconf.FS_DATA_DIR
     dryrun = False
     logger = Factory.get_logger("cronjob")
     immediate_evu_expire = False
@@ -1047,7 +1047,7 @@ def main():
     # Gå igjennom alle kjente studieprogrammer; opprett gruppeobjekter
     # for disse.
     def create_studieprog_helper(el_name, attrs):
-        if el_name == 'studprog' and attrs.get('status_utgatt') <> 'J':
+        if el_name == 'studprog' and attrs.get('status_utgatt') != 'J':
             fs_super.add('studieprogram', attrs)
     logger.info("Leser XML-fil: studieprog.xml")
     access_FS.studieprog_xml_parser(

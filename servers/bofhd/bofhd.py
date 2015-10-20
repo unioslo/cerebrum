@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2002-2014 University of Oslo, Norway
+# Copyright 2002-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,64 +20,75 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 # $Id$
+""" Server used by clients that wants to access the cerebrum database.
 
-#
-# Server used by clients that wants to access the cerebrum database.
-#
-# Work in progress, current implementation, expect big changes
-#
+Work in progress, current implementation, expect big changes
+
+
+Configuration
+-------------
+
+BOFHD_CLIENT_SOCKET_TIMEOUT
+    Socket timeout for clients, in seconds
+
+BOFHD_NONLOCK_QUARANTINES
+    Quarantines that does not exclude users from logging into bofh. The value
+    should be an iterable of strings. Each string should be the string
+    representation of a Quarantine constant.
+
+BOFHD_MOTD_FILE
+    Path to a file that contains a 'message of the day'.
+
+BOFHD_CLIENTS
+    A dictionary that maps known clients to required version. If a known client
+    connects with an old version number, bofhd will append a warning to the
+    MOTD.
+
+BOFHD_SUPERUSER_GROUP
+    A group of bofh superusers. Members of this group will have access to all
+    bofhd commands. The value should contain the name of the group.
+
+DB_AUTH_DIR
+    General cerebrum setting. Contains the path to a folder with protected
+    data.  Bofhd expects to find certain files in this directory:
+
+    TODO: Server certificate
+    TODO: Database connection -- general file, but also needed by bofhd
+
+CEREBRUM_DATABASE_NAME
+    General cerebrum setting, only used for logging the database that bofh
+    connects to.
+
+"""
 
 import sys
 import crypt
-import hashlib
-import re
 import socket
-import struct
-import types
 
 import cerebrum_path
 import cereconf
-if sys.version_info < (2, 3):
-    from Cerebrum.extlib import timeoutsocket
-    use_new_timeout = False
-else:
-    use_new_timeout = True
-    # Doesn't work with m2crypto:
-    # socket.setdefaulttimeout(cereconf.BOFHD_CLIENT_SOCKET_TIMEOUT)
+
 import thread
 import threading
 import time
-import pickle
 import SocketServer
-import SimpleXMLRPCServer
+from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
 import xmlrpclib
-import getopt
-from random import Random
-
-try:
-    from M2Crypto import SSL
-    CRYPTO_AVAILABLE = True
-    # Turn off m2crypto ssl chatter. These flags are NOT documented anywhere
-    # in m2crypto, so use with care :)
-    import M2Crypto
-    M2Crypto.m2.SSL_CB_LOOP = 0
-    M2Crypto.m2.SSL_CB_EXIT = 0
-except ImportError:
-    CRYPTO_AVAILABLE = False
-
-# import SecureXMLRPCServer
 
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import QuarantineHandler
-from Cerebrum.modules.bofhd.errors import CerebrumError, \
-    UnknownError, ServerRestartedError, SessionExpiredError
-from Cerebrum.modules.bofhd.help import Help
-from Cerebrum.modules.bofhd.xmlutils import \
-     xmlrpc_to_native, native_to_xmlrpc
-from Cerebrum.modules.bofhd.utils import BofhdUtils
+from Cerebrum import https
 
-Account_class = Utils.Factory.get('Account')
+from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.errors import SessionExpiredError
+from Cerebrum.modules.bofhd.errors import ServerRestartedError
+from Cerebrum.modules.bofhd.errors import UnknownError
+
+from Cerebrum.modules.bofhd.help import Help
+from Cerebrum.modules.bofhd.xmlutils import xmlrpc_to_native, native_to_xmlrpc
+from Cerebrum.modules.bofhd.utils import BofhdUtils
+from Cerebrum.modules.bofhd.session import BofhdSession
 
 # An installation *may* have many instances of bofhd running in parallel. If
 # this is the case, make sure that all of the instances get their own
@@ -86,467 +97,19 @@ Account_class = Utils.Factory.get('Account')
 # writing to it simultaneously.
 logger = Utils.Factory.get_logger("bofhd")  # The import modules use the "import" logger
 
-
-# This regex is too permissive for IP-addresses, but that does not matter,
-# since we use a library function that traps non-sensical values.
-_subnet_rex = re.compile(r"((\d+)\.(\d+)\.(\d+)\.(\d+))\/(\d+)")
-def ip_subnet_slash_to_range(subnet):
-    """Convert a subnet '/'-notation to a (start, stop) pair.
-
-    IVR 2008-09-01 FIXME: Duplication of IPUtils.py. This code should be in
-    its own module dealing with IP addresses.
-
-    @type subnet: basestring
-    @param subnet:
-      Subnet in '/' string format (i.e. A.B.C.D/X, where 0 <= A, B, C, D <=
-      255, 1 < X <= 32).
-
-    @rtype: tuple (of 32 bit longs)
-    @return:
-      A tuple (start, stop) with the lowest and highest IP address on the
-      specified subnet. 
-    """
-
-    def netmask_to_intrep(netmask):
-        return pow(2L, 32) - pow(2L, 32-int(netmask))
-
-    match = _subnet_rex.search(subnet)
-    if not match:
-        raise ValueError("subnet <%s> is not in valid '/'-notation" % subnet)
-
-    subnet = match.group(1)
-    netmask = int(match.group(6))
-    if not (1 <= netmask <= 31):
-        raise ValueError("netmask %d in subnet <%s> is invalid" %
-                         (netmask, subnet))
-
-    tmp = ip_to_long(subnet)
-    start = tmp & netmask_to_intrep(netmask)
-    stop = tmp | (pow(2L, 32) - 1 - netmask_to_intrep(netmask))
-    return start, stop
-# end ip_subnet_slash_to_range
-
-def ip_to_long(ip_address):
-    """Convert IP address in string notation to a 4 byte long.
-
-    @type ip_address: basestring
-    @param ip_address:
-      IP address to convert in A.B.C.D notation
-    """
-
-    return struct.unpack("!L", socket.inet_aton(ip_address))[0]
-# end ip_to_long
-
-
-class BofhdSession(object):
-
-    """ Handle database sessions for the BofhdServer.
-
-    This object is used to store and retrieve sessions from the database, which
-    in turn is used to validate session_ids from clients.
-
-    A session_id is valid if it (a) exists in the database, and (b) is not
-    timed out. A session can time out in two ways:
-
-    * If a certain time passes from the last time the client authenticated with
-      a username and password, the session is invalidated.
-
-      The authentication timeout is controlled by the _auth_timeout attribute.
-
-    * The session tracks the last time an action was performed. If a certain
-      time passes from the last action (the client is idle), the session is
-      also invalidated.
-
-      The idle timeout is controlled by attributes _seen_timeout and
-      _short_timeout. The _short_timeout attribute applies to hosts in the
-      _short_timeout_hosts attribute, and is intended for web clients and other
-      clients that should not keep an idle session for too long.
-
-    """
-
-    def _get_short_timeout():
-        """ Get the shorter timeout for the short timeout hosts.
-
-        This method fetches and validates the BOFHD_SHORT_TIMEOUT cereconf
-        setting. The shorter timeout is used for hosts fetched by
-        L{_get_short_timeout_hosts}.
-
-        """
-        if hasattr(cereconf, "BOFHD_SHORT_TIMEOUT"):
-            timeout = int(cereconf.BOFHD_SHORT_TIMEOUT)
-            if not (60 <= timeout <= 3600*24):
-                raise ValueError("Bogus BOFHD_SHORT_TIMEOUT timeout: %ss"
-                                 % cereconf.BOFHD_SHORT_TIMEOUT)
-            logger.debug("Short-lived sessions expire after %ds",
-                         timeout)
-            return timeout
-        return None
-
-    def _get_short_timeout_hosts():
-        """ Build a list of hosts, where shorter session expiry is in place.
-
-        This static method populates with _short_timeout_hosts with a list of
-        IP address pairs. Each pair represents an IP range. All bofhd *clients*
-        connecting from addresses within this range will be timed out much
-        faster than the standard L{_auth_timeout}. The specific timeout value
-        is assigned here as well.
-
-        This method has been made static for performance reasons.
-
-        Caveat: It is probably a very bad idea to put a lot of IP addresses
-        into BOFHD_SHORT_TIMEOUT_HOSTS. L{_short_timeout_hosts} is traversed
-        to generate SQL once for every command received by bofhd.
-
-        """
-        # Contains a list of pairs (first address, last address). Note that a
-        # single IP X will be mapped to a pair (X, X) (a single IP is a range
-        # with 1 element). Ranges are *inclusive* (as opposed to python's
-        # range())
-        hosts = list()
-        if hasattr(cereconf, "BOFHD_SHORT_TIMEOUT_HOSTS"):
-            for ip in cereconf.BOFHD_SHORT_TIMEOUT_HOSTS:
-                # It's a subnet (A.B.C.D/N)
-                if '/' in ip:
-                    low, high = ip_subnet_slash_to_range(ip)
-                    hosts.append((low, high))
-                    logger.debug("Sessions from subnet %s [%s, %s] "
-                                 "will be short-lived", ip, low, high)
-                # It's a simple IP-address
-                else:
-                    addr_long = ip_to_long(ip)
-                    hosts.append((addr_long, addr_long))
-                    logger.debug("Sessions from IP %s [%s, %s] will be "
-                                 "short-lived", ip, addr_long, addr_long)
-        return hosts
-
-    _auth_timeout = 3600*24*7
-    """ In seconds, how long a session should live after authentication. """
-
-    _seen_timeout = 3600*24
-    """ In seconds, how long a session should 'idle'. """
-
-    _short_timeout = _get_short_timeout()
-    """ In seconds, how long a session should 'idle' for certain clients. """
-
-    _short_timeout_hosts = _get_short_timeout_hosts()
-    """ Which clients should have the shorter timeout setting. """
-
-    def __init__(self, database, session_id=None, remote_address=None):
-        """ Create a new session.
-
-        :param Database database: A database connection.
-        :param str session_id: The session_id for this session.
-        :param str remote_address: The IP of the client for this session.
-
-        """
-        self._db = database
-        if not isinstance(session_id, (types.NoneType, str, unicode)):
-            raise CerebrumError("Wrong session id type: %s,"
-                                " expected str or None" % type(session_id))
-        self._id = str(session_id)
-        self._entity_id = None
-        self._owner_id = None
-        self.remote_address = remote_address
-
-    def _get_timeout_timestamp(self, key):
-        """ Get the current timeout threshold for this session.
-
-        :param str key: Which threshold to get (auth, seen or short).
-
-        :return:
-            Returns the threshold timestamp for when this session is
-            invalidated, according to the _<key>_timeout class attribute.
-
-        """
-        try:
-            seconds = getattr(self, '_%s_timeout' % key)
-        except AttributeError:
-            raise RuntimeError("Invalid timeout setting '%s'" % key)
-        ticks = int(time.time() - seconds)
-        return self._db.TimestampFromTicks(ticks)
-
-    def _remove_old_sessions(self):
-        """ Remove timed out sessions.
-
-        We remove any authenticated session-ids that was authenticated more
-        than _auth_timeout seconds ago, or hasn't been used in the last
-        _seen_timeout seconds.
-
-        """
-        thresholds = dict(((key, self._get_timeout_timestamp(key)) for key in
-                           ('auth', 'seen')))
-
-        # Clear any session_state data tied to the sessions
-        self._db.execute("""
-        DELETE FROM [:table schema=cerebrum name=bofhd_session_state]
-        WHERE exists (SELECT 'foo'
-                      FROM[:table schema=cerebrum name=bofhd_session]
-                      WHERE bofhd_session.session_id =
-                            bofhd_session_state.session_id
-                      AND (bofhd_session.auth_time < :auth
-                           OR bofhd_session.last_seen < :seen))""",
-                         thresholds)
-
-        # Clear the actual sessions.
-        self._db.execute("""
-        DELETE FROM [:table schema=cerebrum name=bofhd_session]
-        WHERE auth_time < :auth OR last_seen < :seen""",
-                         thresholds)
-
-        # Clear sessions for _short_timeout_hosts.
-        self.remove_short_timeout_sessions()
-
-    def remove_short_timeout_sessions(self):
-        """ Remove bofhd sessions with a shorter timeout value.
-
-        For some clients, it is desireable to remove sessions much faster than
-        the standard _auth_timeout value.
-
-        """
-        if not self._short_timeout_hosts:
-            return
-
-        sql = []
-        params = {}
-        # 'index' is needed to number free variables in the SQL query.
-        for index, (ip_start, ip_stop) in enumerate(self._short_timeout_hosts):
-            sql.append("(:start%d <= bs.ip_address AND "
-                       " bs.ip_address <= :stop%d)" % (index, index))
-            params["start%d" % index] = ip_start
-            params["stop%d" % index] = ip_stop
-
-        # first nuke all the associated session states
-        stmt = """
-        DELETE FROM [:table schema=cerebrum name=bofhd_session_state] bss
-        WHERE EXISTS (SELECT 1
-                      FROM [:table schema=cerebrum name=bofhd_session] bs
-                      WHERE bss.session_id = bs.session_id
-                      AND (%s)
-                      AND bs.last_seen < :last_seen
-                      )
-        """ % ' OR '.join(sql)
-        params["last_seen"] = self._get_timeout_timestamp('short')
-
-        self._db.execute(stmt, params)
-
-        # then nuke all the sessions
-        stmt = """
-        DELETE FROM [:table schema=cerebrum name=bofhd_session] bs
-        WHERE bs.last_seen < :last_seen AND (%s)
-        """ % ' AND '.join(sql)
-        self._db.execute(stmt, params)
-
-    # TODO: we should remove all state information older than N
-    # seconds
-    def set_authenticated_entity(self, entity_id, ip_address):
-        """Create persistent entity/session mapping; return new session_id.
-
-        This method assumes that entity_id is already sufficiently
-        authenticated, so the actual authentication of entity_id
-        authentication must be done before calling this method.
-
-        @param entity_id:
-          Account id for the account associated with this session. The
-          privileges of this account will be used throughout the session.
-
-        @type ip_address: basestring
-        @param ip_address:
-          IP address of the client that made the connection in A.B.C.D
-          notation 
-        """
-        try:
-            # /dev/random doesn't provide enough bytes
-            f = open('/dev/urandom')
-            r = f.read(48)
-        except IOError:
-            r = Random().random()
-        m = hashlib.md5("%s-ok%s" % (entity_id, r))
-        session_id = m.hexdigest()
-        self._db.execute("""
-        INSERT INTO [:table schema=cerebrum name=bofhd_session]
-          (session_id, account_id, auth_time, last_seen, ip_address)
-        VALUES (:session_id, :account_id, [:now], [:now], :ip_address)""", {
-            'session_id': session_id,
-            'account_id': entity_id,
-            'ip_address': ip_to_long(ip_address),
-            })
-        self._entity_id = entity_id
-        self._id = session_id
-        return self.get_session_id()
-
-    def get_session_id(self):
-        """ Return session_id that self is bound to.  """
-
-        if self._id is None:
-            return self._id
-
-        # IVR 2010-04-22: We want to always force session_id to be a string.
-        # I.e. this function must not return anything else, so that
-        # BofhdSession's users can rely on the session being a string.
-        return str(self._id)
-
-    def get_entity_id(self, include_expired=False):
-        """ Get the entity_id of the user that owns this session.
-
-        :param boolean include_expired:
-            If we should accept a session that is expired (default: False).
-
-        :rtype: int
-        :return: The entity id of the session owner.
-
-        :raises RuntimeError:
-            If this session does not have a session_id.
-        :raises SessionExpiredError:
-            If the session does not exist (in the database), or has timed out.
-            Note: If include_expired is True, we won't raise this exception for
-            timed out sessions.
-
-        """
-        if self.get_session_id() is None:
-            # TBD: Proper exception class?
-            raise RuntimeError("Unable to get entity_id; "
-                               "not associated with any session.")
-        if self._entity_id is not None:
-            return self._entity_id
-
-        binds = {'session_id': self.get_session_id(), }
-
-        not_expired_clause = ''
-        if include_expired is False:
-            not_expired_clause = ('AND auth_time >= :auth '
-                                  'AND last_seen >= :seen')
-            binds['auth'] = self._get_timeout_timestamp('auth')
-            binds['seen'] = self._get_timeout_timestamp('seen')
-
-        try:
-            self._entity_id = self._db.query_1("""
-            SELECT account_id
-            FROM [:table schema=cerebrum name=bofhd_session]
-            WHERE session_id=:session_id %s""" % not_expired_clause, binds)
-
-            # Log that there was an activity from the client.
-            self._db.execute("""
-            UPDATE [:table schema=cerebrum name=bofhd_session]
-            SET last_seen=[:now]
-            WHERE session_id=:session_id""",
-                             {'session_id': self.get_session_id()})
-        except Errors.NotFoundError:
-            raise SessionExpiredError("Authentication failure: "
-                                      "session expired. You must login again")
-        return self._entity_id
-
-    def _fetch_account(self, account_id):
-        """ Get a populated Acccount object. """
-        ac = Account_class(self._db)
-        ac.find(account_id)
-        return ac
-
-    def get_owner_id(self):
-        if self._owner_id is None:
-            account_id = self.get_entity_id()
-            self._owner_id = int(self._fetch_account(account_id).owner_id)
-        return self._owner_id
-
-    def store_state(self, state_type, state_data, entity_id=None):
-        """Add state tuple to ``session_id``."""
-        # TODO: assert that there is space for state_data
-        return self._db.execute("""
-        INSERT INTO [:table schema=cerebrum name=bofhd_session_state]
-          (session_id, state_type, entity_id, state_data, set_time)
-        VALUES (:session_id, :state_type, :entity_id, :state_data, [:now])""",
-                                {'session_id': self.get_session_id(),
-                                 'state_type': state_type,
-                                 'entity_id': entity_id,
-                                 'state_data': pickle.dumps(state_data), })
-
-    def get_state(self, state_type=None):
-        """Retrieve all state tuples for ``session_id``."""
-        if state_type is not None:
-            where = "AND state_type=:state_type"
-        else:
-            where = ""
-        ret = self._db.query("""
-        SELECT state_type, entity_id, state_data, set_time
-        FROM [:table schema=cerebrum name=bofhd_session_state]
-        WHERE session_id=:session_id %s
-        ORDER BY set_time""" % where, {
-            'session_id': self.get_session_id(),
-            'state_type': state_type})
-        for r in ret:
-            r['state_data'] = pickle.loads(r['state_data'])
-        return ret
-
-    def clear_state(self, state_types=None):
-        """ Remove session state data.
-
-        Session state data mainly constists of cached passwords for the
-        misc_list_passwords command.
-
-        """
-        if state_types is None:
-            state_types = ('*',)
-        for state in state_types:
-            sql = """
-            DELETE FROM [:table schema=cerebrum name=bofhd_session_state]
-            WHERE session_id=:session_id
-            """
-            if state != '*':
-                sql += " AND state_type=:state"
-            self._db.execute(sql, {'session_id': self.get_session_id(),
-                                   'state': state})
-            if state == '*':
-                self._db.execute("""
-                DELETE FROM [:table schema=cerebrum name=bofhd_session]
-                WHERE session_id=:session_id
-                """, {'session_id': self.get_session_id()})
-        self._remove_old_sessions()
-    # end clear_state
-
-
-    def reassign_session(self, target_id):
-        """Reassociate a new entity with current session key.
-
-        This method is the equivalent of UNIX' 'su'. We substitute current
-        session owner with target_id.
-
-        All the following commands in bofhd will be executed with the
-        permissions of target_id. Do not use this method lightly!
-
-        @type target_id: int
-        @param target_id:
-          Account id for the new session owner for *this* session
-          (i.e. self._id) 
-        """
-
-        old_session_owner = self._entity_id
-        self._entity_id = target_id
-        try:
-            # Change the session owner
-            # Log that there was an activity from the client.
-            self._db.execute("""
-            UPDATE [:table schema=cerebrum name=bofhd_session]
-            SET last_seen=[:now], account_id=:account_id
-            WHERE session_id=:session_id""",
-                             {'account_id': target_id,
-                              'session_id': self._id})
-        except Errors.NotFoundError:
-            raise SessionExpiredError("Failed to reassign session. "
-                                      "Try to login again?")
-
-        self._owner_id = self.get_owner_id()
-        logger.info("Changed session=%s entity %s (id=%s) -> %s (id=%s)",
-                    self._id,
-                    self._fetch_account(old_session_owner).account_name,
-                    old_session_owner,
-                    self._fetch_account(self._entity_id).account_name,
-                    self._entity_id)
-    # end reassign_session
-# end BofhdSession
-
-
-
-class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
-                          object):
+thread_name = lambda: threading.currentThread().getName()
+""" Get thread name. """
+
+format_addr = lambda addr: ':'.join([str(x) for x in addr or ['err', 'err']])
+""" Get ip:port formatted string from address tuple. """
+
+
+# TODO: We need to figure out where the db connection is *really* needed. We
+#       need to either:
+#         1. Fix the DBProxyConnection
+#         2. Move all DB access out of the ServerImplementation and into the
+#            RequestHandler.
+class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
 
     """Class defining all XML-RPC-callable methods.
 
@@ -555,13 +118,34 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
 
     """
 
-    use_encryption = CRYPTO_AVAILABLE
+    def setup(self):
+        """ Setup the request.
+
+        This function will read out the BOFHD_CLIENT_SOCKET_TIMEOUT setting,
+        if no other timeout is given, and apply it to the request socket.
+
+        """
+        if self.timeout is None:
+            self.timeout = getattr(cereconf, 'BOFHD_CLIENT_SOCKET_TIMEOUT')
+        super(BofhdRequestHandler, self).setup()
 
     def _dispatch(self, method, params):
+        """ Call bofhd function and handle errors.
+
+        This method is responsible for mapping the actual XMLRPC method to a
+        function call (i.e. bofhd_get_commands, bofhd_run_command, bofhd_login,
+        etc...)
+
+        :raise NotImplementedError: When an unknown function is called.
+        :raise CerebrumError: When known errors occurs.
+        :raise UnknownError: When unhandled (server errors) occurs.
+
+        """
         try:
             func = getattr(self, 'bofhd_' + method)
         except AttributeError:
-            raise Exception('method "%s" is not supported' % method)
+            raise NotImplementedError('method "%s" is not supported' % method)
+
         try:
             ret = apply(func, xmlrpc_to_native(params))
         except CerebrumError, e:
@@ -599,27 +183,33 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             raise UnknownError(sys.exc_info()[0],
                                sys.exc_info()[1],
                                msg="A server error has been logged.")
+
+        # TODO: Dispatch should maybe handle rollback for all methods?
+
         return native_to_xmlrpc(ret)
 
     def handle(self):
-        if not use_new_timeout:
-            if not use_encryption:
-                self.connection.set_timeout(cereconf.BOFHD_CLIENT_SOCKET_TIMEOUT)
-            try:
-                super(BofhdRequestHandler, self).handle()
-            except timeoutsocket.Timeout, msg:
-                logger.debug("Timeout: %s from %s" % (
-                    msg, ":".join([str(x) for x in self.client_address])))
-                self.server.db.rollback()
-        else:
-            if not use_encryption:
-                self.connection.settimeout(cereconf.BOFHD_CLIENT_SOCKET_TIMEOUT)
-            try:
-                super(BofhdRequestHandler, self).handle()
-            except socket.timeout, msg:
-                logger.debug("Timeout: %s from %s" % (
-                    msg, ":".join([str(x) for x in self.client_address])))
-                self.server.db.rollback()
+        """ Handle request and timeout. """
+        # TODO: Do we need to do db.rollback here? It should probably be moved
+        #       elsewhere.
+        try:
+            super(BofhdRequestHandler, self).handle()
+        except socket.timeout, e:
+            # Timeouts are not 'normal' operation.
+            logger.info("[%s] timeout: %s from %s",
+                        thread_name(), e, format_addr(self.client_address))
+            self.close_connection = 1
+            self.server.db.rollback()
+        except https.SSLError, e:
+            # SSLError could be a timeout, or it could be some other form of
+            # error
+            logger.info("[%s] SSLError: %s from %s",
+                        thread_name(), e, format_addr(self.client_address))
+            self.close_connection = 1
+            self.server.db.rollback()
+        except:
+            self.server.db.rollback()
+            raise
 
     # This method is pretty identical to the one shipped with Python,
     # except that we don't silently eat exceptions
@@ -628,8 +218,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
 
         Attempts to interpret all HTTP POST requests as XML-RPC calls,
         which are forwarded to the _dispatch method for handling.
-        """
 
+        """
         # Whenever unexpected exception occurs, we'd like to include
         # as much debugging info as possible.  To avoid raising
         # NameError in the debug-printing code, we pre-initialise a
@@ -642,8 +232,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
 
             # generate response
             try:
-                logger.debug2(
-                    "[%s] dispatch %s" % (threading.currentThread().getName(), method))
+                logger.debug2("[%s] dispatch %s", thread_name(), method)
 
                 response = self._dispatch(method, params)
                 # wrap response in a singleton tuple
@@ -653,7 +242,6 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                 # we want to report any subclass of CerebrumError as
                 # CerebrumError so that the client can recognize this
                 # as a user-error.
-                # TODO: This is not a perfect solution...
                 if sys.exc_type in (ServerRestartedError,
                                     SessionExpiredError,
                                     UnknownError):
@@ -689,101 +277,95 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             self.send_header("Content-length", str(len(response)))
             self.end_headers()
             self.wfile.write(response)
-
-            # shut down the connection
             self.wfile.flush()
-            self.connection.shutdown(1)
-        logger.debug2("End of" + threading.currentThread().getName())
+        logger.debug2("[%s] thread done", thread_name())
 
-    def finish(self):
-        if self.use_encryption:
-            self.request.set_shutdown(SSL.SSL_RECEIVED_SHUTDOWN |
-                                      SSL.SSL_SENT_SHUTDOWN)
-            self.request.close()
-        else:
-            super(BofhdRequestHandler, self).finish()
+    def _get_quarantines(self, account):
+        """ Fetch a list of active lockout quarantines for account.
+
+        :param Cerebrum.Account account: The account to fetch quarantines for.
+
+        :return list:
+            A list of strings representing each active, lockout quarantines
+            that affects the account.
+
+        """
+        Quarantine = self.server.const.Quarantine
+        nonlock = getattr(cereconf, 'BOFHD_NONLOCK_QUARANTINES', [])
+        active = []
+
+        for qrow in account.get_entity_quarantine(only_active=True):
+            # The quarantine found in this row is currently
+            # active. Some quarantine types may not restrict
+            # access to bofhd even if they otherwise result in
+            # lock. Check therefore whether a found quarantine
+            # should be appended
+            #
+            # FIXME, Jazz 2008-04-08:
+            # This should probably be based on spreads or some
+            # such mechanism, but quarantinehandler and the import
+            # routines don't support a more appopriate solution yet
+            if not (str(Quarantine(qrow['quarantine_type'])) in nonlock):
+                active.append(qrow['quarantine_type'])
+        qh = QuarantineHandler.QuarantineHandler(self.server.db, active)
+        if qh.should_skip() or qh.is_locked():
+            return [Quarantine(q).description for q in active]
+        return []
 
     def bofhd_login(self, uname, password):
-        account = Account_class(self.server.db)
+        """ Authenticate and create session.
+
+        :param string uname: The username
+        :param string password: The password, preferably in latin-1
+
+        :return string:
+            If authentication is successful, a session_id registered in
+            BofhdSession is returned. This session_id can be used to run
+            commands that requires authentication.
+
+        :raise CerebrumError: If the user is not allowed to log in.
+
+        """
+        account = Utils.Factory.get('Account')(self.server.db)
         try:
             account.find_by_name(uname)
         except Errors.NotFoundError:
             if isinstance(uname, unicode):
                 uname = uname.encode('utf-8')
-            logger.info("Failed login for %s from %s" % (
-                uname, ":".join([str(x) for x in self.client_address])))
+            logger.info("Failed login for %s from %s: unknown username",
+                        uname, format_addr(self.client_address))
             raise CerebrumError("Unknown username or password")
 
-        # Check quarantines
-        quarantines = []      # TBD: Should the quarantine-check have a utility-API function?
-        for qrow in account.get_entity_quarantine(only_active=True):
-                # The quarantine found in this row is currently
-                # active. Some quarantine types may not restrict
-                # access to bofhd even if they otherwise result in
-                # lock. Check therefore whether a found quarantine
-                # should be appended
-                #
-                # FIXME, Jazz 2008-04-08:
-                # This should probably be based on spreads or some
-                # such mechanism, but quarantinehandler and the import
-                # routines don't support a more appopriate solution yet
-                if not str(self.server.const.Quarantine(qrow['quarantine_type'])) \
-                       in cereconf.BOFHD_NONLOCK_QUARANTINES:
-                    quarantines.append(qrow['quarantine_type'])            
-        qh = QuarantineHandler.QuarantineHandler(self.server.db,
-                                                 quarantines)
-        if qh.should_skip() or qh.is_locked():
-            qua_repr = ", ".join(self.server.const.Quarantine(q).description
-                                 for q in quarantines)
-            raise CerebrumError("User has active lock/skip quarantines, login denied:"
-                                " %s" % qua_repr)
-        # Check expire_date
-        if account.is_expired():
-            raise CerebrumError("User is expired")
-        # Check password
-        enc_passwords = []
-        for auth in (self.server.const.auth_type_md5_crypt,
-                     self.server.const.auth_type_crypt3_des):
-            try:
-                enc_pass = account.get_account_authentication(auth)
-                if enc_pass:            # Ignore empty password hashes
-                    enc_passwords.append(enc_pass)
-            except Errors.NotFoundError:
-                pass
-        if not enc_passwords:
-            logger.info("Missing password for %s from %s" % (uname,
-                        ":".join([str(x) for x in self.client_address])))
-            raise CerebrumError("Unknown username or password")
         if isinstance(password, unicode):  # crypt.crypt don't like unicode
             # TODO: ideally we should not hardcode charset here.
             password = password.encode('iso8859-1')
-        # TODO: Add API for credential verification to Account.py.
-        mismatch = map(lambda e: e != crypt.crypt(password, e), enc_passwords)
-        if filter(None, mismatch):
-            # Use same error message as above; un-authenticated
-            # parties should not be told that this in fact is a valid
-            # username.
-            if filter(lambda m: not m, mismatch):
-                mismatch = zip(mismatch, enc_passwords)
-                match    = [p[1] for p in mismatch if not p[0]]
-                mismatch = [p[1] for p in mismatch if p[0]]
-                if filter(lambda c: c < '!' or c > '~', password):
-                    chars = 'chars, including [^!-~]'
-                else:
-                    chars = 'good chars'
-                logger.info("Password (%d %s) for user %s matches"
-                            " auth_data '%s' but not '%s'"
-                            % (len(password), chars, uname,
-                               "', '".join(match), "', '".join(mismatch)))
-            logger.info("Failed login for %s from %s" % (
-                uname, ":".join([str(x) for x in self.client_address])))
+        if not account.verify_auth(password):
+            logger.info("Failed login for %s from %s: password mismatch",
+                        uname, format_addr(self.client_address))
             raise CerebrumError("Unknown username or password")
+
+        # Check quarantines
+        quarantines = self._get_quarantines(account)
+        if quarantines:
+            logger.info('Failed login for %s from %s: quarantines %s',
+                        uname, format_addr(self.client_address),
+                        ', '.join(quarantines))
+            raise CerebrumError(
+                'User has active quarantines, login denied: %s' %
+                ', '.join(quarantines))
+
+        # Check expire_date
+        if account.is_expired():
+            logger.info('Failed login for %s from %s: account expired',
+                        uname, format_addr(self.client_address))
+            raise CerebrumError('User is expired, login denied')
+
         try:
-            logger.info("Succesful login for %s from %s" % (
-                uname, ":".join([str(x) for x in self.client_address])))
-            session = BofhdSession(self.server.db)
-            session_id = session.set_authenticated_entity(account.entity_id,
-                                                          self.client_address[0])
+            logger.info("Successful login for %s from %s",
+                        uname, format_addr(self.client_address))
+            session = BofhdSession(self.server.db, logger)
+            session_id = session.set_authenticated_entity(
+                account.entity_id, self.client_address[0])
             self.server.db.commit()
             self.server.known_sessions[session_id] = 1
             return session_id
@@ -792,10 +374,11 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             raise
 
     def bofhd_logout(self, session_id):
-        session = BofhdSession(self.server.db, session_id)
+        """ The bofhd logout function. """
+        session = BofhdSession(self.server.db, logger, session_id)
         try:
             session.clear_state()
-            if self.server.known_sessions.has_key(session_id):
+            if session_id in self.server.known_sessions:
                 del(self.server.known_sessions[session_id])
             self.server.db.commit()
         except Exception:
@@ -806,8 +389,12 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
     def bofhd_get_commands(self, session_id):
         """Build a dict of the commands available to the client."""
 
-        session = BofhdSession(self.server.db, session_id)
+        session = BofhdSession(self.server.db, logger, session_id)
         entity_id = session.get_entity_id()
+        # session.get_entity_id() will potentially change the contents of
+        # bofhd_session hence lock rows creating a logout problem described in
+        # CRB-1226. We should commit here in order to prevent row locking.
+        self.server.db.commit()
         commands = {}
         for inst in self.server.cmd_instances:
             newcmd = inst.get_commands(entity_id)
@@ -881,7 +468,6 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                 new_args = args[:next_tuple] + (x,) + args[next_tuple+1:]
                 self._run_command_with_tuples(func, session, new_args, myret)
 
-
     def check_session_validity(self, session):
         """Make sure that session has not expired.
 
@@ -892,8 +478,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         @return:
           entity_id of the entity owning the session (i.e. which account is
           associated with that specific session_id)
-        """
 
+        """
         session_id = session.get_session_id()
         # This is throw an exception, when session_id has expired
         entity_id = session.get_entity_id()
@@ -907,20 +493,24 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         return entity_id
 
     def bofhd_run_command(self, session_id, cmd, *args):
-        """Execute the callable function (in the correct module) with
-        the given name after mapping session_id to username"""
+        """Call command with session details.
 
+        Execute the callable function (in the correct module) with the given
+        name after mapping session_id to username
+
+        """
         # First, drop the short-lived sessions FIXME: if this is too
         # CPU-intensive, introduce a timestamp in this class, and drop the
         # short-lived sessions ONLY if more than BofhdSession._short_timeout
-        session = BofhdSession(self.server.db)
+        session = BofhdSession(self.server.db, logger)
         session.remove_short_timeout_sessions()
 
-        session = BofhdSession(self.server.db, session_id, self.client_address)
+        session = BofhdSession(self.server.db, logger, session_id,
+                               self.client_address)
         entity_id = self.check_session_validity(session)
         self.server.db.cl_init(change_by=entity_id)
         logger.debug("Run command: %s (%s) by %i" % (cmd, args, entity_id))
-        if not self.server.cmd2instance.has_key(cmd):
+        if cmd not in self.server.cmd2instance:
             raise CerebrumError("Illegal command '%s'" % cmd)
         func = getattr(self.server.cmd2instance[cmd], cmd)
 
@@ -957,15 +547,15 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
           used as header
         - raw : don't use map after all"""
 
-        session = BofhdSession(self.server.db, session_id, self.client_address)
+        session = BofhdSession(self.server.db, logger, session_id,
+                               self.client_address)
         instance, cmdObj = self.server.get_cmd_info(cmd)
         self.check_session_validity(session)
         if cmdObj._prompt_func is not None:
             logger.debug("prompt_func: %s" % str(args))
-            return getattr(instance, cmdObj._prompt_func.__name__)(session, *args)
+            return getattr(instance,
+                           cmdObj._prompt_func.__name__)(session, *args)
         raise CerebrumError("Command %s has no prompt func" % (cmd,))
-    # end bofhd_call_prompt_func
-
 
     def bofhd_get_default_param(self, session_id, cmd, *args):
         """ Get default value for a parameter.
@@ -977,7 +567,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         corresponding parameter object.
 
         """
-        session = BofhdSession(self.server.db, session_id)
+        session = BofhdSession(self.server.db, logger, session_id)
         instance, cmdObj = self.server.get_cmd_info(cmd)
 
         # If the client calls this method when no default function is defined,
@@ -991,23 +581,70 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         return getattr(instance, func.__name__)(session, *args)
 
 
+# TODO: vv move to Cerebrum.modules.bofhd.server vv
+
+class BofhdConfig(object):
+
+    """ Container for parsing and keeping a bofhd config. """
+
+    def __init__(self, filename=None):
+        """ Initialize new config. """
+        self._exts = list()  # NOTE: Must keep order!
+        if filename:
+            self.load_from_file(filename)
+
+    def load_from_file(self, filename):
+        """ Load config file. """
+        with open(filename, 'r') as f:
+            cnt = 0
+            for line in f.readlines():
+                cnt += 1
+                if line:
+                    line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                try:
+                    mod, cls = line.split("/", 1)
+                except:
+                    mod, cls = None, None
+                if not mod or not cls:
+                    raise Exception("Parse error in '%s' on line %d: %r" %
+                                    (filename, cnt, line))
+                self._exts.append((mod, cls))
+
+    def extensions(self):
+        """ All extensions from config. """
+        for mod, cls in self._exts:
+            yield mod, cls
+
+
 class BofhdServerImplementation(object):
-    def __init__(self, server_address=None,
-                 RequestHandlerClass=BofhdRequestHandler,
-                 database=None, config_fname=None, *args, **kws):
-        # Calls to object.__init__ are no-ops, so this won't do
-        # anything unless there are mixins (and they are placed after
-        # BofhdServer in self's MRO).
-        super(BofhdServerImplementation, self).__init__(
-            server_address, RequestHandlerClass, *args, **kws)
+    """ Common Server implementation. """
+
+    def __init__(self, database=None, config_fname=None, logRequests=False, **kws):
+        """ Set up a new bofhd server.
+
+        :param Cerebrum.Database database:
+            A Cerebrum database connection
+        :param string config_fname:
+            Filename of the bofhd config file.
+
+        """
+        super(BofhdServerImplementation, self).__init__(**kws)
         self.known_sessions = {}
-        self.logRequests = False
+        self.logRequests = logRequests
         self.db = database
         self.util = BofhdUtils(database)
-        self.config_fname = config_fname
-        self.read_config()
+        self.config = BofhdConfig(config_fname)
+        self.load_extensions()
 
-    def read_config(self):
+    def load_extensions(self):
+        """ Load BofhdExtensions (commands and help texts).
+
+        This will load and initialize the BofhdExtensions specified by the
+        configuration.
+
+        """
         self.const = Utils.Factory.get('Constants')(self.db)
         self.cmd2instance = {}
         self.server_start_time = time.time()
@@ -1017,24 +654,15 @@ class BofhdServerImplementation(object):
         self.cmd_instances = []
         self.logger = logger
 
-        config_file = file(self.config_fname)
-        while True:
-            line = config_file.readline()
-            if not line:
-                break
-            line = line.strip()
-            if not line or line.startswith('#'):
-                continue
-            # Import module and create an instance of it; update
-            # mapping from command name to a class instance with a
-            # method that implements that command.  This means that
-            # any command's implementation can be overridden by
-            # providing a new implementation in a later class.
-            modfile, class_name = line.split("/", 1)
+        for modfile, class_name in self.config.extensions():
             mod = Utils.dyn_import(modfile)
             cls = getattr(mod, class_name)
             instance = cls(self)
             self.cmd_instances.append(instance)
+
+            # Map commands to BofhdExtensions
+            # NOTE: Any duplicate command will be overloaded by later
+            #       BofhdExtensions.
             for k in instance.all_commands.keys():
                 self.cmd2instance[k] = instance
             if hasattr(instance, "hidden_commands"):
@@ -1051,9 +679,10 @@ class BofhdServerImplementation(object):
         # Reformat the command definitions to be suitable for the help.
         cmds_for_help = dict()
         for inst in self.cmd_instances:
-            cmds_for_help.update(dict((k, cmd.get_struct(inst))
-                                     for k, cmd in inst.all_commands.iteritems()
-                                     if cmd and self.cmd2instance[k] == inst))
+            cmds_for_help.update(
+                dict((k, cmd.get_struct(inst)) for k, cmd
+                     in inst.all_commands.iteritems()
+                     if cmd and self.cmd2instance[k] == inst))
         self.help.check_consistency(cmds_for_help)
 
     def get_cmd_info(self, cmd):
@@ -1067,8 +696,37 @@ class BofhdServerImplementation(object):
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         super(BofhdServerImplementation, self).server_bind()
 
+    def get_request(self):
+        """ Get request socket and client address.
+
+        This is used to log new connections.
+
+        :rtype: tuple
+        :return:
+            A tuple with the request socket, and client address. The client
+            address is a tuple consisting of address and port.
+
+        """
+        sock, addr = super(BofhdServerImplementation, self).get_request()
+        logger.debug("[%s] new connection from %s, %r",
+                     thread_name(), format_addr(addr), sock)
+        return sock, addr
+
     def close_request(self, request):
+        """ Close request socket.
+
+        process_request either leads to:
+          - finish_request, which calls shutdown_request
+          - handle_error, which calls shutdown_request
+
+        shutdown_request should call close_request, with the request socket as
+        argument.
+
+        :param SSLSocket|socketobject request: The request socket to close.
+
+        """
         super(BofhdServerImplementation, self).close_request(request)
+        logger.debug("[%s] closed connection %r", thread_name(), request)
         # Check that the database is alive and well by creating a new
         # cursor.
         #
@@ -1081,9 +739,23 @@ class BofhdServerImplementation(object):
         # more difficult.
         self.db.ping()
 
+
 class _TCPServer(SocketServer.TCPServer, object):
-    "SocketServer.TCPServer as a new-style class."
+    """SocketServer.TCPServer as a new-style class."""
+    # Must override __init__ here to make the super() call work with only kw args.
+    def __init__(self, server_address=None,
+                 RequestHandlerClass=BofhdRequestHandler,
+                 bind_and_activate=True, **kws):
+        # This should always call SocketServer.TCPServer
+        super(_TCPServer, self).__init__(server_address=server_address,
+                                         RequestHandlerClass=RequestHandlerClass,
+                                         bind_and_activate=bind_and_activate,
+                                         **kws)
+
+class _ThreadingMixIn(SocketServer.ThreadingMixIn, object):
+    """SocketServer.ThreadingMixIn as a new-style class."""
     pass
+
 
 class BofhdServer(BofhdServerImplementation, _TCPServer):
     """Plain non-encrypted Bofhd server.
@@ -1099,12 +771,11 @@ class BofhdServer(BofhdServerImplementation, _TCPServer):
     """
     pass
 
-class _ThreadingMixIn(SocketServer.ThreadingMixIn, object):
-    "SocketServer.ThreadingMixIn as a new-style class."
-    pass
 
-class ThreadingBofhdServer(BofhdServerImplementation, _ThreadingMixIn,
+class ThreadingBofhdServer(BofhdServerImplementation,
+                           _ThreadingMixIn,
                            _TCPServer):
+
     """Threaded non-encrypted Bofhd server.
 
     Constructor accepts the following arguments:
@@ -1119,50 +790,77 @@ class ThreadingBofhdServer(BofhdServerImplementation, _ThreadingMixIn,
     pass
 
 
-if CRYPTO_AVAILABLE:
-    class _SSLServer(SSL.SSLServer, object):
-        "SSL.SSLServer as a new-style class."
-        pass
+class SSLServer(_TCPServer):
 
-    class SSLBofhdServer(BofhdServerImplementation, _SSLServer):
-        """SSL-enabled Bofhd server.
+    """ Basic SSL server. """
 
-        Constructor accepts the following arguments:
+    def __init__(self, ssl_config=None, bind_and_activate=True, **kws):
+        """ Initialize a basic SSL Server.
 
-          server_address        -- (ipAddr, portNumber) tuple
-          RequestHandlerClass   -- class for handling XML-RPC requests
-          logRequests           -- boolean
-          database              -- Cerebrum Database object
-          config_fname          -- name of Bofhd config file
-          ssl_context           -- SSL.Context object
-
-        """
-        pass
-
-    class _ThreadingSSLServer(SSL.ThreadingSSLServer, object):
-        "SSL.ThreadingSSLServer as a new-style class."
-        pass
-
-    # TODO: Check if it is sufficient to do something like:
-    # class ThreadingSSLBofhdServer(SSL.ThreadingSSLServer, SSLBofhdServer)
-    class ThreadingSSLBofhdServer(BofhdServerImplementation,
-                                  _ThreadingSSLServer):
-        """SSL-enabled threaded Bofhd server.
-
-        Constructor accepts the following arguments:
-
-          server_address        -- (ipAddr, portNumber) tuple
-          RequestHandlerClass   -- class for handling XML-RPC requests
-          logRequests           -- boolean
-          database              -- Cerebrum Database object
-          config_fname          -- name of Bofhd config file
-          ssl_context           -- SSL.Context object
+        :param tuple server_address:
+            A tuple with the listening socket address. The tuple should contain
+            the bind address or ip, and the bind port.
+        :param type RequestHandlerClass:
+            The request handler class, preferably a subtype of
+            SimpleXMLRPCRequestHandler.
+        :param https.SSLConfig ssl_config:
+            A configuration object with SSL parameters.
+        :param boolean bind_and_activate:
+            If bind and activate should be performed on init.
 
         """
-        pass
+        assert isinstance(ssl_config, https.SSLConfig)
+        self.ssl_config = ssl_config
 
+        # We cannot let the superclss perform bind_and_activate before we wrap
+        # the socket.
+        super(SSLServer, self).__init__(bind_and_activate=False, **kws)
+
+        self.socket = ssl_config.wrap_socket(self.socket, server=True)
+
+        if bind_and_activate:
+            self.server_bind()
+            self.server_activate()
+
+
+class SSLBofhdServer(BofhdServerImplementation, SSLServer):
+
+    """SSL-enabled Bofhd server.
+
+    Constructor accepts the following arguments:
+
+      server_address        -- (ipAddr, portNumber) tuple
+      RequestHandlerClass   -- class for handling XML-RPC requests
+      logRequests           -- boolean
+      database              -- Cerebrum Database object
+      config_fname          -- name of Bofhd config file
+      ssl_context           -- SSL.Context object
+
+    """
+    pass
+
+
+class ThreadingSSLBofhdServer(BofhdServerImplementation,
+                              _ThreadingMixIn,
+                              SSLServer):
+    """SSL-enabled threaded Bofhd server.
+
+    Constructor accepts the following arguments:
+
+      server_address        -- (ipAddr, portNumber) tuple
+      RequestHandlerClass   -- class for handling XML-RPC requests
+      logRequests           -- boolean
+      database              -- Cerebrum Database object
+      config_fname          -- name of Bofhd config file
+      ssl_context           -- SSL.Context object
+
+    """
+    pass
+
+# TODO: ^^ move to Cerebrum.modules.bofhd.server ^^
 
 _db_pool_lock = thread.allocate_lock()
+
 
 class ProxyDBConnection(object):
 
@@ -1173,6 +871,7 @@ class ProxyDBConnection(object):
 
     The class works by overriding __getattr__.  Thus, when one says
     db.<anything>, this method is called.
+
     """
 
     def __init__(self, obj_class):
@@ -1182,14 +881,13 @@ class ProxyDBConnection(object):
 
     def __getattr__(self, attrib):
         try:
-            obj = self.active_connections[threading.currentThread().getName()]
+            obj = self.active_connections[thread_name()]
         except KeyError:
-            # TODO: 
+            # TODO:
             # - limit max # of simultaneously used db-connections
             # - reduce size of free_pool when size > N
             _db_pool_lock.acquire()
-            logger.debug("Alloc new db-handle for " +
-                         threading.currentThread().getName())
+            logger.debug("[%s] alloc new db-handle", thread_name())
             running_threads = []
             for t in threading.enumerate():
                 running_threads.append(t.getName())
@@ -1197,145 +895,173 @@ class ProxyDBConnection(object):
             for p in self.active_connections.keys():
                 if p not in running_threads:
                     logger.debug("  Close " + p)
-                    #self.active_connections[p].close()
+                    # self.active_connections[p].close()
                     self.free_pool.append(self.active_connections[p])
                     del(self.active_connections[p])
             if not self.free_pool:
                 obj = self._obj_class()
             else:
                 obj = self.free_pool.pop(0)
-            self.active_connections[threading.currentThread().getName()] = obj
+            self.active_connections[thread_name()] = obj
             logger.debug("  Open: " + str(self.active_connections.keys()))
             _db_pool_lock.release()
         return getattr(obj, attrib)
 
-def usage(exitcode=0):
-    print """Usage: bofhd.py -c filename [-t keyword]
-  -c | --config-file <filename>: use as config file
-  -t | --test-help <keyword>: check help consistency
-  -m : run multithreaded (experimental)
-  -h | --host IP: listen on alternative interface (default: INADDR_ANY [0.0.0.0])
-  -p | --port num: run on alternative port (default: 8000)
-  --unencrypted: don't use https
-"""
-    sys.exit(exitcode)
+
+def test_help(config, target):
+    """ Run a consistency-check of help texts and exit.
+
+    Note: For this to work, Cerebrum must be set up with a
+    cereconf.BOFHD_SUPERUSER_GROUP with at least one member.
+
+    :param string config: The path of the bofhd configuration file.
+    :param string target: The help texts test
+
+    """
+    db = Utils.Factory.get('Database')()
+    server = BofhdServerImplementation(database=db, config_fname=config)
+    error = lambda reason: SystemExit("Cannot list help texts: %s" % reason)
+
+    # Fetch superuser
+    try:
+        const = Utils.Factory.get("Constants")()
+        group = Utils.Factory.get('Group')(db)
+        group.find_by_name(cereconf.BOFHD_SUPERUSER_GROUP)
+        superusers = [int(x["member_id"]) for x in group.search_members(
+            group_id=group.entity_id, indirect_members=True,
+            member_type=const.entity_account)]
+        some_superuser = superusers[0]
+    except AttributeError:
+        raise error("No superuser group defined in cereconf")
+    except Errors.NotFoundError:
+        raise error("Superuser group %s not found" %
+                    cereconf.BOFHD_SUPERUSER_GROUP)
+    except IndexError:
+        raise error("No superusers in %s" % cereconf.BOFHD_SUPERUSER_GROUP)
+
+    # Fetch commands
+    commands = {}
+    for inst in server.cmd_instances:
+        newcmd = inst.get_commands(some_superuser)
+        for k in newcmd.keys():
+            if inst is not server.cmd2instance[k]:
+                print "Skipping:", k
+                continue
+            commands[k] = newcmd[k]
+
+    # Action
+    if target == '' or target == 'all' or target == 'general':
+        print server.help.get_general_help(commands)
+    elif target == 'check':
+        server.help.check_consistency(commands)
+    elif target.find(":") >= 0:
+        print server.help.get_cmd_help(commands, *target.split(":"))
+    else:
+        print server.help.get_group_help(commands, target)
+    raise SystemExit()
+
 
 if __name__ == '__main__':
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'c:t:p:mh:',
-                                   ['config-file=', 'test-help=',
-                                    'port=', 'unencrypted',
-                                    'multi-threaded',
-                                    'host='])
-    except getopt.GetoptError:
-        usage(1)
-        
-    use_encryption = CRYPTO_AVAILABLE
-    conffile = None
-    host = "0.0.0.0"
-    port = 8000
-    multi_threaded = False
-    for opt, val in opts:
-        if opt in ('-c', '--config-file'):
-            conffile = val
-        elif opt in ('-m', '--multi-threaded'):
-            multi_threaded = True
-        elif opt in ('-h', '--host'):
-            host = val
-        elif opt in ('-p', '--port'):
-            port = int(val)
-        elif opt in ('-t', '--test-help'):
-            # This is a bit icky.  What we want to accomplish is to
-            # fetch the results from a bofhd_get_commands client
-            # command.
-            server = BofhdServerImplementation(
-                database=Utils.Factory.get('Database')(),
-                config_fname=conffile)
-            commands = {}
-            db = Utils.Factory.get('Database')()
-            group = Utils.Factory.get('Group')(db)
-            group.find_by_name(cereconf.BOFHD_SUPERUSER_GROUP)
-            const = Utils.Factory.get("Constants")()
-            some_superuser = [int(x["member_id"]) for x in
-                              group.search_members(group_id=group.entity_id,
-                                       indirect_member=True,
-                                       member_type=const.entity_account)][0]
-            for inst in server.cmd_instances:
-                newcmd = inst.get_commands(some_superuser)
-                for k in newcmd.keys():
-                    if inst is not server.cmd2instance[k]:
-                        print "Skipping:", k
-                        continue
-                    commands[k] = newcmd[k]
-            if val == '':
-                print server.help.get_general_help(commands)
-            elif val.find(":") >= 0:
-                print server.help.get_cmd_help(commands, *val.split(":"))
-            elif val == 'check':
-                server.help.check_consistency(commands)
-            else:
-                print server.help.get_group_help(commands, val)
-            sys.exit()
-        elif opt in ('--unencrypted',):
-            use_encryption = False
+    import argparse
 
-    BofhdRequestHandler.use_encryption = use_encryption
-            
-    if conffile is None:
-        usage()
-        sys.exit()
-        
-    logger.info("Server (%s) connected to DB '%s' starting at port: %d" %
-                (multi_threaded and "multi-threaded" or "single-threaded", 
-                 cereconf.CEREBRUM_DATABASE_NAME, port))
-    if multi_threaded:
+    auth_dir = lambda f: "%s/%s" % (getattr(cereconf, 'DB_AUTH_DIR', '.'), f)
+
+    ssl_version_map = {
+        'SSLv2': https.SSLConfig.SSLv2,
+        'SSLv23': https.SSLConfig.SSLv23,
+        'SSLv3': https.SSLConfig.SSLv3,
+        'TLSv1': https.SSLConfig.TLSv1,
+    }
+
+    argp = argparse.ArgumentParser(description=u"The Cerebrum bofh server")
+    argp.add_argument('-c', '--config-file',
+                      required=True,
+                      default=None,
+                      dest='conffile',
+                      metavar='<config>',
+                      help=u"The bofh configuration file")
+    argp.add_argument('-H', '--host',
+                      default='0.0.0.0',
+                      metavar='<hostname>',
+                      help='Host binding IP-address or domain name')
+    argp.add_argument('-p', '--port',
+                      default=8000,
+                      type=int,
+                      metavar='<port>',
+                      help='Listen port')
+    argp.add_argument('--unencrypted',
+                      default=True,
+                      action='store_false',
+                      dest='use_encryption',
+                      help='Run the server without encryption')
+    argp.add_argument('-m', '--multi-threaded',
+                      default=False,
+                      action='store_true',
+                      dest='multi_threaded',
+                      help='Run multi-threaded (experimental)')
+    argp.add_argument('-t', '--test-help',
+                      default=None,
+                      dest='test_help',
+                      metavar='<test type>',
+                      help='Check the consistency of help texts')
+    argp.add_argument('--ca',
+                      default=auth_dir('ca.pem'),
+                      dest='ca_file',
+                      metavar='<PEM-file>',
+                      help='CA certificate chain')
+    argp.add_argument('--cert',
+                      default=auth_dir('server.cert'),
+                      dest='cert_file',
+                      metavar='<PEM-file>',
+                      help='Server certificate and private key')
+    argp.add_argument('--ssl-version',
+                      default='TLSv1',
+                      dest='ssl_version',
+                      metavar='<version>',
+                      choices=ssl_version_map.keys(),
+                      help='SSL protocol version (default: %(default)s, available: %(choices)s)')
+
+    args = argp.parse_args()
+
+    if args.test_help is not None:
+        test_help(args.conffile, args.test_help)
+        # Will exit
+
+    logger.info("Server (%s) connected to DB '%s' starting at port: %d",
+                "multi-threaded" if args.multi_threaded else "single-threaded",
+                cereconf.CEREBRUM_DATABASE_NAME, args.port)
+
+    if args.multi_threaded:
         db = ProxyDBConnection(Utils.Factory.get('Database'))
     else:
         db = Utils.Factory.get('Database')()
-    if use_encryption:
-        logger.info("Server using encryption")
-        # from echod_lib import init_context
-        def init_context(protocol, certfile, cafile, verify, verify_depth=10):
-            ctx = SSL.Context(protocol)
-            ctx.load_cert(certfile)
-            ctx.load_client_ca(cafile)
-            ctx.load_verify_info(cafile)
-            ctx.set_verify(verify, verify_depth)
-            ctx.set_allow_unknown_ca(1)
-            ctx.set_session_id_ctx('echod')
-            ctx.set_info_callback()
-            return ctx
 
-        ctx = init_context('sslv23', '%s/server.cert' % cereconf.DB_AUTH_DIR,
-                           '%s/ca.pem' % cereconf.DB_AUTH_DIR,
-                           SSL.verify_none)
-        ctx.set_tmp_dh('%s/dh1024.pem' % cereconf.DB_AUTH_DIR)
+    # All BofhdServerImplementations share these arguments
+    server_args = {
+        'server_address': (args.host, args.port),
+        'database': db,
+        'config_fname': args.conffile
+    }
 
-        if multi_threaded:
-            # UiO has a locally patched M2Crypto that provides a
-            # timeout mechanism for M2Crypto's SSLServer.  The easiest
-            # way to detect this patch is the following look-up:
-            if hasattr(SSL.Connection, "set_default_client_timeout"):
-                server = ThreadingSSLBofhdServer(
-                    (host, port), BofhdRequestHandler, db, conffile, ctx,
-                    default_timeout=SSL.timeout(sec=4))
-            else:
-                server = ThreadingSSLBofhdServer(
-                    (host, port), BofhdRequestHandler, db, conffile, ctx)
+    if args.use_encryption:
+        ssl_config = https.SSLConfig(ca_certs=args.ca_file,
+                                     certfile=args.cert_file)
+        ssl_config.set_ca_validate(ssl_config.OPTIONAL)
+        ssl_config.set_ssl_version(ssl_version_map[args.ssl_version])
+        server_args['ssl_config'] = ssl_config
+        logger.info("Server using encryption (%s)", args.ssl_version)
+
+
+        if args.multi_threaded:
+            cls = ThreadingSSLBofhdServer
         else:
-            if hasattr(SSL.Connection, "set_default_client_timeout"):
-                server = SSLBofhdServer(
-                    (host, port), BofhdRequestHandler, db, conffile, ctx,
-                    default_timeout=SSL.timeout(sec=4))
-            else:
-                server = SSLBofhdServer(
-                    (host, port), BofhdRequestHandler, db, conffile, ctx)
+            cls = SSLBofhdServer
     else:
         logger.warning("Server *NOT* using encryption")
-        if multi_threaded:
-            server = ThreadingBofhdServer(
-                (host, port), BofhdRequestHandler, db, conffile)
+
+        if args.multi_threaded:
+            cls = ThreadingBofhdServer
         else:
-            server = BofhdServer(
-                (host, port), BofhdRequestHandler, db, conffile)
+            cls = BofhdServer
+    server = cls(**server_args)
     server.serve_forever()

@@ -244,7 +244,7 @@ def main():
 
     del_list = []
     date = "%d-%d-%d" % time.localtime()[:3]
-    outfile_dir = '/cerebrum/uia/dumps/Delete/'
+    outfile_dir = '/cerebrum/var/cache/Delete/'
     outfile = outfile_dir + str(date) + '-' + str(os.getpid()) + '-slettes.dat'
     max_requests = 999999
     start_time = time.time()

@@ -41,8 +41,8 @@ from Cerebrum.modules.Email import \
     _EmailDomainCategoryCode, \
     EmailConstants
 from Cerebrum.modules.EntityTrait import \
-    _EntityTraitCode
-from Cerebrum.modules import Consent
+    _EntityTraitCode 
+from Cerebrum.modules.consent import Consent
 
 
 class Constants(Constants.Constants):

@@ -35,15 +35,15 @@ Options:
 
 import sys
 import base64
-import getopt
+import argparse
 from time import time as now
 
 import cereconf
 import cerebrum_path
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
-from Cerebrum.modules.LDIFutils import \
-     ldapconf,map_spreads,ldif_outfile,end_ldif_outfile,container_entry_string
+from Cerebrum.modules.LDIFutils import ldapconf, map_spreads, ldif_outfile, \
+    end_ldif_outfile, container_entry_string
 from Cerebrum import Errors
 
 logger = Factory.get_logger("cronjob")
@@ -82,7 +82,6 @@ def dict_to_ldif_string(d):
 
     return "".join(result)
 # end dict_to_ldif_string
-
 
 
 def write_ldif():
@@ -414,10 +413,10 @@ def get_data(spread):
         logger.debug("  done in %d sec." % (now() - curr))
         logger.debug("Total time: %d" % (now() - start))
 
+
 def main():
     global verbose, f, db, co, ldap, auth, start
 
-    import Cerebrum.extlib.argparse as argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', "--verbose", action="count", default=0)
     parser.add_argument('-m', "--mail-file")

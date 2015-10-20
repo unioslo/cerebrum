@@ -26,7 +26,6 @@ from Cerebrum import Account
 from Cerebrum import Utils
 from Cerebrum.modules import Email
 from Cerebrum import Errors
-from Cerebrum.modules import PasswordHistory
 
 
 class AccountHiAMixin(Account.Account):
@@ -54,6 +53,7 @@ class AccountHiAMixin(Account.Account):
             # To be available in Exchange, you need to be in AD
             if not self.has_spread(self.const.spread_hia_ad_account):
                 self.add_spread(self.const.spread_hia_ad_account)
+
             if spread == self.const.spread_exchange_acc_old:
                 if self.has_spread(self.const.spread_exchange_account):
                     raise self._db.IntegrityError("User already has new "
@@ -426,22 +426,6 @@ class AccountHiAMixin(Account.Account):
         if not group.has_member(self.entity_id):
             group.add_member(self.entity_id)
 
-    def set_password(self, plaintext):
-        # Override Account.set_password so that we get a copy of the
-        # plaintext password
-        self.__plaintext_password = plaintext
-        self.__super.set_password(plaintext)
-
-    def write_db(self):
-        try:
-            plain = self.__plaintext_password
-        except AttributeError:
-            plain = None
-        ret = self.__super.write_db()
-        if plain is not None:
-            ph = PasswordHistory.PasswordHistory(self._db)
-            ph.add_history(self, plain)
-        return ret
 
     def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=None,
                        prefix=""):

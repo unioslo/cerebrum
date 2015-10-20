@@ -1322,10 +1322,11 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_add_affiliation(self, operator, person=None, ou=None, aff=None,
                             aff_status=None, query_run_any=False):
+        """If the opset has add_affiliation access to the affiliation and
+        status, and the operator has add_affiliation access to the affiliation's
+        OU, allow adding the affiliation to the person."""
         if self.is_superuser(operator):
             return True
-        # TODO (at a later time): Determine how 'auth_add_affiliation' and
-        # 'auth_remove_affiliation' should be connected to ou etc.
         if query_run_any:
             if self._has_operation_perm_somewhere(operator,
                                                   self.const.auth_add_affiliation):
@@ -1334,7 +1335,7 @@ class BofhdAuth(DatabaseAccessor):
         if self._has_target_permissions(operator,
                                         self.const.auth_add_affiliation,
                                         self.const.auth_target_type_ou,
-                                        person.entity_id, person.entity_id,
+                                        ou.entity_id, person.entity_id,
                                         str(aff_status)):
             return True
         raise PermissionDenied("No access for combination %s on person %s in "
@@ -1343,17 +1344,30 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_remove_affiliation(self, operator, person=None, ou=None,
                                aff=None, query_run_any=False):
+        """If the opset has rem_affiliation access to the affiliation, and the
+        operator has rem_affiliation access to the affiliation's OU, allow
+        removing the affiliation from the person. Not as strict on MANUELL."""
+
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            if self._has_operation_perm_somewhere(operator,
-                                                  self.const.auth_remove_affiliation):
+            if (self._has_operation_perm_somewhere(operator,
+                                                   self.const.auth_remove_affiliation) or
+                self._has_operation_perm_somewhere(operator,
+                                                   self.const.auth_create_user)):
                 return True
             return False
         if self._has_target_permissions(operator, self.const.auth_remove_affiliation,
                                         self.const.auth_target_type_ou,
-                                        person.entity_id, person.entity_id,
+                                        ou.entity_id, person.entity_id,
                                         str(aff)):
+            return True
+        # 2015-09-11: Temporarily (?) allow all LITAs to remove manual affiliations
+        #             from all persons to simplify cleaning up. CERT (bore) has given
+        #             permission to do this. – tvl
+        if (aff == self.const.affiliation_manuell and
+            self._has_operation_perm_somewhere(operator,
+                                               self.const.auth_create_user)):
             return True
         raise PermissionDenied("No access for affiliation %s on person %s in "
                                "OU %02d%02d%02d" % (aff, person.entity_id,
@@ -1488,7 +1502,7 @@ class BofhdAuth(DatabaseAccessor):
         # TODO: add a Boolean to _PosixShellCode() signifying whether
         # it should be user selectable or not.
         if (operator == account.entity_id and shell and
-            shell.description.find("/bin/") <> -1):
+            shell.description.find("/bin/") != -1):
             return True
         # TODO 2003-07-04: Bård is going to comment this
         return self.is_account_owner(operator, self.const.auth_set_password,

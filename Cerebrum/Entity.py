@@ -120,7 +120,7 @@ class Entity(DatabaseAccessor):
         return identical
 
     def __ne__(self, other):
-        """Define != (aka <>) operator as inverse of the == operator.
+        """Define != operator as inverse of the == operator.
 
         Most Cerebrum classes inherit from Entity.Entity, which means
         we'll won't have to write the inverse definition of __eq__()
@@ -275,7 +275,6 @@ class EntitySpread(Entity):
         binds = dict()
         sel = ""
         if spreads:
-            sel = """WHERE spread """
             sel = "WHERE " + argument_to_sql(spreads, 'spread', binds, int)
         return self.query("""
         SELECT entity_id, spread
@@ -406,12 +405,20 @@ class EntityName(Entity):
         # Populate all of self's class (and base class) attributes.
         self.find(entity_id)
 
-    def list_names(self, value_domain):
+    def list_names(self, value_domain, spreads=None):
+        binds = dict()
+        tables = []
+        where = []
+        tables.append('[:table schema=cerebrum name=entity_name] en')
+        where.append(argument_to_sql(value_domain, 'en.value_domain', binds, int))
+        if spreads:
+            tables.append('[:table schema=cerebrum name=entity_spread] es')
+            where.append('en.entity_id = es.entity_id')
+            where.append(argument_to_sql(spreads, 'es.spread', binds, int))
         return self.query("""
-        SELECT entity_id, value_domain, entity_name
-        FROM [:table schema=cerebrum name=entity_name]
-        WHERE value_domain=:value_domain""",
-                          {'value_domain': int(value_domain)})
+        SELECT en.entity_id, en.value_domain, en.entity_name
+        FROM %s
+        WHERE %s""" % (','.join(tables), ' AND '.join(where)), binds)
 
 
 class EntityNameWithLanguage(Entity):
@@ -897,7 +904,7 @@ class EntityAddress(Entity):
                          postal_number=None, city=None, country=None):
         if not hasattr(self, '_src_sys'):
             self._src_sys = source_system
-        elif self._src_sys <> source_system:
+        elif self._src_sys != source_system:
             raise ValueError, \
                 "Can't populate multiple `source_system`s w/o write_db()."
         try:
@@ -927,7 +934,7 @@ class EntityAddress(Entity):
                 equals = True
                 for k in ('address_text', 'p_o_box', 'postal_number', 'city',
                           'country'):
-                    if h[k] <> r[k]:
+                    if h[k] != r[k]:
                         equals = False
                 if equals:
                     del data[int(r['address_type'])]
@@ -1116,7 +1123,7 @@ class EntityQuarantine(Entity):
 
     def list_entity_quarantines(self, entity_types=None, quarantine_types=None,
                                 only_active=False, entity_ids=None,
-                                ignore_quarantine_types=None):
+                                ignore_quarantine_types=None, spreads=None):
         sel = ""
         where = ""
         binds = dict()
@@ -1146,6 +1153,11 @@ class EntityQuarantine(Entity):
         if entity_ids:
             conditions.append(
                 argument_to_sql(entity_ids, "eq.entity_id", binds, int))
+        if spreads:
+            sel += """
+            JOIN [:table schema=cerebrum name=entity_spread] es
+              ON es.entity_id = ei.entity_id AND """
+            sel += argument_to_sql(spreads, "es.spread", binds, int)
         if conditions:
             where = " WHERE " + " AND ".join(conditions)
         return self.query("""

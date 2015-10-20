@@ -36,3 +36,8 @@ CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
 CLASS_CONSTANTS = [
     'Cerebrum.modules.CLConstants/CLConstants',
     'Cerebrum.Constants/Constants', ]
+
+{% if gnupgtest is defined %}
+PASSWORD_GPG_RECIPIENT_ID = 'cerebrum-test-{{ config }}@uio.no'
+PASSWORD_GNUPGHOME = '{{ gnupg_home_dir }}'
+{% endif %}

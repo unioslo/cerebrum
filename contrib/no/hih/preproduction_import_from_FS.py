@@ -31,7 +31,7 @@ from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
 from Cerebrum.modules.no.hih.access_FS import FS
 from Cerebrum.Utils import Factory
 
-default_person_file = "/cerebrum/hih/dumps/FS/person-temporary.xml"
+default_person_file = "/cerebrum/var/cache/FS/person-temporary.xml"
 xml = XMLHelper()
 fs = None
 

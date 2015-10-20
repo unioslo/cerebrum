@@ -74,7 +74,7 @@ class EntityTestCase(Entity_createTestCase):
         new_entity = self.entity_class(self.Cerebrum)
         self._myPopulateEntity(new_entity)
 
-        self.failIf(new_entity <> entity, "Error: should be equal")
+        self.failIf(new_entity != entity, "Error: should be equal")
 ##         new_entity.entity_type = 'foobar' # TBD: Is this even legal?
 ##         self.failIf(new_entity == entity,
 ##                     "Error: should be different if it is legal to"
@@ -112,7 +112,7 @@ class EntityNameTestCase(EntityName_createTestCase):
     def testEntityGetName(self):
         "Test that one can get the created EntityName"
         name = self.entity.get_name(self.co.account_namespace)
-        self.failIf(name <> self.m_test_name,
+        self.failIf(name != self.m_test_name,
                     "EntityNames should be equal")
 
     def testEntityFindByName(self):
@@ -120,7 +120,7 @@ class EntityNameTestCase(EntityName_createTestCase):
         old_id = self.entity_id
         self.entity.clear()
         self.entity.find_by_name(self.m_test_name, self.co.account_namespace)
-        self.failIf(self.entity_id <> old_id,
+        self.failIf(self.entity_id != old_id,
                     "EntityNames entity_id should be equal")
 
     def testEntityDeleteName(self):
@@ -162,8 +162,8 @@ class EntityContactInfoTestCase(EntityContactInfo_createTestCase):
         ci = self.entity.get_contact_info(self.m_test_ci['src'],
                                           self.m_test_ci['type'])
         ci = ci[0]
-        self.failIf(ci['contact_value'] <> self.m_test_ci['value'] or \
-                    ci['description'] <> self.m_test_ci['desc'],
+        self.failIf(ci['contact_value'] != self.m_test_ci['value'] or \
+                    ci['description'] != self.m_test_ci['desc'],
                     "EntityContactInfo should be equal")
 
     def testEntityDeleteContactInfo(self):
@@ -213,10 +213,10 @@ class EntityAddressTestCase(EntityAddress_createTestCase):
         addr = self.entity.get_entity_address(self.m_test_a['src'],
                                               self.m_test_a['type'])
         addr = addr[0]
-        self.failIf(addr['address_text'] <> self.m_test_a['address_text'] or
-                    addr['p_o_box'] <> self.m_test_a['p_o_box'] or
-                    addr['postal_number'] <> self.m_test_a['postal_number'] or
-                    addr['city'] <> self.m_test_a['city'],
+        self.failIf(addr['address_text'] != self.m_test_a['address_text'] or
+                    addr['p_o_box'] != self.m_test_a['p_o_box'] or
+                    addr['postal_number'] != self.m_test_a['postal_number'] or
+                    addr['city'] != self.m_test_a['city'],
                     "EntityAddress should be equal")
 
     def testEntityDeleteAddress(self):

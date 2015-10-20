@@ -1479,7 +1479,7 @@ class roles_xml_parser(non_nested_xml_parser):
             # Denne personrollen inneholdt ikke _noen_
             # target-spesifiserende kolonner.
             target = ()
-        if len(target) <> 1:
+        if len(target) != 1:
             if len(target) > 1:
                 self.logger.error("Personrolle har flertydig angivelse av",
                                   " targets, kan være: %r (XML = %r).",

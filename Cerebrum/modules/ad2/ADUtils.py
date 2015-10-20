@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2014 University of Oslo, Norway
+# Copyright 2011-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -51,19 +51,14 @@ from Cerebrum.Utils import read_password
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import NotSet
 
-try:
-    import json
-except ImportError:
-    # Until python 2.6, we have our local, partly tweaked json module for python
-    # 2.5. At python 2.6, you _should_ use the proper json module.
-    from Cerebrum.extlib import json
-
 from Cerebrum.modules.ad2.winrm import PowershellClient
 from Cerebrum.modules.ad2.winrm import PowershellException, ExitCodeException
+
 
 class ObjectAlreadyExistsException(PowershellException):
     """Exception for telling that an object already exists in AD."""
     pass
+
 
 class NoAccessException(PowershellException):
     """Exception for telling that Cerebrum were not allowed to execute an
@@ -71,6 +66,7 @@ class NoAccessException(PowershellException):
 
     """
     pass
+
 
 class SizeLimitException(PowershellException):
     """Exception for when too many rows are tried to be returned from AD.
@@ -82,6 +78,7 @@ class SizeLimitException(PowershellException):
     """
     pass
 
+
 class OUUnknownException(PowershellException):
     """Exception for when an OU was not found.
 
@@ -90,6 +87,7 @@ class OUUnknownException(PowershellException):
 
     """
     pass
+
 
 class SetAttributeException(PowershellException):
     """Exception for when updating attributes failed.
@@ -102,6 +100,7 @@ class SetAttributeException(PowershellException):
 
     """
     pass
+
 
 class CommandTooLongException(Exception):
     """If the given command is too long to be run through WinRM.
@@ -118,6 +117,7 @@ class CommandTooLongException(Exception):
 
     """
     pass
+
 
 class ADclient(PowershellClient):
     """Client that sends commands to AD for the AD-sync.
@@ -247,7 +247,7 @@ class ADclient(PowershellClient):
         """
         super(ADclient, self).__init__(*args, **kwargs)
         self.add_credentials(username=auth_user,
-                password=unicode(read_password(auth_user, self.host), 'utf-8'))
+                             password=unicode(read_password(auth_user, self.host), 'utf-8'))
 
         # Note that we save the user's password by domain and not the host. It
         # _could_ be the wrong way to do it. TBD: Maybe both host and domain?
@@ -265,7 +265,7 @@ class ADclient(PowershellClient):
         self.dryrun = dryrun
         # Pattern to exclude passwords in plaintext from the server output.
         # Such passwords usually
-        self.exclude_password_patterns =  [
+        self.exclude_password_patterns = [
             re.compile('ConvertTo-SecureString.*?\.\.\.', flags=re.DOTALL)]
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
@@ -460,8 +460,8 @@ class ADclient(PowershellClient):
 
         """
         setup = self._pre_execution_code % {
-                        'ad_user': self.escape_to_string(self.ad_account_username),
-                        'ad_pasw': self.escape_to_string(self.ad_account_password)}
+            'ad_user': self.escape_to_string(self.ad_account_username),
+            'ad_pasw': self.escape_to_string(self.ad_account_password)}
         #for a in args:
         #    print a
         self.logger.debug4(u'Executing powershell command: %s',
@@ -492,8 +492,8 @@ class ADclient(PowershellClient):
 
         """
         first_round = True
-        for code, out in super(PowershellClient, self).get_output(commandid,
-                                                       signal, timeout_retries):
+        for code, out in super(PowershellClient, self).get_output(
+                commandid, signal, timeout_retries):
             if first_round:
                 out['stdout'] = out.get('stdout',
                                         '').replace(self.ignore_stdout, '')
@@ -505,7 +505,7 @@ class ADclient(PowershellClient):
                 first_round = False
             yield code, out
 
-    def start_list_objects(self, ou, attributes, object_class):
+    def start_list_objects(self, ou, attributes, object_class, names=[]):
         """Start to search for objects in AD, but do not retrieve the data yet.
 
         The server is asked to generate a list of the objects, and returns an ID
@@ -543,7 +543,12 @@ class ADclient(PowershellClient):
                                  for a in attributes],
                   }
         cmd = 'Get-ADObject'
-        filter = "Filter {objectClass -eq '%s'}" % object_class
+        if names:
+            filter = "Filter {objectClass -eq '%s' -and (%s)}" % (
+                object_class, ' -or '.join(["%s -eq '%s'" % ('name', name)
+                                            for name in names]))
+        else:
+            filter = "Filter {objectClass -eq '%s'}" % object_class
         # User objects requires special care, as Get-ADObject will not return
         # the attribute Enabled, and also, the filtering by objectclass='user'
         # also includes computer objects for some reason. See
@@ -738,7 +743,7 @@ class ADclient(PowershellClient):
                self._generate_ad_command('Get-ADObject', parameters, extra))
         out = self.run(cmd)
         res_list = []
-        json_output = self.get_output_json(out,dict())
+        json_output = self.get_output_json(out, dict())
         if json_output:
             if isinstance(json_output, dict):
                 # In case there is found only one object, get_output_json will
@@ -1343,6 +1348,55 @@ class ADclient(PowershellClient):
         output = self.run(cmd)
         return not output.get('stderr')
 
+    def add_group_members(self, group_id, member_ids):
+        """ Adds members from AD-group.
+
+        Command will succeed, even if one or all member IDs are already members
+        of the group.
+
+        :param str group_id: The AD-group DN or GUID.
+        :param list member_ids: A list of AD-account DNs or GUIDs.
+
+        :return bool: True on success, False on failure.
+        """
+        if not isinstance(member_ids, collections.Sequence):
+            member_ids = [member_ids, ]
+        self.logger.debug("Removing %d members for group: %s",
+                          len(member_ids), group_id)
+        cmd = self._generate_ad_command(
+            'Add-ADGroupMember',
+            {'Identity': group_id,
+             'Members': ','.join(["%s" % i for i in member_ids])})
+        if self.dryrun:
+            return True
+        output = self.run(cmd)
+        return not output.get('stderr')
+
+    def remove_group_members(self, group_id, member_ids):
+        """ Removes members from AD-group.
+
+        Command will succeed, even if one or all account IDs aren't members of
+        the group.
+
+        :param str group_id: The AD-group DN or GUID.
+        :param list member_ids: A list of AD-account DNs or GUIDs.
+
+        :return bool: True on success, False on failure.
+        """
+        if not isinstance(member_ids, collections.Sequence):
+            member_ids = [member_ids, ]
+        self.logger.debug("Removing %d members for group: %s",
+                          len(member_ids), group_id)
+        cmd = self._generate_ad_command(
+            'Remove-ADGroupMember',
+            {'Identity': group_id,
+             'Members': ','.join(["%s" % i for i in member_ids])},
+            ('Confirm:$false', ))
+        if self.dryrun:
+            return True
+        output = self.run(cmd)
+        return not output.get('stderr')
+
     def enable_object(self, ad_id):
         """Enable a given object in AD. The object must exist.
 
@@ -1371,21 +1425,35 @@ class ADclient(PowershellClient):
         @type password: string
         @param password: The new passord for the object. Must be in plaintext,
             as that is how AD requires it to be, for now.
-
         """
         self.logger.info('Setting password for: %s', ad_id)
         # Would like to be able to give AD a hash/crypt in some format that is
         # not readable for others. We convert it to base64 only to avoid any
         # trouble with string escape characters - this is not for security
         # reasons.
+        # We would like to check if 'password' is a GPG-encrypted password or
+        # an old-style plaintext password before converting it to base64.
+        # Encrypted passwords will be handled differently (decrypted) on the
+        # AD-side (Windows server - side).
+        password_is_encrypted = '-----BEGIN PGP MESSAGE-----' in password
         password = base64.b64encode(password)
-        cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s));
+        if password_is_encrypted:
+            cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s));
+            $decrypted_text = $b | gpg -q --batch --decrypt;
+            $pwd = ConvertTo-SecureString -AsPlainText -Force $decrypted_text;
+            %(cmd)s -NewPassword $pwd;
+            ''' % {'pwd': self.escape_to_string(password),
+                   'cmd': self._generate_ad_command('Set-ADAccountPassword',
+                                                    {'Identity': ad_id},
+                                                    ['Reset'])}
+        else:
+            cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s));
             $pwd = ConvertTo-SecureString -AsPlainText -Force $b;
             %(cmd)s -NewPassword $pwd;
-        ''' % {'pwd': self.escape_to_string(password),
-               'cmd': self._generate_ad_command('Set-ADAccountPassword',
-                                                {'Identity': ad_id},
-                                                ['Reset'])}
+            ''' % {'pwd': self.escape_to_string(password),
+                   'cmd': self._generate_ad_command('Set-ADAccountPassword',
+                                                    {'Identity': ad_id},
+                                                    ['Reset'])}
         #Set-ADAccountPassword -Identity %(_ad_id)s -Credential $cred -Reset -NewPassword $pwd
         if self.dryrun:
             return True
@@ -1608,6 +1676,7 @@ class ADUtils(object):
             if cb_attr != ad_attr:
                 return cb_attr
 
+
 class ADUserUtils(ADUtils):
     """
     User specific methods
@@ -1635,7 +1704,6 @@ class ADUserUtils(ADUtils):
             if self.get_ou(dn) != self.get_deleted_ou():
                 self.move_user(dn, self.get_deleted_ou())
 
-
     def delete_user(self, dn):
         """
         Delete user object in AD.
@@ -1651,7 +1719,6 @@ class ADUserUtils(ADUtils):
             self.logger.info("Deleting user %s" % dn)
             self.run_cmd('deleteObject')
 
-
     def disable_user(self, dn):
         """
         Disable user in AD.
@@ -1664,7 +1731,6 @@ class ADUserUtils(ADUtils):
             return
         self.logger.info("Disabling user %s" % dn)
         self.commit_changes(dn, ACCOUNTDISABLE=True)
-
 
     def create_ad_account(self, attrs, ou, create_homedir=False):
         """
@@ -1692,7 +1758,7 @@ class ADUserUtils(ADUtils):
 
         # Set properties. First remove any properties that cannot be set like this
         for a in ("distinguishedName", "cn"):
-            if attrs.has_key(a):
+            if a in attrs:
                 del attrs[a]
         # Don't send attrs with value == None
         for k, v in attrs.items():
@@ -1707,6 +1773,7 @@ class ADUserUtils(ADUtils):
                 self.run_cmd("createDir")
         return sid
 
+
 class ADGroupUtils(ADUtils):
     """
     Group specific methods
@@ -1714,7 +1781,6 @@ class ADGroupUtils(ADUtils):
     def __init__(self, db, logger, host, port, ad_domain_admin):
         ADUtils.__init__(self, db, logger, host, port, ad_domain_admin)
         self.group = Factory.get("Group")(self.db)
-
 
     def commit_changes(self, dn, **changes):
         """
@@ -1730,7 +1796,6 @@ class ADGroupUtils(ADUtils):
             # Set attributes in AD
             self.run_cmd('putGroupProperties', changes)
             self.run_cmd('setObject')
-
 
     def create_ad_group(self, attrs, ou):
         """
@@ -1753,13 +1818,12 @@ class ADGroupUtils(ADUtils):
             return
         self.logger.info("created group %s with sid %s", gname, sid)
         # # Set other properties
-        if attrs.has_key("distinguishedName"):
+        if "distinguishedName" in attrs:
             del attrs["distinguishedName"]
         self.run_cmd("putGroupProperties", attrs)
         self.run_cmd("setObject")
         # createObject succeded, return sid
         return sid
-
 
     def delete_group(self, dn):
         """
@@ -1775,7 +1839,6 @@ class ADGroupUtils(ADUtils):
         if self.run_cmd('bindObject', dn):
             self.logger.info("Deleting group %s" % dn)
             self.run_cmd('deleteObject')
-
 
     def sync_members(self, dn, members):
         """

@@ -47,7 +47,7 @@ class Constants(Constants.Constants):
         affiliation_ansatt, 'ans_manuell', 'Ansatt, manuell import')
     affiliation_status_ansatt_primaer = _PersonAffStatusCode(
         affiliation_ansatt, 'primaer', 'Primærtilknytning for SAP ansatte')
-    
+
 ## AFFILIATIONS FOR STUDENTER
     affiliation_student = ConstantsHigherEdu.affiliation_student
     affiliation_status_student_manuell = _PersonAffStatusCode(
@@ -97,13 +97,13 @@ class Constants(Constants.Constants):
         affiliation_manuell, 'ans_uten_sap',
         'Ansatt som ikke er lagt inn i SAP. En midlertidig status for folk')
     affiliation_status_manuell_gjest_ikke_epost = _PersonAffStatusCode(
-        affiliation_manuell, 'gjest_no_epost', 
+        affiliation_manuell, 'gjest_no_epost',
 	'Gjesteopphold som ansatt ved UiA. Skal ikke ha epost')
     affiliation_status_manuell_gjest_student = _PersonAffStatusCode(
-        affiliation_manuell, 'gjest_student', 
+        affiliation_manuell, 'gjest_student',
 	'Gjesteopphold for student ved UiA. Epost skal tildeles')
     affiliation_status_manuell_gjest_student_ikke_epost = _PersonAffStatusCode(
-	affiliation_manuell, 'gj_st_no_epost', 
+	affiliation_manuell, 'gj_st_no_epost',
 	'Gjesteopphold for student ved UiA. Epost skal ikke tildeles')
 
     affiliation_upersonlig = _PersonAffiliationCode(
@@ -114,11 +114,11 @@ class Constants(Constants.Constants):
         affiliation_upersonlig, 'kurs', 'Kurskonti')
     affiliation_upersonlig_pvare = _PersonAffStatusCode(
         affiliation_upersonlig, 'pvare', 'Programvarekonti')
-    affiliation_upersonlig_studentforening = _PersonAffStatusCode(       
-	affiliation_upersonlig, 'studorg', 
+    affiliation_upersonlig_studentforening = _PersonAffStatusCode(
+	affiliation_upersonlig, 'studorg',
 	'Studentforening eller -aktivitet ved UiA')
 
-## DEFINISJON AV SHELL 
+## DEFINISJON AV SHELL
     # We override the default Cerebrum paths for shells, thus this
     # file should appear before PosixUser in cereconf.CLASS_CONSTANTS
     posix_shell_bash = _PosixShellCode('bash', '/bin/bash')
@@ -160,7 +160,7 @@ class Constants(Constants.Constants):
         'ou@ldap', Constants.Constants.entity_ou,
         'OU included in LDAP directory')
     spread_hia_helpdesk = _SpreadCode(
-        'account@helpdesk', Constants.Constants.entity_account, 
+        'account@helpdesk', Constants.Constants.entity_account,
         'Account exported to helpdesk system')
     spread_hia_ad_account = _SpreadCode(
         'account@ad', Constants.Constants.entity_account,
@@ -176,7 +176,7 @@ class Constants(Constants.Constants):
         'group included in Active Directory')
     spread_exchange_group = _SpreadCode(
         'group@exchange', Constants.Constants.entity_group,
-        'Group exported to Exchange')       
+        'Group exported to Exchange')
     spread_hia_ezpublish = _SpreadCode(
         'group@ezpublish', Constants.Constants.entity_group,
         'Groups used by EZPublish')
@@ -225,11 +225,7 @@ class Constants(Constants.Constants):
         Constants.Constants.entity_person,
         "Trait marking a person who has accepted terms and rule for use og IT services at UiA.")
 
-    ## Contact info
-    contact_office = _ContactInfoCode('OFFICE',
-        'Office address (building code and room number')
-
-## Kommenteres ut foreløpig, er usikkert om vi skal ha dem 
+## Kommenteres ut foreløpig, er usikkert om vi skal ha dem
 
 ##     spread_hia_fs = _SpreadCode(
 ##         'FS@uia', Constants.Constants.entity_account,

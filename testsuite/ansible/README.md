@@ -124,6 +124,11 @@ TODO: Some improvements could probably be done here.
   Whenever we use the `with_file_overload` lookup plugin, we'll look for
   alternate files in a sub-folder with this name.
 
+- `gnupg_home_dir` (tags: env, test)
+
+   Absolute path to the location of the GNUPGHOME. Will be created, if it doesn't
+   already exist.
+
 - `pip_offine` (tags: env)
 
   Install PIP packages from a local folder (on the remote host). Absolute path,

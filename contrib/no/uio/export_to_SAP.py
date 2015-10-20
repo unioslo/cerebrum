@@ -238,7 +238,7 @@ def output_person(writer, fnr, data):
     writer.dataElement("persnr", fnr)
     
     for k in key_order:
-        if data[k] <> None:
+        if data[k] != None:
             writer.dataElement(selectors[k]["xmlname"], data[k])
 
     writer.endElement("perskomm")

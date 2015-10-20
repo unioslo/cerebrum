@@ -418,7 +418,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
     def get_password(self, uname):
         """
         Returns password for a new user to be created in AD. First tries to
-        get the password from the database, and if unsuccesfull it will return
+        get the password from the database, and if unsuccessful it will return
         a random secure password.
 
         @param uname: Username of new user

@@ -17,10 +17,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import pickle
 from collections import defaultdict
 
+from Cerebrum import Entity
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.OrgLDIF import *
+from Cerebrum.modules.no.OrgLDIF import OrgLDIF
+from Cerebrum.modules.LDIFutils import normalize_string, iso2utf
 
 
 class nmhOrgLDIFMixin(OrgLDIF):
@@ -77,10 +80,11 @@ class nmhOrgLDIFMixin(OrgLDIF):
                                    convert=self.attr2syntax[a][0],
                                    verify=self.attr2syntax[a][1],
                                    normalize=self.attr2syntax[a][2]))
-             for a, s, t in (('telephoneNumber', sap, self.const.contact_phone),
-                            ('mobile', (sap, fs), self.const.contact_mobile_phone),
-                            ('facsimileTelephoneNumber', sap, self.const.contact_fax),
-                            ('labeledURI', None, self.const.contact_url))]
+             for a, s, t in (
+                 ('telephoneNumber', sap, self.const.contact_phone),
+                 ('mobile', (sap, fs), self.const.contact_mobile_phone),
+                 ('facsimileTelephoneNumber', sap, self.const.contact_fax),
+                 ('labeledURI', None, self.const.contact_url))]
         self.id2labeledURI = c[-1][1]
         self.attr2id2contacts = [v for v in c if v[1]]
 

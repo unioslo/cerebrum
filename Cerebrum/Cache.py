@@ -129,14 +129,14 @@ class cache_mru(Cache):
 
     def __getitem__(self, key):
         ret = super(cache_mru, self).__getitem__(key)
-        if self.registry[0] <> key:
+        if self.registry[0] != key:
             self.registry.remove(key)
             self.registry.insert(0, key)
         return ret
 
     def __setitem__(self, key, value):
         ret = super(cache_mru, self).__setitem__(key, value)
-        if self.registry[0] <> key:
+        if self.registry[0] != key:
             self.registry.remove(key)
             self.registry.insert(0, key)
         return ret

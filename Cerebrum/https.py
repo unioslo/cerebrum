@@ -51,6 +51,9 @@ ssl_match_hostname module that is actually used, so that it's possible to do
       <handle>
 """
 
+SSLError = ssl.SSLError
+u""" Import SSLError directly from https"""
+
 
 class SSLConfig(object):
 
@@ -166,8 +169,8 @@ class SSLConfig(object):
 
         for ftype, path in ((u'certificate', certfile),
                             (u'private key', keyfile)):
-            if ftype is not None and not os.path.exists(path):
-                raise ValueError(u"No % file '%s'" % (ftype, path))
+            if path is not None and not os.path.exists(path):
+                raise ValueError(u"No %s file '%s'" % (ftype, path))
         self._wrap_param['certfile'] = certfile
         self._wrap_param['keyfile'] = keyfile
 
@@ -240,19 +243,26 @@ class SSLConfig(object):
                 return
             raise
 
-    def wrap_socket(self, sock):
+    def wrap_socket(self, sock, server=False):
         u""" Wrap socket with SSLSocket, with the provided settings.
 
         Calls ssl.wrap_socket with ssl parameters from this object.
 
+        :param sock: The socket
+        :param server: True if this is a listening socket.
+
         """
         # Warn about bad decision making:
-        if self._wrap_param.get('cert_reqs', None) != SSLConfig.REQUIRED:
+        if not (server or
+                self._wrap_param.get('cert_reqs', None) == SSLConfig.REQUIRED):
             warn(RuntimeWarning(u'Peer certificate not required'))
-        if not self._do_verify_hostname:
+        if not (server or self._do_verify_hostname):
             warn(RuntimeWarning(u'Certificate hostname validation disabled'))
 
-        return ssl.wrap_socket(sock, **self._wrap_param)
+        params = self._wrap_param.copy()
+        params['server_side'] = server
+
+        return ssl.wrap_socket(sock, **params)
 
     def __unicode__(self):
         u""" Return a unicode representation of this object. """
@@ -294,9 +304,6 @@ class HTTPSConnection(httplib.HTTPSConnection, object):
 
         """
         self._ssl_config = kwargs.pop(u'ssl_config', self.ssl_config)
-        # TODO/PY26: Python 2.5 has no timeout setting, this needs to go if we
-        #            ever get to python 2.6:
-        self._timeout = kwargs.pop(u'timeout', self.default_timeout)
 
         # These are the options that HTTPSConnection accepts, that we can also
         # set in the SSLConfig. If they are given to HTTPSConnection, we prefer
@@ -319,16 +326,16 @@ class HTTPSConnection(httplib.HTTPSConnection, object):
         if not isinstance(self._ssl_config, SSLConfig):
             raise TypeError(u'ssl_config must be an instance of SSLConfig')
 
-        # TODO/PY26: Do this...
-        # sock = socket.create_connection((self.host, self.port), self.timeout)
-        # if self._tunnel_host:
-        #     self.sock = sock
-        #     self._tunnel()
-        # . not this:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((self.host, self.port))
-        if self._timeout is not None:
-            sock.settimeout(float(self._timeout))
+        timeout = socket._GLOBAL_DEFAULT_TIMEOUT
+        if self.timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
+            timeout = self.timeout
+        elif self.default_timeout:
+            timeout = self.default_timeout
+
+        sock = socket.create_connection((self.host, self.port), timeout)
+        if self._tunnel_host:
+            self.sock = sock
+            self._tunnel()
 
         self.sock = self._ssl_config.wrap_socket(sock)
         self._ssl_config.verify_hostname(self.sock, self.host)
