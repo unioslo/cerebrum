@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -527,17 +527,6 @@ arg_help = {
         ['disp_name', 'Enter display name (optional, may differ from name)'],
     'group_dl_managedby':
         ['dl_managedby', 'Enter address for ou/person managing this group'],
-    'group_dl_modby':
-        ['dl_moderateby', 'Moderators (list of usernames, comma separated)'],
-        'group_exchange_attr':
-        ['group_dattr', 'Enter attribute to modify',
-         """Valid attributes:
-            - depart_restriction (Open, Closed, ApprovalRequired)
-            - join_restriction (Open, Closed, ApprovalRequired)
-            - moderation_enabled (T/F)
-            - moderated_by ('uname1, uname2,...')
-            - managed_by (e-mailaddress)
-            - addrbook_visibility (H/V)"""],
     'group_name':
         ['gname', 'Enter groupname'],
     'group_name_dest':

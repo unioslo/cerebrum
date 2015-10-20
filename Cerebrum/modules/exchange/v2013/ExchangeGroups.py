@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -57,8 +57,7 @@ class DistributionGroup(Group_class):
 
     """
     __read_attr__ = ('__in_db',)
-    __write_attr__ = ('roomlist', 'mngdby_addrid', 'modenable', 'modby',
-                      'deprestr', 'joinrestr', 'hidden')
+    __write_attr__ = ('roomlist', 'deprestr', 'joinrestr', 'hidden')
 
     def clear(self):
         """Clear all object attributes."""
@@ -66,11 +65,18 @@ class DistributionGroup(Group_class):
         self.clear_class(DistributionGroup)
         self.__updated = []
 
-    def populate(self, creator_id=None, visibility=None, name=None,
-                 description=None, create_date=None, expire_date=None,
-                 roomlist=None, mngdby_addrid=None, modenable=None,
-                 modby=None, deprestr=None, joinrestr=None,
-                 hidden=None, parent=None):
+    def populate(self,
+                 creator_id=None,
+                 visibility=None,
+                 name=None,
+                 description=None,
+                 create_date=None,
+                 expire_date=None,
+                 roomlist=None,
+                 deprestr=None,
+                 joinrestr=None,
+                 hidden=None,
+                 parent=None):
         """Populate Distribution group.
 
         DistributionGroups may inherit the name and other common details
@@ -97,15 +103,6 @@ class DistributionGroup(Group_class):
         :type roomlist:
         :param roomlist:
 
-        :type mngdby_addrid:
-        :param mngdby_addrid:
-
-        :type modenable:
-        :param modenable:
-
-        :type modby:
-        :param modby:
-
         :type deprestr:
         :param deprestr:
 
@@ -127,9 +124,6 @@ class DistributionGroup(Group_class):
                                                     expire_date)
         self.__in_db = False
         self.roomlist = roomlist
-        self.mngdby_addrid = mngdby_addrid
-        self.modenable = modenable
-        self.modby = modby
         self.deprestr = deprestr
         self.joinrestr = joinrestr
         self.hidden = hidden
@@ -142,17 +136,13 @@ class DistributionGroup(Group_class):
         if not self.__in_db:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=distribution_group]
-              (group_id, roomlist, mngdby_addrid,
-               modenable, modby, deprestr,
+              (group_id, roomlist,
+               deprestr,
                joinrestr, hidden)
-            VALUES (:g_id, :roomlist, :mngdby_addrid,
-                    :modenable, :modby, :deprestr,
+            VALUES (:g_id, :roomlist, :deprestr,
                     :joinrestr, :hidden)""",
                          {'g_id': self.entity_id,
                           'roomlist': self.roomlist,
-                          'mngdby_addrid': self.mngdby_addrid,
-                          'modenable': self.modenable,
-                          'modby': self.modby,
                           'deprestr': self.deprestr,
                           'joinrestr': self.joinrestr,
                           'hidden': self.hidden})
@@ -168,14 +158,10 @@ class DistributionGroup(Group_class):
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=distribution_group]
-            SET roomlist=:roomlist, mngdby_addrid=:mngdby_addrid,
-                modenable=:modenable, modby=:modby, deprestr=:deprestr,
+            SET roomlist=:roomlist, deprestr=:deprestr,
                 joinrestr=:joinrestr, hidden=:hidden
             WHERE group_id=:g_id""", {'g_id': self.entity_id,
                                       'roomlist': self.roomlist,
-                                      'mngdby_addrid': self.mngdby_addrid,
-                                      'modenable': self.modenable,
-                                      'modby': self.modby,
                                       'deprestr': self.deprestr,
                                       'joinrestr': self.joinrestr,
                                       'hidden': self.hidden})
@@ -184,7 +170,6 @@ class DistributionGroup(Group_class):
         self._db.log_change(self.entity_id,
                             self.const.dl_group_modify,
                             None)
-
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -192,23 +177,36 @@ class DistributionGroup(Group_class):
     def __eq__(self, other):
         assert isinstance(other, DistributionGroup)
         if self.roomlist == other.roomlist and \
-           self.mngdby_addrid == other.mngdby_addrid and \
-           self.modenable == other.modenable and \
-           self.modby == other.modby and \
            self.deprestr == other.deprestr and \
            self.joinrestr == other.joinrestr and \
            self.hidden == other.hidden:
             return self.__super.__eq__(other)
         return False
 
-    def new(self, creator_id, visibility, name, description=None,
-            create_date=None, expire_date=None, roomlist=None,
-            mngdby_addrid=None, modenable=None, modby=None,
-            deprestr=None, joinrestr=None, hidden=None):
-        DistributionGroup.populate(self, creator_id, visibility, name,
-                                   description, create_date, expire_date,
-                                   roomlist, mngdby_addrid, modenable,
-                                   modby, deprestr, joinrestr, hidden)
+    def new(self,
+            creator_id,
+            visibility,
+            name,
+            description=None,
+            create_date=None,
+            expire_date=None,
+            roomlist=None,
+            deprestr=None,
+            joinrestr=None,
+            hidden=None):
+        """
+        """
+        DistributionGroup.populate(self,
+                                   creator_id,
+                                   visibility,
+                                   name,
+                                   description,
+                                   create_date,
+                                   expire_date,
+                                   roomlist,
+                                   deprestr,
+                                   joinrestr,
+                                   hidden)
         DistributionGroup.write_db(self)
         # DistributionGroup.find(self, self.entity_id)
 
@@ -218,11 +216,9 @@ class DistributionGroup(Group_class):
         :type group_id: int
         :param group_id: The entity-id of the DistributionGroup."""
         super(DistributionGroup, self).find(group_id)
-        (self.roomlist, self.mngdby_addrid, self.modenable,
-         self.modby, self.deprestr, self.joinrestr,
+        (self.roomlist, self.deprestr, self.joinrestr,
          self.hidden) = self.query_1("""
-        SELECT roomlist, mngdby_addrid, modenable, modby, deprestr, joinrestr,
-            hidden
+        SELECT roomlist, deprestr, joinrestr, hidden
         FROM [:table schema=cerebrum name=distribution_group]
         WHERE group_id=:g_id""", {'g_id': self.entity_id})
         self.__in_db = True
@@ -291,74 +287,8 @@ class DistributionGroup(Group_class):
           WHERE group_id=:g_id""" % attribute, {'g_id': self.entity_id,
                                                 'restriction': restriction})
 
-    def set_managedby(self, emailaddress):
-        """Set Distribution Group manager (ManagedBy).
-
-        :type emailaddress: basestring
-        :param emailaddress: The E-mail address that should be able to manage
-            a Distribution Group in Exchange. The address must exist in
-            Cerebrum."""
-        ea = Email.EmailAddress(self._db)
-        try:
-            ea.find_by_address(emailaddress)
-        except Errors.NotFoundError:
-            raise Errors.CerebrumError, \
-                "No address %s found in Cerebrum" % emailaddress
-        managedby = ea.entity_id
-        self._db.log_change(self.entity_id, self.const.dl_group_manby,
-                            None,
-                            change_params={'manby': emailaddress})
-        return self.execute("""
-          UPDATE [:table schema=cerebrum name=distribution_group]
-            SET mngdby_addrid=:managedby
-          WHERE group_id=:g_id""", {'g_id': self.entity_id,
-                                    'managedby': managedby})
-
-    # set modenable, to decide if the dist group will be moderated
-    # in Exchange. default is True, but we may make groups
-    # non-moderated at will
-    def set_modenable(self, enable='T'):
-        """Enable moderation of DistributionGroup in Exchange.
-
-        DistributionGroup moderators are removed when moderation is disabled.
-        It is considered polite to register moderators, when moderation is
-        enabled.
-
-        :type enable: basestring
-        :param enable: 'T' enables moderation, 'F' disables moderation."""
-        self._db.log_change(self.entity_id, self.const.dl_group_modrt,
-                            None,
-                            change_params={'modenable': enable})
-        if enable == 'F':
-            self.set_modby('')
-        # this need some thinking. how can we make sure that
-        # modby is added when modenable is true?
-        # No, it does not, when the data-model is properly designed.
-        # TODO: Re-write storage and API.
-        return self.execute("""
-          UPDATE [:table schema=cerebrum name=distribution_group]
-            SET modenable=:enable
-          WHERE group_id=:g_id""", {'g_id': self.entity_id,
-                                    'enable': enable})
-
-    def set_modby(self, modby):
-        """Set DistributionGroup moderators.
-
-        :type modby: basestring
-        :param modby: Comma-separated list of usernames."""
-        if self.modenable == 'F':
-            raise self._db.IntegrityError(
-                "Cannot set ModeratedBy for a non-moderated group (%s)" %
-                self.group_name)
-        self._db.log_change(self.entity_id, self.const.dl_group_modby,
-                            None,
-                            change_params={'modby': modby})
-        return self.execute("""
-          UPDATE [:table schema=cerebrum name=distribution_group]
-            SET modby=:modby
-          WHERE group_id=:g_id""", {'g_id': self.entity_id,
-                                    'modby': modby})
-
+    # change the visibility in address list for a distribution group
+    # default is visible
     def set_hidden(self, hidden='F'):
         """Set Distribution Group visibility in Exchanges address book.
 
@@ -374,22 +304,13 @@ class DistributionGroup(Group_class):
                                     'hidden': hidden})
 
     def ret_standard_attr_values(self, room=False):
-        """Return standard values for Distribution Groups.
-
-        This is a side-effect free utility function.
-
-        :type room: bool
-        :param room: Return values for regular DistributionGroups if room is
-            false. Else, return special values for Roomlists."""
         if not room:
             return {'roomlist': 'F',
-                    'modenable': 'T',
                     'deprestr': 'Closed',
                     'joinrestr': 'Closed',
                     'hidden': 'T'}
         else:
             return {'roomlist': 'T',
-                    'modenable': 'F',
                     'deprestr': 'Closed',
                     'joinrestr': 'Closed',
                     'hidden': 'F'}
@@ -397,14 +318,6 @@ class DistributionGroup(Group_class):
     # right now the restrictions are the same, but that may
     # change in the future
     def ret_valid_restrictions(self, variant='join'):
-        """Return valid restriction types for Distribution Groups.
-
-        This is a side-effect free utility function, altough it might not look
-        like it if you use it "incorrectly" :)
-
-        :type variant: basestring
-        :param variant: 'join' for MemberJoinApprovalRequired, 'part' for
-            MemberPartApprovalRequired."""
         if variant == 'join':
             return ['Open', 'Closed', 'ApprovalRequired']
         elif variant == 'depart':
@@ -414,35 +327,20 @@ class DistributionGroup(Group_class):
                 "Only join and depart restriction are supported in the schema"
 
     def ret_standard_language(self):
-        """Return standard language for DisplayName in Distribution Groups.
-
-        :rtype: basestring
-        :return: 'nb'."""
         return 'nb'
 
     def get_distgroup_attributes_and_targetdata(self,
                                                 display_name_lang='nb',
                                                 roomlist=False):
-        """Collect information about Distribution Groups.
-
-        :type display_name_lang: basestring
-        :param display_name_lang: The language to use for DisplayName
-            (default: 'nb').
-
-        :type roomlist: bool
-        :param roomlist: If true, returns roomlist-relevant information, else,
-            returns Distribution Group relevant information."""
         all_data = {}
         ea = Email.EmailAddress(self._db)
         ed = Email.EmailDomain(self._db)
         et = Email.EmailTarget(self._db)
         epat = Email.EmailPrimaryAddressTarget(self._db)
-        mngdby_address = ""
         primary_address = ""
         display_name = ""
         name_language = ""
         addrs = []
-        mod_by = []
         name_variant = self.const.dl_group_displ_name
         if display_name_lang == 'nb' or \
                 not hasattr(self.const, 'dl_group_displ_name'):
@@ -454,21 +352,6 @@ class DistributionGroup(Group_class):
         display_name = self.get_name_with_language(name_variant,
                                                    name_language,
                                                    default=self.group_name)
-
-        # Fetch the managers address
-        try:
-            ea.find(self.mngdby_addrid)
-        except Errors.NotFoundError:
-            # Could not find the address recorded. this should never happen
-            return None
-        try:
-            ed.find(ea.email_addr_domain_id)
-        except Errors.NotFoundError:
-            # Could not find the domain recorded. this should never happen
-            return None
-        mngdby_address = "%s@%s" % (ea.email_addr_local_part,
-                                    ed.email_domain_name)
-
         # in roomlists we only care about name, description,
         # displayname and the roomlist-status, the other attributes
         # don't need to be set in Exchange
@@ -477,7 +360,6 @@ class DistributionGroup(Group_class):
                         'description': self.description,
                         'displayname': display_name,
                         'group_id': self.entity_id,
-                        'mngdby_address': mngdby_address,
                         'deprestr': self.deprestr,
                         'joinrestr': self.joinrestr,
                         'roomlist': self.roomlist}
@@ -506,22 +388,12 @@ class DistributionGroup(Group_class):
         for r in et.get_addresses(special=True):
             ad = "%s@%s" % (r['local_part'], r['domain'])
             addrs.append(ad)
-        tmp = self.modby.split(',')
-        for x in tmp:
-            y = x.strip()
-            if y == '':
-                continue
-            # return a list of moderators
-            mod_by.append(y)
         # name is expanded with prefix 'dl-' by the export
         all_data = {'name': self.group_name,
                     'description': self.description,
                     'displayname': display_name,
                     'group_id': self.entity_id,
                     'roomlist': self.roomlist,
-                    'mngdby_address': mngdby_address,
-                    'modenable': self.modenable,
-                    'modby': mod_by,
                     'deprestr': self.deprestr,
                     'joinrestr': self.joinrestr,
                     'hidden': self.hidden,
@@ -537,7 +409,6 @@ class DistributionGroup(Group_class):
     # distribution groups we are, at this time, satisfied to let
     # them be a part of the main DistGroup-class. (Jazz, 2013-13)
     def create_distgroup_mailtarget(self):
-        """Ensure MailTarget for DistributionGroups."""
         et = Email.EmailTarget(self._db)
         target_type = self.const.email_target_dl_group
         if self.is_expired():
@@ -554,11 +425,6 @@ class DistributionGroup(Group_class):
         self._create_distgroup_mailaddr(et)
 
     def _create_distgroup_mailaddr(self, et):
-        """Populate EmailTarget with a primary address for the Distribution Group.
-
-        :type et: Cerebrum.modules.Email.EmailTarget
-        :param et: The EmailTarget to auto-create primary address for.
-        """
         ea = Email.EmailAddress(self._db)
         # move this to a variable
         # no need to wash the address, group will not be created

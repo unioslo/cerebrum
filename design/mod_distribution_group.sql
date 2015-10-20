@@ -1,6 +1,6 @@
 /*
- * Copyright 2013 University of Oslo, Norway
- *
+ * Copyright 2002-2015 University of Oslo, Norway
+ * 
  * This file is part of Cerebrum.
  *
  * Cerebrum is free software; you can redistribute it and/or modify it
@@ -22,7 +22,7 @@
 category:metainfo;
 name=dlgroup;
 category:metainfo;
-version=1.0;
+version=1.1;
 
 /*
 
@@ -49,19 +49,8 @@ version=1.0;
     Functionality related to roomlists has low priority and might
     not be implemented at this point (Jazz, 2013-11). Should be
     implemented as a separate command!
-  - ManagedBy: contact email address for the person/org. unit tasked
-    with developing and maintaining policy for this groups membership
-    maintenance, from 'mngdby_addrid', where 'mngdby_addrid' is a
-    valid e-mail address in Cerebrum
-  - ModerationEnabled: let messages to the group be moderated, default
-    = true (API must ensure that enabled moderation requires
-    defined moderators), from 'modenable'
-  - ModeratedBy: a list of accounts i UiO-domain that may moderate
-    messages for this group (required if modenabled = true), from
-    varchar 'modby' (API should make sure UiO-AD accounts, and the
-    pop requirement with moderationenabled)
-  - MemberDepartRestriction: rules for leaving the group in Exchange,
-    from 'deprestr'. Valide values: Open, Closed, ApprovalRequired,
+  - MemberDepartRestriction: rules for leaving the group in Exchange, 
+    from 'deprestr'. Valide values: Open, Closed, ApprovalRequired, 
     default "Closed", validated database-level
   - MemberJoinRestriction: rules for becoming a member of the group
     in Exchange, from 'joinrestr'. Valide values: Open, Closed,
@@ -87,19 +76,6 @@ CREATE TABLE distribution_group
         NOT NULL
         CONSTRAINT distribution_group_roomlist_bool
                 CHECK (roomlist IN ('T', 'F')),
-
-  mngdby_addrid  NUMERIC(12,0)
-        NOT NULL
-        CONSTRAINT email_primary_address_address
-                REFERENCES email_address(address_id),
-
-  modenable CHAR (1)
-        DEFAULT 'T'
-        NOT NULL
-        CONSTRAINT distribution_group_modenable_bool
-                CHECK (modenable IN ('T', 'F')),
-
-  modby     CHAR VARYING (512),
 
   deprestr  CHAR VARYING (64)
         DEFAULT 'Closed'
