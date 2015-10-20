@@ -18,7 +18,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import re
-import time
 
 from collections import defaultdict
 
@@ -1050,7 +1049,7 @@ from None and LDAP_PERSON['dn'].""")
                 norm = normalize(val)
             else:
                 norm = val
-            if not done.has_key(norm):
+            if norm not in done:
                 done[norm] = True
                 result.append(val)
         return result

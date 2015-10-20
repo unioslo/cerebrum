@@ -1,2 +1,3 @@
 test_Cerebrum/test_Database.py
 test_Cerebrum/test_Group.py
+test_Cerebrum/test_GnuPG.py

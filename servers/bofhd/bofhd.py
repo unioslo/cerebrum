@@ -391,6 +391,10 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
 
         session = BofhdSession(self.server.db, logger, session_id)
         entity_id = session.get_entity_id()
+        # session.get_entity_id() will potentially change the contents of
+        # bofhd_session hence lock rows creating a logout problem described in
+        # CRB-1226. We should commit here in order to prevent row locking.
+        self.server.db.commit()
         commands = {}
         for inst in self.server.cmd_instances:
             newcmd = inst.get_commands(entity_id)
