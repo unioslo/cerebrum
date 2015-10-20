@@ -19,14 +19,17 @@
 import re
 import pickle
 import os.path
+import string
 
 import cereconf
 
+from Cerebrum import Entity
 from Cerebrum.modules.OrgLDIF import OrgLDIF
 from Cerebrum.modules.LDIFutils import (
     ldapconf, normalize_string, verify_IA5String, normalize_IA5String, iso2utf,
     hex_escape_match, dn_escape_re)
 from Cerebrum.Utils import make_timer
+
 
 class norEduLDIFMixin(OrgLDIF):
     """Mixin class for OrgLDIF, adding FEIDE attributes to the LDIF output.
@@ -71,9 +74,11 @@ class norEduLDIFMixin(OrgLDIF):
 
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
-        orgnum = int(cereconf.DEFAULT_INSTITUSJONSNR)
-        # Note: 000 = Norway in FEIDE.
-        self.norEduOrgUniqueID = ("000%05d" % orgnum,)
+        try:
+            orgnum = int(cereconf.DEFAULT_INSTITUSJONSNR)
+            self.norEduOrgUniqueID = ("000%05d" % orgnum,)
+        except (AttributeError, TypeError):
+            self.norEduOrgUniqueID = None
         self.FEIDE_ou_common_attrs = {}
         # '@<security domain>' for the eduPersonPrincipalName attribute.
         self.homeOrg = cereconf.INSTITUTION_DOMAIN_NAME
@@ -237,6 +242,7 @@ class norEduLDIFMixin(OrgLDIF):
         if ldapconf('PERSON', 'entitlements_pickle_file') and person_id in self.person2entitlements:
             entry['eduPersonEntitlement'] = self.person2entitlements[person_id]
 
+        entry['objectClass'].append('schacContactLocation')
         entry['schacHomeOrganization'] = self.homeOrg
 
         return dn, entry, alias_info
@@ -410,6 +416,82 @@ class norEduLDIFMixin(OrgLDIF):
             if self.FEIDE_schema_version >= '1.6':
                 self.update_person_authn(entry, person_id)
 
+    @property
+    def person_authn_selection(self):
+        u""" Returns norEduPersonAuthnMethod_selector with constants.
+
+        Returns the LDAP_PERSON[norEduPersonAuthnMethod_selector] setting with
+        all strings replaced with their corresponding constant.
+
+        """
+        if not hasattr(self, '_person_authn_selection'):
+            self._person_authn_selection = dict()
+
+            def get_const(name, cls):
+                constant = self.const.human2constant(name, cls)
+                if not constant:
+                    self.logger.warn(
+                        "LDAP_PERSON[norEduPersonAuthnMethod_selector]: "
+                        "Unknown %s %r", cls.__name__, name)
+                return constant
+
+            for aff, selections in ldapconf('PERSON',
+                                            'norEduPersonAuthnMethod_selector',
+                                            {}).iteritems():
+                aff = get_const(aff, self.const.PersonAffiliation)
+                if not aff:
+                    continue
+                for system, c_type in selections:
+                    system = get_const(system, self.const.AuthoritativeSystem)
+                    c_type = get_const(c_type, self.const.ContactInfo)
+                    if (not system) or (not c_type):
+                        continue
+                    self._person_authn_selection.setdefault(aff, []).append(
+                        (system, c_type))
+        return self._person_authn_selection
+
+    @property
+    def person_authn_methods(self):
+        """ Returns a contact info mapping for update_person_authn.
+
+        Initializes self.person_authn_methods with a dict that maps person
+        entity_id to a list of dicts with contact info:
+
+            person_id: [ {'contact_type': <const>,
+                          'source_system': <const>,
+                          'value': <str>, },
+                         ... ],
+            ...
+
+        """
+        if not hasattr(self, '_person_authn_methods'):
+            entity = Entity.EntityContactInfo(self.db)
+            self._person_authn_methods = dict()
+
+            # Find the unique systems and contact types for filtering
+            source_systems = set(
+                (v[0] for s in self.person_authn_selection.itervalues()
+                 for v in s))
+            contact_types = set(
+                (v[1] for s in self.person_authn_selection.itervalues()
+                 for v in s))
+
+            # Cache contact info
+            count = 0
+            for row in entity.list_contact_info(
+                    entity_type=self.const.entity_person,
+                    source_system=list(source_systems),
+                    contact_type=list(contact_types)):
+                c_type = self.const.ContactInfo(row['contact_type'])
+                system = self.const.AuthoritativeSystem(row['source_system'])
+                self._person_authn_methods.setdefault(
+                    int(row['entity_id']), list()).append(
+                        {'value': str(row['contact_value']),
+                         'contact_type': c_type,
+                         'source_system': system, })
+                count += 1
+        return self._person_authn_methods
+
     def update_person_authn(self, entry, person_id):
         """ Add authentication info to the entry.
 
@@ -421,4 +503,19 @@ class norEduLDIFMixin(OrgLDIF):
         :param int person_id: The Cerebrum entity_id of the person.
 
         """
-        pass
+        person_affs = [aff for aff, _s, _ou in self.affiliations[person_id]]
+        template = string.Template('urn:mace:feide.no:auth:method:sms $value '
+                                   'label=${source_system}%20${contact_type}')
+
+        # Add populated template to norEduPersonAuthnMethod for each configured
+        # method, if the contact data exists
+        authn_methods = list()
+        for authn_entry in self.person_authn_methods.get(person_id, []):
+            for aff, selection in self.person_authn_selection.iteritems():
+                if (aff in person_affs
+                        and (authn_entry['source_system'],
+                             authn_entry['contact_type']) in selection):
+                    authn_methods.append(
+                        template.substitute(authn_entry))
+        entry['norEduPersonAuthnMethod'] = self.attr_unique(
+            authn_methods, normalize=normalize_string)

@@ -42,7 +42,6 @@
   register: _test_result
   ignore_errors: yes
 
-
 # Note: The with_file_overload causes the result to be wrapped in a list
 # (results)
 - name: _test_result_var
