@@ -22,7 +22,7 @@
 category:metainfo;
 name=dlgroup;
 category:metainfo;
-version=1.0;
+version=1.1;
 
 /*
 
