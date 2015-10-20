@@ -41,7 +41,6 @@ from Cerebrum.Entity import (EntityName,
                              EntityContactInfo,
                              EntityExternalId,
                              EntitySpread)
-from Cerebrum.modules import PasswordChecker, PasswordHistory
 from Cerebrum import Errors
 from Cerebrum.Utils import (NotSet,
                             argument_to_sql,
