@@ -331,6 +331,11 @@ class ConstantsUniversityColleges(Constants.Constants):
     name_middle = _PersonNameCode('MIDDLE', 'Mellomnavn')
     name_initials = _PersonNameCode('INITIALS', 'Initialer')
 
+    ## Contact info
+
+    contact_office = _ContactInfoCode('OFFICE',
+        'Office address (building code and room number')
+
     # SAP comm. constants
     contact_phone_cellular = _ContactInfoCode(
         "CELLPHONE", "Mobiltelefonnr")
