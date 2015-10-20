@@ -93,7 +93,7 @@ def main():
 
     to_exec = " ".join(args)
     logger.info("Complete command to be run on remote host: '%s'" % to_exec)
-    args = ["/local/bin/ssh", "%s@%s" % (remote_user, host),
+    args = ["/usr/bin/ssh", "%s@%s" % (remote_user, host),
             "" + to_exec + " > /dev/null 2>&1" + ""]
     logger.info("Executing command: '%s'" % " ".join(args))
     os.execv(args[0], args)

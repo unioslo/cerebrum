@@ -374,6 +374,9 @@ class BaseSync(object):
             if not self.config['encrypted']:
                 self.config['port'] = 5985
 
+        if config_args.get('dc_server'):
+            self.config['dc_server'] = config_args['dc_server']
+
         if self.config['subset']:
             self.logger.info("Sync will only be run for subset: %s",
                              self.config['subset'])
@@ -529,6 +532,8 @@ class BaseSync(object):
             client_cert=self.config.get('client_cert'),
             client_key=self.config.get('client_key'),
             dryrun=self.config['dryrun'])
+        if 'dc_server' in self.config:
+            self.server.set_domain_controller(self.config['dc_server'])
 
     def add_admin_message(self, level, msg):
         """Add a message to be given to the administrators of the AD domain.
@@ -718,25 +723,27 @@ class BaseSync(object):
                 "Processing change_id %s (%s), from %s subject_entity: %s",
                 row['change_id'], change_type, timestamp,
                 row['subject_entity'])
+            already_handled.add(handle_key)
             try:
                 if self.process_cl_event(row):
                     stats['processed'] += 1
                     confirm(row)
-                    already_handled.add(handle_key)
                 else:
-                    raise Exception("Changetype handler returned False for"
-                                    " %s" % change_type)
+                    stats['skipped'] += 1
+                    self.logger.debug(
+                        "Unable to process %s for subject=%s dest=%s",
+                        change_type, row['subject_entity'], row['dest_entity'])
             except Exception:
                 stats['failed'] += 1
-                self.logger.error("Failed to process cl_event: %s",
-                                  row['change_id'], exc_info=1)
-                # TODO: Add subject_entity to a ignore-list, as I think we
-                # should keep changes in order per entity.
+                self.logger.error(
+                    "Failed to process cl_event %s (%s) for %s",
+                    row['change_id'], change_type, row['subject_entity'],
+                    exc_info=1)
             else:
                 commit(self.config['dryrun'])
         commit(self.config['dryrun'])
-        self.logger.debug("Handled %(seen)d events, processed: %(processed)d,"
-                          " skipped: %(skipped)d, failed: %(failed)d", stats)
+        self.logger.info("Handled %(seen)d events, processed: %(processed)d,"
+                         " skipped: %(skipped)d, failed: %(failed)d", stats)
         self.logger.info("Quicksync done")
         self.send_ad_admin_messages()
 
@@ -2065,7 +2072,7 @@ class UserSync(BaseSync):
                         'Using "target_ou"' % (
                             uname,
                             row['account_id']))
-                    
+
 
     def fetch_names(self):
         """Fetch all the persons' names and store them for the accounts.
@@ -2690,7 +2697,7 @@ class UserSync(BaseSync):
             if not self.ac.has_spread(self.config['target_spread']):
                 self.logger.debug("Account %s without target_spread, ignoring",
                                   row['subject_entity'])
-                return True
+                return False
 
             name = self._format_name(self.ac.account_name)
 

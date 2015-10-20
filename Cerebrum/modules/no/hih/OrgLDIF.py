@@ -18,10 +18,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Mixin for OrgLDIF for HiH."""
 
-from collections import defaultdict
+from Cerebrum.modules.no.OrgLDIF import OrgLDIF
 
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.OrgLDIF import *
 
 class hihOrgLDIFMixin(OrgLDIF):
     def __init__(self, db, logger):
@@ -31,11 +29,11 @@ class hihOrgLDIFMixin(OrgLDIF):
     def init_attr2id2contacts(self):
         """Override to include more, local data from contact info."""
         self.__super.init_attr2id2contacts()
-        sap, fs = self.const.system_sap, self.const.system_fs
+        fs = self.const.system_fs
         c = [(a, self.get_contacts(contact_type  = t,
                                    source_system = s,
                                    convert       = self.attr2syntax[a][0],
                                    verify        = self.attr2syntax[a][1],
                                    normalize     = self.attr2syntax[a][2]))
-             for a,s,t in (('mobile', fs, self.const.contact_mobile_phone),)]
+             for a, s, t in (('mobile', fs, self.const.contact_mobile_phone),)]
         self.attr2id2contacts.extend((v for v in c if v[1]))

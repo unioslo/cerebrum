@@ -86,7 +86,7 @@ class StateChecker(object):
             usr, self.config['ldap_server']))
 
         self.ldap_lc = ldap.controls.SimplePagedResultsControl(
-            ldap.LDAP_CONTROL_PAGE_OID, True, (self._ldap_page_size, ''))
+            True, self._ldap_page_size, '')
 
     # Wrapping the search with retries if the server is busy or similar errors
     def _searcher(self, ou, scope, attrs, ctrls):
@@ -140,16 +140,17 @@ class StateChecker(object):
         msgid = self._searcher(ou, scope, attrs, [self.ldap_lc])
 
         data = []
+
+        ctrltype = ldap.controls.SimplePagedResultsControl.controlType
         while True:
             time.sleep(1)
             rtype, rdata, rmsgid, sc = self._recvr(msgid)
             data.extend(rdata)
-            pctrls = [c for c in sc if
-                      c.controlType == ldap.LDAP_CONTROL_PAGE_OID]
+            pctrls = [c for c in sc if c.controlType == ctrltype]
             if pctrls:
-                est, cookie = pctrls[0].controlValue
+                cookie = pctrls[0].cookie
                 if cookie:
-                    self.ldap_lc.controlValue = (self._ldap_page_size, cookie)
+                    self.ldap_lc.cookie = cookie
                     time.sleep(1)
                     msgid = self._searcher(ou, scope, attrs, [self.ldap_lc])
                 else:

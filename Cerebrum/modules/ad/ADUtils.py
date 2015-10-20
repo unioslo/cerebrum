@@ -27,7 +27,7 @@ layer between the AD service and the different AD syncs.
 TODO:
 
 * the AD service should use exceptions instead of returning a list on
-  the form: [<succes flag>, <Message>] Transmitting exceptions through
+  the form: [<success flag>, <Message>] Transmitting exceptions through
   XML-RPC is a bit of a hassle, but is doable. And should be worth
   investigating at least.
 """
@@ -175,7 +175,7 @@ class ADUtils(object):
             return False
             
         # ret is a list in the form [bool, msg] where the first
-        # element tells if the command was succesful or not
+        # element tells if the command was successful or not
         if not ret[0]:
             self.logger.warn("Server couldn't execute %s(%s): %s" %
                              (command, args, ret[1:]))

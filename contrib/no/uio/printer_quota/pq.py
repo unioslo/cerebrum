@@ -71,7 +71,7 @@ unknownkey = "516 Unknown key"
 eperm = "517 Permission denied"
 
 # pqdlog = "/u2/log/priss/prissquotad"
-pqdlog = "/cerebrum/uio/var/log/cerebrum/prissquotad"
+pqdlog = "/cerebrum/var/log/cerebrum/prissquotad"
 my_pid = os.getpid()
 
 # To perform accounting for jobs by unknown accounts

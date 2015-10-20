@@ -1,4 +1,4 @@
-#!/local/bin/python 
+#! /usr/bin/env python 
 # -*- coding: iso-8859-1 -*-
 #
 # Copyright 2006 University of Oslo, Norway

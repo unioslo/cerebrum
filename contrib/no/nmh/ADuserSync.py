@@ -1,4 +1,4 @@
-#!/local/bin/python
+#! /usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
 # Copyright 2006 University of Oslo, Norway
@@ -308,7 +308,7 @@ def create_user(elem):
     
     ret = run_cmd('createObject', 'User', ou, elem['sAMAccountName'])
     if ret[0]:
-        logger.info("Succesfully created account %s", elem['sAMAccountName'])
+        logger.info("Successfully created account %s", elem['sAMAccountName'])
     else:
         logger.error("Create account failed for %s", elem['sAMAccountName'])
 

@@ -157,7 +157,7 @@ def main():
     ou = Factory.get('OU')(db)
     et = Email.EmailTarget(db) 
 
-    txt_path = "/cerebrum/dumps/txt"
+    txt_path = "/cerebrum/var/cache/txt"
     
     options, rest = getopt.getopt(sys.argv[1:],
                                   "t:", ["txt-path=",])

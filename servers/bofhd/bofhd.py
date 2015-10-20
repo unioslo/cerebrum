@@ -391,6 +391,10 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
 
         session = BofhdSession(self.server.db, logger, session_id)
         entity_id = session.get_entity_id()
+        # session.get_entity_id() will potentially change the contents of
+        # bofhd_session hence lock rows creating a logout problem described in
+        # CRB-1226. We should commit here in order to prevent row locking.
+        self.server.db.commit()
         commands = {}
         for inst in self.server.cmd_instances:
             newcmd = inst.get_commands(entity_id)
@@ -962,6 +966,13 @@ if __name__ == '__main__':
 
     auth_dir = lambda f: "%s/%s" % (getattr(cereconf, 'DB_AUTH_DIR', '.'), f)
 
+    ssl_version_map = {
+        'SSLv2': https.SSLConfig.SSLv2,
+        'SSLv23': https.SSLConfig.SSLv23,
+        'SSLv3': https.SSLConfig.SSLv3,
+        'TLSv1': https.SSLConfig.TLSv1,
+    }
+
     argp = argparse.ArgumentParser(description=u"The Cerebrum bofh server")
     argp.add_argument('-c', '--config-file',
                       required=True,
@@ -1003,6 +1014,13 @@ if __name__ == '__main__':
                       dest='cert_file',
                       metavar='<PEM-file>',
                       help='Server certificate and private key')
+    argp.add_argument('--ssl-version',
+                      default='TLSv1',
+                      dest='ssl_version',
+                      metavar='<version>',
+                      choices=ssl_version_map.keys(),
+                      help='SSL protocol version (default: %(default)s, available: %(choices)s)')
+
     args = argp.parse_args()
 
     if args.test_help is not None:
@@ -1026,11 +1044,13 @@ if __name__ == '__main__':
     }
 
     if args.use_encryption:
-        logger.info("Server using encryption")
         ssl_config = https.SSLConfig(ca_certs=args.ca_file,
                                      certfile=args.cert_file)
         ssl_config.set_ca_validate(ssl_config.OPTIONAL)
+        ssl_config.set_ssl_version(ssl_version_map[args.ssl_version])
         server_args['ssl_config'] = ssl_config
+        logger.info("Server using encryption (%s)", args.ssl_version)
+
 
         if args.multi_threaded:
             cls = ThreadingSSLBofhdServer

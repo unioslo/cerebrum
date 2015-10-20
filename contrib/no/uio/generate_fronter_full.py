@@ -1177,7 +1177,7 @@ def init_globals():
     const = Factory.get("Constants")(db)
     logger = Factory.get_logger("cronjob")
 
-    cf_dir = '/cerebrum/dumps/Fronter'
+    cf_dir = '/cerebrum/var/cache/Fronter'
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h:',
                                    ['host=', 'rom-profil=',

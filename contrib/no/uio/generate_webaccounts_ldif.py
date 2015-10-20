@@ -30,6 +30,8 @@ This script take the following arguments:
 -b, --base : base DN for the objects
 """
 
+from os.path import join as pj
+
 import os, sys
 import getopt
 import cerebrum_path
@@ -42,7 +44,7 @@ db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
 
-filename = '/cerebrum/dumps/LDAP/webaccounts.ldif'
+filename = pj(LDAP_DUMP_DIR, 'webaccounts.ldif')
 
 def usage(exitcode=0):
     print __doc__

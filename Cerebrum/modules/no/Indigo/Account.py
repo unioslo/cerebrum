@@ -22,11 +22,11 @@ import random
 import string
 import time
 import pickle
+import base64
 
 import cereconf
 from Cerebrum import Account
 from Cerebrum import Errors
-from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import pgp_encrypt
@@ -76,23 +76,7 @@ class AccountIndigoMixin(Account.Account):
             if r['affiliation'] == self.const.affiliation_ansatt:
                 return True
         return False
-    
-    def set_password(self, plaintext):
-        # Override Account.set_password so that we get a copy of the
-        # plaintext password
-        self.__plaintext_password = plaintext
-        self.__super.set_password(plaintext)
 
-    def write_db(self):
-        try:
-            plain = self.__plaintext_password
-        except AttributeError:
-            plain = None
-        ret = self.__super.write_db()
-        if plain is not None:
-            ph = PasswordHistory.PasswordHistory(self._db)
-            ph.add_history(self, plain)
-        return ret
 
     def enc_auth_type_pgp_crypt(self, plaintext, salt=None):
         return pgp_encrypt(plaintext, cereconf.PGPID)
@@ -188,6 +172,27 @@ class AccountOfkMixin (Account.Account):
             count += 1
         random.shuffle(pwd)
         return string.join(pwd,'')
+
+    def verify_password(self, method, plaintext, cryptstring):
+        """Returns True if the plaintext matches the cryptstring,
+        False if it doesn't.  If the method doesn't support
+        verification, NotImplemented is returned.
+        """
+        if method in (self.const.auth_type_md5_crypt,
+                      self.const.auth_type_md5_unsalt,
+                      self.const.auth_type_ha1_md5,
+                      self.const.auth_type_crypt3_des,
+                      self.const.auth_type_md4_nt,
+                      self.const.auth_type_ssha,
+                      self.const.auth_type_sha256_crypt,
+                      self.const.auth_type_sha512_crypt,
+                      self.const.auth_type_plaintext):
+            salt = cryptstring
+            if method == self.const.auth_type_ssha:
+                salt = base64.decodestring(cryptstring)[20:]
+            return (self.encrypt_password(method, plaintext, salt=salt) ==
+                    cryptstring)
+        raise ValueError("Unknown method " + repr(method))
 
 ##
 ## due to the user name space being partially used up, we will start

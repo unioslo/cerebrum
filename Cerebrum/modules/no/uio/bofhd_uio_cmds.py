@@ -41,8 +41,8 @@ from Cerebrum.Constants import _CerebrumCode, _SpreadCode, _LanguageCode
 from Cerebrum import Utils
 from Cerebrum.modules import Email
 from Cerebrum.modules.Email import _EmailDomainCategoryCode
-from Cerebrum.modules import PasswordChecker
-from Cerebrum.modules import PasswordHistory
+from Cerebrum.modules.pwcheck.history import PasswordHistory
+from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
@@ -54,7 +54,6 @@ from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
-from Cerebrum.modules.templates.letters import TemplateHandler
 # Utils are already being imported; need to "rename" these:
 from Cerebrum.modules.dns import Utils as DNSUtils
 from Cerebrum.modules.dns.Subnet import Subnet
@@ -6664,12 +6663,11 @@ Addresses and settings:
     all_commands['misc_check_password'] = Command(
         ("misc", "check_password"), AccountPassword())
     def misc_check_password(self, operator, password):
-        pc = PasswordChecker.PasswordChecker(self.db)
-        try:
-            pc.goodenough(None, password, uname="foobar")
-        except PasswordChecker.PasswordGoodEnoughException, m:
-            raise CerebrumError, "Bad password: %s" % m
         ac = self.Account_class(self.db)
+        try:
+            ac.password_good_enough(password)
+        except PasswordNotGoodEnough, m:
+            raise CerebrumError("Bad password: %s" % m)
         crypt = ac.encrypt_password(self.const.Authentication("crypt3-DES"),
                                     password)
         md5 = ac.encrypt_password(self.const.Authentication("MD5-crypt"),
@@ -6988,9 +6986,8 @@ Addresses and settings:
             host.write_db()
             return "OK, default quota on %s is %d" % (hostname, int(quota))
         else:
-            raise CerebrumError, "Invalid quota value '%s'" % quota
+            raise CerebrumError("Invalid quota value '%s'" % quota)
         pass
-
 
     def _remove_auth_target(self, target_type, target_id):
         """This function should be used whenever a potential target
@@ -7004,8 +7001,9 @@ Addresses and settings:
             # We remove all auth_role entries first so that there
             # are no references to this op_target_id, just in case
             # someone adds a foreign key constraint later.
-            for role in ar.list(op_target_id = r["op_target_id"]):
-                ar.revoke_auth(role['entity_id'], role['op_set_id'],
+            for role in ar.list(op_target_id=r["op_target_id"]):
+                ar.revoke_auth(role['entity_id'],
+                               role['op_set_id'],
                                r['op_target_id'])
             aot.delete()
 
@@ -7025,199 +7023,48 @@ Addresses and settings:
                 aot.find(r['op_target_id'])
                 aot.delete()
 
-
-    # misc list_passwords
-    def misc_list_passwords_prompt_func(self, session, *args):
-        """  - Går inn i "vis-info-om-oppdaterte-brukere-modus":
-  1 Skriv ut passordark
-  1.1 Lister ut templates, ber bofh'er om å velge en
-  1.1.[0] Spesifiser skriver (for template der dette tillates valgt av
-          bofh'er)
-  1.1.1 Lister ut alle aktuelle brukernavn, ber bofh'er velge hvilke
-        som skal skrives ut ('*' for alle).
-  1.1.2 (skriv ut ark/brev)
-  2 List brukernavn/passord til skjerm
-  """
-        all_args = list(args[:])
-        if not all_args:
-            return {'prompt': "Velg#",
-                    'map': [(("Alternativer",), None),
-                            (("Skriv ut passordark",), "skriv"),
-                            (("List brukernavn/passord til skjerm",), "skjerm")]}
-        arg = all_args.pop(0)
-        if(arg == "skjerm"):
-            return {'last_arg': True}
-        if not all_args:
-            map = [(("Alternativer",), None)]
-            n = 1
-            for t in self._map_template():
-                map.append(((t,), n))
-                n += 1
-            return {'prompt': "Velg template #", 'map': map,
-                    'help_ref': 'print_select_template'}
-        arg = all_args.pop(0)
-        tpl_lang, tpl_name, tpl_type = self._map_template(arg)
-        if not tpl_lang.endswith("letter"):
-            default_printer = session.get_state(state_type='default_printer')
-            if default_printer:
-                default_printer = default_printer[0]['state_data']
-            if not all_args:
-                ret = {'prompt': 'Oppgi skrivernavn'}
-                if default_printer:
-                    ret['default'] = default_printer
-                return ret
-            skriver = all_args.pop(0)
-            if skriver != default_printer:
-                session.clear_state(state_types=['default_printer'])
-                session.store_state('default_printer', skriver)
-                self.db.commit()
-        if not all_args:
-            n = 1
-            map = [(("%8s %s", "uname", "operation"), None)]
-            for row in self._get_cached_passwords(session):
-                map.append((("%-12s %s", row['account_id'], row['operation']), n))
-                n += 1
-            if n == 1:
-                raise CerebrumError, "no users"
-            return {'prompt': 'Velg bruker(e)', 'last_arg': True,
-                    'map': map, 'raw': True,
-                    'help_ref': 'print_select_range',
-                    'default': str(n-1)}
-
     all_commands['misc_list_passwords'] = Command(
-        ("misc", "list_passwords"), prompt_func=misc_list_passwords_prompt_func,
-        fs=FormatSuggestion("%-8s %-20s %s", ("account_id", "operation", "password"),
-                            hdr="%-8s %-20s %s" % ("Id", "Operation", "Password")))
+        ("misc", "list_passwords"),
+        fs=FormatSuggestion(
+            "%-8s %-20s %s", ("account_id", "operation", "password"),
+            hdr="%-8s %-20s %s" % ("Id", "Operation", "Password")))
+
     def misc_list_passwords(self, operator, *args):
-        if args[0] == "skjerm":
-            return self._get_cached_passwords(operator)
-        args = list(args[:])
-        args.pop(0)
-        tpl_lang, tpl_name, tpl_type = self._map_template(args.pop(0))
-        skriver = None
-        if not tpl_lang.endswith("letter"):
-            skriver = args.pop(0)
-        else:
-            skriver = cereconf.PRINT_PRINTER
-
-        try:
-            selection = args.pop(0)
-        except IndexError:
-            # Trying to list passwords when none have been set
-            raise CerebrumError("Cannot print new passwords when none have been set")
-
+        u""" List passwords in cache. """
+        # NOTE: We keep the *args argument for backwards compability.
         cache = self._get_cached_passwords(operator)
-        th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
-        tmp_dir = Utils.make_temp_dir(dir=cereconf.JOB_RUNNER_LOG_DIR,
-                                      prefix="bofh_spool")
-        out_name = "%s/%s.%s" % (tmp_dir, "job", tpl_type)
-        out = file(out_name, "w")
-        if th._hdr is not None:
-            out.write(th._hdr)
-        ret = []
-
-        num_ok = 0
-        for n in self._parse_range(selection):
-            n -= 1
-            try:
-                account = self._get_account(cache[n]['account_id'])
-            except IndexError:
-                raise CerebrumError("Number not in valid range")
-            mapping = {'uname': cache[n]['account_id'],
-                       'password': cache[n]['password'],
-                       'account_id': account.entity_id,
-                       'lopenr': ''}
-            if tpl_lang.endswith("letter"):
-                mapping['barcode'] = '%s/barcode_%s.eps' % (
-                    tmp_dir, account.entity_id)
-                try:
-                    th.make_barcode(account.entity_id, mapping['barcode'])
-                except IOError, msg:
-                    raise CerebrumError(msg)
-            if account.owner_type == self.const.entity_group:
-                grp = self._get_group(account.owner_id, idtype='id')
-                mapping['group'] = grp.group_name
-            elif account.owner_type == self.const.entity_person:
-                person = self._get_person('entity_id', account.owner_id)
-                fullname = person.get_name(self.const.system_cached, self.const.name_full)
-                mapping['fullname'] =  fullname
-            else:
-                raise CerebrumError("Unsupported owner type. Please use the 'to screen' option")
-            if tpl_lang.endswith("letter"):
-                # owner_type is checked above: either person or group
-                if account.owner_type != self.const.entity_person:
-                    raise CerebrumError, "Cannot send letter to group %s" % mapping['group']
-                address = None
-                for source, kind in ((self.const.system_sap, self.const.address_post),
-                                     (self.const.system_fs, self.const.address_post),
-                                     (self.const.system_sap, self.const.address_post_private),
-                                     (self.const.system_fs, self.const.address_post_private)):
-                    address = person.get_entity_address(source = source, type = kind)
-                    if address:
-                        break
-                    address = None
-                if not address:
-                    ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
-                    continue
-                address = address[0]
-                alines = address['address_text'].split("\n")+[""]
-                mapping['address_line1'] = fullname
-                if alines:
-                    mapping['address_line2'] = alines[0]
-                    mapping['address_line3'] = alines[1]
-                else:
-                    mapping['address_line2'] = ""
-                    mapping['address_line3'] = ""
-                mapping['zip'] = address['postal_number']
-                mapping['city'] = address['city']
-                mapping['country'] = address['country']
-                mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
-                mapping['emailadr'] =  "TODO"  # We probably don't need to support this...
-            num_ok += 1
-            out.write(th.apply_template('body', mapping, no_quote=('barcode',)))
-        if not (num_ok > 0):
-            raise CerebrumError("Errors extracting required information: %s" % "+n".join(ret))
-        if th._footer is not None:
-            out.write(th._footer)
-        out.close()
-        try:
-            account = self._get_account(operator.get_entity_id(), idtype='id')
-            th.spool_job(out_name, tpl_type, skriver, skip_lpr=0,
-                         lpr_user=account.account_name,
-                         logfile="%s/spool.log" % tmp_dir)
-        except IOError, msg:
-            raise CerebrumError(msg)
-        ret.append("OK: %s/%s.%s spooled @ %s for %s" % (
-            tpl_lang, tpl_name, tpl_type, skriver, selection))
-        return "\n".join(ret)
-
+        if not cache:
+            raise CerebrumError("No passwords in session")
+        return cache
 
     all_commands['misc_list_bofhd_request_types'] = Command(
         ("misc", "list_bofhd_request_types"),
-        fs=FormatSuggestion("%-20s %s", ("code_str", "description"),
-                            hdr="%-20s %s" % ("Code", "Description")),
-        )
+        fs=FormatSuggestion(
+            "%-20s %s", ("code_str", "description"),
+            hdr="%-20s %s" % ("Code", "Description")))
+
     def misc_list_bofhd_request_types(self, operator):
         br = BofhdRequests(self.db, self.const)
-
         result = []
         for row in br.get_operations():
             result.append({"code_str": row["code_str"].lstrip("br_"),
                            "description": row["description"]})
-
         return result
 
-
     all_commands['misc_list_requests'] = Command(
-        ("misc", "list_requests"), SimpleString(
-        help_ref='string_bofh_request_search_by', default='requestee'),
-        SimpleString(help_ref='string_bofh_request_target', default='<me>'),
-        fs=FormatSuggestion("%-7i %-10s %-16s %-16s %-10s %-20s %s",
-                            ("id", "requestee", format_time("when"),
-                             "op", "entity", "destination", "args"),
-                            hdr="%-7s %-10s %-16s %-16s %-10s %-20s %s" % \
-                            ("Id", "Requestee", "When", "Op", "Entity",
-                             "Destination", "Arguments")))
+        ("misc", "list_requests"),
+        SimpleString(help_ref='string_bofh_request_search_by',
+                     default='requestee'),
+        SimpleString(help_ref='string_bofh_request_target',
+                     default='<me>'),
+        fs=FormatSuggestion(
+            "%-7i %-10s %-16s %-16s %-10s %-20s %s",
+            ("id", "requestee", format_time("when"), "op", "entity",
+             "destination", "args"),
+            hdr="%-7s %-10s %-16s %-16s %-10s %-20s %s" % (
+                "Id", "Requestee", "When", "Op", "Entity", "Destination",
+                "Arguments")))
+
     def misc_list_requests(self, operator, search_by, destination):
         br = BofhdRequests(self.db, self.const)
         ret = []
@@ -7686,10 +7533,10 @@ Addresses and settings:
         self.ba.can_set_password(operator.get_entity_id(), ac)
         if ac.verify_auth(password):
             return "Password is correct"
-        ph = PasswordHistory.PasswordHistory(self.db)
-        hash = ph.encode_for_history(ac, password)
+        ph = PasswordHistory(self.db)
+        histhash = ph.encode_for_history(ac.account_name, password)
         for r in ph.get_history(ac.entity_id):
-            if hash == r['md5base64']:
+            if histhash == r['md5base64']:
                 return ("The password is obsolete, it was set on %s" %
                         r['set_at'])
         return "Incorrect password"
@@ -9425,7 +9272,8 @@ Addresses and settings:
 
         """
         SYSADM_TYPES = ('adm','drift','null',)
-        VALID_STATUS = (self.const.affiliation_status_ansatt_tekadm,)
+        VALID_STATUS = (self.const.affiliation_status_ansatt_tekadm,
+                        self.const.affiliation_status_ansatt_vitenskapelig)
         DOMAIN = '@ulrik.uio.no'
 
         if not self.ba.is_superuser(operator.get_entity_id()):
@@ -9718,26 +9566,6 @@ Addresses and settings:
         return ret
 
 
-    def _map_template(self, num=None):
-        """If num==None: return list of avail templates, else return
-        selected template """
-        tpls = []
-        n = 1
-        keys = cereconf.BOFHD_TEMPLATES.keys()
-        keys.sort()
-        for k in keys:
-            for tpl in cereconf.BOFHD_TEMPLATES[k]:
-                tpls.append("%s" % (tpl[2]))
-                try:
-                    if num is not None and n == int(num):
-                        return (k, tpl[0], tpl[1])
-                except ValueError:
-                    raise CerebrumError("Unknown template selected")
-                n += 1
-        if num is not None:
-            raise CerebrumError, "Unknown template selected"
-        return tpls
-
     def _get_cached_passwords(self, operator):
         ret = []
         for r in operator.get_state():
@@ -10006,9 +9834,14 @@ Addresses and settings:
                            account.entity_id, group.entity_id, why)
             return "OK, 'give' registered"
 
+    #
     # user password
+    #
     all_commands['user_password'] = Command(
-        ('user', 'password'), AccountName(), AccountPassword(optional=True))
+        ('user', 'password'),
+        AccountName(),
+        AccountPassword(optional=True))
+
     def user_password(self, operator, accountname, password=None):
         account = self._get_account(accountname)
         self.ba.can_set_password(operator.get_entity_id(), account)
@@ -10022,37 +9855,40 @@ Addresses and settings:
             # automatic passwords only.
             if self.ba.is_superuser(operator.get_entity_id()):
                 if (operator.get_entity_id() != account.entity_id and
-                    not cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS):
+                        not cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS):
                     raise CerebrumError("Superuser cannot specify passwords "
                                         "for other users")
             elif operator.get_entity_id() != account.entity_id:
-                raise CerebrumError("Cannot specify password for another user.")
+                raise CerebrumError(
+                    "Cannot specify password for another user.")
         try:
-            account.goodenough(account, password)
-        except PasswordChecker.PasswordGoodEnoughException, m:
-            raise CerebrumError, "Bad password: %s" % m
+            account.password_good_enough(password)
+        except PasswordNotGoodEnough, m:
+            raise CerebrumError("Bad password: %s" % m)
         account.set_password(password)
-        try:
-            account.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
-        operator.store_state("user_passwd", {'account_id': int(account.entity_id),
-                                             'password': password})
+        account.write_db()
+        operator.store_state("user_passwd",
+                             {'account_id': int(account.entity_id),
+                              'password': password})
         # Remove "weak password" quarantine
         for r in account.get_entity_quarantine():
             if int(r['quarantine_type']) == self.const.quarantine_autopassord:
-                account.delete_entity_quarantine(self.const.quarantine_autopassord)
+                account.delete_entity_quarantine(
+                    self.const.quarantine_autopassord)
 
             if int(r['quarantine_type']) == self.const.quarantine_svakt_passord:
-                account.delete_entity_quarantine(self.const.quarantine_svakt_passord)
+                account.delete_entity_quarantine(
+                    self.const.quarantine_svakt_passord)
 
         if account.is_deleted():
             return "OK.  Warning: user is deleted"
         elif account.is_expired():
             return "OK.  Warning: user is expired"
         elif account.get_entity_quarantine(only_active=True):
-            return "Warning: user has an active quarantine"
-        return "Password altered. Please use misc list_password to print or view the new password."
+            return "OK.  Warning: user has an active quarantine"
+        return ("Password altered. Please use misc list_passwords to view the "
+                "new password, or misc print_passwords to print password "
+                "letters.")
 
     # user promote_posix
     all_commands['user_promote_posix'] = Command(
@@ -10888,24 +10724,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
 
     def _today(self):
         return self._parse_date("%d-%d-%d" % time.localtime()[:3])
-
-    def _parse_range(self, selection):
-        lst = []
-        try:
-            for part in selection.split():
-                idx = part.find('-')
-                if idx != -1:
-                    for n in range(int(part[:idx]), int(part[idx+1:])+1):
-                        if n not in lst:
-                            lst.append(n)
-                else:
-                    part = int(part)
-                    if part not in lst:
-                        lst.append(part)
-        except ValueError:
-            raise CerebrumError, "Error parsing range '%s'" % selection
-        lst.sort()
-        return lst
 
     def _format_from_cl(self, format, val):
         if val is None:

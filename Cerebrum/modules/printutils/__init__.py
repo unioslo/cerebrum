@@ -1,6 +1,7 @@
-#!/bin/sh
-
-# Copyright 2003 University of Oslo, Norway
+#!/usr/bin/env python2
+# encoding: utf-8
+#
+# Copyright 2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,18 +18,4 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-# Oppdater LDAP databasen på marvin og beeblebrox.
-
-# Lag full.ldif
-PT=/cerebrum/dumps/LDAP
-cat $PT/org.ldif $PT/pers.ldif $PT/posixgroup.ldif $PT/posixnetgroup.ldif $PT/posixuser.ldif > $PT/full.ldif
-
-# Sync filene på beeblebrox og marvin
-/local/bin/rsync -a /u2/dumps/LDAPv3/ldif/$LDIF marvin:/ldap/var/
-/local/bin/rsync -a /u2/dumps/LDAPv3/ldif/$LDIF beeblebrox:/ldap/var/
-
-# Køyr resten i bakgrunnen, updateLDAP.sh låser sjølv.
-/local/bin/ssh marvin     /ldap/sbin/updateLDAP.sh 
-/local/bin/ssh beeblebrox /ldap/sbin/updateLDAP.sh 
-
+""" The spool sub-package contains spooling and printing utilities. """

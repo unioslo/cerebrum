@@ -1322,34 +1322,56 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_add_affiliation(self, operator, person=None, ou=None, aff=None,
                             aff_status=None, query_run_any=False):
+        """If the opset has add_affiliation access to the affiliation and
+        status, and the operator has add_affiliation access to the affiliation's
+        OU, allow adding the affiliation to the person."""
         if self.is_superuser(operator):
             return True
-        # TODO (at a later time): add 'auth_add_affiliation',
-        # 'auth_remove_affiliation'.  Determine how these should be
-        # connected to ou etc.
-        # Currently we allow anyone that can create users to
-        # add/remove any affiliation of type manuell
         if query_run_any:
-            if self._has_operation_perm_somewhere(operator, self.const.auth_create_user):
+            if self._has_operation_perm_somewhere(operator,
+                                                  self.const.auth_add_affiliation):
                 return True
             return False
-        if (aff == self.const.affiliation_manuell and
-            self._has_operation_perm_somewhere(operator, self.const.auth_create_user)):
+        if self._has_target_permissions(operator,
+                                        self.const.auth_add_affiliation,
+                                        self.const.auth_target_type_ou,
+                                        ou.entity_id, person.entity_id,
+                                        str(aff_status)):
             return True
-        raise PermissionDenied("No access for that person affiliation combination")
+        raise PermissionDenied("No access for combination %s on person %s in "
+                               "OU %02d%02d%02d" % (aff_status, person.entity_id,
+                               ou.fakultet, ou.institutt, ou.avdeling))
 
     def can_remove_affiliation(self, operator, person=None, ou=None,
                                aff=None, query_run_any=False):
+        """If the opset has rem_affiliation access to the affiliation, and the
+        operator has rem_affiliation access to the affiliation's OU, allow
+        removing the affiliation from the person. Not as strict on MANUELL."""
+
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            if self._has_operation_perm_somewhere(operator, self.const.auth_create_user):
+            if (self._has_operation_perm_somewhere(operator,
+                                                   self.const.auth_remove_affiliation) or
+                self._has_operation_perm_somewhere(operator,
+                                                   self.const.auth_create_user)):
                 return True
             return False
-        if (aff == self.const.affiliation_manuell and
-            self._has_operation_perm_somewhere(operator, self.const.auth_create_user)):
+        if self._has_target_permissions(operator, self.const.auth_remove_affiliation,
+                                        self.const.auth_target_type_ou,
+                                        ou.entity_id, person.entity_id,
+                                        str(aff)):
             return True
-        raise PermissionDenied("Currently limited to superusers")
+        # 2015-09-11: Temporarily (?) allow all LITAs to remove manual affiliations
+        #             from all persons to simplify cleaning up. CERT (bore) has given
+        #             permission to do this. – tvl
+        if (aff == self.const.affiliation_manuell and
+            self._has_operation_perm_somewhere(operator,
+                                               self.const.auth_create_user)):
+            return True
+        raise PermissionDenied("No access for affiliation %s on person %s in "
+                               "OU %02d%02d%02d" % (aff, person.entity_id,
+                               ou.fakultet, ou.institutt, ou.avdeling))
 
     def can_create_user(self, operator, person=None, disk=None,
                         query_run_any=False):

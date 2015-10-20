@@ -44,7 +44,6 @@ import re
 import base64
 import functools
 import collections
-import json
 
 import cerebrum_path
 import cereconf
@@ -506,7 +505,7 @@ class ADclient(PowershellClient):
                 first_round = False
             yield code, out
 
-    def start_list_objects(self, ou, attributes, object_class):
+    def start_list_objects(self, ou, attributes, object_class, names=[]):
         """Start to search for objects in AD, but do not retrieve the data yet.
 
         The server is asked to generate a list of the objects, and returns an ID
@@ -544,7 +543,12 @@ class ADclient(PowershellClient):
                                  for a in attributes],
                   }
         cmd = 'Get-ADObject'
-        filter = "Filter {objectClass -eq '%s'}" % object_class
+        if names:
+            filter = "Filter {objectClass -eq '%s' -and (%s)}" % (
+                object_class, ' -or '.join(["%s -eq '%s'" % ('name', name)
+                                            for name in names]))
+        else:
+            filter = "Filter {objectClass -eq '%s'}" % object_class
         # User objects requires special care, as Get-ADObject will not return
         # the attribute Enabled, and also, the filtering by objectclass='user'
         # also includes computer objects for some reason. See
@@ -1344,6 +1348,55 @@ class ADclient(PowershellClient):
         output = self.run(cmd)
         return not output.get('stderr')
 
+    def add_group_members(self, group_id, member_ids):
+        """ Adds members from AD-group.
+
+        Command will succeed, even if one or all member IDs are already members
+        of the group.
+
+        :param str group_id: The AD-group DN or GUID.
+        :param list member_ids: A list of AD-account DNs or GUIDs.
+
+        :return bool: True on success, False on failure.
+        """
+        if not isinstance(member_ids, collections.Sequence):
+            member_ids = [member_ids, ]
+        self.logger.debug("Removing %d members for group: %s",
+                          len(member_ids), group_id)
+        cmd = self._generate_ad_command(
+            'Add-ADGroupMember',
+            {'Identity': group_id,
+             'Members': ','.join(["%s" % i for i in member_ids])})
+        if self.dryrun:
+            return True
+        output = self.run(cmd)
+        return not output.get('stderr')
+
+    def remove_group_members(self, group_id, member_ids):
+        """ Removes members from AD-group.
+
+        Command will succeed, even if one or all account IDs aren't members of
+        the group.
+
+        :param str group_id: The AD-group DN or GUID.
+        :param list member_ids: A list of AD-account DNs or GUIDs.
+
+        :return bool: True on success, False on failure.
+        """
+        if not isinstance(member_ids, collections.Sequence):
+            member_ids = [member_ids, ]
+        self.logger.debug("Removing %d members for group: %s",
+                          len(member_ids), group_id)
+        cmd = self._generate_ad_command(
+            'Remove-ADGroupMember',
+            {'Identity': group_id,
+             'Members': ','.join(["%s" % i for i in member_ids])},
+            ('Confirm:$false', ))
+        if self.dryrun:
+            return True
+        output = self.run(cmd)
+        return not output.get('stderr')
+
     def enable_object(self, ad_id):
         """Enable a given object in AD. The object must exist.
 
@@ -1407,11 +1460,22 @@ class ADclient(PowershellClient):
         out = self.run(cmd)
         return not out.get('stderr')
 
-    def get_chosen_domaincontroller(self, reset=False):
-        """Fetch and cache a preferred Domain Controller (DC).
+    def set_domain_controller(self, server):
+        """Override what DC server the AD commands are sent to.
 
-        The list of DCs is fetched from AD the first time. The answer is then
-        cached, so the next time asked, we reuse the same DC.
+        This forces what DC the sync should get and set its data for. The sync
+        then doesn't ask AD about what DC to use anymore.
+
+        """
+        # We might want to validate the server name, to give feedback early. If
+        # it's invalid, we get feedback after the first powershell call for AD.
+        self._chosen_dc = server
+
+    def get_chosen_domaincontroller(self, reset=False):
+        """Get the preferred Domain Controller (DC) to talk with.
+
+        If not DC server is set, we ask AD for a preferred DC server. The answer
+        is cached, so the next time asked, we reuse the same DC.
 
         We cache a preferred DC to sync with to avoid that we have to wait
         inbetween the updates for the DCs to have synced. We could still go

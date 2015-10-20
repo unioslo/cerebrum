@@ -22,7 +22,7 @@
 import cerebrum_path
 from Cerebrum.modules.PasswordNotifier import PasswordNotifier, _send_mail
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.PasswordHistory import PasswordHistory
+from Cerebrum.modules.pwcheck.history import PasswordHistory
 import mx.DateTime as dt
 
 class UiaPasswordNotifier(PasswordNotifier):

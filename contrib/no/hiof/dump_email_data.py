@@ -105,7 +105,7 @@ def main():
             outfile = val
 
     if outfile is None:
-        outfile = '/cerebrum/dumps/MAIL/mail_data.dat'
+        outfile = '/cerebrum/var/cache/MAIL/mail_data.dat'
 
     db = Factory.get('Database')()
     constants = Factory.get('Constants')(db)
