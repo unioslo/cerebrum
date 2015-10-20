@@ -140,9 +140,10 @@ class NotificationCollector(multiprocessing.Process):
                     time.sleep(5)
 
                 # Put all notifications in the queue
-                # We reverse it, since we want FIFO, not LIFO.
-                while reversed(self.conn.notifies):
-                    notification = self.conn.notifies.pop()
+                while self.conn.notifies:
+                    # Pop the first item of the list, since we want a FIFO
+                    # queue, not a LIFO.
+                    notification = self.conn.notifies.pop(0)
                     # Extract channel and the event
                     # Dictifying the event in order to pickle it when
                     # enqueueuing.
