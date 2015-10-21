@@ -812,6 +812,10 @@ class AccountCriterias(AttrCriterias):
                             raise ConfigError(
                                 "OUPerspective '%s' does not exist"
                                 % ou_perspective)
+                    elif ou_str:
+                        raise ConfigError(
+                            ("Invalid ou_mapping {!r}, cannot have OU"
+                             " without perspective").format(elm))
 
                     yield (aff, status, ou)
 
