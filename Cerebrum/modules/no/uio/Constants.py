@@ -432,8 +432,9 @@ class Constants(Constants.Constants):
     quarantine_equant = _QuarantineCode(
         'equant',
         'Brukeren er sperret for Equant tjenesten.')
-    # quarantine_wlan = _QuarantineCode('wlan',
-    #                                   'Brukeren er utestengt fra WLAN.')
+    quarantine_cert = _QuarantineCode('cert', 'Bruker er sperret av CERT.')
+##     quarantine_wlan = _QuarantineCode('wlan',
+##                                       'Brukeren er utestengt fra WLAN.')
     email_domain_category_uio_globals = _EmailDomainCategoryCode(
         'UIO_GLOBALS',
         "All local_parts defined in domain 'UIO_GLOBALS' are treated"

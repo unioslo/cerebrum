@@ -8660,6 +8660,7 @@ Addresses and settings:
                 self._get_name_from_object(entity), qtype))
 
         entity.delete_entity_quarantine(qconst)
+
         return "OK, removed quarantine %s for %s" % (
             qconst, self._get_name_from_object (entity))
 
