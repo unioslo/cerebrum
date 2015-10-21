@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -40,17 +40,16 @@ class EventDecorator(object):
             lut = f.f_back.f_locals.get('_lut_type2meth')
             if isinstance(events, list):
                 for e in events:
-                    if not lut.has_key(e):
+                    if e not in lut:
                         lut[e] = [func]
                     else:
                         lut[e].append(func)
             elif isinstance(events, str):
-                if not lut.has_key(events):
-                    lut[events] = [func,]
+                if events not in lut:
+                    lut[events] = [func, ]
                 else:
                     lut[events].append(func)
             else:
                 pass
             return func
         return wrap
-

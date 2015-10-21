@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2014 University of Oslo, Norway
+# Copyright 2013-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,32 +26,30 @@ getattr(cereconf, "linter", "should not nag")
 getattr(cerebrum_path, "linter", "should not nag")
 
 import multiprocessing
-
-from Queue import Empty
-import pickle
-import traceback
 import os
+import pickle
+import time
+import traceback
 
-from Cerebrum.modules.exchange.Exceptions import ExchangeException
-from Cerebrum.modules.exchange.Exceptions import ServerUnavailableException
-from Cerebrum.modules.exchange.Exceptions import AlreadyPerformedException
 from urllib2 import URLError
 
-from Cerebrum.modules.event.EventExceptions import EventExecutionException
-from Cerebrum.modules.event.EventExceptions import EventHandlerNotImplemented
-from Cerebrum.modules.event.EventExceptions import EntityTypeError
-from Cerebrum.modules.event.EventExceptions import UnrelatedEvent
+from Queue import Empty
 
+from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
+                                                  ServerUnavailableException,
+                                                  AlreadyPerformedException)
+from Cerebrum.modules.event.EventExceptions import (EventExecutionException,
+                                                    EventHandlerNotImplemented,
+                                                    EntityTypeError,
+                                                    UnrelatedEvent)
 from Cerebrum.modules.event.EventDecorator import EventDecorator
 from Cerebrum.modules.event.HackedLogger import Logger
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
-
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
 
 class ExchangeEventHandler(multiprocessing.Process):
-
     """Event handler for Exchange.
 
     This event handler is started by the event daemon.
@@ -119,11 +117,11 @@ class ExchangeEventHandler(multiprocessing.Process):
 
         if self.mock:
             self.logger.info('Running in mock-mode')
-            from Cerebrum.modules.exchange.v2013.ExchangeClient \
-                import ClientMock as ExchangeClient
+            from Cerebrum.modules.exchange.v2013.ExchangeClient import (
+                ClientMock as ExchangeClient, )
         else:
-            from Cerebrum.modules.exchange.v2013.ExchangeClient \
-                import ExchangeClient
+            from Cerebrum.modules.exchange.v2013.ExchangeClient import (
+                ExchangeClient, )
         self.logger.debug("EventHandler post fork")
 
         i = 0
@@ -154,7 +152,6 @@ class ExchangeEventHandler(multiprocessing.Process):
                     "Can't connect to springboard! Please notify postmaster!")
                 # If we shut down, we don't want to wait X minutes :)
                 if self.run_state.value:
-                    import time
                     time.sleep(3*60)
             else:
                 break
@@ -227,8 +224,9 @@ class ExchangeEventHandler(multiprocessing.Process):
                 try:
                     self.db.remove_event(ev['event_id'])
                 except Errors.NotFoundError:
-                    self.logger.debug3('Event deleted while multiprocessing: %s' %
-                                       str(ev))
+                    self.logger.debug3(
+                        'Event deleted while multiprocessing: %s' %
+                        str(ev))
                     self.db.commit()
                     continue
 
@@ -569,15 +567,20 @@ class ExchangeEventHandler(multiprocessing.Process):
             uname = self.ut.get_account_name(event['subject_entity'])
             try:
                 self.ec.remove_mailbox(uname)
-                self.logger.info('eid:%d: Removed mailbox %s' %
-                                 (event['event_id'], uname))
+                self.logger.info(
+                    'eid:{event_id}: Removed mailbox {uname}'.format(
+                        event_id=event['event_id'],
+                        uname=uname))
                 # Log a reciept that represents completion of the operation in
                 # ChangeLog.
                 # TODO: Move this to the caller sometime
                 self.ut.log_event_receipt(event, 'exchange:acc_mbox_delete')
-            except (ExchangeException, ServerUnavailableException), e:
-                self.logger.warn('eid:%d: Couldn\'t remove mailbox for %s %s' %
-                                 (event['event_id'], uname, e))
+            except (ExchangeException, ServerUnavailableException) as e:
+                self.logger.warn(
+                    'eid:{event_id}: Couldn\'t remove mailbox for {uname}'
+                    ' {error}'.format(event_id=event['event_id'],
+                                      uname=uname,
+                                      error=e))
                 raise EventExecutionException
 
     @EventDecorator.RegisterHandler(['person:name_add', 'person:name_del',
@@ -586,10 +589,10 @@ class ExchangeEventHandler(multiprocessing.Process):
         """Event handler method used for updating a persons accounts with
         the persons new name.
 
-        @type event: Cerebrum.extlib.db_row.row
-        @param event: The event returned from Change- or EventLog
+        :type event: Cerebrum.extlib.db_row.row
+        :param event: The event returned from Change- or EventLog
 
-        @raises ExchangeException: If all accounts could not be updated.
+        :raises ExchangeException: If all accounts could not be updated.
         """
         try:
             first, last, full = self.ut.get_person_names(
@@ -605,12 +608,14 @@ class ExchangeEventHandler(multiprocessing.Process):
             if self.mb_spread in self.ut.get_account_spreads(aid):
                 try:
                     self.ec.set_mailbox_names(uname, first, last, full)
-                    self.logger.info('eid:%d: Updated name for %s' %
-                                     (event['event_id'], uname))
-                except (ExchangeException, ServerUnavailableException), e:
+                    self.logger.info(
+                        'eid:{event_id}: Updated name for {uname}'.format(
+                            event_id=event['event_id'], uname=uname))
+                except (ExchangeException, ServerUnavailableException) as e:
                     self.logger.warn(
-                        'eid:%d: Failed updating name for %s: %s' %
-                        (event['event_id'], uname, e))
+                        'eid:{event_id}: Failed updating name for {uname}: '
+                        '{error}'.format(event_id=event['event_id'],
+                                         uname=uname, error=e))
                     raise EventExecutionException
             else:
                 # If we wind up here, the user is not supposed to be in
@@ -1623,11 +1628,8 @@ class ExchangeEventHandler(multiprocessing.Process):
         gname, description = self.ut.get_group_information(
             event['subject_entity'])
         params = self.ut.unpickle_event_params(event)
-        join = part = None
-        if 'deprestr' in params:
-            part = params['deprestr']
-        if 'joinrestr' in params:
-            join = params['joinrestr']
+        part = params.get('deprestr', None)
+        join = params.get('joinrestr', None)
         try:
             self.ec.set_distgroup_member_restrictions(gname, join, part)
             # TODO: Clarify this
