@@ -1191,7 +1191,6 @@ class ExchangeEventHandler(multiprocessing.Process):
                 self.logger.warn(
                     'eid:%d: Could not disable address policy for %s %s' %
                     (event['event_id'], gname, e))
-                self.ut.log_event(event, 'exchange:set_ea_policy')
 
             # Only for pure distgroups :)
             if data['roomlist'] == 'F':
