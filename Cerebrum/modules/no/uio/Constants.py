@@ -505,6 +505,12 @@ class Constants(Constants.Constants):
         "An account used for system administration,"
         " e.g. foo-adm, foo-drift and foo-null users")
 
+    # Trait for passphrase stats
+    trait_has_passphrase = _EntityTraitCode(
+        'uio-passphrase',
+        Constants.Constants.entity_account,
+        "Account uses passphrase")
+
     address_other_street = _AddressCode('OTHER_STREET', 'Other street address')
     address_other_post = _AddressCode('OTHER_POST', 'Other post address')
 
