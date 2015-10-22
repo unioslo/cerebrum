@@ -949,6 +949,20 @@ class BofhdAuth(DatabaseAccessor):
             raise PermissionDenied("No access")
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
+
+        for row in self._list_target_permissions(
+                operator, self.const.auth_quarantine_disable,
+                self.const.auth_target_type_global_host,
+                None, get_all_op_attrs=True):
+            attr = row.get('operation_attr')
+            # No operation attributes means that all quarantines are allowed
+            # TODO: This can be removed when all opsets for all instances
+            # has a populated qua_disable dict.
+            if not attr:
+                return True
+            if str(qtype) == attr:
+                return True
+
         return self.is_account_owner(
             operator, self.const.auth_quarantine_disable, entity)
 
@@ -977,6 +991,20 @@ class BofhdAuth(DatabaseAccessor):
         else:
             if self._no_account_home(operator, entity):
                 return True
+
+        for row in self._list_target_permissions(
+                operator, self.const.auth_quarantine_remove,
+                self.const.auth_target_type_global_host,
+                None, get_all_op_attrs=True):
+            attr = row.get('operation_attr')
+            # No operation attributes means that all quarantines are allowed
+            # TODO: This can be removed when all opsets for all instances
+            # has a populated qua_remove dict.
+            if not attr:
+                return True
+            if str(qtype) == attr:
+                return True
+
         return self.is_account_owner(
             operator, self.const.auth_quarantine_remove, entity)
 
@@ -993,6 +1021,18 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if str(qtype) in getattr(cereconf, 'QUARANTINE_AUTOMATIC', ()):
             raise PermissionDenied('Not allowed to set automatic quarantine')
+        for row in self._list_target_permissions(
+                operator, self.const.auth_quarantine_set,
+                self.const.auth_target_type_global_host,
+                None, get_all_op_attrs=True):
+            attr = row.get('operation_attr')
+            # No operation attributes means that all quarantines are allowed
+            # TODO: This can be removed when all opsets for all instances
+            # has a populated qua_add dict.
+            if not attr:
+                return True
+            if str(qtype) == attr:
+                return True
 
         # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Factory.get('Account'))):
@@ -1502,7 +1542,7 @@ class BofhdAuth(DatabaseAccessor):
         # TODO: add a Boolean to _PosixShellCode() signifying whether
         # it should be user selectable or not.
         if (operator == account.entity_id and shell and
-            shell.description.find("/bin/") <> -1):
+            shell.description.find("/bin/") != -1):
             return True
         # TODO 2003-07-04: Bård is going to comment this
         return self.is_account_owner(operator, self.const.auth_set_password,

@@ -659,7 +659,7 @@ class XMLDataGetter(AbstractDataGetter):
         """
 
         if self._data_source:
-            it = self._data_source.getiterator(element)
+            it = self._data_source.iter(element)
         else:
             it = XMLEntityIterator(self._filename, element)
 

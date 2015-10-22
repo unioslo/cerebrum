@@ -46,7 +46,7 @@ from Cerebrum import Person
 from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum.modules import PosixGroup
-from Cerebrum.modules import PasswordHistory
+from Cerebrum.modules.pwcheck.history import PasswordHistory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.bofhd.auth \
@@ -88,7 +88,7 @@ disk2id = {}
 account = Account.Account(db)
 account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 acc_creator_id = account.entity_id
-pwdhist = PasswordHistory.PasswordHistory(db)
+pwdhist = PasswordHistory(db)
 pquotas = PrinterQuotas.PrinterQuotas(db)
 
 maildom = Email.EmailDomain(db)
@@ -335,7 +335,7 @@ def get_domain_id(domain):
 def create_email_alias(otype, data):
     if otype in ('emaildomain', 'emailhost', 'emailaddresstype'):
         return
-    elif otype <> 'emailalias':
+    elif otype != 'emailalias':
         print "WARNING: Unimplemented tag <%s> found." % otype
         return
     # Find or create target of correct type
@@ -825,7 +825,7 @@ def import_person_users(personfile):
             if uname2entity_id.has_key(du['uname']):
                 # User name is occupied by a non-deleted user.
                 pass
-            elif reserved_unames.get(du['uname'], person_id) <> person_id:
+            elif reserved_unames.get(du['uname'], person_id) != person_id:
                 # User name is both a reserved and a deleted user
                 # belonging to the same person, and we're not
                 # processing that correct person here.
@@ -872,7 +872,7 @@ def person_callback(person):
     fnr = None
     for e in person.get('extid', []):
         if e['type'] == 'fnr':
-            if e['val'] <> '00000000000':
+            if e['val'] != '00000000000':
                 fnr = e['val']
     person_id = None
     if True: # This script is only intended to be ran on an empty database
@@ -1240,7 +1240,7 @@ def create_account(u, owner_id, owner_type, np_type=None):
             if str(affstat) == '*unset*' and \
                    user_aff_mapping[utype].has_key('*fallback*'):
                 aff, affstat = user_aff_mapping[utype]['*fallback*']
-            if str(affstat) <> '*unset*':
+            if str(affstat) != '*unset*':
                 account_id2aff[accountObj.entity_id] = (ou_id, aff, affstat)
                 if not (ou_id, aff, affstat) in person_id2affs[owner_id]:
                     person_id2affs[owner_id].append((ou_id, aff, affstat))

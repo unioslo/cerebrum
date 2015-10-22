@@ -30,7 +30,9 @@ import inspect
 import cerebrum_path
 import cereconf
 
-LockExists = 'LockExists'
+
+class LockExists(Exception):
+    pass
 
 debug_dryrun = False  # Debug only: execs "/bin/sleep 2", and not the job
 if debug_dryrun:

@@ -54,7 +54,7 @@ def usage(exitcode=0):
     Settings:
 
     --datadir           Override the directory where all files should be put.
-                        Default: see cereconf.FS_DATADIR
+                        Default: see cereconf.FS_DATA_DIR
 
                         Note that the datadir can be overriden by the file path
                         options, if these are absolute paths.
@@ -501,7 +501,7 @@ def main():
         usage()
         sys.exit(2)
 
-    datadir = cereconf.FS_DATADIR
+    datadir = cereconf.FS_DATA_DIR
     person_file = 'persons.xml'
     topics_file = 'topics.xml'
     studprog_file = 'studieprogrammer.xml'

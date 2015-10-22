@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
+#
 # Copyright 2013-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -59,7 +59,7 @@ class CerebrumUtils(object):
 ####
     def get_person_accounts(self, person_id, spread=None):
         """Return a list of account information
-        
+
         @type person_id: int
         @param person_id: The person id to look up by
 
@@ -106,10 +106,10 @@ class CerebrumUtils(object):
 
     def get_person_membership_groupnames(self, person_id):
         """List all the groups the person is a member of
-        
+
         @type person_id: int
         @param person_id: The persons entity_id
-        
+
         @rtype: list
         @return: list(string) of groupnames
         """
@@ -128,7 +128,7 @@ class CerebrumUtils(object):
 
         @type account_id: int
         @param account_id: The accounts entity_id
-        
+
         @rtype: bool
         @return: True if reserved, False otherwise
         """
@@ -206,7 +206,7 @@ class CerebrumUtils(object):
         ret = self.ac.account_name
         self.db.rollback()
         return ret
-    
+
     def get_account_owner_info(self, account_id):
         """Return the type and id of the accounts owner.
 
@@ -221,7 +221,7 @@ class CerebrumUtils(object):
         ret = (self.ac.owner_type, self.ac.owner_id)
         self.db.rollback()
         return ret
-    
+
     def get_account_spreads(self, account_id):
         """Return the accounts spread codes.
 
@@ -236,7 +236,7 @@ class CerebrumUtils(object):
         ret = [x['spread'] for x in self.ac.get_spread()]
         self.db.rollback()
         return ret
-    
+
     def get_account_primary_email(self, account_id):
         """Return the accounts primary address
 
@@ -350,7 +350,7 @@ class CerebrumUtils(object):
         ret = (r['name'], r['description'])
         self.db.rollback()
         return ret
-    
+
     def get_group_id(self, group_name):
         """Get a groups entity_id
 
@@ -389,7 +389,7 @@ class CerebrumUtils(object):
 
         @type spread: _SpreadCode
         @param spread: The spread to filter by
-        
+
         @type filter_spread: _SpreadCode
         @param filter_spread: A spread that the user must also have
 
@@ -438,7 +438,7 @@ class CerebrumUtils(object):
                         found_accounts.append(self.ac.entity_id)
         self.db.rollback()
         return r
-    
+
     def get_parent_groups(self, id, spread=None, name_prefix=None):
         """Return all groups that the group is an indirect member of. Filter
         by spread and the start of the group name.
@@ -521,7 +521,8 @@ class CerebrumUtils(object):
                            int(ct),
                            event['dest_entity'],
                            change_params=param,
-                           skip_change=True)
+                           skip_change=True,
+                           skip_publish=True)
         self.db.commit()
 
     def log_event_receipt(self, event, trigger):
@@ -540,7 +541,8 @@ class CerebrumUtils(object):
         trigger = trigger.split(':')
         ct = self.co.ChangeType(trigger[0], trigger[1])
         parm = {'change_program': 'ExchangeIntegration',
-                'skip_event': True}
+                'skip_event': True,
+                'skip_publish': True}
 
         # Only log params if they actually contain something.
         param = self.unpickle_event_params(event)
@@ -563,7 +565,7 @@ class CerebrumUtils(object):
 
         @type target_id: int
         @param target_id: The EmailTargets id
-        
+
         @type target_entity: int
         @param target_entity: The targets target entity id
 

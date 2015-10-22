@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """A very basic queue-implementation"""
 
-import processing
+from multiprocessing import queues
 
-class BaseQueue(processing.queue.Queue):
+class BaseQueue(queues.Queue):
     pass

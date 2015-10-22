@@ -37,16 +37,16 @@ validate_address(listname, mode=mode)
 
 if mode == 'newlist':
     validate_address(admin)
-    cmd = "/local/bin/python bin/newlist -a %s -i %s" % (admin, listname)
+    cmd = "/usr/bin/python bin/newlist -a %s -i %s" % (admin, listname)
 elif mode == 'add_admin':
     validate_address(admin)
-    cmd = "/local/bin/python bin/change_admins -a %s %s" % (listname, admin)
+    cmd = "/usrlocal/bin/python bin/change_admins -a %s %s" % (listname, admin)
 elif mode == 'rmlist':
-    cmd = "/local/bin/python bin/rmlist -a %s" % listname
+    cmd = "/usrlocal/bin/python bin/rmlist -a %s" % listname
 else:
     raise ValueError("unknown mode: '%s'" % mode)
 
-args = ['/local/bin/ssh', 'lister', 'su', '-', 'mailman', '-c',
+args = ['/usrlocal/bin/ssh', 'lister', 'su', '-', 'mailman', '-c',
         "'" + cmd + ">/dev/null'"]
 os.execv(args[0], args)
 

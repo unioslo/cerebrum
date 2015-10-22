@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# encoding: utf-8
+# -*- coding: utf-8 -*-
 #
 # Copyright 2015 University of Oslo, Norway
 #
@@ -24,21 +24,40 @@ This module is intended to send changelog entries to a Sevice bus, Message
 Queue or Message Broker.
 
 """
-import cerebrum_path
+
+import json
+
 import Cerebrum.ChangeLog
+import Cerebrum.DatabaseAccessor
+from Cerebrum.Utils import Factory
+from Cerebrum import Errors
+
+__version__ = '1.0'
+
+
+def get_client():
+    """Instantiate publishing client.
+
+    Instantiated trough the defined config."""
+    from Cerebrum.config import get_config
+    from Cerebrum.Utils import dyn_import
+    conf = get_config(__name__.split('.')[-1])
+    (mod_name, class_name) = conf.get('client').split('/', 1)
+    client = getattr(dyn_import(mod_name), class_name)
+    return client(conf)
 
 
 class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
-
     """ Class used to publish changes to an external system.
 
     This class is intended to be used with a Message Broker.
-
     """
 
     def cl_init(self, **kw):
-        super(EventPublish, self).cl_init(**kw)
-        self.queue = []
+        super(EventPublisher, self).cl_init(**kw)
+        self.__queue = []
+        self.__client = None
+        self.__unpublished_events = None
 
     def log_change(self,
                    subject_entity,
@@ -48,67 +67,170 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                    skip_publish=False,
                    **kw):
         """ Queue a change to be published. """
-        super(EventPublish, self).log_change(
+        super(EventPublisher, self).log_change(
             subject_entity,
             change_type_id,
             destination_entity,
             change_params=change_params,
             **kw)
 
-        # TODO: Implement
-        raise NotImplementedError()
-
         if skip_publish:
             return
 
-        data = 'TODO'
-        self.queue.append(data)
-
-    def write_log(self):
-        """ Flush local queue. """
-        super(EventPublish, self).write_log()
-
-        # TODO: Implement
-        raise NotImplementedError()
-
-        # TODO:
-        #   Hvis MQ-klient kan opprette transaksjoner, vil vi kunne sende
-        #   meldinger her.
-        #   Hvis ikke, må meldinger sendes i publish_log
-        if len(self.queue):
-            # TODO: Send message
-            pass
+        data = self.__change_type_to_message(change_type_id,
+                                             subject_entity,
+                                             destination_entity,
+                                             change_params)
+        # Conversion can discard data by returning false value
+        if not data:
+            return
+        self.__queue.append(data)
 
     def clear_log(self):
         """ Clear local queue """
-        super(EventPublish, self).clear_log()
-        self.queue = []
+        super(EventPublisher, self).clear_log()
+        self.__queue = []
 
     def publish_log(self):
         """ Publish messages. """
-        super(EventPublish, self).publish_log()
+        super(EventPublisher, self).publish_log()
+        if self.__queue:
+            self.__try_send_messages()
 
-        # TODO: Implement
-        raise NotImplementedError()
+    def __get_client(self):
+        if not self.__client:
+            self.__client = get_client()
+        return self.__client
 
-        # TODO:
-        #   Hvis transaksjon - commit
-        #
-        #   Hvis ikke, send meldinger her.
+    def __get_unpublished_events(self):
+        if not self.__unpublished_events:
+            self.__unpublished_events = UnpublishedEvents(self)
+        return self.__unpublished_events
 
-    def unpublish_log(self):
-        """ Abort message-pub """
-        super(EventPublish, self).unpublish_log()
+    def __try_send_messages(self):
+        client = self.__get_client()
+        try:
+            ue = self.__get_unpublished_events()
+            unsent = ue.query_events(lock=True, parse_json=True)
+            for event in unsent:
+                client.publish(event['message'])
+                ue.delete_event(event['eventid'])
+            while self.__queue:
+                message = self.__queue[0]
+                client.publish(message)
+                del self.__queue[0]
+        except Exception as e:
+            Factory.get_logger("cronjob") \
+                .error("Could not write message: %s", e)
+            self.__save_queue()
 
-        # TODO: Implement
-        raise NotImplementedError()
+    def __save_queue(self):
+        """Save queue to event queue"""
+        ue = self.__get_unpublished_events()
+        ue.add_events(self.__queue)
+        self.__queue = []
 
-        # TODO:
-        #   Hvis transaksjon - rollback
-        #   Hvis ikke: Tøm kø?
+    def __change_type_to_message(self, change_type_code, subject,
+                                 dest, change_params):
+        """Convert change type to message dicts."""
+        constants = Factory.get("Constants")(self)
+
+        def get_entity_type(entity_id):
+            entity = Factory.get("Entity")(self)
+            try:
+                ent = entity.get_subclassed_object(id=entity_id)
+                return (entity_id,
+                        ent,
+                        str(constants.EntityType(ent.entity_type)))
+            except Errors.NotFoundError:
+                return (entity_id, None, None)
+
+        if change_params:
+            change_params = change_params.copy()
+        else:
+            change_params = dict()
+        if subject:
+            (subjectid, subject, subjecttype) = get_entity_type(subject)
+        else:
+            subjectid = subjecttype = None
+        if dest:
+            (destid, dest, desttype) = get_entity_type(dest)
+        else:
+            destid = desttype = None
+        if 'spread' in change_params:
+            context = str(constants.Spread(change_params['spread']))
+            del change_params['spread']
+        else:
+            context = None
+        import Cerebrum.modules.event_publisher.converters as c
+        return c.filter_message({
+            'category': change_type_code.category,
+            'change': change_type_code.type,
+            'context': context,
+            'subjectid': subjectid,
+            'subjecttype': subjecttype,
+            'objectid': destid,
+            'objecttype': desttype,
+            'data': change_params,
+        },
+            subject, dest, change_type_code, self)
+
+
+class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
+    """
+    Events that could not be published due to …
+
+    If there is an error, we need to store the event until
+    it can be sent.
+    """
+    def __init__(self, database):
+        super(UnpublishedEvents, self).__init__(database)
+        self._db = database
+        self._lock = None
+
+    def _acquire_lock(self, lock=True):
+        if lock and self._lock is None:
+            self._lock = self._db.cursor().acquire_lock(
+                table='[:table schema=cerebrum name=unpublished_events]')
+
+    def query_events(self, lock=False, parse_json=False):
+        self._acquire_lock(lock)
+        ret = self.query("""
+                         SELECT *
+                         FROM [:table schema=cerebrum name=unpublished_events]
+                         ORDER BY eventid ASC
+                         """)
+        if parse_json:
+            loads = json.loads
+
+            def fix(row):
+                row['message'] = loads(row['message'])
+                return row
+            ret = map(fix, ret)
+        return ret
+
+    def delete_event(self, eventid):
+        self._aquire_lock()
+        self.execute("""DELETE
+                     FROM [:table schema=cerebrum name=unpublished_events]
+                     WHERE eventid = :eventid""", {'eventid': eventid})
+
+    def add_events(self, events):
+        self._acquire_lock()
+        qry = """INSERT INTO [:table schema=cerebrum name=unpublished_events]
+                 (tstamp, eventid, message)
+                 VALUES
+                 (DEFAULT,
+                 [:sequence schema=cerebrum name=eventpublisher_seq op=next],
+                 :event)"""
+        dumps = json.dumps
+        for event in events:
+            # From python docs: use separators to get compact encoding
+            self.execute(qry, {'event': dumps(event,
+                                              separators=(',', ':'),
+                                              encoding=self._db.encoding)})
 
 
 if __name__ == '__main__':
-    del cerebrum_path
-
+    pass
     # Demo

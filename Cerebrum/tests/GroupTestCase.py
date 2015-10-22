@@ -85,7 +85,7 @@ class GroupTestCase(Group_createTestCase):
         self.failIf(g2._Group__in_db, "Error: g2.__in_db is true.")
         self.failIf(not g2._Group__updated, "Error: g2.__updated is false.")
 
-        self.failIf(g1 <> g2, "Error: Groups should be equal.")
+        self.failIf(g1 != g2, "Error: Groups should be equal.")
         g1.group_name = g2.group_name + 'x'
         self.failIf(not g1._Group__updated, "Error: g1.__updated still false.")
         self.failIf(g1 == g2, "Error: Groups should differ.")

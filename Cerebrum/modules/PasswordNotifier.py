@@ -53,23 +53,10 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
-from Cerebrum import Constants as _c
-from Cerebrum.modules.EntityTrait import _EntityTraitCode
+from Cerebrum.modules.PasswordNotifierConstants import Constants as PNConstants
+from Cerebrum.QuarantineHandler import QuarantineHandler
 import smtplib
 
-class Constants(_c.Constants):
-    """
-    Constants used by PasswordNotifier
-    """
-    trait_passwordnotifier_excepted = _EntityTraitCode(
-        'autopass_except',
-        _c.Constants.entity_account,
-        "Trait marking accounts whose password's change is not enforced by PasswordNotifier.")
-
-    trait_passwordnotifier_notifications = _EntityTraitCode(
-        'pw_notifications',
-        _c.Constants.entity_account,
-        "Trait for PasswordNotifier's bookkeeping.")
 
 class PasswordNotifier(object):
     """
@@ -85,8 +72,8 @@ class PasswordNotifier(object):
         grace_period = dt.DateTimeDelta(5*7)
         reminder_delay = [dt.DateTimeDelta(2*7)]
         class_notifier = ['Cerebrum.modules.PasswordNotifier/PasswordNotifier']
-        trait = Constants.trait_passwordnotifier_notifications
-        except_trait = Constants.trait_passwordnotifier_excepted
+        trait = PNConstants.trait_passwordnotifier_notifications
+        except_trait = PNConstants.trait_passwordnotifier_excepted
         summary_from = None
         summary_to = None
         summary_cc = None
@@ -148,21 +135,22 @@ class PasswordNotifier(object):
                 'Body': msg.get_payload(decode=1)
                 })
     # end __init__
-                
+
     def get_old_account_ids(self):
         """
         Returns a set of account_id's for candidates.
         """
-        from Cerebrum.modules import PasswordHistory
+        from Cerebrum.modules.pwcheck.history import PasswordHistory
         account = Utils.Factory.get("Account")(self.db)
-        ph = PasswordHistory.PasswordHistory(self.db)
+        ph = PasswordHistory(self.db)
         old_ids = set([int(x['account_id']) for x in ph.find_old_password_accounts((self.today
             - self.config.max_password_age).strftime("%Y-%m-%d"))])
         old_ids.update(set([int(x['account_id']) for x in ph.find_no_history_accounts()]))
-        quarantined_ids = set([x['entity_id'] for x in account.list_entity_quarantines(
-                                                          entity_types=_c.Constants.entity_account,
-                                                          only_active=True,
-                                                          entity_ids=old_ids)])
+        # TODO: Select only autopassword quarantines?
+        quarantined_ids = QuarantineHandler.get_locked_entities(
+            self.db,
+            entity_types=self.constants.entity_account,
+            entity_ids=old_ids)
         old_ids = old_ids - quarantined_ids
         return old_ids
     # end get_old_account_ids

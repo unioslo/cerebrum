@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2006, 2009 University of Oslo, Norway
+# Copyright 2002-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -36,12 +36,16 @@ import hashlib
 import base64
 
 from Cerebrum import Utils, Disk
-from Cerebrum.Entity import EntityName, EntityQuarantine, \
-    EntityContactInfo, EntityExternalId, EntitySpread
-from Cerebrum.modules import PasswordChecker, PasswordHistory
+from Cerebrum.Entity import (EntityName,
+                             EntityQuarantine,
+                             EntityContactInfo,
+                             EntityExternalId,
+                             EntitySpread)
 from Cerebrum import Errors
-from Cerebrum.Utils import NotSet
-from Cerebrum.Utils import argument_to_sql, prepare_string
+from Cerebrum.Utils import (NotSet,
+                            argument_to_sql,
+                            prepare_string,
+                            gpgme_encrypt)
 
 import cereconf
 
@@ -132,7 +136,7 @@ class AccountType(object):
                                                      int(affiliation),
                                                      'priority': int(priority)})
         else:
-            if orig_pri <> priority:
+            if orig_pri != priority:
                 self._set_account_type_priority(all_pris, orig_pri, priority)
 
     def _set_account_type_priority(self, all_pris, orig_pri, new_pri):
@@ -570,11 +574,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             # Remove the account types
             self.delete_ac_types()
 
-            # Remove password history
-            PasswordHistory.PasswordHistory(
-                self._db).del_history(
-                self.entity_id)
-
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=account_authentication]
             WHERE account_id=:a_id""", {'a_id': self.entity_id})
@@ -707,7 +706,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         notimplemented = []
         for method_name in cereconf.AUTH_CRYPT_METHODS:
             method = self.const.Authentication(method_name)
-            if not method in self._acc_affect_auth_types:
+            if method not in self._acc_affect_auth_types:
                 self._acc_affect_auth_types.append(method)
             if not self.wants_auth_type(method):
                 # affect_auth_types is set above, so existing entries
@@ -729,9 +728,16 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 notimplemented.append(str(e))
             else:
                 self.populate_authentication_type(method, enc)
-        self.__plaintext_password = plaintext
+        try:
+            # Allow multiple writes, even though this is a __read_attr__
+            del self.__plaintext_password
+        except AttributeError:
+            pass
+        finally:
+            self.__plaintext_password = plaintext
+
         if notimplemented:
-            raise Errors.NotImplementedAuthTypeError, "\n".join(notimplemented)
+            raise Errors.NotImplementedAuthTypeError("\n".join(notimplemented))
 
     def encrypt_password(self, method, plaintext, salt=None):
         """Returns the plaintext encrypted according to the specified
@@ -781,8 +787,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                  cereconf.AUTH_HA1_REALM,
                  plaintext])
             return hashlib.md5(s).hexdigest()
-        raise Errors.NotImplementedAuthTypeError, "Unknown method " + \
-            repr(method)
+        raise Errors.NotImplementedAuthTypeError(
+            "Unknown method %r" % method)
 
     def decrypt_password(self, method, cryptstring):
         """Returns the decrypted plaintext according to the specified
@@ -796,10 +802,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                       self.const.auth_type_sha256_crypt,
                       self.const.auth_type_sha512_crypt,
                       self.const.auth_type_md4_nt):
-            raise NotImplementedError, "Can't decrypt %s" % method
+            raise NotImplementedError("Can't decrypt %s" % method)
         elif method == self.const.auth_type_plaintext:
             return cryptstring
-        raise ValueError, "Unknown method " + repr(method)
+        raise ValueError("Unknown method %r" % method)
 
     def verify_password(self, method, plaintext, cryptstring):
         """Returns True if the plaintext matches the cryptstring,
@@ -819,7 +825,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 salt = base64.decodestring(cryptstring)[20:]
             return (self.encrypt_password(method, plaintext, salt=salt) ==
                     cryptstring)
-        raise ValueError, "Unknown method " + repr(method)
+        raise ValueError("Unknown method %r" % method)
 
     def verify_auth(self, plaintext):
         """Try to verify all authentication data stored for an
@@ -932,7 +938,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     ('np_type', ':np_type'),
                     ('creator_id', ':c_id'),
                     ('expire_date', ':exp_date')]
-
             self.execute("""
             UPDATE [:table schema=cerebrum name=account_info]
             SET %(defs)s
@@ -949,13 +954,14 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             if 'account_name' in self.__updated:
                 self.update_entity_name(self.const.account_namespace,
                                         self.account_name)
-
         # We store the plaintext password in the changelog so that
         # other systems that need it may get it.  The changelog
         # handler should remove the plaintext password using some
         # criteria.
         try:
-            plain = self.__plaintext_password
+            password_str = self.__plaintext_password
+            if hasattr(cereconf, 'PASSWORD_GPG_RECIPIENT_ID'):
+                password_str = gpgme_encrypt(self.__plaintext_password)
         except AttributeError:
             # TODO: this is meant to catch that self.__plaintext_password is
             # unset
@@ -963,9 +969,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         else:
             # self.__plaintext_password is set.  Put the value in the
             # changelog.
-            self._db.log_change(self.entity_id, self.const.account_password,
-                                None, change_params={'password': plain})
-
+            self._db.log_change(self.entity_id,
+                                self.const.account_password,
+                                None,
+                                change_params={'password': password_str})
         # Store the authentication data.
         for k in self._acc_affect_auth_types:
             k = int(k)
@@ -1001,6 +1008,12 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     DELETE FROM [:table schema=cerebrum name=account_authentication]
                     WHERE account_id=:acc_id AND method=:method""",
                              {'acc_id': self.entity_id, 'method': k})
+
+        try:
+            del self.__plaintext_password
+        except AttributeError:
+            pass
+
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -1246,16 +1259,31 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         pot = string.ascii_letters + string.digits + '-+?=*()/&%#"_!,;.:'
         for i in ['O', 'l']:
             pot = pot.replace(i, '')
-        pc = PasswordChecker.PasswordChecker(self._db)
         while True:
             r = ''
             while len(r) < 8:
                 r += pot[random.randint(0, len(pot) - 1)]
             try:
-                pc.goodenough(None, r, uname=uname)
+                self.password_good_enough(r)
                 return r
-            except PasswordChecker.PasswordGoodEnoughException:
+            except Errors.CerebrumError:  # PasswordNotGoodEnough
                 pass  # Wasn't good enough
+
+    def password_good_enough(self, password):
+        """ PasswordChecker API function.
+
+        This function can be used to test if a given password is good enough to
+        be used with this account.
+
+        :param str password: The password to check
+
+        :return: Returns on success
+
+        :raise PasswordNotGoodEnough:
+            Raises an error if password is not good enough.
+
+        """
+        pass
 
     def suggest_unames(self, domain, fname, lname, maxlen=8, suffix="",
                        prefix=""):

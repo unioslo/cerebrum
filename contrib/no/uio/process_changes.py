@@ -59,7 +59,7 @@ disk = Factory.get('Disk')(db)
 debug_hostlist = None
 
 SUDO_CMD = "sudo"
-SSH_CEREBELLUM = ["/local/bin/ssh", "cerebrum@cerebellum"]
+SSH_CEREBELLUM = ["/usr/bin/ssh", "cerebrum@cerebellum"]
 
 
 class EvtHandler(object):

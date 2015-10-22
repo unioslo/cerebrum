@@ -85,9 +85,9 @@ def generate_report(output, source_systems, start_date):
                                                         constants.language_nb))
     perspective = constants.OUPerspective('FS')
     autostud = AutoStud.AutoStud(database, logger, debug=0,
-    cfg_file='/cerebrum/uio/etc/cerebrum/studconfig.xml',
-    studieprogs_file='/cerebrum/uio/dumps/FS/studieprogrammer.xml',
-    emne_info_file='/cerebrum/uio/dumps/FS/emner.xml',
+    cfg_file='/cerebrum/etc/cerebrum/studconfig.xml',
+    studieprogs_file='/cerebrum/var/cache/FS/studieprogrammer.xml',
+    emne_info_file='/cerebrum/var/cache/FS/emner.xml',
     ou_perspective=int(perspective))
 
     t1 = time.clock()
@@ -130,7 +130,7 @@ def generate_report(output, source_systems, start_date):
             continue
 
         
-        if account.owner_type <> constants.entity_person:
+        if account.owner_type != constants.entity_person:
             owner_type_if += 1
             continue # Filter out non-personal accounts.
 

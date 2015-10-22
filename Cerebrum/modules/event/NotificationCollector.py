@@ -25,7 +25,7 @@ from Cerebrum.Utils import read_password, Factory
 from Cerebrum.modules.event.HackedLogger import Logger
 
 import time
-import processing
+import multiprocessing
 
 import select
 import psycopg2
@@ -33,21 +33,21 @@ import psycopg2.extensions
 from psycopg2 import OperationalError
 
 
-class NotificationCollector(processing.Process):
+class NotificationCollector(multiprocessing.Process):
     def __init__(self, event_queue, channels, logger_queue, run_state):
         """
         NotificationCollector initzialization.
 
-        @type event_queue: processing.Queue
+        @type event_queue: multiprocessing.Queue
         @param event_queue: The queue that events get queued on
         
         @type channels: list
         @param channels: A list of channel names that should be listened on
 
-        @type logger_queue: processing.Queue
+        @type logger_queue: multiprocessing.Queue
         @param logger_queue: The queue used for logging.
 
-        @type run_state: processing.Value(ctypes.c_int)
+        @type run_state: multiprocessing.Value(ctypes.c_int)
         @param run_state: A shared object used to determine if we should
             stop execution or not
         """

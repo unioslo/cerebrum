@@ -30,9 +30,11 @@ Configuration data
 change_log cleaning:
 --------------------
 This is the default db_clean for the change_log table configuration, for
-instance specific adapted configuration check the file : <cvs>/etc/<instance>/
-dbcl_conf.py that would be sourcing all the constants from the CLCleanDefConf
-and overwrite them if needed with instance specific constants.
+instance specific adapted configuration check the file :
+<cerebrum_config>/etc/<instance>/dbcl_conf.py that would be sourcing all
+the constants from the CLCleanDefConf and overwrite them if needed with
+instance specific constants.
+
 Main configurations:
 * plaintext passord skal sensureres etter 1 døgn, men selve change
   entryen skal overleve

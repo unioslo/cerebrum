@@ -332,7 +332,7 @@ def main():
         usage()
         sys.exit(2)
 
-    datadir = '/cerebrum/nmh/dumps/FS/'
+    datadir = '/cerebrum/var/cache/FS/'
     person_file = 'person.xml'
     studprog_file = 'studieprog.xml'
     ou_file = 'ou.xml'

@@ -108,8 +108,8 @@ def fetch_src_files():
            "scp cerebellum:/cerebrum/yp/src/hosts cerebellum:/cerebrum/yp/src/netgroup.host .\n"
            "tar czf uio-zone-`date '+%Y-%m-%d'`.tgz *\n")
 
-# tgt_dir = '/cerebrum/dumps/dns'
-tgt_dir = 'data/new'  # do: "cd data/new/; for a in /cerebrum/dumps/dns/*; do ln -s $a; done"
+# tgt_dir = '/cerebrum/var/cache/dns'
+tgt_dir = 'data/new'  # do: "cd data/new/; for a in /cerebrum/var/cache/dns/*; do ln -s $a; done"
 src_dir ='data/src' 
 if len(sys.argv) != 2:
     print "Usage: old_and_large.sh --migrate | --fetch | --new-db | --build | --diff"

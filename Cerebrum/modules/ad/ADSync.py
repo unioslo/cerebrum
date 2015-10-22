@@ -46,6 +46,7 @@ from Cerebrum.modules.ad.CerebrumData import CerebrumGroup
 from Cerebrum.modules.ad.CerebrumData import CerebrumDistGroup
 from Cerebrum.modules.ad.ADUtils import ADUserUtils, ADGroupUtils
 from Cerebrum.Utils import unicode2str, Factory
+from Cerebrum.QuarantineHandler import QuarantineHandler
 
 
 class UserSync(ADUserUtils):
@@ -221,19 +222,19 @@ class UserSync(ADUserUtils):
         return CerebrumUser(account_id, owner_id, uname, self.ad_domain,
                             self.get_default_ou())
 
-
     def filter_quarantines(self):
         """
         Mark quarantined accounts for disabling/deletion.
         """
-        quarantined_accounts = [int(row["entity_id"]) for row in
-                                self.ac.list_entity_quarantines(only_active=True)]
+        quarantined_accounts = QuarantineHandler.get_locked_entities(
+            self.db,
+            entity_types=self.co.entity_account)
+
         # Set quarantine flag
         for a_id in set(self.id2uname) & set(quarantined_accounts):
             self.logger.debug("Quarantine flag is set for %s" %
                               self.accounts[self.id2uname[a_id]])
             self.accounts[self.id2uname[a_id]].quarantined = True
-
 
     def fetch_names(self):
         """

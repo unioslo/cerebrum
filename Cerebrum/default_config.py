@@ -16,12 +16,15 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """Default Cerebrum installation settings.  Overrides go in cereconf.py."""
+
+from os.path import join as pj
+from sys import prefix
+
 
 # Files containing the authentication data needed for database access
 # are kept in this directory.
-DB_AUTH_DIR = '/etc/cerebrum'
+DB_AUTH_DIR = pj(prefix, 'etc', 'passwords')
 
 # Name of the SQL database
 CEREBRUM_DATABASE_NAME = None
@@ -41,6 +44,17 @@ PASSWORD_DICTIONARIES = ()
 # List full path filenames to files containing words used to
 # produce passphrases
 PASSPHRASE_DICTIONARIES = ()
+
+# Set password style. Legal variants are:
+# rigid = rigid checks needed for short passwords
+# phrase = loose entropy checks, but longer passprases required
+# mixed = use is_passphrase to find right style
+# read by Cerebrum.modules.pwcheck.wordorphrase/PhraseWordCheckSplitter
+PASSWORD_STYLE = 'rigid'
+
+# Arguments to test for password_good_enough. Inserted with
+# Cerebrum.modules.pwcheck.confargs/CereconfMixin
+PASSWORD_TEST_ARGUMENTS = {}
 
 # Look for things like person name by evaluating source systems in in
 # this order
@@ -76,7 +90,7 @@ SYMPA_SCRIPT = None
 CONVERT_MAILCONFIG_SCRIPT = None
 MVMAIL_SCRIPT = None
 SUBSCRIBE_SCRIPT = None
-RSH_CMD = '/local/bin/ssh'
+RSH_CMD = '/usr/bin/ssh'
 
 # Temporary switch until someone can figure out why mktime won't work
 # with year < 1970 on some systems.  Must NOT be set on production
@@ -115,12 +129,12 @@ CLASS_CL_CONSTANTS = ['Cerebrum.modules.CLConstants/CLConstants']
 
 CLASS_DBDRIVER = ['Cerebrum.Database/PostgreSQL']
 CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
-#CLASS_DATABASE = ['Cerebrum.CLDatabase/ELDatabase', 'Cerebrum.CLDatabase/CLDatabase']
 
 # exchange-relatert-jazz
 # define and enable Factory for DistributionGroup-objects,
 # override localy if needed.
-CLASS_DISTRIBUTION_GROUP=['Cerebrum.modules.exchange.v2013.ExchangeGroups/DistributionGroup']
+CLASS_DISTRIBUTION_GROUP = [
+    'Cerebrum.modules.exchange.v2013.ExchangeGroups/DistributionGroup', ]
 
 # To enable logging, use this:
 # CLASS_CHANGELOG = ['Cerebrum.modules.ChangeLog/ChangeLog']
@@ -262,22 +276,22 @@ AD_DOMAIN_ADMIN_USER = 'cerebrum'
 # exchange-related-jazz
 # account exchange spread, accounts with this spread are exported to
 # exchange. override localy.
-EXCHANGE_ACCOUNT_SPREAD=""
+EXCHANGE_ACCOUNT_SPREAD = ""
 # exchange-related-jazz
 # at creation of primary address for dist-groups this short prefix
 # will be attached to the chosen name, override localy
 #
-DISTGROUP_PRIMARY_ADDR_PREFIX=""
+DISTGROUP_PRIMARY_ADDR_PREFIX = ""
 #
 # default domain for distribution groups, override localy
 #
-DISTGROUP_DEFAULT_DOMAIN=""
+DISTGROUP_DEFAULT_DOMAIN = ""
 #
 # distribution group spread, override localy
-EXCHANGE_GROUP_SPREAD=None
+EXCHANGE_GROUP_SPREAD = None
 #
 # distribution group default admin list in exchange, override localy
-DISTGROUP_DEFAULT_ADMIN=""
+DISTGROUP_DEFAULT_ADMIN = ""
 #
 # list all valid homeMDBs for the given instance, max nr og users per MDB as follows:
 # EXCHANGE_HOMEMDB_VALID = {'homeMDB01': 200,
@@ -297,8 +311,11 @@ AD_STUDENT_FILEGROUPS = []
 UA_FTP_HOST = 'uaftp.uio.no'
 UA_FTP_UNAME = 'uname'
 
+# Is this used?
+LOGGING_ROOT_DIR = pj(prefix, 'var', 'log', 'cerebrum')
+
 # You should set this variable to the location of your logging ini file
-LOGGING_CONFIGFILE = None
+LOGGING_CONFIGFILE = pj(prefix, 'etc', 'cerebrum', 'logging.ini')
 
 # Rules for how quarantines should be handled. I.e. will the quarantine result
 # in the entity becoming locked-out, is there a special shell set, and so on.
@@ -324,7 +341,7 @@ QUARANTINE_AUTOMATIC = ()
 # List of quarantine-rule names where LDAP Person/FEIDE should ignore 'lock'
 QUARANTINE_FEIDE_NONLOCK = ()
 
-CEREBRUM_DDL_DIR = "../share/cerebrum/design"
+CEREBRUM_DDL_DIR = pj(prefix, 'share', 'cerebrum', 'design')
 BOFHD_SUPERUSER_GROUP = INITIAL_GROUPNAME
 BOFHD_STUDADM_GROUP = BOFHD_SUPERUSER_GROUP
 BOFHD_FNR_ACCESS_GROUP = None
@@ -349,9 +366,9 @@ BOFHD_AUTH_SYSTEMS = ("system_manual",)
 # 'Group-owner' or 'groupmod-priv'.
 BOFHD_AUTH_GROUPMODERATOR = None
 # Directory for templates
-TEMPLATE_DIR = None
+TEMPLATE_DIR = pj(prefix, 'etc', 'templates')
 # Location of locks used by bofhd-request processing system
-BOFHD_REQUEST_LOCK_DIR = '/cerebrum/var/log/cerebrum/.lock-%d'
+BOFHD_REQUEST_LOCK_DIR = pj(prefix, 'var', 'lock', 'bofhreq', 'lock-%d')
 # Quarantines that do not lead to denial of access to bofhd
 BOFHD_NONLOCK_QUARANTINES = ()
 BOFHD_QUARANTINE_DISABLE_LIMIT = None  # days a quarantine can be disabled
@@ -383,7 +400,7 @@ PRINT_BARCODE = None
 SMTP_HOST = 'localhost'
 
 # Logdir for AutoStud jobs
-AUTOADMIN_LOG_DIR = '.'     # Set to a place where only 'cerebrum' has write access
+AUTOADMIN_LOG_DIR = pj(prefix, 'var', 'log', 'autoadmin')
 
 # decide whether autostud should produce letters for students with address
 # registered (if =True letters are produced)
@@ -398,7 +415,7 @@ AUTOADMIN_WELCOME_SMS = 'Welcome\nYour username is: %(username)s'
 # The default directory for where the data from FS is put. This could be used by
 # jobs that needs to get many of the XML files with data from FS. If this is not
 # defined, you need to specify the absolute path to each XML file.
-FS_DATADIR = None
+FS_DATA_DIR = pj(prefix, 'var', 'cache', 'FS')
 
 # Sets the number of days after a student is considered not active anymore,
 # before the STUDENT affiliation gets removed. This is not the correct way of
@@ -410,13 +427,19 @@ FS_DATADIR = None
 # mainly implemented for UiO (and UiA).
 FS_STUDENT_REMOVE_AFF_GRACE_DAYS = 0
 
+# Sets the default name and description of the group used for students in FS who
+# have given their consent to be published in the catalogue.
+FS_GROUP_NAME = "FS-aktivt-samtykke"
+FS_GROUP_DESC = "Internal group for students which will be shown online."
+
 # make autostud use studentnr as uname
 USE_STUDENTNR_AS_UNAME = False
 # Socket used to query the job-runner server, should not be writeable by
 # untrusted users
-JOB_RUNNER_SOCKET = "/tmp/jr-socket"
+JOB_RUNNER_SOCKET = pj(prefix, 'var', 'lock', 'job_runner')
 
-JOB_RUNNER_LOG_DIR = '.'   # Set to a place where only 'cerebrum' has write access
+JOB_RUNNER_LOG_DIR = pj(prefix, 'var', 'log', 'job_runner')  # Set to a place where only 'cerebrum' has write access
+
 JOB_RUNNER_MAX_PARALELL_JOBS = 3
 # Warn if job-runner has been paused for more than N seconds, every N second
 JOB_RUNNER_PAUSE_WARN = 3600 * 12
@@ -490,6 +513,12 @@ EMAIL_DEFAULT_FILTERS = {}
 # If this value is set to False, no changes are made.
 EMAIL_EXPIRE_ADDRESSES = 180
 
+# Some instances may have EmailTargets with actual e-mail addresses that are
+# not listed in the corresponding account's mail-domains. These mail-domains
+# will be marked as deletable, when they should remain non-deletable. Adding
+# such domains to this list will ensure they are *not* marked as deletable.
+EMAIL_NON_DELETABLE_DOMAINS = []
+
 # contrib/no/uio/process_bofhd_requests.py needs a list of servers to
 # pass off to cereconf.IMAPSYNC_SCRIPT.
 PROC_BOFH_REQ_MOVE_SERVERS = []
@@ -533,18 +562,18 @@ CLASS_POSIXEXPORT = ['Cerebrum.modules.PosixExport/PosixExport']
 # General LDAP info
 LDAP = {
     # LDAP server used for LDAP quick-sync?
-    #'server': "ldap.example.com",
+    #   'server': "ldap.example.com",
 
     # Default directory in which to write LDIF files
-    'dump_dir': "/cerebrum/dumps/LDAP/",
+    'dump_dir': pj(prefix, 'var', 'cache', 'LDAP'),
 
     # If set, default attributes for all LDAP_*['dn'] objects except ORG. Each
     # attribute is added if the object does not already have that attribute:
-    #'container_attrs': {"objectClass": ("top", "uioUntypedObject")},
+    #   'container_attrs': {"objectClass": ("top", "uioUntypedObject")},
 
     # Constants.py varname of source system with phone and fax for people and
     # organization, plus postal and street addresses for people.
-    #'contact_source_system': 'system_foobar',
+    #   'contact_source_system': 'system_foobar',
 
     # Mapping used to rewrite domains in e-mail addresses:
     # {"domain returned from Cerebrum": "real domain", ...}.
@@ -609,7 +638,7 @@ LDAP_ORG = {                            # Top object and common settings
     'file': "organization.ldif",
 
     # Top level DN of LDAP tree.  Should normally have the following value:
-    #'dn': "dc=" + INSTITUTION_DOMAIN_NAME.replace(".", ",dc=")
+    #   'dn': "dc=" + INSTITUTION_DOMAIN_NAME.replace(".", ",dc=")
 
     # If one org.unit in Cerebrum actually represents the organization, set
     # this variable to its ou_id, or to 'base' to have Cerebrum deduce the
@@ -622,17 +651,17 @@ LDAP_ORG = {                            # Top object and common settings
 # Tree with org.units, from generate_org_ldif.py.
 LDAP_OU = {
     # Base of tree of organizational units.  Can be == LDAP_ORG['dn'].
-    #'dn': "cn=organization," + LDAP_ORG['dn'],
+    #   'dn': "cn=organization," + LDAP_ORG['dn'],
 
     # If not None, make a fake org.unit "ou=<LDAP_OU['dummy_name']>"
     # below LDAP_OU['dn'].  It becomes the parent entry of any person
     # or alias below entries that would otherwise end up just below
     # LDAP_OU['dn'] instead of under some org.unit.
-    #'dummy_name': "--",
+    #   'dummy_name': "--",
     'dummy_attrs': {"description": ("Other organizational units",)}
 
     # Name of source system with perspective of org.unit structure.
-    #'ou_perspective': "FOOBAR",
+    #   'ou_perspective': "FOOBAR",
 }
 
 # Tree with people, from generate_org_ldif.py.
@@ -641,7 +670,7 @@ LDAP_PERSON = {
     # primary org.units in the organization tree.  Otherwise, they are
     # placed in a flat structure below LDAP_PERSON['dn'].  Attributes
     # from object class eduPerson will refer to their org.units.
-    #'dn': "cn=people," + LDAP_ORG['dn'],
+    #   'dn': "cn=people," + LDAP_ORG['dn'],
 
 
     # Which address types to give persons: POST and/or STREET
@@ -702,16 +731,17 @@ LDAP_PERSON = {
     # Select the affiliations to use for generating a person-entry.
     # (Even the other selectors only use these affiliations.)
     # The person is excluded from LDAP if no affiliations are left.
-    #'affiliation_selector': True,
+    #   'affiliation_selector': True,
     #
     # Boolean selector: Persons who should be visible in LDAP.
     'visible_selector': True,
     #
     # Boolean selector: Persons to get postal address, phone, work title, etc.
-    #'contact_selector': True,
+    #   'contact_selector': True,
     #
     # List selector: eduPersonAffiliation attribute values for the person.
     'eduPersonAffiliation_selector': [],
+    #
     # List selector: eduPersonPrimaryAffiliation attribute values for the
     # person. Each element should have the str of an affiliation as the key,
     # and contain a dict with its statuses, what priority they have and what
@@ -736,7 +766,22 @@ LDAP_PERSON = {
     #
     # This parameter acts simultaneously as a switch: empty path value means the
     # publication of entitlements in LDIF is turned off (default behaviour).
-    'entitlements_pickle_file' : '',
+    'entitlements_pickle_file': '',
+    #
+    # Selects which contact info to use for norEduPersonAuthnMethod (sms).
+    #
+    # The value is a  dict that maps affiliation (e.g. 'ANSATT' or 'STUDENT')
+    # to a tuple consisting of source system and contact type tuples (e.g.
+    # `tuple('SAP', 'MOBILE')`).
+    #
+    # A full config might look like:
+    #     'norEduPersonAuthnMethod_selector': {
+    #         'ANSATT': ( ('SAP', 'MOBILE'),
+    #                     ('SAP', 'PRIVATEMOBILE'),
+    #                     ('FS', 'MOBILE'), ),
+    #     }
+    'norEduPersonAuthnMethod_selector': {}
+    #
 }
 
 # Generated by generate_posix_ldif.py:  Posix users, filegroups and netgroups.
@@ -746,7 +791,7 @@ LDAP_POSIX = {                          # Top object and common settings
 
     # Note: LDAP_POSIX['dn'] should not be set if it is == LDAP_ORG['dn']
     # and one uses generate_org_ldif.py to make that entry.
-    #'dn': "cn=system," + LDAP_ORG['dn'],
+    #   'dn': "cn=system," + LDAP_ORG['dn'],
 }
 
 # Settings to control the UserLDIF module:
@@ -811,7 +856,7 @@ LDAP_SUBNETS = {
     #   With OpenLDAP 2.4, an 'eq' index for an attribute with Integer
     #   syntax also works for inequality filters (<=, >=).
     # Default = no extra classes and just write a range as comments:
-    #'rangeSchema': (startType, endType, (object classes,)):
+    #   'rangeSchema': (startType, endType, (object classes,)):
     'rangeSchema': ("#addrRangeStart", "#addrRangeEnd", ()),
 }
 
@@ -820,7 +865,7 @@ LDAP_SUBNETS = {
 LDAP_MAIL = {
     'file': "mail-db.ldif",
 
-    #'dn': "cn=mail," + LDAP_ORG['dn'],
+    #   'dn': "cn=mail," + LDAP_ORG['dn'],
 }
 
 # Generated by generate_mail_dns_ldif.py:
@@ -828,11 +873,11 @@ LDAP_MAIL = {
 LDAP_MAIL_DNS = {
     'file': "mail-dns.ldif",
 
-    #'dn': "cn=mail-dns," + LDAP_ORG['dn'],
+    #   'dn': "cn=mail-dns," + LDAP_ORG['dn'],
 
     # Only consider hosts which have these hosts as lowest priority
     # MX record and also are A records.
-    #'mx_hosts': ("some-host", ...),
+    #   'mx_hosts': ("some-host", ...),
 
     # Treat these hosts as if they have A records.
     'extra_a_hosts': (),
@@ -842,12 +887,12 @@ LDAP_MAIL_DNS = {
 
     # Sequence of sequence of arguments to LDAP_MAIL_DNS['dig_cmd'].  The
     # command is run once for each argument sequence. The results are combined.
-    #'dig_args': ((domain, name server), (domain, name server), ...),
+    #   'dig_args': ((domain, name server), (domain, name server), ...),
 }
 
 # Default settings of the previous names of these variables;
 # retained for the time being for backwards compatibility.
-LDAP_DUMP_DIR = '/cerebrum/dumps/LDAP/'
+LDAP_DUMP_DIR = pj(prefix, 'var', 'cache', 'LDAP')
 LDAP_ORG_FILE = 'organization.ldif'
 LDAP_POSIX_FILE = 'posix.ldif'
 LDAP_ALIASES = False
@@ -993,9 +1038,9 @@ SMS_ACCEPT_REGEX = (r'^\d{8}$', )
 #
 
 # The private key used by Cerebrum's server(s).
-SSL_PRIVATE_KEY_FILE = '/cerebrum/var/password/cerebrum_key.priv'
+SSL_PRIVATE_KEY_FILE = pj(prefix, 'etc/password/cerebrum_key.priv')
 # Cerebrum's server(s) x509 certificate.
-SSL_CERTIFICATE_FILE = '/cerebrum/var/certs/cerebrum.pem'
+SSL_CERTIFICATE_FILE = pj(prefix, 'etc/cerebrum.pem')
 
 #
 # The Individuation daemon

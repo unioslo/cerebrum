@@ -66,6 +66,7 @@ from Cerebrum.modules.ad2 import ADUtils, ConfigUtils
 from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.ConfigUtils import ConfigError
 from Cerebrum.modules.ad2.winrm import PowershellException, CRYPTO
+from Cerebrum.QuarantineHandler import QuarantineHandler
 
 
 class BaseSync(object):
@@ -723,25 +724,27 @@ class BaseSync(object):
                 "Processing change_id %s (%s), from %s subject_entity: %s",
                 row['change_id'], change_type, timestamp,
                 row['subject_entity'])
+            already_handled.add(handle_key)
             try:
                 if self.process_cl_event(row):
                     stats['processed'] += 1
                     confirm(row)
-                    already_handled.add(handle_key)
                 else:
-                    raise Exception("Changetype handler returned False for"
-                                    " %s" % change_type)
+                    stats['skipped'] += 1
+                    self.logger.debug(
+                        "Unable to process %s for subject=%s dest=%s",
+                        change_type, row['subject_entity'], row['dest_entity'])
             except Exception:
                 stats['failed'] += 1
-                self.logger.error("Failed to process cl_event: %s",
-                                  row['change_id'], exc_info=1)
-                # TODO: Add subject_entity to a ignore-list, as I think we
-                # should keep changes in order per entity.
+                self.logger.error(
+                    "Failed to process cl_event %s (%s) for %s",
+                    row['change_id'], change_type, row['subject_entity'],
+                    exc_info=1)
             else:
                 commit(self.config['dryrun'])
         commit(self.config['dryrun'])
-        self.logger.debug("Handled %(seen)d events, processed: %(processed)d,"
-                          " skipped: %(skipped)d, failed: %(failed)d", stats)
+        self.logger.info("Handled %(seen)d events, processed: %(processed)d,"
+                         " skipped: %(skipped)d, failed: %(failed)d", stats)
         self.logger.info("Quicksync done")
         self.send_ad_admin_messages()
 
@@ -829,26 +832,25 @@ class BaseSync(object):
 
         """
         self.logger.debug("Fetch quarantines...")
-        # TODO: is it okay to make use of the EntityQuarantine class like this?
-        # Or is it okay to add EntityQuarantine to cereconf.CLASS_ENTITY, so we
-        # could get it from Factory.get('Entity') instead? We could then ignore
-        # deactivation for those instances which doesn't use quarantines.
-        ent = Entity.EntityQuarantine(self.db)
 
         # Limit the search to the entity_type the target_spread is meant for:
         target_type = self.config['target_type']
         ids = None
         if self.config['subset']:
             ids = self.id2entity.keys()
-        i = 0
-        for row in ent.list_entity_quarantines(only_active=True,
-                                               entity_types=target_type,
-                                               entity_ids=ids):
-            found = self.id2entity.get(int(row['entity_id']))
+
+        quarantined_accounts = QuarantineHandler.get_locked_entities(
+            self.db,
+            entity_types=target_type,
+            entity_ids=ids)
+
+        for entity_id in quarantined_accounts:
+            found = self.id2entity.get(entity_id)
             if found:
                 found.active = False
-                i += 1
-        self.logger.debug("Flagged %d entities as deactivated" % i)
+
+        self.logger.debug("Flagged %d entities as deactivated",
+                          len(quarantined_accounts))
 
     def fetch_spreads(self):
         """Get all spreads from Cerebrum and update L{self.entities} with this.
@@ -2695,7 +2697,7 @@ class UserSync(BaseSync):
             if not self.ac.has_spread(self.config['target_spread']):
                 self.logger.debug("Account %s without target_spread, ignoring",
                                   row['subject_entity'])
-                return True
+                return False
 
             name = self._format_name(self.ac.account_name)
 
@@ -2716,14 +2718,6 @@ class UserSync(BaseSync):
                                        self.co.quarantine_refresh):
             change = self.co.ChangeType(row['change_type_id'])
 
-            # We don't care which quarantine type triggered this
-            #   try:
-            #       q_type = pickle.loads(str(row['change_params']))['q_type']
-            #   except (IndexError, KeyError, TypeError):
-            #       self.logger.warning("Missing quarantine type in changelog")
-            #       return False
-            #   q_type = self.co.Quarantine(q_type)
-
             try:
                 self.ac.find(row['subject_entity'])
             except Errors.NotFoundError:
@@ -2732,8 +2726,6 @@ class UserSync(BaseSync):
                     change, row['subject_entity'])
                 return False
 
-            # TODO: Should all quarantines lock out?
-
             ent = self.cache_entity(self.ac.entity_id,
                                     self.ac.account_name)
 
@@ -2741,7 +2733,9 @@ class UserSync(BaseSync):
             # have no AD-object to pass to the self.script function...
             #     simple_object = dict(DistinguishedName=ent.dn)
             #     self.*able_object(simple_object)
-            if bool(self.ac.get_entity_quarantine(only_active=True)):
+
+            if QuarantineHandler.check_entity_quarantines(
+                    self.db, self.ac.entity_id).is_locked():
                 return self.server.disable_object(ent.dn)
             else:
                 return self.server.enable_object(ent.dn)

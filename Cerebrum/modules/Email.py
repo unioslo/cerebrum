@@ -1842,9 +1842,7 @@ class EmailForward(EmailTarget):
         :param str forward: The address to forward to.
         :param bool enable: Enable or disable this forward.
         """
-        enable = 'F'
-        if enable:
-            enable = 'T'
+        enable = 'T' if enable else 'F'
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
                             self.const.email_forward_add,
