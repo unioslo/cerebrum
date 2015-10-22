@@ -134,10 +134,12 @@ class TemplateHandler(object):
                 format_sys_cmd = "%s -f < %s.dvi > %s.ps 2>> %s" % (cereconf.PRINT_DVIPS_CMD,
                                                                     base_filename, base_filename,
                                                                     logfile)
+                base_filename += ".ps"
             elif cereconf.PRINT_DVIPDF_CMD:
                 format_sys_cmd = "%s %s.dvi %s.pdf 2>> %s" % (cereconf.PRINT_DVIPDF_CMD,
                                                               base_filename, base_filename,
                                                               logfile)
+                base_filename += ".pdf"
             else:
                 raise IOError("Error spooling job, see %s for details" % logfile)
             if type == 'tex':
