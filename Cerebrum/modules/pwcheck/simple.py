@@ -383,7 +383,7 @@ class CheckOwnerNameMixin(common.PasswordChecker):
         # variations like S*Krokodil, Sv-Krokodil, Schnappi-Krok and the like;
         # i.e. we want to force people NOT to use some trivial version of
         # their name.
-        name = name.lower()
+        name = unicode(name.lower(), 'latin-1')
         password = password.lower()
         name_chunks = [x for x in name.split() if len(x) > 0]
         pwd_chunks = [x for x in re.split(r"[^a-z]+", password) if len(x) > 0]
