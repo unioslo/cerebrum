@@ -45,6 +45,17 @@ PASSWORD_DICTIONARIES = ()
 # produce passphrases
 PASSPHRASE_DICTIONARIES = ()
 
+# Set password style. Legal variants are:
+# rigid = rigid checks needed for short passwords
+# phrase = loose entropy checks, but longer passprases required
+# mixed = use is_passphrase to find right style
+# read by Cerebrum.modules.pwcheck.wordorphrase/PhraseWordCheckSplitter
+PASSWORD_STYLE = 'rigid'
+
+# Arguments to test for password_good_enough. Inserted with
+# Cerebrum.modules.pwcheck.confargs/CereconfMixin
+PASSWORD_TEST_ARGUMENTS = {}
+
 # Look for things like person name by evaluating source systems in in
 # this order
 SYSTEM_LOOKUP_ORDER = ("system_manual",)
@@ -501,6 +512,12 @@ EMAIL_DEFAULT_FILTERS = {}
 # transition from "account" to "deleted" status or vice versa.
 # If this value is set to False, no changes are made.
 EMAIL_EXPIRE_ADDRESSES = 180
+
+# Some instances may have EmailTargets with actual e-mail addresses that are
+# not listed in the corresponding account's mail-domains. These mail-domains
+# will be marked as deletable, when they should remain non-deletable. Adding
+# such domains to this list will ensure they are *not* marked as deletable.
+EMAIL_NON_DELETABLE_DOMAINS = []
 
 # contrib/no/uio/process_bofhd_requests.py needs a list of servers to
 # pass off to cereconf.IMAPSYNC_SCRIPT.

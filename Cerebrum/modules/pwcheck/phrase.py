@@ -20,68 +20,83 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains simple password phrase checks. """
 
-import cerebrum_path
-import cereconf
-
-from .common import PasswordNotGoodEnough
+from .common import PasswordNotGoodEnough, PasswordChecker
 
 
-class CheckPhraseLengthMixin(object):
+class CheckPhraseLengthMixin(PasswordChecker):
 
     """ Check passphrase length. """
 
     # Minimum length and error message
-    _passphrase_min_length = 12
     _passphrase_min_length_error_fmt = ("Password must be at least %d"
                                         " characters.")
 
     # Maximum length and error message
-    _passphrase_max_length = None
     _passphrase_max_length_error_fmt = ("Password must be at most %d"
                                         " characters.")
 
-    def password_good_enough(self, passphrase):
+    def password_good_enough(self, passphrase,
+                             skip_rigid_password_tests=False,
+                             passphrase_min_length=12,
+                             passphrase_max_length=None,
+                             **kw):
         """ Check that passphrase length is within bounds. """
-        super(CheckPhraseLengthMixin, self).password_good_enough(passphrase)
+        super(CheckPhraseLengthMixin, self).password_good_enough(
+            passphrase,
+            skip_rigid_password_tests=skip_rigid_password_tests, **kw)
 
-        if (self._passphrase_min_length is not None and
-                self._passphrase_min_length > len(passphrase)):
-            raise PasswordNotGoodEnough(
-                self._passphrase_min_length_error_fmt %
-                self._passphrase_min_length)
+        if skip_rigid_password_tests:
+            if (passphrase_min_length is not None and
+                    passphrase_min_length > len(passphrase)):
+                raise PasswordNotGoodEnough(
+                    self._passphrase_min_length_error_fmt %
+                    passphrase_min_length)
 
-        if (self._passphrase_max_length is not None and
-                self._passphrase_max_length > len(passphrase)):
-            raise PasswordNotGoodEnough(
-                self._passphrase_max_length_error_fmt %
-                self._passphrase_max_length)
+            if (passphrase_max_length is not None and
+                    passphrase_max_length > len(passphrase)):
+                raise PasswordNotGoodEnough(
+                    self._passphrase_max_length_error_fmt %
+                    passphrase_max_length)
 
 
-class CheckPhraseWordsMixin(object):
+class CheckPhraseWordsMixin(PasswordChecker):
 
     """ Check number of words in passphrase. """
 
     # Minimum word count, length and error message
-    _passphrase_min_words = 2
-    _passphrase_min_word_length = 2
     _passphrase_min_words_error_fmt = ("Password must have at least %d words"
                                        " of length %d")
+    _passphrase_avg_error_fmt = ("Password words must be in average at least"
+                                 " %s characters long")
 
-    def password_good_enough(self, passphrase):
+    def password_good_enough(self, passphrase,
+                             passphrase_min_words=None,
+                             passphrase_min_word_length=None,
+                             passphrase_avg_length=None,
+                             skip_rigid_password_tests=False,
+                             **kw):
         """ Check that passphrase contains enough long words.
 
         Passphrase will require at least `_passphrase_min_words' of length
         `_passphrase_min_word_length'.
 
         """
-        super(CheckPhraseWordsMixin, self).password_good_enough(passphrase)
-
-        wl = self._passphrase_min_word_length
-        wds = self._passphrase_min_words
-        if len([x for x in passphrase.split(" ")
-                if len(x) >= wl]) < wds:
+        super(CheckPhraseWordsMixin, self).password_good_enough(
+            passphrase,
+            skip_rigid_password_tests=skip_rigid_password_tests,
+            **kw)
+        if not skip_rigid_password_tests:
+            return
+        wl = passphrase_min_word_length or 0
+        wds = passphrase_min_words or 0
+        avg = passphrase_avg_length
+        spl = passphrase.split(" ")
+        if len([x for x in spl if len(x) >= wl]) < wds:
             raise PasswordNotGoodEnough(
                 self._passphrase_min_words_error_fmt % (wds, wl))
+        if avg and float(sum(map(len, spl)))/len(spl) < avg:
+            raise PasswordNotGoodEnough(
+                self._passphrase_avg_error_fmt % (avg,))
 
 
 class CheckPassphraseMixin(CheckPhraseWordsMixin, CheckPhraseLengthMixin):

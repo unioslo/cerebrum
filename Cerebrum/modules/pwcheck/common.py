@@ -26,6 +26,7 @@ import cereconf
 
 import string
 from Cerebrum.Errors import CerebrumError
+from Cerebrum.Account import Account
 
 
 l33t_speak = string.maketrans('4831!05$72', 'abeiiosstz')
@@ -40,7 +41,7 @@ class PasswordNotGoodEnough(CerebrumError):
     pass
 
 
-class PasswordChecker(object):
+class PasswordChecker(Account):
 
     """ Password-checker API.
 
@@ -49,10 +50,12 @@ class PasswordChecker(object):
 
     """
 
-    def password_good_enough(self, password):
+    def password_good_enough(self, password, **kw):
         """ Check password.
 
         :param str password: The password to check
+
+        :param dict kw: Other params to certain checks
 
         :return: Returns on success
 

@@ -144,6 +144,10 @@ def build_employee_cache(db, sysname, filename):
     fnr2uname = db_person.getdict_external_id2primary_account(
                                       const.externalid_fodselsnr)
     logger.debug("... done (%d mappings)", len(fnr2uname))
+    logger.debug("Fetching all passport-nr->account mappings...")
+    pnr2uname = db_person.getdict_external_id2primary_account(
+                                      const.externalid_pass_number)
+    logger.debug("... done (%d mappings)", len(pnr2uname))
 
     # Build mapping for the employees
     parser = system2parser(sysname)(filename, logger, False)
@@ -151,32 +155,39 @@ def build_employee_cache(db, sysname, filename):
     employee_cache = dict()
     for xmlperson in parser.iter_person():
         fnr = xmlperson.get_id(xmlperson.NO_SSN)
-        if not fnr:
-            logger.debug("Person %s has no fnr in XML source",
-                         list(xmlperson.iterids()))
-            continue
+        passport_nr = xmlperson.get_id(xmlperson.PASSNR)
 
-        # If this fnr is not in Cerebrum, we cannot locate its primary account
-        if fnr not in fnr2uname:
-            logger.debug("Cerebrum has no fnr %s or primary account for fnr %s",
-                         fnr, fnr)
+        if not fnr and not passport_nr:
+            logger.debug("Person %s has no fnr or passport-nr in XML source",
+                         list(xmlperson.iterids()))
             continue
 
         # Everyone with bilag more recent than 180 days old is eligible
         bilag = filter(lambda x: ((not x.end) or
                                   (x.end >= (Date(*time.localtime()[:3]) -
                                              DateTimeDeltaFromDays(180)))) and
-                                 x.kind == x.BILAG,
+                       x.kind == x.BILAG,
                        xmlperson.iteremployment())
 
+        # Add to cache, if found in Cerebrum either by fnr or passport-nr.
         # each entry is a pair, telling whether the person has active
         # tilsetting and bilag (in that order). We do not need to know *what*
         # they are, only that they exist.
-        employee_cache[fnr2uname[fnr]] = (xmlperson.has_active_employments(),
-                                          bool(bilag))
+        if fnr in fnr2uname:
+            employee_cache[fnr2uname[fnr]] = (xmlperson.
+                                              has_active_employments(),
+                                              bool(bilag))
+        elif passport_nr in pnr2uname:
+            employee_cache[pnr2uname[passport_nr]] = (xmlperson.
+                                                      has_active_employments(),
+                                                      bool(bilag))
+        else:
+            logger.debug("Cerebrum failed to find primary account for person "
+                         "with fnr: %s, passport-nr: %s.", fnr, passport_nr)
 
     # IVR 2007-07-13 FIXME: Is this actually useful?
     del fnr2uname
+    del pnr2uname
     logger.debug("employee_cache has %d uname->employment status mappings",
                  len(employee_cache))
     return employee_cache

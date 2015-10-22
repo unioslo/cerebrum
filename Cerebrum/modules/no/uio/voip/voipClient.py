@@ -47,6 +47,7 @@ from collections import defaultdict
 import cerebrum_path
 import cereconf
 
+from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import argument_to_sql
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.voip.EntityAuthentication import EntityAuthentication
@@ -375,16 +376,22 @@ class VoipClient(EntityAuthentication, EntityTrait):
             owner2uname[r["owner_id"]].append(r["name"])
             aid2owner[r["account_id"]] = r["owner_id"]
 
-        # account_id -> quarantine
+        # Get account identificators that have a quarantine that should result
+        # in the account beeing locked.
+        quarantined_accounts = QuarantineHandler.get_locked_entities(
+            self._db, entity_ids=aid2owner.keys())
+
+        # Populate account_id -> quarantine information dictionary
         aid2quarantine = dict()
-        for row in account.list_entity_quarantines(entity_types=self.const.entity_account,
-                                                   only_active=True,
-                                                   entity_ids=aid2owner.keys()):
-             aid2quarantine[row["entity_id"]] = "%s,%s,%s" % \
-                                                (const2str[row['quarantine_type']],
-                                                 # str() returns ISO 8601 format
-                                                 str(row['start_date'])[0:10],
-                                                 row['description'])
+        for row in account.list_entity_quarantines(
+                entity_types=self.const.entity_account,
+                only_active=True,
+                entity_ids=quarantined_accounts):
+            aid2quarantine[row["entity_id"]] = (
+                "%s,%s,%s" % (const2str[row['quarantine_type']],
+                              # str() returns ISO 8601 format
+                              str(row['start_date'])[0:10],
+                              row['description']))
 
         # Make a owner2quarantine, to block hardphone is if primary users is blocked
         owner2quarantine = dict()

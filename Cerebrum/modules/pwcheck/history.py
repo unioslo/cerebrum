@@ -31,7 +31,7 @@ This module requires the design/mod_password_history.sql database module.
 To use the PasswordHistoryMixin, the base class MUST implement all the public
 methods defined in the mixin:
 
- - password_good_enough(self, password)
+ - password_good_enough(self, password, **kw)
  - set_password(self, password)
  - write_db(self)
  - delete(self)
@@ -54,11 +54,11 @@ and `entity_id' attributes are used in the password history hash.
 
 """
 
-import cereconf
 import hashlib
 import base64
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
-from .common import PasswordNotGoodEnough
+
+from .common import PasswordNotGoodEnough, PasswordChecker
 
 __version__ = "1.0"
 
@@ -74,15 +74,18 @@ class ClearPasswordHistoryMixin(DatabaseAccessor):
         super(ClearPasswordHistoryMixin, self).delete()
 
 
-class PasswordHistoryMixin(ClearPasswordHistoryMixin):
+class PasswordHistoryMixin(ClearPasswordHistoryMixin, PasswordChecker):
 
     """ A mixin for use with entities that should have password history. """
 
-    def password_good_enough(self, password):
+    def password_good_enough(self, password, skip_rigid_password_tests=False,
+                             **kw):
         """ Match the password against PasswordHistory. """
-        super(PasswordHistoryMixin, self).password_good_enough(password)
+        super(PasswordHistoryMixin, self).password_good_enough(
+            password, skip_rigid_password_tests=skip_rigid_password_tests, **kw)
         self._check_password_history(password)
-        self._check_password_history(password[0:8])
+        if not skip_rigid_password_tests:
+            self._check_password_history(password[0:8])
 
     def set_password(self, plaintext):
         # We need our own copy of __plaintext_password, because the

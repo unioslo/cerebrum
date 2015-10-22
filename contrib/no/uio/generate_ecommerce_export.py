@@ -57,6 +57,7 @@ from mx import DateTime
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+from Cerebrum.QuarantineHandler import QuarantineHandler
 
 ordered_people_keys = ['use_uid', 'use_home_oun_id', 'use_supervisor_uid',
                        'use_name', 'use_domain','use_full_name',
@@ -136,6 +137,10 @@ def generate_people_info(exported_orgs):
     exported_employee_id = []
     employee_data = {}
     all_employee_ids = fetch_employee_data()
+    quarantined_accounts = QuarantineHandler.get_locked_entities(
+        db,
+        entity_types=const.entity_account,
+        entity_ids=[x['person_id'] for x in all_employee_ids])
     for p in all_employee_ids:
         if not p['person_id'] in exported_employee_id:
             exported_employee_id.append(p['person_id'])
@@ -167,11 +172,7 @@ def generate_people_info(exported_orgs):
         except Errors.NotFoundError:
             logger.info("No primary e-mail address found for %s, sending ''", account.account_name)
             email_address = ''
-        quarantined = 1
-        now = DateTime.now()
-        q_list = account.get_entity_quarantine(only_active=True)
-        if len(q_list) > 0:
-            quarantined = 0
+        quarantined = 0 if primary_account_id in quarantined_accounts else 1
         person_name_full = person.get_name(const.system_cached, const.name_full)
         phones = person.get_contact_info(source=const.system_sap, type=const.contact_phone)
         if not phones:

@@ -123,9 +123,8 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
 
         self.query_1("""
         DELETE FROM [:table schema=cerebrum name=event_log]
-        WHERE %s RETURNING event_id""" % \
-                ' AND '.join(['%s = :%s' % (k,k) for k in params]),
-                params)
+        WHERE %s RETURNING event_id""" % ' AND '.join(
+            ['%s = :%s' % (k, k) for k in params]), params)
 
     def get_event(self, event_id, target_system=None):
         """Fetch information about an event
@@ -145,9 +144,8 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
 
         return self.query_1("""
             SELECT * FROM event_log
-            WHERE %s""" %
-                ' AND '.join(['%s = :%s' % (k,k) for k in params]),
-                params)
+            WHERE %s""" % ' AND '.join(
+            ['%s = :%s' % (k, k) for k in params]), params)
 
     def lock_event(self, event_id):
         """Lock an event for processing.
@@ -163,9 +161,7 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
             UPDATE event_log
             SET taken_time = now()
             WHERE event_id = :event_id
-            AND taken_time IS NULL RETURNING event_id""",
-            {'event_id': int(event_id)})
-
+            AND taken_time IS NULL RETURNING event_id""", {'event_id': int(event_id)})
 
     # TODO: Rewrite this so it does not lock events, only collect
     # the IDs of old and unprocessed events
@@ -211,16 +207,12 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
             args['failed_limit'] = fail_limit
         if failed_delay and not unpropagated_delay:
             # OR taken_time IS NULL' % \
-            filter += ' AND (taken_time < [:now] - interval \'%d seconds\'' % \
-                    failed_delay
+            filter += ' AND (taken_time < [:now] - interval \'%d seconds\'' % failed_delay
         elif unpropagated_delay and not failed_delay:
-            filter += ' AND tstamp < [:now] - interval \'%d seconds\'' % \
-                    unpropagated_delay
+            filter += ' AND tstamp < [:now] - interval \'%d seconds\'' % unpropagated_delay
         elif unpropagated_delay and failed_delay:
-            filter += ' AND (taken_time < [:now] - interval \'%d seconds\'' % \
-                    failed_delay
-            filter += ' OR tstamp < [:now] - interval \'%d seconds\')' % \
-                    unpropagated_delay
+            filter += ' AND (taken_time < [:now] - interval \'%d seconds\'' % failed_delay
+            filter += ' OR tstamp < [:now] - interval \'%d seconds\')' % unpropagated_delay
         if not include_taken:
             filter += ' AND taken_time IS NULL'
 
@@ -254,11 +246,8 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
             UPDATE event_log
             SET taken_time = NULL
             %s
-            WHERE %s RETURNING event_id""" % \
-                    (inc, ' AND '.join(['%s = :%s' % (k,k) for k in params])),
-            params)
-
-
+            WHERE %s RETURNING event_id""" % (inc, ' AND '.join(
+            ['%s = :%s' % (k, k) for k in params])), params)
 
 # TODO: Should this really be here? Should it be in a supplemental API?
 ###
@@ -292,7 +281,7 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         return {'t_locked': t_locked, 't_failed': t_failed, 'total': total}
 
     def get_failed_and_locked_events(self, target_system, fail_limit=10,
-                                        locked=True, fetchall=True):
+                                     locked=True, fetchall=True):
         """Collect a list of events that have failed permanently, or are locked.
 
         @type target_system: TargetSystemCode
@@ -312,10 +301,10 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         # like selecting only those locked up until 10 hours ago, for example.
         p = {'ts': int(target_system)}
         q = 'SELECT event_id, event_type, taken_time, failed FROM event_log' + \
-                ' WHERE target_system = :ts'
+            ' WHERE target_system = :ts'
         tmp = []
         if fail_limit:
-            tmp += [ 'failed >= :fail_limit']
+            tmp += ['failed >= :fail_limit']
             p['fail_limit'] = fail_limit
         if locked:
             tmp += ['taken_time IS NOT NULL']
@@ -324,19 +313,15 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
 
         return self.query(q, p, fetchall=fetchall)
 
-    def decrement_failed_count(self, target_system, id):
+    def decrement_failed_count(self, event_id):
         """Decrement the failed count on a row
 
-        @type target_system: TargetSystemCode
-        @param target_system: The target-system to collect from
-
-        @type id: int
-        @param id: The row id to do this in
+        @type event_id: int
+        @param event_id: The row id to do this in
         """
         self.query_1(
-            'UPDATE event_log SET failed = failed - 1 WHERE event_id = :id'
-            ' AND target_system = :ts RETURNING event_id',
-            {'id': int(id), 'ts': int(target_system)})
+            'UPDATE event_log SET failed = failed - 1 WHERE event_id = :id RETURNING event_id',
+            {'id': int(event_id)})
 
     def search_events(self, id=None, type=None, param=None,
                       from_ts=None, to_ts=None, target_system=None,

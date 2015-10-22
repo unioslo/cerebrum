@@ -642,3 +642,6 @@ class AccountUiOMixin(Account.Account):
         except Errors.NotFoundError:
             return False
         return True
+
+    def is_passphrase(self, password):
+        return ' ' in password
