@@ -939,7 +939,11 @@ class WinRMProtocol(object):
         for a in args[1:]:
             cmdline.append(self._xml_element('Arguments', 'rsp', text=a))
 
+        self.logger.debug3('Calling WSMAN Command for ShellId "%s" with args '
+                           '"%s"' % (str(shellid), str(args)))
         ret = self._http_call(self._xml_envelope(header, body))
+        self.logger.debug3('WSMAN Command done for ShellId "%s"' %
+                           str(shellid))
         tag = '{%s}CommandId' % namespaces['rsp']
         for event, elem in etree.iterparse(ret.fp, tag=tag):
             return elem.text
@@ -1010,10 +1014,14 @@ class WinRMProtocol(object):
                                        text='stdout stderr'))
         body.append(shell)
 
+        self.logger.debug3('Calling WSMAN Create')
         ret = self._http_call(self._xml_envelope(header, body))
+
         # Find the ShellID:
         for event, elem in etree.iterparse(
                 ret.fp, tag='{http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd}Selector'):
+            self.logger.debug3('WSMAN Create done, returned ShellId %s' %
+                               str(elem.text))
             return elem.text
         raise Exception('Did not receive ShellId from server')
 
@@ -1029,8 +1037,11 @@ class WinRMProtocol(object):
         """
         selector = self._xml_element('Selector', 'wsman', text=shellid,
                                      attribs={'Name': 'ShellId'})
+        self.logger.debug3('Calling WSMAN Delete for ShellId "%s"' %
+                           str(shellid))
         ret = self._http_call(self._xml_envelope(self._xml_header('delete',
                                                         selectors=[selector])))
+        self.logger.debug3('WSMAN Delete done for ShellId "%s"' % str(shellid))
         # No need to parse the reply, exceptions are thrown by HTTP error codes
         # and raised by _http_call
         return True
@@ -1092,10 +1103,13 @@ class WinRMProtocol(object):
         body.append(enum)
 
         #print etree.tostring(self._xml_envelope(header, body), pretty_print=True)
-
+        self.logger.debug3('Calling WSMAN Enumerate for resource "%s"' %
+                           str(resource))
         ret = self._http_call(self._xml_envelope(header, body))
         tag = '{%s}EnumerationContext' % namespaces['wsen']
         for event, elem in etree.iterparse(ret.fp, tag=tag):
+            self.logger.debug3('WSMAN Enumerate done for resource "%s"' %
+                               str(resource))
             return elem.text
         raise Exception("Unknown Enumeration response for resource='%s'" %
                         resource)
@@ -1131,7 +1145,11 @@ class WinRMProtocol(object):
             sel = [self._xml_element('Selector', 'wsman', text=s_txt,
                                      attribs=selector)]
         header = self._xml_header('get', resource=resource, selectors=sel)
+        self.logger.debug3('Calling WSMAN Get for resource "%s"' %
+                           str(resource))
         ret = self._http_call(self._xml_envelope(header))
+        self.logger.debug3('WSMAN Enumerate done for resource "%s"' %
+                           str(resource))
         return etree.parse(ret.fp, parser=self.xmlparser)
 
     def wsman_identify(self):
@@ -1161,7 +1179,9 @@ class WinRMProtocol(object):
         body.append(self._xml_element('Identify', 'wsmid'))
         env.append(body)
         self._http_headers['WSMANIDENTIFY'] = 'unauthenticated'
+        self.logger.debug3('Calling WSMAN Identify')
         ret = self._http_call(env)  # , address='/wsman-anon/identify')
+        self.logger.debug3('WSMAN Identify done')
         del self._http_headers['WSMANIDENTIFY']
         xml = etree.parse(ret.fp, parser=self.xmlparser)
         return xml
@@ -1203,7 +1223,10 @@ class WinRMProtocol(object):
         body.append(pull)
 
         tag = '{%s}PullResponse' % namespaces['wsen']
+        self.logger.debug3('Calling WSMAN Pull for resource "%s"' %
+                           str(resource))
         ret = self._http_call(self._xml_envelope(header, body))
+        self.logger.debug3('WSMAN Pull done for resource "%s"' % str(resource))
         for event, elem in etree.iterparse(ret.fp, tag=tag, encoding='utf-8'):
             return elem
 
@@ -1271,7 +1294,11 @@ class WinRMProtocol(object):
         stream.text = 'stdout stderr'
         receiver.append(stream)
 
+        self.logger.debug3('Calling WSMAN Recieve for ShellId "%s", '
+                           'CommandId "%s"' % (str(shellid), str(commandid)))
         ret = self._http_call(self._xml_envelope(header, body))
+        self.logger.debug3('WSMAN Recieve done for ShellId "%s", '
+                           'CommandId "%s"' % (str(shellid), str(commandid)))
         root = etree.parse(ret.fp, parser=self.xmlparser)
         exitcode = None
         state = None
@@ -1365,7 +1392,11 @@ class WinRMProtocol(object):
                                                # Not sure if End is used
                                                'End': 'TRUE'}))
         body.append(send)
+        self.logger.debug3('Calling WSMAN Send for ShellId "%s", '
+                           'CommandId "%s"' % (str(shellid), str(commandid)))
         ret = self._http_call(self._xml_envelope(header, body))
+        self.logger.debug3('WSMAN Send done for ShellId "%s", '
+                           'CommandId "%s"' % (str(shellid), str(commandid)))
         return etree.parse(ret.fp, parser=self.xmlparser)
         # TODO: What to return? Only True?
 
@@ -1405,8 +1436,12 @@ class WinRMProtocol(object):
         body.append(xml)
         selector = self._xml_element('Selector', 'wsman', text=shellid,
                                      attribs={'Name': 'ShellId'})
+        self.logger.debug3('Calling WSMAN Signal for ShellId "%s", '
+                           'CommandId "%s"' % (str(shellid), str(commandid)))
         ret = self._http_call(self._xml_envelope(self._xml_header('signal',
                                                  selectors=[selector]), body))
+        self.logger.debug3('WSMAN Signal done for ShellId "%s", '
+                           'CommandId "%s"' % (str(shellid), str(commandid)))
         # TODO: What to check?
         # TODO: What to return?
         return ret
