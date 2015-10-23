@@ -507,7 +507,7 @@ class Constants(Constants.Constants):
 
     # Trait for passphrase stats
     trait_has_passphrase = _EntityTraitCode(
-        'uio-passphrase',
+        'has_passphrase',
         Constants.Constants.entity_account,
         "Account uses passphrase")
 
