@@ -1059,7 +1059,7 @@ class BofhdAuth(DatabaseAccessor):
             if self._no_account_home(operator, entity):
                 return True
         return self.is_account_owner(operator, self.const.auth_set_password,
-                                     entity, operation_attr=str(qtype))
+                                     entity)
 
     def can_create_disk(self, operator, host=None, query_run_any=False):
         if self.is_superuser(operator):
