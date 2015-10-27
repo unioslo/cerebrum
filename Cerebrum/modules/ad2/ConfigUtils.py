@@ -100,7 +100,7 @@ class AttrConfig(object):
         :param default:
             The default value to set for the attribute if no other value is
             found. Note that if this is a string, it is able to use some of the
-            basic variables for the entities: 
+            basic variables for the entities:
 
             - `entity_name'
             - `entity_id'
@@ -229,7 +229,7 @@ class ContactAttr(AttrConfig):
     """Configuration for an attribute containing contact info.
 
     This is used for attributes that should contain data that is stored as
-    contact info in Cerebrum. 
+    contact info in Cerebrum.
 
     Note that the contact information consist of different elements:
 
@@ -312,7 +312,7 @@ class AddressAttr(AttrConfig):
         Note that each address is a dict and not a string. You therefore need to
         use L{transform} to set the proper variable(s) you would like. Each
         address consists of the elements:
-        
+
                 - address_text
                 - p_o_box
                 - postal_number
@@ -324,7 +324,7 @@ class AddressAttr(AttrConfig):
             lambda adr: adr['postal_number']
 
         which would for instance return::
-        
+
             0360
 
         You could also combine elements::
@@ -445,7 +445,7 @@ class MemberAttr(AttrConfig):
         """Initiate a config for fetching group members.
 
         @type member_spread: SpreadCode or sequence thereof
-        @param member_spread: 
+        @param member_spread:
             What spread(s) the group members should have to be selected.
 
         @type person2primary: bool
@@ -488,22 +488,11 @@ class CallbackAttr(AttrConfig):
         super(CallbackAttr, self).__init__(*args, **kwargs)
         self.callback = callback
 
-# TODO: Need to figure out how to implement different config classes for various
-# settings that is not related to Cerebrum constants. Should we create one class
-# for all small things, e.g. one for UidAttr, and one for GidAttr?
-
-# TODO: Would we be in need of attributes that combines data from different
-# elements? E.g. a join of two different traits, the person name and a spread?
-# The config does not handles such needs now, would then have to code it into a
-# subclass of the AD sync instead.
-
-# Config for the Mail module
-
 class EmailAddrAttr(AttrConfig):
     """Config for all e-mail addresses for an entity from the Email module.
 
     Note that each given value contains the elements:
-    
+
         - primary (string): The primary e-mail address for the entity.
         - alias (list of strings): A list of all the e-mail aliases for the
           entity.
@@ -667,7 +656,7 @@ class AttrCriterias(object):
             entity to allow the given AttrConfig to be set.
 
         @type callback: callable
-        @param callback: 
+        @param callback:
             If flexibility is needed, you could use this callback for generating
             a more specific criteria. The callable must accept one argument, a
             L{CerebrumEntity} object, and must return True to tell that the
@@ -812,6 +801,10 @@ class AccountCriterias(AttrCriterias):
                             raise ConfigError(
                                 "OUPerspective '%s' does not exist"
                                 % ou_perspective)
+                    elif ou_str:
+                        raise ConfigError(
+                            ("Invalid ou_mapping {!r}, cannot have OU"
+                             " without perspective").format(elm))
 
                     yield (aff, status, ou)
 

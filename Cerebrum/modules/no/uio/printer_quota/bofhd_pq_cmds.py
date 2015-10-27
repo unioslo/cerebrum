@@ -123,7 +123,7 @@ class PQBofhdAuth(auth.BofhdAuth):
         if (self.is_superuser(operator) or
             self._has_operation_perm_somewhere(operator, operation_anyage)):
             return True
-        
+
         if query_run_any:
             if self._has_operation_perm_somewhere(operator, operation):
                 return True
@@ -171,7 +171,7 @@ class BofhdExtension(BofhdCommandBase):
         self.ba = PQBofhdAuth(self.db)
     # end __init__
 
-        
+
     def get_help_strings(self):
         group_help = {
             'pquota': "Commands for administrating printer quotas",
@@ -182,7 +182,7 @@ class BofhdExtension(BofhdCommandBase):
         command_help = {
             'pquota': {
                  'pquota_info':
-                    'Returnerer info om skriverkvoten',           
+                    'Returnerer info om skriverkvoten',
                 'pquota_status':
                     'Returnerer status for skriverkvoten',
                 'jbofh_pquota_history':
@@ -237,7 +237,7 @@ The currently defined id-types are:
             ppq_info = self.bu.get_pquota_status(person_id)
         except errors.UserHasNoQuota, e:
             return "%s: %s" % (person, e)
-        has_quota = ppq_info['has_quota'] 
+        has_quota = ppq_info['has_quota']
         has_blocked_quota = ppq_info['has_blocked_quota']
         import math
         paid_quota = int(math.floor(1/printer_quota.PAGE_COST *
@@ -359,7 +359,7 @@ The currently defined id-types are:
             ret.append(t)
 
         return ret
-        
+
     all_commands['pquota_history'] = None
     def pquota_history(self, operator, person, when=None):
         return self._pquota_history(
@@ -515,7 +515,7 @@ The currently defined id-types are:
             raise CerebrumError("Syntax error")
         else:
             binds = zip(terms[0::2], terms[1::2])
-        
+
         keys = {
                 'qid': 'priss_queue_id',
                 'prissqid': 'priss_queue_id',
@@ -671,7 +671,6 @@ if __name__ == '__main__':  # For testing
     import xmlrpclib
     svr = xmlrpclib.Server("http://127.0.0.1:8000", encoding='iso8859-1')
     secret = svr.login("bootstrap_account", "test")
-    print svr.run_command(secret, 'pquota_status', '05107747682')
-    print svr.run_command(secret, 'pquota_history', '05107747682')
-    print svr.run_command(secret, 'pquota_status', '15035846422')
-
+    personid = raw_input("Give me a person id to test: ")
+    print svr.run_command(secret, 'pquota_status', personid)
+    print svr.run_command(secret, 'pquota_history', personid)
