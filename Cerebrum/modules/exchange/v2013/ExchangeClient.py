@@ -28,6 +28,7 @@ deleting and updating mailboxes and distribution groups in Exchange 2013."""
 
 import re
 from urllib2 import URLError
+from string import Template
 
 import cerebrum_path
 getattr(cerebrum_path, "linter", "must be supressed!")
@@ -713,6 +714,32 @@ class ExchangeClient(PowershellClient):
             'Set-Mailbox',
             {'Identity': uname,
              'DeliverToMailboxAndForward': local_delv})
+        out = self.run(cmd)
+        if 'stderr' in out:
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
+
+    def set_spam_settings(self, uname, level, action):
+        """Set spam settings for a user.
+
+        :type uname: string
+        :param uname: The username.
+
+        :type level: int
+        :param level: The spam level to set.
+
+        :type action: string
+        :param action: The spam action to set.
+
+        :raises ExchangeException: If the command fails to run."""
+        assert(isinstance(self.exchange_commands, dict) and
+               'execute_on_modify_spam_settings' in self.exchange_commands)
+        cmd_template = Template(self.exchange_commands['execute_on_modify_spam_settings'])
+        args = {'uname': self._escape_to_string(uname),
+                'level': self._escape_to_string(level),
+                'action': self._escape_to_string(action)}
+        cmd = cmd_template.safe_substitute(args)
         out = self.run(cmd)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
