@@ -28,12 +28,11 @@ from Cerebrum.modules.pwcheck.simple import CheckLengthMixin
 from Cerebrum.modules.pwcheck.simple import CheckInvalidCharsMixin
 from Cerebrum.modules.pwcheck.simple import CheckCharSeqMixin
 from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
-from Cerebrum.modules.pwcheck.common import PasswordChecker as PC
 
 
-class VirthomePasswordCheckerMixin(CheckLengthMixin,
-                                   CheckInvalidCharsMixin,
-                                   CheckCharSeqMixin):
+class VirthomePasswordChecker(CheckLengthMixin,
+                              CheckInvalidCharsMixin,
+                              CheckCharSeqMixin):
 
     # CheckLengthMixin
     _password_min_length = 12
@@ -53,7 +52,3 @@ class VirthomePasswordCheckerMixin(CheckLengthMixin,
                 "Attempting to set non-string password %s" % password)
         super(VirthomePasswordCheckerMixin,
               self).password_good_enough(password, **kw)
-
-
-class PasswordChecker(VirthomePasswordCheckerMixin, PC):
-    pass
