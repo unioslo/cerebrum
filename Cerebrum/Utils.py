@@ -940,6 +940,23 @@ class Factory(object):
             raise ValueError("Unknown component %r" % comp)
 
         import_spec = getattr(cereconf, conf_var)
+        return Factory.make_class(comp, import_spec, conf_var)
+
+    def make_class(name, import_spec, conf_var=None):
+        """Assemble the class according to spec.
+
+        :param string name: Name of class thing.
+
+        :param sequence import_spec: Name of classes to assemble into the
+            returned class. Each element of the form ``module/classname``.
+
+        :param string conf_var: Variable in cereconf
+        
+        :return: Class
+        """
+        if name in Factory.class_cache:
+            return Factory.class_cache[name]
+
         if isinstance(import_spec, (tuple, list)):
             bases = []
             for c in import_spec:
@@ -960,9 +977,15 @@ class Factory(object):
                 # misconfiguration won't be used.
                 for override in bases:
                     if issubclass(cls, override):
-                        raise RuntimeError("Class %r should appear earlier in"
-                                           " cereconf.%s, as it's a subclass of"
-                                           " class %r." % (cls, conf_var, override))
+                        if conf_var:
+                            raise RuntimeError("Class %r should appear earlier"
+                                               " in cereconf.%s, as it's a"
+                                               " subclass of class %r." %
+                                               (cls, conf_var, override))
+                        else:
+                            raise RuntimeError("Class %r should appear earlier"
+                                               " than %r as it is a subclass" %
+                                               (cls, override))
                 bases.append(cls)
             if len(bases) == 1:
                 comp_class = bases[0]
@@ -973,12 +996,12 @@ class Factory(object):
                 # prefix of "_dynamic_"; the prefix is there to reduce
                 # the probability of `auto_super` name collision
                 # problems.
-                comp_class = type('_dynamic_' + comp, tuple(bases), {})
-            Factory.class_cache[comp] = comp_class
+                comp_class = type('_dynamic_' + name, tuple(bases), {})
+            Factory.class_cache[name] = comp_class
             return comp_class
         else:
             raise ValueError("Invalid import spec for component %s: %r" %
-                             (comp, import_spec))
+                             (name, import_spec))
 
     def get_logger(name=None):
         """Return THE cerebrum logger.
