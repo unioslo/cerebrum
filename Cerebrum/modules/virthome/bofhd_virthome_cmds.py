@@ -60,7 +60,7 @@ from Cerebrum.modules.virthome.bofhd_auth import BofhdVirtHomeAuth
 from Cerebrum.modules.virthome.VirtAccount import VirtAccount 
 from Cerebrum.modules.virthome.VirtAccount import FEDAccount
 
-from Cerebrum.modules.virthome.PasswordChecker import PasswordChecker
+from Cerebrum.modules.virthome.PasswordChecker import VirthomePasswordChecker
 from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
 
 
@@ -562,7 +562,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """
 
         try:
-            pwd_checker = PasswordChecker()
+            pwd_checker = VirthomePasswordChecker()
             pwd_checker.password_good_enough(password)
         except PasswordNotGoodEnough, m:
             raise CerebrumError("Password too weak: %s" % str(m))
