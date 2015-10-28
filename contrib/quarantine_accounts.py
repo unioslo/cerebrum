@@ -59,11 +59,14 @@ from Cerebrum.QuarantineHandler import QuarantineHandler
 
 logger = Factory.get_logger('cronjob')
 
+
 def usage(exitcode=0):
     print __doc__
     print """Usage: %s
 
 -q QUARANTINE   The quarantine to set (default 'auto_no_aff')
+
+-i              Set quarantine also if account have other quarantines.
 
 -r              Remove quarantines for those that have previously gotten the
                 given quarantine, but have now gotten an affiliation. This is to
@@ -105,9 +108,10 @@ def usage(exitcode=0):
     """ % sys.argv[0]
     sys.exit(exitcode)
 
+
 def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
     """Function for sending mail to users.
-    
+
     Will respect dryrun, as that is given and handled by Utils.sendmail, which
     is then not sending the e-mail.
 
@@ -144,6 +148,7 @@ def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
         return False
     return True
 
+
 def notify_user(ac, quar_start_in_days):
     """Send a mail to the given user about the quarantine.
 
@@ -173,24 +178,27 @@ def notify_user(ac, quar_start_in_days):
                 entity_id=ac.entity_id,
                 contact_type=co.contact_email)[0]['contact_value']
             logger.debug(
-                "Found email address for account:%s in entity contact info" % ac.account_name)
+                "Found email address for account:%s in entity contact info" %
+                ac.account_name)
         except IndexError:
             pass
 
     if addr is None:
-        # Look for forward addresses in entity_contact_info for the account owner
+        # Look for forward addresses in entity_contact_info for the owner
         try:
             addr = ac.list_contact_info(
                 entity_id=ac.owner_id,
                 contact_type=co.contact_email)[0]['contact_value']
             logger.debug(
-                "Found email address for account:%s in entity contact info for person:%i" % (
+                "Found email address for account:%s "
+                "in entity contact info for person:%i" % (
                     ac.account_name, ac.owner_id))
         except IndexError:
             pass
 
     if addr is None:
-        logger.warn("No email address for account:%s, can't notify", ac.account_name)
+        logger.warn("No email address for account:%s, can't notify",
+                    ac.account_name)
         return False
 
     body = email_info['Body']
@@ -214,7 +222,8 @@ def notify_user(ac, quar_start_in_days):
 
     return send_mail(addr, email_info['From'], subject, body, email_info['Cc'])
 
-def find_candidates(exclude_aff=[], grace=0):
+
+def find_candidates(exclude_aff=[], grace=0, quarantine=None):
     """Find persons who should be quarantined and dequarantined.
 
     :param list exclude_aff:
@@ -229,8 +238,12 @@ def find_candidates(exclude_aff=[], grace=0):
         Defines a grace period for when affiliations are still considered
         active, after their end period.
 
+    :param None/QuarantineCode/sequence(QuarantineCode) quarantine:
+        If not None, will filter the `quarantined` return value only to have
+        these quarantines.
+
     :rtype: dict
-    :return: 
+    :return:
         Three elements are included in the dict:
 
         - `affiliated`: A set with person-IDs for those considered affiliatied.
@@ -240,6 +253,7 @@ def find_candidates(exclude_aff=[], grace=0):
     """
     datelimit = DateTime.now() - int(grace)
     logger.debug2("Including affiliations deleted after: %s", datelimit)
+
     def is_aff_considered(row):
         """Check for if an affiliation should be considered or not."""
         # Exclude affiliations deleted before the datelimit:
@@ -257,17 +271,24 @@ def find_candidates(exclude_aff=[], grace=0):
     naffed = set(x['person_id'] for x in pe.list_persons()) - affed
     logger.debug('Found %d persons without affiliations', len(naffed))
 
-    quarantined = QuarantineHandler.get_locked_entities(
-        db, entity_types=co.entity_account)
+    if quarantine is None:
+        quarantined = QuarantineHandler.get_locked_entities(
+            db, entity_types=co.entity_account)
+    else:
+        quarantined = set(x['entity_id'] for x in ac.list_entity_quarantines(
+            entity_types=co.entity_account,
+            only_active=True,
+            quarantine_types=quarantine))
     logger.debug('Found %d quarantined accounts', len(quarantined))
     return {'affiliated': affed, 'not_affiliated': naffed,
             'quarantined': quarantined}
+
 
 def set_quarantine(pids, quar, offset, quarantined):
     """Quarantine the given persons' accounts.
 
     :param list pids: Person IDs that will be evaluated for quarantine.
-    
+
     :param _QuarantineCode quar:
         The quarantine that will be set on accounts referenced in `pids`.
 
@@ -292,11 +313,11 @@ def set_quarantine(pids, quar, offset, quarantined):
 
     # Cache what entities has the target quarantine:
     with_target_quar = set(
-                    r['entity_id'] for r in
-                    ac.list_entity_quarantines(quarantine_types=quar,
-                                               only_active=False,
-                                               entity_types=co.entity_account)
-                    if r['start_date'] <= date)
+        r['entity_id'] for r in
+        ac.list_entity_quarantines(quarantine_types=quar,
+                                   only_active=False,
+                                   entity_types=co.entity_account)
+        if r['start_date'] <= date)
     logger.debug2('Accounts with target quarantine: %d', len(with_target_quar))
     # Cache the owner to account relationship:
     pid2acs = {}
@@ -342,6 +363,7 @@ def set_quarantine(pids, quar, offset, quarantined):
     logger.debug('Accounts failed: %d', failed_notify)
     return success
 
+
 def remove_quarantine(pids, quar):
     """Assert that the given quarantine is removed from the given persons.
 
@@ -369,7 +391,7 @@ def remove_quarantine(pids, quar):
                     ac.list_entity_quarantines(quarantine_types=quar,
                                                only_active=False,
                                                entity_types=co.entity_account))
-    
+
     for pid in pids:
         for row in pid2acs.get(pid, ()):
             if row['account_id'] not in with_quar:
@@ -382,6 +404,7 @@ def remove_quarantine(pids, quar):
             dequarantined.append(row['name'])
     logger.debug('Quarantines removed in total: %d', len(dequarantined))
     return dequarantined
+
 
 def parse_affs(affs):
     """
@@ -418,6 +441,7 @@ def main():
     ac = Factory.get('Account')(db)
 
     quarantine = None
+    ignore_quarantines = False
     quarantine_offset = 7
     dryrun = debug_verbose = False
     email_info = None
@@ -426,10 +450,11 @@ def main():
     grace = 0
 
     try:
-        opts, j = getopt.getopt(sys.argv[1:], 'q:rdo:m:eha:',
+        opts, j = getopt.getopt(sys.argv[1:], 'q:rdo:m:eha:i',
                                 ['dryrun',
                                  'grace=',
-                                 'help'])
+                                 'help',
+                                 'ignore-quarantines'])
     except getopt.GetoptError, e:
         print e
         usage(1)
@@ -441,6 +466,8 @@ def main():
                 int(quarantine)
             except Errors.NotFoundError:
                 raise Exception("Invalid quarantine: %s" % val)
+        elif opt in ('-i', '--ignore-quarantines'):
+            ignore_quarantines = True
         elif opt in ('-r',):
             remove = True
         elif opt in ('-d', '--dryrun'):
@@ -464,7 +491,7 @@ def main():
                 f.close()
                 email_info = {
                     'Subject': email.Header.decode_header(
-                                                        msg['Subject'])[0][0],
+                        msg['Subject'])[0][0],
                     'From': msg['From'],
                     'Cc': msg['Cc'],
                     'Body': msg.get_payload(decode=1)
@@ -487,7 +514,9 @@ def main():
         quarantine = co.quarantine_auto_no_aff
 
     logger.debug('Finding candidates for addition/removal of quarantine...')
-    cands = find_candidates(ignore_aff, grace)
+    cands = find_candidates(ignore_aff,
+                            grace,
+                            quarantine if ignore_quarantines else None)
     logger.debug('Setting/removing quarantine on accounts')
     set_quarantine(cands['not_affiliated'], quarantine, quarantine_offset,
                    quarantined=cands['quarantined'])

@@ -513,6 +513,12 @@ EMAIL_DEFAULT_FILTERS = {}
 # If this value is set to False, no changes are made.
 EMAIL_EXPIRE_ADDRESSES = 180
 
+# Some instances may have EmailTargets with actual e-mail addresses that are
+# not listed in the corresponding account's mail-domains. These mail-domains
+# will be marked as deletable, when they should remain non-deletable. Adding
+# such domains to this list will ensure they are *not* marked as deletable.
+EMAIL_NON_DELETABLE_DOMAINS = []
+
 # contrib/no/uio/process_bofhd_requests.py needs a list of servers to
 # pass off to cereconf.IMAPSYNC_SCRIPT.
 PROC_BOFH_REQ_MOVE_SERVERS = []
@@ -539,6 +545,21 @@ AUTH_PGP = {}
 
 # Realm for HA1 md5 crypt, used by const.auth_type_ha1_md5
 AUTH_HA1_REALM = ""
+
+# A string representing the recipient's ID.
+# The ID is used by pygpgme to determine which public key to use for encryption
+# 'gpg2 -k --fingerprint' can be used to list all available public keys in the
+# current GnuPG database, along with their fingerprints. Possible values:
+# uid: (f.i. "Cerebrum Test <cerebrum@uio.no>")
+# key-id: (f.i. "FEAC69E4")
+# fingerprint (recommended!): (f.i. '78D9E8FEB39594D4EAB7A9B85B17D23FFEAC69E4')
+# PASSWORD_GPG_RECIPIENT_ID = 'DE2801BE77377C124091142819368B5CB341836F'
+
+# The path (str) of an alternative GnuPG home-directory.
+# The default GNUPGHOME is usually: ~/.gnupg
+# The default GNUPGHOME will be used if this attribute is not set
+# (or if it evaluates to False).
+# PASSWORD_GNUPGHOME = '~/.cerebrum_gnupg'
 
 #
 # LDAP stuff

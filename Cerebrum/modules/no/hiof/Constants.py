@@ -157,7 +157,17 @@ class HiOfConstantsActiveDirectory(ConstantsActiveDirectory):
         'extensionAttribute1 for an object in AD',
         False)
 
+    ad_attribute_extensionattribute2 = _ADAttrCode(
+        'extensionAttribute2',
+        'extensionAttribute2 for an object in AD',
+        False)
+
     ad_attribute_extensionattribute3 = _ADAttrCode(
         'extensionAttribute3',
         'extensionAttribute3 for an object in AD',
+        False)
+
+    ad_attribute_extensionattribute4 = _ADAttrCode(
+        'extensionAttribute4',
+        'extensionAttribute4 for an object in AD',
         False)
