@@ -27,6 +27,7 @@ This module can be used by exports or an event daemon for creating,
 deleting and updating mailboxes and distribution groups in Exchange 2013."""
 
 import re
+
 from urllib2 import URLError
 from string import Template
 
@@ -53,9 +54,7 @@ class ClientMock(object):
 
 
 class ExchangeClient(PowershellClient):
-
     """A PowerShell client implementing function calls against Exchange."""
-
     def __init__(self,
                  auth_user,
                  domain_admin,
@@ -76,7 +75,6 @@ class ExchangeClient(PowershellClient):
             the AD domain we are going to synchronize with."""
         super(ExchangeClient, self).__init__(*args, **kwargs)
         self.logger.debug("ExchangeClient super returned")
-
         self.add_credentials(
             username=auth_user,
             password=unicode(read_password(auth_user, self.host), 'utf-8'))
@@ -310,13 +308,15 @@ class ExchangeClient(PowershellClient):
             raise ServerUnavailableException(e)
 
     def escape_to_string(self, data):
-        """Override PowershellClient and return appropriate empty strings.
+        """
+        Override PowershellClient and return appropriate empty strings.
 
         :type data: mixed (dict, list, tuple, string or int)
         :param data: The data that must be escaped to be usable in powershell.
 
         :rtype: string
-        :return: A string that could be used in powershell commands directly."""
+        :return: A string that could be used in powershell commands directly.
+        """
         if isinstance(data, basestring) and data == '':
             return "''"
         else:
@@ -975,7 +975,8 @@ class ExchangeClient(PowershellClient):
             return True
 
     def add_distgroup_addresses(self, gname, addresses):
-        """Add email addresses from a distribution group
+        """
+        Add email addresses from a distribution group
 
         :type gname: string
         :param gname: The group name to look up associated distgroup by.
@@ -983,7 +984,8 @@ class ExchangeClient(PowershellClient):
         :type addresses: list
         :param addresses: A list of addresses to add.
 
-        :raise ExchangeException: If the command failed to run for some reason."""
+        :raise ExchangeException: If the command failed to run for some reason.
+        """
         # TODO: Make me handle single addresses too!
         addrs = {'add': addresses}
         cmd = self._generate_exchange_command(
@@ -1050,7 +1052,8 @@ class ExchangeClient(PowershellClient):
             return True
 
     def remove_distgroup_addresses(self, gname, addresses):
-        """Remove email addresses from a distgroup.
+        """
+        Remove email addresses from a distgroup.
 
         :type gname: string
         :param gname: The group name to look up associated distgroup by.
@@ -1058,7 +1061,8 @@ class ExchangeClient(PowershellClient):
         :type addresses: list
         :param addresses: A list of addresses to remove.
 
-        :raise ExchangeException: If the command failed to run for some reason."""
+        :raise ExchangeException: If the command failed to run for some reason.
+        """
         # TODO: Make me handle single addresses too!
         addrs = {'remove': addresses}
         cmd = self._generate_exchange_command(
