@@ -491,11 +491,8 @@ class ExchangeClient(PowershellClient):
         """
         assert(isinstance(self.exchange_commands, dict) and
                'execute_on_new_mailbox' in self.exchange_commands)
-        cmd_str = self.exchange_commands['execute_on_new_mailbox']
-        cmd_str = cmd_str.replace('%u', uname)
-        cmd = self._generate_exchange_command(
-            cmd_str, {}, ('UiOCredential $ad_cred',))
-
+        cmd_template = Template(self.exchange_commands['execute_on_new_mailbox'])
+        cmd = cmd_template.safe_substitute(uname=self._escape_to_string(uname))
         out = self.run(cmd)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
@@ -664,10 +661,8 @@ class ExchangeClient(PowershellClient):
         """
         assert(isinstance(self.exchange_commands, dict) and
                'execute_on_remove_mailbox' in self.exchange_commands)
-        cmd_str = self.exchange_commands['execute_on_remove_mailbox']
-        cmd_str = cmd_str.replace('%u', uname)
-        cmd = self._generate_exchange_command(cmd_str)
-        # TODO: Verify how this is to be done
+        cmd_template = Template(self.exchange_commands['execute_on_remove_mailbox'])
+        cmd = cmd_template.safe_substitute(uname=self._escape_to_string(uname))
         out = self.run(cmd)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
