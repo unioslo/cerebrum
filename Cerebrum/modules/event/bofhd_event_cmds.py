@@ -118,11 +118,14 @@ class BofhdExtension(BofhdCommandBase):
     # to human-readable text
     def _make_constants_human_readable(self, data):
         constant_keys = ['spread', 'entity_type', 'code', 'affiliation']
-        for key in constant_keys:
-            if key in data:
-                value = self.const.human2constant(data[key])
-                if value:
-                    data[key] = str(value)
+        try:
+            for key in constant_keys:
+                if key in data:
+                    value = self.const.human2constant(data[key])
+                    if value:
+                        data[key] = str(value)
+        except TypeError:
+            pass
         return data
 
     # event stat
