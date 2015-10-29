@@ -33,6 +33,30 @@ from Cerebrum import Database
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import NotSet
 
+
+def _get_fs_version(db):
+    """Return FS version number.
+    :param db: Database object.
+    
+    :return: tuple(major, minor, patch)
+    """
+    result = db.query_1("SELECT Sisteversjon_Database FROM Systemverdier")
+    assert result[:2] == "FS"
+    return map(int, result[2:].split("."))
+
+
+def make_fs(db=None, user=None, database=None):
+    if db is None:
+        user = user or cereconf.FS_USER
+        database = database or cereconf.FS_DATABASE_NAME
+        DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
+        db = Database.connect(user=user, service=database,
+                              DB_driver=DB_driver)
+    major, minor, patch = _get_fs_version(db)
+    if major <= 7:
+        return Factory.get("FS")(db=db)
+
+
 # TODO: En del funksjoner finnes både som get_ og list_ variant.  Det
 # kunne være en fordel om man etablerte en mekanisme for å slå sammen
 # disse.  Det vil både redusere kodeduplisering, og være nyttig dersom
