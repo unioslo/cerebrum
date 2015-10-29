@@ -39,7 +39,7 @@ except NameError:
 def usage():
     print """python export_groups.py [options]
     -s, --spread: choose all groups with given spread
-    -o, --outfile: override def. file name (/cerebrum/uia/dumps/EZPublish/groups.txt)
+    -o, --outfile: override def. file name (/cerebrum/var/cache/EZPublish/groups.txt)
     -f : flatten out groups (find all account-members of groups and their groupmembers)
 
     Example: python export_groups.py -s group@ezpublish -o /tmp/testfile -f """
@@ -96,7 +96,7 @@ def main():
     flat = False
     groups_and_members = {}
     spread_val = ""
-    outfile = '/cerebrum/uia/dumps/EZPublish/groups.txt'
+    outfile = '/cerebrum/var/cache/EZPublish/groups.txt'
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], "s:o:f",

@@ -391,7 +391,7 @@ Examples:
         for f in fields:
             if not isinstance(f, str):
                 raise ValueError, "Type of '%r' is not str." % f
-            if f.find(sep) <> -1:
+            if f.find(sep) != -1:
                 raise ValueError, \
                       "Separator '%s' present in string '%s'" % (sep, f)
         return sep.join(fields)
@@ -430,17 +430,13 @@ Examples:
             self.g_id2gid[int(row['group_id'])] = int(row['posix_gid'])
 
     def load_quaratines(self):
-        if self.quarantines: return
-        now = mx.DateTime.now()
+        if self.quarantines:
+            return
         for row in self.posix_user.list_entity_quarantines(
-                            entity_types = self.co.entity_account):
-            if (row['start_date'] <= now and (row['end_date'] is None or
-                                              row['end_date'] >= now)
-                                         and (row['disable_until'] is None or
-                                              row['disable_until'] < now)):
-                # The quarantine in this row is currently active.
-                self.quarantines.setdefault(int(row['entity_id']), []).append(
-                    int(row['quarantine_type']))
+                entity_types=self.co.entity_account,
+                only_active=True):
+            self.quarantines.setdefault(int(row['entity_id']), []).append(
+                int(row['quarantine_type']))
 
     def load_person_names(self):
         if self.p_id2name: return

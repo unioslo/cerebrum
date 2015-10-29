@@ -24,7 +24,10 @@ import string
 import time
 import mx
 
+from collections import defaultdict
+
 from Cerebrum import Errors
+from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.EmailLDAP import EmailLDAP
@@ -48,7 +51,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
         # keys: account email target ids with pending 'email_primary_address' events
         # values: list of event ids
         # read_pending_primary_email() is called by read_addr()
-        self.pending_primary_email = {}
+        self.pending_primary_email = defaultdict(list)
     # end __init__
 
     spam_act2dig = {'noaction':   '0',
@@ -186,7 +189,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
                     # would give us 'UIO_GLOBALS'.
                     addr = self._build_addr(lp, row['domain'])
                     t_id = int(row2['target_id'])
-                    self.targ2addr.setdefault(t_id, []).append(addr)
+                    self.targ2addr[t_id].add(addr)
                     # Note: We don't need to update aid2addr here, as
                     # addresses @UIO_GLOBALS aren't allowed to be primary
                     # addresses.
@@ -203,58 +206,39 @@ class EmailLDAPUiOMixin(EmailLDAP):
             self.aid2addr[a_id] = addr
             if glob_addr.has_key(dom) and glob_addr[dom].has_key(lp):
                 continue
-            self.targ2addr.setdefault(t_id, []).append(addr)
+            self.targ2addr[t_id].add(addr)
 
         # look for primary email changes that are still pending in the event log
         self.read_pending_primary_email()
 
-
     def read_target_auth_data(self):
         a = Factory.get('Account')(self._db)
         # Same as default, but omit co.quarantine_auto_emailonly
-        quarantines = {}
-        now = mx.DateTime.now()
-        for row in a.list_entity_quarantines(
-                entity_types = self.const.entity_account):
-            if (row['start_date'] <= now
-                and (row['end_date'] is None or row['end_date'] >= now)
-                and (row['disable_until'] is None
-                     or row['disable_until'] < now)
-                and not (int(row['quarantine_type']) == int(self.const.quarantine_auto_emailonly))):
-                # The quarantine in this row is currently active.
-                quarantines[int(row['entity_id'])] = "*locked"
+        quarantines = dict(
+            [(x, "*locked") for x in
+             QuarantineHandler.get_locked_entities(
+             self._db,
+             entity_types=self.const.entity_account,
+             ignore_quarantine_types=self.const.quarantine_auto_emailonly)])
         for row in a.list_account_authentication():
-            account_id = int(row['account_id'])
-            self.e_id2passwd[account_id] = (
-                row['entity_name'],
-                quarantines.get(account_id) or row['auth_data'])
-        for row in a.list_account_authentication(self.const.auth_type_crypt3_des):
-            # *sigh* Special-cases do exist. If a user is created when the
-            # above for-loop runs, this loop gets a row more. Before I ignored
-            # this, and the whole thing went BOOM on me.
-            account_id = int(row['account_id'])
-            if not self.e_id2passwd.get(account_id, (0, 0))[1]:
-                self.e_id2passwd[account_id] = (
-                    row['entity_name'],
-                    quarantines.get(account_id) or row['auth_data'])
+            a_id = int(row['account_id'])
+            self.e_id2passwd[a_id] = quarantines.get(a_id) or row['auth_data']
 
     # exchange-relatert-jazz
     # hardcoding exchange spread since there is no case for any other
     # known spreads at this point
     def target2spread_populate(self):
         a = Factory.get('Account')(self._db)
-        spread = self.const.spread_exchange_account
+        exspread = self.const.spread_exchange_account
         ttype = self.const.email_target_account
-        ret = []
         et = Email.EmailTarget(self._db)
-        et2 = Email.EmailTarget(self._db)
+        exchangeaccounts = set()
+        ret = set()
+        for row in a.search(expire_start=None, spread=exspread):
+            exchangeaccounts.add(int(row['account_id']))
         for row in et.list_email_targets_ext(target_type=ttype):
-            et2.clear()
-            et2.find(int(row['target_id']))
-            a.clear()
-            a.find(int(et2.email_target_entity_id))
-            if a.has_spread(spread):
-                ret.append(et2.entity_id)
+            if int(row['target_entity_id']) in exchangeaccounts:
+                ret.add(int(row['target_id']))
         return ret
                 
     # exchange-relatert-jazz
@@ -267,14 +251,13 @@ class EmailLDAPUiOMixin(EmailLDAP):
     # exclude forward for accounts with exchange_spread
     def read_forward(self):
         mail_forw = Email.EmailForward(self._db)
-        for row in mail_forw.list_email_forwards():
+        for row in mail_forw.search(enable=True):
             # if the target is recorded as having spread_exchange_acc
             # the whole row is skipped because we don't want to
             # export forwards for such targets to LDAP
-            if not int(row['target_id']) in self.targ2spread:
-                self.targ2forward.setdefault(int(row['target_id']),
-                                             []).append([row['forward_to'],
-                                                         row['enable']])
+            t_id = int(row['target_id'])
+            if t_id not in self.targ2spread:
+                self.targ2forward[t_id].append(row['forward_to'])
     # exchange-relatert-jazz
     # 
     # it would have been more elegant to split read_vacation
@@ -285,32 +268,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
     # exclude vacation messages for accounts with exchange_spread
     def read_vacation(self):
         mail_vaca = Email.EmailVacation(self._db)
-        cur = mx.DateTime.today()
-        def prefer_row(row, oldval):
-            o_txt, o_sdate, o_edate, o_enable = oldval
-            txt, sdate, edate, enable = [row[x]
-                                         for x in ('vacation_text',
-                                                   'start_date',
-                                                   'end_date', 'enable')]
-            spans_now = (sdate <= cur and (edate is None or edate >= cur))
-            o_spans_now = (o_sdate <= cur and (o_edate is None or o_edate >= cur))
-            row_is_newer = sdate > o_sdate
-            if spans_now:
-                if enable == 'T' and o_enable == 'F': return True
-                elif enable == 'T' and o_enable == 'T':
-                    if o_spans_now:
-                        return row_is_newer
-                    else: return True
-                elif enable == 'F' and o_enable == 'T':
-                    if o_spans_now: return False
-                    else: return True
-                else:
-                    if o_spans_now: return row_is_newer
-                    else: return True
-            else:
-                if o_spans_now: return False
-                else: return row_is_newer
-        for row in mail_vaca.list_email_vacations():
+        for row in mail_vaca.list_email_active_vacations():
             t_id = int(row['target_id'])
             # exchange-relatert-jazz
             # if the target is recorded as having spread_exchange_acc
@@ -319,23 +277,15 @@ class EmailLDAPUiOMixin(EmailLDAP):
             if t_id in self.targ2spread:
                 continue
             insert = False
-            if self.targ2vacation.has_key(t_id):
-                if prefer_row(row, self.targ2vacation[t_id]):
+            if t_id in self.targ2vacation:
+                if row['start_date'] > self.targ2vacation[t_id][1]:
                     insert = True
             else:
                 insert = True
             if insert:
-                # Make sure vacations that doesn't span now aren't marked
-                # as active, even though they might be registered as
-                # 'enabled' in the database.
-                enable = False
-                if row['start_date'] <= cur and (row['end_date'] is None
-                                                 or row['end_date'] >= cur):
-                    enable = (row['enable'] == 'T')
                 self.targ2vacation[t_id] = (iso2utf(row['vacation_text']),
                                             row['start_date'],
-                                            row['end_date'],
-                                            enable)
+                                            row['end_date'])
 
     def read_pending_primary_email(self):
         """Fetches the subject ids (email target ids) that have unprocessed
@@ -352,8 +302,6 @@ class EmailLDAPUiOMixin(EmailLDAP):
             try:
                 event = self._db.get_event(event_id=event_id)
                 target = int(event['subject_entity'])
-                if not target in self.pending_primary_email:
-                    self.pending_primary_email[target] = []
                 self.pending_primary_email[target].append(event_id)
             except Errors.NotFoundError:
                 continue

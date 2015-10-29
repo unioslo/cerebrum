@@ -36,6 +36,7 @@ from Cerebrum.modules import Email
 from Cerebrum import Errors
 from Cerebrum import Utils
 
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.cmd_param import Command, FormatSuggestion, \
@@ -50,7 +51,7 @@ def format_day(field):
     return ":".join((field, "date", fmt))
 
 
-class BofhdEmailMixinBase(object):
+class BofhdEmailMixinBase(BofhdCommandBase):
 
     """ This is the common base for BofhdEmailMixins.
 
@@ -912,8 +913,13 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
 
             # Tell what addresses can be deleted:
             ea = Email.EmailAddress(self.db)
+            dom = Email.EmailDomain(self.db)
             domains = acc.get_prospect_maildomains(
                 use_default_domain=cereconf.EMAIL_DEFAULT_DOMAIN)
+            for domain in cereconf.EMAIL_NON_DELETABLE_DOMAINS:
+                dom.clear()
+                dom.find_by_domain(domain)
+                domains.append(dom.entity_id)
             deletables = []
             for addr in et.get_addresses(special=True):
                 ea.clear()

@@ -949,8 +949,23 @@ class BofhdAuth(DatabaseAccessor):
             raise PermissionDenied("No access")
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
+
+        for row in self._list_target_permissions(
+                operator, self.const.auth_quarantine_disable,
+                self.const.auth_target_type_global_host,
+                None, get_all_op_attrs=True):
+            attr = row.get('operation_attr')
+            # No operation attributes means that all quarantines are allowed
+            # TODO: This can be removed when all opsets for all instances
+            # has a populated qua_disable dict.
+            if not attr:
+                return True
+            if str(qtype) == attr:
+                return True
+
         return self.is_account_owner(
-            operator, self.const.auth_quarantine_disable, entity)
+            operator, self.const.auth_quarantine_disable, entity,
+            operation_attr=str(qtype))
 
     def can_remove_quarantine(self, operator, entity=None, qtype=None,
                               query_run_any=False):
@@ -977,8 +992,23 @@ class BofhdAuth(DatabaseAccessor):
         else:
             if self._no_account_home(operator, entity):
                 return True
+
+        for row in self._list_target_permissions(
+                operator, self.const.auth_quarantine_remove,
+                self.const.auth_target_type_global_host,
+                None, get_all_op_attrs=True):
+            attr = row.get('operation_attr')
+            # No operation attributes means that all quarantines are allowed
+            # TODO: This can be removed when all opsets for all instances
+            # has a populated qua_remove dict.
+            if not attr:
+                return True
+            if str(qtype) == attr:
+                return True
+
         return self.is_account_owner(
-            operator, self.const.auth_quarantine_remove, entity)
+            operator, self.const.auth_quarantine_remove, entity,
+            operation_attr=str(qtype))
 
     def can_set_quarantine(self, operator, entity=None, qtype=None,
                            query_run_any=False):
@@ -993,6 +1023,18 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if str(qtype) in getattr(cereconf, 'QUARANTINE_AUTOMATIC', ()):
             raise PermissionDenied('Not allowed to set automatic quarantine')
+        for row in self._list_target_permissions(
+                operator, self.const.auth_quarantine_set,
+                self.const.auth_target_type_global_host,
+                None, get_all_op_attrs=True):
+            attr = row.get('operation_attr')
+            # No operation attributes means that all quarantines are allowed
+            # TODO: This can be removed when all opsets for all instances
+            # has a populated qua_add dict.
+            if not attr:
+                return True
+            if str(qtype) == attr:
+                return True
 
         # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Factory.get('Account'))):
@@ -1001,7 +1043,7 @@ class BofhdAuth(DatabaseAccessor):
             if self._no_account_home(operator, entity):
                 return True
         return self.is_account_owner(operator, self.const.auth_quarantine_set,
-                                     entity)
+                                     entity, operation_attr=str(qtype))
 
     def can_show_quarantines(self, operator, entity=None,
                              query_run_any=False):
@@ -1052,6 +1094,21 @@ class BofhdAuth(DatabaseAccessor):
         return self.can_create_host(operator, query_run_any=query_run_any)
 
     def can_alter_group(self, operator, group=None, query_run_any=False):
+        """
+        Checks if the operator has permission to add/remove group members for
+        the given group.
+
+        @type operator: int
+        @param operator: The entity_id of the user performing the operation.
+
+        @type group: An entity of EntityType Group
+        @param group: The group to add/remove members to/from.
+
+        @type query_run_any: True or False
+        @param query_run_any: Check if the operator has permission *somewhere*
+
+        @return: True or False
+        """
         if self.is_superuser(operator):
             return True
         if query_run_any:
@@ -1307,34 +1364,56 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_add_affiliation(self, operator, person=None, ou=None, aff=None,
                             aff_status=None, query_run_any=False):
+        """If the opset has add_affiliation access to the affiliation and
+        status, and the operator has add_affiliation access to the affiliation's
+        OU, allow adding the affiliation to the person."""
         if self.is_superuser(operator):
             return True
-        # TODO (at a later time): add 'auth_add_affiliation',
-        # 'auth_remove_affiliation'.  Determine how these should be
-        # connected to ou etc.
-        # Currently we allow anyone that can create users to
-        # add/remove any affiliation of type manuell
         if query_run_any:
-            if self._has_operation_perm_somewhere(operator, self.const.auth_create_user):
+            if self._has_operation_perm_somewhere(operator,
+                                                  self.const.auth_add_affiliation):
                 return True
             return False
-        if (aff == self.const.affiliation_manuell and
-            self._has_operation_perm_somewhere(operator, self.const.auth_create_user)):
+        if self._has_target_permissions(operator,
+                                        self.const.auth_add_affiliation,
+                                        self.const.auth_target_type_ou,
+                                        ou.entity_id, person.entity_id,
+                                        str(aff_status)):
             return True
-        raise PermissionDenied("No access for that person affiliation combination")
+        raise PermissionDenied("No access for combination %s on person %s in "
+                               "OU %02d%02d%02d" % (aff_status, person.entity_id,
+                               ou.fakultet, ou.institutt, ou.avdeling))
 
     def can_remove_affiliation(self, operator, person=None, ou=None,
                                aff=None, query_run_any=False):
+        """If the opset has rem_affiliation access to the affiliation, and the
+        operator has rem_affiliation access to the affiliation's OU, allow
+        removing the affiliation from the person. Not as strict on MANUELL."""
+
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            if self._has_operation_perm_somewhere(operator, self.const.auth_create_user):
+            if (self._has_operation_perm_somewhere(operator,
+                                                   self.const.auth_remove_affiliation) or
+                self._has_operation_perm_somewhere(operator,
+                                                   self.const.auth_create_user)):
                 return True
             return False
-        if (aff == self.const.affiliation_manuell and
-            self._has_operation_perm_somewhere(operator, self.const.auth_create_user)):
+        if self._has_target_permissions(operator, self.const.auth_remove_affiliation,
+                                        self.const.auth_target_type_ou,
+                                        ou.entity_id, person.entity_id,
+                                        str(aff)):
             return True
-        raise PermissionDenied("Currently limited to superusers")
+        # 2015-09-11: Temporarily (?) allow all LITAs to remove manual affiliations
+        #             from all persons to simplify cleaning up. CERT (bore) has given
+        #             permission to do this. – tvl
+        if (aff == self.const.affiliation_manuell and
+            self._has_operation_perm_somewhere(operator,
+                                               self.const.auth_create_user)):
+            return True
+        raise PermissionDenied("No access for affiliation %s on person %s in "
+                               "OU %02d%02d%02d" % (aff, person.entity_id,
+                               ou.fakultet, ou.institutt, ou.avdeling))
 
     def can_create_user(self, operator, person=None, disk=None,
                         query_run_any=False):
@@ -1465,7 +1544,7 @@ class BofhdAuth(DatabaseAccessor):
         # TODO: add a Boolean to _PosixShellCode() signifying whether
         # it should be user selectable or not.
         if (operator == account.entity_id and shell and
-            shell.description.find("/bin/") <> -1):
+            shell.description.find("/bin/") != -1):
             return True
         # TODO 2003-07-04: Bård is going to comment this
         return self.is_account_owner(operator, self.const.auth_set_password,

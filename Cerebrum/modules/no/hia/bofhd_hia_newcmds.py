@@ -1,5 +1,6 @@
-# -*- coding: iso-8859-1 -*-
-
+#!/usr/bin/env python
+# encoding: latin-1
+#
 # Copyright 2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -129,8 +130,7 @@ class BofhdExtension(BofhdCommonMethods,
         'misc_affiliations', 'misc_check_password', 'misc_clear_passwords',
         'misc_verify_password', 'misc_cancel_request',
         'misc_list_requests', '_map_template', '_parse_range',
-        # 'misc_list_passwords_prompt_func',
-        # 'misc_list_passwords',
+        'misc_list_passwords',
         #
         # copy relevant ou-cmds and util methods
         #
@@ -802,9 +802,9 @@ class BofhdExtension(BofhdCommonMethods,
             raise CerebrumError("Person has no such address")
         try:
             person.delete_entity_address(source_type=ss, a_type=addresstype)
-            self.db.log_change(subject_entity=person.entity_id,
-                               change_type_id=self.const.entity_addr_del,
-                               destination_entity=None,
+            self.db.log_change(person.entity_id,
+                               self.const.entity_addr_del,
+                               None,
                                change_params={'subject': person.entity_id})
             person.write_db()
         except:
@@ -1039,164 +1039,6 @@ class BofhdExtension(BofhdCommonMethods,
         else:
             tmp = ', reused old uid=%i' % old_uid
         return "OK, promoted %s to posix user%s" % (accountname, tmp)
-
-    # misc list_passwords_prompt_func
-    #
-    def misc_list_passwords_prompt_func(self, session, *args):
-        """  - Går inn i "vis-info-om-oppdaterte-brukere-modus":
-  1 Skriv ut passordark
-  1.1 Lister ut templates, ber bofh'er om å velge en
-  1.1.[0] Spesifiser skriver (for template der dette tillates valgt av
-          bofh'er)
-  1.1.1 Lister ut alle aktuelle brukernavn, ber bofh'er velge hvilke
-        som skal skrives ut ('*' for alle).
-  1.1.2 (skriv ut ark/brev)
-  2 List brukernavn/passord til skjerm
-  """
-        all_args = list(args[:])
-        if not all_args:
-            return {'prompt': "Velg#",
-                    'map': [(("Alternativer",), None),
-                            (("Skriv ut passordark",), "skriv"),
-                            (("List brukernavn/passord til skjerm",), "skjerm")]}
-        arg = all_args.pop(0)
-        if(arg == "skjerm"):
-            return {'last_arg': True}
-        if not all_args:
-            map = [(("Alternativer",), None)]
-            n = 1
-            for t in self._map_template():
-                map.append(((t,), n))
-                n += 1
-            return {'prompt': "Velg template #", 'map': map,
-                    'help_ref': 'print_select_template'}
-        arg = all_args.pop(0)
-        tpl_lang, tpl_name, tpl_type = self._map_template(arg)
-        if not all_args:
-            n = 1
-            map = [(("%8s %s", "uname", "operation"), None)]
-            for row in self._get_cached_passwords(session):
-                map.append((("%-12s %s", row['account_id'], row['operation']), n))
-                n += 1
-            if n == 1:
-                raise CerebrumError, "no users"
-            return {'prompt': 'Velg bruker(e)', 'last_arg': True,
-                    'map': map, 'raw': True,
-                    'help_ref': 'print_select_range',
-                    'default': str(n-1)}
-
-    # misc list_passwords
-    #
-    all_commands['misc_list_passwords'] = Command(
-        ("misc", "list_passwords"), prompt_func=misc_list_passwords_prompt_func,
-        fs=FormatSuggestion("%-8s %-20s %s", ("account_id", "operation", "password"),
-                            hdr="%-8s %-20s %s" % ("Id", "Operation", "Password")))
-    def misc_list_passwords(self, operator, *args):
-        if args[0] == "skjerm":
-            return self._get_cached_passwords(operator)
-        args = list(args[:])
-        args.pop(0)
-        tpl_lang, tpl_name, tpl_type = self._map_template(args.pop(0))
-        skriver = None
-        try:
-            acc = self._get_account(operator.get_entity_id(), idtype='id')
-            opr=acc.account_name
-        except Errors.NotFoundError:
-            raise CerebrumError, ("Could not find the operator id!")
-        time_temp = time.strftime("%Y-%m-%d-%H%M%S", time.localtime())
-        selection = args.pop(0)
-        cache = self._get_cached_passwords(operator)
-        th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
-        tmp_dir = Utils.make_temp_dir(dir=cereconf.JOB_RUNNER_LOG_DIR,
-                                      prefix="bofh_spool")
-        out_name = "%s/%s-%s-%s.%s" % (tmp_dir, opr, time_temp, os.getpid(), tpl_type)
-        out = file(out_name, "w")
-        if th._hdr is not None:
-            out.write(th._hdr)
-        ret = []
-
-        num_ok = 0
-        for n in self._parse_range(selection):
-            n -= 1
-
-            try:
-                account = self._get_account(cache[n]['account_id'])
-            except IndexError:
-                raise CerebrumError("Number not in valid range")
-
-            mapping = {'uname': cache[n]['account_id'],
-                       'password': cache[n]['password'],
-                       'account_id': account.entity_id,
-                       'lopenr': ''}
-            if tpl_lang.endswith("letter"):
-                mapping['barcode'] = '%s/barcode_%s.eps' % (
-                    tmp_dir, account.entity_id)
-                try:
-                    th.make_barcode(account.entity_id, mapping['barcode'])
-                except IOError, msg:
-                    raise CerebrumError(msg)
-            if account.owner_type == self.const.entity_group:
-                grp = self._get_group(account.owner_id, idtype='id')
-                mapping['fullname'] = 'group:%s' % grp.group_name
-            elif account.owner_type == self.const.entity_person:
-                person = self._get_person('entity_id', account.owner_id)
-                fullname = person.get_name(self.const.system_cached, self.const.name_full)
-                mapping['fullname'] =  fullname
-            else:
-                raise CerebrumError("Unsupported owner type. Please use the 'to screen' option")
-
-            if tpl_lang.endswith("letter"):
-                for a in ('address_line1', 'address_line2', 'address_line3',
-                          'zip', 'city', 'country'):
-                    mapping[a] = ''
-
-                if account.owner_type != self.const.entity_person:
-                    mapping['birthdate'] = account.create_date.strftime('%Y-%m-%d')
-                else:
-                    address = None
-                    for source, kind in ((self.const.system_sap,
-                                          self.const.address_post),
-                                         (self.const.system_fs,
-                                          self.const.address_post),
-                                         (self.const.system_fs,
-                                          self.const.address_post_private)):
-                        address = person.get_entity_address(source = source, type = kind)
-                        if address:
-                            break
-                    if address:
-                        address = address[0]
-                        mapping['address_line2'] = ""
-                        mapping['address_line3'] = ""
-                        if address['address_text']:
-                            alines = address['address_text'].split("\n")+[""]
-                            mapping['address_line2'] = alines[0]
-                            mapping['address_line3'] = alines[1]
-                        mapping['address_line1'] = fullname
-                        mapping['zip'] = address['postal_number']
-                        mapping['city'] = address['city']
-                        mapping['country'] = address['country']
-                    mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
-                try:
-                    mapping['emailadr'] = account.get_primary_mailaddress()
-                except Errors.NotFoundError:
-                    mapping['emailadr'] = ''
-            num_ok += 1
-            out.write(th.apply_template('body', mapping, no_quote=('barcode',)))
-        if not (num_ok > 0):
-            raise CerebrumError("Errors extracting required information: %s" % "+n".join(ret))
-        if th._footer is not None:
-            out.write(th._footer)
-        out.close()
-        try:
-            account = self._get_account(operator.get_entity_id(), idtype='id')
-            th.spool_job(out_name, tpl_type, skriver, skip_lpr=0,
-                         lpr_user=account.account_name,
-                         logfile="%s/spool.log" % tmp_dir)
-        except IOError, msg:
-            raise CerebrumError(msg)
-        ret.append("OK: %s/%s.%s spooled @ %s for %s" % (
-            tpl_lang, tpl_name, tpl_type, skriver, selection))
-        return "\n".join(ret)
 
     # user delete
     #

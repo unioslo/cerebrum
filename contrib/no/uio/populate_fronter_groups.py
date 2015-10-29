@@ -349,7 +349,7 @@ def prefetch_primaryusers():
             continue
         fnr = row['external_id']
         src_sys = int(row['source_system'])
-        if fnr_source.has_key(fnr) and fnr_source[fnr][0] <> p_id:
+        if fnr_source.has_key(fnr) and fnr_source[fnr][0] != p_id:
             # Multiple person_info rows have the same fnr (presumably
             # the different fnrs come from different source systems).
             logger.error("Multiple persons share fnr %s: (%d, %d)" % (
@@ -1173,7 +1173,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                 # bruke hele navnet med blanke erstattet av
                 # bindestreker.
                 aktnavn = aktivitet["aktivitetsnavn"].lower().strip()
-                m = re.match(r'\S+ (\d+)$', aktnavn)
+                m = re.match(r'\S+ (\d+)', aktnavn)
                 if m:
                     aktnavn = m.group(1)
                 else:

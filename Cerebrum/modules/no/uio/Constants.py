@@ -25,28 +25,25 @@ Address, Gender etc. type.
 """
 from Cerebrum import Constants
 from Cerebrum.Constants import \
-     _AccountCode, \
-     _AccountHomeStatusCode, \
-     _AuthenticationCode, \
-     _AuthoritativeSystemCode, \
-     _EntityExternalIdCode, \
-     _OUPerspectiveCode, \
-     _PersonAffiliationCode, \
-     _PersonAffStatusCode, \
-     _QuarantineCode, \
-     _SpreadCode, \
-     _AddressCode
+    _AccountCode, \
+    _AuthoritativeSystemCode, \
+    _OUPerspectiveCode, \
+    _PersonAffiliationCode, \
+    _PersonAffStatusCode, \
+    _QuarantineCode, \
+    _SpreadCode, \
+    _AddressCode
 from Cerebrum.modules.PosixUser import \
-     _PosixShellCode
+    _PosixShellCode
 from Cerebrum.modules.Email import \
-     _EmailSpamLevelCode, \
-     _EmailSpamActionCode, \
-     _EmailDomainCategoryCode, \
-     EmailConstants
+    _EmailSpamLevelCode, \
+    _EmailSpamActionCode, \
+    _EmailDomainCategoryCode, \
+    EmailConstants
 from Cerebrum.modules.EntityTrait import \
-     _EntityTraitCode
-from Cerebrum.modules.bofhd.utils import \
-     _AuthRoleOpCode
+    _EntityTraitCode 
+from Cerebrum.modules.consent import Consent
+
 
 class Constants(Constants.Constants):
     system_lt = _AuthoritativeSystemCode('LT', 'LT')
@@ -59,7 +56,7 @@ class Constants(Constants.Constants):
     perspective_lt = _OUPerspectiveCode('LT', 'LT')
 
     account_test = _AccountCode('testbruker', 'Testkonto')
-    account_kurs = _AccountCode('kursbruker','Kurskonto')
+    account_kurs = _AccountCode('kursbruker', 'Kurskonto')
     account_uio_guest = _AccountCode('gjestebruker_uio', 'Manuell gjestekonto')
 
     affiliation_ansatt = _PersonAffiliationCode(
@@ -67,9 +64,9 @@ class Constants(Constants.Constants):
     affiliation_status_ansatt_vit = _PersonAffStatusCode(
         affiliation_ansatt, 'vitenskapelig', 'Vitenskapelig ansatt')
     affiliation_status_ansatt_bil = _PersonAffStatusCode(
-        affiliation_ansatt, 'bilag', 'Bilagslønnet')
+        affiliation_ansatt, 'bilag', 'Bilagslï¿½nnet')
     affiliation_status_ansatt_ltreg = _PersonAffStatusCode(
-        affiliation_ansatt, 'ltreg', 'Registert som gjest, utdatert')    
+        affiliation_ansatt, 'ltreg', 'Registert som gjest, utdatert')
     affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
         affiliation_ansatt, 'tekadm', 'Teknisk/administrativt ansatt')
     affiliation_status_ansatt_perm = _PersonAffStatusCode(
@@ -78,7 +75,7 @@ class Constants(Constants.Constants):
     affiliation_student = _PersonAffiliationCode(
         'STUDENT', 'Student ved UiO, registrert i FS')
     affiliation_status_student_soker = _PersonAffStatusCode(
-        affiliation_student, 'soker', 'Registrert med søknad i FS')
+        affiliation_student, 'soker', 'Registrert med sï¿½knad i FS')
     affiliation_status_student_tilbud = _PersonAffStatusCode(
         affiliation_student, 'tilbud', 'Registrert tilbud om opptak i FS')
     affiliation_status_student_opptak = _PersonAffStatusCode(
@@ -86,20 +83,23 @@ class Constants(Constants.Constants):
     affiliation_status_student_aktiv = _PersonAffStatusCode(
         affiliation_student, 'aktiv', 'Registrert som aktiv student i FS')
     affiliation_status_student_emnestud = _PersonAffStatusCode(
-        affiliation_student, 'emnestud', 'Registrert som aktiv emnestudent i FS')        
+        affiliation_student, 'emnestud',
+        'Registrert som aktiv emnestudent i FS')
     affiliation_status_student_drgrad = _PersonAffStatusCode(
-        affiliation_student, 'drgrad', 'Registrert som aktiv doktorgradsstudent i FS')
+        affiliation_student, 'drgrad',
+        'Registrert som aktiv doktorgradsstudent i FS')
     affiliation_status_student_privatist = _PersonAffStatusCode(
         affiliation_student, 'privatist', 'Registrert som privatist i FS')
     affiliation_status_student_evu = _PersonAffStatusCode(
         affiliation_student, 'evu', 'Registrert som EVU-student i FS')
     affiliation_status_student_perm = _PersonAffStatusCode(
-        affiliation_student, 'permisjon', 'Registrert med gyldig permisjon i FS')
+        affiliation_student, 'permisjon',
+        'Registrert med gyldig permisjon i FS')
     affiliation_status_student_alumni = _PersonAffStatusCode(
-        affiliation_student, 'alumni', 'Har fullført studieprogram i FS')
+        affiliation_student, 'alumni', 'Har fullfï¿½rt studieprogram i FS')
 
     affiliation_tilknyttet = _PersonAffiliationCode(
-        'TILKNYTTET', 'Tilknyttet UiO uten å være student eller ansatt')
+        'TILKNYTTET', 'Tilknyttet UiO uten ï¿½ vï¿½re student eller ansatt')
     affiliation_tilknyttet_fagperson = _PersonAffStatusCode(
         affiliation_tilknyttet, 'fagperson', 'Registrert som fagperson i FS')
     affiliation_tilknyttet_emeritus = _PersonAffStatusCode(
@@ -107,7 +107,7 @@ class Constants(Constants.Constants):
         'Registrert med EMERITUS rolle i SAPUiO')
     affiliation_tilknyttet_bilag = _PersonAffStatusCode(
         affiliation_tilknyttet, 'bilag',
-        'Registrert med BILAGSLØN rolle i SAPUiO')
+        'Registrert med BILAGSLï¿½N rolle i SAPUiO')
     affiliation_tilknyttet_ekst_forsker = _PersonAffStatusCode(
         affiliation_tilknyttet, 'ekst_forsker',
         'Registrert med EF-FORSKER eller SENIORFORS rolle i SAPUiO')
@@ -137,19 +137,21 @@ class Constants(Constants.Constants):
         'Personer registrert i LT med gjestetypekode=UNIRAND')
     affiliation_tilknyttet_grlaerer = _PersonAffStatusCode(
         affiliation_tilknyttet, 'grlaerer',
-        'Personer registrert i LT med gjestetypekode=GRUPPELÆRER')
+        'Personer registrert i LT med gjestetypekode=GRUPPELï¿½RER')
     affiliation_tilknyttet_ekst_partner = _PersonAffStatusCode(
         affiliation_tilknyttet, 'ekst_partner',
         'Personer registrert i LT med gjestetypekode=EKST. PART')
     affiliation_tilknyttet_studpol = _PersonAffStatusCode(
         affiliation_tilknyttet, 'studpol',
-        'Personer registrert i LT med gjestetypekode=ST-POL FRI eller ST-POL UTV')
+        'Personer registrert i LT'
+        ' med gjestetypekode=ST-POL FRI eller ST-POL UTV')
     affiliation_tilknyttet_studorg = _PersonAffStatusCode(
         affiliation_tilknyttet, 'studorg',
-        'Personer registrert i LT med gjestetypekode=ST-ORG FRI eller ST-ORG UTV')
+        'Personer registrert i LT'
+        ' med gjestetypekode=ST-ORG FRI eller ST-ORG UTV')
     affiliation_tilknyttet_innkjoper = _PersonAffStatusCode(
         affiliation_tilknyttet, 'innkjoper',
-        'Registrert med INNKJØPER rolle i SAPUiO')
+        'Registrert med INNKJï¿½PER rolle i SAPUiO')
     affiliation_tilknyttet_isf = _PersonAffStatusCode(
         affiliation_tilknyttet, 'isf',
         'Person tilknyttet Institutt for samfunnsforskning')
@@ -165,7 +167,7 @@ class Constants(Constants.Constants):
     affiliation_manuell_rikshospital = _PersonAffStatusCode(
         affiliation_manuell, 'rikshospital', 'Rikshospitalet')
     affiliation_manuell_ulleval = _PersonAffStatusCode(
-        affiliation_manuell, 'ulleval', 'Ullevål')
+        affiliation_manuell, 'ulleval', 'Ullevï¿½l')
     affiliation_manuell_ahus = _PersonAffStatusCode(
         affiliation_manuell, 'ahus', 'Ahus')
     affiliation_manuell_notam2 = _PersonAffStatusCode(
@@ -180,7 +182,7 @@ class Constants(Constants.Constants):
         affiliation_manuell, 'notur', 'Notur')
     affiliation_manuell_nikk = _PersonAffStatusCode(
         affiliation_manuell, 'nikk',
-        'Norsk senter for kjønn- og kvinneforskning')
+        'Norsk senter for kjï¿½nn- og kvinneforskning')
     affiliation_manuell_gjest = _PersonAffStatusCode(
         affiliation_manuell, 'gjest', 'Gjest')
     affiliation_manuell_unirand = _PersonAffStatusCode(
@@ -304,7 +306,7 @@ class Constants(Constants.Constants):
         'User in NIS domain, exported to HPC')
     spread_hpc_nis_fg = _SpreadCode(
         'NIS_fg@hpc', Constants.Constants.entity_group,
-        'File group in NIS domain "uio" exported to HPC')    
+        'File group in NIS domain "uio" exported to HPC')
     spread_uio_ldap_person = _SpreadCode(
         'LDAP_person', Constants.Constants.entity_person,
         'Person included in LDAP directory')
@@ -319,7 +321,7 @@ class Constants(Constants.Constants):
         'Account included the LDAP directory')
     spread_uio_org_ou = _SpreadCode(
         'ORG_OU', Constants.Constants.entity_ou,
-        'OU defined as part of UiOs org.structure proper')    
+        'OU defined as part of UiOs org.structure proper')
     spread_uio_ad_account = _SpreadCode(
         'AD_account', Constants.Constants.entity_account,
         'Account included in Active Directory at UiO')
@@ -378,44 +380,61 @@ class Constants(Constants.Constants):
     # brukere.
 
     quarantine_generell = _QuarantineCode('generell', 'Generell splatt')
-    quarantine_teppe = _QuarantineCode('teppe', 'Kallt inn på teppet til drift')
+    quarantine_teppe = _QuarantineCode('teppe', 'Kallt inn pï¿½ teppet til drift')
     quarantine_slutta = _QuarantineCode('slutta', 'Personen har slutta')
-    quarantine_system = _QuarantineCode('system', 'Systembrukar som ikke skal logge inn')
-    quarantine_permisjon = _QuarantineCode('permisjon', 'Brukeren har permisjon')
-    quarantine_svakt_passord = _QuarantineCode('svakt_passord', 'For dårlig passord')
-    quarantine_autopassord = _QuarantineCode('autopassord',
-                                            'Passord ikke skiftet trass pålegg')
-    quarantine_auto_emailonly = _QuarantineCode('auto_kunepost', 
-                                               'Ikke ordinær student, tilgang til bare e-post')
-    quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv', 
-                                             'Ikke aktiv student, utestengt')
+    quarantine_system = _QuarantineCode('system', 'Systembrukar som ikke'
+                                        ' skal logge inn')
+    quarantine_permisjon = _QuarantineCode('permisjon',
+                                           'Brukeren har permisjon')
+    quarantine_svakt_passord = _QuarantineCode('svakt_passord',
+                                               'For dï¿½rlig passord')
+    quarantine_autopassord = _QuarantineCode(
+        'autopassord',
+        'Passord ikke skiftet trass pï¿½legg')
+    quarantine_auto_emailonly = _QuarantineCode(
+        'auto_kunepost',
+        'Ikke ordinï¿½r student, tilgang til bare e-post')
+    quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv',
+                                              'Ikke aktiv student, utestengt')
     quarantine_autoekstern = _QuarantineCode('autoekstern',
-                                            'Ekstern konto gått ut på dato')
+                                             'Ekstern konto gï¿½tt ut pï¿½ dato')
     quarantine_autointsomm = _QuarantineCode('autointsomm',
-                                            'Sommerskolen er ferdig for i år')
-    quarantine_nologin = _QuarantineCode('nologin', 'Gammel ureg karantene nologin')
-    quarantine_nologin_brk = _QuarantineCode('nologin_brk',
-                                             'Gammel ureg karantene nologin_brk')
-    quarantine_nologin_ftpuser = _QuarantineCode('nologin_ftpuser',
-                                                 'Gammel ureg karantene nologin_ftpuser')
-    quarantine_nologin_nystudent = _QuarantineCode('nologin_nystuden',
-                                                   'Gammel ureg karantene nologin_nystudent')
+                                             'Sommerskolen er ferdig for i ï¿½r')
+    quarantine_nologin = _QuarantineCode('nologin',
+                                         'Gammel ureg karantene nologin')
+    quarantine_nologin_brk = _QuarantineCode(
+        'nologin_brk',
+        'Gammel ureg karantene nologin_brk')
+    quarantine_nologin_ftpuser = _QuarantineCode(
+        'nologin_ftpuser',
+        'Gammel ureg karantene nologin_ftpuser')
+    quarantine_nologin_nystudent = _QuarantineCode(
+        'nologin_nystuden',
+        'Gammel ureg karantene nologin_nystudent')
     quarantine_nologin_sh = _QuarantineCode('nologin_sh',
                                             'Gammel ureg karantene nologin_sh')
-    quarantine_nologin_stengt = _QuarantineCode('nologin_stengt',
-                                                'Gammel ureg karantene nologin_stengt')
-    quarantine_ou_notvalid = _QuarantineCode('ou_notvalid',
-                                             'OU not valid from external source')
+    quarantine_nologin_stengt = _QuarantineCode(
+        'nologin_stengt',
+        'Gammel ureg karantene nologin_stengt')
+    quarantine_ou_notvalid = _QuarantineCode(
+        'ou_notvalid',
+        'OU not valid from external source')
     quarantine_ou_remove = _QuarantineCode('ou_remove',
                                            'OU is clean and may be removed')
-    quarantine_guest_release = _QuarantineCode('guest_release',
-                                               'Guest user is released but not available.')
-    quarantine_oppringt = _QuarantineCode('oppringt',
-                                          'Brukeren er sperret for oppringt tjenesten.')
+    quarantine_guest_release = _QuarantineCode(
+        'guest_release',
+        'Guest user is released but not available.')
+    quarantine_oppringt = _QuarantineCode(
+        'oppringt',
+        'Brukeren er sperret for oppringt tjenesten.')
     quarantine_vpn = _QuarantineCode('vpn',
                                      'Brukeren er sperret for VPN tjenesten.')
-    quarantine_equant = _QuarantineCode('equant',
-                                        'Brukeren er sperret for Equant tjenesten.')
+    quarantine_equant = _QuarantineCode(
+        'equant',
+        'Brukeren er sperret for Equant tjenesten.')
+    quarantine_radius = _QuarantineCode(
+        'radius', 'Bruker er sperret for RADIUS-innlogging.')
+    quarantine_cert = _QuarantineCode('cert', 'Bruker er sperret av CERT.')
 ##     quarantine_wlan = _QuarantineCode('wlan',
 ##                                       'Brukeren er utestengt fra WLAN.')
     email_domain_category_uio_globals = _EmailDomainCategoryCode(
@@ -443,7 +462,7 @@ class Constants(Constants.Constants):
         "an e-mail server.")
 
     trait_email_pause = _EntityTraitCode(
-        'email_pause', EmailConstants.entity_email_target, 
+        'email_pause', EmailConstants.entity_email_target,
         'Pauses delivery of email')
 
     # TBD: These may fit better into mod_disk_quota as actual mixin
@@ -470,18 +489,34 @@ class Constants(Constants.Constants):
 
     trait_student_disk = _EntityTraitCode(
         'student_disk', Constants.Constants.entity_disk,
-        "When set, the disk in question is designated as hosting students' home areas")
+        "When set, the disk in question is designated as"
+        " hosting students' home areas")
 
     # Trait for tagging a person's primary affiliation, to be used by the web
     # presentations.
     trait_primary_aff = _EntityTraitCode(
         "primary_aff", Constants.Constants.entity_person,
-        "A person's chosen primary affiliation, for use at the web presentations")
+        "A person's chosen primary affiliation,"
+        " for use at the web presentations")
 
     # Trait for tagging -adm,-drift,-null accounts
     trait_sysadm_account = _EntityTraitCode(
         "sysadm_account", Constants.Constants.entity_account,
-        "An account used for system administration, e.g. foo-adm, foo-drift and foo-null users")
+        "An account used for system administration,"
+        " e.g. foo-adm, foo-drift and foo-null users")
+
+    # Trait for passphrase stats
+    trait_has_passphrase = _EntityTraitCode(
+        'has_passphrase',
+        Constants.Constants.entity_account,
+        "Account uses passphrase")
 
     address_other_street = _AddressCode('OTHER_STREET', 'Other street address')
     address_other_post = _AddressCode('OTHER_POST', 'Other post address')
+
+    # Consent related stuff
+    consent_office365 = Consent.Constants.EntityConsent(
+        'office365',
+        entity_type=Constants.Constants.entity_person,
+        consent_type=Consent.Constants.consent_opt_in,
+        description="Export to office365?")

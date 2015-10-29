@@ -120,7 +120,7 @@ class Entity(DatabaseAccessor):
         return identical
 
     def __ne__(self, other):
-        """Define != (aka <>) operator as inverse of the == operator.
+        """Define != operator as inverse of the == operator.
 
         Most Cerebrum classes inherit from Entity.Entity, which means
         we'll won't have to write the inverse definition of __eq__()
@@ -272,16 +272,13 @@ class EntitySpread(Entity):
 
     def list_all_with_spread(self, spreads=None):
         """Return sequence of all 'entity_id's that has ``spread``."""
+        binds = dict()
         sel = ""
         if spreads:
-            sel = """WHERE spread """
-            if isinstance(spreads, (set, list, tuple)):
-                sel += "IN (%s)" % ", ".join(map(str, map(int, spreads)))
-            else:
-                sel += "= %d" % spreads
+            sel = "WHERE " + argument_to_sql(spreads, 'spread', binds, int)
         return self.query("""
         SELECT entity_id, spread
-        FROM [:table schema=cerebrum name=entity_spread]""" + sel)
+        FROM [:table schema=cerebrum name=entity_spread]""" + sel, binds)
 
     def list_entity_spreads(self, entity_types=None):
         """Return entities and their spreads, optionally filtered by entity
@@ -289,19 +286,17 @@ class EntitySpread(Entity):
         returned.
 
         See also list_spreads."""
+        binds = dict()
         sel = ""
         if entity_types:
             sel = """
             JOIN [:table schema=cerebrum name=entity_info] ei
-              ON ei.entity_id = es.entity_id AND ei.entity_type """
-            if isinstance(entity_types, (set, list, tuple)):
-                sel += "IN (%s)" % ", ".join(map(str, map(int, entity_types)))
-            else:
-                sel += "= %d" % entity_types
+              ON ei.entity_id = es.entity_id AND """
+            sel += argument_to_sql(entity_types, 'ei.entity_type', binds, int)
 
         return self.query("""
         SELECT es.entity_id, es.spread
-          FROM [:table schema=cerebrum name=entity_spread] es""" + sel)
+          FROM [:table schema=cerebrum name=entity_spread] es""" + sel, binds)
 
     def list_spreads(self, entity_types=None):
         """Return a sequence of spreads, optionally limited by the entity types
@@ -410,12 +405,20 @@ class EntityName(Entity):
         # Populate all of self's class (and base class) attributes.
         self.find(entity_id)
 
-    def list_names(self, value_domain):
+    def list_names(self, value_domain, spreads=None):
+        binds = dict()
+        tables = []
+        where = []
+        tables.append('[:table schema=cerebrum name=entity_name] en')
+        where.append(argument_to_sql(value_domain, 'en.value_domain', binds, int))
+        if spreads:
+            tables.append('[:table schema=cerebrum name=entity_spread] es')
+            where.append('en.entity_id = es.entity_id')
+            where.append(argument_to_sql(spreads, 'es.spread', binds, int))
         return self.query("""
-        SELECT entity_id, value_domain, entity_name
-        FROM [:table schema=cerebrum name=entity_name]
-        WHERE value_domain=:value_domain""",
-                          {'value_domain': int(value_domain)})
+        SELECT en.entity_id, en.value_domain, en.entity_name
+        FROM %s
+        WHERE %s""" % (','.join(tables), ' AND '.join(where)), binds)
 
 
 class EntityNameWithLanguage(Entity):
@@ -521,7 +524,7 @@ class EntityNameWithLanguage(Entity):
             """, binds)
             self._db.log_change(
                 self.entity_id, self.const.entity_name_mod, None,
-                change_params)
+                change_params=change_params)
         else:
             rv = self.execute("""
             INSERT INTO [:table schema=cerebrum name=entity_language_name]
@@ -529,7 +532,7 @@ class EntityNameWithLanguage(Entity):
             """, binds)
             self._db.log_change(
                 self.entity_id, self.const.entity_name_add, None,
-                change_params)
+                change_params=change_params)
             return rv
     # end add_name_with_language
 
@@ -901,7 +904,7 @@ class EntityAddress(Entity):
                          postal_number=None, city=None, country=None):
         if not hasattr(self, '_src_sys'):
             self._src_sys = source_system
-        elif self._src_sys <> source_system:
+        elif self._src_sys != source_system:
             raise ValueError, \
                 "Can't populate multiple `source_system`s w/o write_db()."
         try:
@@ -931,7 +934,7 @@ class EntityAddress(Entity):
                 equals = True
                 for k in ('address_text', 'p_o_box', 'postal_number', 'city',
                           'country'):
-                    if h[k] <> r[k]:
+                    if h[k] != r[k]:
                         equals = False
                 if equals:
                     del data[int(r['address_type'])]
@@ -998,50 +1001,34 @@ class EntityAddress(Entity):
             SELECT * FROM [:table schema=cerebrum name=country_code]""")
 
     def list_entity_addresses(self, entity_type=None, source_system=None,
-                              address_type=None):
+                              address_type=None, entity_id=None):
+        binds = dict()
+        where = list()
+
         e_type = ""
-        if entity_type is None:
-            pass  # Ok. No type to filter on.
-        else:
+        if entity_type is not None:
             e_type = """
             JOIN [:table schema=cerebrum name=entity_info] e
-              ON e.entity_id = ea.entity_id AND
-              e.entity_type """
-            if isinstance(entity_type, (list, tuple, set)):
-                e_type += "IN (%s)" % ", ".join(map(str,
-                                                    map(int, entity_type)))
-            else:
-                e_type += "= %s" % int(entity_type)
+              ON e.entity_id = ea.entity_id AND """
+            e_type += argument_to_sql(entity_type, 'e.entity_type', binds, int)
 
-        where = ""
-        if source_system or address_type:
-            where = "WHERE "
+        if source_system is not None:
+            where.append(argument_to_sql(source_system, 'ea.source_system', binds, int))
+        if address_type is not None:
+            where.append(argument_to_sql(address_type, 'ea.address_type', binds, int))
+        if entity_id is not None:
+            where.append(argument_to_sql(entity_id, 'ea.entity_id', binds, int))
 
-        if source_system is None:
-            pass  # No source_system to filter on.
-        elif isinstance(source_system, list):
-            where += "ea.source_system IN (%s)" %\
-                ", ".join(map(str, map(int, source_system)))
-        else:
-            where += "ea.source_system=%s" % int(source_system)
-
-        if source_system and address_type:
-            where += " AND "
-
-        if address_type is None:
-            pass  # No address_type to filter on.
-        elif isinstance(address_type, (list, tuple, set)):
-            where += "ea.address_type IN (%s)" %\
-                ", ".join(map(str, map(int, address_type)))
-        else:
-            where += "ea.address_type=%s" % int(address_type)
+        where_str = ''
+        if where:
+            where_str = 'WHERE ' + ' AND '.join(where)
 
         return self.query("""
         SELECT ea.entity_id, ea.source_system, ea.address_type,
                ea.address_text, ea.p_o_box, ea.postal_number, ea.city,
                ea.country
         FROM [:table schema=cerebrum name=entity_address] ea
-        %s %s""" % (e_type, where))
+        %s %s""" % (e_type, where_str), binds)
 
 
 class EntityQuarantine(Entity):
@@ -1135,7 +1122,8 @@ class EntityQuarantine(Entity):
                             None, change_params={'q_type': int(qtype)})
 
     def list_entity_quarantines(self, entity_types=None, quarantine_types=None,
-                                only_active=False, entity_ids=None):
+                                only_active=False, entity_ids=None,
+                                ignore_quarantine_types=None, spreads=None):
         sel = ""
         where = ""
         binds = dict()
@@ -1145,20 +1133,38 @@ class EntityQuarantine(Entity):
             JOIN [:table schema=cerebrum name=entity_info] ei
               ON ei.entity_id = eq.entity_id AND """
             sel += argument_to_sql(entity_types, "ei.entity_type", binds, int)
+        # argument_to_sql doesn't handle same value in binds twice, e.g.
+        # quarantine_type
+        if quarantine_types and ignore_quarantine_types:
+            raise Errors.CerebrumError(
+                "Can't use both quarantine_types and ignore_quarantine_types")
         if quarantine_types:
-            conditions.append(argument_to_sql(quarantine_types, "quarantine_type", binds, int))
+            conditions.append(
+                argument_to_sql(quarantine_types, "quarantine_type",
+                                binds, int))
+        if ignore_quarantine_types:
+            conditions.append(
+                "NOT " + argument_to_sql(
+                    ignore_quarantine_types, "quarantine_type", binds, int))
         if only_active:
             conditions.append("""start_date <= [:now] AND
             (end_date IS NULL OR end_date > [:now]) AND
             (disable_until IS NULL OR disable_until <= [:now])""")
         if entity_ids:
-            conditions.append(argument_to_sql(entity_ids, "eq.entity_id", binds, int))
+            conditions.append(
+                argument_to_sql(entity_ids, "eq.entity_id", binds, int))
+        if spreads:
+            sel += """
+            JOIN [:table schema=cerebrum name=entity_spread] es
+              ON es.entity_id = ei.entity_id AND """
+            sel += argument_to_sql(spreads, "es.spread", binds, int)
         if conditions:
             where = " WHERE " + " AND ".join(conditions)
         return self.query("""
         SELECT eq.entity_id, eq.quarantine_type, eq.start_date,
                eq.disable_until, eq.end_date, eq.description
-          FROM [:table schema=cerebrum name=entity_quarantine] eq""" + sel + where, binds)
+          FROM [:table schema=cerebrum name=entity_quarantine] eq""" +
+                          sel + where, binds)
 
 
 class EntityExternalId(Entity):

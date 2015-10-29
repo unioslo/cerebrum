@@ -19,6 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from os.path import join as pj
+
 import sys
 import getopt
 import mx
@@ -31,11 +33,11 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 
-default_personfile = "/cerebrum/dumps/FS/merged_persons.xml"
-default_studieprogramfile = "/cerebrum/dumps/FS/studieprog.xml"
-default_emnefile = "/cerebrum/dumps/FS/emner.xml"
-group_name = "FS-aktivt-samtykke"
-group_desc = "Internal group for students which will be shown online."
+default_personfile = pj(cereconf.FS_DATA_DIR, "merged_persons.xml")
+default_studieprogramfile = pj(cereconf.FS_DATA_DIR, "studieprog.xml")
+default_emnefile = pj(cereconf.FS_DATA_DIR, "emner.xml")
+group_name = cereconf.FS_GROUP_NAME
+group_desc = cereconf.FS_GROUP_DESC
 
 
 studieprog2sko = {}

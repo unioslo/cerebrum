@@ -38,7 +38,7 @@ class Constants(Constants.Constants):
     ## affiliations for employees
     affiliation_status_ansatt_ovlaerer = _PersonAffStatusCode(
         affiliation_ansatt, 'ans_ovlaerer', 'Ansatt ved NMH, øvingslærer.')
-    
+
     ## affiliations for others
     affiliation_manuell = _PersonAffiliationCode(
         'MANUELL',
@@ -62,29 +62,25 @@ class Constants(Constants.Constants):
         'Gruppe kjent i AD ved NMH')
     spread_lms_group = _SpreadCode(
         'group@lms', Constants.Constants.entity_group,
-        'Gruppe kjent i LMSen til NMH') 
+        'Gruppe kjent i LMSen til NMH')
 
     ## Spread definitions - person relates
     spread_adgang_person = _SpreadCode(
         'person@adgang', Constants.Constants.entity_person,
         'Person kjent i adgangssystemet til NMH')
 
-    ## Contact info
-    contact_office = _ContactInfoCode('OFFICE',
-        'Office address (building code and room number)')
-
     ## Traits for fagområde
     trait_fagomrade_fagfelt = _EntityTraitCode(
             'fagfelt',
-            Constants.Constants.entity_person, 
+            Constants.Constants.entity_person,
             'Trait registering part of fagområde: fagfelt')
     trait_fagomrade_instrument = _EntityTraitCode(
             'instrument',
-            Constants.Constants.entity_person, 
+            Constants.Constants.entity_person,
             'Trait registering part of fagområde: instrument')
 
     ## Trait for fagmiljø
     trait_fagmiljo = _EntityTraitCode(
             'fagmiljo',
-            Constants.Constants.entity_person, 
+            Constants.Constants.entity_person,
             'Trait registering fagmiljø')

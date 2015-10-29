@@ -66,7 +66,7 @@ Created 'display_name' as person with birthdate yyyy-mm-dd.
      efter en bekreftelse fra bruker av bofh.
 
 
-bofh> person fcreate <display_name> <NoSSN (19027732244)>
+bofh> person fcreate <display_name> <NoSSN (06057334973)>
 Created 'display_name' as person whith fnr 'fnr'.
 
  Feil:
@@ -97,14 +97,14 @@ Found N entries, reporting first 20:
 
 bofh> person affadd <idtype> <id+> <affiliation> [<status> [<ou>]]
 
-> bofh> person affadd fnr 06057335171 tilsatt aktiv 313313
+> bofh> person affadd fnr 06057334973 tilsatt aktiv 313313
 > Added affiliation (tilsatt, aktiv, 313313) to person with id 'export_id' (name).
 >
-> bofh> person affadd fnr 06057335171 tilsatt inaktiv 313313
+> bofh> person affadd fnr 06057334973 tilsatt inaktiv 313313
 > Changed affiliation to (tilsatt, inaktiv, 313313) for person with
 > id 'export_id' (name).
 >
-> bofh> person affadd fnr 06057335171 tilsatt aktiv
+> bofh> person affadd fnr 06057334973 tilsatt aktiv
 > Unspecified OU is ambiguous, no changes done.
 >
 > bofh> person affrem <idtype> <id> <affiliation> [<ou>]
@@ -133,9 +133,9 @@ account affrem <accountname> <affiliation> <ou=>
 
 account type <accountname>
 
-bofh> account create hmeland fnr 06057335171 -
+bofh> account create hmeland fnr 06057334973 -
 Person has multiple affiliations, no changes done.
-bofh> account create hmeland fnr 06057335171 tilsatt -
+bofh> account create hmeland fnr 06057334973 tilsatt -
 Account 'hmeland' created for person Harald Meland, affiliation
 (tilsatt, aktiv, 331520).
 

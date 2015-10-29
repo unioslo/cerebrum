@@ -64,6 +64,12 @@
    - libxslt-devel
   sudo: yes
 
+- name: Install dependencies to build pygpgme  # Used in Ad2
+  action: yum state=present name={{ item }}
+  with_items:
+   - gpgme
+   - gpgme-devel
+  sudo: yes
 
 #
 # Postgres setup

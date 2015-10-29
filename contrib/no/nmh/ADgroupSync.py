@@ -1,4 +1,4 @@
-#!/local/bin/python
+#! /usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
 # Copyright 2006 University of Oslo, Norway
@@ -144,7 +144,7 @@ def sync_groups(cerebrumgroups, dry_run):
             if not res[0]:
                 logger.warn("Failed to syncronize members for %s: %s", dn, res[1])
             else:
-                logger.info("Succesfully syncronized group %s", dn)
+                logger.info("Successfully syncronized group %s", dn)
 
 
 def run_cmd(command, dry_run, arg1=None, arg2=None, arg3=None):

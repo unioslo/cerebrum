@@ -41,9 +41,8 @@ from Cerebrum.Constants import _CerebrumCode, _SpreadCode, _LanguageCode
 from Cerebrum import Utils
 from Cerebrum.modules import Email
 from Cerebrum.modules.Email import _EmailDomainCategoryCode
-from Cerebrum.modules import PasswordChecker
-from Cerebrum.modules import PasswordHistory
-from Cerebrum.modules import PosixUser
+from Cerebrum.modules.pwcheck.history import PasswordHistory
+from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
@@ -55,7 +54,6 @@ from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
-from Cerebrum.modules.templates.letters import TemplateHandler
 # Utils are already being imported; need to "rename" these:
 from Cerebrum.modules.dns import Utils as DNSUtils
 from Cerebrum.modules.dns.Subnet import Subnet
@@ -161,7 +159,7 @@ class BofhdExtension(BofhdCommonMethods):
     external_id_mappings = {}
 
     # This little class is used to store connections to the LDAP servers, and
-    # the LDAP modules needed. 
+    # the LDAP modules needed. The reason for doing things like this instead
     # instead of importing the LDAP module for the entire bofhd_uio_cmds,
     # are amongst others:
     # 1. bofhd_uio_cmds is partially used at other institutions in some form,
@@ -247,7 +245,7 @@ class BofhdExtension(BofhdCommonMethods):
             # I don't think connect_ex() can ever return success immediately,
             # it has to wait for a roundtrip.
             assert err
-            if err <> errno.EINPROGRESS:
+            if err != errno.EINPROGRESS:
                 raise ConnectException(errno.errorcode[err])
 
             ignore, wset, ignore = select.select([], [self.sock], [], 1.0)
@@ -728,7 +726,7 @@ class BofhdExtension(BofhdCommonMethods):
 
 
     def _get_access_id_global_group(self, group):
-        if group is not None and group <> "":
+        if group is not None and group != "":
             raise CerebrumError, "Cannot set domain for global access"
         return None, self.const.auth_target_type_global_group, None
     def _validate_access_global_group(self, opset, attr):
@@ -750,7 +748,7 @@ class BofhdExtension(BofhdCommonMethods):
                 raise CerebrumError, ("Syntax error in regexp: %s" % e)
 
     def _get_access_id_global_host(self, target_name):
-        if target_name is not None and target_name <> "":
+        if target_name is not None and target_name != "":
             raise CerebrumError, ("You can't specify a hostname")
         return None, self.const.auth_target_type_global_host, None
     def _validate_access_global_host(self, opset, attr):
@@ -767,7 +765,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError, ("No attribute with maildom.")
 
     def _get_access_id_global_maildom(self, dom):
-        if dom is not None and dom <> '':
+        if dom is not None and dom != '':
             raise CerebrumError, "Cannot set domain for global access"
         return None, self.const.auth_target_type_global_maildomain, None
     def _validate_access_global_maildom(self, opset, attr):
@@ -1171,13 +1169,13 @@ class BofhdExtension(BofhdCommonMethods):
             dest_et.find_by_target_entity(dest_acc.entity_id)
         except Errors.NotFoundError:
             raise CerebrumError, "Account %s has no e-mail target" % dest
-        if dest_et.email_target_type <> self.const.email_target_account:
+        if dest_et.email_target_type != self.const.email_target_account:
             raise CerebrumError, ("Can't reassign e-mail address to target "+
                                   "type %s") % self.const.EmailTarget(ttype)
         if source_et.entity_id == dest_et.entity_id:
             return "%s is already connected to %s" % (address, dest)
-        if (source_acc.owner_type <> dest_acc.owner_type or
-            source_acc.owner_id <> dest_acc.owner_id):
+        if (source_acc.owner_type != dest_acc.owner_type or
+            source_acc.owner_id != dest_acc.owner_id):
             raise CerebrumError, ("Can't reassign e-mail address to a "+
                                   "different person.")
 
@@ -1742,7 +1740,14 @@ class BofhdExtension(BofhdCommonMethods):
 
             # Tell what addresses can be deleted:
             ea = Email.EmailAddress(self.db)
-            domains = acc.get_prospect_maildomains(use_default_domain=cereconf.EMAIL_DEFAULT_DOMAIN)
+            dom = Email.EmailDomain(self.db)
+            domains = acc.get_prospect_maildomains(
+                use_default_domain=cereconf.EMAIL_DEFAULT_DOMAIN)
+            for domain in cereconf.EMAIL_NON_DELETABLE_DOMAINS:
+                dom.clear()
+                dom.find_by_domain(domain)
+                domains.append(dom.entity_id)
+
             deletables = []
             for addr in et.get_addresses(special=True):
                 ea.clear()
@@ -2209,48 +2214,6 @@ class BofhdExtension(BofhdCommonMethods):
                 hidden = False
         return {'uname': uname, 'hide': 'hidden' if hidden else 'visible'}
 
-    # email create_archive <list-address>
-    all_commands['email_create_archive'] = Command(
-        ("email", "create_archive"),
-        EmailAddress(help_ref="mailing_list"),
-        perm_filter="can_email_archive_create")
-    def email_create_archive(self, operator, listname):
-        """Create e-mail address for archiving messages.  Also adds a
-        request to create the needed directories on the web server."""
-        lp, dom = self._split_email_address(listname)
-        ed = self._get_email_domain(dom)
-        self.ba.can_email_archive_create(operator.get_entity_id(), ed)
-        if not self._is_mailing_list(listname):
-            raise CerebrumError("'%s' is not a valid mailing list" % listname)
-        ea = Email.EmailAddress(self.db)
-        try:
-            ea.find_by_local_part_and_domain(lp + "-archive",
-                                             ed.entity_id)
-        except Errors.NotFoundError:
-            pass
-        else:
-            raise CerebrumError, ("%s-archive@%s already exists" % (lp, dom))
-        archive_user = 'www'
-        archive_prog = '/site/mailpipe/bin/new-archive-monthly'
-        arch = lp.lower() + "-archive"
-        dc = dom.lower().split('.'); dc.reverse()
-        archive_dir = "/uio/caesar/mailarkiv/" + ".".join(dc) + "/" + arch
-        et = Email.EmailTarget(self.db)
-        et.populate(self.const.email_target_pipe,
-                    alias="|%s %s" % (archive_prog, archive_dir),
-                    using_uid=self._get_account(archive_user).entity_id)
-        et.write_db()
-        ea = Email.EmailAddress(self.db)
-        ea.populate(arch, ed.entity_id, et.entity_id)
-        ea.write_db()
-        # TODO: add bofh request to run mkdir on www
-        addr = arch + "@" + dom
-        self._register_spam_settings(addr, self.const.email_target_pipe)
-        self._register_filter_settings(addr, self.const.email_target_pipe)
-        return ("OK, now run:   ssh jess \"su www -c 'mkdir -p %s; chmod o= %s'\""
-                % (archive_dir, archive_dir))
-
-
     # email modify_name
     all_commands['email_mod_name'] = Command(
         ("email", "mod_name"),PersonId(help_ref="person_id_other"),
@@ -2312,39 +2275,6 @@ class BofhdExtension(BofhdCommonMethods):
             epat.email_primaddr_id = ea.entity_id
         epat.write_db()
         return {'address': addr}
-
-    # email delete_archive <address>
-    all_commands['email_delete_archive'] = Command(
-        ("email", "delete_archive"),
-        EmailAddress(),
-        fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
-        perm_filter="can_email_archive_delete")
-    def email_delete_archive(self, operator, addr):
-        lp, dom = self._split_email_address(addr, with_checks=False)
-        ed = self._get_email_domain(dom)
-        et, acc = self._get_email_target_and_account(addr)
-        if et.email_target_type <> self.const.email_target_pipe:
-            raise CerebrumError, "%s: Not an archive target" % addr
-        # we can imagine passing along the name of the mailing list
-        # to the auth function in the future.
-        self.ba.can_email_archive_delete(operator.get_entity_id(), ed)
-        # All OK, let's nuke it all.
-        result = []
-        ea = Email.EmailAddress(self.db)
-        epat = Email.EmailPrimaryAddressTarget(self.db)
-        try:
-            epat.find(et.entity_id)
-        except Errors.NotFoundError:
-            pass
-        else:
-            epat.delete()
-        for r in et.get_addresses():
-            ea.clear()
-            ea.find(r['address_id'])
-            result.append({'address': self._get_address(ea)})
-            ea.delete()
-        et.delete()
-        return result
 
     # email create_pipe <address> <uname> <command>
     all_commands['email_create_pipe'] = Command(
@@ -2678,7 +2608,7 @@ class BofhdExtension(BofhdCommonMethods):
             return "OK, %d accounts updated" % count
         else:
             old_dom = eed.entity_email_domain_id
-            if old_dom <> ed.entity_id:
+            if old_dom != ed.entity_id:
                 eed.entity_email_domain_id = ed.entity_id
                 eed.write_db()
                 count = self._update_email_for_ou(ou.entity_id, aff_id)
@@ -2728,7 +2658,7 @@ class BofhdExtension(BofhdCommonMethods):
             eed.find(ou.entity_id, aff_id)
         except Errors.NotFoundError:
             raise CerebrumError, "No such affiliation for domain"
-        if eed.entity_email_domain_id <> ed.entity_id:
+        if eed.entity_email_domain_id != ed.entity_id:
             raise CerebrumError, "No such affiliation for domain"
         eed.delete()
         return "OK, removed domain-affiliation for '%s'" % domainname
@@ -2820,55 +2750,6 @@ class BofhdExtension(BofhdCommonMethods):
                     etf.populate(filter_code, parent=et)
                     etf.write_db()
     # end _register_filter_settings
-
-
-    # email create_list <list-address> [admin,admin,admin]
-    all_commands['email_create_list'] = Command(
-        ("email", "create_list"),
-        EmailAddress(help_ref="mailing_list"),
-        SimpleString(help_ref="mailing_admins", optional=True),
-        YesNo(help_ref="yes_no_force", optional=True),
-        perm_filter="can_email_list_create")
-    def email_create_list(self, operator, listname, admins=None, force="no"):
-        """Create the e-mail addresses 'listname' needs to be a Mailman
-        list.  Also adds a request to create the list on the Mailman
-        server."""
-
-        self._create_mailing_list_in_cerebrum(operator,
-                                              self.const.email_target_Mailman,
-                                              None, listname, force)
-        lp, dom = self._split_email_address(listname)
-        ed = self._get_email_domain(dom)
-        ea = Email.EmailAddress(self.db)
-        op = operator.get_entity_id()
-        if admins:
-            br = BofhdRequests(self.db, self.const)
-            ea.clear()
-            ea.find_by_local_part_and_domain(lp, ed.entity_id)
-            list_id = ea.entity_id
-            admin_list = []
-            for addr in admins.split(","):
-                if addr.count('@') == 0:
-                    admin_list.append(addr + "@ulrik.uio.no")
-                else:
-                    admin_list.append(addr)
-            ea.clear()
-            try:
-                ea.find_by_address(admin_list[0])
-            except Errors.NotFoundError:
-                raise CerebrumError, "%s: unknown address" % admin_list[0]
-            req = br.add_request(op, br.now, self.const.bofh_mailman_create,
-                                 list_id, ea.entity_id, None)
-            for addr in admin_list[1:]:
-                ea.clear()
-                try:
-                    ea.find_by_address(addr)
-                except Errors.NotFoundError:
-                    raise CerebrumError, "%s: unknown address" % addr
-                br.add_request(op, br.now, self.const.bofh_mailman_add_admin,
-                               list_id, ea.entity_id, str(req))
-        return "OK, list '%s' created" % listname
-
 
     # email create_sympa_list run-host delivery-host <listaddr> adm prof desc
     all_commands['email_create_sympa_list'] = Command(
@@ -3064,21 +2945,6 @@ class BofhdExtension(BofhdCommonMethods):
         self._register_filter_settings(listname, target_type)
     # end _create_mailing_list_in_cerebrum
 
-
-    # email create_list_alias <list-address> <new-alias>
-    all_commands['email_create_list_alias'] = Command(
-        ("email", "create_list_alias"),
-        EmailAddress(help_ref="mailing_list_exist"),
-        EmailAddress(help_ref="mailing_list"),
-        perm_filter="can_email_list_create")
-    def email_create_list_alias(self, operator, listname, address):
-        """Create a secondary name for an existing Mailman list."""
-
-        return self._create_list_alias(operator, listname, address,
-                                       self.const.email_target_Mailman, None)
-    # end email_create_list_alias
-
-
     # email create_sympa_list_alias <list-address> <new-alias>
     all_commands['email_create_sympa_list_alias'] = Command(
         ("email", "create_sympa_list_alias"),
@@ -3171,40 +3037,6 @@ class BofhdExtension(BofhdCommonMethods):
 
         return "OK, list-alias '%s' created" % address
     # end _create_list_alias
-
-
-    # email remove_list_alias <alias>
-    all_commands['email_remove_list_alias'] = Command(
-        ('email', 'remove_list_alias'),
-        EmailAddress(help_ref='mailing_list_alias'),
-        perm_filter='can_email_list_create')
-    def email_remove_list_alias(self, operator, alias):
-        lp, dom = self._split_email_address(alias, with_checks=False)
-        ed = self._get_email_domain(dom)
-        remove_addrs = [alias]
-        self.ba.can_email_list_create(operator.get_entity_id(), ed)
-        ea = Email.EmailAddress(self.db)
-        et = Email.EmailTarget(self.db)
-        for iface in ('post', 'mailcmd', 'mailowner'):
-            for addr_format in self._interface2addrs[iface]:
-                addr = addr_format % {'local_part': lp,
-                                      'domain': dom}
-                try:
-                    ea.clear()
-                    ea.find_by_address(addr)
-                except Errors.NotFoundError:
-                    raise CerebrumError, "No such address %s" % addr
-                try:
-                    et.clear()
-                    et.find(ea.email_addr_target_id)
-                except Errors.NotFoundError:
-                    raise CerebrumError, "Could not find e-mail target for %s" % addr
-                self._remove_email_address(et, addr)
-        return ("Ok, removed alias %s and all automatically registered aliases"
-                % alias)
-    # end email_remove_list_alias
-
-
 
     def _report_deleted_EA(self, deleted_EA):
         """Send a message to postmasters informing them that a number of email
@@ -3304,181 +3136,6 @@ Addresses and settings:
             self._remove_email_address(et, addr)
         return "OK, removed alias %s and all auto registered aliases" % alias
     # end email_remove_sympa_list_alias
-
-
-    # email reassign_list_address <list-address>
-    #
-    # requested by bca, will be used during the migration of e-mail
-    # lists from mailman to sympa this command will delete a mailman
-    # target for a given list and create a sympa target without
-    # creating a sympa lista
-    all_commands['email_reassign_list_address'] = Command(
-        ("email", "reassign_list_address"),
-        EmailAddress(help_ref="mailing_list"),
-        SimpleString(help_ref='string_email_delivery_host'),
-        YesNo(help_ref="yes_no_force", optional=True),
-        perm_filter="can_email_list_create")
-    def email_reassign_list_address(self, operator, listname, sympa_delivery_host, force_alias="No"):
-        et_mailman, ea = self._get_email_target_and_address(listname)
-        esf_mailman = Email.EmailSpamFilter(self.db)
-        etf_mailman = Email.EmailTargetFilter(self.db)
-        esf_mailman.clear()
-        try:
-            esf_mailman.find(et_mailman.entity_id)
-            spam_level = esf_mailman.email_spam_level
-            spam_action = esf_mailman.email_spam_action
-        except Errors.NotFoundError:
-            spam_level = self.const.email_spam_level_standard
-            spam_action = self.const.email_spam_action_delete
-        mailman_filters = []
-        change_filters = False
-        for f in etf_mailman.list_email_target_filter(target_id=et_mailman.entity_id):
-           if int(f['filter']) == int(self.const.email_target_filter_greylist):
-              mailman_filters.append(f['filter'])
-        if len(mailman_filters) == 0:
-            change_filters = True
-        if not self._is_mailing_list(listname):
-            return "Cannot migrate a non-list target to Sympa."
-        self.ba.can_email_list_create(operator.get_entity_id(), ea)
-        aliases = []
-        for r in et_mailman.get_addresses():
-            a = "%(local_part)s@%(domain)s" % r
-            if a == listname:
-                continue
-            if a != None:
-               aliases.append(a)
-
-        delivery_host = self._get_email_server(sympa_delivery_host)
-        result_mailman_target = self._email_delete_list(operator.get_entity_id(), listname, ea, target_only=True)
-        # for postmaster an alias is treated in the same way as a primary address
-        # it is therefore acceptable to use force_alias to allow postmaster to create
-        # primary list addresses where local part coincides with av registered account name
-        # in Cerebrum
-        if self._is_yes(force_alias):
-            self._create_mailing_list_in_cerebrum(operator, self.const.email_target_Sympa,
-                                                  delivery_host, listname, force=True)
-        else:
-            self._create_mailing_list_in_cerebrum(operator, self.const.email_target_Sympa,
-                                                  delivery_host, listname)
-        for address in aliases:
-            if self._is_yes(force_alias):
-                self._create_list_alias(operator, listname, address,
-                                        self.const.email_target_Sympa,
-                                        delivery_host, force_alias=True)
-            else:
-                self._create_list_alias(operator, listname, address,
-                                        self.const.email_target_Sympa,
-                                        delivery_host)
-        et_sympa, ea = self._get_email_target_and_address(listname)
-        if change_filters:
-            etf_sympa = Email.EmailTargetFilter(self.db)
-            target_ids = [et_sympa.entity_id]
-            if int(et_sympa.email_target_type) == self.const.email_target_Sympa:
-               # The only way we can get here is if uname is actually an e-mail
-               # address on its own.
-               target_ids = self._get_all_related_maillist_targets(listname)
-            for target_id in target_ids:
-               try:
-                  et_sympa.clear()
-                  et_sympa.find(target_id)
-               except Errors.NotFoundError:
-                  continue
-               try:
-                  etf_sympa.clear()
-                  etf_sympa.find(et_sympa.entity_id, self.const.email_target_filter_greylist)
-               except Errors.NotFoundError:
-                  continue
-               etf_sympa.disable_email_target_filter(self.const.email_target_filter_greylist)
-               etf_sympa.write_db()
-
-        if not spam_level and spam_action:
-            return "Migrated mailman target to sympa target (%s), no spam settings where found, assigned default" % listname
-
-        esf_sympa = Email.EmailSpamFilter(self.db)
-        # All this magic with target ids is necessary to accomodate MLs (all
-        # ETs "related" to the same ML should have the
-        # spam settings should be processed )
-        target_ids = [et_sympa.entity_id]
-        # The only way we can get here is if uname is actually an e-mail
-        # address on its own.
-        if int(et_sympa.email_target_type) == self.const.email_target_Sympa:
-            target_ids = self._get_all_related_maillist_targets(listname)
-        for target_id in target_ids:
-            try:
-                et_sympa.clear()
-                et_sympa.find(target_id)
-            except Errors.NotFoundError:
-                continue
-            try:
-                esf_sympa.clear()
-                esf_sympa.find(et_sympa.entity_id)
-                esf_sympa.email_spam_level = spam_level
-                esf_sympa.email_spam_action = spam_action
-            except Errors.NotFoundError:
-               # this will not happen as standard spam settings are
-               # assigned when a list is created
-               continue
-            esf_sympa.write_db()
-
-        return "Migrated mailman target to sympa target (%s)" % listname
-
-    # email delete_list <list-address>
-    all_commands['email_delete_list'] = Command(
-        ("email", "delete_list"),
-        EmailAddress(help_ref="mailing_list"),
-        fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
-        perm_filter="can_email_list_delete")
-    def email_delete_list(self, operator, listname):
-        et, ea = self._get_email_target_and_address(listname)
-        self.ba.can_email_list_delete(operator.get_entity_id(), ea)
-        return self._email_delete_list(operator.get_entity_id(), listname, ea)
-
-    def _email_delete_list(self, op, listname, ea, target_only=False):
-        """Delete the list with no permission checking."""
-
-        listname = self._check_mailman_official_name(listname)
-        result = []
-        et = Email.EmailTarget(self.db)
-        epat = Email.EmailPrimaryAddressTarget(self.db)
-        list_id = ea.entity_id
-        deleted_EA = self.email_info(op, listname)
-        for interface in self._interface2addrs.keys():
-            alias = self._mailman_pipe % {'interface': interface,
-                                          'listname': listname}
-            try:
-                et.clear()
-                et.find_by_alias(alias)
-                epat.clear()
-                try:
-                    epat.find(et.entity_id)
-                except Errors.NotFoundError:
-                    pass
-                else:
-                    epat.delete()
-                for r in et.get_addresses():
-                    addr = '%(local_part)s@%(domain)s' % r
-                    ea.clear()
-                    ea.find_by_address(addr)
-                    ea.delete()
-                    if interface == "post":
-                        result.append({'address': addr})
-                et.delete()
-            except Errors.NotFoundError:
-                pass
-        if cereconf.INSTITUTION_DOMAIN_NAME == 'uio.no':
-            if not target_only:
-                self._report_deleted_EA(deleted_EA)
-                br = BofhdRequests(self.db, self.const)
-                # IVR 2008-08-04 +1 hour to allow changes to spread to LDAP. This way
-                # we'll have a nice SMTP-error, rather than a confusing error burp
-                # from mailman.
-                br.add_request(op, DateTime.now() + DateTime.DateTimeDelta(0, 1),
-                               self.const.bofh_mailman_remove, list_id, None,
-                               listname)
-
-        return result
-    # end _email_delete_list
-
 
     # email delete_sympa_list <run-host> <list-address>
     all_commands['email_delete_sympa_list'] = Command(
@@ -3741,36 +3398,6 @@ Addresses and settings:
         raise not_sympa_error
     # end _get_sympa_list
 
-
-    def _is_mailing_list(self, listname):
-        """Check whether L{listname} refers to a valid mailing list.
-
-        This is a bit ugly, because _get_mailman_list may either throw an
-        exception or return None to indicate non-valid list.
-
-        @rtype: bool
-        @return:
-          True iff listname points to a valid sympa or mailman list. False
-          otherwise.
-        """
-
-        try:
-            self._validate_sympa_list(listname)
-            return True
-        except CerebrumError:
-            pass
-
-        try:
-            ml = self._get_mailman_list(listname)
-            if ml is not None:
-                return True
-        except CerebrumError:
-            pass
-
-        return False
-    # end _is_mailing_list
-
-
     def _get_all_related_maillist_targets(self, address):
         """This method locates and returns all ETs associated with the same ML.
 
@@ -3855,17 +3482,6 @@ Addresses and settings:
         if len(localpart) > 8 or localpart.count('-') or localpart == 'drift':
             return True
         return False
-
-    def _check_mailman_official_name(self, listname):
-        mlist = self._get_mailman_list(listname)
-        if mlist is None:
-            raise CerebrumError, "%s is not a Mailman list" % listname
-        # List names without complete e-mail address are probably legacy
-        if (mlist.count('@') == 0 and listname.startswith(mlist + "@")
-            or listname == mlist):
-            return mlist
-        raise CerebrumError, ("%s is not the official name of the list %s" %
-                              (listname, mlist))
 
     def _register_mailman_list_addresses(self, listname, lp, dom):
         """Add list, owner and request addresses.  listname is a mailing list
@@ -4106,9 +3722,9 @@ Addresses and settings:
         lp, dom = self._split_email_address(addr)
         ed = self._get_email_domain(dom)
         et, acc = self._get_email_target_and_account(addr)
-        if et.email_target_type <> self.const.email_target_multi:
+        if et.email_target_type != self.const.email_target_multi:
             raise CerebrumError, "%s: Not a multi target" % addr
-        if et.email_target_entity_type <> self.const.entity_group:
+        if et.email_target_entity_type != self.const.entity_group:
             raise CerebrumError, "%s: Does not point to a group!" % addr
         gr = self._get_group(et.email_target_entity_id, idtype="id")
         self.ba.can_email_multi_delete(operator.get_entity_id(), ed, gr)
@@ -4121,7 +3737,7 @@ Addresses and settings:
         else:
             # but if one exists, we require the user to supply that
             # address, not an arbitrary alias.
-            if addr <> self._get_address(epat):
+            if addr != self._get_address(epat):
                 raise CerebrumError, ("%s is not the primary address of "+
                                       "the target") % addr
             epat.delete()
@@ -4423,7 +4039,7 @@ Addresses and settings:
             if r['spread'] == int(self.const.spread_uio_imap):
                 raise CerebrumError, "%s is already an IMAP user" % uname
         acc.add_spread(self.const.spread_uio_imap)
-        if op <> acc.entity_id:
+        if op != acc.entity_id:
             # the local sysadmin should get a report as well, if
             # possible, so change the request add_spread() put in so
             # that he is named as the requestee.  the list of requests
@@ -5511,30 +5127,33 @@ Addresses and settings:
                  (managedby != cereconf.DISTGROUP_DEFAULT_ADMIN and \
                       not mngdby_addr):
             return "Cannot create Exchange group without setting ManagedBy attr"
-        if not existing_group:
-            # one could imagine making a helper function in the future
-            # _make_dl_group_new, as the functionality is required
-            # both here and for the roomlist creation (Jazz, 2013-12)
-            dl_group.new(operator.get_entity_id(),
-                         group_vis,
-                         groupname, description=description,
-                         roomlist=std_values['roomlist'],
-                         mngdby_addrid=mngdby_addr,
-                         modenable=std_values['modenable'],
-                         modby=moderatedby,
-                         deprestr=std_values['deprestr'],
-                         joinrestr=std_values['joinrestr'],
-                         hidden=std_values['hidden'])
-        else:
-            dl_group.populate(roomlist=std_values['roomlist'],
-                              mngdby_addrid=mngdby_addr,
-                              modenable=std_values['modenable'],
-                              modby=moderatedby,
-                              deprestr=std_values['deprestr'],
-                              joinrestr=std_values['joinrestr'],
-                              hidden=std_values['hidden'],
-                              parent=grp)
-        dl_group.write_db()
+        try:
+            if not existing_group:
+                # one could imagine making a helper function in the future
+                # _make_dl_group_new, as the functionality is required
+                # both here and for the roomlist creation (Jazz, 2013-12)
+                dl_group.new(operator.get_entity_id(),
+                            group_vis,
+                            groupname, description=description,
+                            roomlist=std_values['roomlist'],
+                            mngdby_addrid=mngdby_addr,
+                            modenable=std_values['modenable'],
+                            modby=moderatedby,
+                            deprestr=std_values['deprestr'],
+                            joinrestr=std_values['joinrestr'],
+                            hidden=std_values['hidden'])
+            else:
+                dl_group.populate(roomlist=std_values['roomlist'],
+                                mngdby_addrid=mngdby_addr,
+                                modenable=std_values['modenable'],
+                                modby=moderatedby,
+                                deprestr=std_values['deprestr'],
+                                joinrestr=std_values['joinrestr'],
+                                hidden=std_values['hidden'],
+                                parent=grp)
+            dl_group.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
         self._set_display_name(groupname, displayname,
                                disp_name_variant, disp_name_language)
         dl_group.create_distgroup_mailtarget()
@@ -6230,12 +5849,19 @@ Addresses and settings:
     # group list
     all_commands['group_list'] = Command(
         ("group", "list"), GroupName(),
-        fs=FormatSuggestion("%-10s %-10s %-10s", ("type", "name", "expired"),
-                            hdr="%-10s %-10s %-10s" % ("Type", "Name", "Expired")))
+        fs=FormatSuggestion("%-10s %-15s %-45s %-10s", ("type",
+                                                        "user_name",
+                                                        "full_name",
+                                                        "expired"),
+                            hdr="%-10s %-15s %-45s %-10s" % ("Type",
+                                                             "Username",
+                                                             "Fullname",
+                                                             "Expired")))
     def group_list(self, operator, groupname):
         """List direct members of group"""
         def compare(a, b):
-            return cmp(a['type'], b['type']) or cmp(a['name'], b['name'])
+            return cmp(a['type'], b['type']) or \
+                   cmp(a['user_name'], b['user_name'])
         group = self._get_group(groupname)
         ret = []
         now = DateTime.now()
@@ -6246,19 +5872,35 @@ Addresses and settings:
             raise CerebrumError("More than %d (%d) matches. Contact superuser "
                                 "to get a listing for %s." %
                                 (cereconf.BOFHD_MAX_MATCHES, len(members), groupname))
+        ac = self.Account_class(self.db)
+        pe = Utils.Factory.get('Person')(self.db)
         for x in self._fetch_member_names(members):
+            if x['member_type'] == int(self.const.entity_account):
+                ac.find(x['member_id'])
+                try:
+                    pe.find(ac.owner_id)
+                    full_name = pe.get_name(self.const.system_cached,
+                                            self.const.name_full)
+                except Errors.NotFoundError:
+                    full_name = ''
+                user_name = x['member_name']
+                ac.clear()
+                pe.clear()
+            else:
+                full_name = x['member_name']
+                user_name = '<non-account>'
             tmp = {'id': x['member_id'],
                    'type': str(self.const.EntityType(x['member_type'])),
-                   'name': x['member_name'],
+                   'name': x['member_name'], # Compability with brukerinfo
+                   'user_name': user_name,
+                   'full_name': full_name,
                    'expired': None}
-            if (x["expire_date"] is not None and x["expire_date"] < now):
+            if x["expire_date"] is not None and x["expire_date"] < now:
                 tmp["expired"] = "expired"
             ret.append(tmp)
 
         ret.sort(compare)
         return ret
-    # end group_list
-
 
     def _fetch_member_names(self, iterable):
         """Locate names for elements in iterable.
@@ -6639,12 +6281,11 @@ Addresses and settings:
     all_commands['misc_check_password'] = Command(
         ("misc", "check_password"), AccountPassword())
     def misc_check_password(self, operator, password):
-        pc = PasswordChecker.PasswordChecker(self.db)
-        try:
-            pc.goodenough(None, password, uname="foobar")
-        except PasswordChecker.PasswordGoodEnoughException, m:
-            raise CerebrumError, "Bad password: %s" % m
         ac = self.Account_class(self.db)
+        try:
+            ac.password_good_enough(password)
+        except PasswordNotGoodEnough, m:
+            raise CerebrumError("Bad password: %s" % m)
         crypt = ac.encrypt_password(self.const.Authentication("crypt3-DES"),
                                     password)
         md5 = ac.encrypt_password(self.const.Authentication("MD5-crypt"),
@@ -6963,9 +6604,8 @@ Addresses and settings:
             host.write_db()
             return "OK, default quota on %s is %d" % (hostname, int(quota))
         else:
-            raise CerebrumError, "Invalid quota value '%s'" % quota
+            raise CerebrumError("Invalid quota value '%s'" % quota)
         pass
-
 
     def _remove_auth_target(self, target_type, target_id):
         """This function should be used whenever a potential target
@@ -6979,8 +6619,9 @@ Addresses and settings:
             # We remove all auth_role entries first so that there
             # are no references to this op_target_id, just in case
             # someone adds a foreign key constraint later.
-            for role in ar.list(op_target_id = r["op_target_id"]):
-                ar.revoke_auth(role['entity_id'], role['op_set_id'],
+            for role in ar.list(op_target_id=r["op_target_id"]):
+                ar.revoke_auth(role['entity_id'],
+                               role['op_set_id'],
                                r['op_target_id'])
             aot.delete()
 
@@ -7000,199 +6641,48 @@ Addresses and settings:
                 aot.find(r['op_target_id'])
                 aot.delete()
 
-
-    # misc list_passwords
-    def misc_list_passwords_prompt_func(self, session, *args):
-        """  - Går inn i "vis-info-om-oppdaterte-brukere-modus":
-  1 Skriv ut passordark
-  1.1 Lister ut templates, ber bofh'er om å velge en
-  1.1.[0] Spesifiser skriver (for template der dette tillates valgt av
-          bofh'er)
-  1.1.1 Lister ut alle aktuelle brukernavn, ber bofh'er velge hvilke
-        som skal skrives ut ('*' for alle).
-  1.1.2 (skriv ut ark/brev)
-  2 List brukernavn/passord til skjerm
-  """
-        all_args = list(args[:])
-        if not all_args:
-            return {'prompt': "Velg#",
-                    'map': [(("Alternativer",), None),
-                            (("Skriv ut passordark",), "skriv"),
-                            (("List brukernavn/passord til skjerm",), "skjerm")]}
-        arg = all_args.pop(0)
-        if(arg == "skjerm"):
-            return {'last_arg': True}
-        if not all_args:
-            map = [(("Alternativer",), None)]
-            n = 1
-            for t in self._map_template():
-                map.append(((t,), n))
-                n += 1
-            return {'prompt': "Velg template #", 'map': map,
-                    'help_ref': 'print_select_template'}
-        arg = all_args.pop(0)
-        tpl_lang, tpl_name, tpl_type = self._map_template(arg)
-        if not tpl_lang.endswith("letter"):
-            default_printer = session.get_state(state_type='default_printer')
-            if default_printer:
-                default_printer = default_printer[0]['state_data']
-            if not all_args:
-                ret = {'prompt': 'Oppgi skrivernavn'}
-                if default_printer:
-                    ret['default'] = default_printer
-                return ret
-            skriver = all_args.pop(0)
-            if skriver != default_printer:
-                session.clear_state(state_types=['default_printer'])
-                session.store_state('default_printer', skriver)
-                self.db.commit()
-        if not all_args:
-            n = 1
-            map = [(("%8s %s", "uname", "operation"), None)]
-            for row in self._get_cached_passwords(session):
-                map.append((("%-12s %s", row['account_id'], row['operation']), n))
-                n += 1
-            if n == 1:
-                raise CerebrumError, "no users"
-            return {'prompt': 'Velg bruker(e)', 'last_arg': True,
-                    'map': map, 'raw': True,
-                    'help_ref': 'print_select_range',
-                    'default': str(n-1)}
-
     all_commands['misc_list_passwords'] = Command(
-        ("misc", "list_passwords"), prompt_func=misc_list_passwords_prompt_func,
-        fs=FormatSuggestion("%-8s %-20s %s", ("account_id", "operation", "password"),
-                            hdr="%-8s %-20s %s" % ("Id", "Operation", "Password")))
+        ("misc", "list_passwords"),
+        fs=FormatSuggestion(
+            "%-8s %-20s %s", ("account_id", "operation", "password"),
+            hdr="%-8s %-20s %s" % ("Id", "Operation", "Password")))
+
     def misc_list_passwords(self, operator, *args):
-        if args[0] == "skjerm":
-            return self._get_cached_passwords(operator)
-        args = list(args[:])
-        args.pop(0)
-        tpl_lang, tpl_name, tpl_type = self._map_template(args.pop(0))
-        skriver = None
-        if not tpl_lang.endswith("letter"):
-            skriver = args.pop(0)
-        else:
-            skriver = cereconf.PRINT_PRINTER
-
-        try:
-            selection = args.pop(0)
-        except IndexError:
-            # Trying to list passwords when none have been set
-            raise CerebrumError("Cannot print new passwords when none have been set")
-
+        u""" List passwords in cache. """
+        # NOTE: We keep the *args argument for backwards compability.
         cache = self._get_cached_passwords(operator)
-        th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
-        tmp_dir = Utils.make_temp_dir(dir=cereconf.JOB_RUNNER_LOG_DIR,
-                                      prefix="bofh_spool")
-        out_name = "%s/%s.%s" % (tmp_dir, "job", tpl_type)
-        out = file(out_name, "w")
-        if th._hdr is not None:
-            out.write(th._hdr)
-        ret = []
-
-        num_ok = 0
-        for n in self._parse_range(selection):
-            n -= 1
-            try:
-                account = self._get_account(cache[n]['account_id'])
-            except IndexError:
-                raise CerebrumError("Number not in valid range")
-            mapping = {'uname': cache[n]['account_id'],
-                       'password': cache[n]['password'],
-                       'account_id': account.entity_id,
-                       'lopenr': ''}
-            if tpl_lang.endswith("letter"):
-                mapping['barcode'] = '%s/barcode_%s.eps' % (
-                    tmp_dir, account.entity_id)
-                try:
-                    th.make_barcode(account.entity_id, mapping['barcode'])
-                except IOError, msg:
-                    raise CerebrumError(msg)
-            if account.owner_type == self.const.entity_group:
-                grp = self._get_group(account.owner_id, idtype='id')
-                mapping['group'] = grp.group_name
-            elif account.owner_type == self.const.entity_person:
-                person = self._get_person('entity_id', account.owner_id)
-                fullname = person.get_name(self.const.system_cached, self.const.name_full)
-                mapping['fullname'] =  fullname
-            else:
-                raise CerebrumError("Unsupported owner type. Please use the 'to screen' option")
-            if tpl_lang.endswith("letter"):
-                # owner_type is checked above: either person or group
-                if account.owner_type != self.const.entity_person:
-                    raise CerebrumError, "Cannot send letter to group %s" % mapping['group']
-                address = None
-                for source, kind in ((self.const.system_sap, self.const.address_post),
-                                     (self.const.system_fs, self.const.address_post),
-                                     (self.const.system_sap, self.const.address_post_private),
-                                     (self.const.system_fs, self.const.address_post_private)):
-                    address = person.get_entity_address(source = source, type = kind)
-                    if address:
-                        break
-                    address = None
-                if not address:
-                    ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
-                    continue
-                address = address[0]
-                alines = address['address_text'].split("\n")+[""]
-                mapping['address_line1'] = fullname
-                if alines:
-                    mapping['address_line2'] = alines[0]
-                    mapping['address_line3'] = alines[1]
-                else:
-                    mapping['address_line2'] = ""
-                    mapping['address_line3'] = ""
-                mapping['zip'] = address['postal_number']
-                mapping['city'] = address['city']
-                mapping['country'] = address['country']
-                mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
-                mapping['emailadr'] =  "TODO"  # We probably don't need to support this...
-            num_ok += 1
-            out.write(th.apply_template('body', mapping, no_quote=('barcode',)))
-        if not (num_ok > 0):
-            raise CerebrumError("Errors extracting required information: %s" % "+n".join(ret))
-        if th._footer is not None:
-            out.write(th._footer)
-        out.close()
-        try:
-            account = self._get_account(operator.get_entity_id(), idtype='id')
-            th.spool_job(out_name, tpl_type, skriver, skip_lpr=0,
-                         lpr_user=account.account_name,
-                         logfile="%s/spool.log" % tmp_dir)
-        except IOError, msg:
-            raise CerebrumError(msg)
-        ret.append("OK: %s/%s.%s spooled @ %s for %s" % (
-            tpl_lang, tpl_name, tpl_type, skriver, selection))
-        return "\n".join(ret)
-
+        if not cache:
+            raise CerebrumError("No passwords in session")
+        return cache
 
     all_commands['misc_list_bofhd_request_types'] = Command(
         ("misc", "list_bofhd_request_types"),
-        fs=FormatSuggestion("%-20s %s", ("code_str", "description"),
-                            hdr="%-20s %s" % ("Code", "Description")),
-        )
+        fs=FormatSuggestion(
+            "%-20s %s", ("code_str", "description"),
+            hdr="%-20s %s" % ("Code", "Description")))
+
     def misc_list_bofhd_request_types(self, operator):
         br = BofhdRequests(self.db, self.const)
-
         result = []
         for row in br.get_operations():
             result.append({"code_str": row["code_str"].lstrip("br_"),
                            "description": row["description"]})
-
         return result
 
-
     all_commands['misc_list_requests'] = Command(
-        ("misc", "list_requests"), SimpleString(
-        help_ref='string_bofh_request_search_by', default='requestee'),
-        SimpleString(help_ref='string_bofh_request_target', default='<me>'),
-        fs=FormatSuggestion("%-7i %-10s %-16s %-16s %-10s %-20s %s",
-                            ("id", "requestee", format_time("when"),
-                             "op", "entity", "destination", "args"),
-                            hdr="%-7s %-10s %-16s %-16s %-10s %-20s %s" % \
-                            ("Id", "Requestee", "When", "Op", "Entity",
-                             "Destination", "Arguments")))
+        ("misc", "list_requests"),
+        SimpleString(help_ref='string_bofh_request_search_by',
+                     default='requestee'),
+        SimpleString(help_ref='string_bofh_request_target',
+                     default='<me>'),
+        fs=FormatSuggestion(
+            "%-7i %-10s %-16s %-16s %-10s %-20s %s",
+            ("id", "requestee", format_time("when"), "op", "entity",
+             "destination", "args"),
+            hdr="%-7s %-10s %-16s %-16s %-10s %-20s %s" % (
+                "Id", "Requestee", "When", "Op", "Entity", "Destination",
+                "Arguments")))
+
     def misc_list_requests(self, operator, search_by, destination):
         br = BofhdRequests(self.db, self.const)
         ret = []
@@ -7661,10 +7151,10 @@ Addresses and settings:
         self.ba.can_set_password(operator.get_entity_id(), ac)
         if ac.verify_auth(password):
             return "Password is correct"
-        ph = PasswordHistory.PasswordHistory(self.db)
-        hash = ph.encode_for_history(ac, password)
+        ph = PasswordHistory(self.db)
+        histhash = ph.encode_for_history(ac.account_name, password)
         for r in ph.get_history(ac.entity_id):
-            if hash == r['md5base64']:
+            if histhash == r['md5base64']:
                 return ("The password is obsolete, it was set on %s" %
                         r['set_at'])
         return "Incorrect password"
@@ -8788,6 +8278,7 @@ Addresses and settings:
                 self._get_name_from_object(entity), qtype))
 
         entity.delete_entity_quarantine(qconst)
+
         return "OK, removed quarantine %s for %s" % (
             qconst, self._get_name_from_object (entity))
 
@@ -8849,6 +8340,12 @@ Addresses and settings:
         entity = self._get_entity(entity_type, id)
         spread = self._get_constant(self.const.Spread, spread, "spread")
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
+
+        if entity.entity_type != spread.entity_type:
+            raise CerebrumError(
+                "Spread '%s' is restricted to '%s', selected entity is '%s'" %
+                (spread, self.const.EntityType(spread.entity_type),
+                 self.const.EntityType(entity.entity_type)))
         # exchange-relatert-jazz
         # NB! no checks are implemented in the group-mixin
         # as we want to let other clients handle these spreads
@@ -8857,14 +8354,11 @@ Addresses and settings:
         if cereconf.EXCHANGE_GROUP_SPREAD and \
                 str(spread) == cereconf.EXCHANGE_GROUP_SPREAD:
             return "Please create distribution group via 'group exchangegroup_create' in bofh"
-        try:
-            if entity.has_spread(spread):
-                raise CerebrumError("entity id=%s already has spread=%s" %
-                                    (id, spread))
-            entity.add_spread(spread)
-            entity.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
+        if entity.has_spread(spread):
+            raise CerebrumError("entity id=%s already has spread=%s" %
+                                (id, spread))
+        entity.add_spread(spread)
+        entity.write_db()
         if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
             self._spread_sync_group(entity)
         return "OK, added spread %s for %s" % (
@@ -9397,7 +8891,8 @@ Addresses and settings:
 
         """
         SYSADM_TYPES = ('adm','drift','null',)
-        VALID_STATUS = (self.const.affiliation_status_ansatt_tekadm,)
+        VALID_STATUS = (self.const.affiliation_status_ansatt_tekadm,
+                        self.const.affiliation_status_ansatt_vitenskapelig)
         DOMAIN = '@ulrik.uio.no'
 
         if not self.ba.is_superuser(operator.get_entity_id()):
@@ -9690,26 +9185,6 @@ Addresses and settings:
         return ret
 
 
-    def _map_template(self, num=None):
-        """If num==None: return list of avail templates, else return
-        selected template """
-        tpls = []
-        n = 1
-        keys = cereconf.BOFHD_TEMPLATES.keys()
-        keys.sort()
-        for k in keys:
-            for tpl in cereconf.BOFHD_TEMPLATES[k]:
-                tpls.append("%s" % (tpl[2]))
-                try:
-                    if num is not None and n == int(num):
-                        return (k, tpl[0], tpl[1])
-                except ValueError:
-                    raise CerebrumError("Unknown template selected")
-                n += 1
-        if num is not None:
-            raise CerebrumError, "Unknown template selected"
-        return tpls
-
     def _get_cached_passwords(self, operator):
         ret = []
         for r in operator.get_state():
@@ -9978,9 +9453,14 @@ Addresses and settings:
                            account.entity_id, group.entity_id, why)
             return "OK, 'give' registered"
 
+    #
     # user password
+    #
     all_commands['user_password'] = Command(
-        ('user', 'password'), AccountName(), AccountPassword(optional=True))
+        ('user', 'password'),
+        AccountName(),
+        AccountPassword(optional=True))
+
     def user_password(self, operator, accountname, password=None):
         account = self._get_account(accountname)
         self.ba.can_set_password(operator.get_entity_id(), account)
@@ -9994,37 +9474,40 @@ Addresses and settings:
             # automatic passwords only.
             if self.ba.is_superuser(operator.get_entity_id()):
                 if (operator.get_entity_id() != account.entity_id and
-                    not cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS):
+                        not cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS):
                     raise CerebrumError("Superuser cannot specify passwords "
                                         "for other users")
             elif operator.get_entity_id() != account.entity_id:
-                raise CerebrumError("Cannot specify password for another user.")
+                raise CerebrumError(
+                    "Cannot specify password for another user.")
         try:
-            account.goodenough(account, password)
-        except PasswordChecker.PasswordGoodEnoughException, m:
-            raise CerebrumError, "Bad password: %s" % m
+            account.password_good_enough(password)
+        except PasswordNotGoodEnough, m:
+            raise CerebrumError("Bad password: %s" % m)
         account.set_password(password)
-        try:
-            account.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
-        operator.store_state("user_passwd", {'account_id': int(account.entity_id),
-                                             'password': password})
+        account.write_db()
+        operator.store_state("user_passwd",
+                             {'account_id': int(account.entity_id),
+                              'password': password})
         # Remove "weak password" quarantine
         for r in account.get_entity_quarantine():
             if int(r['quarantine_type']) == self.const.quarantine_autopassord:
-                account.delete_entity_quarantine(self.const.quarantine_autopassord)
+                account.delete_entity_quarantine(
+                    self.const.quarantine_autopassord)
 
             if int(r['quarantine_type']) == self.const.quarantine_svakt_passord:
-                account.delete_entity_quarantine(self.const.quarantine_svakt_passord)
+                account.delete_entity_quarantine(
+                    self.const.quarantine_svakt_passord)
 
         if account.is_deleted():
             return "OK.  Warning: user is deleted"
         elif account.is_expired():
             return "OK.  Warning: user is expired"
         elif account.get_entity_quarantine(only_active=True):
-            return "Warning: user has an active quarantine"
-        return "Password altered. Please use misc list_password to print or view the new password."
+            return "OK.  Warning: user has an active quarantine"
+        return ("Password altered. Please use misc list_passwords to view the "
+                "new password, or misc print_passwords to print password "
+                "letters.")
 
     # user promote_posix
     all_commands['user_promote_posix'] = Command(
@@ -10526,6 +10009,13 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                 if isinstance(id, str) and not id.isdigit():
                     raise CerebrumError, "Entity id must be a number"
                 account.find(id)
+            elif idtype == 'uid':
+                if isinstance(id, str) and not id.isdigit():
+                    raise CerebrumError, 'uid must be a number'
+                if actype != 'PosixUser':
+                    account = Utils.Factory.get('PosixUser')(self.db)
+                    account.clear()
+                account.find_by_uid(id)
             else:
                 raise CerebrumError, "unknown idtype: '%s'" % idtype
         except Errors.NotFoundError:
@@ -10853,24 +10343,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
 
     def _today(self):
         return self._parse_date("%d-%d-%d" % time.localtime()[:3])
-
-    def _parse_range(self, selection):
-        lst = []
-        try:
-            for part in selection.split():
-                idx = part.find('-')
-                if idx != -1:
-                    for n in range(int(part[:idx]), int(part[idx+1:])+1):
-                        if n not in lst:
-                            lst.append(n)
-                else:
-                    part = int(part)
-                    if part not in lst:
-                        lst.append(part)
-        except ValueError:
-            raise CerebrumError, "Error parsing range '%s'" % selection
-        lst.sort()
-        return lst
 
     def _format_from_cl(self, format, val):
         if val is None:

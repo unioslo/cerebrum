@@ -27,21 +27,7 @@ drop TABLE change_handler_data;
 category:drop;
 drop TABLE change_log;
 category:drop;
-drop table change_type;
-category:drop;
 drop SEQUENCE change_log_seq;
-
-category:code;
-CREATE TABLE change_type
-(
-    change_type_id NUMERIC(6,0)
-                   NOT NULL
-                   CONSTRAINT change_type_pk PRIMARY KEY,
-    category       CHAR VARYING(32),
-    type           CHAR VARYING(32),
-    msg_string     CHAR VARYING(60)
-);
-
 
 
 /* change_log
@@ -91,7 +77,7 @@ category:main;
 CREATE INDEX change_log_change_by_idx ON change_log(change_by);
 
 category:main;
-create index change_log_subject_idx on change_log(subject_entity);
+CREATE INDEX change_log_subject_idx on change_log(subject_entity);
 
 /* Store first and last change_id that a CLHandler client has
 received.  Multiple entries for one evthdlr_key are legal and

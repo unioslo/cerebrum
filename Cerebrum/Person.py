@@ -544,7 +544,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         if not hasattr(self, '_affil_source'):
             self._affil_source = source_system
             self.__affil_data = {}
-        elif self._affil_source <> source_system:
+        elif self._affil_source != source_system:
             raise ValueError, \
                 "Can't populate multiple `source_system`s w/o write_db()."
         if ou_id is None:
@@ -792,11 +792,16 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         return result
     # end getdict_external_id2primary_account
 
-    def list_persons(self):
+    def list_persons(self, person_id=None):
         """Return all persons' person_id and birth_date."""
+        binds = dict()
+        where = ''
+        if person_id is not None:
+            where = 'WHERE ' + argument_to_sql(person_id,'person_id',binds,int)
         return self.query("""
         SELECT person_id, birth_date
-        FROM [:table schema=cerebrum name=person_info]""")
+        FROM [:table schema=cerebrum name=person_info]
+        """ + where, binds)
 
     def getdict_persons_names(self, source_system=None, name_types=None):
         if name_types is None:

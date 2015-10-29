@@ -16,10 +16,19 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from Cerebrum.modules.OrgLDIF import *
+import re
 import pickle
 import os.path
+import string
+
+import cereconf
+
+from Cerebrum import Entity
+from Cerebrum.modules.OrgLDIF import OrgLDIF
+from Cerebrum.modules.LDIFutils import (
+    ldapconf, normalize_string, verify_IA5String, normalize_IA5String, iso2utf,
+    hex_escape_match, dn_escape_re)
+from Cerebrum.Utils import make_timer
 
 
 class norEduLDIFMixin(OrgLDIF):
@@ -35,7 +44,7 @@ class norEduLDIFMixin(OrgLDIF):
     Either add 'Cerebrum.modules.no.Stedkode/Stedkode' to cereconf.CLASS_OU
     or override get_orgUnitUniqueID() in a cereconf.CLASS_ORGLDIF mixin.
 
-    cereconf.LDAP['FEIDE_schema_version']: '1.1' (current default) to '1.3'.
+    cereconf.LDAP['FEIDE_schema_version']: '1.5' (current default) to '1.5.1'.
     If it is a sequence of two versions, use the high version but
     include obsolete attributes from the low version.  This may be
     useful in a transition stage between schema versions.
@@ -49,48 +58,30 @@ class norEduLDIFMixin(OrgLDIF):
     extensibleObject = (cereconf.LDAP.get('use_extensibleObject', True)
                         and 'extensibleObject') or None
 
-    FEIDE_schema_version = cereconf.LDAP.get('FEIDE_schema_version', '1.1')
+    FEIDE_schema_version = cereconf.LDAP.get('FEIDE_schema_version', '1.5')
     FEIDE_obsolete_version = cereconf.LDAP.get('FEIDE_obsolete_schema_version')
 
     if isinstance(FEIDE_schema_version, (tuple, list)):
         FEIDE_obsolete_version = min(*FEIDE_schema_version)
         FEIDE_schema_version = max(*FEIDE_schema_version)
 
-    if FEIDE_schema_version == '1.1':
-        FEIDE_attr_org_id = 'norEduOrgUniqueNumber'
-        FEIDE_attr_ou_id = 'norEduOrgUnitUniqueNumber'
-    else:
-        FEIDE_attr_org_id = 'norEduOrgUniqueIdentifier'
-        FEIDE_attr_ou_id = 'norEduOrgUnitUniqueIdentifier'
+    FEIDE_attr_org_id = 'norEduOrgUniqueIdentifier'
+    FEIDE_attr_ou_id = 'norEduOrgUnitUniqueIdentifier'
 
     FEIDE_class_obsolete = None
     if FEIDE_obsolete_version:
-        if FEIDE_schema_version >= '1.4':
-            FEIDE_class_obsolete = 'norEduObsolete'
-        elif FEIDE_obsolete_version <= '1.1' < FEIDE_schema_version:
-            FEIDE_class_obsolete = extensibleObject
-        if not FEIDE_class_obsolete:
-            raise ValueError(
-                "cereconf.LDAP: "
-                "'FEIDE_schema_version' of '1.3' needs 'use_extensibleObject'")
+        FEIDE_class_obsolete = 'norEduObsolete'
 
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
         try:
             orgnum = int(cereconf.DEFAULT_INSTITUSJONSNR)
+            self.norEduOrgUniqueID = ("000%05d" % orgnum,)
         except (AttributeError, TypeError):
             self.norEduOrgUniqueID = None
-            if self.FEIDE_schema_version < '1.4':
-                raise
-        else:
-            # Note: 000 = Norway in FEIDE.
-            self.norEduOrgUniqueID = ("000%05d" % orgnum,)
         self.FEIDE_ou_common_attrs = {}
-        if (self.FEIDE_obsolete_version or self.FEIDE_schema_version) == '1.1':
-            self.FEIDE_ou_common_attrs = {
-                'norEduOrgUniqueNumber': self.norEduOrgUniqueID}
         # '@<security domain>' for the eduPersonPrincipalName attribute.
-        self.eduPPN_domain = '@' + cereconf.INSTITUTION_DOMAIN_NAME
+        self.homeOrg = cereconf.INSTITUTION_DOMAIN_NAME
         self.ou_uniq_id2ou_id = {}
         self.ou_id2ou_uniq_id = {}
         self.primary_aff_traits = {}
@@ -98,6 +89,17 @@ class norEduLDIFMixin(OrgLDIF):
         self.aff_cache = {}
         # For caching strings of statuses, int(st) -> str(st).
         self.status_cache = {}
+        logger.debug("OrgLDIF norEduOrgUniqueIdentifier: %s",
+                     self.norEduOrgUniqueID)
+        logger.debug("OrgLDIF schacHomeOrganization: %s",
+                     self.homeOrg)
+        logger.debug("OrgLDIF FEIDE schema version: %s",
+                     self.FEIDE_schema_version)
+        logger.debug("OrgLDIF FEIDE obsolete version: %s",
+                     self.FEIDE_obsolete_version)
+        if not self.homeOrg and self.FEIDE_schema_version >= '1.6':
+            # Is this neccessary? We should have this for everyone anyway.
+            raise ValueError("HomeOrg is mandatory in schema ver 1.6")
 
     def update_org_object_entry(self, entry):
         # Changes from superclass:
@@ -111,11 +113,7 @@ class norEduLDIFMixin(OrgLDIF):
             entry['objectClass'].append(self.FEIDE_class_obsolete)
             if self.norEduOrgUniqueID:
                 entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
-        if self.FEIDE_schema_version >= '1.4':
-            entry['norEduOrgSchemaVersion'] = (self.FEIDE_schema_version,)
-        elif self.FEIDE_schema_version > '1.1' and self.extensibleObject:
-            entry['objectClass'].append(self.extensibleObject)
-            entry['federationFeideSchemaVersion'] = (self.FEIDE_schema_version,)
+        entry['norEduOrgSchemaVersion'] = (self.FEIDE_schema_version,)
         uri = entry.get('labeledURI') or entry.get('eduOrgHomePageURI')
         if uri:
             entry.setdefault('eduOrgHomePageURI', uri)
@@ -232,18 +230,21 @@ class norEduLDIFMixin(OrgLDIF):
         self.update_ou_entry(entry)
         return dn, entry
 
-    def make_person_entry(self, row):
+    def make_person_entry(self, row, person_id):
         """Override to add Feide specific functionality."""
-        dn, entry, alias_info = self.__super.make_person_entry(row)
-        p_id = int(row['person_id'])
+        dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
         if not dn:
             return dn, entry, alias_info
-        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(p_id)
+        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(person_id)
         if pri_edu_aff:
             entry['eduPersonPrimaryAffiliation'] = pri_edu_aff
             entry['eduPersonPrimaryOrgUnitDN'] = self.ou2DN.get(int(pri_ou)) or self.dummy_ou_dn
-        if ldapconf('PERSON', 'entitlements_pickle_file') and p_id in self.person2entitlements:
-            entry['eduPersonEntitlement'] = self.person2entitlements[p_id]
+        if ldapconf('PERSON', 'entitlements_pickle_file') and person_id in self.person2entitlements:
+            entry['eduPersonEntitlement'] = self.person2entitlements[person_id]
+
+        entry['objectClass'].append('schacContactLocation')
+        entry['schacHomeOrganization'] = self.homeOrg
+
         return dn, entry, alias_info
 
     def make_ou_dn(self, entry, parent_dn):
@@ -341,7 +342,7 @@ class norEduLDIFMixin(OrgLDIF):
         """
         if not hasattr(self.const, 'trait_primary_aff'):
             return
-        timer = self.make_timer("Fetching primary aff traits...")
+        timer = make_timer(self.logger, 'Fetching primary aff traits...')
         for row in self.person.list_traits(code=self.const.trait_primary_aff):
             p_id = row['entity_id']
             val = row['strval']
@@ -360,7 +361,7 @@ class norEduLDIFMixin(OrgLDIF):
 
     def init_person_entitlements(self):
         """Populate dicts with a person's entitlement information."""
-        timer = self.make_timer("Processing person entitlements...")
+        timer = make_timer(self.logger, 'Processing person entitlements...')
         self.person2entitlements = pickle.load(file(
             os.path.join(
                 ldapconf(None, 'dump_dir'),
@@ -370,27 +371,26 @@ class norEduLDIFMixin(OrgLDIF):
     def init_person_fodselsnrs(self):
         # Set self.fodselsnrs = dict {person_id: str or instance with fnr}
         # str(fnr) will return the person's "best" fodselsnr, or ''.
-        timer = self.make_timer("Fetching fodselsnrs...")
+        timer = make_timer(self.logger, 'Fetching fodselsnrs...')
         self.fodselsnrs = self.person.getdict_fodselsnr()
         timer("...fodselsnrs done.")
 
     def init_person_birth_dates(self):
         # Set self.birth_dates = dict {person_id: birth date}
-        timer = self.make_timer("Fetching birth dates...")
+        timer = make_timer(self.logger, 'Fetching birth dates...')
         self.birth_dates = birth_dates = {}
-        for row in self.person.list_persons():
+        for row in self.person.list_persons(person_id=self.persons):
             birth_date = row['birth_date']
             if birth_date:
                 birth_dates[int(row['person_id'])] = birth_date
         timer("...birth dates done.")
 
-    def update_person_entry(self, entry, row):
+    def update_person_entry(self, entry, row, person_id):
         # Changes from superclass:
         # If possible, add object class norEduPerson and its attributes
         # norEduPersonNIN, norEduPersonBirthDate, eduPersonPrincipalName.
-        self.__super.update_person_entry(entry, row)
+        self.__super.update_person_entry(entry, row, person_id)
         uname = entry.get('uid')
-        person_id = int(row['person_id'])
         fnr = self.fodselsnrs.get(person_id)
         birth_date = self.birth_dates.get(person_id)
 
@@ -398,25 +398,124 @@ class norEduLDIFMixin(OrgLDIF):
         if not uname:
             return
 
-        # Prior to norEdu 1.5.1, fnr is mandatory
-        if self.FEIDE_schema_version <= '1.5' and fnr:
+        entry['eduPersonPrincipalName'] = '%s@%s' % (uname[0], self.homeOrg)
+
+        # Prior to norEdu 1.5.1, fnr is mandatory for norEduPerson
+        if fnr or self.FEIDE_schema_version >= '1.5.1':
             entry['objectClass'].append('norEduPerson')
-            if self.FEIDE_schema_version >= '1.5':
-                entry['displayName'] = entry['norEduPersonLegalName'] = entry['cn']
-            entry['eduPersonPrincipalName'] = (uname[0] + self.eduPPN_domain,)
-            entry['norEduPersonNIN'] = (str(fnr),)
+            entry['displayName'] = entry['norEduPersonLegalName'] = entry['cn']
 
             if birth_date:
                 entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (
                     birth_date.year, birth_date.month, birth_date.day),)
-        elif self.FEIDE_schema_version >= '1.5.1':
-            entry['objectClass'].append('norEduPerson')
-            entry['displayName'] = entry['norEduPersonLegalName'] = entry['cn']
-            entry['eduPersonPrincipalName'] = (uname[0] + self.eduPPN_domain,)
 
             if fnr:
                 entry['norEduPersonNIN'] = (str(fnr),)
 
-            if birth_date:
-                entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (
-                    birth_date.year, birth_date.month, birth_date.day),)
+            # norEdu 1.6 introduces two-factor auth:
+            if self.FEIDE_schema_version >= '1.6':
+                self.update_person_authn(entry, person_id)
+
+    @property
+    def person_authn_selection(self):
+        u""" Returns norEduPersonAuthnMethod_selector with constants.
+
+        Returns the LDAP_PERSON[norEduPersonAuthnMethod_selector] setting with
+        all strings replaced with their corresponding constant.
+
+        """
+        if not hasattr(self, '_person_authn_selection'):
+            self._person_authn_selection = dict()
+
+            def get_const(name, cls):
+                constant = self.const.human2constant(name, cls)
+                if not constant:
+                    self.logger.warn(
+                        "LDAP_PERSON[norEduPersonAuthnMethod_selector]: "
+                        "Unknown %s %r", cls.__name__, name)
+                return constant
+
+            for aff, selections in ldapconf('PERSON',
+                                            'norEduPersonAuthnMethod_selector',
+                                            {}).iteritems():
+                aff = get_const(aff, self.const.PersonAffiliation)
+                if not aff:
+                    continue
+                for system, c_type in selections:
+                    system = get_const(system, self.const.AuthoritativeSystem)
+                    c_type = get_const(c_type, self.const.ContactInfo)
+                    if (not system) or (not c_type):
+                        continue
+                    self._person_authn_selection.setdefault(aff, []).append(
+                        (system, c_type))
+        return self._person_authn_selection
+
+    @property
+    def person_authn_methods(self):
+        """ Returns a contact info mapping for update_person_authn.
+
+        Initializes self.person_authn_methods with a dict that maps person
+        entity_id to a list of dicts with contact info:
+
+            person_id: [ {'contact_type': <const>,
+                          'source_system': <const>,
+                          'value': <str>, },
+                         ... ],
+            ...
+
+        """
+        if not hasattr(self, '_person_authn_methods'):
+            entity = Entity.EntityContactInfo(self.db)
+            self._person_authn_methods = dict()
+
+            # Find the unique systems and contact types for filtering
+            source_systems = set(
+                (v[0] for s in self.person_authn_selection.itervalues()
+                 for v in s))
+            contact_types = set(
+                (v[1] for s in self.person_authn_selection.itervalues()
+                 for v in s))
+
+            # Cache contact info
+            count = 0
+            for row in entity.list_contact_info(
+                    entity_type=self.const.entity_person,
+                    source_system=list(source_systems),
+                    contact_type=list(contact_types)):
+                c_type = self.const.ContactInfo(row['contact_type'])
+                system = self.const.AuthoritativeSystem(row['source_system'])
+                self._person_authn_methods.setdefault(
+                    int(row['entity_id']), list()).append(
+                        {'value': str(row['contact_value']),
+                         'contact_type': c_type,
+                         'source_system': system, })
+                count += 1
+        return self._person_authn_methods
+
+    def update_person_authn(self, entry, person_id):
+        """ Add authentication info to the entry.
+
+        This method should be overridden to provide the LDAP attributes
+        'norEduPersonAuthnMethod' and 'norEduPersonServiceAuthnLevel', which
+        was introduced in the norEdu 1.6 specification.
+
+        :param dict entry: The person entry to update
+        :param int person_id: The Cerebrum entity_id of the person.
+
+        """
+        person_affs = [aff for aff, _s, _ou in self.affiliations[person_id]]
+        template = string.Template('urn:mace:feide.no:auth:method:sms $value '
+                                   'label=${source_system}%20${contact_type}')
+
+        # Add populated template to norEduPersonAuthnMethod for each configured
+        # method, if the contact data exists
+        authn_methods = list()
+        for authn_entry in self.person_authn_methods.get(person_id, []):
+            for aff, selection in self.person_authn_selection.iteritems():
+                if (aff in person_affs
+                        and (authn_entry['source_system'],
+                             authn_entry['contact_type']) in selection):
+                    authn_methods.append(
+                        template.substitute(authn_entry))
+        entry['norEduPersonAuthnMethod'] = self.attr_unique(
+            authn_methods, normalize=normalize_string)

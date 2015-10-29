@@ -60,7 +60,7 @@ def mangle(from_spread, to_spread, file,
 
     def filter_out_types(*args, **kwargs):
         if int(args[1]) in exclude_events or not log_event:
-            kwargs['change_only'] = True
+            kwargs['skip_event'] = True
             log_it(*args, **kwargs)
         else:
             log_it(*args, **kwargs)
@@ -155,8 +155,8 @@ def mangle(from_spread, to_spread, file,
             db.log_change(ac.entity_id,
                           int(ct),
                           gid,
-                          None,
-                          event_only=True)
+                          change_params=None,
+                          skip_change=True)
 
             print('Creating e_group:add event for %s -> %s' %
                   (ac.account_name, gname))

@@ -1177,7 +1177,7 @@ def init_globals():
     const = Factory.get("Constants")(db)
     logger = Factory.get_logger("cronjob")
 
-    cf_dir = '/cerebrum/dumps/Fronter'
+    cf_dir = '/cerebrum/var/cache/Fronter'
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h:',
                                    ['host=', 'rom-profil=',
@@ -1248,7 +1248,7 @@ def init_globals():
     filename = os.path.join(cf_dir, 'test.xml')
     if len(args) == 1:
         filename = args[0]
-    elif len(args) <> 0:
+    elif len(args) != 0:
         usage(2)
 
     global fxml

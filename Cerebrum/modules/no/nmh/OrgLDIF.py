@@ -17,10 +17,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import pickle
 from collections import defaultdict
 
+from Cerebrum import Entity
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.OrgLDIF import *
+from Cerebrum.modules.no.OrgLDIF import OrgLDIF
+from Cerebrum.modules.LDIFutils import normalize_string, iso2utf
 
 
 class nmhOrgLDIFMixin(OrgLDIF):
@@ -77,10 +80,11 @@ class nmhOrgLDIFMixin(OrgLDIF):
                                    convert=self.attr2syntax[a][0],
                                    verify=self.attr2syntax[a][1],
                                    normalize=self.attr2syntax[a][2]))
-             for a, s, t in (('telephoneNumber', sap, self.const.contact_phone),
-                            ('mobile', (sap, fs), self.const.contact_mobile_phone),
-                            ('facsimileTelephoneNumber', sap, self.const.contact_fax),
-                            ('labeledURI', None, self.const.contact_url))]
+             for a, s, t in (
+                 ('telephoneNumber', sap, self.const.contact_phone),
+                 ('mobile', (sap, fs), self.const.contact_mobile_phone),
+                 ('facsimileTelephoneNumber', sap, self.const.contact_fax),
+                 ('labeledURI', None, self.const.contact_url))]
         self.id2labeledURI = c[-1][1]
         self.attr2id2contacts = [v for v in c if v[1]]
 
@@ -117,21 +121,20 @@ class nmhOrgLDIFMixin(OrgLDIF):
         return dict((key, self.attr_unique(values, normalize=normalize))
                     for key, values in cont_tab.iteritems())
 
-    def make_person_entry(self, row):
+    def make_person_entry(self, row, person_id):
         """Override the production of a person entry to output.
 
         NMH needs more data for their own use, e.g. to be used by their web
         pages."""
-        dn, entry, alias_info = self.__super.make_person_entry(row)
+        dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
         if dn:
-            p_id = int(row['person_id'])
             # Add fagomrade/fagfelt, if registered for the person:
-            fagf = self.pe2fagomr.get(p_id, [])
+            fagf = self.pe2fagomr.get(person_id, [])
             for f in fagf:
                 urn = 'urn:mace:feide.no:nmh.no:fagomrade:%s' % (f)
                 entry.setdefault('eduPersonEntitlement', []).append(urn)
             # Add fagmiljø:
-            fagm = self.pe2fagmiljo.get(p_id)
+            fagm = self.pe2fagmiljo.get(person_id)
             if fagm:
                 urn = 'urn:mace:feide.no:nmh.no:fagmiljo:%s' % fagm
                 entry.setdefault('eduPersonEntitlement', []).append(urn)

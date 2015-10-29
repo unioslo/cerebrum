@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2012 University of Oslo, Norway
+# Copyright 2002-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -36,9 +36,12 @@ import urllib2
 import urllib
 import urlparse
 import random
-import popen2
+from io import BytesIO
 from string import maketrans, ascii_lowercase, digits, rstrip
 from subprocess import Popen, PIPE
+
+import gpgme
+
 from Cerebrum.UtilsHelper import Latin1
 
 
@@ -318,9 +321,7 @@ def read_password(user, system, host=None):
     finally:
         f.close()
 
-
-# TODO: Replace the popen2 module with Popen for this function as well
-def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
+def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[], shell=False):
     """Run command and copy stdout to logger.debug and stderr to
     logger.error.  cmd may be a sequence.  connect_to is a list of
     servers which will be contacted.  If debug_hostlist is set and
@@ -330,6 +331,22 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
     Return the exit code if the process exits normally, or the
     negative signal value if the process was killed by a signal.
 
+    :type cmd: basestr or sequence of basestr
+    :param cmd: Command, see subprocess.Popen argument args
+
+    :type log_exit_status: bool
+    :param log_exit_status: emit log message with exit status?
+
+    :type connect_to: list of str
+    :param connect_to: Spawned command will connect to resource (hostlist),
+                       only runs command if cereconf.DEBUG_HOSTLIST is None,
+                       or contains the given resource
+
+    :type shell: bool
+    :param shell: run command in shell, or directly with os.exec*()
+
+    :rtype: int
+    :return: spawned programme's exit status
     """
     # select on pipes and Popen3 only works in Unix.
     from select import select
@@ -342,13 +359,14 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
                              srv, cmd)
                 return EXIT_SUCCESS
 
-    proc = popen2.Popen3(cmd, capturestderr=True, bufsize=10240)
+    proc = Popen(cmd, bufsize=10240, close_fds=True,
+                 stdin=PIPE, stdout=PIPE, stderr=PIPE)
     pid = proc.pid
     if log_exit_status:
         logger.debug('Spawned %r, pid %d', cmd, pid)
-    proc.tochild.close()
-    descriptor = {proc.fromchild: logger.debug,
-                  proc.childerr: logger.error}
+    proc.stdin.close()
+    descriptor = {proc.stdout: logger.debug,
+                  proc.stderr: logger.error}
     while descriptor:
         # select() is called for _every_ line, since we can't inspect
         # the buffering in Python's file object.  This works OK since
@@ -414,13 +432,11 @@ def pgp_encrypt(message, keyid):
     """Encrypts a message using PGP.
 
     Keyword arguments:
-    message -- the message that is to be decrypted
+    message -- the message that is to be encrypted
     keyid -- the private key
 
     Returns the encrypted message. May throw an IOError.
-
     """
-
     cmd = [cereconf.PGPPROG] + cereconf.PGP_ENC_OPTS + \
           ['--recipient', keyid, '--default-key', keyid]
 
@@ -436,9 +452,7 @@ def pgp_decrypt(message, keyid, passphrase):
     passphrase - the password
 
     Returns the decrypted message. May throw an IOError.
-
     """
-
     cmd = [cereconf.PGPPROG] + cereconf.PGP_DEC_OPTS + ['--default-key', keyid]
 
     if passphrase != "":
@@ -446,6 +460,72 @@ def pgp_decrypt(message, keyid, passphrase):
         message = passphrase + "\n" + message
 
     return filtercmd(cmd, message)
+
+
+def gpgme_encrypt(message, recipient_key_id=None):
+    """
+    Encrypts a message using GnuPG (pygpgme).
+
+    Keyword arguments:
+    :param message: the message that is to be encrypted
+    :type message: str or unicode
+    :param recipient_key_id: the private key id
+    :type recipient_key_id: str or unicode
+
+    :returns: the armor-encrypted message (ciphertext)
+    :rtype: str
+
+    May throw a gpgme.GpgmeError. Should be handled by the caller.
+
+    The private key id is used by pygpgme to determine which public key
+    to use for encryption.
+    'gpg2 -k --fingerprint' can be used to list all available public keys
+    in the current GnuPG database, along with their fingerprints.
+    Possible values:
+    uid: (f.i. "Cerebrum Test <cerebrum@uio.no>")
+    key-id: (f.i. "FEAC69E4")
+    fingerprint (recommended): (f.i.'78D9E8FEB39594D4EAB7A9B85B17D23FFEAC69E4')
+    """
+    if recipient_key_id is None and hasattr(cereconf,
+                                            'PASSWORD_GPG_RECIPIENT_ID'):
+        recipient_key_id = cereconf.PASSWORD_GPG_RECIPIENT_ID
+    if hasattr(cereconf, 'PASSWORD_GNUPGHOME') and cereconf.PASSWORD_GNUPGHOME:
+        # use alternative GNUPGHOME
+        os.environ['GNUPGHOME'] = cereconf.PASSWORD_GNUPGHOME
+    context = gpgme.Context()
+    context.armor = True
+    recipient_key = context.get_key(recipient_key_id)
+    plaintext = BytesIO(unicode2str(message))
+    ciphertext = BytesIO()
+    context.encrypt([recipient_key], 0, plaintext, ciphertext)
+    return ciphertext.getvalue()
+
+
+def gpgme_decrypt(ciphertext):
+    """
+    Decrypts a ciphertext using GnuPG (pygpgme).
+
+    Keyword arguments:
+    :param ciphertext: the ciphertext that is to be decrypted
+    :type ciphertext: str
+
+    :returns: the decrypted ciphertext (message)
+    :rtype: str
+
+    May throw a gpgme.GpgmeError. Should be handled by the caller.
+
+    Just like GnuPG, pygpgme extracts the private key corresponding to the
+    ciphertext (encrypted message) automatically from the local
+    GnuPG keydatabase situated in $GNUPGHOME of the active (Cerebrum) user.
+    """
+    if hasattr(cereconf, 'PASSWORD_GNUPGHOME') and cereconf.PASSWORD_GNUPGHOME:
+        # use alternative GNUPGHOME
+        os.environ['GNUPGHOME'] = cereconf.PASSWORD_GNUPGHOME
+    context = gpgme.Context()
+    ciphertext = BytesIO(ciphertext)
+    plaintext = BytesIO()
+    context.decrypt(ciphertext, plaintext)
+    return plaintext.getvalue()
 
 
 def format_as_int(i):
@@ -545,7 +625,6 @@ class auto_super(type):
         setattr(cls, attr, super(cls))
 
 
-# TODO: Deprecate: needlessly complex in terms of readability and end result
 class mark_update(auto_super):
 
     """Metaclass marking objects as 'updated' per superclass.
@@ -1406,73 +1485,80 @@ def argument_to_sql(argument, sql_attr_name, binds,
     For the purpose of this method a tuple, a list or a set are considered to
     be a 'sequence'. Everything else is considered 'scalar'.
 
-    @type argument: a scalar (of any type) or a sequence thereof.
-    @param argument:
-      This is the value we want to pass to the database backend and the basis
-      for SQL code generation. A single scalar will be turned into SQL
-      expression 'x = :x', where x is derived from L{sql_attr_name}. A
-      sequence of scalars will be turned into SQL expression
-      'x IN (:x1, :x2, ..., :xN)' where :x_i refers to the i'th element of
-      L{argument} and the name x itself is based on L{sql_attr_name}.
+    :type argument: a scalar (of any type) or a sequence thereof.
+    :param argument:
+        This is the value we want to pass to the database backend and the basis
+        for SQL code generation. A single scalar will be turned into SQL
+        expression 'x = :x', where x is derived from L{sql_attr_name}. A
+        sequence of scalars will be turned into SQL expression 'x IN (:x1, :x2,
+        ..., :xN)' where :x_i refers to the i'th element of L{argument} and the
+        name x itself is based on L{sql_attr_name}.
 
-      E.g. if argument=(1, 2, 3) and sql_attr_name='foo', the resulting SQL
-      code will look like::
+        E.g. if argument=(1, 2, 3) and sql_attr_name='foo', the resulting SQL
+        code will look like::
 
-          (foo in (:foo0, :foo1, :foo2))
+            (foo in (:foo0, :foo1, :foo2))
 
-      and L{binds} will contain this dictionary::
+        and L{binds} will contain this dictionary::
 
-          {'foo0': transformation(argument[0]),
-           'foo1': transformation(argument[1]),
-           'foo2': transformation(argument[2])}
+            {'foo0': transformation(argument[0]),
+             'foo1': transformation(argument[1]),
+             'foo2': transformation(argument[2])}
 
-      This way we avoid the possibility of SQL-injection for sequences of
-      strings that we want to embed into the generated SQL.
+        This way we avoid the possibility of SQL-injection for sequences of
+        strings that we want to embed into the generated SQL.
 
-    @type sql_attr_name: basestring
-    @param sql_attr_name:
-      The SQL code generated by this function refers to a specific column by
-      name; this parameter contains that name. Additionally, since the
-      attribute names are often prefixed with a table name, we extract the
-      very last component of the name, when we seek to name the L{binds}
-      attribute. E.g. column 'bar' of table 'foo' can be named 'foo.bar', in
-      which case the corresponding L{binds}' key will be 'bar'.
+    :type sql_attr_name: basestring
+    :param sql_attr_name: Name of the column to match L{argument} to.
 
-    @type binds: dict
-    @param binds:
-      Contains named parameter bindings to be passed to the SQL backend. This
-      function generates new parameter bindings and it will update L{binds}.
+    :type binds: dict
+    :param binds:
+        Contains named parameter bindings to be passed to the SQL backend. This
+        function generates new parameter bindings and it will update L{binds}.
 
-    @type transformation: a callable
-    @param transformation:
-      Since this function generates SQL, we want to avoid SQL-injection by
-      converting L{argument} to proper type. Additionally, since Constant
-      objects are passed around freely, we want them converted to suitable
-      numerical codes before embedding them into SQL. transformation is a
-      function (any callable) that converts whatever L{argument} is/consists
-      of into something that we can embed into SQL.
+    :type transformation: a callable
+    :param transformation:
+        Since this function generates SQL, we want to avoid SQL-injection by
+        converting L{argument} to proper type. Additionally, since Constant
+        objects are passed around freely, we want them converted to suitable
+        numerical codes before embedding them into SQL. transformation is a
+        function (any callable) that converts whatever L{argument} is/consists
+        of into something that we can embed into SQL.
 
-    @rtype: basestring
-    @return:
-      SQL expression that can be safely embedded into SQL code to be passed to
-      the backend. The corresponding bindings are registered in L{binds}.
+    :rtype: basestring
+    :return:
+        SQL expression that can be safely embedded into SQL code to be passed
+        to the backend. The corresponding bindings are registered in L{binds}.
     """
 
-    # last component of the name in binds, so that column bar of
-    # table foo (i.e. foo.bar) is named 'bar' in binds.
-    binds_name = sql_attr_name.split(".")[-1]
+    # replace . with _, to not confuse the printf-like syntax when joining
+    # the safe SQL string from this function with the values from L{binds}.
+    binds_name = sql_attr_name.replace('.', '_')
 
     if isinstance(argument, (tuple, set, list)):
         assert len(argument) > 0, "List can not be empty."
-        tmp = dict()
-        for index, item in enumerate(argument):
-            name = binds_name + str(index)
-            assert name not in binds
-            tmp[name] = transformation(item)
+        if len(argument) == 1 and isinstance(argument, (tuple, list)):
+            # Sequence with only one scalar, let's unpack and treat as scalar.
+            # Has no real effect, but the SQL looks prettier.
+            argument = argument[0]
+        # The binds approach is very slow when argument contains lots of
+        # entries, so then skip it. Also the odds for hitting the sql-query
+        # cache diminishes rapidly, which is what binds is trying to aid.
+        elif len(argument) > 8:
+            return '(%s IN (%s))' % (
+                sql_attr_name,
+                ', '.join(map(str, map(transformation, argument))))
+        else:
+            tmp = dict()
+            for index, item in enumerate(argument):
+                name = binds_name + str(index)
+                assert name not in binds
+                tmp[name] = transformation(item)
 
-        binds.update(tmp)
-        return ("(%s IN (%s))" % (sql_attr_name,
-                                  ", ".join([":" + x for x in tmp.iterkeys()])))
+            binds.update(tmp)
+            return '(%s IN (%s))' % (
+                sql_attr_name,
+                ', '.join([':' + x for x in tmp.iterkeys()]))
 
     assert binds_name not in binds
     binds[binds_name] = transformation(argument)
@@ -1505,6 +1591,20 @@ def prepare_string(value, transform=str.lower):
         return transform(value)
 
     return value
+
+
+def make_timer(logger, msg=None):
+    # t = make_timer(message) logs the message and starts a stop watch.
+    # t(message) logs that message and #seconds since last message.
+    def timer(msg):
+        prev = timer.start
+        timer.start = time.time()
+        timer.logger.debug("%s (%d seconds)", msg, timer.start - prev)
+    if msg:
+        logger.debug(msg)
+    timer.start = time.time()
+    timer.logger = logger
+    return timer
 
 
 class Messages(dict):

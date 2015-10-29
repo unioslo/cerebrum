@@ -44,7 +44,6 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.Utils import NotSet
 from Cerebrum.modules import Email
-from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Utils import pgp_encrypt, Factory, prepare_string
 from Cerebrum.modules.no.uit.Email import email_address
@@ -393,7 +392,6 @@ class AccountUiTMixin(Account.Account):
        else:
            inits = name[0][0:1] + name[-1][0:2]
 
-       
        #sanity check
        p = re.compile('^[a-z]{3}$')
        if (p.match(inits)):
@@ -403,15 +401,8 @@ class AccountUiTMixin(Account.Account):
            raise ValueError("ProgrammingError: A Non ascii-letter in uname!: '%s'" % inits)
 
 
-    def set_password(self, plaintext):
-        # Override Account.set_password so that we get a copy of the
-        # plaintext password. To be used in self.write_db() when/if we implement password history
-        self.__plaintext_password = plaintext
-        self.__super.set_password(plaintext)
-
-
     def list_all(self, spread=None,filter_expired=False):
- 
+
         """List all users,  optionally filtering the
         results on account spread and expiry.
         """
@@ -491,20 +482,6 @@ class AccountUiTMixin(Account.Account):
             et.email_server_id = es.entity_id
             et.write_db()
         return et
-
-    def write_db(self):
-        try:
-            plain = self.__plaintext_password
-        except AttributeError:
-            plain = None
-        ret = self.__super.write_db()
-        if plain is not None:
-            # uncomment these two when/if we want password history        
-            #ph = PasswordHistory.PasswordHistory(self._db)
-            #ph.add_history(self, plain)
-            pass
-        return ret
-
 
     def is_employee(self):
         for r in self.get_account_types():

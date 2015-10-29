@@ -61,7 +61,11 @@ class IPv6Subnet(Entity):
         try:
             IPv6Subnet.validate_subnet(subnet)
             return True
-        except SubnetError:
+        except SubnetError, e:
+            # If a valid IPv6 was given, but the mask was invalid, we should
+            # raise the error message, as the user most likely just made a typo
+            if e.message.startswith('Invalid subnet mask'):
+                raise
             return False
     is_valid_subnet = staticmethod(is_valid_subnet)
 
@@ -73,12 +77,18 @@ class IPv6Subnet(Entity):
         """
         try:
             ip, mask = subnet.split('/')
-            mask = int(mask)
+            if mask != '':
+                mask = int(mask)
         except ValueError:
             raise SubnetError("Not a valid subnet '%s'" % subnet)
         if not IPv6Utils.is_valid_ipv6(ip):
             raise SubnetError("Invalid adress: %s" % ip)
-        if mask < 0 or mask > 128:
+        # TODO 25-08-2015:
+        # Since Subnet-masks for IPv6 are not properly implemented yet, this
+        # will validate an unspecified subnet mask (''), enabling bofh-users
+        # to specify a subnet like this: '2007:700:111:1/'. This should be
+        # fixed when/if proper subnet-handling is implemented.
+        if mask != '' and (mask < 0 or mask > 128):
             raise SubnetError("Invalid subnet mask '%s'; "
                               "outside range 0-128" % mask)
         return True

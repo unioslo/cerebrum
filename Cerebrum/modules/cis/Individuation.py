@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
+#
 # Copyright 2010-2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -30,7 +30,8 @@ import cereconf
 import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, SMSSender, sendmail
-from Cerebrum.modules import PasswordChecker
+from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
+from Cerebrum.QuarantineHandler import QuarantineHandler
 from cisconf import individuation as cisconf
 
 class SimpleLogger(object):
@@ -46,15 +47,15 @@ class SimpleLogger(object):
     """
     def error(self, msg):
         print "ERROR: " + msg
-        
+
     def warning(self, msg):
-        print "WARNING: " + msg    
+        print "WARNING: " + msg
 
     def info(self, msg):
-        print "INFO: " + msg    
-            
+        print "INFO: " + msg
+
     def debug(self, msg):
-        print "DEBUG: " + msg    
+        print "DEBUG: " + msg
 
 ## Globals
 log = SimpleLogger()
@@ -88,14 +89,14 @@ class Individuation:
     # The generic feedback messages
     # TBD: put somewhere else?
     messages = {
-        'error_unknown':     
+        'error_unknown':
             {'en': u'An unknown error occured',
              'no': u'En ukjent feil oppstod'},
         'person_notfound':
             {'en': u'Could not find a person by given data, please try again.',
              'no': u'Kunne ikke finne personen ut fra oppgitte data, vennligst'
                    u' prøv igjen.',},
-        'person_notfound_usernames':   
+        'person_notfound_usernames':
             {'en': u'You are either reserved or have given wrong information.'
                    u' If you are reserved, an SMS have been sent to you, as'
                    u' long as your cell phone number is registered in our'
@@ -103,7 +104,7 @@ class Individuation:
              'no': u'Du er reservert eller har gitt feil info. Hvis du er'
                    u' reservert skal du nå ha mottatt en SMS, såfremt ditt'
                    u' mobilnummer er registrert i våre systemer.'},
-        'person_miss_info':  
+        'person_miss_info':
             {'en': u'Not all your information is available. Please contact'
                    u' your HR department or student office.',
              'no': u'Ikke all din informasjon er tilgjengelig. Vennligst ta'
@@ -183,7 +184,7 @@ class Individuation:
         instead.
 
         @param id_type: type of external id
-        @type  id_type: string 
+        @type  id_type: string
         @param ext_id: external id
         @type  ext_id: string
         @return: list of dicts with username, status and priority, sorted
@@ -217,7 +218,7 @@ class Individuation:
         """Return a list of a person's accounts and a short status. The accounts
         are sorted by priority.
 
-        @type  person: Cerebrum.Person instance 
+        @type  person: Cerebrum.Person instance
         @param person: A Person instance, set with the person to get the
                        accounts from.
         """
@@ -256,12 +257,12 @@ class Individuation:
     def generate_token(self, id_type, ext_id, uname, phone_no, browser_token=''):
         """Generate a token that functions as a short time password for the user
         and send it by SMS.
-        
+
         @param id_type: type of external id
-        @type  id_type: string 
+        @type  id_type: string
         @param ext_id: external id
         @type  ext_id: string
-        @param uname: username 
+        @param uname: username
         @type  uname: string
         @param phone_no: phone number
         @type  phone_no: string
@@ -308,16 +309,16 @@ class Individuation:
         if not self.send_token(phone_no, token):
             log.error("Couldn't send token to %s for %s" % (phone_no, uname))
             raise Errors.CerebrumRPCException('token_notsent')
-        account._db.log_change(subject_entity=account.entity_id,
-                      change_type_id=self.co.account_password_token,
-                      destination_entity=None,
-                      change_params={'phone_to': phone_no})
+        account._db.log_change(account.entity_id,
+                               self.co.account_password_token,
+                               None,
+                               change_params={'phone_to': phone_no})
         # store password token as a trait
         account.populate_trait(self.co.trait_password_token, date=now(), numval=0,
                           strval=self.hash_token(token, uname))
         # store browser token as a trait
         if type(browser_token) is not str:
-            log.err("Invalid browser_token, type='%s', value='%s'" % (type(browser_token), 
+            log.err("Invalid browser_token, type='%s', value='%s'" % (type(browser_token),
                                                                       browser_token))
             browser_token = ''
         account.populate_trait(self.co.trait_browser_token, date=now(),
@@ -338,7 +339,7 @@ class Individuation:
 
     def send_token(self, phone_no, token):
         """Send token as a SMS message to phone_no"""
-        msg = getattr(cereconf, 'INDIVIDUATION_SMS_MESSAGE', 
+        msg = getattr(cereconf, 'INDIVIDUATION_SMS_MESSAGE',
                                 'Your one time password: %s')
         return self.send_sms(phone_no, msg % token)
 
@@ -357,7 +358,7 @@ class Individuation:
 
         # Check browser_token. The given browser_token may be "" but if so
         # the stored browser_token must be "" as well for the test to pass.
-        
+
         bt = account.get_trait(self.co.trait_browser_token)
         if not bt or bt['strval'] != self.hash_token(browser_token, uname):
             log.info("Incorrect browser_token %s for user %s" % (browser_token, uname))
@@ -404,16 +405,15 @@ class Individuation:
         return self._check_password(password)
 
     def _check_password(self, password, account=None):
-        ac = Factory.get('Account')(self.db)
-        uname = None
         if account is None:
-            uname = 'foobar'
+            account = Factory.get('Account')(self.db)
         try:
-            ac.goodenough(account, password, uname=uname)
-        except PasswordChecker.PasswordGoodEnoughException, m:
-            # The PasswordChecker is in iso8859-1, so we need to convert its
-            # message to unicode before we raise it.
-            m = unicode(str(m), 'iso8859-1')
+            account.password_good_enough(password)
+        except PasswordNotGoodEnough, m:
+            try:
+                m = unicode(str(m), 'utf-8', errors='strict')
+            except UnicodeDecodeError:
+                m = unicode(str(m), 'latin-1', errors='replace')
             raise Errors.CerebrumRPCException('password_invalid', m)
         else:
             return True
@@ -447,7 +447,8 @@ class Individuation:
             log.warning("user %s is deleted" % uname)
         elif account.is_expired():
             log.warning("user %s is expired" % uname)
-        elif account.get_entity_quarantine(only_active=True):
+        elif QuarantineHandler.check_entity_quarantines(
+                self.db, account.entity_id).is_locked():
             log.info("user %s has an active quarantine" % uname)
         return True
 
@@ -478,7 +479,7 @@ class Individuation:
 
             # Still not found? Try to padd with zeros if it's a student number
             # with less than 6 digits:
-            if (hasattr(self.co, 'externalid_studentnr') and 
+            if (hasattr(self.co, 'externalid_studentnr') and
                 getattr(self.co, id_type) == self.co.externalid_studentnr and
                 len(ext_id) < 6):
                 try:
@@ -555,7 +556,7 @@ class Individuation:
                                    'system_name': system,
                                    'type':   self.co.ContactInfo(row['contact_type']),})
             log.debug("Phones for person_id:%s from (%s): %s" % (person.entity_id,
-                      ','.join(s for s in systems), 
+                      ','.join(s for s in systems),
                       ','.join('%s:%s:%s' % (p['system_name'], p['type'], p['number']) for p in phones)))
             if only_first_affiliation:
                 return phones
@@ -644,7 +645,7 @@ class Individuation:
         """Return a DateTime set to the correct delay time for numbers of the
         given type and from the given source system. Numbers must be older than
         this DateTime to be accepted.
-        
+
         If no delay is set for the number, it returns now(), which will be true
         unless you change your number in the exact same time.
 
@@ -719,7 +720,7 @@ class Individuation:
                 return False
         # TODO: more to check?
         return True
-        
+
     def is_reserved(self, account, person):
         """Check that the person/account isn't reserved from using the service."""
         group = Factory.get('Group')(account._db)

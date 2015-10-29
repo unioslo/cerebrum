@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2003, 2007 University of Oslo, Norway
+# encoding: utf-8
+#
+# Copyright 2003-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,39 +22,30 @@
 import cerebrum_path
 import cereconf
 
-import re
-from Cerebrum.modules import PasswordChecker as DefaultPasswordChecker
-from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
+from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
+from Cerebrum.modules.pwcheck.common import PasswordChecker
+from Cerebrum.modules.pwcheck.simple import CheckCharSeqMixin
+from Cerebrum.modules.pwcheck.simple import CheckRepeatedPatternMixin
+from Cerebrum.modules.pwcheck.simple import CheckUsernameMixin
+from Cerebrum.modules.pwcheck.history import PasswordHistoryMixin
+from Cerebrum.modules.pwcheck.phrase import CheckPassphraseMixin
 
 
-# The error messages are in Norwegian, since they end-users are likely to
-# prefer it.
-msgs = DefaultPasswordChecker.msgs
-msgs.update({
-    'invalid_char':
-    """Vennligst ikke bruk andre tegn enn bokstaver og blank.""",
-    'atleast14':
-    """Passord må ha minst 14 tegn.""",
-    'atleast8':
-    """Passord må ha minst 8 tegn.""",
-    'sequence_keys':
-    """Ikke bruk de samme tegn om igjen etter hverandre.""",
-    'was_like_old':
-    """Det nye passordet var for likt det gamle. Velg et nytt ett.""",
-    'repetitive_sequence':
-    """Ikke bruk gjentagende grupper av tegn (eksempel: ikke 'abcabcabc').""",
-    'sequence_alphabet':
-    """Ikke bruk tegn i alfabetisk rekkefølge (eksempel: ikke 'abcdef').""",
-    'uname_in_password':
-    """Ikke la brukernavnet være en del av passordet.""",
-    'bad_password':
-    """Passordkombinasjonen er ikke bra nok, vennligst prøv igjen.""",
-})
+class _RepeatedPattern(CheckRepeatedPatternMixin, PasswordChecker):
+    pass
 
 
-class OfkPasswordChecker(DefaultPasswordChecker.PasswordChecker):
+class _CharSequence(CheckCharSeqMixin, PasswordChecker):
+    pass
 
-    def goodenough(self, account, fullpasswd, uname=None):
+
+class OfkPasswordCheckerMixin(CheckUsernameMixin,
+                              PasswordHistoryMixin):
+
+    # This is a bit hackish, because we want to translate errors,
+    # and we DONT want to re-implement all the checks...
+
+    def password_good_enough(self, fullpasswd, **kw):
         """Perform a number of checks on a password to see if it is good
         enough.
 
@@ -68,40 +59,34 @@ class OfkPasswordChecker(DefaultPasswordChecker.PasswordChecker):
         num_digits = 0
         num_chars_lower = 0
         num_chars_upper = 0
-        
+
         for char in fullpasswd:
             if not (char.isalpha() or char.isdigit()) or char == '$':
-                raise PasswordGoodEnoughException(msgs['invalid_char'])
+                raise PasswordNotGoodEnough(
+                    "Vennligst ikke bruk andre tegn enn bokstaver og blank.")
 
         # Check that the password is long enough.
         if len(fullpasswd) < 8:
-            raise PasswordGoodEnoughException(msgs['atleast8'])
-
-        # Repeating pattern: ababab, abcabcabc, abcdabcd
-        if (re.search(r'^(..)\1\1', fullpasswd) or
-            re.search(r'^(...)\1', fullpasswd) or
-            re.search(r'^(....)\1', fullpasswd)):
-            raise PasswordGoodEnoughException(msgs['repetitive_sequence'])
+            raise PasswordNotGoodEnough("Passord må ha minst 8 tegn.")
 
         # Reversed patterns: abccba abcddcba
-        if (re.search(r'^(.)(.)(.)\3\2\1', fullpasswd) or
-            re.search(r'^(.)(.)(.)(.)\4\3\2\1', fullpasswd)):
-            raise PasswordGoodEnoughException(msgs['repetitive_sequence'])
+        try:
+            pattern = _RepeatedPattern()
+            pattern.password_good_enough(fullpasswd, **kw)
+        except PasswordNotGoodEnough:
+            raise PasswordNotGoodEnough(
+                "Ikke bruk gjentagende grupper av tegn"
+                " (eksempel: ikke 'abcabcabc').")
 
-        # Do not allow unames/reverse unames to be in passwords
-        if uname is None and account is not None:
-            uname = account.account_name
-        if ((uname is not None) and
-            (uname in fullpasswd or uname[::-1] in fullpasswd)):
-            raise PasswordGoodEnoughException(msgs['uname_in_password'])
-        
-        # Check that the characters in the password are not a predefined sequence
-        self._check_sequence(fullpasswd)
+        # Check that the characters in the password are not a sequence
+        try:
+            sequence = _CharSequence()
+            sequence.password_good_enough(fullpasswd, **kw)
+        except PasswordNotGoodEnough:
+            raise PasswordNotGoodEnough(
+                "Ikke bruk tegn i alfabetisk rekkefølge"
+                " (eksempel: ikke 'abcdef').")
 
-        # Check matches to previous passwords
-        if account is not None:
-            self.check_password_history(account, fullpasswd)
-            
         # Check organisation-specific rules
         for c in fullpasswd:
             if c.isdigit():
@@ -111,79 +96,50 @@ class OfkPasswordChecker(DefaultPasswordChecker.PasswordChecker):
             else:
                 num_chars_upper = num_chars_upper + 1
 
-        if not (num_digits >= 2 and num_chars_lower > 0 and num_chars_upper > 0):
-            raise PasswordGoodEnoughException(msgs['bad_password'])
+        if not (num_digits >= 2
+                and num_chars_lower > 0
+                and num_chars_upper > 0):
+            raise PasswordNotGoodEnough(
+                "Passordkombinasjonen er ikke bra nok, vennligst prøv igjen.")
 
-        # Password good enough
-        return True
-
-
-class GiskePasswordChecker(DefaultPasswordChecker.PasswordChecker):
-
-    def goodenough(self, account, fullpasswd, uname=None):
-        """Perform a number of checks on a password to see if it is good
-        enough.
-
-        Giske has the following rules:
-
-        - Characters in the passphrase are either letters or whitespace.
-        - The automatically generated password has a minimum of 14
-          characters and 2 words; and a maximum of 20 characters.
-        - The automatically generated passwords are generated out of a
-          'child-friendly' dictionary (both nynorsk and bokmål). 
-        - The user supplied passwords have a minimum of 14
-          characters. There is no maximum (well, there is in the db
-          schema, but this is irrelevant in the passwordchecker).
-        """
-
-        # IVR 2007-03-28: It is uncertain whether this check is meaningful. It
-        # has been disabled for now.
-        # # Check that the characters are legal.
-        # for char in fullpasswd:
-        #     if not (char.isalpha() or char in 'æøåÆØÅ '):
-        #         raise PasswordGoodEnoughException(msgs['invalid_char'])
-
-        # Check that the password is long enough.
-        if len(fullpasswd) < 14:
-            raise PasswordGoodEnoughException(msgs['atleast14'])
-
-        # at least 3 words, each word at least 2 characters
-        if len([x for x in fullpasswd.split(" ") if len(x) >= 2]) < 3:
-            raise PasswordGoodEnoughException("For få ord i passordet")
-
-        # IVR 2009-01-23: At Giske the passphrases are autogenerated from a
-        # dictionary. It makes no sense for us to try to match some parts of
-        # such phrases against some criteria designed for passwords.
-        return True
-    # end goodenough
-# end GiskePasswordChecker
-
-
-
-
-
-if __name__ == "__main__":
-    from Cerebrum.Account import Account
-    from Cerebrum.Utils import Factory
-    db = Factory.get("Database")()
-    pc = OfkPasswordChecker(db)
-    account = Factory.get("Account")(db)
-
-    for candidate in ("åæålllkkk34", # invalid chars (disabled 2007-03-28)
-                      "hYt87",              # too short
-                      "ooooooooo",    # all alike
-                      "abcabcabcabcabc",     # repeating pattern
-                      "abccba9fo",      # repeating pattern
-                      "jashod78",      # username (fake)
-                      "abcdefghijklmnopqr",  # sequence
-                      "asdfghjklzxcvbnm",    # allowed 
-                      "qwertyuiopasdfghj",   # allowed
-                      "qwerty asdfghj zxcv", # keyboard sequence
-                      "aaaaaaaaaacccccccc",  # repeating chars
-                      "43HIaHeD"): # valid
         try:
-            pc.goodenough(None, candidate, "this is a user")
-            print "candidate: <%s>: ok!" % (candidate,)
-        except PasswordGoodEnoughException, val:
-            print "candidate: <%s>: failed: %s" % (candidate, val)
-# fi
+            super(OfkPasswordCheckerMixin,
+                  self).password_good_enough(fullpasswd, **kw)
+        except PasswordNotGoodEnough, e:
+            if "username" in str(e):
+                raise PasswordNotGoodEnough(
+                    "Ikke la brukernavnet være en del av passordet.")
+            if "similar" in str(e):
+                raise PasswordNotGoodEnough(
+                    "Det nye passordet var for likt det gamle."
+                    " Velg et nytt ett.")
+            raise
+
+
+class GiskePasswordCheckerMixin(CheckPassphraseMixin):
+
+    """Perform a number of checks on a password to see if it is good
+    enough.
+
+    Giske has the following rules:
+
+    - Characters in the passphrase are either letters or whitespace.
+    - The automatically generated password has a minimum of 14
+      characters and 2 words; and a maximum of 20 characters.
+    - The automatically generated passwords are generated out of a
+      'child-friendly' dictionary (both nynorsk and bokmål).
+    - The user supplied passwords have a minimum of 14
+      characters. There is no maximum (well, there is in the db
+      schema, but this is irrelevant in the passwordchecker).
+    """
+
+    _passphrase_min_words = 3
+    _passphrase_min_word_length = 2
+    _passphrase_min_words_error_fmt = ("For få ord i passordet (minst %d"
+                                       "ord på %d tegn")
+
+    _passphrase_min_length = 14
+    _passphrase_min_length_error_fmt = ("Passord må ha minst %d tegn")
+
+    _passphrase_max_length = None
+    _passphrase_max_length_error_fmt = "%r"

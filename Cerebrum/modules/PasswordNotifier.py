@@ -53,23 +53,10 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
-from Cerebrum import Constants as _c
-from Cerebrum.modules.EntityTrait import _EntityTraitCode
+from Cerebrum.modules.PasswordNotifierConstants import Constants as PNConstants
+from Cerebrum.QuarantineHandler import QuarantineHandler
 import smtplib
 
-class Constants(_c.Constants):
-    """
-    Constants used by PasswordNotifier
-    """
-    trait_passwordnotifier_excepted = _EntityTraitCode(
-        'autopass_except',
-        _c.Constants.entity_account,
-        "Trait marking accounts whose password's change is not enforced by PasswordNotifier.")
-
-    trait_passwordnotifier_notifications = _EntityTraitCode(
-        'pw_notifications',
-        _c.Constants.entity_account,
-        "Trait for PasswordNotifier's bookkeeping.")
 
 class PasswordNotifier(object):
     """
@@ -85,8 +72,8 @@ class PasswordNotifier(object):
         grace_period = dt.DateTimeDelta(5*7)
         reminder_delay = [dt.DateTimeDelta(2*7)]
         class_notifier = ['Cerebrum.modules.PasswordNotifier/PasswordNotifier']
-        trait = Constants.trait_passwordnotifier_notifications
-        except_trait = Constants.trait_passwordnotifier_excepted
+        trait = PNConstants.trait_passwordnotifier_notifications
+        except_trait = PNConstants.trait_passwordnotifier_excepted
         summary_from = None
         summary_to = None
         summary_cc = None
@@ -148,16 +135,23 @@ class PasswordNotifier(object):
                 'Body': msg.get_payload(decode=1)
                 })
     # end __init__
-                
+
     def get_old_account_ids(self):
         """
         Returns a set of account_id's for candidates.
         """
-        from Cerebrum.modules import PasswordHistory
-        ph = PasswordHistory.PasswordHistory(self.db)
+        from Cerebrum.modules.pwcheck.history import PasswordHistory
+        account = Utils.Factory.get("Account")(self.db)
+        ph = PasswordHistory(self.db)
         old_ids = set([int(x['account_id']) for x in ph.find_old_password_accounts((self.today
             - self.config.max_password_age).strftime("%Y-%m-%d"))])
         old_ids.update(set([int(x['account_id']) for x in ph.find_no_history_accounts()]))
+        # TODO: Select only autopassword quarantines?
+        quarantined_ids = QuarantineHandler.get_locked_entities(
+            self.db,
+            entity_types=self.constants.entity_account,
+            entity_ids=old_ids)
+        old_ids = old_ids - quarantined_ids
         return old_ids
     # end get_old_account_ids
 
@@ -277,9 +271,14 @@ class PasswordNotifier(object):
         """Sets a quarantine_autopassord for account"""
         self.splatted_users.append(account.account_name)
         self.logger.debug("Splatting %s" % account.account_name)
-        account.add_entity_quarantine(
-            self.constants.quarantine_autopassord, self.splattee_id,
-            "password not changed", self.now, None)
+        if not account.get_entity_quarantine(
+                qtype=self.constants.quarantine_autopassord):
+            account.add_entity_quarantine(
+                self.constants.quarantine_autopassord, self.splattee_id,
+                "password not changed", self.now, None)
+            return True
+        else:
+            return False
     # end splat_user
 
     def process_accounts(self):
@@ -300,7 +299,7 @@ class PasswordNotifier(object):
             cl_acc = account.entity_id
         else:
             cl_acc = None
-        self.db.cl_init(cl_acc, self.config.change_log_program)
+        self.db.cl_init(change_by=cl_acc, change_program=self.config.change_log_program)
         for account_id in all_ids:
             account.clear()
             account.find(account_id)
@@ -323,10 +322,10 @@ class PasswordNotifier(object):
             if self.get_deadline(account) <= self.today:
                 # Deadline given in notification is passed, splat.
                 if not self.dryrun:
-                    self.splat_user(account)
+                    num_splatted += 1 if self.splat_user(account) else 0
                 else:
                     self.logger.info("Splat user %s", account.account_name)
-                num_splatted += 1
+                    num_splatted += 1
             elif self.get_num_notifications(account) == 0:
                 # No previously notification/warning sent. Send first-mail
                 if self.notify(account):

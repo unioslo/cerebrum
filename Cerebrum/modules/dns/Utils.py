@@ -84,7 +84,7 @@ class DnsParser(object):
                 self._ip_number.clear()
                 self._ip_number.find(self._arecord.ip_number_id)
             except Errors.NotFoundError:
-                raise CerebrumError("Could not find %s" % ip)
+                raise CerebrumError("Could not find host %s" % ip)
             ip = self._ip_number.a_ip
 
         try:
@@ -411,7 +411,7 @@ class Find(object):
         self._arecord.clear()
         try:
             if target_ip:
-                raise NotImplemented
+                raise NotImplementedError
             else:
                 self._arecord.find_by_dns_owner_id(owner_id)
             return self._arecord, self._arecord.entity_id

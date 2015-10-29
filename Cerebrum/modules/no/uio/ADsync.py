@@ -418,7 +418,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
     def get_password(self, uname):
         """
         Returns password for a new user to be created in AD. First tries to
-        get the password from the database, and if unsuccesfull it will return
+        get the password from the database, and if unsuccessful it will return
         a random secure password.
 
         @param uname: Username of new user
@@ -829,52 +829,55 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         else:
             ad_dict = {}
         return ad_dict
-        
-    
+
     def delete_and_filter(self, ad_dict, cerebrum_dict, dry_run, delete_groups):
-        """Filter out groups in AD that shall not be synced from cerebrum
+        """Filter out groups in AD that shall not be synced from Cerebrum.
 
         Goes through the dict of the groups in AD, and checks if it is 
         a group that shall be synced from cerebrum. If it is not we remove
         it from the dict so we will pay no attention to the group when we sync,
         but only after checking if it is in our OU. If it is we delete it.
 
-        @param ad_dict : account_id -> account info mapping
-        @type ad_dict : dict
-        @param cerebrum_dict : account_id -> account info mapping
-        @type cerebrum_dict : dict
-        @param delete_users: Delete or not unwanted groups
-        @type delete_users: Flag
-        @param dry_run: Flag
+        :param dict ad_dict: account_id -> account info mapping
+        :param dict cerebrum_dict: account_id -> account info mapping
+        :param Flag delete_users: Delete or not unwanted groups
+        :param Falg dry_run: Dry run, don't actually delete.
         """
 
         for grp_name, v in ad_dict.items():
-            if not cerebrum_dict.has_key(grp_name):
+            if grp_name not in cerebrum_dict:
                 if self.ad_ldap in ad_dict[grp_name]['OU']:
                     match = False
                     for dont in cereconf.AD_DO_NOT_TOUCH:
-                        if dont.upper() in ad_dict[grp_name]['OU'].upper():
+                        if dont.upper() in ad_dict[grp_name]['distinguishedName'].upper():
                             match = True
+                            self.logger.debug2(
+                                "%r (dn=%s) in AD_DO_NOT_TOUCH, skipping",
+                                grp_name,
+                                ad_dict[grp_name]['distinguishedName'])
                             break
-                    # an unknown group in OUs under our control 
+                    # an unknown group in OUs under our control
                     # and not i DO_NOT_TOUCH -> delete
                     if not match:
                         if not delete_groups:
-                            self.logger.debug("delete is False."
-                                              "Don't delete group: %s", grp_name)
+                            self.logger.debug(
+                                "delete is False. Don't delete group: %s",
+                                grp_name)
                         else:
-                            self.logger.info("delete_groups = %s, "
-                                             "deleting group %s",
-                                             delete_groups, grp_name)
-                            self.run_cmd('bindObject', dry_run, 
-                                         ad_dict[grp_name]['distinguishedName'])
+                            self.logger.info(
+                                "delete_groups = %s, deleting group %s",
+                                delete_groups, grp_name)
+                            self.run_cmd(
+                                'bindObject', dry_run,
+                                ad_dict[grp_name]['distinguishedName'])
                             ret = self.run_cmd('deleteObject', dry_run)
                             if not ret[0]:
-                                self.logger.warning("Delete on %s failed: %r" % \
-                                      (ad_dict[grp_name]['distinguishedName'], ret))
-                #does not concern us (anymore), delete from dict.
+                                self.logger.warning(
+                                    "Delete on %s failed: %r",
+                                    ad_dict[grp_name]['distinguishedName'],
+                                    ret)
+                # does not concern us (anymore), delete from dict.
                 del ad_dict[grp_name]
-    
 
     def get_default_ou(self):
         """
