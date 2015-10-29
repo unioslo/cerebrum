@@ -562,7 +562,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """
 
         try:
-            pwd_checker = VirthomePasswordChecker()
+            pwd_checker = VirthomePasswordChecker(self.db)
             pwd_checker.password_good_enough(password)
         except PasswordNotGoodEnough, m:
             raise CerebrumError("Password too weak: %s" % str(m))

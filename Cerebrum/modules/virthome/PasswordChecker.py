@@ -50,5 +50,5 @@ class VirthomePasswordChecker(CheckLengthMixin,
         if not isinstance(password, basestring):
             raise PasswordNotGoodEnough(
                 "Attempting to set non-string password %s" % password)
-        super(VirthomePasswordCheckerMixin,
+        super(VirthomePasswordChecker,
               self).password_good_enough(password, **kw)
