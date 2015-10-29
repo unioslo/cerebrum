@@ -18,7 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Generate an LDIF-file with automount information
+"""Generate an LDIF-file with automount information for all disks with
+a host and at least one user.
 """
 
 import sys
@@ -38,51 +39,53 @@ def generate_automount(f):
     h = Factory.get('Host')(db)
 
     hosts = []
-    d_list = d.list(filter_expired=True)
-    for row in d_list:
-        if row[0] <= 0:
+    disks = d.list(filter_expired=True)
+    for disk in disks:
+        if disk['count'] <= 0:
+            # Skip disks with no users
             continue
-        if row[3] not in hosts:
-            hosts.append(row[3])
+        if disk['host_id'] not in hosts:
+            hosts.append(disk['host_id'])
     h_id2name = {}
     # TBD: any point in filtering? does it just consume more resources than
     # listing all hosts? 
-    for row in h.search(host_id=hosts):
-        h_id2name[row['host_id']] = row['name']
+    for host in h.search(host_id=hosts):
+        h_id2name[host['host_id']] = host['name']
 
     paths = {}
-    for d in d_list:
-        if d[0] <= 0:
+    for disk in disks:
+        if disk['count'] <= 0:
+            # Skip disks with no users
             continue
-        path = d[4].split('/')
+        path = disk['path'].split('/')
         if not ((path[1], path[2])) in paths.keys():
-            paths[(path[1], path[2])] = d[3]
+            paths[(path[1], path[2])] = disk['host_id']
 
     f.write(container_entry_string('AUTOMOUNT_MASTER'))
 
-    for p in paths:
+    for path in paths:
         entry = {}
         entry['objectClass'] = ['top','automount']
-        dn = "cn=%s,%s" % ("/%s/%s" % (p[0], p[1]), 
+        dn = "cn=%s,%s" % ("/%s/%s" % (path[0], path[1]), 
                           ldapconf('AUTOMOUNT_MASTER', 'dn', None))
-        entry['automountInformation'] = "ldap:ou=auto.%s-%s,%s" %(p[1],p[0],
+        entry['automountInformation'] = "ldap:ou=auto.%s-%s,%s" %(path[1],path[0],
                                                               ldapconf('AUTOMOUNT', 'dn', None))
         f.write(entry_string(dn, entry))
 
         entry = {}
         entry['objectClass'] = ['top','automountMap']
-        dn = "ou=auto.%s-%s,%s" % (p[1], p[0], 
+        dn = "ou=auto.%s-%s,%s" % (path[1], path[0], 
                                    ldapconf('AUTOMOUNT', 'dn', None))
         f.write(entry_string(dn, entry))
 
         entry = {}
         entry['objectClass'] = ['top','automount']
-        dn = "cn=/,ou=auto.%s-%s,%s" % (p[1], p[0], 
+        dn = "cn=/,ou=auto.%s-%s,%s" % (path[1], path[0], 
                                          ldapconf('AUTOMOUNT', 'dn', None))
         dns = 'uio.no'
-        if p[0] == 'ifi':
+        if path[0] == 'ifi':
             dns = 'ifi.uio.no'
-        entry['automountInformation'] = "-fstype=nfs,tcp,vers=3,rw,intr,hard,nodev,nosuid,noacl %s.%s:/%s/%s/&" % (h_id2name[paths[p]], dns, p[0], p[1])
+        entry['automountInformation'] = "-fstype=nfs,tcp,vers=3,rw,intr,hard,nodev,nosuid,noacl %s.%s:/%s/%s/&" % (h_id2name[paths[path]], dns, path[0], path[1])
         f.write(entry_string(dn, entry))
 
 def main():
