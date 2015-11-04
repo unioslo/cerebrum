@@ -26,7 +26,7 @@ import getopt
 
 import cerebrum_path
 import cereconf
-from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.access_FS import make_fs
 
 progname = __file__.split("/")[-1]
 
@@ -102,7 +102,7 @@ def main(argv=None):
         if opt in ('-f', '--file',):
             options["output"] = val                        
     
-    fs_db = Factory.get("FS")()
+    fs_db = make_fs()
     student_rows = fs_db.student.list_aktiv()
 
     if options["output"] != sys.stdout:

@@ -32,7 +32,7 @@ import operator
 
 from Cerebrum import Database
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, dyn_import
 
 
 # A tuple to hold the version number
@@ -217,17 +217,47 @@ def fsobject(name, versions, version_to=None):
     return fn
 
 
+def find_best_version(module, name, version):
+    """Finds the newest version matching spec.
+
+    :param str module: Module name (e.g. 'Cerebrum.modules.no.access_FS)
+    :param str name: Component name (e.g. FS)
+    :param Version version: FS version
+
+    :returns: Class for given component
+    """
+    candidates = _default_fs_config[module][name]
+    for spec, cls in sorted(candidates.items(), key=lambda x: x[0]):
+        if spec.matches(version):
+            return cls
+
+
 def make_fs(db=None, user=None, database=None):
+    """Create FS object based on actual version number.
+    Default is to look in this module, but if cereconf.FS_MODULE is set,
+    it will override the default.
+    
+    :param Database db: DB to use, or none to use other params.
+    :param str user: Username for db, defaults to cereconf.FS_USER
+    :param str database: Database name for db,
+        defaults to cereconf.FS_DATABASE_NAME
+    :returns: New FS object, initialized with db
+    """
+    import inspect
     if db is None:
         user = user or cereconf.FS_USER
         database = database or cereconf.FS_DATABASE_NAME
         DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
         db = Database.connect(user=user, service=database,
                               DB_driver=DB_driver)
-    major, minor, patch = _get_fs_version(db)
-    if major <= 7:
-        return Factory.get("FS")(db=db)
-
+    version = _get_fs_version(db)
+    module = getattr(cereconf, 'FS_MODULE', inspect.getmodule(make_fs).__name__)
+    dyn_import(module)
+    cls = find_best_version(module, 'FS', version)
+    if cls:
+        return cls(db)
+    raise Errors.RuntimeError("Module {} holds no suitable FS for version {}"
+                              .format(module, version))
 
 # TODO: En del funksjoner finnes både som get_ og list_ variant.  Det
 # kunne være en fordel om man etablerte en mekanisme for å slå sammen

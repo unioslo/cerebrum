@@ -49,6 +49,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import Database
@@ -909,7 +910,7 @@ def make_fs_updates(person_affiliations, fagperson_affiliations, fs,
       Sequence of affiliations, much like L{person_affiliations}. This one is
       used to populate FS.fagperson.
 
-    @type fs: Factory.get('FS') instance.
+    @type fs: make_fs() instance.
     @param fs:
       An FS db proxy.
 
@@ -1001,7 +1002,7 @@ def main():
                      "This is most likely not what you want")
         return
     
-    fs = Factory.get("FS")()
+    fs = make_fs()
     if dryrun:
         fs.db.commit = fs.db.rollback
 

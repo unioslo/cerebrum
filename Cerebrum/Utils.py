@@ -927,7 +927,6 @@ class Factory(object):
                       'Project': 'CLASS_PROJECT',
                       'Allocation': 'CLASS_ALLOCATION',
                       'AllocationPeriod': 'CLASS_ALLOCATION_PERIOD',
-                      'FS': 'CLASS_FS',
                       'LMSImport': 'CLASS_LMS_IMPORT',
                       'LMSExport': 'CLASS_LMS_EXPORT', }
 

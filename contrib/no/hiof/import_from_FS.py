@@ -32,6 +32,7 @@ from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
 from Cerebrum.modules.no.hiof.access_FS import FS
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.access_FS import make_fs
 
 logger = Factory.get_logger("cronjob")
 xml = XMLHelper()
@@ -286,7 +287,7 @@ def usage(exitcode=0):
 def assert_connected(user="CEREBRUM", service="FSHIOF.uio.no"):
     global fs
     if fs is None:
-        fs = Factory.get("FS")()
+        fs = make_fs()
 
 def main():
     logger.info("Starting import from FS")
