@@ -71,6 +71,7 @@ class PasswordNotifier(object):
         change_log_account = None
         template = []
         max_password_age = dt.DateTimeDelta(365)
+        max_password_age_aff = {}
         max_new_notifications = 0
         grace_period = dt.DateTimeDelta(5*7)
         reminder_delay = [dt.DateTimeDelta(2*7)]
@@ -96,9 +97,8 @@ class PasswordNotifier(object):
         @keyword dryrun: Refrain from side effects?
         """
 
-        from Cerebrum.Utils import Factory
-        self.logger = logger or Factory.get_logger('console')
-        self.db = db or Factory.get("Database")()
+        self.logger = logger or Utils.Factory.get_logger('console')
+        self.db = db or Utils.Factory.get("Database")()
         self.dryrun = dryrun or False
 
         self.now = self.db.Date(*(time.localtime()[:3]))
@@ -129,16 +129,58 @@ class PasswordNotifier(object):
         """
         Returns a set of account_id's for candidates.
         """
+        def _with_aff(affiliation=None, max_age=None):
+            old = set()
+            person = Utils.Factory.get("Person")(self.db)
+
+            aff_or_status = self.constants.human2constant(affiliation)
+            if not aff_or_status:
+                self.logger.error('Unknown affiliation "%s"', affiliation)
+                return old
+
+            lookup = {'status' if '/' in affiliation else 'affiliation': aff_or_status}
+            for row in person.list_affiliations(**lookup):
+                person_id = row['person_id']
+                if person_id in old_ids:
+                    continue
+                person.clear()
+                person.find(person_id)
+                account_id = person.get_primary_account()
+                if account_id:
+                    if account_id in quarantined_ids:
+                        continue
+                    history = [x['set_at'] for x in ph.get_history(account_id)]
+                    if history and (self.today - max(history) > max_age):
+                        old.add(account_id)
+            self.logger.info('Accounts with affiliation %s with old password: %s',
+                             str(affiliation), len(old))
+            return old
+
         from Cerebrum.modules.pwcheck.history import PasswordHistory
         ph = PasswordHistory(self.db)
+
+        self.logger.info('Fetching accounts with password older than %d days',
+                         self.config.max_password_age.days)
         old_ids = set([int(x['account_id']) for x in ph.find_old_password_accounts(
             (self.today - self.config.max_password_age).strftime("%Y-%m-%d"))])
+
+        self.logger.info('Fetching accounts with no password history')
         old_ids.update(set([int(x['account_id']) for x in ph.find_no_history_accounts()]))
+
+        self.logger.info('Fetching quarantines')
         # TODO: Select only autopassword quarantines?
         quarantined_ids = QuarantineHandler.get_locked_entities(
             self.db,
             entity_types=self.constants.entity_account,
             entity_ids=old_ids)
+
+        # Do we have special rules for certain person affiliations?
+        for aff, max_age in self.config.max_password_age_aff.items():
+            self.logger.info(
+                'Fetching accounts with affiliation %s with password older than %d days',
+                str(aff), max_age.days)
+            old_ids.update(_with_aff(affiliation=aff, max_age=max_age))
+
         old_ids = old_ids - quarantined_ids
         return old_ids
 
