@@ -143,7 +143,22 @@ class VersionSpec(object):
 def parse_version_spec(spec):
     """
     Parse a version spec.
+
+    >>> parse_version_spec("<1")
+    <1.0.0
+    >>> parse_version_spec(">=7.3")
+    >=7.3.0
+    >>> parse_version_spec((7, 8))
+    [7.0.0, 8.0.0)
+    >>> parse_version_spec({'start': 6, 'end': 8, 'end_open': False})
+    [6.0.0, 8.0.0]
+
+    :param str/tuple/dict spec: Specifies a VersionSpec
+    :returns: Matching version spec
+    :raises: Cerebrum.Errors.ProgrammingError on fail
     """
+    if isinstance(spec, VersionSpec):
+        return spec
     if isinstance(spec, basestring):
         if spec[0] in '<>=':
             closed = spec[1] == '='
