@@ -22,7 +22,9 @@ import time
 
 from Cerebrum.modules.no import access_FS
 
+
 class NMHStudent(access_FS.Student):
+
     def list_aktiv(self):
         """ Hent opplysninger om studenter definert som aktive ved NMH.
 
@@ -91,11 +93,13 @@ class NMHStudent(access_FS.Student):
         """ % (self.year, self._is_alive())
         return self.db.query(qry)
 
+
 class NMHUndervisning(access_FS.Undervisning):
-    ## TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
-    ##      og list_studenter_underv_enhet.
-    ##      Prøve å lage generell list_studenter_kull.
-    ##      Prøve å fjerne behov for override-metoder her
+    # TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
+    # og list_studenter_underv_enhet.
+    # Prøve å lage generell list_studenter_kull.
+    # Prøve å fjerne behov for override-metoder her
+
     def list_undervisningenheter(self, sem=None):
         """Henter undervisningsenheter i nåverende (current) og/eller neste
         (next) semester. Default er både nåværende og neste semeter, så en får
@@ -117,12 +121,12 @@ class NMHUndervisning(access_FS.Undervisning):
           r.emnekode = e.emnekode AND
           r.versjonskode = e.versjonskode AND """
         if (sem == "current"):
-            qry +="""%s""" % self._get_termin_aar(only_current=1)
+            qry += """%s""" % self._get_termin_aar(only_current=1)
         elif (sem == 'next'):
-            qry +="""%s""" % self._get_next_termin_aar()
+            qry += """%s""" % self._get_next_termin_aar()
         else:
-            qry +="""(%s OR %s)""" % (self._get_termin_aar(only_current=1),
-                                      self._get_next_termin_aar())
+            qry += """(%s OR %s)""" % (self._get_termin_aar(only_current=1),
+                                       self._get_next_termin_aar())
         return self.db.query(qry)
 
     def list_aktiviteter(self, start_aar=time.localtime()[0],
@@ -158,9 +162,14 @@ class NMHUndervisning(access_FS.Undervisning):
                              {'aar': start_aar,
                               'semester': start_semester})
 
-
-    def list_studenter_underv_enhet(self, institusjonsnr, emnekode, versjonskode,
-                                    terminkode, arstall, terminnr):
+    def list_studenter_underv_enhet(
+        self,
+        institusjonsnr,
+        emnekode,
+        versjonskode,
+        terminkode,
+        arstall,
+     terminnr):
         """Finn fødselsnumrene til alle studenter på et gitt
         undervisningsenhet. Skal brukes til å generere grupper for
         adgang til CF."""
@@ -183,7 +192,6 @@ class NMHUndervisning(access_FS.Undervisning):
                                    'arstall': arstall}
                              )
 
-
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
         """Hent alle studentene som er oppført på et gitt kull."""
 
@@ -200,9 +208,9 @@ class NMHUndervisning(access_FS.Undervisning):
             arstall_kull = :arstall_kull
         """
 
-        return self.db.query(query, {"studieprogramkode" : studieprogramkode,
-                                     "terminkode_kull"   : terminkode,
-                                     "arstall_kull"      : arstall})
+        return self.db.query(query, {"studieprogramkode": studieprogramkode,
+                                     "terminkode_kull": terminkode,
+                                     "arstall_kull": arstall})
 
     def list_fagperson_semester(self):
         """Hent ut data om fagpersoner. NMH har et tilleggsbehov for � hente ut
@@ -248,7 +256,9 @@ class NMHUndervisning(access_FS.Undervisning):
         """
         return self.db.query(qry)
 
+
 class NMHStudieInfo(access_FS.StudieInfo):
+
     def list_emner(self):
         """Henter informasjon om emner."""
         qry = """
@@ -260,7 +270,6 @@ class NMHStudieInfo(access_FS.StudieInfo):
         WHERE e.institusjonsnr = %s AND
               NVL(e.arstall_eks_siste, %s) >= %s - 1""" % (self.institusjonsnr, self.year, self.year)
         return self.db.query(qry)
-
 
 
 class FS(access_FS.FS):

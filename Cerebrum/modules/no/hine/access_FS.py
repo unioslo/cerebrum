@@ -21,9 +21,11 @@ import time
 
 from Cerebrum.modules.no import access_FS
 
+
 class HineStudent(access_FS.Student):
+
     def list_aktiv(self):
-        """ Hent opplysninger om studenter definert som aktive 
+        """ Hent opplysninger om studenter definert som aktive
             ved Hine. En aktiv student er en student som har et gyldig
             opptak til et studieprogram der studentstatuskode er 'AKTIV'
             eller 'PERMISJON' og sluttdatoen er enten i fremtiden eller
@@ -37,7 +39,7 @@ class HineStudent(access_FS.Student):
               p.adresseland_hjemsted, p.status_reserv_nettpubl,
               p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
               sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
-              sps.arstall_kull, p.kjonn, p.status_dod, 
+              sps.arstall_kull, p.kjonn, p.status_dod,
               s.studentnr_tildelt, p.emailadresse_privat,
               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
             FROM fs.studieprogramstudent sps, fs.person p,
@@ -53,8 +55,10 @@ class HineStudent(access_FS.Student):
               """ % (self._is_alive())
         return self.db.query(qry)
 
+
 class HINEStudieInfo(access_FS.StudieInfo):
-    def list_ou(self, institusjonsnr=0): # GetAlleOUer
+
+    def list_ou(self, institusjonsnr=0):  # GetAlleOUer
         """Hent data om stedskoder registrert i FS"""
         qry = """
         SELECT DISTINCT
@@ -79,4 +83,3 @@ class FS(access_FS.FS):
         # Override with HiNE-spesific classes
         self.info = HINEStudieInfo(self.db)
         self.student = HineStudent(self.db)
-        

@@ -21,10 +21,12 @@ import time
 
 from Cerebrum.modules.no import access_FS
 
+
 class HiOfStudent(access_FS.Student):
-    ## Vi bruker list_privatist, og list_tilbud fra no/access_FS
+    # Vi bruker list_privatist, og list_tilbud fra no/access_FS
+
     def list_aktiv(self, fodselsdato=None, personnr=None):
-        """ Hent opplysninger om studenter definert som aktive 
+        """ Hent opplysninger om studenter definert som aktive
         ved HiOF. En aktiv student er en student som har et gyldig
         opptak til et studieprogram der studentstatuskode er 'AKTIV'
         eller 'PERMISJON' og sluttdatoen er enten i fremtiden eller
@@ -44,7 +46,8 @@ class HiOfStudent(access_FS.Student):
           p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
-          s.studentnr_tildelt, kks.klassekode, kks.status_aktiv AS status_aktiv_klasse
+          s.studentnr_tildelt, kks.klassekode,
+          kks.status_aktiv AS status_aktiv_klasse
         FROM fs.studieprogramstudent sps, fs.person p,
              fs.student s, fs.kullklassestudent kks
         WHERE p.fodselsdato = sps.fodselsdato AND
@@ -69,7 +72,7 @@ class HiOfStudent(access_FS.Student):
         qry = """
         SELECT p.fodselsdato, p.personnr, vm.emnekode, vm.studieprogramkode
         FROM fs.person p, fs.vurdkombmelding vm,
-        fs.vurderingskombinasjon vk, fs.vurderingstid vt, 
+        fs.vurderingskombinasjon vk, fs.vurderingstid vt,
         fs.vurdkombenhet ve
         WHERE p.fodselsdato=vm.fodselsdato AND
               p.personnr=vm.personnr AND
@@ -82,7 +85,7 @@ class HiOfStudent(access_FS.Student):
               vm.vurdtidkode = vt.vurdtidkode AND
               ve.emnekode = vm.emnekode AND
               ve.versjonskode = vm.versjonskode AND
-              ve.vurdkombkode = vm.vurdkombkode AND 
+              ve.vurdkombkode = vm.vurdkombkode AND
               ve.vurdtidkode = vm.vurdtidkode AND
               ve.institusjonsnr = vm.institusjonsnr AND
               ve.arstall = vt. arstall AND
@@ -90,16 +93,17 @@ class HiOfStudent(access_FS.Student):
               ve.arstall_reell = %s
               AND %s
         ORDER BY fodselsdato, personnr
-        """ % (self.year, self._is_alive())                            
+        """ % (self.year, self._is_alive())
         return self.db.query(qry)
 
-class HiOfUndervisning(access_FS.Undervisning):
-    ## TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
-    ##      og list_studenter_underv_enhet.
-    ##      Prøve å lage generell list_studenter_kull.
-    ##      Prøve å fjerne behov for override-metoder her 
 
-    # We redefine this, as HiOf uses other dates for semesters 
+class HiOfUndervisning(access_FS.Undervisning):
+    # TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
+    #      og list_studenter_underv_enhet.
+    #      Prøve å lage generell list_studenter_kull.
+    #      Prøve å fjerne behov for override-metoder her
+
+    # We redefine this, as HiOf uses other dates for semesters
     def _get_termin_aar(self, only_current=0):
         """Generate an SQL query part for limiting registerkort to the current
         term and maybe also the previous term. The output from this method
@@ -116,7 +120,8 @@ class HiOfUndervisning(access_FS.Undervisning):
         - From 15th of February to 31st of July: Only this year's 'VÅR' is
           returned.
 
-        - From 1st of August to 15th of September: This year's 'HØST' is returned.
+        - From 1st of August to 15th of September:
+          This year's 'HØST' is returned.
           If L{only_current} is False, also this year's 'VÅR' is included.
 
         - From 15th of September to 31st of December: Only this year's 'HØST' is
@@ -137,54 +142,56 @@ class HiOfUndervisning(access_FS.Undervisning):
         """
         if self.mndnr <= 7:
             # Months January - July == Spring semester
-            current = "(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % self.year;
-            if only_current or self.mndnr >= 3 or (self.mndnr == 2 and self.dday > 15):
+            current = "(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % self.year
+            if only_current or self.mndnr >= 3 or (self.mndnr == 2 and
+                                                   self.dday > 15):
                 return current
             return "(%s OR (r.terminkode = 'HØST' AND r.arstall=%d))\n" % (
                 current, self.year-1)
         # Months August - December == Autumn semester
         current = "(r.terminkode = 'HØST' AND r.arstall=%d)\n" % self.year
-        if only_current or self.mndnr >= 10 or (self.mndnr == 9 and self.dday > 15):
+        if only_current or self.mndnr >= 10 or (self.mndnr == 9 and
+                                                self.dday > 15):
             return current
-        return "(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" % (current, self.year)
+        return "(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" %\
+            (current, self.year)
 
     def _get_next_termin_aar(self):
         """henter neste semesters terminkode og årstal."""
         if self.mndnr <= 7:
             next = "(r.terminkode LIKE 'H_ST' AND r.arstall=%s)\n" % self.year
         else:
-            next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % (self.year + 1)
+            next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" %\
+                (self.year + 1)
         return next
-
 
     def list_undervisningenheter(self, sem="current"):
         """Metoden som henter data om undervisningsenheter
         i nåverende (current) eller neste (next) semester. Default
-        vil være nåværende semester. For hver undervisningsenhet 
-        henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall 
+        vil være nåværende semester. For hver undervisningsenhet
+        henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall
         og terminnr."""
         qry = """
         SELECT DISTINCT
           r.institusjonsnr, r.emnekode, r.versjonskode, e.emnenavnfork,
-          e.emnenavn_bokmal, e.faknr_kontroll, e.instituttnr_kontroll, 
+          e.emnenavn_bokmal, e.faknr_kontroll, e.instituttnr_kontroll,
           e.gruppenr_kontroll, r.terminnr, r.terminkode, r.arstall,
           r.status_eksport_lms
         FROM fs.emne e, fs.undervisningsenhet r
         WHERE r.emnekode = e.emnekode AND
-          r.versjonskode = e.versjonskode AND """ 
-        if (sem=="current"):
-            qry +="""%s""" % self._get_termin_aar(only_current=1)
-        else: 
-            qry +="""%s""" % self._get_next_termin_aar()
+          r.versjonskode = e.versjonskode AND """
+        if (sem == "current"):
+            qry += """%s""" % self._get_termin_aar(only_current=1)
+        else:
+            qry += """%s""" % self._get_next_termin_aar()
         return self.db.query(qry)
 
-    
     def list_aktiviteter(self):
         """Hent alle undakt for dette og neste semestre.
         """
 
         query = """
-        SELECT  
+        SELECT
           r.institusjonsnr, r.emnekode, r.versjonskode,
           r.terminkode, r.arstall, r.terminnr, r.aktivitetkode,
           r.aktivitetsnavn, r.lmsrommalkode, r.status_eksport_lms,
@@ -200,15 +207,19 @@ class HiOfUndervisning(access_FS.Undervisning):
           ( (%s) OR (%s) )
         """ % (self._get_termin_aar(only_current=1),
                self._get_next_termin_aar())
-        
+
         return self.db.query(query)
     # end list_aktiviteter
 
-
-
-    def list_studenter_underv_enhet(self, institusjonsnr, emnekode, versjonskode,
-                                    terminkode, arstall, terminnr):
-        """Finn fødselsnumrene til alle studenter på et gitt 
+    def list_studenter_underv_enhet(
+        self,
+        institusjonsnr,
+        emnekode,
+        versjonskode,
+        terminkode,
+        arstall,
+     terminnr):
+        """Finn fødselsnumrene til alle studenter på et gitt
         undervisningsenhet. Skal brukes til å generere grupper for
         adgang til CF."""
         qry = """
@@ -231,8 +242,6 @@ class HiOfUndervisning(access_FS.Undervisning):
                              )
     # end list_studenter_underv_enhet
 
-    
-
     def list_studenter_alle_undenh(self):
         """Hent alle studenter på alle undenh.
 
@@ -252,10 +261,8 @@ class HiOfUndervisning(access_FS.Undervisning):
           arstall >= :aar
         """
 
-        return self.db.query(qry, {"aar": self.year,}, fetchall=True)
+        return self.db.query(qry, {"aar": self.year, }, fetchall=True)
     # end list_studenter_underv_enhet
-
-
 
     def list_studenter_alle_kullklasser(self):
         """Hent alle studenter fordelt på kullklasser.
@@ -288,8 +295,6 @@ class HiOfUndervisning(access_FS.Undervisning):
 
         return self.db.query(query)
     # end list_studenter_alle_kull
-        
-    
 
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
         """Hent alle studentene som er oppført på et gitt kull."""
@@ -307,9 +312,9 @@ class HiOfUndervisning(access_FS.Undervisning):
             arstall_kull = :arstall_kull
         """
 
-        return self.db.query(query, {"studieprogramkode" : studieprogramkode,
-                                     "terminkode_kull"   : terminkode,
-                                     "arstall_kull"      : arstall})
+        return self.db.query(query, {"studieprogramkode": studieprogramkode,
+                                     "terminkode_kull": terminkode,
+                                     "arstall_kull": arstall})
 
     def list_studenter_alle_kull(self):
         """Hent alle studenter fordelt på kull.
@@ -342,13 +347,12 @@ class HiOfUndervisning(access_FS.Undervisning):
 
         return self.db.query(query)
     # end list_studenter_alle_kull
-    
 
 
 class HiOfStudieInfo(access_FS.StudieInfo):
 
-    def list_studieprogrammer(self): # GetStudieproginf
-        """For hvert definerte studieprogram henter vi 
+    def list_studieprogrammer(self):  # GetStudieproginf
+        """For hvert definerte studieprogram henter vi
         informasjon om utd_plan og eier samt studieprogkode. Vi burde
         her ha en sjekk på om studieprogrammet er utgått, men datagrunnalget
         er for svakt. ( WHERE status_utgatt = 'N')"""
@@ -364,8 +368,6 @@ class HiOfStudieInfo(access_FS.StudieInfo):
     # end list_studieprogrammer
 
 
-    
-
 class FS(access_FS.FS):
 
     def __init__(self, db=None, user=None, database=None):
@@ -375,10 +377,8 @@ class FS(access_FS.FS):
         self.year = t[0]
         self.mndnr = t[1]
         self.dday = t[2]
-        
+
         # Override with HiOf-spesific classes
         self.student = HiOfStudent(self.db)
         self.undervisning = HiOfUndervisning(self.db)
         self.info = HiOfStudieInfo(self.db)
-    # end __init__
-# end FS

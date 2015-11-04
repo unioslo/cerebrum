@@ -25,8 +25,10 @@ from Cerebrum import Errors
 
 from Cerebrum.modules.no import access_FS
 
+
 class UiOStudent(access_FS.Student):
-    def list(self, **kwargs): # GetStudent_50
+
+    def list(self, **kwargs):  # GetStudent_50
         """Hent personer med opptak til et studieprogram ved
         institusjonen og som enten har vært registrert siste året
         eller opptak efter 2003-01-01.  Henter ikke de som har
@@ -36,8 +38,8 @@ class UiOStudent(access_FS.Student):
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.
         """
         return self._list_gyldigopptak(**kwargs) \
-               + self._list_drgradsopptak(**kwargs) \
-               +  self._list_gammelopptak_semreg(**kwargs)
+            + self._list_drgradsopptak(**kwargs) \
+            + self._list_gammelopptak_semreg(**kwargs)
 
     def _list_gyldigopptak(self, fodselsdato=None, personnr=None):
         """Alle med gyldig opptak tildelt for 2 år eller mindre siden
@@ -70,7 +72,7 @@ class UiOStudent(access_FS.Student):
            sps.studieprogramkode=sp.studieprogramkode AND
            NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= SYSDATE AND
            sps.status_privatist = 'N' AND
-           sps.dato_studierett_tildelt < SYSDATE + 14 AND           
+           sps.dato_studierett_tildelt < SYSDATE + 14 AND
            sps.dato_studierett_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd') AND
            %s
            """ % (extra, self._is_alive())
@@ -162,9 +164,9 @@ class UiOStudent(access_FS.Student):
         studieretning og kull.  Må gjøre et eget søk for å finne
         klasse for de som er registrert på slikt. """
         return self._list_aktiv_semreg(**kwargs) \
-               + self._list_aktiv_enkeltemne(**kwargs) \
-               + self._list_aktiv_avlagteksamen(**kwargs) \
-               + self._list_aktiv_utdplan(**kwargs)
+            + self._list_aktiv_enkeltemne(**kwargs) \
+            + self._list_aktiv_avlagteksamen(**kwargs) \
+            + self._list_aktiv_utdplan(**kwargs)
 
     def _list_aktiv_semreg(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som i tillegg har en
@@ -205,7 +207,7 @@ class UiOStudent(access_FS.Student):
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            %s AND
            %s""" % (extra, self._get_termin_aar(only_current=1),
-                                        self._is_alive())
+                    self._is_alive())
         return self.db.query(qry, locals())
 
     def _list_aktiv_enkeltemne(self, fodselsdato=None, personnr=None):
@@ -321,9 +323,9 @@ class UiOStudent(access_FS.Student):
            svp.institusjonsnr='185' AND
            svp.emnekode=es.emnekode AND
            svp.versjonskode=es.versjonskode AND
-           svp.institusjonsnr = es.institusjonsnr AND 
+           svp.institusjonsnr = es.institusjonsnr AND
            svp.vurdtidkode=vt.vurdtidkode AND
-           svp.arstall=vt.arstall AND 
+           svp.arstall=vt.arstall AND
            svp.vurdtidkode=ve.vurdtidkode AND
            svp.arstall=ve.arstall AND
            svp.institusjonsnr=ve.institusjonsnr AND
@@ -337,7 +339,7 @@ class UiOStudent(access_FS.Student):
            r.status_bet_ok = 'J' AND
            NVL(r.status_ugyldig, 'N') = 'N' AND
            %s AND
-           %s 
+           %s
         """ % (self.year, extra,
                self._get_termin_aar(only_current=1),
                self._is_alive())
@@ -377,15 +379,16 @@ class UiOStudent(access_FS.Student):
               r.status_bet_ok = 'J' AND
               NVL(r.status_ugyldig, 'N') = 'N' AND
               %s AND
-              %s 
+              %s
               u.terminkode = r.terminkode AND
               u.arstall = r.arstall AND
               NVL(u.status_opptatt, 'N') = 'J'
               """ % (self._is_alive(), self._get_termin_aar(only_current=1),
                      extra)
         return self.db.query(qry, locals())
- 
-    def list_privatist_emne(self, fodselsdato=None, personnr=None):  # GetStudentPrivatistEmne_50
+
+    # GetStudentPrivatistEmne_50
+    def list_privatist_emne(self, fodselsdato=None, personnr=None):
         """Hent personer som er uekte privatister, dvs. som er
         eksamensmeldt til et emne i et studieprogram de ikke har
         opptak til. Disse tildeles affiliation privatist til stedet
@@ -424,7 +427,7 @@ class UiOStudent(access_FS.Student):
               vk.vurdordningkode IS NOT NULL and
               ve.emnekode = vm.emnekode AND
               ve.versjonskode = vm.versjonskode AND
-              ve.vurdkombkode = vm.vurdkombkode AND 
+              ve.vurdkombkode = vm.vurdkombkode AND
               ve.vurdtidkode = vm.vurdtidkode AND
               ve.institusjonsnr = vm.institusjonsnr AND
               ve.arstall = vm.arstall AND
@@ -447,8 +450,7 @@ class UiOStudent(access_FS.Student):
                self._is_alive())
         return self.db.query(qry, locals())
 
-    def list_privatist(self, fodselsdato=None, personnr=None): # GetStudentPrivatist_50
-        
+    def list_privatist(self, fodselsdato=None, personnr=None):  # GetStudentPrivatist_50
         """Hent personer med privatist 'opptak' til et studieprogram ved
         institusjonen og som enten har vært registrert siste året eller
         har fått privatist 'opptak' efter 2003-01-01.  Henter ikke de
@@ -544,7 +546,6 @@ class UiOStudent(access_FS.Student):
         """ % extra
         return self.db.query(qry, {'last_updated': last_updated})
 
-
     def list_gyldige_regkort(self, last_updated=None):
         extra = ""
         if last_updated:
@@ -570,9 +571,8 @@ class UiOStudent(access_FS.Student):
             r.arstall >= (TO_CHAR(SYSDATE, 'YYYY') - 1) AND
             NVL(p.status_dod, 'N') = 'N'
             %s
-        """ %extra
+        """ % extra
         return self.db.query(qry, {'last_updated': last_updated})
-
 
     def list_studieopptak(self, last_updated=None):
         extra = ""
@@ -611,14 +611,12 @@ class UiOStudent(access_FS.Student):
             NVL(r.status_ugyldig, 'N') = 'N' AND
             NVL(p.status_dod, 'N') = 'N'
             %s
-        """ %extra
+        """ % extra
         return self.db.query(qry, {'last_updated': last_updated})
-
 
     def list_tidligere_students(self, last_updated=None):
         raise NotImplementedError("Design SQL-query  before calling this.")
-        #return self.db.query(qry, {'last_updated': last_updated})
-
+        # return self.db.query(qry, {'last_updated': last_updated})
 
     def list_drgrad_students(self, last_updated=None):
         extra = ""
@@ -651,9 +649,8 @@ class UiOStudent(access_FS.Student):
             sp.studienivakode in (900, 980) AND
             NVL(p.status_dod, 'N') = 'N'
             %s
-        """ %extra
+        """ % extra
         return self.db.query(qry, {'last_updated': last_updated})
-
 
     def list_all_students_information(self, last_updated=None):
         extra = ""
@@ -680,9 +677,8 @@ class UiOStudent(access_FS.Student):
             s.fodselsdato = p.fodselsdato AND
             s.personnr = p.personnr
             %s
-        """ %extra
+        """ % extra
         return self.db.query(qry, {'last_updated': last_updated})
-
 
     def list_fodselsnr_changes(self, last_updated=None):
         """
@@ -691,23 +687,23 @@ class UiOStudent(access_FS.Student):
         """
         raise NotImplementedError("Implementation is not yet available.")
         #extra = ""
-        #if last_updated:
+        # if last_updated:
         #    extra = """
         #    WHERE
         #        dato_foretatt > SYSDATE - 30
         #    """
-        #qry = """
-        #SELECT DISTINCT
+        # qry = """
+        # SELECT DISTINCT
         #    fodselsdato_naverende, personnr_naverende,
         #    fodselsdato_tidligere, personnr_tidligere,
         #    TO_CHAR(dato_foretatt, 'YYYY-MM-DD HH24:MI:SS') AS dato_foretatt
-        #FROM
+        # FROM
         #    fs.fnr_endring
         #%s
-        #ORDER BY
+        # ORDER BY
         #    dato_foretatt
         #""" %extra
-        #return self.db.query(qry, {'last_updated': last_updated})
+        # return self.db.query(qry, {'last_updated': last_updated})
 
 
 class UiOPortal(access_FS.FSObject):
@@ -719,9 +715,11 @@ class UiOPortal(access_FS.FSObject):
     """
     pass
 
+
 class UiOBetaling(access_FS.FSObject):
     """Kopiavgift. Ny ordning fra høsten 2004."""
-    def list_utskrifts_betaling(self, days_past=180): # GetUtskriftsBetaling
+
+    def list_utskrifts_betaling(self, days_past=180):  # GetUtskriftsBetaling
         """Lister fødselsnummer, betalingsinformasjon og beløp for de
         innbetalinger som er gjordt gjennom studentweben for
         utskriftssystemet. """
@@ -744,7 +742,12 @@ class UiOBetaling(access_FS.FSObject):
               frk.status_betalt = 'J' %s""" % where
         return self.db.query(qry)
 
-    def list_kopiavgift_data(self, kun_fritak=True, semreg=False, fodselsdato=None, personnr=None):
+    def list_kopiavgift_data(
+        self,
+        kun_fritak=True,
+        semreg=False,
+        fodselsdato=None,
+     personnr=None):
         """List alle som har betalt kopiavgift eller har fritak for
            betaling av kopiavgift. Fritak for kopiavgift betegnes ved
            at registerkortet for inneværende semester får
@@ -753,8 +756,8 @@ class UiOBetaling(access_FS.FSObject):
            er semesterregistrert. Hvis semreg=True listet alle som har
            betalt kopiavgift eller har fritak for kopiavgift og som er
            semesterregistrert for inneværende semester. Erstatter
-           list_kopiavgift_fritak og list_ok_kopiavgift.""" 
-           
+           list_kopiavgift_fritak og list_ok_kopiavgift."""
+
         extra1 = extra2 = extra_semreg1 = extra_semreg2 = extra_from = ""
 
         if fodselsdato and personnr:
@@ -767,9 +770,9 @@ class UiOBetaling(access_FS.FSObject):
             extra_from = ", fs.registerkort r"
             extra_semreg1 = """r.terminkode = :semester3 AND
                                r.arstall = :year3 AND
-                               r.status_reg_ok = 'J' AND  
+                               r.status_reg_ok = 'J' AND
                                NVL(r.status_ugyldig, 'N') = 'N'
-                               AND r.fodselsdato = frk.fodselsdato AND 
+                               AND r.fodselsdato = frk.fodselsdato AND
                                r.personnr = frk.personnr AND"""
 
         qry1 = """
@@ -796,7 +799,7 @@ class UiOBetaling(access_FS.FSObject):
              frk.status_betalt = 'J' AND
              frk.terminkode = :semester AND
              frk.arstall = :year AND
-             %s 
+             %s
              frk.fakturastatuskode ='OPPGJORT' AND
              fkd.fakturanr = frk.fakturanr AND
              fkd.fakturadetaljtypekode = 'KOPIAVG'""" % (extra_from, extra_semreg1, extra1)
@@ -811,7 +814,7 @@ class UiOBetaling(access_FS.FSObject):
                                        'year': self.year,
                                        'year2': self.year,
                                        'year3': self.year})
-        
+
         return self.db.query(qry, {'fodselsdato': fodselsdato,
                                    'fodselsdato2': fodselsdato,
                                    'personnr': personnr,
@@ -821,8 +824,10 @@ class UiOBetaling(access_FS.FSObject):
                                    'year': self.year,
                                    'year2': self.year})
 
+
 class UiOUndervisning(access_FS.Undervisning):
-    def list_undervisningenheter(self, year=None, sem=None): # GetUndervEnhetAll
+
+    def list_undervisningenheter(self, year=None, sem=None):  # GetUndervEnhetAll
         if year is None:
             year = self.year
         if sem is None:
@@ -848,16 +853,16 @@ class UiOUndervisning(access_FS.Undervisning):
             WHERE tt.terminkode = :sem AND
                   t.sorteringsnokkel >= tt.sorteringsnokkel)))
           """, {'aar': year,
-                'aar2': year, # db-driver bug work-around
+                'aar2': year,  # db-driver bug work-around
                 'sem': sem})
-    
+
     def list_aktiviteter(self, start_aar=time.localtime()[0],
                          start_semester=None):
         if start_semester is None:
             start_semester = self.semester
-            
+
         return self.db.query("""
-        SELECT  
+        SELECT
           ua.institusjonsnr, ua.emnekode, ua.versjonskode,
           ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode,
           ua.undpartilopenr, ua.disiplinkode, ua.undformkode, ua.aktivitetsnavn,
@@ -885,7 +890,6 @@ class UiOUndervisning(access_FS.Undervisning):
                              {'aar': start_aar,
                               'semester': start_semester})
 
-    
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
         """Hent alle studentene som er oppført på et gitt kull."""
 
@@ -902,9 +906,9 @@ class UiOUndervisning(access_FS.Undervisning):
             arstall_kull = :arstall_kull
         """
 
-        return self.db.query(query, {"studieprogramkode" : studieprogramkode,
-                                     "terminkode_kull"   : terminkode,
-                                     "arstall_kull"      : arstall})
+        return self.db.query(query, {"studieprogramkode": studieprogramkode,
+                                     "terminkode_kull": terminkode,
+                                     "arstall_kull": arstall})
 
     def list_studenter_alle_kull(self):
         query = """
@@ -924,14 +928,12 @@ class UiOUndervisning(access_FS.Undervisning):
         return self.db.query(query)
     # end list_studenter_alle_kull
 
-    
-
     def list_studenter_alle_undenh(self):
         """Hent alle studenter på alle undenh.
 
         NB! Det er ca. 800'000+ rader i FSPROD i fs.undervisningsmelding.
         Dette kan koste en del minne, så 1) fetchall=True er nok dumt 2) Man
-        burde bearbeide strukturen litt raskere. 
+        burde bearbeide strukturen litt raskere.
 
         Spørringen *er* litt annerledes enn L{list_studenter_underv_enhet},
         men baardj har foreslått denne spørringen også.
@@ -979,15 +981,17 @@ class UiOUndervisning(access_FS.Undervisning):
         return result
     # end list_studenter_underv_enhet
 
+
 class UiOEVU(access_FS.EVU):
+
     def list(self):  # GetDeltaker_50
         """Hent info om personer som er ekte EVU-studenter ved
-        dvs. er registrert i EVU-modulen i tabellen 
+        dvs. er registrert i EVU-modulen i tabellen
         fs.deltaker,  Henter alle som er knyttet til kurs som
         tidligst ble avsluttet for 30 dager siden."""
 
         qry = """
-        SELECT DISTINCT 
+        SELECT DISTINCT
                p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
                d.adrlin1_job, d.adrlin2_job, d.postnr_job,
                d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
@@ -1018,7 +1022,7 @@ class UiOEVU(access_FS.EVU):
         status_aktiv satt til 'J' og som ikke er avsluttet
         (jmf. dato_til).
         """
-        
+
         qry = """
         SELECT etterutdkurskode, kurstidsangivelsekode,
           etterutdkursnavn, etterutdkursnavnkort, emnekode,
@@ -1035,12 +1039,11 @@ class UiOEVU(access_FS.EVU):
         return self.db.query(qry)
     # end list_kurs
 
-
-    def get_kurs_aktivitet(self, kurs, tid): # GetAktivitetEvuKurs
+    def get_kurs_aktivitet(self, kurs, tid):  # GetAktivitetEvuKurs
         """Henter information om aktive EVU-kursaktiviteter som tilhører et
         gitt EVU-kurs.
         """
-        
+
         qry = """
         SELECT k.etterutdkurskode, k.kurstidsangivelsekode, k.aktivitetskode,
                k.aktivitetsnavn, k.undformkode, k.status_eksport_lms
@@ -1051,8 +1054,6 @@ class UiOEVU(access_FS.EVU):
 
         return self.db.query(qry)
     # end get_kurs_aktivitet
-
-
 
     def list_kurs_aktiviteter(self):
         """Som get_kurs_aktivitet, men lister opp alle.
@@ -1075,7 +1076,6 @@ class UiOEVU(access_FS.EVU):
         return self.db.query(qry)
     # end list_kurs_aktiviteter
 
-
     def list_studenter_alle_kursakt(self):
         qry = """
         SELECT
@@ -1095,7 +1095,7 @@ class UiOStudieInfo(access_FS.StudieInfo):
         """Henter informasjon om aktive studiekull."""
         qry = """
         SELECT DISTINCT
-          k.studieprogramkode, k.terminkode, k.arstall, k.studiekullnavn, 
+          k.studieprogramkode, k.terminkode, k.arstall, k.studiekullnavn,
           k.kulltrinn_start, k.terminnr_maks, k.status_generer_epost,
           s.institusjonsnr_studieansv, s.faknr_studieansv,
           s.instituttnr_studieansv, s.gruppenr_studieansv,
@@ -1115,6 +1115,7 @@ class UiOStudieInfo(access_FS.StudieInfo):
 
 
 class FS(access_FS.FS):
+
     def __init__(self, db=None, user=None, database=None):
         super(FS, self).__init__(db=db, user=user, database=database)
 
@@ -1127,7 +1128,7 @@ class FS(access_FS.FS):
         self.evu = UiOEVU(self.db)
         self.info = UiOStudieInfo(self.db)
 
-    def list_dbfg_usernames(self, fetchall = False):
+    def list_dbfg_usernames(self, fetchall=False):
         """Get all usernames and return them as a sequence of db_rows.
 
         Usernames may be prefixed with a institution specific tag, if the db has
@@ -1138,18 +1139,18 @@ class FS(access_FS.FS):
         all usernames (the column names can be obtains from db_row objects)
         """
         prefix = self.get_username_prefix()
-        ret = ({'username': row['username'][len(prefix):]} for row in 
-                        self.db.query("""
+        ret = ({'username': row['username'][len(prefix):]} for row in
+               self.db.query("""
                             SELECT username as username
                             FROM all_users
                             WHERE username LIKE :prefixed
-                        """, {'prefixed': '%s%%' % prefix}, 
-                              fetchall=fetchall))
+                        """, {'prefixed': '%s%%' % prefix},
+                             fetchall=fetchall))
         if fetchall:
             return list(ret)
         return ret
 
-    def list_dba_usernames(self, fetchall = False):
+    def list_dba_usernames(self, fetchall=False):
         """Get all usernames for internal statistics."""
 
         query = """
@@ -1165,13 +1166,15 @@ class FS(access_FS.FS):
 
     def get_username_prefix(self):
         """Get the database' defined username prefix, or '' if not defined."""
-        try: 
+        try:
             return self.db.query_1("SELECT brukerprefiks FROM fs.systemverdier")
         except self.db.DatabaseError:
             pass
         return ''
 
+
 class UiOPerson(access_FS.Person):
+
     def set_ansattnr(self, fnr, pnr, asn):
         """Sets the ansattnr for a person"""
         return self.db.execute("""
@@ -1189,7 +1192,7 @@ class UiOPerson(access_FS.Person):
                     fodselsdato=:fnr
                 AND
                     personnr=:pnr""",
-                {'fnr': fnr, 'pnr': pnr}, fetchall=True)
+                             {'fnr': fnr, 'pnr': pnr}, fetchall=True)
 
     def add_person(self, fnr, pnr, fornavn, etternavn, email, kjonn,
                    birth_date, ansattnr=None):
@@ -1209,7 +1212,7 @@ class UiOPerson(access_FS.Person):
             'kjonn': kjonn, 'birth_date': birth_date,
             'fornavn2': fornavn, 'etternavn2': etternavn,
             'ansattnr': ansattnr})
-    
+
     def update_fagperson(self, fodselsdato, personnr, **rest):
         """Updates the specified columns in fagperson, when the field
         'status_ekstern' is not equal 'J'"""
@@ -1229,7 +1232,7 @@ class UiOPerson(access_FS.Person):
 class FSvpd(FS):
     """Subclass of FS for handling Virtual Private Databases (VPD)."""
 
-    def list_dba_usernames(self, fetchall = False):
+    def list_dba_usernames(self, fetchall=False):
         """Get all usernames for internal statistics. In VPD, a 'View' is
         created for only returning the institution's users instead of
         dba_users."""
@@ -1241,13 +1244,12 @@ class FSvpd(FS):
         FROM
            FS.View_FS_Bruker
         WHERE
-           default_tablespace = 'USERS' AND account_status = 'OPEN' 
+           default_tablespace = 'USERS' AND account_status = 'OPEN'
            AND username LIKE :prefixed
         """
-        ret = ({'username': row['username'][len(prefix):]} for row in 
-                    self.db.query(query, {'prefixed': '%s%%' % prefix}, 
-                                  fetchall=fetchall))
+        ret = ({'username': row['username'][len(prefix):]} for row in
+               self.db.query(query, {'prefixed': '%s%%' % prefix},
+                             fetchall=fetchall))
         if fetchall:
             return list(ret)
         return ret
-

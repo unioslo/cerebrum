@@ -236,7 +236,7 @@ def make_fs(db=None, user=None, database=None):
     """Create FS object based on actual version number.
     Default is to look in this module, but if cereconf.FS_MODULE is set,
     it will override the default.
-    
+
     :param Database db: DB to use, or none to use other params.
     :param str user: Username for db, defaults to cereconf.FS_USER
     :param str database: Database name for db,

@@ -21,14 +21,16 @@ import time
 
 from Cerebrum.modules.no import access_FS
 
+
 class NIHStudent(access_FS.Student):
+
     def list_aktiv(self):
-	""" Hent opplysninger om studenter definert som aktive 
-	ved NIH. En aktiv student er en student som har et gyldig
+        """ Hent opplysninger om studenter definert som aktive
+        ved NIH. En aktiv student er en student som har et gyldig
         opptak til et studieprogram der studentstatuskode er 'AKTIV'
         eller 'PERMISJON' og sluttdatoen er enten i fremtiden eller
         ikke satt."""
-	qry = """
+        qry = """
         SELECT DISTINCT
           s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
@@ -58,7 +60,7 @@ class NIHStudent(access_FS.Student):
         qry = """
         SELECT p.fodselsdato, p.personnr, vm.emnekode, vm.studieprogramkode
         FROM fs.person p, fs.vurdkombmelding vm,
-        fs.vurderingskombinasjon vk, fs.vurderingstid vt, 
+        fs.vurderingskombinasjon vk, fs.vurderingstid vt,
         fs.vurdkombenhet ve
         WHERE p.fodselsdato=vm.fodselsdato AND
               p.personnr=vm.personnr AND
@@ -71,7 +73,7 @@ class NIHStudent(access_FS.Student):
               vm.vurdtidkode = vt.vurdtidkode AND
               ve.emnekode = vm.emnekode AND
               ve.versjonskode = vm.versjonskode AND
-              ve.vurdkombkode = vm.vurdkombkode AND 
+              ve.vurdkombkode = vm.vurdkombkode AND
               ve.vurdtidkode = vm.vurdtidkode AND
               ve.institusjonsnr = vm.institusjonsnr AND
               ve.arstall = vt. arstall AND
@@ -79,48 +81,49 @@ class NIHStudent(access_FS.Student):
               ve.arstall_reell = %s
               AND %s
         ORDER BY fodselsdato, personnr
-        """ % (self.year, self._is_alive())                            
+        """ % (self.year, self._is_alive())
         return self.db.query(qry)
 
+
 class NIHUndervisning(access_FS.Undervisning):
-    ## TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
-    ##      og list_studenter_underv_enhet.
-    ##      Prøve å lage generell list_studenter_kull.
-    ##      Prøve å fjerne behov for override-metoder her 
+    # TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
+    # og list_studenter_underv_enhet.
+    # Prøve å lage generell list_studenter_kull.
+    # Prøve å fjerne behov for override-metoder her
+
     def list_undervisningenheter(self, sem="current"):
-	"""Metoden som henter data om undervisningsenheter
-	i nåverende (current) eller neste (next) semester. Default
-	vil være nåværende semester. For hver undervisningsenhet 
-	henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall, 
-	terminnr samt hvorvidt enheten skal eksporteres til LMS."""
-	qry = """
+        """Metoden som henter data om undervisningsenheter
+        i nåverende (current) eller neste (next) semester. Default
+        vil være nåværende semester. For hver undervisningsenhet
+        henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall,
+        terminnr samt hvorvidt enheten skal eksporteres til LMS."""
+        qry = """
         SELECT DISTINCT
           r.institusjonsnr, r.emnekode, r.versjonskode, e.emnenavnfork,
-          e.emnenavn_bokmal, e.faknr_kontroll, e.instituttnr_kontroll, 
+          e.emnenavn_bokmal, e.faknr_kontroll, e.instituttnr_kontroll,
           e.gruppenr_kontroll, r.terminnr, r.terminkode, r.arstall,
           r.status_eksport_lms
           FROM fs.emne e, fs.undervisningsenhet r
           WHERE r.emnekode = e.emnekode AND
-          r.versjonskode = e.versjonskode AND """ 
-        if (sem=="current"):
-	    qry +="""%s""" % self._get_termin_aar(only_current=1)
-        else: 
-	    qry +="""%s""" % self._get_next_termin_aar()
-	return self.db.query(qry)
-
+          r.versjonskode = e.versjonskode AND """
+        if (sem == "current"):
+            qry += """%s""" % self._get_termin_aar(only_current=1)
+        else:
+            qry += """%s""" % self._get_next_termin_aar()
+        return self.db.query(qry)
 
     def list_aktiviteter(self, start_aar=time.localtime()[0],
                          start_semester=None):
         """Henter info om undervisningsaktiviteter for inneværende
-	semester. For hver undervisningsaktivitet henter vi
-	institusjonsnr, emnekode, versjonskode, terminkode + årstall,
-	terminnr, aktivitetskode, underpartiløpenummer, disiplinkode,
-	kode for undervisningsform, aktivitetsnavn samt hvorvidt
-	enheten skal eksporteres til LMS."""
+        semester. For hver undervisningsaktivitet henter vi
+        institusjonsnr, emnekode, versjonskode, terminkode + årstall,
+        terminnr, aktivitetskode, underpartiløpenummer, disiplinkode,
+        kode for undervisningsform, aktivitetsnavn samt hvorvidt
+        enheten skal eksporteres til LMS."""
         if start_semester is None:
             start_semester = self.semester
         return self.db.query("""
-        SELECT  
+        SELECT
           ua.institusjonsnr, ua.emnekode, ua.versjonskode,
           ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode,
           ua.undpartilopenr, ua.disiplinkode, ua.undformkode,
@@ -142,13 +145,18 @@ class NIHUndervisning(access_FS.Undervisning):
                              {'aar': start_aar,
                               'semester': start_semester})
 
-
-    def list_studenter_underv_enhet(self, institusjonsnr, emnekode, versjonskode,
-                                    terminkode, arstall, terminnr):
-	"""Finn fødselsnumrene til alle studenter på et gitt 
-	undervisningsenhet. Skal brukes til å generere grupper for
-	adgang til CF."""
-	qry = """
+    def list_studenter_underv_enhet(
+        self,
+        institusjonsnr,
+        emnekode,
+        versjonskode,
+        terminkode,
+        arstall,
+     terminnr):
+        """Finn fødselsnumrene til alle studenter på et gitt
+        undervisningsenhet. Skal brukes til å generere grupper for
+        adgang til CF."""
+        qry = """
         SELECT DISTINCT
           fodselsdato, personnr
         FROM fs.undervisningsmelding
@@ -167,11 +175,10 @@ class NIHUndervisning(access_FS.Undervisning):
                                    'arstall': arstall}
                              )
 
-
     def list_studenter_alle_kullklasser(self):
         """Hent alle studenter fordelt på kullklasser.
         """
-        
+
         query = """
         SELECT DISTINCT
             kks.fodselsdato, kks.personnr,
@@ -200,7 +207,6 @@ class NIHUndervisning(access_FS.Undervisning):
         return self.db.query(query)
     # end list_studenter_alle_kull
 
-
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
         """Hent alle studentene som er oppført på et gitt kull."""
 
@@ -217,10 +223,9 @@ class NIHUndervisning(access_FS.Undervisning):
             arstall_kull = :arstall_kull
         """
 
-        return self.db.query(query, {"studieprogramkode" : studieprogramkode,
-                                     "terminkode_kull"   : terminkode,
-                                     "arstall_kull"      : arstall})
-
+        return self.db.query(query, {"studieprogramkode": studieprogramkode,
+                                     "terminkode_kull": terminkode,
+                                     "arstall_kull": arstall})
 
     def list_studenter_alle_kull(self):
         """Hent alle studenter fordelt på kull.
@@ -256,6 +261,7 @@ class NIHUndervisning(access_FS.Undervisning):
 
 
 class NIHStudieInfo(access_FS.StudieInfo):
+
     def list_emner(self):
         """Henter informasjon om emner."""
         qry = """
@@ -269,7 +275,6 @@ class NIHStudieInfo(access_FS.StudieInfo):
         return self.db.query(qry)
 
 
-
 class FS(access_FS.FS):
 
     def __init__(self, db=None, user=None, database=None):
@@ -279,7 +284,7 @@ class FS(access_FS.FS):
         self.year = t[0]
         self.mndnr = t[1]
         self.dday = t[2]
-        
+
         # Override with nih-spesific classes
         self.student = NIHStudent(self.db)
         self.undervisning = NIHUndervisning(self.db)
