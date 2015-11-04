@@ -18,14 +18,14 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import time
-import mx
-
-from Cerebrum import Database
-from Cerebrum import Errors
 
 from Cerebrum.modules.no import access_FS
 
 
+fsobject = access_FS.fsobject
+
+
+@fsobject('student')
 class UiOStudent(access_FS.Student):
 
     def list(self, **kwargs):  # GetStudent_50
@@ -73,8 +73,8 @@ class UiOStudent(access_FS.Student):
            NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= SYSDATE AND
            sps.status_privatist = 'N' AND
            sps.dato_studierett_tildelt < SYSDATE + 14 AND
-           sps.dato_studierett_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd') AND
-           %s
+           sps.dato_studierett_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd')
+           AND %s
            """ % (extra, self._is_alive())
         return self.db.query(qry, locals())
 
@@ -367,7 +367,8 @@ class UiOStudent(access_FS.Student):
                s.studentnr_tildelt, u.emnekode, u.versjonskode,
                u.terminkode, u.arstall,
                p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
-        FROM fs.person p, fs.student s, fs.registerkort r, fs.undervisningsmelding u
+        FROM fs.person p, fs.student s, fs.registerkort r,
+              fs.undervisningsmelding u
         WHERE p.fodselsdato=s.fodselsdato AND
               p.personnr=s.personnr AND
               p.fodselsdato=r.fodselsdato AND
@@ -446,11 +447,12 @@ class UiOStudent(access_FS.Student):
                      NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= SYSDATE)
               AND
               %s
-        """ % (self.year, self.year, extra, self._get_termin_aar(only_current=1),
-               self._is_alive())
+        """ % (self.year, self.year, extra,
+               self._get_termin_aar(only_current=1), self._is_alive())
         return self.db.query(qry, locals())
 
-    def list_privatist(self, fodselsdato=None, personnr=None):  # GetStudentPrivatist_50
+    def list_privatist(self, fodselsdato=None, personnr=None):
+        # GetStudentPrivatist_50
         """Hent personer med privatist 'opptak' til et studieprogram ved
         institusjonen og som enten har vært registrert siste året eller
         har fått privatist 'opptak' efter 2003-01-01.  Henter ikke de
@@ -529,8 +531,8 @@ class UiOStudent(access_FS.Student):
         if last_updated:
             extra = """
             AND
-                (NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-                NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated)
+            (NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+            NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated)
             """
         qry = """
         SELECT DISTINCT
@@ -551,9 +553,9 @@ class UiOStudent(access_FS.Student):
         if last_updated:
             extra = """
             AND
-                (NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-                NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-                NVL(r.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated)
+            (NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated
+            OR NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated
+            OR NVL(r.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated)
             """
         qry = """
         SELECT DISTINCT
@@ -579,11 +581,11 @@ class UiOStudent(access_FS.Student):
         if last_updated:
             extra = """
             AND
-                (NVL(sps.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-                 NVL(r.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-                 NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-                 NVL(sp.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-                 NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated)
+            (NVL(sps.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated
+            OR NVL(r.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated
+            OR NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated
+            OR NVL(sp.dato_sist_endret, TO_DATE('1970', 'YYYY'))>= :last_updated
+            OR NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated)
             """
         qry = """
         SELECT DISTINCT
@@ -623,10 +625,10 @@ class UiOStudent(access_FS.Student):
         if last_updated:
             extra = """
             AND
-                (NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-                 NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-                 NVL(sps.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-                 NVL(sp.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated)
+            (NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated
+            OR NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+            NVL(sps.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+            NVL(sp.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated)
             """
         qry = """
         SELECT DISTINCT
@@ -657,9 +659,9 @@ class UiOStudent(access_FS.Student):
         if last_updated:
             extra = """
             AND
-                (NVL(p.dato_siste_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-                NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-                NVL(s.dato_endret_semadr, TO_DATE('1970', 'YYYY')) >= :last_updated)
+            (NVL(p.dato_siste_endring, TO_DATE('1970', 'YYYY')) >= :last_updated
+            OR NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
+            NVL(s.dato_endret_semadr, TO_DATE('1970', 'YYYY')) >= :last_updated)
             """
         qry = """
         SELECT DISTINCT
@@ -668,8 +670,9 @@ class UiOStudent(access_FS.Student):
             , s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
             s.adrlin1_semadr, s.adrlin2_semadr, s.adrlin3_semadr,
             s.postnr_semadr, s.adresseland_semadr,
-            p.status_reserv_nettpubl, p.sprakkode_malform, p.kjonn, p.status_dod,
-            p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+            p.status_reserv_nettpubl, p.sprakkode_malform, p.kjonn,
+            p.status_dod, p.telefonlandnr_mobil, p.telefonretnnr_mobil,
+            p.telefonnr_mobil
             */
         FROM
             fs.student s, fs.person p
@@ -686,7 +689,7 @@ class UiOStudent(access_FS.Student):
         to look. Hardcoded to 30 days, so last_updated param is not used at all.
         """
         raise NotImplementedError("Implementation is not yet available.")
-        #extra = ""
+        # extra = ""
         # if last_updated:
         #    extra = """
         #    WHERE
@@ -699,10 +702,10 @@ class UiOStudent(access_FS.Student):
         #    TO_CHAR(dato_foretatt, 'YYYY-MM-DD HH24:MI:SS') AS dato_foretatt
         # FROM
         #    fs.fnr_endring
-        #%s
+        # %s
         # ORDER BY
         #    dato_foretatt
-        #""" %extra
+        # """ %extra
         # return self.db.query(qry, {'last_updated': last_updated})
 
 
@@ -742,12 +745,11 @@ class UiOBetaling(access_FS.FSObject):
               frk.status_betalt = 'J' %s""" % where
         return self.db.query(qry)
 
-    def list_kopiavgift_data(
-        self,
-        kun_fritak=True,
-        semreg=False,
-        fodselsdato=None,
-     personnr=None):
+    def list_kopiavgift_data(self,
+                             kun_fritak=True,
+                             semreg=False,
+                             fodselsdato=None,
+                             personnr=None):
         """List alle som har betalt kopiavgift eller har fritak for
            betaling av kopiavgift. Fritak for kopiavgift betegnes ved
            at registerkortet for inneværende semester får
@@ -761,7 +763,8 @@ class UiOBetaling(access_FS.FSObject):
         extra1 = extra2 = extra_semreg1 = extra_semreg2 = extra_from = ""
 
         if fodselsdato and personnr:
-            extra1 = "frk.fodselsdato=:fodselsdato AND frk.personnr=:personnr AND"
+            extra1 = ("frk.fodselsdato=:fodselsdato AND "
+                      "frk.personnr=:personnr AND")
             extra2 = "r.fodselsdato=:fodselsdato2 AND r.personnr=:personnr2 AND"
 
         if semreg:
@@ -802,7 +805,8 @@ class UiOBetaling(access_FS.FSObject):
              %s
              frk.fakturastatuskode ='OPPGJORT' AND
              fkd.fakturanr = frk.fakturanr AND
-             fkd.fakturadetaljtypekode = 'KOPIAVG'""" % (extra_from, extra_semreg1, extra1)
+             fkd.fakturadetaljtypekode = 'KOPIAVG'""" % (extra_from,
+                                                         extra_semreg1, extra1)
         if semreg:
             return self.db.query(qry, {'fodselsdato': fodselsdato,
                                        'fodselsdato2': fodselsdato,
@@ -825,9 +829,11 @@ class UiOBetaling(access_FS.FSObject):
                                    'year2': self.year})
 
 
+@fsobject('undervisning')
 class UiOUndervisning(access_FS.Undervisning):
 
-    def list_undervisningenheter(self, year=None, sem=None):  # GetUndervEnhetAll
+    def list_undervisningenheter(self, year=None, sem=None):
+        # GetUndervEnhetAll
         if year is None:
             year = self.year
         if sem is None:
@@ -982,6 +988,7 @@ class UiOUndervisning(access_FS.Undervisning):
     # end list_studenter_underv_enhet
 
 
+@fsobject('evu')
 class UiOEVU(access_FS.EVU):
 
     def list(self):  # GetDeltaker_50
@@ -1089,6 +1096,7 @@ class UiOEVU(access_FS.EVU):
 # end UiOEVU
 
 
+@fsobject('studieinfo')
 class UiOStudieInfo(access_FS.StudieInfo):
 
     def list_kull(self):
@@ -1114,6 +1122,7 @@ class UiOStudieInfo(access_FS.StudieInfo):
 # end UiOStudieInfo
 
 
+@fsobject('FS')
 class FS(access_FS.FS):
 
     def __init__(self, db=None, user=None, database=None):

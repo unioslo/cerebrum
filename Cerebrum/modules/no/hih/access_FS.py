@@ -22,6 +22,10 @@ import time
 from Cerebrum.modules.no import access_FS
 
 
+fsobject = access_FS.fsobject
+
+
+@fsobject('student')
 class HIHStudent(access_FS.Student):
     #
     # HiH ønsket i utganspunktet å benytte en midlertidig utplukk som ble
@@ -84,14 +88,15 @@ class HIHStudent(access_FS.Student):
         return self.db.query(qry)
 
 
+@fsobject('undervisning')
 class HIHUndervisning(access_FS.Undervisning):
 
     def list_undervisningenheter(self, sem="current"):
-        """ Metoden som henter data om undervisningsenheter
-            i nåverende (current) eller neste (next) semester. Default
-            vil være nåværende semester. For hver undervisningsenhet
-            henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall,
-            terminnr samt hvorvidt enheten skal eksporteres til LMS."""
+        """ Metoden som henter data om undervisningsenheter i nåverende
+        (current) eller neste (next) semester. Default vil være nåværende
+        semester. For hver undervisningsenhet henter vi institusjonsnr,
+        emnekode, versjonskode, terminkode + årstall, terminnr samt hvorvidt
+        enheten skal eksporteres til LMS."""
         qry = """
             SELECT DISTINCT
               r.institusjonsnr, r.emnekode, r.versjonskode, e.emnenavnfork,
@@ -155,14 +160,13 @@ class HIHUndervisning(access_FS.Undervisning):
              """
         return self.db.query(qry, {'studieprogramkode': studieprogramkode})
 
-    def list_studenter_underv_enhet(
-        self,
-        institusjonsnr,
-        emnekode,
-        versjonskode,
-        terminkode,
-        arstall,
-     terminnr):
+    def list_studenter_underv_enhet(self,
+                                    institusjonsnr,
+                                    emnekode,
+                                    versjonskode,
+                                    terminkode,
+                                    arstall,
+                                    terminnr):
         """ Finn fødselsnumrene til alle studenter på et gitt
             undervisningsenhet. Skal brukes til å generere grupper for
             adgang til CF."""
@@ -185,14 +189,13 @@ class HIHUndervisning(access_FS.Undervisning):
                                    'arstall': arstall}
                              )
 
-    def list_studenter_vurderingsmelding(
-        self,
-        institusjonsnr,
-        emnekode,
-        versjonskode,
-        terminkode,
-        arstall,
-     terminnr):
+    def list_studenter_vurderingsmelding(self,
+                                         institusjonsnr,
+                                         emnekode,
+                                         versjonskode,
+                                         terminkode,
+                                         arstall,
+                                         terminnr):
         """ Finn fødselsnumrene til alle studenter som er
             vurderingsmeldt i et emne. Skal brukes til å generere
             grupper for adgang til CF."""
@@ -255,6 +258,7 @@ class HIHUndervisning(access_FS.Undervisning):
         return self.db.query(qry)
 
 
+@fsobject('studieinfo')
 class HIHStudieInfo(access_FS.StudieInfo):
 
     def list_emner(self):
@@ -266,7 +270,8 @@ class HIHStudieInfo(access_FS.StudieInfo):
                e.emnenavn_bokmal
         FROM fs.emne e
         WHERE e.institusjonsnr = %s AND
-              NVL(e.arstall_eks_siste, %s) >= %s - 1""" % (self.institusjonsnr, self.year, self.year)
+              NVL(e.arstall_eks_siste, %s) >= %s - 1""" % (self.institusjonsnr,
+                                                           self.year, self.year)
         return self.db.query(qry)
 
     def list_ou(self, institusjonsnr=0):  # GetAlleOUer
@@ -286,6 +291,7 @@ class HIHStudieInfo(access_FS.StudieInfo):
         return self.db.query(qry)
 
 
+@fsobject('FS')
 class FS(access_FS.FS):
 
     def __init__(self, db=None, user=None, database=None):

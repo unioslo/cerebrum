@@ -22,6 +22,10 @@ import time
 from Cerebrum.modules.no import access_FS
 
 
+fsobject = access_FS.fsobject
+
+
+@fsobject('student')
 class HiAStudent(access_FS.Student):
 
     def list_aktiv(self, fodselsdato=None, personnr=None):
@@ -156,6 +160,7 @@ class HiAStudent(access_FS.Student):
         return self.db.query(qry)
 
 
+@fsobject('undervisning')
 class HiAUndervisning(access_FS.Undervisning):
 
     def list_undervisningenheter(self, sem="current"):
@@ -243,6 +248,7 @@ class HiAUndervisning(access_FS.Undervisning):
                                      "arstall_kull": arstall})
 
 
+@fsobject('evu')
 class HiAEVU(access_FS.EVU):
 
     def list_kurs(self, date=time.localtime()):  # GetEvuKurs
@@ -298,6 +304,7 @@ class HiAEVU(access_FS.EVU):
         return self.db.query(qry)
 
 
+@fsobject('FS')
 class FS(access_FS.FS):
 
     def __init__(self, db=None, user=None, database=None):

@@ -17,11 +17,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import time
-
 from Cerebrum.modules.no import access_FS
 
 
+fsobject = access_FS.fsobject
+
+
+@fsobject('student')
 class HineStudent(access_FS.Student):
 
     def list_aktiv(self):
@@ -56,6 +58,7 @@ class HineStudent(access_FS.Student):
         return self.db.query(qry)
 
 
+@fsobject('studieinfo')
 class HINEStudieInfo(access_FS.StudieInfo):
 
     def list_ou(self, institusjonsnr=0):  # GetAlleOUer
@@ -75,6 +78,7 @@ class HINEStudieInfo(access_FS.StudieInfo):
         return self.db.query(qry)
 
 
+@fsobject('FS')
 class FS(access_FS.FS):
 
     def __init__(self, db=None, user=None, database=None):

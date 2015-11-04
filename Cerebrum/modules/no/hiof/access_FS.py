@@ -22,6 +22,10 @@ import time
 from Cerebrum.modules.no import access_FS
 
 
+fsobject = access_FS.fsobject
+
+
+@fsobject('student')
 class HiOfStudent(access_FS.Student):
     # Vi bruker list_privatist, og list_tilbud fra no/access_FS
 
@@ -97,6 +101,7 @@ class HiOfStudent(access_FS.Student):
         return self.db.query(qry)
 
 
+@fsobject('undervisning')
 class HiOfUndervisning(access_FS.Undervisning):
     # TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
     #      og list_studenter_underv_enhet.
@@ -211,14 +216,13 @@ class HiOfUndervisning(access_FS.Undervisning):
         return self.db.query(query)
     # end list_aktiviteter
 
-    def list_studenter_underv_enhet(
-        self,
-        institusjonsnr,
-        emnekode,
-        versjonskode,
-        terminkode,
-        arstall,
-     terminnr):
+    def list_studenter_underv_enhet(self,
+                                    institusjonsnr,
+                                    emnekode,
+                                    versjonskode,
+                                    terminkode,
+                                    arstall,
+                                    terminnr):
         """Finn fødselsnumrene til alle studenter på et gitt
         undervisningsenhet. Skal brukes til å generere grupper for
         adgang til CF."""
@@ -349,6 +353,7 @@ class HiOfUndervisning(access_FS.Undervisning):
     # end list_studenter_alle_kull
 
 
+@fsobject('studieinfo')
 class HiOfStudieInfo(access_FS.StudieInfo):
 
     def list_studieprogrammer(self):  # GetStudieproginf
@@ -368,6 +373,7 @@ class HiOfStudieInfo(access_FS.StudieInfo):
     # end list_studieprogrammer
 
 
+@fsobject('FS')
 class FS(access_FS.FS):
 
     def __init__(self, db=None, user=None, database=None):

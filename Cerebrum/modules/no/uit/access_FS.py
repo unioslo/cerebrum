@@ -22,6 +22,9 @@ import sys
 from Cerebrum.modules.no import access_FS
 
 
+fsobject = access_FS.fsobject
+
+
 def str_upper_no(string, encoding='iso-8859-1'):
     '''Converts Norwegian iso strings to upper correctly. Eg. æøå -> ÆØÅ
     Ex. Usage: my_string = str_upper_no('aæeøå')'''
@@ -52,6 +55,7 @@ def get_semester(uppercase=False):
     return ((str(this_year), this_sem), (str(next_year), next_sem))
 
 
+@fsobject('ou')
 class UiTOU(access_FS.StudieInfo):
 
     def GetAktiveOUer(self, institusjonsnr=186):
@@ -75,6 +79,7 @@ class UiTOU(access_FS.StudieInfo):
         return self.db.query(qry)
 
 
+@fsobject('student')
 class UiTStudent(access_FS.Student):
 
     def list(self, **kwargs):  # GetStudent_50
@@ -253,6 +258,7 @@ class UiTStudent(access_FS.Student):
         return self.db.query(qry)
 
 
+@fsobject('undervisning')
 class UiTUndervisning(access_FS.Undervisning):
     '''UIT version of access_FS in modules.no.'''
 
@@ -408,6 +414,7 @@ class UiTUndervisning(access_FS.Undervisning):
                               'semester': start_semester})
 
 
+@fsobject('evu')
 class UiTEVU(access_FS.EVU):
 
     def list_kurs(self, date=time.localtime()):  # GetEvuKurs
@@ -462,6 +469,7 @@ class UiTEVU(access_FS.EVU):
         return self.db.query(qry)
 
 
+@fsobject('FS')
 class FS(access_FS.FS):
 
     def __init__(self, db=None, user=None, database=None):

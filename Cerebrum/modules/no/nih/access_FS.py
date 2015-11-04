@@ -22,6 +22,10 @@ import time
 from Cerebrum.modules.no import access_FS
 
 
+fsobject = access_FS.fsobject
+
+
+@fsobject('student')
 class NIHStudent(access_FS.Student):
 
     def list_aktiv(self):
@@ -85,6 +89,7 @@ class NIHStudent(access_FS.Student):
         return self.db.query(qry)
 
 
+@fsobject('undervisning')
 class NIHUndervisning(access_FS.Undervisning):
     # TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
     # og list_studenter_underv_enhet.
@@ -145,14 +150,13 @@ class NIHUndervisning(access_FS.Undervisning):
                              {'aar': start_aar,
                               'semester': start_semester})
 
-    def list_studenter_underv_enhet(
-        self,
-        institusjonsnr,
-        emnekode,
-        versjonskode,
-        terminkode,
-        arstall,
-     terminnr):
+    def list_studenter_underv_enhet(self,
+                                    institusjonsnr,
+                                    emnekode,
+                                    versjonskode,
+                                    terminkode,
+                                    arstall,
+                                    terminnr):
         """Finn fødselsnumrene til alle studenter på et gitt
         undervisningsenhet. Skal brukes til å generere grupper for
         adgang til CF."""
@@ -260,6 +264,7 @@ class NIHUndervisning(access_FS.Undervisning):
     # end list_studenter_alle_kull
 
 
+@fsobject('studieinfo')
 class NIHStudieInfo(access_FS.StudieInfo):
 
     def list_emner(self):
@@ -271,10 +276,12 @@ class NIHStudieInfo(access_FS.StudieInfo):
                e.emnenavn_bokmal
         FROM fs.emne e
         WHERE e.institusjonsnr = %s AND
-              NVL(e.arstall_eks_siste, %s) >= %s - 1""" % (self.institusjonsnr, self.year, self.year)
+              NVL(e.arstall_eks_siste, %s) >= %s - 1""" % (self.institusjonsnr,
+                                                           self.year, self.year)
         return self.db.query(qry)
 
 
+@fsobject('FS')
 class FS(access_FS.FS):
 
     def __init__(self, db=None, user=None, database=None):
