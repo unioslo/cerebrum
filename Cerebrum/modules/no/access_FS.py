@@ -24,7 +24,6 @@ dersom man skal ha kode for en spesifik FS-versjon.
 Disse klassene er ment brukt ved å instansiere klassen FS
 """
 
-import cerebrum_path
 import cereconf
 import time
 import xml.sax
