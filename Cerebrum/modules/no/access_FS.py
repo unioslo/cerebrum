@@ -190,7 +190,7 @@ _default_fs_config = collections.defaultdict(
     lambda: collections.defaultdict(dict))
 
 
-def fsobject(name, versions, version_to=None):
+def fsobject(name, versions='>=1', version_to=None):
     """Declare object as fs-object to make_fs.
     Use this as:
         @fsobject('FS', '>7.1')
@@ -351,7 +351,7 @@ class FSObject(object):
         return next
 
 
-@fsobject('person', '>=1')
+@fsobject('person')
 class Person(FSObject):
     def get_person(self, fnr, pnr):
         return self.db.query("""
@@ -555,7 +555,7 @@ class Person(FSObject):
                          'uname': uname})
 
 
-@fsobject('student', '>=1')
+@fsobject('student')
 class Student(FSObject):
     def get_student(self, fnr, pnr):
         """Hent generell studentinfo for en person. Kan brukes for å
@@ -945,7 +945,7 @@ class Student(FSObject):
         return self.db.query(qry)
 
 
-@fsobject('undervisning', '>=1')
+@fsobject('undervisning')
 class Undervisning(FSObject):
     def list_aktivitet(self, Instnr, emnekode, versjon, termk,
                        aar, termnr, aktkode):  # GetStudUndAktivitet
@@ -1269,7 +1269,7 @@ class Undervisning(FSObject):
     # end list_studenter_alle_undakt
 
 
-@fsobject('evu', '>=1')
+@fsobject('evu')
 class EVU(FSObject):
     def list(self):  # GetDeltaker_50
         """Hent info om personer som er ekte EVU-studenter ved
@@ -1389,7 +1389,7 @@ class EVU(FSObject):
             'aktkode': aktkode})
 
 
-@fsobject('alumni', '>=1')
+@fsobject('alumni')
 class Alumni(FSObject):
     def list(self):  # GetAlumni_50
         """Henter informasjon om alle som har fullført
@@ -1419,7 +1419,7 @@ class Alumni(FSObject):
         return self.db.query(qry)
 
 
-@fsobject('studieinfo', '>=1')
+@fsobject('studieinfo')
 class StudieInfo(FSObject):
     def list_studieprogrammer(self, expired=True):  # GetStudieproginf
         """For hvert definerte studieprogram henter vi
@@ -1509,7 +1509,7 @@ class StudieInfo(FSObject):
         return self.db.query(qry)
 
 
-@fsobject("FS", ">=1")
+@fsobject("FS")
 class FS(object):
     def __init__(self, db=None, user=None, database=None):
         if db is None:
