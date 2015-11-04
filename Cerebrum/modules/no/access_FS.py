@@ -28,10 +28,17 @@ import cerebrum_path
 import cereconf
 import time
 import xml.sax
+import collections
+import operator
 
 from Cerebrum import Database
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import NotSet
+
+
+# A tuple to hold the version number
+Version = collections.namedtuple('Version', 'major minor patch'.split())
 
 
 def _get_fs_version(db):
@@ -42,7 +49,97 @@ def _get_fs_version(db):
     """
     result = db.query_1("SELECT Sisteversjon_Database FROM Systemverdier")
     assert result[:2] == "FS"
-    return map(int, result[2:].split("."))
+    return Version(*map(int, result[2:].split(".")[:3]))
+
+
+class VersionSpec(object):
+    """Holds a version spec for an implementation. We need this to deduce if
+    a version can be used. Generally,
+    * [v1, v2], [v1, v2), (v1, v2), or (v1, v2]
+    * <v, <=v, or =v
+    * >v, >=v
+    """
+    __slots__ = ('start', 'end', 'start_open', 'end_open')
+
+    @staticmethod
+    def assert_version(ver, allow_none=True):
+        """Create a Version from ver"""
+        if ver is None:
+            if allow_none:
+                return None
+            raise Errors.ProgrammingError("Specified FS version None")
+        if isinstance(ver, Version):
+            return ver
+        if isinstance(ver, collections.Sequence):
+            if len(ver) > 3:
+                return Version(*ver[:3])
+            ver = list(ver)
+            while len(ver) < 3:
+                ver.append(0)
+            return Version(*ver)
+
+    def __init__(self, start=None, end=None, start_open=False, end_open=True):
+        self.start = self.assert_version(start)
+        self.end = self.assert_version(end)
+        self.start_open = start_open
+        self.end_open = end_open
+        if self.start > self.end:
+            raise Errors.ProgrammingError("VersionSpec cannot have end > start")
+        if start is None and end is None:
+            raise Errors.ProgrammingError("VersionSpec empty")
+
+    def __eq__(self, other):
+        return (isinstance(other, VersionSpec) and
+                self.start == other.start and
+                self.end == other.end and
+                self.start_open == other.start_open and
+                self.end_open == other.end_open)
+
+    def __hash__(self):
+        return reduce(operator.xor, map(hash,
+                                        [self.start, self.end,
+                                         self.start_open, self.end_open]))
+
+    def __lt__(self, other):
+        if self.end:
+            if other.start:
+                return self.end < other.start
+            return self.end < other.end
+        else:
+            if other.start:
+                return self.start < other.start
+            return self.start < other.end
+
+
+def parse_version_spec(spec):
+    """
+    Parse a version spec.
+    """
+    if isinstance(spec, basestring):
+        if spec[0] in '<>=':
+            closed = spec[1] == '='
+            ver = spec[1+closed:].split('.')
+            if spec[0] == '<':
+                return VersionSpec(end=ver, end_open=not closed)
+            elif spec[0] == '>':
+                return VersionSpec(start=ver, start_open=not closed)
+            return VersionSpec(start=ver, end=ver, end_open=False)
+        elif spec[0] in '([' and spec[-1] in ')]':
+            start_open = spec[0] == '('
+            end_open = spec[-1] == ')'
+            start, end = [int(x.strip().split('.'))
+                          for x in spec[1:-1].split(',')]
+            return VersionSpec(start=start,
+                               end=end,
+                               start_open=start_open,
+                               end_open=end_open)
+    if isinstance(spec, collections.Sequence):
+        if isinstance(spec[0], collections.Sequence):
+            return VersionSpec(*spec)
+        return VersionSpec(spec)
+    if isinstance(spec, collections.Mapping):
+        return VersionSpec(**spec)
+    raise Errors.ProgrammingError("Illegal version spec: {}".format(spec))
 
 
 def make_fs(db=None, user=None, database=None):
