@@ -108,6 +108,37 @@ class VersionSpec(object):
                 return self.start < other.start
             return self.start < other.end
 
+    def __str__(self):
+        st, e = self.start, self.end
+        if st and e:
+            return "{}{}.{}.{}, {}.{}.{}{}".format(
+                '(' if self.start_open else '[',
+                st.major, st.minor, st.patch,
+                e.major, e.minor, e.patch,
+                ')' if self.end_open else ']')
+        elif st:
+            return "{}{}.{}.{}".format(
+                '>' if self.start_open else '>=',
+                st.major, st.minor, st.patch)
+        else:
+            return "{}{}.{}.{}".format(
+                '<' if self.end_open else '<=',
+                st.major, st.minor, st.patch)
+
+    def matches(self, version):
+        """Returns true iff version matches this spec
+        :param Version version: Version to check for.
+        :returns: Bool
+        """
+        op_start = operator.lt if self.start_open else operator.le
+        op_end = operator.lt if self.end_open else operator.le
+        if self.start and self.end:
+            return op_start(self.start, version) and op_end(version, self.end)
+        elif self.start:
+            return op_start(self.start, version)
+        else:
+            return op_end(version, self.end)
+
 
 def parse_version_spec(spec):
     """
