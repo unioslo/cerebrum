@@ -45,7 +45,7 @@ def _get_fs_version(db):
 
     :return: tuple(major, minor, patch)
     """
-    result = db.query_1("SELECT Sisteversjon_Database FROM Systemverdier")
+    result = db.query_1("SELECT Sisteversjon_Database FROM fs.Systemverdier")
     assert result[:2] == "FS"
     return Version(*map(int, result[2:].split(".")[:3]))
 
@@ -138,6 +138,37 @@ def parse_version_spec(spec):
     if isinstance(spec, collections.Mapping):
         return VersionSpec(**spec)
     raise Errors.ProgrammingError("Illegal version spec: {}".format(spec))
+
+
+_default_fs_config = collections.defaultdict(
+    lambda: collections.defaultdict(dict))
+
+
+def fsobject(name, versions, version_to=None):
+    """Declare object as fs-object to make_fs.
+    Use this as:
+        @fsobject('FS', '>7.1')
+        class FS¿
+
+    :param str name: Name of accessor
+    :param versions: Version spec, see parse_version_spec().
+    :param version_to: if set, versions param is interpreted as
+        from version, and (version, version_to) is sent to parse_version_spec().
+    :return: Decorating function
+    """
+    import inspect
+    if version_to:
+        versions = tuple(versions, version_to)
+
+    def fn(cls):
+        module = inspect.getmodule(cls)
+        if module is None:
+            module = '__main__'
+        else:
+            module = module.__name__
+        _default_fs_config[module][name][parse_version_spec(versions)] = cls
+        return cls
+    return fn
 
 
 def make_fs(db=None, user=None, database=None):
@@ -244,6 +275,7 @@ class FSObject(object):
         return next
 
 
+@fsobject('person', '>=1')
 class Person(FSObject):
     def get_person(self, fnr, pnr):
         return self.db.query("""
@@ -447,6 +479,7 @@ class Person(FSObject):
                          'uname': uname})
 
 
+@fsobject('student', '>=1')
 class Student(FSObject):
     def get_student(self, fnr, pnr):
         """Hent generell studentinfo for en person. Kan brukes for å
@@ -836,6 +869,7 @@ class Student(FSObject):
         return self.db.query(qry)
 
 
+@fsobject('undervisning', '>=1')
 class Undervisning(FSObject):
     def list_aktivitet(self, Instnr, emnekode, versjon, termk,
                        aar, termnr, aktkode):  # GetStudUndAktivitet
@@ -1159,6 +1193,7 @@ class Undervisning(FSObject):
     # end list_studenter_alle_undakt
 
 
+@fsobject('evu', '>=1')
 class EVU(FSObject):
     def list(self):  # GetDeltaker_50
         """Hent info om personer som er ekte EVU-studenter ved
@@ -1278,6 +1313,7 @@ class EVU(FSObject):
             'aktkode': aktkode})
 
 
+@fsobject('alumni', '>=1')
 class Alumni(FSObject):
     def list(self):  # GetAlumni_50
         """Henter informasjon om alle som har fullført
@@ -1307,6 +1343,7 @@ class Alumni(FSObject):
         return self.db.query(qry)
 
 
+@fsobject('studieinfo', '>=1')
 class StudieInfo(FSObject):
     def list_studieprogrammer(self, expired=True):  # GetStudieproginf
         """For hvert definerte studieprogram henter vi
@@ -1396,6 +1433,7 @@ class StudieInfo(FSObject):
         return self.db.query(qry)
 
 
+@fsobject("FS", ">=1")
 class FS(object):
     def __init__(self, db=None, user=None, database=None):
         if db is None:
