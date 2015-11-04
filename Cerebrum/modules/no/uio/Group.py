@@ -30,48 +30,6 @@ class GroupUiOMixin(Group.Group):
     """Group mixin class providing functionality specific to UiO.
     """
 
-    def add_member(self, member_id):
-        '''Override default add_member with checks that avoids
-        membership in too many PosixGroups of the same spread as this
-        gives problems with NFS
-
-        @param member_id: Cf. L{Group.Group.add_member}
-        '''
-
-        from Cerebrum.modules import PosixGroup
-
-        # TODO: we should include_indirect_members
-
-        group_spreads = [int(s['spread']) for s in self.get_spread()]
-        relevant_spreads = []
-        for name in cereconf.NIS_SPREADS:
-            c = getattr(self.const, name)
-            if int(c) in group_spreads:
-                relevant_spreads.append(int(c))
-        counts = {}
-        for s in relevant_spreads:
-            counts[s] = 0
-
-        pg = PosixGroup.PosixGroup(self._db)
-        for g in self.search(member_id=member_id,
-                             indirect_members=True,
-                             filter_expired=False):
-            try:
-                pg.clear()
-                pg.find(g['group_id'])
-                for s in pg.get_spread():
-                    if int(s['spread']) in relevant_spreads:
-                        counts[int(s['spread'])] += 1
-            except Errors.NotFoundError:
-                pass
-        for k in counts.keys():
-            if counts[k] > 15:
-                raise self._db.IntegrityError(
-                    "Member of too many NIS groups (%i) with the same spread. "
-                    "A user can not be a member of more than 16 groups "
-                    "with the same NIS spread" % (counts[k]))
-        super(GroupUiOMixin, self).add_member(member_id)
-
     def add_spread(self, spread):
         # Avoid circular import dependency
         from Cerebrum.modules import PosixGroup
