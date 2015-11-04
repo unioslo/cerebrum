@@ -34,7 +34,6 @@ import operator
 from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import NotSet
 
 
 # A tuple to hold the version number
@@ -44,7 +43,7 @@ Version = collections.namedtuple('Version', 'major minor patch'.split())
 def _get_fs_version(db):
     """Return FS version number.
     :param db: Database object.
-    
+
     :return: tuple(major, minor, patch)
     """
     result = db.query_1("SELECT Sisteversjon_Database FROM Systemverdier")
@@ -181,7 +180,7 @@ class FSObject(object):
         self.dday = t[2]
         self.YY = str(t[0])[2:]
         self.institusjonsnr = cereconf.DEFAULT_INSTITUSJONSNR
-        
+
     def _is_alive(self):
         return "NVL(p.status_dod, 'N') = 'N'\n"
 
@@ -222,24 +221,29 @@ class FSObject(object):
         """
         if self.mndnr <= 6:
             # Months January - June == Spring semester
-            current = "(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % self.year;
-            if only_current or self.mndnr >= 3 or (self.mndnr == 2 and self.dday > 15):
+            current = "(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % self.year
+            if only_current or self.mndnr >= 3 or (self.mndnr == 2
+                                                   and self.dday > 15):
                 return current
             return "(%s OR (r.terminkode = 'HØST' AND r.arstall=%d))\n" % (
                 current, self.year-1)
         # Months July - December == Autumn semester
         current = "(r.terminkode = 'HØST' AND r.arstall=%d)\n" % self.year
-        if only_current or self.mndnr >= 10 or (self.mndnr == 9 and self.dday > 15):
+        if only_current or self.mndnr >= 10 or (self.mndnr == 9
+                                                and self.dday > 15):
             return current
-        return "(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" % (current, self.year)
+        return "(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" % (
+            current, self.year)
 
     def _get_next_termin_aar(self):
         """henter neste semesters terminkode og årstal."""
         if self.mndnr <= 6:
             next = "(r.terminkode LIKE 'H_ST' AND r.arstall=%s)\n" % self.year
         else:
-            next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % (self.year + 1)
+            next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % (self.year
+                                                                     + 1)
         return next
+
 
 class Person(FSObject):
     def get_person(self, fnr, pnr):
@@ -251,7 +255,9 @@ class Person(FSObject):
 
     def add_person(self, fnr, pnr, fornavn, etternavn, email, kjonn,
                    birth_date, ansattsnr=None):
-        """Adds a person to the FS database. Ansattnr is not used in this implementation."""
+        """Adds a person to the FS database.
+        Ansattnr is not used in this implementation."""
+
         return self.db.execute("""
         INSERT INTO fs.person
           (fodselsdato, personnr, fornavn, etternavn, fornavn_uppercase,
@@ -264,18 +270,18 @@ class Person(FSObject):
             'etternavn': etternavn, 'email': email,
             'kjonn': kjonn, 'birth_date': birth_date,
             'fornavn2': fornavn, 'etternavn2': etternavn})
-    
+
     def set_ansattnr(self, fnr, pnr, asn):
         """Sets the ansattnr for a person. This is NOT implemented."""
         pass
-    
+
     def get_ansattnr(self, fnr, pnr):
         """Gets the ansattnr for a person. This is NOT implemented."""
         pass
 
     def get_personroller(self, fnr, pnr):
         """Helt alle personroller til fnr+pnr."""
-        
+
         return self.db.query("""
         /* Vi henter absolutt *alle* attributtene og lar valideringskoden vår
            ta hånd om verifisering av attributtene. På denne måten får vi en
@@ -283,8 +289,8 @@ class Person(FSObject):
            upopulerte attributter. */
         SELECT *
         FROM fs.personrolle
-        WHERE 
-          fodselsdato=:fnr AND 
+        WHERE
+          fodselsdato=:fnr AND
           personnr=:pnr AND
           dato_fra < SYSDATE AND
           NVL(dato_til,SYSDATE) >= sysdate""", {'fnr': fnr,
@@ -300,12 +306,10 @@ class Person(FSObject):
           status_aktiv
         FROM fs.fagperson
         WHERE fodselsdato=:fodselsdato AND personnr=:personnr
-        """, {"fodselsdato": fodselsdato, "personnr": personnr,})
-    # end get_fagperson
-    
+        """, {"fodselsdato": fodselsdato, "personnr": personnr})
 
     def add_fagperson(self, fodselsdato, personnr, **rest):
-        binds = {"fodselsdato": fodselsdato, "personnr": personnr,}
+        binds = {"fodselsdato": fodselsdato, "personnr": personnr}
         binds.update(rest)
         return self.db.execute("""
         INSERT INTO fs.fagperson
@@ -314,9 +318,7 @@ class Person(FSObject):
           (%s)
         """ % (", ".join(binds),
                ", ".join(":" + x for x in binds)), binds)
-    # end add_fagperson
 
-    
     def update_fagperson(self, fodselsdato, personnr, **rest):
         """Updates the specified columns in fagperson"""
 
@@ -328,8 +330,6 @@ class Person(FSObject):
         SET %s
         WHERE fodselsdato = :fodselsdato AND personnr = :personnr
         """ % ", ".join(names_to_set), binds)
-    # end update_fagperson
-                               
 
     def is_dead(self, fodselsdato, personnr):
         """Check if a given person is registered as dead (status_dod) in FS."""
@@ -337,12 +337,12 @@ class Person(FSObject):
             SELECT p.status_dod as dod
             FROM fs.person p
             WHERE p.fodselsdato = :fodselsdato AND p.personnr = :personnr""",
-            {'fodselsdato': fodselsdato, 'personnr': personnr})
+                            {'fodselsdato': fodselsdato, 'personnr': personnr})
         if ret:
             return ret[0]['dod'] == 'J'
         return False
 
-    def list_dead_persons(self): # GetDod
+    def list_dead_persons(self):  # GetDod
         """Henter en liste med de personer som ligger i FS og som er
            registrert som død.  Listen kan sikkert kortes ned slik at
            man ikke tar alle, men i denne omgang så gjør vi det
@@ -360,7 +360,7 @@ class Person(FSObject):
         Tabellen fs.PERSONAKSEPTANSE benyttes for å angi om en student
         har akseptert at det blir publisert data i nettkatalogen eller
         ikke.
-        
+
         Dersom det finnes en rad i denne tabellen med
         AKSEPTANSETYPEKODE='NETTPUBL' og STATUS_SVAR='J', skal data om
         studenten publiseres i nettkatalogen. Hvis ikke, skal data om
@@ -386,13 +386,15 @@ class Person(FSObject):
         Merk: Funksjonen er skrevet generell så man kan hente ut alle
         typer akseptansekode.
         """
-        
+
         check_extra = ""
         if fodselsdato and personnr and type:
-            check_extra = """WHERE fodselsdato=:fodselsdato AND personnr=:personnr
+            check_extra = """WHERE fodselsdato=:fodselsdato
+                             AND personnr=:personnr
                              AND akseptansetypekode=:type"""
         elif fodselsdato and personnr:
-            check_extra = "WHERE fodselsdato=:fodselsdato AND personnr=:personnr"
+            check_extra = ("WHERE fodselsdato=:fodselsdato "
+                           "AND personnr=:personnr")
         elif type:
             check_extra = "WHERE akseptansetypekode=:type"
 
@@ -405,9 +407,9 @@ class Person(FSObject):
         %s
         ORDER by akseptansetypekode, status_svar
         """ % (check_extra)
-        return self.db.query(qry, locals())        
+        return self.db.query(qry, locals())
 
-    def list_fnr_endringer(self): # GetFnrEndringer
+    def list_fnr_endringer(self):  # GetFnrEndringer
         """Hent informasjon om alle registrerte fødselsnummerendringer"""
         qry = """
         SELECT fodselsdato_naverende, personnr_naverende,
@@ -417,12 +419,12 @@ class Person(FSObject):
         ORDER BY dato_foretatt"""
         return self.db.query(qry)
 
-    def list_email(self, fetchall = False): # GetAllPersonsEmail
+    def list_email(self, fetchall=False):  # GetAllPersonsEmail
         return self.db.query("""
         SELECT fodselsdato, personnr, emailadresse
-        FROM fs.person""", fetchall = fetchall)
+        FROM fs.person""", fetchall=fetchall)
 
-    def write_email(self, fodselsdato, personnr, email): # WriteMailAddr
+    def write_email(self, fodselsdato, personnr, email):  # WriteMailAddr
         self.db.execute("""
         UPDATE fs.person
         SET emailadresse=:email
@@ -431,12 +433,12 @@ class Person(FSObject):
                          'personnr': personnr,
                          'email': email})
 
-    def list_uname(self, fetchall = False): # GetAllPersonsUname
+    def list_uname(self, fetchall=False):  # GetAllPersonsUname
         return self.db.query("""
         SELECT fodselsdato, personnr, brukernavn
-        FROM fs.person""", fetchall = fetchall)
+        FROM fs.person""", fetchall=fetchall)
 
-    def write_uname(self, fodselsdato, personnr, uname): # WriteUname
+    def write_uname(self, fodselsdato, personnr, uname):  # WriteUname
         self.db.execute("""
         UPDATE fs.person
         SET brukernavn = :uname
@@ -444,6 +446,7 @@ class Person(FSObject):
                         {'fodselsdato': fodselsdato,
                          'personnr': personnr,
                          'uname': uname})
+
 
 class Student(FSObject):
     def get_student(self, fnr, pnr):
@@ -455,7 +458,7 @@ class Student(FSObject):
                bibsyslanetakerid
         FROM fs.student
         WHERE fodselsdato=:fnr AND personnr=:pnr""",  {'fnr': fnr, 'pnr': pnr})
-    
+
     def list_semreg(self):   # GetStudinfRegkort
         """Hent informasjon om semester-registrering og betaling"""
         qry = """
@@ -473,7 +476,8 @@ class Student(FSObject):
         returnerte, altså det som reknast som "gyldig registerkort"."""
         sjekk_betaling = ''
         if only_valid:
-            sjekk_betaling = "r.status_bet_ok = 'J' AND r.status_reg_ok = 'J' AND"
+            sjekk_betaling = """r.status_bet_ok = 'J'
+                                AND r.status_reg_ok = 'J' AND"""
         qry = """
         SELECT DISTINCT
           r.regformkode, r.betformkode, r.dato_betaling,
@@ -496,25 +500,25 @@ class Student(FSObject):
               r.fodselsdato = p.fodselsdato AND
               r.personnr = p.personnr AND
               %(is_alive)s
-        """ % {'semester': self.semester, 
-               'year': self.year, 
-               'termin': self._get_termin_aar(only_current=1), 
+        """ % {'semester': self.semester,
+               'year': self.year,
+               'termin': self._get_termin_aar(only_current=1),
                'is_alive': self._is_alive(),
                'sjekk_betaling': sjekk_betaling}
         return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
 
-    ## ToDo: Måten vi knytter vurdkombenhet mot vurdtidkode bør
-    ## sjekkes nærmere med Geir.
+    # TODO: Måten vi knytter vurdkombenhet mot vurdtidkode bør
+    # sjekkes nærmere med Geir.
     def list_eksamensmeldinger(self):  # GetAlleEksamener
         """Hent ut alle eksamensmeldinger i nåværende sem.
         samt fnr for oppmeldte(topics.xml)"""
         qry = """
         SELECT p.fodselsdato, p.personnr, vm.emnekode,
-               vm.studieprogramkode, vm.arstall, 
+               vm.studieprogramkode, vm.arstall,
                vm.versjonskode, vm.vurdtidkode, vt.terminkode_gjelder_i,
                vt.arstall_gjelder_i
         FROM fs.person p, fs.vurdkombmelding vm,
-             fs.vurderingskombinasjon vk, fs.vurderingstid vt, 
+             fs.vurderingskombinasjon vk, fs.vurderingstid vt,
              fs.vurdkombenhet ve
         WHERE p.fodselsdato=vm.fodselsdato AND
               p.personnr=vm.personnr AND
@@ -527,7 +531,7 @@ class Student(FSObject):
               ve.vurdtidkode = vm.vurdtidkode AND
               ve.emnekode = vm.emnekode AND
               ve.versjonskode = vm.versjonskode AND
-              ve.vurdkombkode = vm.vurdkombkode AND 
+              ve.vurdkombkode = vm.vurdkombkode AND
               ve.vurdtidkode = vm.vurdtidkode AND
               ve.institusjonsnr = vm.institusjonsnr AND
               ve.arstall_reell=vt.arstall AND
@@ -535,18 +539,18 @@ class Student(FSObject):
               vt.arstall_gjelder_i = %s AND
               %s
         ORDER BY fodselsdato, personnr
-        """ % (self.year, self._is_alive())                            
+        """ % (self.year, self._is_alive())
         return self.db.query(qry)
 
-    ## ToDo: Denne maa oppdateres til aa samsvare med
-    ## list_eksamensmeldinger!
-    def get_eksamensmeldinger(self, fnr, pnr): # GetStudentEksamen
+    # TODO: Denne må oppdateres til å samsvare med
+    # list_eksamensmeldinger!
+    def get_eksamensmeldinger(self, fnr, pnr):  # GetStudentEksamen
         """Hent alle aktive eksamensmeldinger for en student"""
         qry = """
         SELECT DISTINCT vm.emnekode, vm.dato_opprettet,
                vm.status_er_kandidat
         FROM fs.person p, fs.vurdkombmelding vm,
-             fs.vurderingskombinasjon vk, fs.vurderingstid vt, 
+             fs.vurderingskombinasjon vk, fs.vurderingstid vt,
              fs.vurdkombenhet ve
         WHERE p.fodselsdato = :fnr AND
               p.personnr = :pnr AND
@@ -561,13 +565,13 @@ class Student(FSObject):
               vt.vurdtidkode = vm.vurdtidkode AND
               ve.emnekode = vm.emnekode AND
               ve.versjonskode = vm.versjonskode AND
-              ve.vurdkombkode = vm.vurdkombkode AND 
+              ve.vurdkombkode = vm.vurdkombkode AND
               ve.vurdtidkode = vm.vurdtidkode AND
               ve.institusjonsnr = vm.institusjonsnr AND
               ve.arstall = vt.arstall AND
               ve.vurdtidkode = vt.vurdtidkode AND
               ve.arstall_reell = %s AND
-              %s             
+              %s
               """ % (self.year, self._is_alive())
         return self.db.query(qry, {'fnr': fnr,
                                    'pnr': pnr})
@@ -575,7 +579,7 @@ class Student(FSObject):
     def get_undervisningsmelding(self, fnr, pnr):
         """Hent alle aktive undervisningsmeldinger for en gitt student."""
         qry = """
-        SELECT DISTINCT 
+        SELECT DISTINCT
             u.emnekode, u.versjonskode, u.terminkode, u.arstall,
             u.dato_endring
         FROM
@@ -594,19 +598,19 @@ class Student(FSObject):
                self._is_alive())
         return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
 
-    def get_studierett(self, fnr, pnr): # GetStudentStudierett_50
+    def get_studierett(self, fnr, pnr):  # GetStudentStudierett_50
         """Hent info om alle studierett en student har eller har hatt"""
         qry = """
         SELECT DISTINCT
            sps.studieprogramkode, sps.studierettstatkode,
-           sps.studieretningkode,sps.dato_studierett_tildelt, 
-           sps.dato_studierett_gyldig_til,sps.status_privatist, 
+           sps.studieretningkode,sps.dato_studierett_tildelt,
+           sps.dato_studierett_gyldig_til,sps.status_privatist,
            sps.studentstatkode
         FROM fs.studieprogramstudent sps, fs.person p
         WHERE sps.fodselsdato=:fnr AND
               sps.personnr=:pnr AND
               sps.fodselsdato=p.fodselsdato AND
-              sps.personnr=p.personnr 
+              sps.personnr=p.personnr
               AND %s
         """ % self._is_alive()
         return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
@@ -618,7 +622,7 @@ class Student(FSObject):
         r.fodselsdato, r.personnr
         FROM fs.registerkort r
         WHERE (status_bet_ok = 'J' OR betformkode = 'FRITATT') AND
-               NVL(r.status_ugyldig, 'N') = 'N' AND 
+               NVL(r.status_ugyldig, 'N') = 'N' AND
         %s""" % self._get_termin_aar(only_current=1)
         return self.db.query(qry)
     # end list_betalt_semesteravgift
@@ -631,7 +635,7 @@ class Student(FSObject):
              vm.emnekode, vm.studieprogramkode, vm.arstall, vm.versjonskode,
              vt.terminkode_gjelder_i, vt.arstall_gjelder_i
         FROM fs.person p, fs.vurdkombmelding vm,
-             fs.vurderingskombinasjon vk, 
+             fs.vurderingskombinasjon vk,
              fs.vurdkombenhet ve, fs.vurderingstid vt
         WHERE vm.emnekode = :emnekode AND
               p.fodselsdato=vm.fodselsdato AND
@@ -645,18 +649,18 @@ class Student(FSObject):
               ve.vurdtidkode = vm.vurdtidkode AND
               ve.emnekode = vm.emnekode AND
               ve.versjonskode = vm.versjonskode AND
-              ve.vurdkombkode = vm.vurdkombkode AND 
+              ve.vurdkombkode = vm.vurdkombkode AND
               ve.vurdtidkode = vm.vurdtidkode AND
               ve.institusjonsnr = vm.institusjonsnr AND
               ve.arstall_reell=vt.arstall AND
               ve.vurdtidkode_reell=vt.vurdtidkode AND
               vt.arstall_gjelder_i = %s AND
               %s
-        """ % (self.year, self._is_alive())                           
+        """ % (self.year, self._is_alive())
         return self.db.query(query, {"emnekode": emnekode})
 
     def get_student_kull(self, fnr, pnr):
-        """Hent opplysninger om hvilken klasse studenten er en del av og 
+        """Hent opplysninger om hvilken klasse studenten er en del av og
         hvilken kull studentens klasse tilhører."""
         qry = """
         SELECT DISTINCT
@@ -674,7 +678,7 @@ class Student(FSObject):
         return self.db.query(qry, {'fnr': fnr,
                                    'pnr': pnr})
 
-    def get_utdanningsplan(self, fnr, pnr): # GetStudentUtdPlan
+    def get_utdanningsplan(self, fnr, pnr):  # GetStudentUtdPlan
         """Hent opplysninger om utdanningsplan for student"""
         qry = """
         SELECT DISTINCT
@@ -691,8 +695,8 @@ class Student(FSObject):
                                    'pnr': pnr})
 
     def list_tilbud(self):  # GetStudentTilbud_50
-        ## OBS! Denne metoden er ikke lenger i bruk og virker ikke
-        ## med FS 6.4 
+        # OBS! Denne metoden er ikke lenger i bruk og virker ikke
+        # med FS 6.4
         """Hent personer som har fått tilbud om opptak og
         har takket ja til tilbudet.
         Disse skal gis affiliation student med kode tilbud til
@@ -702,7 +706,7 @@ class Student(FSObject):
         denne kategorien.  Alle søkere til studierved institusjonen
         registreres i tabellen fs.soknadsalternativ og informasjon om
         noen har fått tilbud om opptak hentes også derfra (feltet
-        fs.soknadsalternativ.tilbudstatkode er et godt sted å 
+        fs.soknadsalternativ.tilbudstatkode er et godt sted å
         begynne å lete etter personer som har fått tilbud). Hvis vi skal
         kjøre dette på UiO kan det hende at vi må ha:
         "sa.opptakstypekode = 'NOM'" med i søket. Dette er imidlertid
@@ -710,16 +714,16 @@ class Student(FSObject):
 
         qry = """
         SELECT DISTINCT
-              p.fodselsdato, p.personnr, p.etternavn, p.fornavn, 
+              p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
               p.adrlin1_hjemsted, p.adrlin2_hjemsted,
               p.postnr_hjemsted, p.adrlin3_hjemsted, p.adresseland_hjemsted,
-              p.sprakkode_malform, osp.studieprogramkode, 
+              p.sprakkode_malform, osp.studieprogramkode,
               p.status_reserv_nettpubl, p.kjonn, p.status_dod
         FROM fs.soknadsalternativ sa, fs.person p, fs.opptakstudieprogram osp,
              fs.studieprogram sp
         WHERE p.fodselsdato=sa.fodselsdato AND
               p.personnr=sa.personnr AND
-              sa.institusjonsnr=%s AND 
+              sa.institusjonsnr=%s AND
               sa.tilbudstatkode IN ('I', 'S') AND
               sa.svarstatkode_svar_pa_tilbud='J' AND
               sa.studietypenr = osp.studietypenr AND
@@ -728,16 +732,16 @@ class Student(FSObject):
               """ % (self.institusjonsnr, self._is_alive())
         return self.db.query(qry)
 
-    def list_utvekslings_student(self): # GetStudinfUtvekslingsStudent
+    def list_utvekslings_student(self):  # GetStudinfUtvekslingsStudent
         """ Henter personer som er registrert som utvekslingsSTUDENT i
             fs.utvekslingsperson. Vi henter 14 dager før studenten står
-            på trappa. """ 
+            på trappa. """
         qry = """
         SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, p.status_reserv_nettpubl, 
+               p.adresseland_hjemsted, p.status_reserv_nettpubl,
                p.sprakkode_malform, p.kjonn, u.institusjonsnr_internt,
                u.faknr_internt, u.instituttnr_internt, u.gruppenr_internt
         FROM fs.student s, fs.person p, fs.utvekslingsperson u
@@ -752,16 +756,16 @@ class Student(FSObject):
       """
         return self.db.query(qry)
 
-    def list_permisjon(self): # GetStudinfPermisjon
+    def list_permisjon(self):  # GetStudinfPermisjon
         """Hent personer som har innvilget permisjon.  Disse vil
         alltid ha opptak, så vi henter bare noen få kolonner.
         Disse tildeles affiliation student med kode permisjon
-        til sp.faknr_studieansv, sp.instituttnr_studieansv, 
+        til sp.faknr_studieansv, sp.instituttnr_studieansv,
         sp.gruppenr_studieansv"""
 
         qry = """
         SELECT  pe.studieprogramkode, pe.fodselsdato, pe.personnr,
-                pe.fraverarsakkode_hovedarsak 
+                pe.fraverarsakkode_hovedarsak
         FROM fs.innvilget_permisjon pe, fs.person p
         WHERE p.fodselsdato = pe.fodselsdato AND
               p.personnr = pe.personnr AND
@@ -770,8 +774,7 @@ class Student(FSObject):
         """ % self._is_alive()
         return self.db.query(qry)
 
-
-    def list_drgrad(self): # GetStudinfDrgrad        
+    def list_drgrad(self):  # GetStudinfDrgrad
         """Henter info om aktive doktorgradsstudenter.  Aktive er
         definert til å være de som har en studierett til et program
         som har nivåkode større eller lik 900, og der datoen for
@@ -783,13 +786,13 @@ class Student(FSObject):
                sps.fodselsdato, sps.personnr,
                sp.institusjonsnr_studieansv AS institusjonsnr,
                sp.faknr_studieansv AS faknr,
-               sp.instituttnr_studieansv AS instituttnr, 
+               sp.instituttnr_studieansv AS instituttnr,
                sp.gruppenr_studieansv AS gruppenr,
                sps.dato_studierett_tildelt,
                sps.dato_studierett_gyldig_til,
                sps.studieprogramkode,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
-               s.adrlin3_semadr, s.adresseland_semadr, 
+               s.adrlin3_semadr, s.adresseland_semadr,
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
                p.adrlin3_hjemsted, p.postnr_hjemsted,
                p.adresseland_hjemsted,
@@ -820,7 +823,7 @@ class Student(FSObject):
           s.adrlin2_semadr, s.postnr_semadr, s.adrlin3_semadr,
           s.adresseland_semadr, p.adrlin1_hjemsted,
           p.sprakkode_malform,sps.studieprogramkode,
-          sps.studieretningkode, sps.status_privatist, 
+          sps.studieretningkode, sps.status_privatist,
           s.studentnr_tildelt,
           p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps
@@ -833,9 +836,10 @@ class Student(FSObject):
           sps.dato_studierett_gyldig_til >= sysdate """
         return self.db.query(qry)
 
+
 class Undervisning(FSObject):
     def list_aktivitet(self, Instnr, emnekode, versjon, termk,
-                       aar, termnr, aktkode): # GetStudUndAktivitet
+                       aar, termnr, aktkode):  # GetStudUndAktivitet
         qry = """
         SELECT
           su.fodselsdato, su.personnr
@@ -873,14 +877,15 @@ class Undervisning(FSObject):
         """Hent alle roller til aller personer."""
         qry = """
         /* Som i get_personroller, henter vi *alle* kolonnene */
-        SELECT * 
+        SELECT *
         FROM fs.personrolle
-        WHERE 
+        WHERE
           dato_fra < SYSDATE AND
           NVL(dato_til,SYSDATE) >= sysdate"""
         return self.db.query(qry)
 
-    def list_undervisningenheter(self, year=None, sem=None): # GetUndervEnhetAll
+    # GetUndervEnhetAll
+    def list_undervisningenheter(self, year=None, sem=None):
         if year is None:
             year = self.year
         if sem is None:
@@ -905,7 +910,7 @@ class Undervisning(FSObject):
             WHERE tt.terminkode = :sem AND
                   t.sorteringsnokkel >= tt.sorteringsnokkel)))""",
                              {'aar': year,
-                              'aar2': year, # db-driver bug work-around
+                              'aar2': year,  # db-driver bug work-around
                               'sem': sem})
 
     def list_aktiviteter(self, start_aar=time.localtime()[0],
@@ -962,15 +967,14 @@ class Undervisning(FSObject):
                     WHERE tt.terminkode = :termk AND
                     t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
            ua.arstall > :aar)
-          """, { "Instnr"      : Instnr,
-                 "emnekode"    : emnekode,
-                 "versjon"     : versjon,
-                 "termk"       : termk,
-                 "termnr"      : termnr,
-                 "aar"         : aar,
-                 "undformkode" : undformkode, })
+          """, {"Instnr": Instnr,
+                "emnekode": emnekode,
+                "versjon": versjon,
+                "termk": termk,
+                "termnr": termnr,
+                "aar": aar,
+                "undformkode": undformkode})
     # end get_undform_aktiviteter
-
 
     def list_undform_aktiviteter(self, undformkode):
         """Hent alle aktivitetene med en gitt undformkode. Omtrent som
@@ -990,9 +994,7 @@ class Undervisning(FSObject):
           ua.terminkode = t.terminkode AND
           (EXISTS (SELECT 'x' FROM fs.arstermin tt
                    WHERE t.sorteringsnokkel >= tt.sorteringsnokkel))
-          """, {"undformkode" : undformkode,})
-    # end list_undform_aktiviteter
-
+          """, {"undformkode": undformkode})
 
     def list_studenter_underv_enhet(self, Instnr, emnekode,
                                     versjon, termk, aar, termnr):
@@ -1041,7 +1043,7 @@ class Undervisning(FSObject):
           ve.vurdkombkode = vk.vurdkombkode AND
           vk.vurdordningkode IS NOT NULL AND
           vt.terminkode_gjelder_i = :termk
-        """  
+        """
         return self.db.query(qry, {'und_instnr': Instnr,
                                    'und_emnekode': emnekode,
                                    'und_versjon': versjon,
@@ -1054,22 +1056,22 @@ class Undervisning(FSObject):
                                    'arstall': aar,
                                    'termk': termk})
 
-    def list_fagperson_semester(self): # GetFagperson_50
+    def list_fagperson_semester(self):  # GetFagperson_50
         # (GetKursFagpersonundsemester var duplikat)
-        """Disse skal gis affiliation tilknyttet med kode fagperson 
+        """Disse skal gis affiliation tilknyttet med kode fagperson
         til stedskoden faknr+instituttnr+gruppenr
         Hent ut fagpersoner som har undervisning i inneværende
         eller forrige kalenderår"""
 
         qry = """
-        SELECT DISTINCT 
+        SELECT DISTINCT
               fp.fodselsdato, fp.personnr, p.etternavn, p.fornavn,
               fp.adrlin1_arbeide, fp.adrlin2_arbeide, fp.postnr_arbeide,
               fp.adrlin3_arbeide, fp.adresseland_arbeide,
               fp.telefonnr_arbeide, fp.telefonnr_fax_arb,
               p.adrlin1_hjemsted, p.adrlin2_hjemsted, p.postnr_hjemsted,
-              p.adrlin3_hjemsted, p.adresseland_hjemsted, 
-              p.telefonnr_hjemsted, fp.stillingstittel_engelsk, 
+              p.adrlin3_hjemsted, p.adresseland_hjemsted,
+              p.telefonnr_hjemsted, fp.stillingstittel_engelsk,
               fp.institusjonsnr_ansatt AS institusjonsnr,
               fp.faknr_ansatt AS faknr,
               fp.instituttnr_ansatt AS instituttnr,
@@ -1084,7 +1086,7 @@ class Undervisning(FSObject):
               fp.faknr_ansatt IS NOT NULL AND
               fp.instituttnr_ansatt IS NOT NULL AND
               fp.gruppenr_ansatt IS NOT NULL
-        """ 
+        """
         return self.db.query(qry)
 
     def get_fagperson_semester(self, fnr, pnr, institusjonsnr, fakultetnr,
@@ -1107,20 +1109,24 @@ class Undervisning(FSObject):
     def add_fagperson_semester(self, fnr, pnr, institusjonsnr,
                                fakultetnr, instiuttnr, gruppenr, termin,
                                arstall, status_aktiv, status_publiseres):
-        return self.db.execute("""
-        INSERT INTO fs.fagpersonundsemester
-          (fodselsdato, personnr, terminkode, arstall, institusjonsnr, faknr,
-           instituttnr, gruppenr, status_aktiv, status_publiseres)
-        VALUES
-          (:fnr, :pnr, :termin, :arstall, :institusjonsnr, :fakultetnr,
-          :instiuttnr, :gruppenr, :status_aktiv, :status_publiseres)""", {
-            'fnr': fnr, 'pnr': pnr,
-            'institusjonsnr': institusjonsnr, 'fakultetnr': fakultetnr,
-            'instiuttnr': instiuttnr, 'gruppenr': gruppenr,
-            'termin': termin, 'arstall': arstall,
-            'status_aktiv': status_aktiv, 'status_publiseres': status_publiseres})
-
-    
+        return self.db.execute(
+            """
+            INSERT INTO fs.fagpersonundsemester
+            (fodselsdato, personnr, terminkode, arstall, institusjonsnr, faknr,
+            instituttnr, gruppenr, status_aktiv, status_publiseres)
+            VALUES
+            (:fnr, :pnr, :termin, :arstall, :institusjonsnr, :fakultetnr,
+            :instiuttnr, :gruppenr, :status_aktiv, :status_publiseres)""", {
+                'fnr': fnr,
+                'pnr': pnr,
+                'institusjonsnr': institusjonsnr,
+                'fakultetnr': fakultetnr,
+                'instiuttnr': instiuttnr,
+                'gruppenr': gruppenr,
+                'termin': termin,
+                'arstall': arstall,
+                'status_aktiv': status_aktiv,
+                'status_publiseres': status_publiseres})
 
     def list_studenter_alle_undakt(self):
         """Hent alle studenter på alle undakt.
@@ -1128,7 +1134,7 @@ class Undervisning(FSObject):
         NB! Det kan være mange hundretusen rader i FSPROD i
         student_pa_undervisningsparti. Det koster da en del minne.
         """
-        
+
         qry = """
         SELECT
           su.fodselsdato, su.personnr,
@@ -1153,15 +1159,16 @@ class Undervisning(FSObject):
         return self.db.query(qry, {"aar": self.year}, fetchall=False)
     # end list_studenter_alle_undakt
 
+
 class EVU(FSObject):
     def list(self):  # GetDeltaker_50
         """Hent info om personer som er ekte EVU-studenter ved
-        dvs. er registrert i EVU-modulen i tabellen 
+        dvs. er registrert i EVU-modulen i tabellen
         fs.deltaker,  Henter alle som er knyttet til kurs som
         tidligst ble avsluttet for 30 dager siden."""
 
         qry = """
-        SELECT DISTINCT 
+        SELECT DISTINCT
                p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
                d.adrlin1_job, d.adrlin2_job, d.postnr_job,
                d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
@@ -1185,12 +1192,12 @@ class EVU(FSObject):
               k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
               NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
         return self.db.query(qry)
-        
+
     def list_kurs(self):  # GetEvuKurs
         """Henter info om aktive EVU-kurs, der aktive er de som har
         status_aktiv satt til 'J' og som ikke er avsluttet
         (jmf. dato_til)."""
-        
+
         qry = """
         SELECT etterutdkurskode, kurstidsangivelsekode,
           etterutdkursnavn, etterutdkursnavnkort, emnekode,
@@ -1205,7 +1212,7 @@ class EVU(FSObject):
         """
         return self.db.query(qry)
 
-    def get_kurs_informasjon(self, code): # GetEvuKursInformasjon
+    def get_kurs_informasjon(self, code):  # GetEvuKursInformasjon
         """
         This one works similar to GetEvuKurs, except for the filtering
         criteria: in this method we filter by course code, not by time frame
@@ -1214,10 +1221,10 @@ class EVU(FSObject):
         SELECT etterutdkurskode, kurstidsangivelsekode,
           TO_CHAR(dato_fra, 'YYYY-MM-DD') as dato_fra,
           TO_CHAR(dato_til, 'YYYY-MM-DD') as dato_til
-        FROM fs.etterutdkurs 
+        FROM fs.etterutdkurs
         WHERE etterutdkurskode = :code
         """
-        return self.db.query(query, {"code" : code})
+        return self.db.query(query, {"code": code})
 
     def list_kurs_deltakere(self, kurskode, tid):  # GetEvuKursPameldte
         """List everyone registered for a given course"""
@@ -1233,10 +1240,10 @@ class EVU(FSObject):
           kd.deltakernr = d.deltakernr AND
           d.fodselsdato = p.fodselsdato AND
           d.personnr = p.personnr"""
-        return self.db.query(query, {"kurskode" : kurskode,
-                                     "tid" : tid})
+        return self.db.query(query, {"kurskode": kurskode,
+                                     "tid": tid})
 
-    def get_kurs_aktivitet(self, kurs, tid): # GetAktivitetEvuKurs
+    def get_kurs_aktivitet(self, kurs, tid):  # GetAktivitetEvuKurs
         qry = """
         SELECT k.etterutdkurskode, k.kurstidsangivelsekode, k.aktivitetskode,
                k.aktivitetsnavn, k.undformkode
@@ -1246,7 +1253,6 @@ class EVU(FSObject):
         """ % (kurs, tid)
 
         return self.db.query(qry)
-
 
     def list_kurs_stud(self, kurs, tid):  # GetStudEvuKurs
         qry = """
@@ -1272,6 +1278,7 @@ class EVU(FSObject):
             'tid': tid,
             'aktkode': aktkode})
 
+
 class Alumni(FSObject):
     def list(self):  # GetAlumni_50
         """Henter informasjon om alle som har fullført
@@ -1292,7 +1299,7 @@ class Alumni(FSObject):
         WHERE  p.fodselsdato=s.fodselsdato AND
                p.personnr=s.personnr AND
                p.fodselsdato=sps.fodselsdato AND
-               p.personnr=sps.personnr AND 
+               p.personnr=sps.personnr AND
                sps.studieprogramkode = sp.studieprogramkode AND
                sps.studentstatkode = 'FULLFØRT'  AND
                sps.studierettstatkode IN ('AUTOMATISK', 'CANDMAG', 'DIVERSE',
@@ -1300,9 +1307,10 @@ class Alumni(FSObject):
        """
         return self.db.query(qry)
 
+
 class StudieInfo(FSObject):
-    def list_studieprogrammer(self, expired=True): # GetStudieproginf
-        """For hvert definerte studieprogram henter vi 
+    def list_studieprogrammer(self, expired=True):  # GetStudieproginf
+        """For hvert definerte studieprogram henter vi
         informasjon om utd_plan og eier samt studieprogkode. Vi burde
         her ha en sjekk på om studieprogrammet er utgått, men datagrunnalget
         er for svakt. ( WHERE status_utgatt = 'N')"""
@@ -1316,8 +1324,8 @@ class StudieInfo(FSObject):
             qry += " WHERE status_utgatt = 'N'"
         return self.db.query(qry)
 
-    def list_emner(self): # GetEmneinf
-        """For hvert definerte emne henter vi informasjon om 
+    def list_emner(self):  # GetEmneinf
+        """For hvert definerte emne henter vi informasjon om
            ansvarlig sted."""
         qry = """
         SELECT e.emnekode, e.versjonskode, e.institusjonsnr,
@@ -1325,20 +1333,21 @@ class StudieInfo(FSObject):
                e.gruppenr_reglement, e.studienivakode
         FROM fs.emne e
         WHERE e.institusjonsnr = %s AND
-              NVL(e.arstall_eks_siste, %s) >= %s - 1""" % (self.institusjonsnr, self.year, self.year)
+        NVL(e.arstall_eks_siste, %s) >= %s - 1""" % (
+            self.institusjonsnr, self.year, self.year)
         return self.db.query(qry)
 
-    def get_emne_i_studieprogram(self,emne): # GetEmneIStudProg
+    def get_emne_i_studieprogram(self, emne):  # GetEmneIStudProg
         """Hent alle studieprogrammer et gitt emne kan inngå i."""
         qry = """
-        SELECT DISTINCT 
-          studieprogramkode   
+        SELECT DISTINCT
+          studieprogramkode
         FROM fs.emne_i_studieprogram
         WHERE emnekode = :emne
-        """ 
+        """
         return self.db.query(qry, {'emne': emne})
 
-    def list_ou(self, institusjonsnr=0): # GetAlleOUer
+    def list_ou(self, institusjonsnr=0):  # GetAlleOUer
         """Hent data om stedskoder registrert i FS"""
         qry = """
         SELECT DISTINCT
@@ -1376,7 +1385,7 @@ class StudieInfo(FSObject):
         """Henter informasjon om aktive studiekull."""
         qry = """
         SELECT
-          k.studieprogramkode, k.terminkode, k.arstall, k.studiekullnavn, 
+          k.studieprogramkode, k.terminkode, k.arstall, k.studiekullnavn,
           k.kulltrinn_start, k.terminnr_maks, k.status_generer_epost,
           s.institusjonsnr_studieansv, s.faknr_studieansv,
           s.instituttnr_studieansv, s.gruppenr_studieansv
@@ -1385,10 +1394,10 @@ class StudieInfo(FSObject):
           k.status_aktiv = 'J' AND
           s.studieprogramkode = k.studieprogramkode
         """
-        return self.db.query(qry) 
+        return self.db.query(qry)
+
 
 class FS(object):
-
     def __init__(self, db=None, user=None, database=None):
         if db is None:
             user = user or cereconf.FS_USER
@@ -1403,6 +1412,7 @@ class FS(object):
         self.evu = EVU(db)
         self.alumni = Alumni(db)
         self.info = StudieInfo(db)
+
 
 class element_attribute_xml_parser(xml.sax.ContentHandler, object):
 
@@ -1426,14 +1436,14 @@ class element_attribute_xml_parser(xml.sax.ContentHandler, object):
 
     def startElement(self, name, attrs):
         if name not in self.elements:
-            raise ValueError, \
-                  "Unknown XML element: %r" % (name,)
+            raise ValueError("Unknown XML element: %r" % (name,))
         # Only set self._in_element etc. for interesting elements.
         if self.elements[name]:
             data = {}
             for k, v in attrs.items():
                 data[k] = v.encode(self._encoding)
             self._callback(name, data)
+
 
 class non_nested_xml_parser(element_attribute_xml_parser):
 
@@ -1445,12 +1455,11 @@ class non_nested_xml_parser(element_attribute_xml_parser):
 
     def startElement(self, name, attrs):
         if name not in self.elements:
-            raise ValueError, \
-                  "Unknown XML element: %r" % (name,)
+            raise ValueError("Unknown XML element: %r" % (name,))
         if self._in_element is not None:
-            raise RuntimeError, \
-                  "Can't deal with nested elements (<%s> before </%s>)." % (
-                name, self._in_element)
+            raise RuntimeError(
+                "Can't deal with nested elements (<%s> before </%s>)." % (
+                    name, self._in_element))
         # Only set self._in_element etc. for interesting elements.
         if self.elements[name]:
             self._in_element = name
@@ -1460,11 +1469,11 @@ class non_nested_xml_parser(element_attribute_xml_parser):
 
     def endElement(self, name):
         if name not in self.elements:
-            raise ValueError, \
-                  "Unknown XML element: %r" % (name,)
+            raise ValueError("Unknown XML element: %r" % (name,))
         if self._in_element == name:
             self._callback(name, self._data)
             self._in_element = None
+
 
 class ou_xml_parser(element_attribute_xml_parser):
     "Parserklasse for ou.xml."
@@ -1474,6 +1483,7 @@ class ou_xml_parser(element_attribute_xml_parser):
                 'komm': True,
                 }
 
+
 class person_xml_parser(non_nested_xml_parser):
     "Parserklasse for person.xml."
 
@@ -1482,8 +1492,9 @@ class person_xml_parser(non_nested_xml_parser):
                 'tilbud': True,
                 'evu': True,
                 'privatist_studieprogram': True,
-                'eksamen' : True,
+                'eksamen': True
                 }
+
 
 class roles_xml_parser(non_nested_xml_parser):
     "Parserklasse for studieprog.xml."
@@ -1511,7 +1522,7 @@ class roles_xml_parser(non_nested_xml_parser):
         # studieprogram, osv. -- og ikke litt av hvert. Hovedproblemet er at
         # personrolletabellen i FS har overhodet ingen skranker på seg og man
         # kan stappe inn hva som helst av attributter (noe som gjerne også
-        # blir gjort). 
+        # blir gjort).
         #
         # Det er *KJEMPE*viktig at man er *VELDIG* forsiktig med å endre på
         # reglene i denne tabellen. Det er til syvende og sist de som
@@ -1537,14 +1548,15 @@ class roles_xml_parser(non_nested_xml_parser):
             'dato_fra': None,
             'dato_til': None,
             'institusjonsnr': ['sted', 'emne', 'undenh', 'undakt', 'timeplan'],
-            'faknr': ['sted',],
-            'instituttnr': ['sted',],
-            'gruppenr': ['sted',],
+            'faknr': ['sted'],
+            'instituttnr': ['sted'],
+            'gruppenr': ['sted'],
             'studieprogramkode': ['stprog', 'kull', 'kullklasse'],
             'emnekode': ['emne', 'undenh', 'undakt', 'timeplan'],
             'versjonskode': ['emne', 'undenh', 'undakt', 'timeplan'],
             'aktivitetkode': ['undakt', 'kursakt', 'timeplan'],
-            'terminkode': ['kull', 'kullklasse', 'undenh', 'undakt', 'timeplan'],
+            'terminkode': ['kull', 'kullklasse',
+                           'undenh', 'undakt', 'timeplan'],
             'arstall': ['kull', 'kullklasse', 'undenh', 'undakt', 'timeplan'],
             'terminnr': ['undenh', 'undakt', 'timeplan'],
             'etterutdkurskode': ['evu', 'kursakt'],
@@ -1555,8 +1567,8 @@ class roles_xml_parser(non_nested_xml_parser):
             'dato_endring': None,
             'merknadtekst': None,
             'prioritetsnr': None,
-            'klassekode' : ['kullklasse',],
-            'undplanlopenr': ['timeplan',],
+            'klassekode': ['kullklasse'],
+            'undplanlopenr': ['timeplan'],
             'status_publisering': None,
             'status_default_veileder': None,
             'institusjonsnr_eier': None,
@@ -1629,12 +1641,14 @@ class studieprog_xml_parser(non_nested_xml_parser):
                 'studprog': True,
                 }
 
+
 class underv_enhet_xml_parser(non_nested_xml_parser):
     "Parserklasse for underv_enhet.xml."
 
     elements = {'undervenhet': False,
                 'undenhet': True,
                 }
+
 
 class student_undenh_xml_parser(non_nested_xml_parser):
     "Parserklasse for student_undenh.xml."
@@ -1643,23 +1657,24 @@ class student_undenh_xml_parser(non_nested_xml_parser):
                 'student': True
                 }
 
+
 class evukurs_xml_parser(non_nested_xml_parser):
     "Parserklasse for evukurs.xml."
 
-    elements = { "data" : False,
-                 "evukurs" : True }
+    elements = {"data": False,
+                "evukurs": True}
 # end evukurs_xml_parser
 
 
 class emne_xml_parser(non_nested_xml_parser):
-    elements = { "data": False,
-                 "emne": True, }
+    elements = {"data": False,
+                "emne": True}
 # end emne_xml_parser
 
 
 class deltaker_xml_parser(xml.sax.ContentHandler, object):
     "Parserklasse for å hente EVU kursdeltaker informasjon."
-                          
+
     def __init__(self, filename, callback, encoding="iso8859-1"):
         self._callback = callback
         self._encoding = encoding
@@ -1667,46 +1682,30 @@ class deltaker_xml_parser(xml.sax.ContentHandler, object):
         self._legal_elements = ("person", "evu", "aktiv", "tilbud",
                                 "data", "privatist_studieprogram", "eksamen",)
         xml.sax.parse(filename, self)
-    # end __init__
 
     def startElement(self, name, attrs):
         if name not in self._legal_elements:
-            raise ValueError, "Unknown XML element: %r" % (name,)
-        # fi
+            raise ValueError("Unknown XML element: %r" % (name,))
 
         if name not in ("person", "evu"):
             return
-        # fi
 
         tmp = dict()
         for k, v in attrs.items():
             tmp[k] = v.encode(self._encoding)
-        # od
 
         if name == "person":
             assert not self._in_person, "Nested <person> element!"
-            self._in_person = { "evu" : list(), }
+            self._in_person = {"evu": list()}
             self._in_person.update(tmp)
         else:
             assert self._in_person, "<evu> outside of <person>!"
             self._in_person["evu"].append(tmp)
-        # fi
-    # end startElement
-
 
     def endElement(self, name):
         if name not in self._legal_elements:
-            raise ValueError, "Unknown XML element: %r" % (name,)
-        # fi
+            raise ValueError("Unknown XML element: %r" % (name,))
 
         if name == "person":
             self._callback(name, self._in_person)
             self._in_person = None
-        # fi
-    # end endElement
-# end deltaker_xml_parser
-
-
-
-        
-
