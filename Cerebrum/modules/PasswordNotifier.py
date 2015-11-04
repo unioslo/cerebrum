@@ -71,6 +71,7 @@ class PasswordNotifier(object):
         change_log_account = None
         template = []
         max_password_age = dt.DateTimeDelta(365)
+        max_new_notifications = 0
         grace_period = dt.DateTimeDelta(5*7)
         reminder_delay = [dt.DateTimeDelta(2*7)]
         class_notifier = ['Cerebrum.modules.PasswordNotifier/PasswordNotifier']
@@ -267,7 +268,8 @@ class PasswordNotifier(object):
         self.logger.debug("Found %d users with old passwords", len(old_ids))
 
         # variables for statistics
-        num_mailed = num_splatted = num_previously_warned = num_reminded = lifted = skipped = 0
+        num_mailed = num_splatted = num_previously_warned = num_reminded = 0
+        num_skipped_new_notifications = num_excepted = num_lifted = 0
 
         account = Utils.Factory.get("Account")(self.db)
         if self.config.change_log_account:
@@ -281,12 +283,12 @@ class PasswordNotifier(object):
             account.find(account_id)
             reason = self.except_user(account)
             if reason:
-                skipped += 1
+                num_excepted += 1
                 self.logger.info("Skipping %s -- %s", account.account_name, reason)
                 continue
             if not account_id in old_ids:
                 # Has new password, but may have notify trait
-                lifted += 1
+                num_lifted += 1
                 if not self.dryrun:
                     self.remove_trait(account)
                 else:
@@ -303,6 +305,15 @@ class PasswordNotifier(object):
                     self.logger.info("Splat user %s", account.account_name)
                     num_splatted += 1
             elif self.get_num_notifications(account) == 0:
+                # Should we limit the number of new notifications?
+                if (self.config.max_new_notifications and
+                        num_mailed >= self.config.max_new_notifications):
+                    self.logger.info(
+                        "Skipping %s -- Maximum number of new notifications reached",
+                        account.account_name)
+                    num_skipped_new_notifications += 1
+                    continue
+
                 # No previously notification/warning sent. Send first-mail
                 if self.notify(account):
                     if not self.dryrun:
@@ -327,35 +338,42 @@ class PasswordNotifier(object):
                         num_reminded += 1
                     else:
                         self.logger.error("User %s not modified", account.account_name)
-        # end for
+
+        skipped_warnings = " ({} skipped, limit reached)".format(
+            num_skipped_new_notifications) if num_skipped_new_notifications else ''
+
+        stats = ("Users with old passwords: {}\n"
+                 "Excepted users: {}\n"
+                 "Splatted users: {}\n"
+                 "Warned users: {}{}\n"
+                 "Reminded users: {}\n"
+                 "Users warned previously: {}\n"
+                 "Users with new passwords: {}\n").format(
+                     len(old_ids),
+                     num_excepted,
+                     num_splatted,
+                     num_mailed,
+                     skipped_warnings,
+                     num_reminded,
+                     num_previously_warned,
+                     num_lifted)
+
         if self.dryrun:
-            print ("Users with old password: %i\n"
-                   "Would splat: %i\n"
-                   "Would mail: %i\n"
-                   "Previously warned: %i\n"
-                   "Num reminded: %i" % (
-                       len(old_ids), num_splatted, num_mailed,
-                       num_previously_warned, num_reminded))
-            self.db.rollback()
+            print stats
         elif self.config.summary_to and self.config.summary_from:
-            body = ("Users with old passwords: %d\n"
-                    "Excepted users: %d\n"
-                    "Splatted users: %d\n"
-                    "Warned users: %d\n"
-                    "Reminded users: %d\n"
-                    "Users warned earlier: %d\n"
-                    "Users with new passwords: %d\n") % (
-                        len(old_ids), skipped, num_splatted, num_mailed,
-                        num_reminded, num_previously_warned, lifted)
             _send_mail(
                 mail_to=self.config.summary_to,
                 mail_from=self.config.summary_from,
                 subject="Statistics from password notifier",
-                body=body,
+                body=stats,
                 logger=self.logger,
                 mail_cc=self.config.summary_cc)
 
-        if not self.dryrun:
+        if self.dryrun:
+            self.logger.info('Rolling back changes')
+            self.db.rollback()
+        else:
+            self.logger.info('Committing changes')
             self.db.commit()
 
     def except_user(self, account):
