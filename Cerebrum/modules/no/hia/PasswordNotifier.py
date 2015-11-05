@@ -21,8 +21,6 @@
 
 import cerebrum_path
 from Cerebrum.modules.PasswordNotifier import PasswordNotifier, _send_mail
-from Cerebrum.Utils import Factory
-import mx.DateTime as dt
 
 
 class UiaPasswordNotifier(PasswordNotifier):
@@ -45,8 +43,6 @@ class UiaPasswordNotifier(PasswordNotifier):
         """
         super(UiaPasswordNotifier, self).__init__(db, logger, dryrun, *rest, **kw)
         self.reminded_users = list()
-        if not hasattr(self.config, 'employee_maxage'):
-            self.config.employee_maxage = dt.DateTimeDelta(3*30)
 
     def inc_num_notifications(self, account):
         """
