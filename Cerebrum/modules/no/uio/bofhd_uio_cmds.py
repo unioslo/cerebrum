@@ -24,6 +24,7 @@ import os
 import re
 import email.Generator, email.Message
 import imaplib
+import ssl
 import pickle
 import socket
 import select
@@ -1834,7 +1835,7 @@ class BofhdExtension(BofhdCommonMethods):
                                             cereconf.CYRUS_ADMIN)
                 used = 'N/A'; limit = None
                 try:
-                    cyrus = imaplib.IMAP4_SSL(es.name)
+                    cyrus = Utils.CerebrumIMAP4_SSL(es.name, ssl_version=ssl.PROTOCOL_TLSv1)
                     # IVR 2007-08-29 If the server is too busy, we do not want
                     # to lock the entire bofhd.
                     # 5 seconds should be enough

@@ -28,6 +28,8 @@ import new
 import os
 import re
 import smtplib
+import ssl
+import imaplib
 import sys
 import time
 import traceback
@@ -1806,3 +1808,37 @@ class SMSSender():
         else:
             self._logger.warning("SMS to %s could not be sent" % phone_to)
         return bool(resp)
+
+class CerebrumIMAP4_SSL(imaplib.IMAP4_SSL):
+    """
+    A changed version of imaplib.IMAP4_SSL that lets the caller specify
+    ssl_version in order to please older versions of OpenSSL. CRB-1246
+    """
+    def __init__(self,
+                 host='',
+                 port=imaplib.IMAP4_SSL_PORT,
+                 keyfile=None,
+                 certfile=None,
+                 ssl_version=ssl.PROTOCOL_TLSv1):
+        """
+        """
+        self.keyfile = keyfile
+        self.certfile = certfile
+        self.ssl_version = ssl_version
+        imaplib.IMAP4.__init__(self, host, port)
+
+    def open(self, host='', port=imaplib.IMAP4_SSL_PORT):
+        """
+        """
+        self.host = host
+        self.port = port
+        self.sock = socket.create_connection((host, port))
+        # "If not specified, the default is PROTOCOL_SSLv23;...
+        # Which connections succeed will vary depending on the version
+        # of OpenSSL. For example, before OpenSSL 1.0.0, an SSLv23
+        # client would always attempt SSLv2 connections."
+        self.sslobj = ssl.wrap_socket(self.sock,
+                                      self.keyfile,
+                                      self.certfile,
+                                      ssl_version=self.ssl_version)
+        self.file = self.sslobj.makefile('rb')
