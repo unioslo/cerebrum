@@ -112,8 +112,8 @@ def get_person_info(db, person, ssn_type, source_system,
     co = Factory.get('Constants')(db)
 
     return {
-        'firstname': pe.get_name(co.system_cached, co.name_first),
-        'lastname': pe.get_name(co.system_cached, co.name_last),
+        'firstname': pe.get_name(source_system, co.name_first),
+        'lastname': pe.get_name(source_system, co.name_last),
         'title': 'Mr' if pe.gender == co.gender_male else 'Ms',
         'feide_id': _construct_feide_id(db, pe),
         'email_address': _get_primary_emailaddress(db, pe),
