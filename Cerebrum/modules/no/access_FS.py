@@ -235,7 +235,7 @@ def find_best_version(module, name, version):
             return cls
 
 
-def make_fs(db=None, user=None, database=None):
+def make_fs(db=None, user=None, database=None, override_version=None):
     """Create FS object based on actual version number.
     Default is to look in this module, but if cereconf.FS_MODULE is set,
     it will override the default.
@@ -244,6 +244,8 @@ def make_fs(db=None, user=None, database=None):
     :param str user: Username for db, defaults to cereconf.FS_USER
     :param str database: Database name for db,
         defaults to cereconf.FS_DATABASE_NAME
+    :param Version override_version: Don't find version in db
+        (useful for testing)
     :returns: New FS object, initialized with db
     """
     import inspect
@@ -253,7 +255,10 @@ def make_fs(db=None, user=None, database=None):
         DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
         db = Database.connect(user=user, service=database,
                               DB_driver=DB_driver)
-    version = _get_fs_version(db)
+    if override_version:
+        version = override_version
+    else:
+        version = _get_fs_version(db)
     module = getattr(cereconf, 'FS_MODULE', inspect.getmodule(make_fs).__name__)
     dyn_import(module)
     cls = find_best_version(module, 'FS', version)
