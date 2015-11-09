@@ -23,7 +23,7 @@ from Cerebrum.modules.no import access_FS
 fsobject = access_FS.fsobject
 
 
-@fsobject('student')
+@fsobject('student', '<7.8')
 class HineStudent(access_FS.Student):
 
     def list_aktiv(self):
@@ -43,7 +43,10 @@ class HineStudent(access_FS.Student):
               sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
               sps.arstall_kull, p.kjonn, p.status_dod,
               s.studentnr_tildelt, p.emailadresse_privat,
-              p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+              nvl(trim(leading '0' from
+                   trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                telefonlandnr_mobil,
+              p.telefonretnnr_mobil, p.telefonnr_mobil
             FROM fs.studieprogramstudent sps, fs.person p,
                  fs.student s
             WHERE p.fodselsdato = sps.fodselsdato AND

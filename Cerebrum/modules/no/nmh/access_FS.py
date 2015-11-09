@@ -26,7 +26,7 @@ from Cerebrum.modules.no import access_FS
 fsobject = access_FS.fsobject
 
 
-@fsobject('student')
+@fsobject('student', '<7.8')
 class NMHStudent(access_FS.Student):
 
     def list_aktiv(self):
@@ -52,7 +52,10 @@ class NMHStudent(access_FS.Student):
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil,
-          s.studentnr_tildelt, p.telefonlandnr_mobil, p.telefonretnnr_mobil
+          s.studentnr_tildelt, p.telefonretnnr_mobil
+          nvl(trim(leading '0' from
+                   trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                telefonlandnr_mobil,
         FROM fs.studieprogramstudent sps, fs.person p,
              fs.student s
         WHERE p.fodselsdato = sps.fodselsdato AND
@@ -98,7 +101,7 @@ class NMHStudent(access_FS.Student):
         return self.db.query(qry)
 
 
-@fsobject('undervisning')
+@fsobject('undervisning', '<7.8')
 class NMHUndervisning(access_FS.Undervisning):
     # TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
     # og list_studenter_underv_enhet.

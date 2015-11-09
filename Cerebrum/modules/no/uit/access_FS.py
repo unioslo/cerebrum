@@ -79,7 +79,7 @@ class UiTOU(access_FS.StudieInfo):
         return self.db.query(qry)
 
 
-@fsobject('student')
+@fsobject('student', '<7.8')
 class UiTStudent(access_FS.Student):
 
     def list(self, **kwargs):  # GetStudent_50

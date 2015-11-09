@@ -25,7 +25,7 @@ from Cerebrum.modules.no import access_FS
 fsobject = access_FS.fsobject
 
 
-@fsobject('student')
+@fsobject('student', '<7.8')
 class HIHStudent(access_FS.Student):
     #
     # HiH ønsket i utganspunktet å benytte en midlertidig utplukk som ble

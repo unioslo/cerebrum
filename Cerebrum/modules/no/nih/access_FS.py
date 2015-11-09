@@ -25,9 +25,8 @@ from Cerebrum.modules.no import access_FS
 fsobject = access_FS.fsobject
 
 
-@fsobject('student')
+@fsobject('student', '<7.8')
 class NIHStudent(access_FS.Student):
-
     def list_aktiv(self):
         """ Hent opplysninger om studenter definert som aktive
         ved NIH. En aktiv student er en student som har et gyldig

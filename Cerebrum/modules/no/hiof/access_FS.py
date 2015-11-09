@@ -25,7 +25,7 @@ from Cerebrum.modules.no import access_FS
 fsobject = access_FS.fsobject
 
 
-@fsobject('student')
+@fsobject('student', '<7.8')
 class HiOfStudent(access_FS.Student):
     # Vi bruker list_privatist, og list_tilbud fra no/access_FS
 
@@ -47,7 +47,10 @@ class HiOfStudent(access_FS.Student):
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
           p.adresseland_hjemsted, p.status_reserv_nettpubl,
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
-          p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil,
+          nvl(trim(leading '0' from
+                   trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                telefonlandnr_mobil,
+          p.telefonretnnr_mobil, p.telefonnr_mobil,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
           s.studentnr_tildelt, kks.klassekode,

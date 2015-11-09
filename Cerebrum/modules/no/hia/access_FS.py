@@ -25,7 +25,7 @@ from Cerebrum.modules.no import access_FS
 fsobject = access_FS.fsobject
 
 
-@fsobject('student')
+@fsobject('student', '<7.8')
 class HiAStudent(access_FS.Student):
 
     def list_aktiv(self, fodselsdato=None, personnr=None):
@@ -49,7 +49,10 @@ class HiAStudent(access_FS.Student):
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
-          p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil,
+          nvl(trim(leading '0' from
+                   trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                telefonlandnr_mobil,
+          p.telefonretnnr_mobil, p.telefonnr_mobil,
           s.studentnr_tildelt
         FROM fs.studieprogramstudent sps, fs.person p,
              fs.student s
@@ -75,7 +78,10 @@ class HiAStudent(access_FS.Student):
           p.adrlin1_hjemsted, p.adrlin2_hjemsted, p.postnr_hjemsted,
           p.adrlin3_hjemsted, p.adresseland_hjemsted,
           p.status_reserv_nettpubl, p.sprakkode_malform,
-          p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil,
+          nvl(trim(leading '0' from
+                   trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                telefonlandnr_mobil,
+          p.telefonretnnr_mobil, p.telefonnr_mobil,
           s.adrlin1_kontakt, s.adrlin2_kontakt, s.postnr_kontakt,
           s.adrlin3_kontakt, s.adresseland_kontakt,
           sp.studieprogramkode
@@ -119,7 +125,10 @@ class HiAStudent(access_FS.Student):
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
-          p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil,
+          nvl(trim(leading '0' from
+                   trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                telefonlandnr_mobil,
+          p.telefonretnnr_mobil, p.telefonnr_mobil,
           s.studentnr_tildelt
         FROM fs.kull k, fs.studieprogramstudent sps, fs.person p,
              fs.student s
@@ -143,7 +152,10 @@ class HiAStudent(access_FS.Student):
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
-          p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil,
+          nvl(trim(leading '0' from
+                   trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                telefonlandnr_mobil,
+          p.telefonretnnr_mobil, p.telefonnr_mobil,
           s.studentnr_tildelt
         FROM fs.registerkort r, fs.studieprogramstudent sps,
           fs.person p, fs.student s
@@ -248,7 +260,7 @@ class HiAUndervisning(access_FS.Undervisning):
                                      "arstall_kull": arstall})
 
 
-@fsobject('evu')
+@fsobject('evu', '<7.8')
 class HiAEVU(access_FS.EVU):
 
     def list_kurs(self, date=time.localtime()):  # GetEvuKurs
@@ -289,7 +301,10 @@ class HiAEVU(access_FS.EVU):
                k.etterutdkurskode, e.studieprogramkode,
                e.faknr_adm_ansvar, e.instituttnr_adm_ansvar,
                e.gruppenr_adm_ansvar, p.kjonn, p.status_dod,
-               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+               nvl(trim(leading '0' from
+                    trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                        telefonlandnr_mobil,
+               p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
              fs.etterutdkurs e
         WHERE p.fodselsdato=d.fodselsdato AND

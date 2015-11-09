@@ -359,7 +359,7 @@ class FSObject(object):
         return next
 
 
-@fsobject('person')
+@fsobject('person', '<7.8')
 class Person(FSObject):
     def get_person(self, fnr, pnr):
         return self.db.query("""
@@ -415,9 +415,9 @@ class Person(FSObject):
         return self.db.query("""
         SELECT
           fodselsdato, personnr, adrlin1_arbeide, adrlin2_arbeide,
-          postnr_arbeide, adrlin3_arbeide, telefonnr_arbeide, arbeidssted,
+          postnr_arbeide, adrlin3_arbeide, arbeidssted,
           institusjonsnr_ansatt, faknr_ansatt, instituttnr_ansatt,
-          gruppenr_ansatt, stillingstittel_norsk, telefonnr_fax_arb,
+          gruppenr_ansatt, stillingstittel_norsk,
           status_aktiv
         FROM fs.fagperson
         WHERE fodselsdato=:fodselsdato AND personnr=:personnr
@@ -562,8 +562,99 @@ class Person(FSObject):
                          'personnr': personnr,
                          'uname': uname})
 
+    # Mapping 7.8 schema to older schema
+    _telephone_mapping = {
+        'HJEM': [('person', 'hjemsted')],
+        'MOBIL': [('person', 'mobil')],
+        'FAKS': [('fagperson', 'fax_arb')],
+        # 'SEM': [('student', 'semtelefon')],
+        'ARB': [('fagperson', 'arbeide'),
+                ('student', 'arbeid')],
+        # 'KONTAKT': [('soknad', 'kontakt')] ,
+    }
 
-@fsobject('student')
+    def get_telephone(self, fodselsdato, personnr, institusjonsnr, kind=None,
+                      fetchall=False):
+        """List persons telephone number.
+
+        :param fodselsdato, personnr: Keys for person.
+        :param str kind: Type of telephone (HJEM, MOBIL, FAKS or ARB) None=all.
+        :param fetchall: Fetch all?
+        :returns: DB rows
+        """
+        mapping = self._telephone_mapping
+        qry = """
+        SELECT
+            nvl(trim(leading '0' from
+                trim(leading '+' from telefonlandnr_{kind})), '47')
+                telefonlandnr,
+            trim(telefonretnnr_{kind} || ' ' || telefonnr_{kind}) telefonnr,
+            '{code}' telefonnrtypekode
+        FROM fs.{table}
+        WHERE fodselsdato = :fodselsdato AND personnr = :personnr
+        """
+        queries = []
+        for code in [kind] if kind else mapping:
+            for table, field in mapping[code]:
+                queries.append(qry.format(kind=field, table=table, code=code))
+        return self.db.query(" UNION ".join(queries),
+                             {'fodselsdato': fodselsdato,
+                              'personnr': personnr},
+                             fetchall=fetchall)
+
+    def _phone_to_country(self, country, phone):
+        if phone.startswith('+'):
+            return phone[1:3], phone[3:]
+        else:
+            return country or '47', phone
+
+    def add_telephone(self, fodselsdato, personnr, kind, phone, country=None):
+        """Insert telephone number for person.
+
+        :param fodselsdato, personnr: Identifies person.
+        :param phone: The telephone number
+        """
+        if isinstance(kind, basestring):
+            mapping = self._telephone_mapping[kind][0]
+        else:
+            mapping = self._telephone_mapping[kind[0]][kind[1] == 'student']
+        qry = """
+        UPDATE fs.{table}
+        SET telefonnr_{kind} = :phone, telefonretnnr_{kind} = NULL,
+            telefonlandnr_{kind} = :country
+        WHERE fodselsdato = :fodselsdato AND personnr = :personnr"""
+        country, phone = self._phone_to_country(country, phone)
+        return self.db.execute(qry.format(table=mapping[0], kind=mapping[1]),
+                               {'fodselsdato': fodselsdato,
+                                'personnr': personnr,
+                                'country': country,
+                                'phone': phone})
+
+    def update_telephone(self, fodselsdato, personnr, kind, phone,
+                         country=None):
+        """Insert telephone number for person.
+
+        :param fodselsdato, personnr: Identifies person.
+        :param phone: The telephone number
+        """
+        if isinstance(kind, basestring):
+            mapping = self._telephone_mapping[kind][0]
+        else:
+            mapping = self._telephone_mapping[kind[0]][kind[1] == 'student']
+        qry = """
+        UPDATE fs.{table}
+        SET telefonnr_{kind} = :phone, telefonretnnr_{kind} = NULL,
+            telefonlandnr_{kind} = :country
+        WHERE fodselsdato = :fodselsdato AND personnr = :personnr"""
+        country, phone = self._phone_to_country(country, phone)
+        return self.db.execute(qry.format(table=mapping[0], kind=mapping[1]),
+                               {'fodselsdato': fodselsdato,
+                                'personnr': personnr,
+                                'country': country,
+                                'phone': phone})
+
+
+@fsobject('student', '<7.8')
 class Student(FSObject):
     def get_student(self, fnr, pnr):
         """Hent generell studentinfo for en person. Kan brukes for å
@@ -912,7 +1003,10 @@ class Student(FSObject):
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
                p.adrlin3_hjemsted, p.postnr_hjemsted,
                p.adresseland_hjemsted,
-               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+               nvl(trim(leading '0' from
+                        trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                    telefonlandnr_mobil,
+               p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.studieprogramstudent sps, fs.studieprogram sp,
              fs.person p, fs.student s
         WHERE p.fodselsdato = sps.fodselsdato AND
@@ -941,7 +1035,10 @@ class Student(FSObject):
           p.sprakkode_malform,sps.studieprogramkode,
           sps.studieretningkode, sps.status_privatist,
           s.studentnr_tildelt,
-          p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+          nvl(trim(leading '0' from
+                   trim(leading '+' from p.telefonlandnr_mobil)), '47')
+            telefonlandnr_mobil,
+          p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps
         WHERE p.fodselsdato = s.fodselsdato AND
           p.personnr = s.personnr AND
@@ -953,7 +1050,7 @@ class Student(FSObject):
         return self.db.query(qry)
 
 
-@fsobject('undervisning')
+@fsobject('undervisning', '<7.8')
 class Undervisning(FSObject):
     def list_aktivitet(self, Instnr, emnekode, versjon, termk,
                        aar, termnr, aktkode):  # GetStudUndAktivitet
@@ -1278,7 +1375,7 @@ class Undervisning(FSObject):
     # end list_studenter_alle_undakt
 
 
-@fsobject('evu')
+@fsobject('evu', '<7.8')
 class EVU(FSObject):
     def list(self):  # GetDeltaker_50
         """Hent info om personer som er ekte EVU-studenter ved
@@ -1296,7 +1393,10 @@ class EVU(FSObject):
                p.status_reserv_nettpubl, p.adrlin2_hjemsted,
                p.postnr_hjemsted, p.adrlin3_hjemsted,
                p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
-               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil,
+               nvl(trim(leading '0' from
+                        trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                    telefonlandnr_mobil,
+               p.telefonretnnr_mobil, p.telefonnr_mobil,
                k.etterutdkurskode, k.kurstidsangivelsekode,
                e.studieprogramkode, e.faknr_adm_ansvar,
                e.instituttnr_adm_ansvar, e.gruppenr_adm_ansvar,

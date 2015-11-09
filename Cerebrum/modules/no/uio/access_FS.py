@@ -25,7 +25,7 @@ from Cerebrum.modules.no import access_FS
 fsobject = access_FS.fsobject
 
 
-@fsobject('student')
+@fsobject('student', '<7.8')
 class UiOStudent(access_FS.Student):
 
     def list(self, **kwargs):  # GetStudent_50
@@ -61,7 +61,10 @@ class UiOStudent(access_FS.Student):
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
            s.studentnr_tildelt,
-           p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+           nvl(trim(leading '0' from
+                   trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                telefonlandnr_mobil,
+           p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
            fs.studieprogram sp
         WHERE  p.fodselsdato=s.fodselsdato AND
@@ -98,7 +101,10 @@ class UiOStudent(access_FS.Student):
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
            s.studentnr_tildelt,
-           p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+           nvl(trim(leading '0' from
+                   trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                telefonlandnr_mobil,
+           p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
            fs.studieprogram sp
         WHERE p.fodselsdato=s.fodselsdato AND
@@ -133,7 +139,10 @@ class UiOStudent(access_FS.Student):
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
            s.studentnr_tildelt,
-           p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+           nvl(trim(leading '0' from
+                   trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                telefonlandnr_mobil,
+           p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
            fs.registerkort r, fs.studieprogram sp
         WHERE  p.fodselsdato=s.fodselsdato AND
@@ -366,7 +375,10 @@ class UiOStudent(access_FS.Student):
                p.sprakkode_malform, p.kjonn, p.status_dod,
                s.studentnr_tildelt, u.emnekode, u.versjonskode,
                u.terminkode, u.arstall,
-               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+               nvl(trim(leading '0' from
+                   trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                   telefonlandnr_mobil,
+               p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.person p, fs.student s, fs.registerkort r,
               fs.undervisningsmelding u
         WHERE p.fodselsdato=s.fodselsdato AND
@@ -411,7 +423,10 @@ class UiOStudent(access_FS.Student):
                p.adresseland_hjemsted, p.status_reserv_nettpubl,
                p.sprakkode_malform, p.kjonn, p.status_dod, ve.emnekode,
                s.studentnr_tildelt,
-               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+               nvl(trim(leading '0' from
+                    trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                        telefonlandnr_mobil,
+               p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.student s, fs. person p, fs.registerkort r,
              fs.vurdkombmelding vm, fs.vurderingskombinasjon vk,
              fs.vurdkombenhet ve
@@ -480,7 +495,10 @@ class UiOStudent(access_FS.Student):
                sps.studieretningkode, sps.studierettstatkode,
                sps.studentstatkode, sps.terminkode_kull,
                sps.arstall_kull, p.kjonn, p.status_dod, s.studentnr_tildelt,
-               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+               nvl(trim(leading '0' from
+                   trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                        telefonlandnr_mobil,
+               p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps
         WHERE  p.fodselsdato=s.fodselsdato AND
                p.personnr=s.personnr AND
@@ -505,7 +523,10 @@ class UiOStudent(access_FS.Student):
                sps.studieretningkode, sps.studierettstatkode,
                sps.studentstatkode, sps.terminkode_kull,
                sps.arstall_kull, p.kjonn, p.status_dod, s.studentnr_tildelt,
-               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+               nvl(trim(leading '0' from
+                   trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                        telefonlandnr_mobil,
+               p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
              fs.registerkort r
         WHERE  p.fodselsdato=s.fodselsdato AND
@@ -671,7 +692,10 @@ class UiOStudent(access_FS.Student):
             s.adrlin1_semadr, s.adrlin2_semadr, s.adrlin3_semadr,
             s.postnr_semadr, s.adresseland_semadr,
             p.status_reserv_nettpubl, p.sprakkode_malform, p.kjonn,
-            p.status_dod, p.telefonlandnr_mobil, p.telefonretnnr_mobil,
+            nvl(trim(leading '0' from
+                trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                    telefonlandnr_mobil,
+            p.status_dod, p.telefonretnnr_mobil,
             p.telefonnr_mobil
             */
         FROM
@@ -709,6 +733,7 @@ class UiOStudent(access_FS.Student):
         # return self.db.query(qry, {'last_updated': last_updated})
 
 
+@fsobject('portal')
 class UiOPortal(access_FS.FSObject):
     """Denne funksjonen er ikke lenger i bruk, da portal-ting ikke er i bruk
     lenger. Dersom jobben cerebrum/contrib/no/uio/generate_portal_export.py
@@ -719,6 +744,7 @@ class UiOPortal(access_FS.FSObject):
     pass
 
 
+@fsobject('betaling')
 class UiOBetaling(access_FS.FSObject):
     """Kopiavgift. Ny ordning fra høsten 2004."""
 
@@ -988,7 +1014,7 @@ class UiOUndervisning(access_FS.Undervisning):
     # end list_studenter_underv_enhet
 
 
-@fsobject('evu')
+@fsobject('evu', '<7.8')
 class UiOEVU(access_FS.EVU):
 
     def list(self):  # GetDeltaker_50
@@ -1011,7 +1037,10 @@ class UiOEVU(access_FS.EVU):
                e.studieprogramkode, e.faknr_adm_ansvar,
                e.instituttnr_adm_ansvar, e.gruppenr_adm_ansvar,
                p.kjonn, p.status_dod,
-               p.telefonlandnr_mobil, p.telefonretnnr_mobil, p.telefonnr_mobil
+               nvl(trim(leading '0' from
+                trim(leading '+' from p.telefonlandnr_mobil)), '47')
+                    telefonlandnr_mobil,
+               p.telefonretnnr_mobil, p.telefonnr_mobil
         FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
              fs.etterutdkurs e
         WHERE p.fodselsdato=d.fodselsdato AND
@@ -1182,6 +1211,7 @@ class FS(access_FS.FS):
         return ''
 
 
+@fsobject('person')
 class UiOPerson(access_FS.Person):
 
     def set_ansattnr(self, fnr, pnr, asn):
