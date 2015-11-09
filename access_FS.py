@@ -258,6 +258,68 @@ class UiTStudent(access_FS.Student):
         return self.db.query(qry)
 
 
+@fsobject('student', '>=7.8')
+class UiTStudent78(UiTStudent, access_FS.Student78):
+    def list_aktiv(self):
+        """ Hent opplysninger om studenter definert som aktive
+        ved HiA. En aktiv student er enten med i et aktivt kull og
+        har et gyldig studierett eller har en forekomst i registerkort
+        for inneværende semester og har en gyldig studierett"""
+
+        qry = """
+        SELECT DISTINCT
+          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+          s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+          s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+          p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
+          sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
+          sps.arstall_kull, p.kjonn, p.status_dod, pt.telefonnr_mobil,
+          s.studentnr_tildelt
+        FROM fs.kull k, fs.studieprogramstudent sps, fs.person p,
+             fs.student s, fs.persontelefon pt
+        WHERE p.fodselsdato = sps.fodselsdato AND
+          p.personnr = sps.personnr AND
+          p.fodselsdato = s.fodselsdato AND
+          p.personnr = s.personnr AND
+          pt.fodselsdato = p.fodselsdato AND
+          pt.personnr = p.personnr AND
+          pt.telefonnrtypekode = 'MOBIL' AND
+          %s AND
+          k.studieprogramkode = sps.studieprogramkode AND
+          k.terminkode = sps.terminkode_kull AND
+          k.arstall = sps.arstall_kull AND
+          NVL(k.status_aktiv,'J') = 'J' AND
+          NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
+        UNION
+        SELECT DISTINCT
+          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+          s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+          s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+          p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
+          sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
+          sps.arstall_kull, p.kjonn, p.status_dod, pt.telefonnr_mobil,
+          s.studentnr_tildelt
+        FROM fs.registerkort r, fs.studieprogramstudent sps, fs.person p,
+             fs.student s, fs.persontelefon pt
+        WHERE p.fodselsdato = sps.fodselsdato AND
+          p.personnr = sps.personnr AND
+          p.fodselsdato = s.fodselsdato AND
+          p.personnr = s.personnr AND
+          pt.fodselsdato = p.fodselsdato AND
+          pt.personnr = p.personnr AND
+          pt.telefonnrtypekode = 'MOBIL' AND
+          %s AND
+          p.fodselsdato = r.fodselsdato AND
+          p.personnr = r.personnr AND
+          NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
+          %s """ % (self._is_alive(), self._is_alive(), self._get_termin_aar(only_current=1))
+        return self.db.query(qry)
+
+
 @fsobject('undervisning')
 class UiTUndervisning(access_FS.Undervisning):
     '''UIT version of access_FS in modules.no.'''
