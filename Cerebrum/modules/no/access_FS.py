@@ -1628,12 +1628,23 @@ class FS(object):
             db = Database.connect(user=user, service=database,
                                   DB_driver=DB_driver)
         self.db = db
-        self.person = Person(db)
-        self.student = Student(db)
-        self.undervisning = Undervisning(db)
-        self.evu = EVU(db)
-        self.alumni = Alumni(db)
-        self.info = StudieInfo(db)
+        self.fsversion = _get_fs_version(self.db)
+        for comp in 'person student undervisning evu alumni'.split():
+            setattr(self, comp, self._component(comp)(db))
+        self.info = self._component('studieinfo')(db)
+
+    def _component(self, name):
+        """Find fsobject for sub objects."""
+        # TODO: Should we follow mro instead of use self and this module
+        import inspect
+        cand = find_best_version(inspect.getmodule(self).__name__,
+                                 name,
+                                 self.fsversion)
+        if cand is None:
+            cand = find_best_version(inspect.getmodule(FS).__name__,
+                                     name,
+                                     self.fsversion)
+        return cand
 
 
 class element_attribute_xml_parser(xml.sax.ContentHandler, object):

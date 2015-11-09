@@ -481,10 +481,10 @@ class FS(access_FS.FS):
         self.dday = t[2]
 
         # Override with uit-spesific classes
-        self.student = UiTStudent(self.db)
-        self.undervisning = UiTUndervisning(self.db)
-        self.evu = UiTEVU(self.db)
-        self.ou = UiTOU(self.db)
+        self.student = self._component('student')(self.db)
+        self.undervisning = self._component('undervisning')(self.db)
+        self.evu = self._component('evu')(self.db)
+        self.ou = self._component('ou')(self.db)
 
 
 class student_undakt_xml_parser(access_FS.non_nested_xml_parser):

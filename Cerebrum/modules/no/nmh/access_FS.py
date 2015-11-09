@@ -293,6 +293,6 @@ class FS(access_FS.FS):
         self.dday = t[2]
 
         # Override with nmh-spesific classes
-        self.student = NMHStudent(self.db)
-        self.undervisning = NMHUndervisning(self.db)
-        self.info = NMHStudieInfo(self.db)
+        self.student = self._component('student')(self.db)
+        self.undervisning = self._component('undervisning')(self.db)
+        self.info = self._component('studieinfo')(self.db)

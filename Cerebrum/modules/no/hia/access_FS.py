@@ -331,7 +331,6 @@ class FS(access_FS.FS):
         self.dday = t[2]
 
         # Override with hia-spesific classes
-        self.student = HiAStudent(self.db)
-        self.undervisning = HiAUndervisning(self.db)
-
-        self.evu = HiAEVU(self.db)
+        self.student = self._component('student')(db)
+        self.undervisning = self._component('undervisning')(db)
+        self.evu = self._component('evu')(db)

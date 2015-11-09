@@ -88,5 +88,5 @@ class FS(access_FS.FS):
         super(FS, self).__init__(db=db, user=user, database=database)
 
         # Override with HiNE-spesific classes
-        self.info = HINEStudieInfo(self.db)
-        self.student = HineStudent(self.db)
+        self.info = self._component('studieinfo')(self.db)
+        self.student = HineStudent('student')(self.db)

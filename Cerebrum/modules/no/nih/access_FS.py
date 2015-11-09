@@ -292,6 +292,6 @@ class FS(access_FS.FS):
         self.dday = t[2]
 
         # Override with nih-spesific classes
-        self.student = NIHStudent(self.db)
-        self.undervisning = NIHUndervisning(self.db)
-        self.info = NIHStudieInfo(self.db)
+        self.student = self._component('student')(self.db)
+        self.undervisning = self._component('undervisning')(self.db)
+        self.info = self._component('studieinfo')(self.db)

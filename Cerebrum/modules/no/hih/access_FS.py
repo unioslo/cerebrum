@@ -303,6 +303,6 @@ class FS(access_FS.FS):
         self.dday = t[2]
 
         # Override with HiH-spesific classes
-        self.student = HIHStudent(self.db)
-        self.undervisning = HIHUndervisning(self.db)
-        self.info = HIHStudieInfo(self.db)
+        self.student = self._component('student')(db)
+        self.undervisning = self._component('undervisning')(db)
+        self.info = self._component('studieinfo')(db)

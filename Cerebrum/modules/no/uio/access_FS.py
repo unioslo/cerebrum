@@ -1158,13 +1158,11 @@ class FS(access_FS.FS):
         super(FS, self).__init__(db=db, user=user, database=database)
 
         # Override with uio-spesific classes
-        self.person = UiOPerson(self.db)
-        self.student = UiOStudent(self.db)
-        self.portal = UiOPortal(self.db)
+        for comp in 'person student undervisning evu'.split():
+            setattr(self, comp, self._component(comp)(self.db))
+        # self.portal = UiOPortal(self.db)
         self.betaling = UiOBetaling(self.db)
-        self.undervisning = UiOUndervisning(self.db)
-        self.evu = UiOEVU(self.db)
-        self.info = UiOStudieInfo(self.db)
+        self.info = self._component('studieinfo')(self.db)
 
     def list_dbfg_usernames(self, fetchall=False):
         """Get all usernames and return them as a sequence of db_rows.
