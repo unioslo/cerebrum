@@ -1137,6 +1137,42 @@ class ExchangeEventHandler(multiprocessing.Process):
             # If we can't handle the object type, silently discard it
             raise EntityTypeError
 
+    @EventDecorator.RegisterHandler(['email_sfilter:add_sfilter', 'email_sfilter:mod_sfilter'])
+    def set_spam_settings(self, event):
+        """Set spam settings for a user.
+
+        :type event: Cerebrum.extlib.db_row.row
+        :param event: The event returned from Change- or EventLog.
+
+        :raises EventExecutionException: If the spam settings could not be updated.
+        :raises EntityTypeError: If the email target entity type is unsupported.
+        :raises UnrelatedEvent: If the email target disappeared.
+        """
+        try:
+            et_id, e_id, e_type, _, _ = self.ut.get_email_target_info(
+                target_id=event['subject_entity'])
+        except Errors.NotFoundError:
+            # Email target disappeared!?
+            raise UnrelatedEvent
+
+        if e_type == self.co.entity_account:
+            params = self.ut.unpickle_event_params(event)
+            uname = self.ut.get_account_name(e_id)
+            level = self.co.EmailSpamLevel(params['level']).get_level()
+            action = str(self.co.EmailSpamAction(params['action']))
+
+            try:
+                self.ec.set_spam_settings(uname=uname, level=level, action=action)
+                self.logger.info('eid:%d: Changing spam settings for %s to (%s, %s)',
+                                 event['event_id'], uname, level, action)
+            except (ExchangeException, ServerUnavailableException), e:
+                self.logger.warn('eid:%d: Could not change spam settings for %s to (%s, %s): %s',
+                                 event['event_id'], uname, level, action, e)
+                raise EventExecutionException
+        else:
+            # If we can't handle the object type, silently discard it
+            raise EntityTypeError
+
 #####
 # Group related commands
 #####
