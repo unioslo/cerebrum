@@ -1148,7 +1148,6 @@ class ExchangeEventHandler(multiprocessing.Process):
         :raises EntityTypeError: If the email target entity type is unsupported.
         :raises UnrelatedEvent: If the email target disappeared.
         """
-        self.logger.debug(dict(event))
         try:
             et_id, e_id, e_type, _, _ = self.ut.get_email_target_info(
                 target_id=event['subject_entity'])
