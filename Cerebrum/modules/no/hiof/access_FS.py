@@ -104,6 +104,56 @@ class HiOfStudent(access_FS.Student):
         return self.db.query(qry)
 
 
+@fsobject('student', '>=7.8')
+class HiOfStudent78(HiOfStudent, access_FS.Student78):
+    # Vi bruker list_privatist, og list_tilbud fra no/access_FS
+
+    def list_aktiv(self, fodselsdato=None, personnr=None):
+        """ Hent opplysninger om studenter definert som aktive
+        ved HiOF. En aktiv student er en student som har et gyldig
+        opptak til et studieprogram der studentstatuskode er 'AKTIV'
+        eller 'PERMISJON' og sluttdatoen er enten i fremtiden eller
+        ikke satt."""
+        extra = ""
+        if fodselsdato and personnr:
+            extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
+
+        qry = """
+        SELECT DISTINCT
+          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+          s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+          s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+          p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
+          pt.telefonlandnr telefonlandnr_mobil,
+          '' telefonretnnr_mobil, pt.telefonnr telefonnr_mobil,
+          sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
+          sps.arstall_kull, p.kjonn, p.status_dod,
+          s.studentnr_tildelt, kks.klassekode,
+          kks.status_aktiv AS status_aktiv_klasse
+        FROM fs.studieprogramstudent sps, fs.person p,
+             fs.student s, fs.kullklassestudent kks, fs.persontelefon pt
+        WHERE p.fodselsdato = sps.fodselsdato AND
+          p.personnr = sps.personnr AND
+          p.fodselsdato = s.fodselsdato AND
+          p.personnr = s.personnr AND
+          pt.fodselsdato = p.fodselsdato AND
+          pt.personnr = p.personnr AND
+          pt.telefonnrtypekode = 'MOBIL' AND
+          sps.fodselsdato = kks.fodselsdato(+) AND
+          sps.personnr = kks.personnr(+) AND
+          sps.studieprogramkode = kks.studieprogramkode(+) AND
+          sps.terminkode_start = kks.terminkode_start(+) AND
+          sps.arstall_start = kks.arstall_start(+) AND
+          %s AND
+          %s
+          sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'DELTID') AND
+          NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
+          """ % (self._is_alive(), extra)
+        return self.db.query(qry, locals())
+
+
 @fsobject('undervisning')
 class HiOfUndervisning(access_FS.Undervisning):
     # TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter

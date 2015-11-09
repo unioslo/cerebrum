@@ -101,6 +101,54 @@ class NMHStudent(access_FS.Student):
         return self.db.query(qry)
 
 
+@fsobject('student', '>=7.8')
+class NMHStudent78(NMHStudent, access_FS.Student78):
+
+    def list_aktiv(self):
+        """ Hent opplysninger om studenter definert som aktive ved NMH.
+
+        En aktiv student er en student som har et gyldig opptak til et
+        studieprogram der sluttdatoen er enten i fremtiden eller ikke satt.
+        Studentstatuskode kan vere av forskjellige typer, NMH ønsker også at
+        studenter som har sluttet på et program fremdeles skal ha tilgang til
+        sluttdatoen er passert. Som rutine i FS skal alltid sluttdatoen
+        oppdateres når status endres, så dette gjør at de kan styre når
+        studenten mister IT-tilgangen, til etter at alt er oppdatert i
+        studentweb.
+
+        """
+        qry = u"""
+        SELECT DISTINCT
+          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+          s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+          s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+          p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
+          sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
+          sps.arstall_kull, p.kjonn, p.status_dod,
+          s.studentnr_tildelt,
+          '' telefonretnnr_mobil
+          pt.telefonnr telefonnr_mobil,
+          pt.telefonlandnr telefonlandnr_mobil,
+        FROM fs.studieprogramstudent sps, fs.person p,
+             fs.student s, fs.persontelefon
+        WHERE p.fodselsdato = sps.fodselsdato AND
+          p.personnr = sps.personnr AND
+          p.fodselsdato = s.fodselsdato AND
+          p.personnr = s.personnr AND
+          pt.fodselsdato = p.fodselsdato AND
+          pt.personnr = p.personnr AND
+          pt.telefonnrtypekode = 'MOBIL' AND
+          %s AND
+          sps.status_privatist = 'N' AND
+          sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'FULLFØRT',
+                                  'OVERGANG', 'SLUTTET') AND
+          NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
+          """.encode('ISO-8859-1') % (self._is_alive())
+        return self.db.query(qry)
+
+
 @fsobject('undervisning', '<7.8')
 class NMHUndervisning(access_FS.Undervisning):
     # TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
@@ -255,6 +303,66 @@ class NMHUndervisning(access_FS.Undervisning):
                 ON (p.fodselsdato=fpf.fodselsdato AND p.personnr=fpf.personnr)
              LEFT JOIN fs.fag f
                 ON (fpf.fagkode=f.fagkode)
+        WHERE fp.status_aktiv = 'J' AND
+              fp.institusjonsnr_ansatt IS NOT NULL AND
+              fp.faknr_ansatt IS NOT NULL AND
+              fp.instituttnr_ansatt IS NOT NULL AND
+              fp.gruppenr_ansatt IS NOT NULL
+        """
+        return self.db.query(qry)
+
+
+@fsobject('undervisning', '>=7.8')
+class NMHUndervisning78(NMHUndervisning, access_FS.Undervisning78):
+    def list_fagperson_semester(self):
+        """Hent ut data om fagpersoner. NMH har et tilleggsbehov for å hente ut
+        fagfelt (fagnavn_norsk) for fagpersonene.
+
+        """
+        # Note: Not all persons are registered, so we
+        # run a left outer join. In addition, oracle does not allow outer joins
+        # if you select from more than one table, which is why we need to
+        # explicitly do a JOIN with the regular table fs.fagperson:
+        qry = """
+        SELECT DISTINCT
+              fp.fodselsdato, fp.personnr, p.etternavn, p.fornavn,
+              fp.adrlin1_arbeide, fp.adrlin2_arbeide, fp.postnr_arbeide,
+              fp.adrlin3_arbeide, fp.adresseland_arbeide,
+              ptw.telefonnr telefonnr_arbeide,
+              ptf.telefonnr telefonnr_fax_arb,
+              p.adrlin1_hjemsted, p.adrlin2_hjemsted, p.postnr_hjemsted,
+              p.adrlin3_hjemsted, p.adresseland_hjemsted,
+              pth.telefonnr telefonnr_hjemsted, fp.stillingstittel_engelsk,
+              fp.institusjonsnr_ansatt AS institusjonsnr,
+              fp.faknr_ansatt AS faknr,
+              fp.instituttnr_ansatt AS instituttnr,
+              fp.gruppenr_ansatt AS gruppenr,
+              fp.status_aktiv, p.status_reserv_lms AS status_publiseres,
+              f.fagnavn_norsk AS fagfelt,
+              p.kjonn, p.status_dod
+        FROM fs.person p
+             JOIN fs.fagperson fp
+                ON (p.fodselsdato=fp.fodselsdato AND p.personnr=fp.personnr)
+             LEFT JOIN fs.fagpersoninstrument fpi
+                ON (p.fodselsdato=fpi.fodselsdato AND p.personnr=fpi.personnr)
+             LEFT JOIN fs.instrument i
+                ON (fpi.instrumentkode=i.instrumentkode)
+             LEFT JOIN fs.fagpersonfag fpf
+                ON (p.fodselsdato=fpf.fodselsdato AND p.personnr=fpf.personnr)
+             LEFT JOIN fs.fag f
+                ON (fpf.fagkode=f.fagkode)
+             LEFT JOIN fs.persontelefon ptw
+                ON (ptw.fodselsdato = p.fodselsdato AND
+                    ptw.personnr = p.personnr AND
+                    ptw.telefonnrtypekode = 'ARB')
+             LEFT JOIN fs.persontelefon ptf
+                ON (ptf.fodselsdato = p.fodselsdato AND
+                    ptf.personnr = p.personnr AND
+                    ptf.telefonnrtypekode = 'FAKS')
+             LEFT JOIN fs.persontelefon pth
+                ON (pth.fodselsdato = p.fodselsdato AND
+                    pth.personnr = p.personnr AND
+                    pth.telefonnrtypekode = 'HJEM')
         WHERE fp.status_aktiv = 'J' AND
               fp.institusjonsnr_ansatt IS NOT NULL AND
               fp.faknr_ansatt IS NOT NULL AND

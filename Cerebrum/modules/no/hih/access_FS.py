@@ -88,6 +88,42 @@ class HIHStudent(access_FS.Student):
         return self.db.query(qry)
 
 
+@fsobject('student', '>=7.8')
+class HIHStudent78(HIHStudent, access_FS.Student78):
+    def list_aktiv(self):
+        """ Hent opplysninger om studenter definert som aktive
+            ved HIH. En aktiv student er en student som har et gyldig
+            opptak til et studieprogram der studentstatuskode er 'AKTIV'
+            eller 'PERMISJON' og sluttdatoen er enten i fremtiden eller
+            ikke satt."""
+        qry = """
+            SELECT DISTINCT
+              s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+              s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+              s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+              p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+              p.adresseland_hjemsted, p.status_reserv_nettpubl,
+              p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
+              sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
+              sps.arstall_kull, p.kjonn, p.status_dod,
+              pt.telefonnr telefonnr_mobil, s.studentnr_tildelt
+            FROM fs.studieprogramstudent sps, fs.person p,
+                 fs.student s, fs.persontelefon pt
+            WHERE p.fodselsdato = sps.fodselsdato AND
+              p.personnr = sps.personnr AND
+              p.fodselsdato = s.fodselsdato AND
+              p.personnr = s.personnr AND
+              pt.fodselsdato = p.fodselsdato AND
+              pt.personnr = p.personnr AND
+              pt.telefonnrtypekode = 'MOBIL' AND
+              %s AND
+              sps.status_privatist = 'N' AND
+              sps.studentstatkode IN ('AKTIV', 'PERMISJON') AND
+              NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
+              """ % (self._is_alive())
+        return self.db.query(qry)
+
+
 @fsobject('undervisning')
 class HIHUndervisning(access_FS.Undervisning):
 
