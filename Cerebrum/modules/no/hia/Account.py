@@ -38,6 +38,17 @@ class AccountHiAMixin(Account.Account):
                 raise self._db.IntegrityError(
                     "Guest accounts are not allowed other than guest spreads."
                 )
+        if spread == self.const.spread_uia_forward:
+            email_spreads = (self.const.spread_exchange_account,
+                             self.const.spread_exchange_acc_old,
+                             self.const.spread_hia_email,
+                             self.const.spread_uia_office_365)
+            if any([self.has_spread(spread) for spread in email_spreads]):
+                raise self._db.IntegrityError(
+                    "Can't add spread {spread} to an account with the "
+                    "following spreads: {illegal_spreads}".format(
+                        spread=self.const.spread_uia_forward.str,
+                        illegal_spreads=map(lambda x: x.str, email_spreads)))
         if spread == self.const.spread_nis_user:
             if self.illegal_name(self.account_name):
                 raise self._db.IntegrityError(
@@ -230,10 +241,12 @@ class AccountHiAMixin(Account.Account):
     def update_email_addresses(self, set_primary=False):
         # check if an e-mail spread is registered yet, if not don't
         # update
-        if not (self.has_spread(self.const.spread_exchange_account) or
-                self.has_spread(self.const.spread_exchange_acc_old) or
-                self.has_spread(self.const.spread_hia_email) or
-                self.has_spread(self.const.spread_uia_office_365)):
+        email_spreads = (self.const.spread_exchange_account,
+                         self.const.spread_exchange_acc_old,
+                         self.const.spread_hia_email,
+                         self.const.spread_uia_office_365,
+                         self.const.spread_uia_forward)
+        if not any([self.has_spread(spread) for spread in email_spreads]):
             # CRB-742: If spread_uia_office_365 is removed
             #  MailTarget targettype should be set as "deleted"
             try:
@@ -244,11 +257,13 @@ class AccountHiAMixin(Account.Account):
                     et.write_db()
             except Errors.NotFoundError:
                 pass
-            return
+            return            
         # Find, create or update a proper EmailTarget for this
         # account.
         et = Email.EmailTarget(self._db)
         target_type = self.const.email_target_account
+        if self.has_spread(self.const.spread_uia_forward):
+            target_type = self.const.email_target_forward
         if self.is_deleted() or self.is_reserved():
             target_type = self.const.email_target_deleted
         try:
