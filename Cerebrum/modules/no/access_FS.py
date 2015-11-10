@@ -42,6 +42,22 @@ compitability_encoding = 'ISO-8859-1'
 Version = collections.namedtuple('Version', 'major minor patch'.split())
 
 
+def version_less(lhs, rhs):
+    if lhs.major != rhs.major:
+        return lhs.major < rhs.major
+    if lhs.minor != rhs.minor:
+        return lhs.minor < rhs.minor
+    return lhs.patch < rhs.patch
+
+
+def version_less_equal(lhs, rhs):
+    if lhs.major != rhs.major:
+        return lhs.major < rhs.major
+    if lhs.minor != rhs.minor:
+        return lhs.minor < rhs.minor
+    return lhs.patch <= rhs.patch
+
+
 def _get_fs_version(db):
     """Return FS version number.
     :param db: Database object.
@@ -71,20 +87,24 @@ class VersionSpec(object):
             raise Errors.ProgrammingError("Specified FS version None")
         if isinstance(ver, Version):
             return ver
+        if isinstance(ver, basestring):
+            if '.' in ver:
+                return VersionSpec.assert_version(ver.split('.'))
+            return Version(int(ver), 0, 0)
         if isinstance(ver, collections.Sequence):
             if len(ver) > 3:
                 return Version(*ver[:3])
             ver = list(ver)
             while len(ver) < 3:
                 ver.append(0)
-            return Version(*ver)
+            return Version(*map(int, ver))
 
     def __init__(self, start=None, end=None, start_open=False, end_open=True):
         self.start = self.assert_version(start)
         self.end = self.assert_version(end)
         self.start_open = start_open
         self.end_open = end_open
-        if self.start > self.end:
+        if self.start and self.end and self.start > self.end:
             raise Errors.ProgrammingError("VersionSpec cannot have end > start")
         if start is None and end is None:
             raise Errors.ProgrammingError("VersionSpec empty")
@@ -102,14 +122,21 @@ class VersionSpec(object):
                                          self.start_open, self.end_open]))
 
     def __lt__(self, other):
-        if self.end:
-            if other.start:
-                return self.end < other.start
-            return self.end < other.end
-        else:
-            if other.start:
-                return self.start < other.start
-            return self.start < other.end
+        """
+        """
+        if self.start and other.start:
+            return version_less(self.start, other.start)
+        if self.end and other.end:
+            return version_less(self.end, other.end)
+        if self.start:
+            if version_less(self.start, other.end):
+                raise Errors.ProgrammingError("version spec conflict: {} and {}"
+                                              .format(self, other))
+            return False
+        if version_less(other.start, self.end):
+            raise Errors.ProgrammingError("version spec conflict: {} and {}"
+                                          .format(self, other))
+        return True
 
     def __str__(self):
         st, e = self.start, self.end
@@ -128,13 +155,24 @@ class VersionSpec(object):
                 '<' if self.end_open else '<=',
                 st.major, st.minor, st.patch)
 
+    def __repr__(self):
+        return "VersionSpec({}, {}, {}, {})".format(self.start, self.end,
+                                                    self.start_open,
+                                                    self.end_open)
+
     def matches(self, version):
         """Returns true iff version matches this spec
         :param Version version: Version to check for.
         :returns: Bool
         """
-        op_start = operator.lt if self.start_open else operator.le
-        op_end = operator.lt if self.end_open else operator.le
+
+        # init operators:
+        # Operator open means strict less, closed means less or equal
+        # op_start(self.start, version) must be true, or self.start is None
+        op_start = version_less if self.start_open else version_less_equal
+        # op_end(version, self.end) must be true, or self.end is None
+        op_end = version_less if self.end_open else version_less_equal
+
         if self.start and self.end:
             return op_start(self.start, version) and op_end(version, self.end)
         elif self.start:
@@ -230,7 +268,8 @@ def find_best_version(module, name, version):
     :returns: Class for given component
     """
     candidates = _default_fs_config[module][name]
-    for spec, cls in sorted(candidates.items(), key=lambda x: x[0]):
+    for spec, cls in sorted(candidates.items(), key=operator.itemgetter(0),
+                            reverse=True):
         if spec.matches(version):
             return cls
 
@@ -264,8 +303,8 @@ def make_fs(db=None, user=None, database=None, override_version=None):
     cls = find_best_version(module, 'FS', version)
     if cls:
         return cls(db)
-    raise Errors.RuntimeError("Module {} holds no suitable FS for version {}"
-                              .format(module, version))
+    raise RuntimeError("Module {} holds no suitable FS for version {}"
+                       .format(module, version))
 
 # TODO: En del funksjoner finnes både som get_ og list_ variant.  Det
 # kunne være en fordel om man etablerte en mekanisme for å slå sammen

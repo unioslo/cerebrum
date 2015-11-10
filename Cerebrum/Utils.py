@@ -941,6 +941,7 @@ class Factory(object):
         import_spec = getattr(cereconf, conf_var)
         return Factory.make_class(comp, import_spec, conf_var)
 
+    @staticmethod
     def make_class(name, import_spec, conf_var=None):
         """Assemble the class according to spec.
 
@@ -950,7 +951,7 @@ class Factory(object):
             returned class. Each element of the form ``module/classname``.
 
         :param string conf_var: Variable in cereconf
-        
+
         :return: Class
         """
         if name in Factory.class_cache:
