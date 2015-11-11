@@ -802,6 +802,9 @@ class EntityContactInfo(Entity):
     # end write_db
 
     def delete_contact_info(self, source, contact_type, pref='ALL'):
+        if not self.get_contact_info(source, contact_type):
+            # Nothing to delete
+            return
         sql = """
         DELETE FROM [:table schema=cerebrum name=entity_contact_info]
         WHERE
@@ -1320,7 +1323,7 @@ class EntityExternalId(Entity):
         @type source_system: int or AuthoritativeSystemCode or sequence thereof
         @param source_system:
             Filter resulting IDs by given source system(s).
-        
+
         @type id_type: int or EntityExternalId or sequence thereof
         @param id_type:
             Filter resulting IDs by ID type(s).

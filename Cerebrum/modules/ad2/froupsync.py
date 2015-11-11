@@ -210,7 +210,6 @@ class _FroupSync(GroupSync):
 
         :return bool: True if the account should exist in AD.
         """
-        # TODO: target_spread might not be what to use.
         if self.config['target_spread'] not in (s['spread'] for s in
                                                 account.get_spread()):
             return False
@@ -419,7 +418,8 @@ class AffGroupSync(_FroupSync):
                                                      include_deleted=False,
                                                      fetchall=False):
                     for name, enabled in self.pe2accs(row['person_id']):
-                        self.add_group_member(group, name)
+                        if enabled:
+                            self.add_group_member(group, name)
 
 
 class ConsentGroupSync(_FroupSync):
@@ -502,4 +502,5 @@ class ConsentGroupSync(_FroupSync):
                     consent_code=consents,
                     entity_type=self.co.entity_person):
                 for name, enabled in self.pe2accs(row['entity_id']):
-                    self.add_group_member(group, name)
+                    if enabled:
+                        self.add_group_member(group, name)
