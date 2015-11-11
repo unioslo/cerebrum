@@ -254,7 +254,12 @@ class _FroupSync(GroupSync):
 
     def fetch_cerebrum_data(self):
         """ Prevents superclass' fetch method to be called. """
-        pass
+        entities = getattr(self, 'entities', dict())
+        self.logger.debug("Found %d groups in Cerebrum", len(entities))
+        for group in entities.itervalues():
+            self.logger.debug2("Cerebrum group %r with %d members",
+                               group.entity_name,
+                               len(getattr(group, 'members', set())))
 
     def add_group_member(self, group_name, account_name):
         """ Add member to group.
@@ -306,6 +311,12 @@ class _FroupSync(GroupSync):
 
     # def post_process(self):
     #     return super(ConsentGroupSync, self).post_process()
+
+    def process_ad_object(self, ad_object):
+        self.logger.debug2("Processing AD group %r, with %d members",
+                           ad_object.get('Name'),
+                           len(ad_object.get('Member', [])))
+        return super(_FroupSync, self).process_ad_object(ad_object)
 
     def _update_group(self, group_name, adds, removes):
         """ Update group memberships
@@ -410,7 +421,6 @@ class AffGroupSync(_FroupSync):
         'affiliation_groups' config setting.
 
         """
-        super(AffGroupSync, self).fetch_cerebrum_data()
         for group, affs in self.config['affiliation_groups'].iteritems():
             for sys, aff in affs:
                 for row in self.pe.list_affiliations(source_system=int(sys),
@@ -420,6 +430,7 @@ class AffGroupSync(_FroupSync):
                     for name, enabled in self.pe2accs(row['person_id']):
                         if enabled:
                             self.add_group_member(group, name)
+        super(AffGroupSync, self).fetch_cerebrum_data()
 
 
 class ConsentGroupSync(_FroupSync):
@@ -496,7 +507,6 @@ class ConsentGroupSync(_FroupSync):
         'consent_groups' config setting.
 
         """
-        super(ConsentGroupSync, self).fetch_cerebrum_data()
         for group, consents in self.config['consent_groups'].iteritems():
             for row in self.pe.list_consents(
                     consent_code=consents,
@@ -504,3 +514,4 @@ class ConsentGroupSync(_FroupSync):
                 for name, enabled in self.pe2accs(row['entity_id']):
                     if enabled:
                         self.add_group_member(group, name)
+        super(ConsentGroupSync, self).fetch_cerebrum_data()
