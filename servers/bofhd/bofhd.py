@@ -139,7 +139,6 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         :raise NotImplementedError: When an unknown function is called.
         :raise CerebrumError: When known errors occurs.
         :raise UnknownError: When unhandled (server errors) occurs.
-
         """
         try:
             func = getattr(self, 'bofhd_' + method)
@@ -218,7 +217,6 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
 
         Attempts to interpret all HTTP POST requests as XML-RPC calls,
         which are forwarded to the _dispatch method for handling.
-
         """
         # Whenever unexpected exception occurs, we'd like to include
         # as much debugging info as possible.  To avoid raising
@@ -229,7 +227,6 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             # get arguments
             data = self.rfile.read(int(self.headers["content-length"]))
             params, method = xmlrpclib.loads(data)
-
             # generate response
             try:
                 logger.debug2("[%s] dispatch %s", thread_name(), method)
@@ -288,7 +285,6 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         :return list:
             A list of strings representing each active, lockout quarantines
             that affects the account.
-
         """
         Quarantine = self.server.const.Quarantine
         nonlock = getattr(cereconf, 'BOFHD_NONLOCK_QUARANTINES', [])
@@ -388,7 +384,6 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
 
     def bofhd_get_commands(self, session_id):
         """Build a dict of the commands available to the client."""
-
         session = BofhdSession(self.server.db, logger, session_id)
         entity_id = session.get_entity_id()
         # session.get_entity_id() will potentially change the contents of
@@ -478,7 +473,6 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         @return:
           entity_id of the entity owning the session (i.e. which account is
           associated with that specific session_id)
-
         """
         session_id = session.get_session_id()
         # This is throw an exception, when session_id has expired
@@ -488,8 +482,8 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
 
         if session_id not in self.server.known_sessions:
             self.server.known_sessions[session_id] = 1
+            self.server.db.rollback()  # avoids bofhd_session lock-condition
             raise ServerRestartedError()
-
         return entity_id
 
     def bofhd_run_command(self, session_id, cmd, *args):
@@ -504,13 +498,16 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         # short-lived sessions ONLY if more than BofhdSession._short_timeout
         session = BofhdSession(self.server.db, logger)
         session.remove_short_timeout_sessions()
-
+        # No obvious lock-conditions, but there is no obvious reason not to commit
+        # either... #paranoia
+        # self.server.db.commit()  # CRB-1226
         session = BofhdSession(self.server.db, logger, session_id,
                                self.client_address)
         entity_id = self.check_session_validity(session)
         self.server.db.cl_init(change_by=entity_id)
         logger.debug("Run command: %s (%s) by %i" % (cmd, args, entity_id))
         if cmd not in self.server.cmd2instance:
+            self.server.db.rollback()  # avoids bofhd_session lock-condition
             raise CerebrumError("Illegal command '%s'" % cmd)
         func = getattr(self.server.cmd2instance[cmd], cmd)
 
@@ -546,7 +543,6 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
           (("%5s %s", 'foo', 'bar'), return-value).  The first row is
           used as header
         - raw : don't use map after all"""
-
         session = BofhdSession(self.server.db, logger, session_id,
                                self.client_address)
         instance, cmdObj = self.server.get_cmd_info(cmd)
