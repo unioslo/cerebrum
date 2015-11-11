@@ -35,7 +35,7 @@ import cereconf
 from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.Utils import XMLHelper, FileChangeTooBigError
-from Cerebrum.modules.no.uio.access_FS import FS, make_fs
+from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import AtomicFileWriter, SimilarSizeWriter
 from Cerebrum.Utils import Factory
