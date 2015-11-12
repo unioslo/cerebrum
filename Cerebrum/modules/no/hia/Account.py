@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2004-2009, 2012 University of Oslo, Norway
+# Copyright 2004-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -43,7 +43,7 @@ class AccountHiAMixin(Account.Account):
                              self.const.spread_exchange_acc_old,
                              self.const.spread_hia_email,
                              self.const.spread_uia_office_365)
-            if any([self.has_spread(spread) for spread in email_spreads]):
+            if any([self.has_spread(s) for s in email_spreads]):
                 raise self._db.IntegrityError(
                     "Can't add spread {spread} to an account with the "
                     "following spreads: {illegal_spreads}".format(

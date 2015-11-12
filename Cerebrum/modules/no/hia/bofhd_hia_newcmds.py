@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # encoding: latin-1
 #
-# Copyright 2006 University of Oslo, Norway
+# Copyright 2006-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1245,6 +1245,7 @@ class BofhdExtension(BofhdCommonMethods,
                                 [int(self.const.spread_exchange_account),
                                  int(self.const.spread_exchange_acc_old),
                                  int(self.const.spread_uia_office_365),
+                                 int(self.const.spread_uia_forward),
                                  int(self.const.spread_hia_email)]:
                     raise CerebrumError, "Not an e-mail spread: %s!" % email_spread
             try:
