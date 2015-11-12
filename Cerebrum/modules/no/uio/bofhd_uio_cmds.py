@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2011 University of Oslo, Norway
+# Copyright 2002-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,6 +24,7 @@ import os
 import re
 import email.Generator, email.Message
 import imaplib
+import ssl
 import pickle
 import socket
 import select
@@ -1800,7 +1801,7 @@ class BofhdExtension(BofhdCommonMethods):
                                             cereconf.CYRUS_ADMIN)
                 used = 'N/A'; limit = None
                 try:
-                    cyrus = imaplib.IMAP4_SSL(es.name)
+                    cyrus = Utils.CerebrumIMAP4_SSL(es.name, ssl_version=ssl.PROTOCOL_TLSv1)
                     # IVR 2007-08-29 If the server is too busy, we do not want
                     # to lock the entire bofhd.
                     # 5 seconds should be enough
@@ -4995,10 +4996,14 @@ Addresses and settings:
                     count = self._group_count_memberships(src_entity.entity_id,
                                                           fg_spread)
                     if count > 15:
-                        return ("WARNING: %s is now a member of %d NIS groups "
-                                "with spread %s. A user can be a member of max "
-                                "16 NIS groups with the same spread"
-                                % (src_name, count, fg_spread))
+                        return ('WARNING: {source_name} is now a member '
+                                'of {amount_groups} NIS groups with '
+                                'spread {spread}. Membership check may not '
+                                'work as expected if a user is member of more '
+                                'than 16 NIS groups.'.format(
+                                    source_name=src_name,
+                                    amount_groups=count,
+                                    spread=fg_spread))
         return "OK, added %s to %s" % (src_name, dest_group)
 
     def _group_count_memberships(self, entity_id, spread):

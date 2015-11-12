@@ -210,7 +210,7 @@ class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
         return ret
 
     def delete_event(self, eventid):
-        self._aquire_lock()
+        self._acquire_lock()
         self.execute("""DELETE
                      FROM [:table schema=cerebrum name=unpublished_events]
                      WHERE eventid = :eventid""", {'eventid': eventid})

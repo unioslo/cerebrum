@@ -964,7 +964,8 @@ class BofhdAuth(DatabaseAccessor):
                 return True
 
         return self.is_account_owner(
-            operator, self.const.auth_quarantine_disable, entity)
+            operator, self.const.auth_quarantine_disable, entity,
+            operation_attr=str(qtype))
 
     def can_remove_quarantine(self, operator, entity=None, qtype=None,
                               query_run_any=False):
@@ -1006,7 +1007,8 @@ class BofhdAuth(DatabaseAccessor):
                 return True
 
         return self.is_account_owner(
-            operator, self.const.auth_quarantine_remove, entity)
+            operator, self.const.auth_quarantine_remove, entity,
+            operation_attr=str(qtype))
 
     def can_set_quarantine(self, operator, entity=None, qtype=None,
                            query_run_any=False):
@@ -1041,7 +1043,7 @@ class BofhdAuth(DatabaseAccessor):
             if self._no_account_home(operator, entity):
                 return True
         return self.is_account_owner(operator, self.const.auth_quarantine_set,
-                                     entity)
+                                     entity, operation_attr=str(qtype))
 
     def can_show_quarantines(self, operator, entity=None,
                              query_run_any=False):

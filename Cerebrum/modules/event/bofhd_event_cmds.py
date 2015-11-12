@@ -118,11 +118,14 @@ class BofhdExtension(BofhdCommandBase):
     # to human-readable text
     def _make_constants_human_readable(self, data):
         constant_keys = ['spread', 'entity_type', 'code', 'affiliation']
-        for key in constant_keys:
-            if key in data:
-                value = self.const.human2constant(data[key])
-                if value:
-                    data[key] = str(value)
+        try:
+            for key in constant_keys:
+                if key in data:
+                    value = self.const.human2constant(data[key])
+                    if value:
+                        data[key] = str(value)
+        except TypeError:
+            pass
         return data
 
     # event stat
@@ -235,10 +238,10 @@ class BofhdExtension(BofhdCommandBase):
     all_commands['event_info'] = Command(
         ('event', 'info',), EventId(),
         fs=FormatSuggestion(
-            'Event ID:           %s\n'
+            'Event ID:           %d\n'
             'Event type:         %s\n'
             'Target system:      %s\n'
-            'Failed attempts:    %s\n'
+            'Failed attempts:    %d\n'
             'Time added:         %s\n'
             'Time taken:         %s\n'
             'Subject entity:     %s\n'
@@ -271,8 +274,8 @@ class BofhdExtension(BofhdCommandBase):
             'failed': ev['failed'],
             'tstamp': str(ev['tstamp']),
             'taken_time': str(ev['taken_time']) if ev['taken_time'] else '<not set>',
-            'subject_entity': ev['subject_entity'] or '<not set>',
-            'dest_entity': ev['dest_entity'] or '<not set>',
+            'subject_entity': str(ev['subject_entity']) if ev['subject_entity'] else '<not set>',
+            'dest_entity': str(ev['dest_entity']) if ev['dest_entity'] else '<not set>',
             'change_params': repr(change_params) if change_params else '<not set>'
         }
 
