@@ -5039,9 +5039,9 @@ Addresses and settings:
                     if count > 15:
                         return ('WARNING: {source_name} is now a member '
                                 'of {amount_groups} NIS groups with '
-                                'spread {spread}. Membership check may not '
-                                'work as expected if a user is member of more '
-                                'than 16 NIS groups.'.format(
+                                'spread {spread}.\nActual membership lookups '
+                                'in NIS may not work as expected if a user is '
+                                'member of more than 16 NIS groups.'.format(
                                     source_name=src_name,
                                     amount_groups=count,
                                     spread=fg_spread))
