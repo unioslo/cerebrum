@@ -56,7 +56,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Database import Database
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import simple_memoize
+from Cerebrum.Utils import simple_memoize, NotSet
 from Cerebrum.modules.no.hia.mod_sap_utils import load_expired_employees, \
     load_invalid_employees
 from Cerebrum.modules.no.hia.mod_sap_utils import make_employment_iterator
@@ -182,9 +182,10 @@ def remove_affiliations(cache):
         # person is here, now we delete all the affiliation_ansatt
         # affiliations.
         for (ou_id, affiliation) in cache[person_id].iterkeys():
-            person.delete_affiliation(ou_id,
-                                      affiliation,
-                                      constants.system_sap)
+            # the following was already done by person.write_db():
+            # person.delete_affiliation(ou_id,
+            #                           affiliation,
+            #                           constants.system_sap)
             logger.debug("Removed aff=%s/ou_id=%s for %s",
                          constants.PersonAffiliation(affiliation),
                          ou_id, person_id)
@@ -211,12 +212,12 @@ def synchronise_affiliations(aff_cache, person, ou_id, affiliation, status):
 
     # Ok, now we have everything we need to register/adjusted affiliations
     # case 1: the affiliation did not exist => make a new affiliation
+    person.populate_affiliation(constants.system_sap,
+                                ou_id,
+                                affiliation,
+                                status)
     if (key_level1 not in aff_cache or
             key_level2 not in aff_cache[key_level1]):
-        person.add_affiliation(ou_id,
-                               affiliation,
-                               constants.system_sap,
-                               status)
         logger.debug("New affiliation %s (status: %s) for (person_id: %s)",
                      affiliation, status, person.entity_id)
 
@@ -234,14 +235,12 @@ def synchronise_affiliations(aff_cache, person, ou_id, affiliation, status):
 
         # The affiliation is there, but the status is different => update
         if cached_status != int(status):
-            # add_affiliation performs aff.status updates as well
-            person.add_affiliation(ou_id,
-                                   affiliation,
-                                   constants.system_sap,
-                                   status)
             logger.debug("Updating affiliation status %s => %s for "
                          "(p_id: %s)",
                          str(constants.PersonAffStatus(cached_status)),
+                         status, person.entity_id)
+        else:
+            logger.debug("Refreshing last seen for aff %s for (person id: %s)",
                          status, person.entity_id)
 
 
@@ -263,6 +262,13 @@ def process_affiliations(employment_file, person_file, use_fok,
     # First we cache all existing affiliations. It's a mapping person-id =>
     # mapping (ou-id, affiliation) => status.
     affiliation_cache = cache_db_affiliations()
+    person_cache = dict()
+
+    def person_cacher(empid):
+        ret = person_cache.get(empid, NotSet)
+        if ret is NotSet:
+            ret = person_cache[empid] = get_person(empid)
+        return ret
 
     for tpl in make_employment_iterator(file(employment_file), use_fok, logger):
         if not tpl.valid():
@@ -294,7 +300,7 @@ def process_affiliations(employment_file, person_file, use_fok,
                         tpl.sap_ou_id, tpl.sap_ansattnr)
             continue
 
-        person = get_person(tpl.sap_ansattnr)
+        person = person_cacher(tpl.sap_ansattnr)
         if person is None:
             logger.warn("Cannot map SAP ansattnr %s to cerebrum person_id",
                         tpl.sap_ansattnr)
@@ -308,6 +314,11 @@ def process_affiliations(employment_file, person_file, use_fok,
                                  ou_id, affiliation, affiliation_status)
 
     # We are done with fetching updates from file.
+    # Need to write persons
+    for p in person_cache.values():
+        logger.info("Writing cached affs for person id:%s", p.entity_id)
+        p.write_db()
+
     # All the affiliations left in the cache exist in Cerebrum, but NOT in the
     # datafile. Thus delete them!
     remove_affiliations(affiliation_cache)
