@@ -54,24 +54,19 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
+from Cerebrum.Database import Database
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import simple_memoize
-from Cerebrum.modules.no.hia.mod_sap_utils import load_expired_employees, load_invalid_employees
+from Cerebrum.modules.no.hia.mod_sap_utils import load_expired_employees, \
+    load_invalid_employees
 from Cerebrum.modules.no.hia.mod_sap_utils import make_employment_iterator
 from Cerebrum.modules.no.Constants import SAPLonnsTittelKode
-from Cerebrum.modules.no import fodselsnr
-
-
-
 
 
 database = Factory.get("Database")()
 database.cl_init(change_program="import_SAP")
 constants = Factory.get("Constants")()
 logger = Factory.get_logger("cronjob")
-
-
-
 
 
 def sap_employment2affiliation(sap_lonnstittelkode):
@@ -91,22 +86,23 @@ def sap_employment2affiliation(sap_lonnstittelkode):
     try:
         lonnskode = SAPLonnsTittelKode(sap_lonnstittelkode)
         kategori = lonnskode.get_kategori()
+        if not isinstance(kategori, unicode):
+            kategori = kategori.decode(Database.encoding)
     except Errors.NotFoundError:
-        logger.warn("No SAP.STELL/lønnstittelkode <%s> found in Cerebrum",
+        logger.warn(u"No SAP.STELL/lønnstittelkode <%s> found in Cerebrum",
                     sap_lonnstittelkode)
         return None, None
 
     if lonnskode != constants.sap_9999_dummy_stillingskode:
         affiliation = constants.affiliation_ansatt
-        status = {'ØVR': constants.affiliation_status_ansatt_tekadm,
-                  'VIT': constants.affiliation_status_ansatt_vitenskapelig}[kategori]
+        status = {
+            u'ØVR': constants.affiliation_status_ansatt_tekadm,
+            u'VIT': constants.affiliation_status_ansatt_vitenskapelig}[kategori]
     else:
         affiliation = constants.affiliation_tilknyttet
         status = constants.affiliation_status_tilknyttet_ekstern
 
     return affiliation, status
-# end sap_employment2affiliation
-
 
 
 @simple_memoize
@@ -120,8 +116,6 @@ def get_ou_id(sap_ou_id):
         return int(ou.entity_id)
     except Errors.NotFoundError:
         return None
-# end get_ou_id
-
 
 
 def get_person(sap_person_id):
@@ -135,8 +129,6 @@ def get_person(sap_person_id):
         return person
     except Errors.NotFoundError:
         return None
-# end get_person_id
-
 
 
 def cache_db_affiliations():
@@ -159,17 +151,15 @@ def cache_db_affiliations():
     # the second key.
     cache = dict()
     for row in person.list_affiliations(
-                   source_system=constants.system_sap,
-                   affiliation=(constants.affiliation_ansatt,
-                                constants.affiliation_tilknyttet)):
+        source_system=constants.system_sap,
+        affiliation=(constants.affiliation_ansatt,
+                     constants.affiliation_tilknyttet)):
         p_id, ou_id, affiliation, status = [int(row[x]) for x in
                                             ("person_id", "ou_id",
                                              "affiliation", "status",)]
         cache.setdefault(p_id, {})[(ou_id, affiliation)] = status
 
     return cache
-# end cache_db_affiliations
-
 
 
 def remove_affiliations(cache):
@@ -198,8 +188,6 @@ def remove_affiliations(cache):
             logger.debug("Removed aff=%s/ou_id=%s for %s",
                          constants.PersonAffiliation(affiliation),
                          ou_id, person_id)
-# end remove_affiliations
-
 
 
 def synchronise_affiliations(aff_cache, person, ou_id, affiliation, status):
@@ -224,7 +212,7 @@ def synchronise_affiliations(aff_cache, person, ou_id, affiliation, status):
     # Ok, now we have everything we need to register/adjusted affiliations
     # case 1: the affiliation did not exist => make a new affiliation
     if (key_level1 not in aff_cache or
-        key_level2 not in aff_cache[key_level1]):
+            key_level2 not in aff_cache[key_level1]):
         person.add_affiliation(ou_id,
                                affiliation,
                                constants.system_sap,
@@ -255,8 +243,6 @@ def synchronise_affiliations(aff_cache, person, ou_id, affiliation, status):
                          "(p_id: %s)",
                          str(constants.PersonAffStatus(cached_status)),
                          status, person.entity_id)
-# end synchronise_affiliations
-
 
 
 def process_affiliations(employment_file, person_file, use_fok,
@@ -325,8 +311,6 @@ def process_affiliations(employment_file, person_file, use_fok,
     # All the affiliations left in the cache exist in Cerebrum, but NOT in the
     # datafile. Thus delete them!
     remove_affiliations(affiliation_cache)
-# end process_affiliations
-
 
 
 def cache_db_employments():
@@ -345,8 +329,6 @@ def cache_db_employments():
 
     logger.debug("Done preloading all existing employments")
     return result
-# end cache_db_employments
-
 
 
 def remove_db_employments(remaining_employments):
@@ -365,8 +347,6 @@ def remove_db_employments(remaining_employments):
         person.delete_employment(ou_id, title, source)
 
     logger.debug("Completed deletion")
-# end remove_db_employments
-
 
 
 def synchronise_employment(employment_cache, tpl, person, ou_id):
@@ -385,7 +365,8 @@ def synchronise_employment(employment_cache, tpl, person, ou_id):
         return
 
     if " " not in description:
-        logger.debug("Employment type %s for person %s missing code/description",
+        logger.debug("Employment type %s for person %s"
+                     " missing code/description",
                      description, person.entity_id)
         return
 
@@ -410,13 +391,10 @@ def synchronise_employment(employment_cache, tpl, person, ou_id):
     person.add_employment(ou_id, title, constants.system_sap,
                           tpl.percentage, tpl.start_date, tpl.end_date,
                           code, tpl.stillingstype == 'H')
-# end synchronise_employment
-
 
 
 def process_employments(employment_file, use_fok, people_to_ignore=None):
     "Synchronise the data in person_employment based on the latest SAP file."
-
 
     logger.debug("processing employments")
     employment_cache = cache_db_employments()
@@ -444,8 +422,6 @@ def process_employments(employment_file, use_fok, people_to_ignore=None):
 
     remove_db_employments(employment_cache)
     logger.debug("done with employments")
-# end process_employments
-
 
 
 def main():
@@ -499,12 +475,7 @@ def main():
     else:
         database.commit()
         logger.info("All changes committed")
-# end main
-
-
-
 
 
 if __name__ == "__main__":
     main()
-
