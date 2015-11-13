@@ -50,7 +50,8 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Entity
-from Cerebrum.Utils import Factory, simple_memoize
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.Constants import Constants
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no import fodselsnr
@@ -278,7 +279,7 @@ def is_ou_expired(ou_id):
         return True
     else:
         return False
-is_ou_expired = simple_memoize(is_ou_expired)
+is_ou_expired = memoize(is_ou_expired)
 
 
 def get_creator_id():
@@ -287,13 +288,13 @@ def get_creator_id():
         const.account_namespace)
     id = entity_name.entity_id    
     return id
-get_creator_id=simple_memoize(get_creator_id)
+get_creator_id=memoize(get_creator_id)
 
 def get_sko(ou_id):
     ou.clear()
     ou.find(ou_id)
     return "%02s%02s%02s" % (ou.fakultet,ou.institutt,ou.avdeling)
-get_sko=simple_memoize(get_sko)
+get_sko=memoize(get_sko)
 
 def get_expire_date():
     """ calculate a default expire date
