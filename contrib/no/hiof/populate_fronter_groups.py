@@ -23,22 +23,18 @@ dependent on import_from_FS.py's output.
 FIXME: A FAQ entry for all the warn()/error() statements.
 """
 
-
-
 import getopt
 import locale
 import os
 import re
 import sys
 
-
-
 import cerebrum_path
 import cereconf
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import access_FS
-from Cerebrum.Utils import simple_memoize
 from Cerebrum.modules.xmlutils.fsxml2object import EduGenericIterator
 from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 from Cerebrum.modules.no.hiof.fronter_lib import lower
@@ -46,9 +42,7 @@ from Cerebrum.modules.no.hiof.fronter_lib import count_back_semesters
 from Cerebrum.modules.no.hiof.fronter_lib import timeslot_is_valid
 
 
-
 logger = None
-
 
 
 class FSAttributeHandler(object):
@@ -95,7 +89,6 @@ class FSAttributeHandler(object):
                                "studieprogramkode", "avdeling",
                                "terminkode", "arstall", "klassekode",),
     }
-    
 
     # Mapping of attribute kinds to group name templates that they
     # create. I.e. an stprog role results in a group with the id as specified
@@ -152,7 +145,6 @@ class FSAttributeHandler(object):
                               "student",
     }
 
-
     # A mapping for creating a group description based on the group
     # name/key. Since both names and descriptions are pretty regular, we can
     # use a template for each kind.
@@ -178,30 +170,30 @@ class FSAttributeHandler(object):
         "student-kull":
           ("Studenter på %s %s %s",
            ("studieprogramkode", "terminkode", "arstall",)),
-        
+
         "student-kullklasse":
           ("Studenter på %s %s %s, klasse %s",
            ("studieprogramkode", "terminkode", "arstall", "klassekode")),
-        
+
         "undakt":
           ("%s for %s %s (%s %s, versjon %s, %s. termin), aktivitet %s",
            ("rollekode", "emnekode", "emnenavn", "terminkode", "arstall",
             "versjonskode", "terminnr", "aktivitetkode")),
-        
+
         "undenh":
           ("%s for %s %s (%s %s, versjon %s, %s. termin)",
            ("rollekode", "emnekode", "emnenavn", "terminkode", "arstall",
             "versjonskode", "terminnr")),
-        
+
         "kullklasse":
           ("%s for %s %s %s, klasse %s",
            ("rollekode", "studieprogramkode", "terminkode", "arstall",
             "klassekode")),
-        
+
         "kull":
           ("%s for %s %s %s",
            ("rollekode", "studieprogramkode", "terminkode", "arstall")),
-        
+
         "stprog":
           ("%s for %s",
            ("rollekode", "studieprogramkode",)),
@@ -209,8 +201,6 @@ class FSAttributeHandler(object):
         "avdeling":
           ("%s for %s", ("rollekode", "avdeling")),
     }
-
-
 
     # Interesting roles from FS. We ignore the rest
     valid_roles = ('undakt', 'undenh', 'stprog', 'kull', 'kullklasse',
@@ -222,7 +212,6 @@ class FSAttributeHandler(object):
     valid_role_codes = ("assistent", "hovedlærer", "kursansv", "lærer",
                         "kontakt", "veileder",)
 
-       
     def __init__(self, db, stprog_file, emne_file, undenh_file, undakt_file):
         """Pre-cache all the interesting information.
 
@@ -287,12 +276,10 @@ class FSAttributeHandler(object):
                 name = entry["emnenavnfork"]
             else:
                 name = ""
-                
+
             result[lower(entry["emnekode"])] = name
         return result
     # end _load_emne_names
-    
-
 
     def role_is_exportable(self, role_kind, role_attrs):
         """Decide whether a role with a given set of attributes should
@@ -316,8 +303,6 @@ class FSAttributeHandler(object):
         key = self._attributes2exportable_key(role_kind, role_attrs)
         return key in self._exportable_keys
     # end role_is_exportable
-
-
 
     def edu_entry_is_exportable(self, edu_entry_kind, attrs):
         """Much like L{role_is_exportable}, except this works for student info
@@ -343,8 +328,6 @@ class FSAttributeHandler(object):
         key = self._attributes2exportable_key(edu_entry_kind, attrs)
         return key in self._exportable_keys
     # end edu_entry_is_exportable
-
-
 
     def _load_exportable_keys(self, stprog_file, undenh_file, undakt_file):
         """Build a set of FS 'entity' keys that are exportable to LMS.
@@ -393,8 +376,6 @@ class FSAttributeHandler(object):
         return result
     # end _load_exportable_keys
 
-
-
     def _attributes2exportable_key(self, attr_kind, attributes):
         """A help method to create an internal lookup key.
 
@@ -416,7 +397,7 @@ class FSAttributeHandler(object):
         key = None
 
         attrs = lower(attributes)
-        
+
         if attr_kind == "undenh":
             attrs = count_back_semesters(attrs)
             key = ":".join((attrs[x] for x in
@@ -432,11 +413,9 @@ class FSAttributeHandler(object):
             key = attributes["studieprogramkode"]
         else:
             assert False, "NOTREACHED"
-            
+
         return key
     # end _attributes2exportable_key
-
-
 
     def attributes2key(self, group_kind, attributes):
         """Construct a Cerebrum group_name/CF group id, given a bunch of
@@ -472,7 +451,7 @@ class FSAttributeHandler(object):
 
         # easiest way to copy, since we modify these destructively
         attrs = lower(attributes)
-        
+
         if group_kind not in self.group_kind2required_keys:
             logger.warn("Don't know how to process attributes "
                         "belonging to '%s' (%s)",
@@ -494,8 +473,6 @@ class FSAttributeHandler(object):
         result_id = result_id % attrs
         return result_id
     # attributes2key
-
-
 
     def register_description(self, group_key, attrs):
         """Register group description associated with group_key.
@@ -558,8 +535,6 @@ class FSAttributeHandler(object):
             self._group_name2description[group_key] = (group_type, attrs)
     # end register_description
 
-
-
     def _calculate_description(self, group_kind, attrs):
         """Calculate group name from attrs"""
 
@@ -572,8 +547,6 @@ class FSAttributeHandler(object):
         return description
     # end _calculate_description
 
-
-
     def get_description(self, group_name):
         if group_name not in self._group_name2description:
             assert False, "No description for group_key %" % group_name
@@ -582,12 +555,10 @@ class FSAttributeHandler(object):
         return self._calculate_description(group_type, attrs)
     # end get_description
 
-
-
     def group_name2ou_id(self, group_name):
         """Figure out which department (avdeling) a group should be associated
         with.
-        
+
         All hiof's Fronter-groups are associated with a department (it's part of
         their name, in fact).
         """
@@ -599,8 +570,6 @@ class FSAttributeHandler(object):
         ou = Factory.get("OU")(self._db)
         return ou.find_stedkode(fak, inst, avd, cereconf.DEFAULT_INSTITUSJONSNR)
     # end group_name2ou_id
-
-
 
     def fixup_attributes(self, attributes):
         """Convert attributes to standard form and amend with extra keys.
@@ -615,14 +584,12 @@ class FSAttributeHandler(object):
         return attrs
     # end fixup_attributes
 
-    
-
     def _extend_attributes(self, attrs):
         """Extend L{attributes} to include some generic values.
-    
+
         All of the groups generated from attributes must have 'avdeling' and
         'institusjonsnr' keys. This function makes sure it is the case.
-    
+
         @type attrs: dict (of basestring to whatever)
         @param attrs:
           Dictionary with values generated from elements in an XML file. These are
@@ -632,7 +599,6 @@ class FSAttributeHandler(object):
           Modified L{attributes} with a few additional keys. attributes is
           modified in place (and returned as welle.)
         """
-    
         # If there is a studieprogram key, we amend attrs with the faculty
         # (avdeling) with which this stprog is associated.
         if "studieprogramkode" in attrs:
@@ -658,18 +624,16 @@ class FSAttributeHandler(object):
             else:
                 logger.debug("Emnekode %s is missing a human name")
                 attrs["emnenavn"] = ""
-    
+
         # Everything gets institusjonsnr, since it's needed for all keys.
         attrs["institusjonsnr"] = cereconf.DEFAULT_INSTITUSJONSNR
-    
+
         return attrs
     # end _extend_attributes
 
-
-
     def _stprog2avdeling(self, stprog_file):
         """Create a dictionary mapping stprog to avdeling (department).
-        
+
         fs.studieprogram.faknr_studieansv is the value we want.
         """
 
@@ -683,8 +647,6 @@ class FSAttributeHandler(object):
                      len(result), stprog_file)
         return result
     # end _stprog2avdeling
-
-
 
     def _emne2avdeling(self, emne_file):
         """Create a dictionary mapping emnekode to avdeling (department).
@@ -706,8 +668,6 @@ class FSAttributeHandler(object):
 # end FSAttributeHandler
 
 
-
-
 def collect_roles(role_file, fs_handler):
     """Read role data and build a suitable data structure.
 
@@ -721,7 +681,7 @@ def collect_roles(role_file, fs_handler):
 
     logger.debug("Extracting roles from %s", role_file)
     role_parser = access_FS.roles_xml_parser
-    
+
     result = dict()
 
     def slurp_role(element_name, attributes):
@@ -781,7 +741,6 @@ def collect_roles(role_file, fs_handler):
 # end collect_roles
 
 
-
 def collect_student_info(edu_info_file, fs_handler):
     """Read student data and build a suitable data structure.
 
@@ -790,7 +749,7 @@ def collect_student_info(edu_info_file, fs_handler):
     """
 
     result = dict()
-    
+
     # FIXME: it's silly to iterate the same file multiple times
     #
     for (xml_tag, edu_info_type) in (("undenh", "student-undenh"),
@@ -813,7 +772,7 @@ def collect_student_info(edu_info_file, fs_handler):
                 logger.warn("Failed to create group key for entry=%s/attrs=%s",
                             xml_tag, attrs)
                 continue
-            
+
             if not fs_handler.edu_entry_is_exportable(xml_tag, attrs):
                 logger.debug("Ignoring %s/attrs=%s (not exportable to LMS)",
                              xml_tag, attrs)
@@ -831,13 +790,12 @@ def collect_student_info(edu_info_file, fs_handler):
 # end collect_student_info
 
 
-
 def person_id2account_id(db):
     """Build a dict mapping person_id to primary account_id."""
 
     account = Factory.get("Account")(db)
     result = dict()
-    
+
     logger.debug("Loading all person_id -> primary account_id")
     for row in account.list_accounts_by_type(primary_only=True):
         person_id = row["person_id"]
@@ -850,7 +808,6 @@ def person_id2account_id(db):
 # end person_id2account_id
 
 
-
 def fnr2person_id(db):
     """Build a dict mapping fnrs to person_ids in Cerebrum.
     """
@@ -858,7 +815,7 @@ def fnr2person_id(db):
     person = Factory.get("Person")(db)
     const = Factory.get("Constants")()
     result = dict()
-    
+
     logger.debug("Loading all fnr -> person_id")
     for row in person.list_external_ids(id_type=const.externalid_fodselsnr):
         person_id = row["entity_id"]
@@ -868,7 +825,6 @@ def fnr2person_id(db):
     logger.debug("%d fnr -> person_id mappings", len(result))
     return result
 # end fnr2person_id
-    
 
 
 def fnr2account_id(db):
@@ -893,7 +849,6 @@ def fnr2account_id(db):
     logger.debug("%d fnr -> primary account_id mappings", len(result))
     return result
 # end fnr2account_id
-        
 
 
 def remap_fnr_to_account_id(db, *groups_from_fs):
@@ -939,7 +894,6 @@ def remap_fnr_to_account_id(db, *groups_from_fs):
 # end remap_fnr_to_account_id
 
 
-
 def create_fs_groups(db, fs_handler, fs_groups):
     """Make sure that all groups listed in fs_groups exist in Cerebrum.
 
@@ -968,7 +922,7 @@ def create_fs_groups(db, fs_handler, fs_groups):
                              group.description, description)
                 group.description = description
                 group.write_db()
-                
+
             logger.debug("Found old CF group id=%s/name=%s, description=%s",
                          group.entity_id, group.group_name, group.description)
         except Errors.NotFoundError:
@@ -988,7 +942,6 @@ def create_fs_groups(db, fs_handler, fs_groups):
         group.populate_trait(const.trait_cf_group)
         group.write_db()
 # end create_fs_groups
-
 
 
 def collect_existing_cf_groups(db):
@@ -1019,7 +972,6 @@ def collect_existing_cf_groups(db):
 # end collect_existing_cf_groups
 
 
-
 def synchronize_groups(db, fs_groups):
     """Synchronise the FS group picture with Cerebrum.
 
@@ -1034,7 +986,6 @@ def synchronize_groups(db, fs_groups):
     # Good to go.
     sync_file_with_database(db, groups_in_cerebrum, fs_groups)
 # end build_groups
-
 
 
 def exempt_from_sync(group_name):
@@ -1058,7 +1009,6 @@ def exempt_from_sync(group_name):
 
     return False
 # end exempt_from_sync
-    
 
 
 def sync_file_with_database(db, groups_in_cerebrum, groups_in_fs):
@@ -1077,7 +1027,7 @@ def sync_file_with_database(db, groups_in_cerebrum, groups_in_fs):
     for group_name in groups_in_fs:
         if exempt_from_sync(group_name):
             continue
-        
+
         current_fs_set = groups_in_fs[group_name]
         current_cerebrum_set = groups_in_cerebrum.get(group_name, set())
 
@@ -1091,7 +1041,6 @@ def sync_file_with_database(db, groups_in_cerebrum, groups_in_fs):
         if not exempt_from_sync(group_name):
             nuke_cf_group(db, group_name)
 # end sync_file_with_database
-
 
 
 def sync_member_sets(db, group_name, cerebrum_set, fs_set):
@@ -1127,7 +1076,6 @@ def sync_member_sets(db, group_name, cerebrum_set, fs_set):
 # end sync_member_sets
 
 
-
 def nuke_cf_group(db, group_name):
     """Make sure that subsequent CF exports do not see this group.
 
@@ -1155,7 +1103,6 @@ def nuke_cf_group(db, group_name):
 # end nuke_cf_group
 
 
-
 def check_files_exist(*files):
     """Check that all files are readable by us"""
 
@@ -1164,7 +1111,6 @@ def check_files_exist(*files):
             logger.warn("%s is unreadable", filename)
             sys.exit(1)
 # end check_files_exist
-
 
 
 def main():
@@ -1233,7 +1179,5 @@ def main():
 # end main
 
 
-
 if __name__ == "__main__":
     main()
-    

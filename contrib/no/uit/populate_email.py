@@ -45,7 +45,8 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, simple_memoize
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.Email import EmailDomain, EmailAddress, EmailTarget
 from Cerebrum.modules.no.uit import Email
@@ -157,7 +158,7 @@ def get_sko(ou_id):
     ou.clear()
     ou.find(ou_id)
     return "%02d%02d%02d" % (ou.fakultet,ou.institutt,ou.avdeling)
-get_sko=simple_memoize(get_sko)
+get_sko=memoize(get_sko)
 
 
 

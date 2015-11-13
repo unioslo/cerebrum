@@ -55,23 +55,17 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import simple_memoize
-from Cerebrum.modules.no.hia.mod_sap_utils import load_expired_employees, load_invalid_employees
+from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.modules.no.hia.mod_sap_utils import load_expired_employees
+from Cerebrum.modules.no.hia.mod_sap_utils import load_invalid_employees
 from Cerebrum.modules.no.hia.mod_sap_utils import make_employment_iterator
 from Cerebrum.modules.no.Constants import SAPLonnsTittelKode
-from Cerebrum.modules.no import fodselsnr
-
-
-
 
 
 database = Factory.get("Database")()
 database.cl_init(change_program="import_SAP")
 constants = Factory.get("Constants")()
 logger = Factory.get_logger("cronjob")
-
-
-
 
 
 def sap_employment2affiliation(sap_lonnstittelkode):
@@ -108,8 +102,7 @@ def sap_employment2affiliation(sap_lonnstittelkode):
 # end sap_employment2affiliation
 
 
-
-@simple_memoize
+@memoize
 def get_ou_id(sap_ou_id):
     """Map SAP OU id to Cerebrum entity_id.
     """
@@ -121,7 +114,6 @@ def get_ou_id(sap_ou_id):
     except Errors.NotFoundError:
         return None
 # end get_ou_id
-
 
 
 def get_person(sap_person_id):
@@ -136,7 +128,6 @@ def get_person(sap_person_id):
     except Errors.NotFoundError:
         return None
 # end get_person_id
-
 
 
 def cache_db_affiliations():
@@ -171,7 +162,6 @@ def cache_db_affiliations():
 # end cache_db_affiliations
 
 
-
 def remove_affiliations(cache):
     "Remove all affiliations in cache from Cerebrum."
 
@@ -199,7 +189,6 @@ def remove_affiliations(cache):
                          constants.PersonAffiliation(affiliation),
                          ou_id, person_id)
 # end remove_affiliations
-
 
 
 def synchronise_affiliations(aff_cache, person, ou_id, affiliation, status):
@@ -256,7 +245,6 @@ def synchronise_affiliations(aff_cache, person, ou_id, affiliation, status):
                          str(constants.PersonAffStatus(cached_status)),
                          status, person.entity_id)
 # end synchronise_affiliations
-
 
 
 def process_affiliations(employment_file, person_file, use_fok,
@@ -328,7 +316,6 @@ def process_affiliations(employment_file, person_file, use_fok,
 # end process_affiliations
 
 
-
 def cache_db_employments():
     """Preload all existing employment data.
 
@@ -348,7 +335,6 @@ def cache_db_employments():
 # end cache_db_employments
 
 
-
 def remove_db_employments(remaining_employments):
     """Nuke whatever remains of employments.
 
@@ -366,7 +352,6 @@ def remove_db_employments(remaining_employments):
 
     logger.debug("Completed deletion")
 # end remove_db_employments
-
 
 
 def synchronise_employment(employment_cache, tpl, person, ou_id):
@@ -413,7 +398,6 @@ def synchronise_employment(employment_cache, tpl, person, ou_id):
 # end synchronise_employment
 
 
-
 def process_employments(employment_file, use_fok, people_to_ignore=None):
     "Synchronise the data in person_employment based on the latest SAP file."
 
@@ -445,7 +429,6 @@ def process_employments(employment_file, use_fok, people_to_ignore=None):
     remove_db_employments(employment_cache)
     logger.debug("done with employments")
 # end process_employments
-
 
 
 def main():
@@ -502,9 +485,5 @@ def main():
 # end main
 
 
-
-
-
 if __name__ == "__main__":
     main()
-
