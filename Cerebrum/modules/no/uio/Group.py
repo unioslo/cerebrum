@@ -42,12 +42,12 @@ class GroupUiOMixin(Group.Group):
                 pg.clear()
                 pg.find(self.entity_id)
             except Errors.NotFoundError:
-                raise self._db.IntegrityError, \
-                      "Can't add NIS-spread to non-posix group."
+                raise self._db.IntegrityError(
+                    "Can't add NIS-spread to non-POSIX group.")
             tmp = pg.illegal_name(pg.group_name)
             if tmp:
-                raise self._db.IntegrityError, \
-                      "Illegal name for filegroup, %s." % tmp
+                raise self._db.IntegrityError(
+                    "Illegal name for filegroup, {0}.".format(tmp))
         #
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)

@@ -8362,7 +8362,12 @@ Addresses and settings:
         if entity.has_spread(spread):
             raise CerebrumError("entity id=%s already has spread=%s" %
                                 (id, spread))
-        entity.add_spread(spread)
+        try:
+            entity.add_spread(spread)
+        except self.db.IntegrityError as e:
+            if str(e) == "Can't add NIS-spread to non-POSIX group.":
+                raise CerebrumError(str(e))
+            raise
         entity.write_db()
         if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
             self._spread_sync_group(entity)
