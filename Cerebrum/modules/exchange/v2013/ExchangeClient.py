@@ -491,8 +491,9 @@ class ExchangeClient(PowershellClient):
         """
         assert(isinstance(self.exchange_commands, dict) and
                'execute_on_new_mailbox' in self.exchange_commands)
-        cmd_template = Template(self.exchange_commands['execute_on_new_mailbox'])
-        cmd = cmd_template.safe_substitute(uname=self._escape_to_string(uname))
+        cmd_template = Template(
+            self.exchange_commands['execute_on_new_mailbox'])
+        cmd = cmd_template.safe_substitute(uname=self.escape_to_string(uname))
         out = self.run(cmd)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
@@ -661,8 +662,9 @@ class ExchangeClient(PowershellClient):
         """
         assert(isinstance(self.exchange_commands, dict) and
                'execute_on_remove_mailbox' in self.exchange_commands)
-        cmd_template = Template(self.exchange_commands['execute_on_remove_mailbox'])
-        cmd = cmd_template.safe_substitute(uname=self._escape_to_string(uname))
+        cmd_template = Template(
+            self.exchange_commands['execute_on_remove_mailbox'])
+        cmd = cmd_template.safe_substitute(uname=self.escape_to_string(uname))
         out = self.run(cmd)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
@@ -730,10 +732,11 @@ class ExchangeClient(PowershellClient):
         :raises ExchangeException: If the command fails to run."""
         assert(isinstance(self.exchange_commands, dict) and
                'execute_on_set_spam_settings' in self.exchange_commands)
-        cmd_template = Template(self.exchange_commands['execute_on_set_spam_settings'])
-        args = {'uname': self._escape_to_string(uname),
-                'level': self._escape_to_string(level),
-                'action': self._escape_to_string(action)}
+        cmd_template = Template(
+            self.exchange_commands['execute_on_set_spam_settings'])
+        args = {'uname': self.escape_to_string(uname),
+                'level': self.escape_to_string(level),
+                'action': self.escape_to_string(action)}
         cmd = cmd_template.safe_substitute(args)
         out = self.run(cmd)
         if 'stderr' in out:
