@@ -493,7 +493,8 @@ class ExchangeClient(PowershellClient):
                'execute_on_new_mailbox' in self.exchange_commands)
         cmd_template = Template(
             self.exchange_commands['execute_on_new_mailbox'])
-        cmd = cmd_template.safe_substitute(uname=self.escape_to_string(uname))
+        cmd = self._generate_exchange_command(
+            cmd_template.safe_substitute(uname=self.escape_to_string(uname)))
         out = self.run(cmd)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
@@ -664,7 +665,8 @@ class ExchangeClient(PowershellClient):
                'execute_on_remove_mailbox' in self.exchange_commands)
         cmd_template = Template(
             self.exchange_commands['execute_on_remove_mailbox'])
-        cmd = cmd_template.safe_substitute(uname=self.escape_to_string(uname))
+        cmd = self._generate_exchange_command(
+            cmd_template.safe_substitute(uname=self.escape_to_string(uname)))
         out = self.run(cmd)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
@@ -737,7 +739,8 @@ class ExchangeClient(PowershellClient):
         args = {'uname': self.escape_to_string(uname),
                 'level': self.escape_to_string(level),
                 'action': self.escape_to_string(action)}
-        cmd = cmd_template.safe_substitute(args)
+        cmd = self._generate_exchange_command(
+            cmd_template.safe_substitute(args))
         out = self.run(cmd)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
