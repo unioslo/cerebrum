@@ -48,8 +48,10 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, \
-     AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
+from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
+                                         AuthConstants,
+                                         BofhdAuthOpTarget,
+                                         BofhdAuthRole)
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
@@ -8364,10 +8366,8 @@ Addresses and settings:
                                 (id, spread))
         try:
             entity.add_spread(spread)
-        except self.db.IntegrityError as e:
-            if str(e) == "Can't add NIS-spread to non-POSIX group.":
-                raise CerebrumError(str(e))
-            raise
+        except Errors.RequiresPosixError as e:
+            raise CerebrumError(str(e))
         entity.write_db()
         if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
             self._spread_sync_group(entity)

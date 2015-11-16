@@ -42,7 +42,7 @@ class GroupUiOMixin(Group.Group):
                 pg.clear()
                 pg.find(self.entity_id)
             except Errors.NotFoundError:
-                raise self._db.IntegrityError(
+                raise Errors.RequiresPosixError(
                     "Can't add NIS-spread to non-POSIX group.")
             tmp = pg.illegal_name(pg.group_name)
             if tmp:
