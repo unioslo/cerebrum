@@ -1572,7 +1572,7 @@ class UiOBetaling(access_FS.FSObject):
                                    'year2': self.year})
 
 
-@fsobject('undervisning')
+@fsobject('undervisning', '<7.8')
 class UiOUndervisning(access_FS.Undervisning):
 
     def list_undervisningenheter(self, year=None, sem=None):
@@ -1728,7 +1728,11 @@ class UiOUndervisning(access_FS.Undervisning):
             row["terminnr"] = int(row["terminnr"])
 
         return result
-    # end list_studenter_underv_enhet
+
+
+@fsobject('undervisning', '>=7.8')
+class UiOUndervisning78(UiOUndervisning, access_FS.Undervisning78):
+    pass
 
 
 @fsobject('evu', '<7.8')
@@ -1966,7 +1970,7 @@ class FS(access_FS.FS):
         return ''
 
 
-@fsobject('person')
+@fsobject('person', '<7.8')
 class UiOPerson(access_FS.Person):
 
     def set_ansattnr(self, fnr, pnr, asn):
@@ -2020,7 +2024,11 @@ class UiOPerson(access_FS.Person):
         WHERE fodselsdato = :fodselsdato AND personnr = :personnr
         AND NOT status_ekstern = 'J'
         """ % ", ".join(names_to_set), binds)
-    # end update_fagperson
+
+
+@fsobject('person', '>=7.8')
+class UiOPerson78(UiOPerson, access_FS.Person78):
+    pass
 
 
 class FSvpd(FS):
