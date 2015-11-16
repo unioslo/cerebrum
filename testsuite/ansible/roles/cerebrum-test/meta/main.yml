@@ -1,0 +1,5 @@
+dependencies:
+    - role: postgres
+      pg_sameuser: yes
+      pg_username: "{{ crb_db_user }}"
+      pg_userdb: "{{ crb_db_name }}"

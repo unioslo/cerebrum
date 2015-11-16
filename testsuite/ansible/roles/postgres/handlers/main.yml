@@ -1,0 +1,14 @@
+# Handlers for the crbtest role.
+#
+# These are 'tasks' that will run after all the tasks are completed.
+# They will only run once, even if they are called multiple times.
+#
+
+#
+# Postgres handlers
+#
+- name: restart postgresql
+  service:
+      name: postgresql
+      state: restarted
+  sudo: yes

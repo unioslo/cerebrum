@@ -24,18 +24,15 @@ installed:
 The host that executes the actual modules, requires the following packages:
 
 - python
-- python-simplejson (if running on a python version without a built-in json
-  module)
-- python-psycopg2 (for the ansible postgresql modules)
-- yum-utils (for the ansible yum module)
+- yum-utils
 
-TODO: Create test user. Should ansible do this?
+All other dependencies should be installed by the roles that depends on them.
+
 
 ## Ansible extensions
 
-This folder contains some custom modules and plugins.
-
-TODO: Document better?
+The Cerebrum ansible playbooks depends on some custom modules and plugins, which
+are defined within this folder.
 
 ### Modules
 
@@ -63,6 +60,13 @@ TODO: Not sure if makedb will work remotely?
 
 This folder contains multiple roles.
 
+### `postgres`
+
+Sets up a host as postgres db host.
+
+TODO: Better setup – allow the host to run on a different host than the
+cerebrum-host?
+
 ### `cerebrum-test`
 
 Sets up a test host, test environment and runs tests.
@@ -82,39 +86,17 @@ TODO: Is this the right way to separate host groups?
   with ident authentication.
 
 - env
-  
+
   Sets up a test environment with python-virtualenv, installs
   test utils, Cerebrum-dependencies and installs and configures Cerebrum.
 
 - test
 
-  Runs nosetests.
+  Runs tests.
 
 #### Interesting variables
 
-TODO: Some improvements could probably be done here.
-      Could we use var-files?
-
-- `system_users` (tags: host)
-
-  List of users to grant ident authentication for.
-
-- `virtualenv` (tags: env, test)
-
-   Absolute path to a location to a virtualenv. Will be created, if it doesn't
-   already exist.
-
-- `crb_src_dir` (tags: env, test)
-
-  An absolute path to where the cerebrum source files can be found.
-
-- `crb_db_user` (tags: host, env)
-
-  Name of the database user to use for a given Cerebrum environment.
-
-- `crb_db_name` (tags: env)
-
-  Name of the database to use for a given Cerebrum environment.
+See the documentation in `vars/main.yml` of each role.
 
 - `config` (tags: host, env, test)
 
@@ -123,24 +105,6 @@ TODO: Some improvements could probably be done here.
 
   Whenever we use the `with_file_overload` lookup plugin, we'll look for
   alternate files in a sub-folder with this name.
-
-- `gnupg_home_dir` (tags: env, test)
-
-   Absolute path to the location of the GNUPGHOME. Will be created, if it doesn't
-   already exist.
-
-- `pip_offine` (tags: env)
-
-  Install PIP packages from a local folder (on the remote host). Absolute path,
-  must start with 'file://', and contain all packages to be installed. Useful if
-  the remote host is unable to reach `pypi.python.org`.
-
-  TODO: Prepend 'file://', automatically, if missing.
-
-- `pip_cache` (tags: env)
-
-  Cache downloaded packages from `pypi.python.org`, for faster recurring env
-  setups.
 
 
 ## Creating a test configuration

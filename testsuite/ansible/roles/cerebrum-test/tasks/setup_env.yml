@@ -8,7 +8,7 @@
 #      virtualenv.
 #  - crb_db_name
 #      What database to use for the cerebrum test installation.
-#  - crb_db_use
+#  - crb_db_user
 #      What postgres-user to use for the crb_db_name.
 #  - crb_src_dir
 #      The source directory for cerebrum.
@@ -27,20 +27,13 @@
 #
 - name: Decide on PIP offline install
   when: pip_offline is defined
-  set_fact: _extra_args="--no-index --find-links={{ pip_offline }}"
+  set_fact:
+      _extra_args: "--no-index --find-links={{ pip_offline }}"
 
 - name: Decide on PIP download cache
-  when: pip_cache is defined and pip_extra_args is not defined
-  set_fact: _extra_args="--download-cache={{ pip_cache }}"
-
-- name: Move requirements file to host
-  copy: src={{ item }}
-        dest=/tmp/requirements_{{ virtualenv | replace('/', '_') }}.txt
-        backup=yes
-  with_file_overload:
-    - base: 'files'
-    - file: 'pip_requirements.txt'
-    - alt: '{{ config | default(None) }}'
+  when: pip_cache is defined and _extra_args is not defined
+  set_fact:
+      _extra_args: "--download-cache={{ pip_cache }}"
 
 # TODO: Should we here:
 #   - validate that pip_offline exists if defined?
@@ -48,9 +41,10 @@
 #   - validate that the mandatory arguments makes sense?
 
 - name: Set up test environment
-  pip: virtualenv="{{ virtualenv }}"
-       requirements=/tmp/requirements_{{ virtualenv | replace('/', '_') }}.txt
-       extra_args="{{ _extra_args|default(None) }}"
+  pip:
+      virtualenv: "{{ virtualenv }}"
+      requirements: "{{ crb_src_dir }}/requirements.txt"
+      extra_args: "{{ _extra_args|default(None) }}"
 
 #
 # Set up GnuPG environment
@@ -63,7 +57,7 @@
   when: gnupgtest is defined
   file: path={{ gnupg_home_dir }} state=directory mode=0700
 
-- name: Make a gpg key generation template 
+- name: Make a gpg key generation template
   when: gnupgtest is defined
   template: src={{ item }}
             dest={{ gnupg_home_dir }}/gpg_gen_key.tmpl
@@ -79,30 +73,6 @@
 - name: Create GnuPG2 keys
   when: gnupgtest is defined
   command: /usr/bin/gpg2 -q --homedir {{ gnupg_home_dir }} -K removes=/usr/bin/gpg2
-
-#
-# Drop database
-#
-#- name: Check database schema difference
-  # TODO: How do we do this?!!
-  #shell: diff {{ item }} {{ virtualenv }}/share/cerebrum/design/$( basename {{ item }} )
-  #register: crb_db_diff_result
-  #failed_when: False
-  #changed_when: "crb_db_diff_result.rc != 0"
-  #with_fileglob:
-   #- "{{ crb_src_dir }}/design/*.sql"
-  #changed_when: True
-  #register: _db_drop
-  #
-  # TODO/TBD: makedb should work more like `doctrine' - we should be able to
-  # just fetch the SQL that would be executed, so that we could test the
-  # db-difference.
-
-- name: Drop Cerebrum database
-  when: _db_drop is not defined or _db_drop|changed
-  postgresql_db: name={{ crb_db_name }}
-                 login_user={{ crb_db_user }}
-                 state=absent
 
 #
 # Install cerebrum
@@ -154,17 +124,6 @@
     - base: 'templates'
     - file: 'passwd.j2'
     - alt: '{{ config | default(None) }}'
-
-#
-# Create and build database
-#
-- name: Create Cerebrum database
-  postgresql_db: name={{ crb_db_name }}
-                 login_user={{ crb_db_user }}
-                 owner={{ crb_db_user }}
-                 state=present
-  register: _db_created
-
 
 - name: Move extra files to host
   copy: src={{ item }}

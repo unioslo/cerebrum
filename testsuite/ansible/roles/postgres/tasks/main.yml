@@ -1,0 +1,20 @@
+- name: postgres role config variables
+  when: debug is defined
+  debug: var={{ item }}
+  with_items:
+    - pg_confdir
+    - pg_mapname
+    - pg_sameuser
+    - pg_username
+    - pg_userdb
+    - pg_usermap
+  tags:
+    - always
+
+- include: setup_postgres.yml
+  tags:
+    - host
+
+- include: setup_database.yml
+  tags:
+    - env

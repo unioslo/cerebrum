@@ -1,27 +1,12 @@
 # Set up host as a Cerebrum test machine.
-# 
+#
 # We'll install the neccessary packages, set up postgres users and start the
 # postgres service.
 #
 # Note: For any of these tasks to do changes, you'll need to run the playbook
-# with: 
+# with:
 #
-#   ansible-playbook <file> --sudo --ask-sudo-pass
-#
-#
-# Required vars:
-#
-#   crb_db_user: string
-#     Username for the postgres user that should be created.
-#
-#   system_users: list of strings
-#     A list of system users that can login as {{ crb_db_user }} using ident
-#     authentication.
-#
-#
-# TODO: Should we tag some of these tasks? We won't always need everything...
-#       E.g. php unit tests doesn't require a postgres-database, unless we do
-#       integration tests.
+#   ansible-playbook <file> --ask-sudo-pass
 
 #
 # Install missing packages with yum.
@@ -31,15 +16,6 @@
   with_items:
     - python-devel       # For building packages
     - python-virtualenv  # Test environments
-    - python-psycopg2    # For the ansible postgresql modules
-  sudo: yes
-
-- name: Install postgres packages
-  action: yum state=present name={{ item }}
-  with_items:
-    - postgresql         # Some useful utils
-    - postgresql-server  # For obvious reasons...
-    - postgresql-devel   # To build psycopg with virtualenv/pip
   sudo: yes
 
 - name: Install PHP packages
@@ -70,47 +46,3 @@
    - gpgme
    - gpgme-devel
   sudo: yes
-
-#
-# Postgres setup
-#
-- name: Initialize the postgres database
-  command: postgresql-setup initdb
-           creates=/var/lib/pgsql/data/postgresql.conf
-  sudo: yes
-
-- name: Start postgresql service
-  service: name=postgresql state=started
-  sudo: yes
-
-- name: Create postgres test user
-  postgresql_user: name={{ crb_db_user }}
-                   role_attr_flags=CREATEDB,NOCREATEROLE,NOSUPERUSER
-  sudo: yes
-  sudo_user: postgres
-
-# TODO: Should we allow overload for db configs?
-- name: Place postgres auth config
-  template: src=pg_hba.j2
-            dest=/var/lib/pgsql/data/pg_hba.conf
-            backup=yes
-            owner=postgres
-            group=postgres
-            mode=0700
-  sudo: yes
-  notify:
-    - Restart postgresql service
-
-- name: Place postgres ident config
-  template: src=pg_ident.j2
-            dest=/var/lib/pgsql/data/pg_ident.conf
-            backup=yes
-            owner=postgres
-            group=postgres
-            mode=0700
-  sudo: yes
-  notify:
-    - Restart postgresql service
-
-# We need to make sure postgres is restarted before we proceed.
-- meta: flush_handlers

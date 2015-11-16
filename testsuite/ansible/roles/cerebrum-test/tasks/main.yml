@@ -1,18 +1,5 @@
 # This is the main file for setting up a remote host
 #
-
-- set_fact: virtualenv=/tmp/virtualenvs/{{ config | default('default')  }}
-  tags:
-    - always
-  
-- set_fact: crb_db_name="testdb_{{ config | default('default') }}"
-  tags:
-    - always
-
-- set_fact: gnupg_home_dir=/tmp/gnupghome_{{ config | default('default') }}/.gnupg
-  tags:
-    - always
-
 - debug: var=config
   tags:
     - debug
@@ -49,11 +36,3 @@
   tags:
     - test
     - nose
-
-# Some testing. Could we do a conditional import of variables, and import good
-# default values from ../vars/<config>.yml?
-#- include: test.yml
-  #vars_files:
-    #- "../vars/common.yml"
-    #- "../vars/test.yml"
-    #- "../vars/doesntexist.yml"
