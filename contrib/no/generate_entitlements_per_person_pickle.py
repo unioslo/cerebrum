@@ -69,7 +69,7 @@ def map_entitlements_to_persons(groups_entitlement):
     the groups with 'entitlement' trait, determines which persons accounts
     belong to and composes a dictionary of entitlements per person.
     """
-    mapped_entitlements = defaultdict(set)
+    mapped_entitlements = defaultdict(list)
     primary_accounts_dict = {}
     for account in ac.list_accounts_by_type(primary_only=True):
         primary_accounts_dict[account['account_id']] = account['person_id']
@@ -83,7 +83,9 @@ def map_entitlements_to_persons(groups_entitlement):
                 continue
             # There is only one primary account per person
             person_id = primary_accounts_dict[member['member_id']]
-            mapped_entitlements[person_id].add(group_entitlement)
+            if (person_id not in mapped_entitlements) or (group_entitlement
+                    not in mapped_entitlements[person_id]):
+                mapped_entitlements[person_id].append(group_entitlement)
     return mapped_entitlements
 
 
