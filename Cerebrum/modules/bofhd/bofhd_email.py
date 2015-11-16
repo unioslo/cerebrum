@@ -31,6 +31,7 @@ import cerebrum_path
 
 import re
 from mx import DateTime
+from flanker.addresslib import address as email_validator
 
 from Cerebrum.modules import Email
 from Cerebrum import Errors
@@ -254,6 +255,9 @@ class BofhdEmailMixinBase(BofhdCommandBase):
                 domain must have at least one '.'
             - Any string where a substring wrapped in <> brackets matches the
               above rule.
+            - Valid examples: jdoe@example.com
+                              <jdoe>@<example.com>
+                              Jane Doe <jdoe@example.com>
 
         NOTE: Raises CerebrumError if address is invalid
 
@@ -261,12 +265,6 @@ class BofhdEmailMixinBase(BofhdCommandBase):
         @return: address.strip()
 
         """
-        # To stop some typoes, we require that the address consists of
-        # a local part and a domain, and the domain must contain at
-        # least one period.  We also remove leading and trailing
-        # whitespace.  We do an unanchored search as well so that an
-        # address in angle brackets is accepted, e.g. either of
-        # "jdoe@example.com" or "Jane Doe <jdoe@example.com>" is OK.
         address = address.strip()
         if address == 'local':
             return address
@@ -274,10 +272,23 @@ class BofhdEmailMixinBase(BofhdCommandBase):
             raise CerebrumError(
                 "E-mail addresses must include the domain name")
 
-        # TODO: Should probably extract address in <> brackets
-        if not (re.match(r'[^@\s]+@[^@\s.]+\.[^@\s]+$', address) or
-                re.search(r'<[^@>\s]+@[^@>\s.]+\.[^@>\s]+>$', address)):
-            raise CerebrumError("Invalid e-mail address (%s)" % address)
+        error_msg = ("Invalid e-mail address: %s\n"
+                     "Valid input:\n"
+                     "jdoe@example.com\n"
+                     "<jdoe>@<example.com>\n"
+                     "Jane Doe <jdoe@example.com>" % address)
+        # Check if we either have a string consisting only of an address,
+        # or if we have an bracketed address prefixed by a name. At last,
+        # verify that the email is RFC-compliant.
+        if not ((re.match(r'[^@\s]+@[^@\s.]+\.[^@\s]+$', address) or
+                re.search(r'<[^@>\s]+@[^@>\s.]+\.[^@>\s]+>$', address))):
+            raise CerebrumError(error_msg)
+
+        # Strip out angle brackets before running proper validation, as the
+        # flanker address parser gets upset if domain is wrapped in them.
+        val_adr = address.replace('<', '').replace('>', '')
+        if not email_validator.parse(val_adr):
+            raise CerebrumError(error_msg)
         return address
 
     def _forward_exists(self, fw, addr):
