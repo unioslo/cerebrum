@@ -1245,7 +1245,12 @@ class Student78(Student):
                '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
         FROM fs.studieprogramstudent sps, fs.studieprogram sp,
-             fs.person p, fs.student s, fs.persontelefon pt
+             fs.person p, fs.student s
+             LEFT JOIN fs.persontelefon pt ON
+              pt.fodselsdato = p.fodselsdato AND
+              pt.personnr = p.personnr AND
+              pt.telefonnrtypekode = 'MOBIL'
+
         WHERE p.fodselsdato = sps.fodselsdato AND
               p.personnr = sps.personnr AND
               p.fodselsdato = s.fodselsdato AND
@@ -1253,9 +1258,6 @@ class Student78(Student):
               NVL(sps.dato_studierett_gyldig_til, sysdate) >= SYSDATE AND
               sps.status_privatist='N' AND
               sps.studieprogramkode = sp.studieprogramkode AND
-              pt.fodselsdato = p.fodselsdato AND
-              pt.personnr = p.personnr AND
-              pt.telefonnrtypekode = 'MOBIL' AND
               %s AND
               sp.studienivakode in (900,980)""" % self._is_alive()
         return self.db.query(qry)
@@ -1278,15 +1280,15 @@ class Student78(Student):
           pt.telefonlandnr telefonlandnr_mobil,
           '' telefonretnnr_mobil,
           pt.telefonnr telefonnr_mobil
-        FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
-             fs.persontelefon pt
+        FROM fs.student s, fs.person p, fs.studieprogramstudent sps
+             LEFT JOIN fs.persontelefon pt ON
+             pt.fodselsdato = p.fodselsdato AND
+             pt.personnr = p.personnr AND
+             pt.telefonnrtypekode = 'MOBIL'
         WHERE p.fodselsdato = s.fodselsdato AND
           p.personnr = s.personnr AND
           p.fodselsdato = sps.fodselsdato AND
           p.personnr = sps.personnr AND
-          pt.fodselsdato = p.fodselsdato AND
-          pt.personnr = p.personnr AND
-          pt.telefonnrtypekode = 'MOBIL' AND
           (sps.studierettstatkode = 'PRIVATIST' OR
           sps.status_privatist = 'J') AND
           sps.dato_studierett_gyldig_til >= sysdate """
@@ -1643,19 +1645,21 @@ class Undervisning78(Undervisning):
               fp.gruppenr_ansatt AS gruppenr,
               fp.status_aktiv, p.status_reserv_lms AS status_publiseres,
               p.kjonn, p.status_dod
-        FROM fs.person p, fs.fagperson fp, fs.persontelefon ptw,
-             fs.persontelefon ptf, fs.persontelefon pth
-        WHERE fp.fodselsdato = p.fodselsdato AND
-              fp.personnr = p.personnr AND
+        FROM fs.person p, fs.fagperson fp
+             LEFT JOIN fs.persontelefon ptw ON
               ptw.fodselsdato = p.fodselsdato AND
               ptw.personnr = p.personnr AND
-              ptw.telefonnrtypekode = 'ARB' AND
+              ptw.telefonnrtypekode = 'ARB'
+             LEFT JOIN fs.persontelefon ptf ON
               ptf.fodselsdato = p.fodselsdato AND
               ptf.personnr = p.personnr AND
-              ptf.telefonnrtypekode = 'FAKS' AND
+              ptf.telefonnrtypekode = 'FAKS'
+             LEFT JOIN fs.persontelefon pth ON
               pth.fodselsdato = p.fodselsdato AND
               pth.personnr = p.personnr AND
-              pth.telefonnrtypekode = 'HJEM' AND
+              pth.telefonnrtypekode = 'HJEM'
+        WHERE fp.fodselsdato = p.fodselsdato AND
+              fp.personnr = p.personnr AND
               fp.status_aktiv = 'J' AND
               fp.institusjonsnr_ansatt IS NOT NULL AND
               fp.faknr_ansatt IS NOT NULL AND
@@ -1814,12 +1818,12 @@ class EVU78(EVU):
                e.instituttnr_adm_ansvar, e.gruppenr_adm_ansvar,
                p.kjonn, p.status_dod
         FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
-             fs.etterutdkurs e, fs.persontelefon pt
-        WHERE p.fodselsdato=d.fodselsdato AND
-              p.personnr=d.personnr AND
+             fs.etterutdkurs e LEFT JOIN fs.persontelefon pt ON
               pt.fodselsdato = p.fodselsdato AND
               pt.personnr = p.personnr AND
-              pt.telefonnrtypekode = 'MOBIL' AND
+              pt.telefonnrtypekode = 'MOBIL'
+        WHERE p.fodselsdato=d.fodselsdato AND
+              p.personnr=d.personnr AND
               d.deltakernr=k.deltakernr AND
               e.etterutdkurskode=k.etterutdkurskode AND
               NVL(e.status_nettbasert_und, 'J') = 'J' AND

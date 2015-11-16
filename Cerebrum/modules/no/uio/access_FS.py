@@ -773,14 +773,14 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            '' telefonretnnr_mobil,
            pt.telefonnr telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
-           fs.studieprogram sp, fs.persontelefon pt
+           fs.studieprogram sp LEFT JOIN fs.persontelefon pt ON
+           pt.fodselsdato = p.fodselsdato AND
+           pt.personnr = p.personnr AND
+           pt.telefonnrtypekode = 'MOBIL'
         WHERE  p.fodselsdato=s.fodselsdato AND
            p.personnr=s.personnr AND
            p.fodselsdato=sps.fodselsdato AND
            p.personnr=sps.personnr AND
-           pt.fodselsdato = p.fodselsdato AND
-           pt.personnr = p.personnr AND
-           pt.telefonnrtypekode = 'MOBIL' AND
            %s
            sps.studieprogramkode=sp.studieprogramkode AND
            NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= SYSDATE AND
@@ -814,14 +814,14 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
            pt.telefonnr telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
-           fs.studieprogram sp, fs.persontelefon pt
+           fs.studieprogram sp LEFT JOIN fs.persontelefon pt ON
+           pt.fodselsdato = p.fodselsdato AND
+           pt.personnr = p.personnr AND
+           pt.telefonnrtypekode = 'MOBIL'
         WHERE p.fodselsdato=s.fodselsdato AND
            p.personnr=s.personnr AND
            p.fodselsdato=sps.fodselsdato AND
            p.personnr=sps.personnr AND
-           pt.fodselsdato = p.fodselsdato AND
-           pt.personnr = p.personnr AND
-           pt.telefonnrtypekode = 'MOBIL' AND
            %s
            NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= SYSDATE AND
            sps.status_privatist='N' AND
@@ -853,16 +853,17 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
            pt.telefonnr telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
-           fs.registerkort r, fs.studieprogram sp, fs.persontelefon pt
+           fs.registerkort r, fs.studieprogram sp
+           LEFT JOIN fs.persontelefon pt ON
+           pt.fodselsdato = p.fodselsdato AND
+           pt.personnr = p.personnr AND
+           pt.telefonnrtypekode = 'MOBIL'
         WHERE  p.fodselsdato=s.fodselsdato AND
            p.personnr=s.personnr AND
            p.fodselsdato=sps.fodselsdato AND
            p.personnr=sps.personnr AND
            p.fodselsdato=r.fodselsdato AND
            p.personnr=r.personnr AND
-           pt.fodselsdato = p.fodselsdato AND
-           pt.personnr = p.personnr AND
-           pt.telefonnrtypekode = 'MOBIL' AND
            %s
            sps.studieprogramkode=sp.studieprogramkode AND
            NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= SYSDATE AND
@@ -1090,16 +1091,17 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
                pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
         FROM fs.person p, fs.student s, fs.registerkort r,
-              fs.undervisningsmelding u, fs.persontelefon pt
+              fs.undervisningsmelding u
+              LEFT JOIN fs.persontelefon pt ON
+              pt.fodselsdato = p.fodselsdato AND
+              pt.personnr = p.personnr AND
+              pt.telefonnrtypekode = 'MOBIL'
         WHERE p.fodselsdato=s.fodselsdato AND
               p.personnr=s.personnr AND
               p.fodselsdato=r.fodselsdato AND
               p.personnr=r.personnr AND
               p.fodselsdato = u.fodselsdato AND
               p.personnr = u.personnr AND
-              pt.fodselsdato = p.fodselsdato AND
-              pt.personnr = p.personnr AND
-              pt.telefonnrtypekode = 'MOBIL' AND
               %s AND
               r.status_reg_ok = 'J' AND
               r.status_bet_ok = 'J' AND
@@ -1140,16 +1142,16 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
                pt.telefonnr telefonnr_mobil
         FROM fs.student s, fs. person p, fs.registerkort r,
              fs.vurdkombmelding vm, fs.vurderingskombinasjon vk,
-             fs.vurdkombenhet ve, fs.persontelefon pt
+             fs.vurdkombenhet ve LEFT JOIN fs.persontelefon pt ON
+             pt.fodselsdato = p.fodselsdato AND
+             pt.personnr = p.personnr AND
+             pt.telefonnrtypekode = 'MOBIL'
         WHERE p.fodselsdato=s.fodselsdato AND
               p.personnr=s.personnr AND
               p.fodselsdato=r.fodselsdato AND
               p.personnr=r.personnr AND
               p.fodselsdato=vm.fodselsdato AND
               p.personnr=vm.personnr AND
-              pt.fodselsdato = p.fodselsdato AND
-              pt.personnr = p.personnr AND
-              pt.telefonnrtypekode = 'MOBIL' AND
               vk.institusjonsnr = vm.institusjonsnr AND
               vk.emnekode = vm.emnekode AND
               vk.versjonskode = vm.versjonskode AND
@@ -1211,15 +1213,15 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
                sps.arstall_kull, p.kjonn, p.status_dod, s.studentnr_tildelt,
                pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
-        FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
-             fs.persontelefon pt
+        FROM fs.student s, fs.person p, fs.studieprogramstudent sps
+             LEFT JOIN fs.persontelefon pt ON
+             pt.fodselsdato = p.fodselsdato AND
+             pt.personnr = p.personnr AND
+             pt.telefonnrtypekode = 'MOBIL'
         WHERE  p.fodselsdato=s.fodselsdato AND
                p.personnr=s.personnr AND
                p.fodselsdato=sps.fodselsdato AND
                p.personnr=sps.personnr AND
-               pt.fodselsdato = p.fodselsdato AND
-               pt.personnr = p.personnr AND
-               pt.telefonnrtypekode = 'MOBIL' AND
                %s
                NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
                sps.status_privatist = 'J' AND
@@ -1242,16 +1244,17 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
                pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
-             fs.registerkort r, fs.persontelefon pt
+             fs.registerkort r
+             LEFT JOIN fs.persontelefon pt ON
+             pt.fodselsdato = p.fodselsdato AND
+             pt.personnr = p.personnr AND
+             pt.telefonnrtypekode = 'MOBIL'
         WHERE  p.fodselsdato=s.fodselsdato AND
                p.personnr=s.personnr AND
                p.fodselsdato=sps.fodselsdato AND
                p.personnr=sps.personnr AND
                p.fodselsdato=r.fodselsdato AND
                p.personnr=r.personnr AND
-               pt.fodselsdato = p.fodselsdato AND
-               pt.personnr = p.personnr AND
-               pt.telefonnrtypekode = 'MOBIL' AND
                %s
                NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
                sps.status_privatist = 'J' AND
@@ -1413,13 +1416,13 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
             '' telefonretnnr_mobil, pt.telefonnr telefonnr_mobil
             */
         FROM
-            fs.student s, fs.person p, fs.persontelefon
+            fs.student s, fs.person p LEFT JOIN fs.persontelefon ON
+            pt.fodselsdato = p.fodselsdato AND
+            pt.personnr = p.personnr AND
+            pt.telefonnrtypekode = 'MOBIL'
         WHERE
             s.fodselsdato = p.fodselsdato AND
             s.personnr = p.personnr
-            pt.fodselsdato = p.fodselsdato AND
-            pt.personnr = p.personnr AND
-            pt.telefonnrtypekode = 'MOBIL' AND
             %s
         """ % extra
         return self.db.query(qry, {'last_updated': last_updated})
@@ -1871,12 +1874,12 @@ class UiOEVU78(UiOEVU, access_FS.EVU78):
                pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
         FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
-             fs.etterutdkurs e, fs.persontelefon pt
+             fs.etterutdkurs e LEFT JOIN fs.persontelefon pt ON
+             pt.fodselsdato = p.fodselsdato AND
+             pt.personnr = p.personnr AND
+             pt.telefonnrtypekode = 'MOBIL'
         WHERE p.fodselsdato=d.fodselsdato AND
               p.personnr=d.personnr AND
-              pt.fodselsdato = p.fodselsdato AND
-              pt.personnr = p.personnr AND
-              pt.telefonnrtypekode = 'MOBIL' AND
               d.deltakernr=k.deltakernr AND
               e.etterutdkurskode=k.etterutdkurskode AND
               NVL(e.status_kontotildeling,'J')='J' AND
