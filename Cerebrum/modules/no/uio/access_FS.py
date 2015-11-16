@@ -772,8 +772,8 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            pt.telefonlandnr telefonlandnr_mobil,
            '' telefonretnnr_mobil,
            pt.telefonnr telefonnr_mobil
-        FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
-           fs.studieprogram sp LEFT JOIN fs.persontelefon pt ON
+        FROM fs.student s, fs.studieprogram sp, fs.studieprogramstudent sps,
+           fs.person p LEFT JOIN fs.persontelefon pt ON
            pt.fodselsdato = p.fodselsdato AND
            pt.personnr = p.personnr AND
            pt.telefonnrtypekode = 'MOBIL'
@@ -813,8 +813,8 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            s.studentnr_tildelt,
            pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
            pt.telefonnr telefonnr_mobil
-        FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
-           fs.studieprogram sp LEFT JOIN fs.persontelefon pt ON
+        FROM fs.student s, fs.studieprogram sp, fs.studieprogramstudent sps,
+           fs.person p LEFT JOIN fs.persontelefon pt ON
            pt.fodselsdato = p.fodselsdato AND
            pt.personnr = p.personnr AND
            pt.telefonnrtypekode = 'MOBIL'
@@ -852,8 +852,8 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            s.studentnr_tildelt,
            pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
            pt.telefonnr telefonnr_mobil
-        FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
-           fs.registerkort r, fs.studieprogram sp
+        FROM fs.student s, fs.studieprogram sp, fs.studieprogramstudent sps,
+           fs.registerkort r, fs.person p
            LEFT JOIN fs.persontelefon pt ON
            pt.fodselsdato = p.fodselsdato AND
            pt.personnr = p.personnr AND
@@ -1090,8 +1090,8 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
                u.terminkode, u.arstall,
                pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
-        FROM fs.person p, fs.student s, fs.registerkort r,
-              fs.undervisningsmelding u
+        FROM fs.student s, fs.registerkort r,
+              fs.undervisningsmelding u, fs.person p
               LEFT JOIN fs.persontelefon pt ON
               pt.fodselsdato = p.fodselsdato AND
               pt.personnr = p.personnr AND
@@ -1140,9 +1140,9 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
                s.studentnr_tildelt,
                pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
-        FROM fs.student s, fs. person p, fs.registerkort r,
+        FROM fs.student s, fs.registerkort r,
              fs.vurdkombmelding vm, fs.vurderingskombinasjon vk,
-             fs.vurdkombenhet ve LEFT JOIN fs.persontelefon pt ON
+             fs.vurdkombenhet ve, fs. person p LEFT JOIN fs.persontelefon pt ON
              pt.fodselsdato = p.fodselsdato AND
              pt.personnr = p.personnr AND
              pt.telefonnrtypekode = 'MOBIL'
@@ -1213,7 +1213,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
                sps.arstall_kull, p.kjonn, p.status_dod, s.studentnr_tildelt,
                pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
-        FROM fs.student s, fs.person p, fs.studieprogramstudent sps
+        FROM fs.student s, fs.studieprogramstudent sps, fs.person p
              LEFT JOIN fs.persontelefon pt ON
              pt.fodselsdato = p.fodselsdato AND
              pt.personnr = p.personnr AND
@@ -1243,8 +1243,8 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
                sps.arstall_kull, p.kjonn, p.status_dod, s.studentnr_tildelt,
                pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
-        FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
-             fs.registerkort r
+        FROM fs.student s, fs.studieprogramstudent sps,
+             fs.registerkort r, fs.person p
              LEFT JOIN fs.persontelefon pt ON
              pt.fodselsdato = p.fodselsdato AND
              pt.personnr = p.personnr AND
@@ -1873,8 +1873,8 @@ class UiOEVU78(UiOEVU, access_FS.EVU78):
                p.kjonn, p.status_dod,
                pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
-        FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
-             fs.etterutdkurs e LEFT JOIN fs.persontelefon pt ON
+        FROM fs.deltaker d, fs.kursdeltakelse k,
+             fs.etterutdkurs e, fs.person p LEFT JOIN fs.persontelefon pt ON
              pt.fodselsdato = p.fodselsdato AND
              pt.personnr = p.personnr AND
              pt.telefonnrtypekode = 'MOBIL'

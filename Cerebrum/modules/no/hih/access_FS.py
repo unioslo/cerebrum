@@ -107,8 +107,8 @@ class HIHStudent78(HIHStudent, access_FS.Student78):
               sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
               sps.arstall_kull, p.kjonn, p.status_dod,
               pt.telefonnr telefonnr_mobil, s.studentnr_tildelt
-            FROM fs.studieprogramstudent sps, fs.person p,
-                 fs.student s LEFT JOIN fs.persontelefon pt ON
+            FROM fs.studieprogramstudent sps, fs.student s,
+                 fs.person p LEFT JOIN fs.persontelefon pt ON
                  pt.fodselsdato = p.fodselsdato AND
                  pt.personnr = p.personnr AND
                  pt.telefonnrtypekode = 'MOBILl

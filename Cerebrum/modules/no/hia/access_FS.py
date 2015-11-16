@@ -199,8 +199,8 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
           pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
           pt.telefonnr telefonnr_mobil,
           s.studentnr_tildelt
-        FROM fs.studieprogramstudent sps, fs.person p,
-             fs.student s
+        FROM fs.studieprogramstudent sps
+             fs.student s, fs.person p
              LEFT JOIN fs.persontelefon pt ON
              pt.fodselsdato = p.fodselsdato AND
              pt.personnr = p.personnr AND
@@ -232,9 +232,9 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
           s.adrlin1_kontakt, s.adrlin2_kontakt, s.postnr_kontakt,
           s.adrlin3_kontakt, s.adresseland_kontakt,
           sp.studieprogramkode
-        FROM fs.soknadsalternativ sa, fs.person p, fs.opptakstudieprogram osp,
-             fs.opptakstudieprogramtermin ost, fs.soknad s, fs.studieprogram sp
-             LEFT JOIN fs.persontelefon pt ON
+        FROM fs.soknadsalternativ sa, fs.opptakstudieprogram osp,
+             fs.opptakstudieprogramtermin ost, fs.soknad s, fs.studieprogram sp,
+             fs.person p LEFT JOIN fs.persontelefon pt ON
               pt.fodselsdato = p.fodselsdato AND
               pt.personnr = p.personnr AND
               pt.telefonnrtypekode = 'MOBIL'
@@ -279,8 +279,8 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
           pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
           pt.telefonnr telefonnr_mobil,
           s.studentnr_tildelt
-        FROM fs.kull k, fs.studieprogramstudent sps, fs.person p,
-             fs.student s
+        FROM fs.kull k, fs.studieprogramstudent sps, fs.student s,
+             fs.person p
              LEFT JOIN fs.persontelefon pt ON
              pt.fodselsdato = p.fodselsdato AND
              pt.personnr = p.personnr AND
@@ -309,7 +309,7 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
           pt.telefonnr telefonnr_mobil,
           s.studentnr_tildelt
         FROM fs.registerkort r, fs.studieprogramstudent sps,
-          fs.person p, fs.student s
+          fs.student s, fs.person p
           LEFT JOIN fs.persontelefon pt ON
           pt.fodselsdato = p.fodselsdato AND
           pt.personnr = p.personnr AND
@@ -498,8 +498,8 @@ class HiAEVU78(HiAEVU, access_FS.EVU78):
                e.gruppenr_adm_ansvar, p.kjonn, p.status_dod,
                pt.telefonlandnr telefonlandnr_mobil,
                '' telefonretnnr_mobil, p.telefonnr telefonnr_mobil
-        FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
-             fs.etterutdkurs e
+        FROM fs.deltaker d, fs.kursdeltakelse k,
+             fs.etterutdkurs e, fs.person p
              LEFT JOIN fs.persontelefon pt ON
               pt.fodselsdato = p.fodselsdato AND
               pt.personnr = p.personnr AND
