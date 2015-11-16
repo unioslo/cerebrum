@@ -49,6 +49,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import Database
@@ -855,9 +856,10 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
                    "faknr_ansatt": primary_sko[1],
                    "instituttnr_ansatt": primary_sko[2],
                    "gruppenr_ansatt": primary_sko[3],
-                   "telefonnr_arbeide": info_chunk.phone,
+                   # "telefonnr_arbeide": info_chunk.phone,
                    "stillingstittel_norsk": info_chunk.work_title,
-                   "telefonnr_fax_arb": info_chunk.fax,}
+                   # "telefonnr_fax_arb": info_chunk.fax
+                   }
     if not fs_info:
         logger.debug("Pushing new entry to FS.fagperson: %s pid=%s",
                      info_chunk, person_id)
@@ -885,8 +887,22 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
 
         logger.debug("Updating data for fagperson fnr=%s", info_chunk.fnr11)
         fs.person.update_fagperson(**values2push)
-# end export_fagperson
-
+    phone = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
+                                    fs_info['institusjonsnr_eier'], 'ARB')
+    if info_chunk.phone and not phone:
+        fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
+                                info_chunk.phone)
+    elif info_chunk.phone and phone[0]['telefonnr'] != info_chunk.phone:
+        fs.person.update_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
+                                   info_chunk.phone)
+    fax = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
+                                  fs_info['institusjonsnr_eier'], 'FAKS')
+    if info_chunk.fax and not fax:
+        fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'FAKS',
+                                info_chunk.fax)
+    elif info_chunk.fax and fax[0]['telefonnr'] != info_chunk.fax:
+        fs.person.update_telephone(info_chunk.fnr6, info_chunk.pnr, 'FAKS',
+                                   info_chunk.phone)
 
 
 def make_fs_updates(person_affiliations, fagperson_affiliations, fs,
@@ -909,7 +925,7 @@ def make_fs_updates(person_affiliations, fagperson_affiliations, fs,
       Sequence of affiliations, much like L{person_affiliations}. This one is
       used to populate FS.fagperson.
 
-    @type fs: Factory.get('FS') instance.
+    @type fs: make_fs() instance.
     @param fs:
       An FS db proxy.
 
@@ -1001,7 +1017,7 @@ def main():
                      "This is most likely not what you want")
         return
     
-    fs = Factory.get("FS")()
+    fs = make_fs()
     if dryrun:
         fs.db.commit = fs.db.rollback
 

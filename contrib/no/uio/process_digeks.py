@@ -71,6 +71,7 @@ import cereconf
 from Cerebrum.Utils import Factory, argument_to_sql
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, BofhdAuthRole
+from Cerebrum.modules.no.access_FS import make_fs
 
 from mx import DateTime
 
@@ -434,7 +435,7 @@ class Digeks(object):
         self.db = Factory.get('Database')()
         self.db.cl_init(change_program='proc-digeks')
         self.co = Factory.get('Constants')(self.db)
-        self.fs = Factory.get('FS')()
+        self.fs = make_fs()
 
         # TODO: Describe the structure here
         self.exams = set()
