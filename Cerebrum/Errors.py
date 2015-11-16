@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2002 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2002-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -74,7 +74,6 @@ class DocstringException(Exception):
 
 
 class PoliteException(SystemExit):
-
     """Exception used to exit with an error message but no traceback.
 
     The argument should be a complete explanation of the error, so no
@@ -84,12 +83,10 @@ class PoliteException(SystemExit):
 
 
 class CerebrumError(DocstringException):
-
     """Generic Cerebrum error"""
 
 
 class RealityError(CerebrumError):
-
     """This should never happen"""
     # example:
     # if 0:
@@ -97,12 +94,10 @@ class RealityError(CerebrumError):
 
 
 class UnreachableCodeError(RealityError):
-
     """Unreachable code"""
 
 
 class ProgrammingError(CerebrumError):
-
     """Programming error"""
     # example:
     # def function(arg1=None, arg2=None):
@@ -111,22 +106,18 @@ class ProgrammingError(CerebrumError):
 
 
 class DatabaseException(CerebrumError):
-
     """Database error"""
 
 
 class DatabaseConnectionError(DatabaseException, PoliteException):
-
     """Database connection error"""
 
 
 class NotFoundError(DatabaseException):
-
     """Could not find"""
 
 
 class TooManyRowsError(DatabaseException):
-
     """Too many rows"""
 
 
@@ -136,17 +127,14 @@ class NoEntityAssociationError(CerebrumError):
 
 
 class RequiresPosixError(CerebrumError):
-
     """Posix object required"""
 
 
 class NotImplementedAuthTypeError(NotImplementedError):
-
     """Auth type not implemented"""
 
 
 class PolicyException(CerebrumError):
-
     """This action violates a policy.
 
     The argument should be a complete explanation of
