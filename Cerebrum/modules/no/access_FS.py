@@ -1245,7 +1245,7 @@ class Student78(Student):
                '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
         FROM fs.studieprogramstudent sps, fs.studieprogram sp,
-             fs.person p, fs.student s
+             fs.student s, fs.person p
              LEFT JOIN fs.persontelefon pt ON
               pt.fodselsdato = p.fodselsdato AND
               pt.personnr = p.personnr AND
@@ -1280,7 +1280,7 @@ class Student78(Student):
           pt.telefonlandnr telefonlandnr_mobil,
           '' telefonretnnr_mobil,
           pt.telefonnr telefonnr_mobil
-        FROM fs.student s, fs.person p, fs.studieprogramstudent sps
+        FROM fs.student s, fs.studieprogramstudent sps, fs.person p
              LEFT JOIN fs.persontelefon pt ON
              pt.fodselsdato = p.fodselsdato AND
              pt.personnr = p.personnr AND
@@ -1645,19 +1645,19 @@ class Undervisning78(Undervisning):
               fp.gruppenr_ansatt AS gruppenr,
               fp.status_aktiv, p.status_reserv_lms AS status_publiseres,
               p.kjonn, p.status_dod
-        FROM fs.person p, fs.fagperson fp
+        FROM fs.fagperson fp, fs.person p
              LEFT JOIN fs.persontelefon ptw ON
-              ptw.fodselsdato = p.fodselsdato AND
-              ptw.personnr = p.personnr AND
-              ptw.telefonnrtypekode = 'ARB'
+              (ptw.fodselsdato = p.fodselsdato AND
+               ptw.personnr = p.personnr AND
+               ptw.telefonnrtypekode = 'ARB')
              LEFT JOIN fs.persontelefon ptf ON
-              ptf.fodselsdato = p.fodselsdato AND
-              ptf.personnr = p.personnr AND
-              ptf.telefonnrtypekode = 'FAKS'
+              (ptf.fodselsdato = p.fodselsdato AND
+               ptf.personnr = p.personnr AND
+               ptf.telefonnrtypekode = 'FAKS')
              LEFT JOIN fs.persontelefon pth ON
-              pth.fodselsdato = p.fodselsdato AND
-              pth.personnr = p.personnr AND
-              pth.telefonnrtypekode = 'HJEM'
+              (pth.fodselsdato = p.fodselsdato AND
+               pth.personnr = p.personnr AND
+               pth.telefonnrtypekode = 'HJEM')
         WHERE fp.fodselsdato = p.fodselsdato AND
               fp.personnr = p.personnr AND
               fp.status_aktiv = 'J' AND
@@ -1817,8 +1817,9 @@ class EVU78(EVU):
                e.studieprogramkode, e.faknr_adm_ansvar,
                e.instituttnr_adm_ansvar, e.gruppenr_adm_ansvar,
                p.kjonn, p.status_dod
-        FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
-             fs.etterutdkurs e LEFT JOIN fs.persontelefon pt ON
+        FROM fs.deltaker d, fs.kursdeltakelse k,
+             fs.etterutdkurs e, fs.person p
+             LEFT JOIN fs.persontelefon pt ON
               pt.fodselsdato = p.fodselsdato AND
               pt.personnr = p.personnr AND
               pt.telefonnrtypekode = 'MOBIL'

@@ -132,8 +132,8 @@ class HiOfStudent78(HiOfStudent, access_FS.Student78):
           sps.arstall_kull, p.kjonn, p.status_dod,
           s.studentnr_tildelt, kks.klassekode,
           kks.status_aktiv AS status_aktiv_klasse
-        FROM fs.studieprogramstudent sps, fs.person p,
-             fs.student s, fs.kullklassestudent kks
+        FROM fs.studieprogramstudent sps,
+             fs.student s, fs.kullklassestudent kks, fs.person p
              LEFT JOIN fs.persontelefon pt ON
              pt.fodselsdato = p.fodselsdato AND
              pt.personnr = p.personnr AND
