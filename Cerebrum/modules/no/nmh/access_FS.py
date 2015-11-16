@@ -132,14 +132,14 @@ class NMHStudent78(NMHStudent, access_FS.Student78):
           pt.telefonnr telefonnr_mobil,
           pt.telefonlandnr telefonlandnr_mobil,
         FROM fs.studieprogramstudent sps, fs.person p,
-             fs.student s, fs.persontelefon
+             fs.student s LEFT JOIN fs.persontelefon ON
+             pt.fodselsdato = p.fodselsdato AND
+             pt.personnr = p.personnr AND
+             pt.telefonnrtypekode = 'MOBIL'
         WHERE p.fodselsdato = sps.fodselsdato AND
           p.personnr = sps.personnr AND
           p.fodselsdato = s.fodselsdato AND
           p.personnr = s.personnr AND
-          pt.fodselsdato = p.fodselsdato AND
-          pt.personnr = p.personnr AND
-          pt.telefonnrtypekode = 'MOBIL' AND
           %s AND
           sps.status_privatist = 'N' AND
           sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'FULLFØRT',

@@ -278,14 +278,14 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
           sps.arstall_kull, p.kjonn, p.status_dod, pt.telefonnr_mobil,
           s.studentnr_tildelt
         FROM fs.kull k, fs.studieprogramstudent sps, fs.person p,
-             fs.student s, fs.persontelefon pt
+             fs.student s LEFT JOIN fs.persontelefon pt ON
+             pt.fodselsdato = p.fodselsdato AND
+             pt.personnr = p.personnr AND
+             pt.telefonnrtypekode = 'MOBIL'
         WHERE p.fodselsdato = sps.fodselsdato AND
           p.personnr = sps.personnr AND
           p.fodselsdato = s.fodselsdato AND
           p.personnr = s.personnr AND
-          pt.fodselsdato = p.fodselsdato AND
-          pt.personnr = p.personnr AND
-          pt.telefonnrtypekode = 'MOBIL' AND
           %s AND
           k.studieprogramkode = sps.studieprogramkode AND
           k.terminkode = sps.terminkode_kull AND
@@ -304,14 +304,14 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
           sps.arstall_kull, p.kjonn, p.status_dod, pt.telefonnr_mobil,
           s.studentnr_tildelt
         FROM fs.registerkort r, fs.studieprogramstudent sps, fs.person p,
-             fs.student s, fs.persontelefon pt
+             fs.student s LEFT JOIN fs.persontelefon pt ON
+             pt.fodselsdato = p.fodselsdato AND
+             pt.personnr = p.personnr AND
+             pt.telefonnrtypekode = 'MOBIL'
         WHERE p.fodselsdato = sps.fodselsdato AND
           p.personnr = sps.personnr AND
           p.fodselsdato = s.fodselsdato AND
           p.personnr = s.personnr AND
-          pt.fodselsdato = p.fodselsdato AND
-          pt.personnr = p.personnr AND
-          pt.telefonnrtypekode = 'MOBIL' AND
           %s AND
           p.fodselsdato = r.fodselsdato AND
           p.personnr = r.personnr AND
