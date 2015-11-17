@@ -15,6 +15,7 @@
 #
 #   gnupg_home_dir
 #       A home directory for gpgme
+#
 
 # Default, mandatory settings
 virtualenv: "/tmp/virtualenvs/{{ config | default('default')  }}"

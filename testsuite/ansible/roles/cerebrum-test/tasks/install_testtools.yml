@@ -4,20 +4,12 @@
 # - install python package requirements
 #
 
-- name: decide on pip offline install
-  when: pip_offline is defined
-  set_fact:
-      _extra_args: "--no-index --find-links={{ pip_offline }}"
 
-- name: decide on pip download cache
-  when: pip_cache is defined and _extra_args is not defined
-  set_fact:
-      _extra_args: "--download-cache={{ pip_cache }}"
-
+# This role depends on 'cerebrum', so 'pip_extra_args' should already be set up.
 - name: set up python environment
   pip:
       virtualenv: "{{ virtualenv }}"
-      extra_args: "{{ _extra_args | default(None) }}"
+      extra_args: "{{ pip_extra_args|default(None) }}"
       name: "{{ item }}"
   with_items:
       - nose

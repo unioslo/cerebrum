@@ -6,6 +6,8 @@
       - virtualenv
       - crb_src_dir
       - pip_offline
+      - pip_local
+      - pip_proxy
       - pip_cache
   tags:
     - always

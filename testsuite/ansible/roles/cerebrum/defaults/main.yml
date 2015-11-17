@@ -10,12 +10,17 @@
 #   pip_offline
 #       If defined, no online package index (i.e. PyPI) will be used. PIP will
 #       rely on finding packages in the directory given as value to this
-#       setting.
+#       setting. It makes no sense using this without {{ pip_local }}.
+#
+#   pip_local
+#       If defined, pip will try to find packages in the folder given as value.
+#
+#   pip_proxy
+#       If defined, pip will use the proxy given as value to download packages.
 #
 #   pip_cache
 #       If defined, pip will use the value of this setting as cache dir for
-#       downloading packages. Mutually exclusive with {{ pip_offline }} - {{
-#       pip_cache }} will be ignored if both settings are given.
+#       downloading packages. Mutually exclusive with {{ pip_offline }}
 #
 
 # Default, mandatory settings
@@ -27,5 +32,7 @@ virtualenv: "/cerebrum"
 
 # Optional values, example
 #
-#   pip_offline: /tmp/pip_packages
+#   pip_offline: yes
+#   pip_local: /tmp/my_repo
+#   pip_proxy: https://localhost:9876
 #   pip_cache: /tmp/my_pip_cache
