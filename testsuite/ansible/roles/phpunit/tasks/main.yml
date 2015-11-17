@@ -1,0 +1,3 @@
+- include: setup_phpunit.yml
+  tags:
+    - host
