@@ -107,7 +107,7 @@ def get_user_id(pe):
     if not user_id:
         ac = Factory.get('Account')(db)
         ac.find(pe.get_primary_account())
-        user_id = "%s@%s" % (ac.account_name, cereconf.INSTITUTION_DOMAIN_NAME)
+        user_id = ac.account_name
         _person_to_user_id[pe.entity_id] = user_id
 
     return user_id
