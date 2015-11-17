@@ -1,0 +1,33 @@
+#
+# Set up GnuPG environment
+#
+- name: Remove previous GnuPG home directory
+  when: gnupgtest is defined
+  file:
+      path: "{{ gnupg_home_dir }}"
+      state: absent
+
+- name: Create GnuPG home directory
+  when: gnupgtest is defined
+  file:
+      path: "{{ gnupg_home_dir }}"
+      state: directory
+      mode: 0700
+
+- name: Make a gpg key generation template
+  when: gnupgtest is defined
+  template:
+      src: "{{ item }}"
+      dest: "{{ gnupg_home_dir }}/gpg_gen_key.tmpl"
+  with_file_overload:
+    - base: 'templates'
+    - file: 'gpg_gen_key.j2'
+    - alt: '{{ config | default(None) }}'
+
+- name: Generate GnuPG keys
+  when: gnupgtest is defined
+  command: /usr/bin/gpg --homedir {{ gnupg_home_dir }} --batch --gen-key {{ gnupg_home_dir }}/gpg_gen_key.tmpl
+
+- name: Create GnuPG2 keys
+  when: gnupgtest is defined
+  command: /usr/bin/gpg2 -q --homedir {{ gnupg_home_dir }} -K removes=/usr/bin/gpg2

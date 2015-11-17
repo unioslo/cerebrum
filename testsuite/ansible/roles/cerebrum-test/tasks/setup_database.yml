@@ -1,0 +1,15 @@
+- name: move extra files to host
+  copy:
+      src: "{{ item }}"
+      dest: "{{ item | tmpfile }}"
+  with_file_overload:
+    - base: 'files'
+    - file: 'extra_db_files.txt'
+    - alt: '{{ config | default(None) }}'
+    - skip: yes
+  register: _extra_files
+
+- name: create cerebrum schema with makedb
+  makedb:
+      virtualenv: "{{ virtualenv }}"
+      extra_files_src: "{{ _extra_files | dest }}"
