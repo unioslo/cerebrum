@@ -1,0 +1,24 @@
+# Set up Cerebrum
+#
+# - install Cerebrum
+# - place cerebrum_path
+#
+
+# TDB: Should we use `pip install --upgrade`?
+- name: install cerebrum
+  action: command {{ virtualenv }}/bin/python setup.py install --prefix={{ virtualenv }}
+          chdir={{ crb_src_dir }}
+
+- name: locate virtualenv site-packages
+  virtualenv_info:
+      env: "{{ virtualenv }}"
+      info: site
+  register: _virtualenv_info
+
+# We use the cerebrum_path module to add {{virtualenv}}/etc/cerebrum/ to
+# `sys.path`
+- name: place cerebrum_path module
+  template:
+      src: "cerebrum_path.py.j2"
+      dest: "{{ _virtualenv_info.site }}/cerebrum_path.py"
+      validate: "{{ virtualenv }}/bin/python -B %s"

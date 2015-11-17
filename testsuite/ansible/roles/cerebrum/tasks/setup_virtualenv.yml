@@ -1,0 +1,23 @@
+# Set up an environment for Cerebrum
+#
+# - ensure that a virtualenv exists
+# - install python package requirements
+#
+
+- name: decide on pip offline install
+  when: pip_offline is defined
+  set_fact:
+      _extra_args: "--no-index --find-links={{ pip_offline }}"
+
+- name: decide on pip download cache
+  when: pip_cache is defined and _extra_args is not defined
+  set_fact:
+      _extra_args: "--download-cache={{ pip_cache }}"
+
+- name: set up python environment
+  pip:
+      virtualenv: "{{ virtualenv }}"
+      requirements: "{{ crb_src_dir }}/requirements.txt"
+      extra_args: "{{ _extra_args|default(None) }}"
+  environment:
+      SWIG_FEATURES: "-cpperraswarn -includeall -I/usr/include/openssl"

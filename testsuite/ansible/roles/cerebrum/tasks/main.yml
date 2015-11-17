@@ -1,0 +1,23 @@
+# Cerebrum role
+
+- debug: var={{ item }}
+  when: debug is defined
+  with_items:
+      - virtualenv
+      - crb_src_dir
+      - pip_offline
+      - pip_cache
+  tags:
+    - always
+
+- include: setup_host.yml
+  tags:
+    - host
+
+- include: setup_virtualenv.yml
+  tags:
+    - env
+
+- include: install_cerebrum.yml
+  tags:
+    - env

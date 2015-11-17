@@ -1,0 +1,31 @@
+# Default config for the cerebrum role
+#
+#   virtualenv
+#       Path to a virtualenv to use with this role. The virtualenv will be
+#       created if it doesn't exist.
+#
+#   crb_src_dir
+#       A location where the cerebrum source code can be found.
+#
+#   pip_offline
+#       If defined, no online package index (i.e. PyPI) will be used. PIP will
+#       rely on finding packages in the directory given as value to this
+#       setting.
+#
+#   pip_cache
+#       If defined, pip will use the value of this setting as cache dir for
+#       downloading packages. Mutually exclusive with {{ pip_offline }} - {{
+#       pip_cache }} will be ignored if both settings are given.
+#
+
+# Default, mandatory settings
+virtualenv: "/cerebrum"
+
+# Other mandatory settings, example
+#
+#   crb_src_dir: /tmp/cerebrum
+
+# Optional values, example
+#
+#   pip_offline: /tmp/pip_packages
+#   pip_cache: /tmp/my_pip_cache
