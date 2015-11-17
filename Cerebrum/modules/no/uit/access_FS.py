@@ -321,7 +321,7 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
         return self.db.query(qry)
 
 
-@fsobject('undervisning')
+@fsobject('undervisning', '<7.8')
 class UiTUndervisning(access_FS.Undervisning):
     '''UIT version of access_FS in modules.no.'''
 
@@ -477,7 +477,12 @@ class UiTUndervisning(access_FS.Undervisning):
                               'semester': start_semester})
 
 
-@fsobject('evu')
+@fsobject('undervisning', '>=7.8')
+class UiTUndervisning78(UiTUndervisning, access_FS.Undervisning78):
+    pass
+
+
+@fsobject('evu', '<7.8')
 class UiTEVU(access_FS.EVU):
 
     def list_kurs(self, date=time.localtime()):  # GetEvuKurs
@@ -530,6 +535,11 @@ class UiTEVU(access_FS.EVU):
               k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
               NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
         return self.db.query(qry)
+
+
+@fsobject('evu', '>=7.8')
+class UiTEVU78(UiTEVU, access_FS.EVU78):
+    pass
 
 
 @fsobject('FS')

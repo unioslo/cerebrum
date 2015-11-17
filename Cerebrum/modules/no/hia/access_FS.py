@@ -327,7 +327,7 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
         return self.db.query(qry)
 
 
-@fsobject('undervisning')
+@fsobject('undervisning', '<7.8')
 class HiAUndervisning(access_FS.Undervisning):
 
     def list_undervisningenheter(self, sem="current"):
@@ -413,6 +413,11 @@ class HiAUndervisning(access_FS.Undervisning):
         return self.db.query(query, {"studieprogramkode": studieprogramkode,
                                      "terminkode_kull": terminkode,
                                      "arstall_kull": arstall})
+
+
+@fsobject('undervisning', '>=7.8')
+class HiAUndervisning78(HiAUndervisning, access_FS.Undervisning78):
+    pass
 
 
 @fsobject('evu', '<7.8')

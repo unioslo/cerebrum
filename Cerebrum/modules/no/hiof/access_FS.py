@@ -155,7 +155,7 @@ class HiOfStudent78(HiOfStudent, access_FS.Student78):
         return self.db.query(qry, locals())
 
 
-@fsobject('undervisning')
+@fsobject('undervisning', '<7.8')
 class HiOfUndervisning(access_FS.Undervisning):
     # TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
     #      og list_studenter_underv_enhet.
@@ -405,6 +405,11 @@ class HiOfUndervisning(access_FS.Undervisning):
 
         return self.db.query(query)
     # end list_studenter_alle_kull
+
+
+@fsobject('undervisning', '>=7.8')
+class HiOfUndervisning78(HiOfUndervisning, access_FS.Undervisning78):
+    pass
 
 
 @fsobject('studieinfo')
