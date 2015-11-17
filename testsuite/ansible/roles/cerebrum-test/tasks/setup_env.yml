@@ -1,29 +1,7 @@
 # Set up a virtualenv test environment for Cerebrum.
-# 
-# Required vars:
-#  - virtualenv
-#      Where the virtualenv should be placed.
-#  - pip_requirements
-#      PIP requirements file, decides which packages to install in the
-#      virtualenv.
-#  - crb_db_name
-#      What database to use for the cerebrum test installation.
-#  - crb_db_user
-#      What postgres-user to use for the crb_db_name.
-#  - crb_src_dir
-#      The source directory for cerebrum.
-#
-# Optional vars:
-#  - pip_offline
-#      Do not download packages, look for the packages in the specified
-#      directory, e.g. `pip_offline=/path/to/packages'.
-#  - pip_cache
-#      Cache downloaded packages in the specified directory for later use, e.g.
-#      `pip_cache=/tmp/pip_cache'. Excluded by the pip_offline option.
-
 
 #
-# Set up virtualevn and install packages
+# Set up virtualenv and install packages
 #
 - name: Decide on PIP offline install
   when: pip_offline is defined

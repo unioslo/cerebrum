@@ -3,7 +3,7 @@
 # We'll install the neccessary packages, set up postgres users and start the
 # postgres service.
 #
-# Note: For any of these tasks to do changes, you'll need to run the playbook
+# NOTE: For any of these tasks to do changes, you'll need to run the playbook
 # with:
 #
 #   ansible-playbook <file> --ask-sudo-pass
