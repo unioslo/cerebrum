@@ -24,6 +24,7 @@ from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.OrgLDIF import OrgLDIF
 from Cerebrum.modules.LDIFutils import normalize_string, iso2utf
+from Cerebrum.modules.no.nmh.StudentStudyProgramCache import StudentStudyProgramCache
 
 
 class nmhOrgLDIFMixin(OrgLDIF):
@@ -34,6 +35,7 @@ class nmhOrgLDIFMixin(OrgLDIF):
         self.person = Factory.get('Person')(self.db)
         self.pe2fagomr = self.get_fagomrade()
         self.pe2fagmiljo = self.get_fagmiljo()
+        self.pe2study_program = self.get_study_programs()
 
     def test_omit_ou(self):
         """Not using Stedkode, so all OUs are available (there is no need to
@@ -71,6 +73,15 @@ class nmhOrgLDIFMixin(OrgLDIF):
         """
         return dict((row['entity_id'], iso2utf(row['strval'])) for row in
                     self.person.list_traits(self.const.trait_fagmiljo))
+
+    def get_study_programs(self):
+        """Returns a dict mapping from person_id to 'studienivakode' and 'arstall_kull'."""
+        sspc = StudentStudyProgramCache(db=self.db,
+                                        logger=self.logger,
+                                        max_age={'minutes': 60})
+        if sspc.data is None:
+            raise Exception('Unable to load student study program cache')
+        return sspc.data
 
     def init_attr2id2contacts(self):
         """Override to include more, local data from contact info."""
@@ -131,13 +142,20 @@ class nmhOrgLDIFMixin(OrgLDIF):
             # Add fagomrade/fagfelt, if registered for the person:
             fagf = self.pe2fagomr.get(person_id, [])
             for f in fagf:
-                urn = 'urn:mace:feide.no:nmh.no:fagomrade:%s' % (f)
+                urn = 'urn:mace:feide.no:nmh.no:fagomrade:{}'.format(f)
                 entry.setdefault('eduPersonEntitlement', []).append(urn)
             # Add fagmiljø:
             fagm = self.pe2fagmiljo.get(person_id)
             if fagm:
-                urn = 'urn:mace:feide.no:nmh.no:fagmiljo:%s' % fagm
+                urn = 'urn:mace:feide.no:nmh.no:fagmiljo:{}'.format(fagm)
                 entry.setdefault('eduPersonEntitlement', []).append(urn)
+            # Add study programs
+            study_programs = self.pe2study_program.get(person_id, [])
+            for program in study_programs:
+                urn = 'urn:mace:feide.no:nmh.no:studies/studyprogram/{}/{}'.format(
+                    program['studieprogramkode'],
+                    program['arstall_kull'])
+                entry.setdefault('eduPersonEntitlement', []).append(iso2utf(urn))
         return dn, entry, alias_info
 
     # Fetch mail addresses from entity_contact_info of accounts, not persons.
