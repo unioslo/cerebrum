@@ -32,28 +32,24 @@ affiliations from the person owner.
 
 Typical usage pattern would be to create/reactive accounts for SAP-employees:
 
-python create-account-for-person.py -a ANSATT 
+python create-account-for-person.py -a ANSATT
 """
 
 import getopt
 import sys
 
-
 import cerebrum_path
 import cereconf
 
-
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-from Cerebrum.Utils import simple_memoize
-
+from Cerebrum.utils.funcwrap import memoize
 
 
 logger = None
 
 
-
-@simple_memoize
+@memoize
 def get_system_account():
     """Return an ID for cereconf.INITIAL_ACCOUNT_NAME"""
 
@@ -65,8 +61,7 @@ def get_system_account():
 # end get_system_account
 
 
-
-@simple_memoize
+@memoize
 def ou_id2human_repr(ou_id):
     """Return a human-friendly ou identification.
 
@@ -91,7 +86,6 @@ def ou_id2human_repr(ou_id):
 # end ou_id2human_repr
 
 
-
 def fetch_names(person):
     """Get first, last names for an person.
 
@@ -112,7 +106,7 @@ def fetch_names(person):
     except Errors.NotFoundError:
         first = ""
 
-    try: 
+    try:
         last = person.get_name(const.system_cached, const.name_last)
     except Errors.NotFoundError:
         last = person.get_name(const.system_cached, const.name_full)
@@ -123,7 +117,6 @@ def fetch_names(person):
 # end fetch_names
 
 
-
 def copy_owners_affiliations(person, account):
     """Copy person's affiliation to account.
 
@@ -131,14 +124,14 @@ def copy_owners_affiliations(person, account):
     @param person:
       Account owner that 'supplies' the affiliations.
 
-    @type account: Factory.get('Account') proxy associated with an account. 
+    @type account: Factory.get('Account') proxy associated with an account.
     @param account:
       Account owned by L{person} that 'inherits' affiliations.
     """
 
     assert account.owner_id == person.entity_id
     const = Factory.get("Constants")()
-    
+
     for entry in person.get_affiliations():
         ou_id, affiliation = entry["ou_id"], entry["affiliation"]
         account.set_account_type(ou_id, affiliation)
@@ -151,17 +144,15 @@ def copy_owners_affiliations(person, account):
 # end copy_owners_affiliations
 
 
-
 def set_initial_spreads(account):
-    """Force certain spreads on account. 
+    """Force certain spreads on account.
 
     The initial spreads are taken from cereconf.BOFHD_NEW_USER_SPREADS.
-    
-    @type account: Factory.get('Account') proxy associated with an account. 
+
+    @type account: Factory.get('Account') proxy associated with an account.
     @param account:
       Account to set spreads for.
     """
-    
     const = Factory.get("Constants")()
     for spread in cereconf.BOFHD_NEW_USER_SPREADS:
         if not account.has_spread(const.Spread(spread)):
@@ -173,21 +164,18 @@ def set_initial_spreads(account):
 # end set_initial_spreads
 
 
-
 def set_password(account):
     """Register a new (random) password for account.
 
-    @type account: Factory.get('Account') proxy associated with an account. 
+    @type account: Factory.get('Account') proxy associated with an account.
     @param account:
       Account to set a password for.
     """
-
     password = account.make_passwd(account.account_name)
     account.set_password(password)
     account.write_db()
     logger.debug("Refreshed passwd for uname=%s", account.account_name)
 # end set_password
-
 
 
 def reactivate_expired_accounts(db, person_id, accounts):
@@ -203,7 +191,6 @@ def reactivate_expired_accounts(db, person_id, accounts):
       person. They should all be expired (i.e. the only way of getting *here*
       is when a person has expired accounts only).
     """
-
     person = Factory.get("Person")(db)
     person.find(person_id)
 
@@ -232,7 +219,6 @@ def reactivate_expired_accounts(db, person_id, accounts):
 
     set_initial_spreads(account)
 # end reactivate_expired_accounts
-    
 
 
 def create_new_account(db, person_id):
@@ -278,7 +264,6 @@ def create_new_account(db, person_id):
 # end create_new_account
 
 
-
 def amend_existing_account(db, account_id, person_id):
     """Fixup account_id's affiliations"""
 
@@ -291,7 +276,6 @@ def amend_existing_account(db, account_id, person_id):
                  account.account_name, account.entity_id, person_id)
     copy_owners_affiliations(person, account)
 # end amend_existing_account
-    
 
 
 def create_accounts(db, candidates):
@@ -324,7 +308,6 @@ def create_accounts(db, candidates):
 # end create_accounts
 
 
-
 def collect_candidates(db, affiliations):
     """Collect all people that have one of affiliations and do NOT have a
     non-expired account.
@@ -333,7 +316,7 @@ def collect_candidates(db, affiliations):
 
     @type affiliations: sequence of PersonAffiliation constant objects
     @param affiliations:
-      Person affiliations that mark the candidates. There may be many. 
+      Person affiliations that mark the candidates. There may be many.
     """
 
     result = set()
@@ -354,7 +337,6 @@ def collect_candidates(db, affiliations):
     logger.debug("Collected %d candidate(s)", len(result))
     return result
 # end collect_candidates
-
 
 
 def main():
@@ -391,7 +373,5 @@ def main():
 # end main
 
 
-
 if __name__ == "__main__":
     main()
-# 

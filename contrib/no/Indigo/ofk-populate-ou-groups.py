@@ -49,14 +49,12 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, NotSet, simple_memoize
+from Cerebrum.Utils import Factory, NotSet
+from Cerebrum.utils.funcwrap import memoize
 try:
     set()
 except NameError:
     from Cerebrum.extlib.sets import Set as set
-
-
-
 
 
 logger = Factory.get_logger("cronjob")
@@ -71,11 +69,9 @@ def format_sko(*rest):
 
     Institution numbers is not part of sko here.
     """
-    
     assert len(rest) == 3
     return "%02d%02d%02d" % rest
 # end format_sko
-
 
 
 def ou_id2ou_info(ou_id):
@@ -115,8 +111,7 @@ def ou_id2ou_info(ou_id):
     # NOTREACHED
     assert False
 # end ou_id2ou_info
-ou_id2ou_info = simple_memoize(ou_id2ou_info)
-
+ou_id2ou_info = memoize(ou_id2ou_info)
 
 
 def get_create_account_id():
@@ -130,8 +125,7 @@ def get_create_account_id():
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     return account.entity_id
 # end get_create_account_id
-get_create_account_id = simple_memoize(get_create_account_id)
-
+get_create_account_id = memoize(get_create_account_id)
 
 
 def find_all_auto_groups():
@@ -193,10 +187,9 @@ def group_name2group_id(group_name, description, current_groups, trait=NotSet):
       Group id for the group with name group_name. This function also updates
       current_groups.
     """
-    
     if group_name not in current_groups:
         group = Factory.get("Group")(database)
-        group.populate(get_create_account_id(),        
+        group.populate(get_create_account_id(),
                        constants.group_visibility_internal,
                        group_name,
                        description)
@@ -216,7 +209,6 @@ def group_name2group_id(group_name, description, current_groups, trait=NotSet):
 
     return current_groups[group_name]
 # end group_name2group_id
-
 
 
 def employee2groups(row, current_groups, perspective):
@@ -292,7 +284,7 @@ def employee2groups(row, current_groups, perspective):
                                                 current_groups,
                                                 constants.trait_auto_aff)
         result.append((account.entity_id, constants.entity_person, employee_group_id))
-        
+
     # This affiliation (row) results in primary account of a person being member of
     # <acronym>#TILKNYTTET
     if affiliation == constants.affiliation_tilknyttet:
@@ -303,7 +295,7 @@ def employee2groups(row, current_groups, perspective):
                                                 current_groups,
                                                 constants.trait_auto_aff)
         result.append((account.entity_id, constants.entity_person, employee_group_id))
-        
+
     # This affiliation (row) results in primary account of a person being member of
     # <acronym>#ELEV.
     if affiliation == constants.affiliation_elev:
@@ -313,11 +305,10 @@ def employee2groups(row, current_groups, perspective):
                                                 "Elever ved " + ou_info["name"],
                                                 current_groups,
                                                 constants.trait_auto_aff)
-        result.append((account.entity_id, constants.entity_person, employee_group_id))                
+        result.append((account.entity_id, constants.entity_person, employee_group_id))
 
     return result
 # end employee2groups
-
 
 
 def populate_groups_from_rule(person_generator, row2groups, current_groups,
@@ -383,8 +374,7 @@ def populate_groups_from_rule(person_generator, row2groups, current_groups,
 
     logger.debug("After processing rule, we have %d groups", len(new_groups))
     logger.debug("... and <= %d members", count)
-# end populate_groups_from_rule        
-
+# end populate_groups_from_rule
 
 
 def remove_members(group, member_sequence):
@@ -409,7 +399,6 @@ def remove_members(group, member_sequence):
 # end remove_members
 
 
-
 def add_members(group, member_sequence):
     """Add several members to a group.
 
@@ -423,14 +412,13 @@ def add_members(group, member_sequence):
     @param member_sequence:
       A sequence with person_ids who are to become members of L{group}.
     """
-    
+
     for entity_id in member_sequence:
         group.add_member(entity_id)
 
     logger.debug("Added %d members to group id=%s, name=%s",
                  len(member_sequence), group.entity_id, group.group_name)
 # end add_members
-    
 
 
 def synchronise_groups(groups_from_cerebrum, groups_from_data):
@@ -455,7 +443,7 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data):
     """
 
     group = Factory.get("Group")(database)
-    
+
     for group_id, membership_info in groups_from_data.iteritems():
         try:
             group.clear()
@@ -504,7 +492,6 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data):
 
     return groups_from_cerebrum
 # end synchronise_groups
-
 
 
 def empty_defunct_groups(groups_from_cerebrum):
@@ -596,7 +583,6 @@ def _locate_all_auto_traits():
 # end _locate_all_auto_traits
 
 
-
 def perform_sync(perspective, source_system):
     """Set up the environment for synchronisation and synch all groups.
 
@@ -657,7 +643,6 @@ def perform_sync(perspective, source_system):
 # end perform_sync
 
 
-
 def perform_delete():
     """Delete all groups generated by this script.
 
@@ -672,7 +657,7 @@ def perform_delete():
 
     # Collect all existing auto groups ...
     existing_groups = find_all_auto_groups()
-    
+
     # ... empty all of them for members (otherwise deletion is not possible)
     empty_defunct_groups(existing_groups)
 
@@ -686,7 +671,7 @@ def perform_delete():
     for group_name, group_id in existing_groups.iteritems():
         logger.debug("Considering group id=%s, name=%s for deletion",
                      group_id, group_name)
-        
+
         try:
             group.clear()
             group.find(group_id)
@@ -705,7 +690,6 @@ def perform_delete():
         group.delete()
         logger.info("Deleted group id=%s, name=%s", group_id, group_name)
 # end perform_delete
-    
 
 
 def main():
@@ -745,7 +729,5 @@ def main():
 # end main
 
 
-
 if __name__ == "__main__":
     main()
-

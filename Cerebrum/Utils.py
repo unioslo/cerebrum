@@ -1362,39 +1362,6 @@ class RecursiveDict(dict):
         dict.__setitem__(self, key, value)
 
 
-def simple_memoize(callobj):
-    """Memoize[1] a callable.
-
-    [1] <http://en.wikipedia.org/wiki/Memoize>.
-
-    The idea is to memoize a callable object supporting rest/optional
-    arguments without placing a limit on the amount of cached pairs. This is
-    useful for mapping ou_id to names and such (i.e. situations where the
-    number of cached values is small, and the information is requested many
-    times for the same 'key').
-
-    NB! keyword arguments ARE NOT supported.
-
-    @type callobj: callable
-    @param callobj:
-      An object for which callable(callobj) == True. I.e. something we can
-      call (lambda, function, bound method, etc.)
-
-    @rtype: function
-    @return:
-      A wrapper that caches the results of previous invocations of callobj.
-    """
-
-    cache = {}
-
-    def wrapper(*rest):
-        if rest not in cache:
-            cache[rest] = callobj(*rest)
-        return cache[rest]
-
-    return wrapper
-
-
 def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
     """Helper function for discarding exceptions easier.
 

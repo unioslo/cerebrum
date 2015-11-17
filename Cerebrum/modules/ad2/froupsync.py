@@ -140,7 +140,7 @@ Example configuration
 
 """
 from collections import defaultdict
-from Cerebrum.Utils import simple_memoize
+from Cerebrum.utils.funcwrap import memoize
 from .ADSync import GroupSync
 from .CerebrumData import CerebrumGroup
 
@@ -157,7 +157,7 @@ class _FroupSync(GroupSync):
 
     # default_ad_object_class = 'group'
 
-    @simple_memoize
+    @memoize
     def pe2affs(self, person_id):
         """ Get affiliations for a person.
 
@@ -172,7 +172,7 @@ class _FroupSync(GroupSync):
         return [(r['source_system'], r['affiliation'])
                 for r in self.pe.get_affiliations()]
 
-    @simple_memoize
+    @memoize
     def pe2accs(self, person_id):
         """ Fetch AD accounts for a person.
 
@@ -378,7 +378,7 @@ class AffGroupSync(_FroupSync):
         groups.extend(self.config['affiliation_groups'].keys())
         return groups
 
-    @simple_memoize
+    @memoize
     def _update_aff_group(self, person_id):
         self.logger.debug("Updating aff groups for pid=%s", person_id)
         try:
@@ -455,7 +455,7 @@ class ConsentGroupSync(_FroupSync):
         groups.extend(self.config['consent_groups'].keys())
         return groups
 
-    @simple_memoize
+    @memoize
     def _update_consent_group(self, person_id):
         """ Update consent groups for a given person.
 
