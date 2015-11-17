@@ -23,26 +23,19 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import simple_memoize
 from Cerebrum import Errors
 from Cerebrum.modules.EntityTrait import EntityTrait
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget
 from Cerebrum import Entity
-from Cerebrum.Database import DatabaseError
 from Cerebrum.Entity import EntitySpread
-from Cerebrum.Entity import EntityName
 
 
 logger = Factory.get_logger("cronjob")
 
- 
 
 def fetch_name(entity_id, db):
-    """Fetch entity_id's name, ignoring errors if it does not exist.
-    """
-
+    """Fetch entity_id's name, ignoring errors if it does not exist. """
     ent = Entity.EntityName(db)
     try:
         ent.find(int(entity_id))
@@ -52,17 +45,15 @@ def fetch_name(entity_id, db):
 # end fetch_name
 
 
-
 def get_account(ident, database):
     """Locate and return an account.
 
     If nothing is found, return None.
     """
-
     account = Factory.get("Account")(database)
     try:
-        if (isinstance(ident, (int, long)) or 
-            isinstance(ident, str) and ident.isdigit()):
+        if (isinstance(ident, (int, long))
+                or isinstance(ident, str) and ident.isdigit()):
             account.find(int(ident))
         else:
             account.find_by_name(ident)
@@ -77,17 +68,15 @@ def get_account(ident, database):
 # end get_account
 
 
-
 def get_group(ident, database):
     """Locate and return a group.
 
     If nothing suitable is found, return None.
     """
-    
     group = Factory.get("Group")(database)
     try:
-        if (isinstance(ident, (int, long)) or 
-            isinstance(ident, str) and ident.isdigit()):
+        if (isinstance(ident, (int, long))
+                or isinstance(ident, str) and ident.isdigit()):
             group.find(int(ident))
         else:
             group.find_by_name(ident)
@@ -102,7 +91,6 @@ def get_group(ident, database):
 # end get_account
 
 
-
 def remove_target_permissions(entity_id, db):
     """Remove all permissions (group owner/moderator) GIVEN TO entity_id.
 
@@ -111,7 +99,6 @@ def remove_target_permissions(entity_id, db):
 
     Cf bofhd_virthome_cmds.py:__remove_auth_role.
     """
-    
     ar = BofhdAuthRole(db)
     aot = BofhdAuthOpTarget(db)
     for r in ar.list(entity_id):
@@ -124,7 +111,6 @@ def remove_target_permissions(entity_id, db):
             aot.find(r['op_target_id'])
             aot.delete()
 # end remove_permissions_on_target
-
 
 
 def remove_permissions_on_target(entity_id, db):
@@ -143,26 +129,22 @@ def remove_permissions_on_target(entity_id, db):
         aot.find(r['op_target_id'])
         # We remove all auth_role entries pointing to this entity_id
         # first.
-        for role in ar.list(op_target_id = r["op_target_id"]):
+        for role in ar.list(op_target_id=r["op_target_id"]):
             ar.revoke_auth(role['entity_id'], role['op_set_id'],
                            r['op_target_id'])
         aot.delete()
 # end remove_permissions_on_target
 
 
-
 def delete_common(entity_id, db):
     """Remove information from the database common to whichever entity we are
-    deleting. 
+    deleting.
     """
-
-    #
     # Remove spreads
     # Remove traits
     # Remove all permissions
     # Remove from all groups
     # Remove change_log entries
-    # 
     const = Factory.get("Constants")()
     logger.debug("Deleting common parts for entity %s (id=%s)",
                  fetch_name(entity_id, db), entity_id)
@@ -197,7 +179,6 @@ def delete_common(entity_id, db):
         logger.debug("Removing %s as member of %s (id=%s)",
                      entity_id, group.group_name, group.entity_id)
         group.remove_member(entity_id)
-    
 
     # Kill change_log entries
     logger.debug("Cleaning change_log of references to %s", entity_id)
@@ -206,7 +187,6 @@ def delete_common(entity_id, db):
         db.remove_log_event(row["change_id"])
 # end delete_common
 
-    
 
 def disable_account(account_id, db):
     """Disable account corresponding to account_id.
@@ -217,7 +197,6 @@ def disable_account(account_id, db):
     NB! We keep entity_contact_info around, since we may want to know at least
     some human-'relatable' info about the account after it's disabled
     """
-    
     account = get_account(account_id, db)
     if not account:
         return
@@ -236,11 +215,8 @@ def disable_account(account_id, db):
 # end disable_account
 
 
-
 def delete_account(account, db):
-    """Perform deletion of account.
-    """
-
+    """ Perform deletion of account. """
     disable_account(account.entity_id, db)
     # Kill the account
     a_id, a_name = account.entity_id, account.account_name
@@ -251,13 +227,9 @@ def delete_account(account, db):
 # end delete_account
 
 
-
 def disable_expired_accounts(db):
-    """Delete (nuke) all accounts that have expire_date in the past. 
-    """
-
+    """Delete (nuke) all accounts that have expire_date in the past. """
     logger.debug("Disabling expired accounts")
-
     const = Factory.get("Constants")(db)
     account = Factory.get("Account")(db)
     for row in account.list(filter_expired=False):
@@ -272,11 +244,9 @@ def disable_expired_accounts(db):
         # Ok, it's an expired VH. Kill it
         disable_account(row["account_id"], db)
         db.commit()
-        
     logger.debug("Disabled all expired accounts")
 # end disable_expired_accounts
 
-    
 
 def delete_unconfirmed_accounts(account_np_type, db):
     """Delete (nuke) all accounts that have stayed unconfirmed too long.
@@ -287,7 +257,6 @@ def delete_unconfirmed_accounts(account_np_type, db):
     FIXME: What about partial failures? I.e. do we want to commit after each
     deletion?
     """
-
     logger.debug("Deleting unconfirmed accounts")
     const = Factory.get("Constants")(db)
     account = Factory.get("Account")(db)
@@ -317,16 +286,17 @@ def delete_unconfirmed_accounts(account_np_type, db):
         if account.np_type != account_np_type:
             continue
 
-        logger.debug("Account %s (id=%s) has event %s @ %s and will be deleted",
-                     account.account_name, account.entity_id,
-                     str(const.ChangeType(const.va_pending_create)),
-                     tstamp.strftime("%Y-%m-%d"))
+        logger.debug(
+            "Account %s (id=%s) has event %s @ %s and will be deleted",
+            account.account_name,
+            account.entity_id,
+            str(const.ChangeType(const.va_pending_create)),
+            tstamp.strftime("%Y-%m-%d"))
 
         delete_account(account, db)
         db.commit()
     logger.debug("All unconfirmed accounts deleted")
 # end delete_unconfirmed_accounts
-
 
 
 def delete_stale_events(cl_events, db):
@@ -339,11 +309,11 @@ def delete_stale_events(cl_events, db):
     """
 
     if not isinstance(cl_events, (list, tuple, set)):
-        cl_events = [cl_events,]
+        cl_events = [cl_events, ]
 
     const = Factory.get("Constants")()
-    typeset_request  = ", ".join(str(const.ChangeType(x))
-                                 for x in cl_events)
+    typeset_request = ", ".join(str(const.ChangeType(x))
+                                for x in cl_events)
     logger.debug("Deleting stale requests: %s", typeset_request)
     for event in db.get_log_events(types=cl_events):
         tstamp = event["tstamp"]
@@ -362,7 +332,7 @@ def delete_stale_events(cl_events, db):
                                    event['change_id'])
                     timeout = cereconf.MAX_INVITE_PERIOD
         except KeyError:
-           pass
+            pass
         if now() - tstamp <= timeout:
             continue
 
@@ -371,7 +341,7 @@ def delete_stale_events(cl_events, db):
                      event["tstamp"].strftime("%Y-%m-%d"),
                      fetch_name(event["subject_entity"], db),
                      event["subject_entity"])
-        
+
         db.remove_log_event(event["change_id"])
         db.commit()
 
@@ -379,11 +349,8 @@ def delete_stale_events(cl_events, db):
 # end delete_stale_events
 
 
-
 def enforce_user_constraints(db):
-    """Check a number of business rules for our users.
-    """
-
+    """ Check a number of business rules for our users. """
     account = Factory.get("Account")(db)
     const = Factory.get("Constants")()
     for row in account.list(filter_expired=False):
@@ -411,7 +378,6 @@ def enforce_user_constraints(db):
 # end enforce_user_constraints
 
 
-
 def find_and_disable_account(uname, database):
     """Force expiration date for a specific account, regardless of its
     attributes.
@@ -421,16 +387,13 @@ def find_and_disable_account(uname, database):
     WARNING! DO NOT take this lightly. People are gonna be pissed if we yank
     their accounts left and right
     """
-
     logger.debug("Trying to disable account: %s", uname)
     account = get_account(uname, database)
     if account is None:
         return
-    
     disable_account(account.entity_id, database)
     logger.debug("Disabled account: %s", uname)
 # end find_and_disable_account
-
 
 
 def find_and_delete_account(uname, database):
@@ -448,10 +411,8 @@ def find_and_delete_account(uname, database):
 # end find_and_delete_account
 
 
-
 def find_and_delete_group(gname, database):
-    """Completely remove a group from the database.
-    """
+    """ Completely remove a group from the database. """
 
     group = get_group(gname, database)
     if group is None:
@@ -463,7 +424,6 @@ def find_and_delete_group(gname, database):
     group.delete()
     logger.debug("Deleting group %s (id=%s)", gname, gid)
 # end find_and_delete_group
-
 
 
 def main(argv):
@@ -484,7 +444,7 @@ def main(argv):
     db = Factory.get("Database")()
     db.cl_init(change_program="Grim reaper")
     # This script does a lot of dangerous things. Let's be a tad more
-    # prudent. 
+    # prudent.
     try_commit = db.rollback
 
     const = Factory.get("Constants")()
@@ -539,7 +499,6 @@ def main(argv):
     # commit/rollback changes to the database.
     try_commit()
 # end main
-
 
 
 if __name__ == "__main__":

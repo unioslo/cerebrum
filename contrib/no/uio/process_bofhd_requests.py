@@ -41,7 +41,8 @@ from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
 from Cerebrum import Constants
-from Cerebrum.Utils import Factory, read_password, spawn_and_log_output
+from Cerebrum.Utils import (Factory, read_password, spawn_and_log_output,
+    CerebrumIMAP4_SSL)
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
@@ -70,42 +71,6 @@ EXIT_SUCCESS = 0
 # something else.  The proper solution is to change the databasetable
 # and/or letting state_data be pickled.
 default_spread = const.spread_uio_nis_user
-
-
-class CerebrumIMAP4_SSL(imaplib.IMAP4_SSL):
-    """
-    A changed version of imaplib.IMAP4_SSL that lets the caller specify
-    ssl_version in order to please older versions of OpenSSL
-    """
-    def __init__(self,
-                 host='',
-                 port=imaplib.IMAP4_SSL_PORT,
-                 keyfile=None,
-                 certfile=None,
-                 ssl_version=ssl.PROTOCOL_TLSv1):
-        """
-        """
-        self.keyfile = keyfile
-        self.certfile = certfile
-        self.ssl_version = ssl_version
-        imaplib.IMAP4.__init__(self, host, port)
-
-    def open(self, host='', port=imaplib.IMAP4_SSL_PORT):
-        """
-        """
-        self.host = host
-        self.port = port
-        self.sock = socket.create_connection((host, port))
-        # "If not specified, the default is PROTOCOL_SSLv23;...
-        # Which connections succeed will vary depending on the version
-        # of OpenSSL. For example, before OpenSSL 1.0.0, an SSLv23
-        # client would always attempt SSLv2 connections."
-        self.sslobj = ssl.wrap_socket(self.sock,
-                                      self.keyfile,
-                                      self.certfile,
-                                      ssl_version=self.ssl_version)
-        self.file = self.sslobj.makefile('rb')
-# that seems to fix a problem described in CRB-1246
 
 
 class RequestLocked(Exception):

@@ -28,6 +28,7 @@ import cereconf
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.access_FS import make_fs
 
 basefsdir = cereconf.FS_DATA_DIR
 default_ou_file = pj(basefsdir, "ou.xml")
@@ -182,7 +183,7 @@ def usage(exitcode=0):
 def assert_connected():
     global fs
     if fs is None:
-        fs = Factory.get('FS')()
+        fs = make_fs()
 
 
 def main():

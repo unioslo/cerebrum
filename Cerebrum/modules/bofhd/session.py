@@ -57,6 +57,7 @@ import time
 import pickle
 import hashlib
 import random
+import os
 
 import cerebrum_path
 import cereconf
@@ -257,7 +258,6 @@ class BofhdSession(object):
         We remove any authenticated session-ids that was authenticated more
         than _auth_timeout seconds ago, or hasn't been used in the last
         _seen_timeout seconds.
-
         """
         thresholds = dict(((key, self._get_timeout_timestamp(key)) for key in
                            ('auth', 'seen')))
@@ -291,7 +291,6 @@ class BofhdSession(object):
         """
         if not self._short_timeout_hosts:
             return
-
         sql = []
         params = {}
         # 'index' is needed to number free variables in the SQL query.
@@ -343,8 +342,10 @@ class BofhdSession(object):
         """
         try:
             # /dev/random doesn't provide enough bytes
-            f = open('/dev/urandom')
-            r = f.read(48)
+            r = os.urandom(48)
+            # If a randomness source is not found,
+            # NotImplementedError will be raised.
+            # This should be handled by the caller.
         except IOError:
             r = random.Random().random()
         m = hashlib.md5("%s-ok%s" % (entity_id, r))
@@ -504,7 +505,6 @@ class BofhdSession(object):
           Account id for the new session owner for *this* session
           (i.e. self._id)
         """
-
         old_session_owner = self._entity_id
         self._entity_id = target_id
         try:
