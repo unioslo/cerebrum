@@ -1,0 +1,21 @@
+# Set up host as a PHPUnit test machine.
+#
+# We'll install the neccessary packages and utils
+#
+# Note: For any of these tasks to do changes, you'll need to run the playbook
+# with:
+#
+#   ansible-playbook <file> --sudo --ask-sudo-pass
+
+- name: Install PHP packages
+  action: yum state=present name={{ item }}
+  with_items:
+   - php
+   - php-phpunit-PHPUnit     # For unit testing
+   - php-soap                # phplib and phplib2
+   - php-pear-HTML-QuickForm # phplib or phplib2?
+   - php-pear-XML-RPC2       # phplib (bofhcom)
+   - php-symfony             # phplib2
+   - php-doctrine-dbal       # phplib2 tokens?
+   - php-doctrine-orm        # phplib2 tokens?
+  sudo: yes
