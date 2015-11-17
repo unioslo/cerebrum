@@ -61,6 +61,8 @@ class FileCache(object):
         This decides what the cache actually should contain.
 
         """
+        # FIXME: If there are multiple processes attempting to use the same, outdated cache,
+        # they will race to rebuild the cache.
         self.logger.info("Rebuilding cache {!r}".format(self.name))
         if not callable(self.build_callback):
             raise NotImplementedError("Cache {!r} has no rebuild method".format(self.name))
@@ -135,9 +137,8 @@ class FileCache(object):
                     self.data = data['data']
                     self.when = datetime.datetime.fromtimestamp(data['timestamp'] or 0)
                     self.logger.info("Loaded cache {!r} from {}".format(
-                        self.filename,
-                        self.when.strftime('%c')))
-                    self._saved = True
+                        self.filename, self.updated))
+                    self.saved = True
                     return True
         except:
             pass
@@ -172,11 +173,11 @@ class PickleCache(FileCache):
 
     def loader(self, fp):
         """ Loads data from a pickle file. """
-        return pickle.load(file=fp)
+        return pickle.load(fp)
 
     def dumper(self, data, fp):
         """ Dumps data from a pickle file. """
-        return pickle.dump(obj=data, file=fp)
+        return pickle.dump(data, fp)
 
 
 class JsonCache(FileCache):
