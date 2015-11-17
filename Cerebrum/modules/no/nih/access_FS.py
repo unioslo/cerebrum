@@ -126,7 +126,7 @@ class NIHStudent78(NIHStudent, access_FS.Student78):
         return self.db.query(qry)
 
 
-@fsobject('undervisning')
+@fsobject('undervisning', '<7.8')
 class NIHUndervisning(access_FS.Undervisning):
     # TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
     # og list_studenter_underv_enhet.
@@ -299,6 +299,11 @@ class NIHUndervisning(access_FS.Undervisning):
 
         return self.db.query(query)
     # end list_studenter_alle_kull
+
+
+@fsobject('undervisning', '>=7.8')
+class NIHUndervisning78(NIHUndervisning, access_FS.Undervisning78):
+    pass
 
 
 @fsobject('studieinfo')
