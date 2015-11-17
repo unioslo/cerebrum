@@ -2,10 +2,10 @@
 #
 # We'll install the neccessary packages and utils
 #
-# Note: For any of these tasks to do changes, you'll need to run the playbook
+# NOTE: For any of these tasks to do changes, you'll need to run the playbook
 # with:
 #
-#   ansible-playbook <file> --sudo --ask-sudo-pass
+#   ansible-playbook <file> --ask-sudo-pass
 
 - name: Install PHP packages
   action: yum state=present name={{ item }}
