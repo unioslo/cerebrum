@@ -11,11 +11,13 @@
 #
 # Install missing packages with yum.
 #
-- name: Install python packages
+- name: install python environment requirements
   action: yum state=present name={{ item }}
   with_items:
-    - python-devel       # For building packages
-    - python-virtualenv  # Test environments
+    - python
+    - python-devel
+    - python-virtualenv
+    - postgresql-devel
   sudo: yes
 
 - name: Install PHP packages
