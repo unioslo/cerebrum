@@ -199,7 +199,7 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
           pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
           pt.telefonnr telefonnr_mobil,
           s.studentnr_tildelt
-        FROM fs.studieprogramstudent sps
+        FROM fs.studieprogramstudent sps,
              fs.student s, fs.person p
              LEFT JOIN fs.persontelefon pt ON
              pt.fodselsdato = p.fodselsdato AND
