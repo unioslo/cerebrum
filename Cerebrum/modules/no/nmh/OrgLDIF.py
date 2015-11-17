@@ -78,7 +78,7 @@ class nmhOrgLDIFMixin(OrgLDIF):
         """Returns a dict mapping from person_id to 'studienivakode' and 'arstall_kull'."""
         sspc = StudentStudyProgramCache(db=self.db,
                                         logger=self.logger,
-                                        max_age={'minutes': 60})
+                                        max_age={'hours': 12})
         if sspc.data is None:
             raise Exception('Unable to load student study program cache')
         return sspc.data
