@@ -26,15 +26,12 @@ pickles between LDAP exports.
 
 """
 
-from __future__ import with_statement
-
-import cerebrum_path
 import cereconf
 
 import sys
 import os.path
 import datetime
-import pickle
+import cPickle as pickle
 import json
 
 from Cerebrum.Utils import Factory
@@ -42,7 +39,7 @@ from Cerebrum.utils.filelock import (ReadLock,
                                      WriteLock)
 
 
-class _FileCache(object):
+class FileCache(object):
     """ Base cache class. Subclass for different dump formats. """
     dump_dir = getattr(cereconf, 'CACHE_DIR', os.path.join(sys.prefix, 'var', 'cache'))
     build_callback = None
@@ -167,10 +164,10 @@ class _FileCache(object):
         return unicode(str(self), 'utf-8')
 
 
-class _PickleCache(_FileCache):
+class PickleCache(FileCache):
     """ Cache using the Python pickle format. """
     def __init__(self, **kwargs):
-        super(_PickleCache, self).__init__(**kwargs)
+        super(PickleCache, self).__init__(**kwargs)
         self.filetype = 'pickle'
 
     def loader(self, fp):
@@ -182,10 +179,10 @@ class _PickleCache(_FileCache):
         return pickle.dump(obj=data, file=fp)
 
 
-class _JsonCache(_FileCache):
+class JsonCache(FileCache):
     """ Cache using the JSON format. """
     def __init__(self, **kwargs):
-        super(_JsonCache, self).__init__(**kwargs)
+        super(JsonCache, self).__init__(**kwargs)
         self.filetype = 'json'
 
     def loader(self, fp):

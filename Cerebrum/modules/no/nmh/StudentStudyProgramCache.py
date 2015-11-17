@@ -19,7 +19,6 @@
 """Reads information from FS dumps about which study program(s) a student is associated with
 and maps it to the person ID."""
 
-import cerebrum_path
 import cereconf
 
 from os.path import join
@@ -28,7 +27,7 @@ from collections import defaultdict
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
-from Cerebrum.FileCache import _PickleCache
+from Cerebrum.FileCache import PickleCache
 
 
 def fetch_study_programs(db, logger):
@@ -56,7 +55,7 @@ def fetch_study_programs(db, logger):
     return study_programs
 
 
-class StudentStudyProgramCache(_PickleCache):
+class StudentStudyProgramCache(PickleCache):
     def __init__(self, **kwargs):
         self.name = 'fs-student-study-programs'
         self.build_callback = fetch_study_programs
