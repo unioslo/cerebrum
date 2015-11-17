@@ -1,0 +1,24 @@
+# Set up host as a postgres db host
+#
+# We'll create a new, empty database if we've configured to do so. Note that the
+# ansible_ssh_user must have access to the {{ pg_username }} user for socket
+# connections, either through 'trust' or an 'ident' usermap
+
+# TODO: Should we always drop?
+- name: drop existing database
+  when: pg_username is defined and pg_userdb is defined
+  postgresql_db:
+      name: "{{ pg_userdb }}"
+      login_user: "{{ pg_username }}"
+      state: absent
+  tags:
+    - pg
+
+- name: create database
+  when: pg_username is defined and pg_userdb is defined
+  postgresql_db:
+      name: "{{ pg_userdb }}"
+      login_user: "{{ pg_username }}"
+      state: present
+  tags:
+    - pg
