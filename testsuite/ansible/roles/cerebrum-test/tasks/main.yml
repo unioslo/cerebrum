@@ -1,17 +1,16 @@
 # This is the main file for setting up a remote host
 #
-- debug: var=config
+- debug: var={{ item }}
+  when: debug is defined
+  with_items:
+      - config
+      - virtualenv
+      - crb_db_user
+      - crb_db_name
+      - gnupg_home_dir
   tags:
-    - debug
+    - always
 
-- debug: var=virtualenv
-  tags:
-    - debug
-
-- debug: var=crb_db_name
-  tags:
-    - debug
-  
 # To set up ident authentication for a different set of users, we should
 # overload the system_users variable in the top playbook.
 - include: setup_host.yml
@@ -26,7 +25,6 @@
   tags:
     - env
 
-
 # To run with other tests, we should overload the crb_tests in the top playbook
 # file. The same goes for the report files.
 - include: run_nosetests.yml
@@ -35,4 +33,3 @@
     xunit_report: "{{ config }}_xunit.xml"
   tags:
     - test
-    - nose
