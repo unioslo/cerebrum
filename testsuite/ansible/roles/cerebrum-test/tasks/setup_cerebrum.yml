@@ -1,7 +1,7 @@
 - name: place cereconf
   template:
       src: "{{ item }}"
-      dest: "{ virtualenv }}/etc/cerebrum/cereconf.py"
+      dest: "{{ virtualenv }}/etc/cerebrum/cereconf.py"
       validate: "{{ virtualenv }}/bin/python -B %s"
   with_file_overload:
     - base: 'templates'
