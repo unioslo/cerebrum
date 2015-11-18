@@ -21,6 +21,8 @@
 
 """
 
+import collections
+
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
@@ -1401,6 +1403,75 @@ class EntityExternalId(Entity):
         WHERE id_type=:id_type AND external_id=:ext_id AND
         entity_type=:entity_type %s""" % where, binds)
         self.find(entity_id)
+
+    def find_by_external_ids(self, *ids):
+        """Lookup entity by external ID's.
+
+        If the ID's given resolve to one unique person, i.e.:
+        * This person has one or more of these unique ID's, and
+        * No other person has a matching ID, then
+        self is bound to this particular entity.
+
+        :param ids: Each ID should either be a tuple where the first element
+                    denotes an id_type, and the second should be an external_id.
+                    The tuple can also have a third element being the source
+                    system.
+                    Else, the id could be a dict with keys 'id_type',
+                    'external_id', and 'source_system' (optional). The
+                    meaning of each element in ids matches arguments to
+                    find_by_external_id().
+        :returns: Result of self.find()
+        :raises: TooManyRowsError if more than one person matches, or a
+                 NotFoundError if no person matches.
+        """
+        # TODO: Is it better to create a long WHERE clause combined with OR?
+        query = """
+        SELECT DISTINCT entity_id
+        FROM [:table schema=cerebrum name=entity_external_id]
+        WHERE id_type=:id_type AND external_id=:ext_id AND
+        entity_type=:entity_type"""
+
+        def make_bind(id_type, external_id, source_system=None):
+            ret = {'id_type': int(id_type),
+                   'ext_id': external_id,
+                   'entity_type': int(id_type.entity_type)}
+            if source_system:
+                ret['src'] = int(source_system)
+            return ret
+
+        def make_bind_str(id_type, external_id, source_system=None):
+            ret = {'id_type': str(id_type),
+                   'ext_id': external_id,
+                   'src': None}
+            if source_system:
+                ret['src'] = str(source_system)
+            return "(id_type:{id_type} id:{ext_id} source:{src})".format(**ret)
+
+        opt_ss = query + " AND source_system=:src"
+
+        found = []
+        found_ids = set()
+        for i in ids:
+            bind = (make_bind(**i) if isinstance(i, collections.Mapping)
+                    else make_bind(*i))
+            bindstr = (make_bind_str(**i) if isinstance(i, collections.Mapping)
+                       else make_bind_str(*i))
+            q = query if 'src' not in bind else opt_ss
+            rows = self.query(q, bind)
+            if len(rows) > 1:
+                raise Errors.TooManyRowsError(
+                    "External id {} returned too many ({}) rows".format(
+                        bindstr, len(rows)))
+            if rows:
+                found.append((bindstr, rows[0]['entity_id']))
+                found_ids.add(rows[0]['entity_id'])
+        if len(found_ids) == 1:
+            return self.find(*found_ids)
+        if len(found_ids) > 1:
+            strs = ["bind:{} matches id:{}".format(i, j) for i, j in found]
+            raise Errors.TooManyRowsError("More than one entity found: " +
+                                          ", ".join(strs))
+        raise Errors.NotFoundError("No entity found matching given ids")
 
     def _set_cached_external_id(self, variant, value):
         sys_cache = self.const.system_cached
