@@ -428,10 +428,19 @@ def process_person_callback(person_info):
     # TODO: If the person already exist and has conflicting data from
     # another source-system, some mechanism is needed to determine the
     # superior setting.
-    
+    fsids = [(co.externalid_fodselsnr, fnr)]
+    if studentnr is not None:
+        fsids.append((co.externalid_studentnr, studentnr))
+
     new_person = Factory.get('Person')(db)
-    if fnr2person_id.has_key(fnr):
-        new_person.find(fnr2person_id[fnr])
+    try:
+        new_person.find_by_external_ids(*fsids)
+    except Errors.NotFoundError:
+        pass
+    except Errors.TooManyRowsError, e:
+        logger.error("Trying to find studentnr %s, getting several persons: %s",
+                     studentnr, e)
+        return
     new_person.populate(db.Date(year, mon, day), gender)
 
     new_person.affect_names(co.system_fs, co.name_first, co.name_last)
@@ -506,8 +515,8 @@ def process_person_callback(person_info):
 
 
 def main():
-    global verbose, ou, db, co, logger, fnr2person_id, gen_groups, group, \
-            old_aff, include_delete, no_name
+    global verbose, ou, db, co, logger, gen_groups, group, \
+        old_aff, include_delete, no_name
     verbose = 0
     gen_groups = False
     include_delete = False
@@ -556,16 +565,8 @@ def main():
             _get_sko(s, 'faknr_studieansv', 'instituttnr_studieansv',
                      'gruppenr_studieansv')
 
-    # create fnr2person_id mapping, always using fnr from FS when set
-    person = Factory.get('Person')(db)
     if include_delete:
         old_aff = _load_cere_aff()
-    fnr2person_id = {}
-    for p in person.list_external_ids(id_type=co.externalid_fodselsnr):
-        if co.system_fs == p['source_system']:
-            fnr2person_id[p['external_id']] = p['entity_id']
-        elif not fnr2person_id.has_key(p['external_id']):
-            fnr2person_id[p['external_id']] = p['entity_id']
     StudentInfo.StudentInfoParser(personfile, process_person_callback, logger)
     if include_delete:
         rem_old_aff()
