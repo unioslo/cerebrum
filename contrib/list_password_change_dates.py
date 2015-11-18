@@ -45,6 +45,7 @@ def print_change_dates(accounts):
 
         history = ph.get_history(ac.entity_id)
         if history:
+            history = sorted(history, key=lambda x: x['set_at'])
             last = dict(history[-1])
             print "{}\t{}".format(account_name, str(last['set_at']))
         else:
