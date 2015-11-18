@@ -62,6 +62,17 @@ def change_type_to_message(db, change_type_code, subject,
         except Errors.NotFoundError:
             return (entity_id, None, None)
 
+    def get_entity_name(entity_id):
+        co = Factory.get('Constants')(db)
+        try:
+            (_, en, en_type) = get_entity_type(entity_id)
+            from cereconf import ENTITY_TYPE_NAMESPACE
+            namespace = co.ValueDomain(
+                ENTITY_TYPE_NAMESPACE.get(en_type, None))
+            return en.get_name(namespace)
+        except (AttributeError, TypeError, Errors.NotFoundError):
+            return None
+
     if change_params:
         change_params = change_params.copy()
     else:
@@ -86,8 +97,10 @@ def change_type_to_message(db, change_type_code, subject,
         'context': context,
         'subjectid': subjectid,
         'subjecttype': subjecttype,
+        'subjectname': get_entity_name(subjectid),
         'objectid': destid,
         'objecttype': desttype,
+        'objectname': get_entity_name(destid),
         'data': change_params,
     },
         subject, dest, change_type_code, db)
