@@ -35,9 +35,6 @@ def print_change_dates(accounts):
     ph = PasswordHistory(db)
 
     for account_name in accounts:
-        if not account_name:
-            pass
-
         ac.clear()
 
         try:
