@@ -47,6 +47,52 @@ def get_client():
     return client(conf)
 
 
+def change_type_to_message(db, change_type_code, subject,
+                           dest, change_params):
+    """Convert change type to message dicts."""
+    constants = Factory.get("Constants")(db)
+
+    def get_entity_type(entity_id):
+        entity = Factory.get("Entity")(db)
+        try:
+            ent = entity.get_subclassed_object(id=entity_id)
+            return (entity_id,
+                    ent,
+                    str(constants.EntityType(ent.entity_type)))
+        except Errors.NotFoundError:
+            return (entity_id, None, None)
+
+    if change_params:
+        change_params = change_params.copy()
+    else:
+        change_params = dict()
+    if subject:
+        (subjectid, subject, subjecttype) = get_entity_type(subject)
+    else:
+        subjectid = subjecttype = None
+    if dest:
+        (destid, dest, desttype) = get_entity_type(dest)
+    else:
+        destid = desttype = None
+    if 'spread' in change_params:
+        context = str(constants.Spread(change_params['spread']))
+        del change_params['spread']
+    else:
+        context = None
+    import Cerebrum.modules.event_publisher.converters as c
+    return c.filter_message({
+        'category': change_type_code.category,
+        'change': change_type_code.type,
+        'context': context,
+        'subjectid': subjectid,
+        'subjecttype': subjecttype,
+        'objectid': destid,
+        'objecttype': desttype,
+        'data': change_params,
+    },
+        subject, dest, change_type_code, db)
+
+
 class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
     """ Class used to publish changes to an external system.
 
@@ -77,10 +123,10 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         if skip_publish:
             return
 
-        data = self.__change_type_to_message(change_type_id,
-                                             subject_entity,
-                                             destination_entity,
-                                             change_params)
+        data = change_type_to_message(self, change_type_id,
+                                      subject_entity,
+                                      destination_entity,
+                                      change_params)
         # Conversion can discard data by returning false value
         if not data:
             return
@@ -129,51 +175,6 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         ue = self.__get_unpublished_events()
         ue.add_events(self.__queue)
         self.__queue = []
-
-    def __change_type_to_message(self, change_type_code, subject,
-                                 dest, change_params):
-        """Convert change type to message dicts."""
-        constants = Factory.get("Constants")(self)
-
-        def get_entity_type(entity_id):
-            entity = Factory.get("Entity")(self)
-            try:
-                ent = entity.get_subclassed_object(id=entity_id)
-                return (entity_id,
-                        ent,
-                        str(constants.EntityType(ent.entity_type)))
-            except Errors.NotFoundError:
-                return (entity_id, None, None)
-
-        if change_params:
-            change_params = change_params.copy()
-        else:
-            change_params = dict()
-        if subject:
-            (subjectid, subject, subjecttype) = get_entity_type(subject)
-        else:
-            subjectid = subjecttype = None
-        if dest:
-            (destid, dest, desttype) = get_entity_type(dest)
-        else:
-            destid = desttype = None
-        if 'spread' in change_params:
-            context = str(constants.Spread(change_params['spread']))
-            del change_params['spread']
-        else:
-            context = None
-        import Cerebrum.modules.event_publisher.converters as c
-        return c.filter_message({
-            'category': change_type_code.category,
-            'change': change_type_code.type,
-            'context': context,
-            'subjectid': subjectid,
-            'subjecttype': subjecttype,
-            'objectid': destid,
-            'objecttype': desttype,
-            'data': change_params,
-        },
-            subject, dest, change_type_code, self)
 
 
 class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
