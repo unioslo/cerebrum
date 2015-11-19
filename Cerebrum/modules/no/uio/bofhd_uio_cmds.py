@@ -5062,22 +5062,29 @@ Addresses and settings:
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         # Warn the user about NFS filegroup limitations.
+        nis_warning = ''
         for spread_name in cereconf.NIS_SPREADS:
             fg_spread = getattr(self.const, spread_name)
             for row in group_d.get_spread():
                 if row['spread'] == fg_spread:
                     count = self._group_count_memberships(src_entity.entity_id,
                                                           fg_spread)
-                    if count > 15:
-                        return ('WARNING: {source_name} is now a member '
-                                'of {amount_groups} NIS groups with '
-                                'spread {spread}.\nActual membership lookups '
-                                'in NIS may not work as expected if a user is '
-                                'member of more than 16 NIS groups.'.format(
-                                    source_name=src_name,
-                                    amount_groups=count,
-                                    spread=fg_spread))
-        return "OK, added %s to %s" % (src_name, dest_group)
+                    if count > 16:
+                        nis_warning = (
+                            'OK, added {source_name} to {group}\n'
+                            'WARNING: {source_name} is now a member of '
+                            '{amount_groups} NIS groups with spread {spread}.'
+                            '\nActual membership lookups in NIS may not work '
+                            'as expected if a user is member of more than 16 '
+                            'NIS groups.'.format(source_name=src_name,
+                                                 amount_groups=count,
+                                                 spread=fg_spread,
+                                                 group=dest_group))
+        if nis_warning:
+            return nis_warning
+        return 'OK, added {source_name} to {group}'.format(
+            source_name=src_name,
+            group=dest_group)
 
     def _group_count_memberships(self, entity_id, spread):
         """Count how many groups of a given spread have entity_id as a member,
