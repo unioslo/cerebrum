@@ -130,9 +130,9 @@ class NMHStudent78(NMHStudent, access_FS.Student78):
           s.studentnr_tildelt,
           '' telefonretnnr_mobil,
           pt.telefonnr telefonnr_mobil,
-          pt.telefonlandnr telefonlandnr_mobil,
+          pt.telefonlandnr telefonlandnr_mobil
         FROM fs.studieprogramstudent sps, fs.student s,
-             fs.person p LEFT JOIN fs.persontelefon ON
+             fs.person p LEFT JOIN fs.persontelefon pt ON
              pt.fodselsdato = p.fodselsdato AND
              pt.personnr = p.personnr AND
              pt.telefonnrtypekode = 'MOBIL'
