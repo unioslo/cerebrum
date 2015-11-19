@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2010 University of Oslo, Norway
+# Copyright 2010-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,7 +22,6 @@
 """This module defines various constants for the voip module.
 """
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Constants
@@ -253,6 +252,11 @@ class VoipConstants(Constants.Constants):
     voip_client_tcis3 = VoipClientInfoCode(
         "003004",
         "Zenitel TCIS-3"
+    )
+
+    voip_client_tkis2 = VoipClientInfoCode(
+        "003005",
+        "Zenitel TKIS-2"
     )
 
     voip_client_sx20 = VoipClientInfoCode(
