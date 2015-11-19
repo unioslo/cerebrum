@@ -181,11 +181,15 @@ def remove_affiliations(cache):
 
         # person is here, now we delete all the affiliation_ansatt
         # affiliations.
+        handle = True
+        if 'handled' in cache[person_id]:
+            handle = not cache[person_id]['handled']
+            del cache[person_id]['handled']
         for (ou_id, affiliation) in cache[person_id].iterkeys():
-            # the following was already done by person.write_db():
-            # person.delete_affiliation(ou_id,
-            #                           affiliation,
-            #                           constants.system_sap)
+            if handle:
+                person.delete_affiliation(ou_id,
+                                          affiliation,
+                                          constants.system_sap)
             logger.debug("Removed aff=%s/ou_id=%s for %s",
                          constants.PersonAffiliation(affiliation),
                          ou_id, person_id)
@@ -216,8 +220,12 @@ def synchronise_affiliations(aff_cache, person, ou_id, affiliation, status):
                                 ou_id,
                                 affiliation,
                                 status)
-    if (key_level1 not in aff_cache or
-            key_level2 not in aff_cache[key_level1]):
+
+    if key_level1 not in aff_cache:
+        aff_cache[key_level1] = {'handled': True}
+    else:
+        aff_cache[key_level1]['handled'] = True
+    if key_level2 not in aff_cache[key_level1]:
         logger.debug("New affiliation %s (status: %s) for (person_id: %s)",
                      affiliation, status, person.entity_id)
 
