@@ -502,7 +502,7 @@ class HiAEVU78(HiAEVU, access_FS.EVU78):
                e.faknr_adm_ansvar, e.instituttnr_adm_ansvar,
                e.gruppenr_adm_ansvar, p.kjonn, p.status_dod,
                pt.telefonlandnr telefonlandnr_mobil,
-               '' telefonretnnr_mobil, p.telefonnr telefonnr_mobil
+               '' telefonretnnr_mobil, pt.telefonnr telefonnr_mobil
         FROM fs.deltaker d, fs.kursdeltakelse k,
              fs.etterutdkurs e, fs.person p
              LEFT JOIN fs.persontelefon pt ON
