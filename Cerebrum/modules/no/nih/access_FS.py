@@ -106,7 +106,7 @@ class NIHStudent78(NIHStudent, access_FS.Student78):
           p.adresseland_hjemsted, p.status_reserv_nettpubl,
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
-          sps.arstall_kull, p.kjonn, p.status_dod, pt.telefonnr_mobil,
+          sps.arstall_kull, p.kjonn, p.status_dod, pt.telefonnr telefonnr_mobil,
           s.studentnr_tildelt
         FROM fs.studieprogramstudent sps,
              fs.student s, fs.person p

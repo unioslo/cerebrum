@@ -128,7 +128,7 @@ class NMHStudent78(NMHStudent, access_FS.Student78):
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
           s.studentnr_tildelt,
-          '' telefonretnnr_mobil
+          '' telefonretnnr_mobil,
           pt.telefonnr telefonnr_mobil,
           pt.telefonlandnr telefonlandnr_mobil,
         FROM fs.studieprogramstudent sps, fs.student s,

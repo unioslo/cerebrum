@@ -132,8 +132,14 @@ class HiOfStudent78(HiOfStudent, access_FS.Student78):
           sps.arstall_kull, p.kjonn, p.status_dod,
           s.studentnr_tildelt, kks.klassekode,
           kks.status_aktiv AS status_aktiv_klasse
-        FROM fs.studieprogramstudent sps,
-             fs.student s, fs.kullklassestudent kks, fs.person p
+        FROM fs.studieprogramstudent sps
+             LEFT JOIN fs.kullklassestudent kks ON
+             sps.fodselsdato = kks.fodselsdato AND
+             sps.personnr = kks.personnr AND
+             sps.studieprogramkode = kks.studieprogramkode AND
+             sps.terminkode_start = kks.terminkode_start AND
+             sps.arstall_start = kks.arstall_start,
+             fs.student s, fs.person p
              LEFT JOIN fs.persontelefon pt ON
              pt.fodselsdato = p.fodselsdato AND
              pt.personnr = p.personnr AND
@@ -142,11 +148,6 @@ class HiOfStudent78(HiOfStudent, access_FS.Student78):
           p.personnr = sps.personnr AND
           p.fodselsdato = s.fodselsdato AND
           p.personnr = s.personnr AND
-          sps.fodselsdato = kks.fodselsdato(+) AND
-          sps.personnr = kks.personnr(+) AND
-          sps.studieprogramkode = kks.studieprogramkode(+) AND
-          sps.terminkode_start = kks.terminkode_start(+) AND
-          sps.arstall_start = kks.arstall_start(+) AND
           %s AND
           %s
           sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'DELTID') AND
