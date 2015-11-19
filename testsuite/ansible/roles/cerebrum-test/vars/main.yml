@@ -1,0 +1,44 @@
+# Default config for the cerebrum-test role
+#
+#   virtualenv
+#       Path to a virtualenv to use with this role. The virtualenv will be
+#       created if it doesn't exist.
+#
+#   crb_db_name
+#       A database name to use with Cerebrum in the unit tests
+#
+#   crb_db_user
+#       A database user that has access to the {{ crb_db_name }}
+#
+#   gnupg_home_dir
+#       A home directory for gpgme
+#
+#   crb_src_dir
+#       A location where the cerebrum source code can be found.
+#
+#   pip_offline
+#       If defined, no online package index (i.e. PyPI) will be used. PIP will
+#       rely on finding packages in the directory given as value to this
+#       setting.
+#
+#   pip_cache
+#       If defined, pip will use the value of this setting as cache dir for
+#       downloading packages. Mutually exclusive with {{ pip_offline }} - {{
+#       pip_cache }} will be ignored if both settings are given.
+#
+
+# Default, mandatory settings
+virtualenv: "/tmp/virtualenvs/{{ config | default('default')  }}"
+crb_db_user: "testuser_{{ config | default('default') }}"
+crb_db_name: "testdb_{{ config | default('default') }}"
+gnupg_home_dir: "/tmp/gnupghome_{{ config | default('default') }}/.gnupg"
+
+# Other mandatory settings, example
+#
+#   crb_src_dir: /tmp/cerebrum
+
+
+# Optional values, example
+#
+#   pip_offline: /tmp/pip_packages
+#   pip_cache: /tmp/my_pip_cache

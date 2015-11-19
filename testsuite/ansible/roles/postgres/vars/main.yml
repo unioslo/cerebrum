@@ -1,0 +1,46 @@
+# Default config for the postgres role
+#
+# All postgres role settings goes in separate 'pg_' settings.
+#
+# It supports:
+#
+#   pg_confdir
+#       The postgres data/config dir. This is where we look for pg_ident/pg_hba
+#       authentication config files. It is also where we look for a config file
+#       to decide if postgresql has been initialized.
+#
+#   pg_mapname
+#       Name for a ident auth user map. The map will be used when connection to
+#       the database using a local socket. All username mappings that this role
+#       adds will be added to this map.
+#
+#   pg_sameuser
+#       If 'yes' (default), include a (username) -> (username) mapping to the
+#       username mapping named {{ pg_mapname }}
+#
+#   pg_username
+#       The username of the postgres user to create. This is disabled by
+#       default, to enable this variable must be defined.
+#
+#   pg_userdb
+#       A database to create for the postgres user. This is disabled by default.
+#       To enable, this variable and {{ pg_username }} must be
+#       defined.
+#
+#   pg_usermap
+#       A list of local usernames to give ident-auth to the created database
+#       user {{ pg_username }}. To enable, both this and the pg_username
+#       variable must be defined.
+
+# Default, mandatory values
+pg_confdir: /var/lib/pgsql/data
+pg_mapname: usermap
+pg_sameuser: yes
+
+# Optional values, example:
+#
+#     pg_username: some-username
+#     pg_userdb: some-database-name
+#     pg_usermap:
+#       - "{{ ansible_ssh_user }}"
+#       - some-local-username

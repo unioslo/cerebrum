@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: UTF-8 -*-
 
 # Copyright 2007 University of Oslo, Norway
 #
@@ -28,7 +28,7 @@ The rules for assigning affiliations are thus:
 
 * Each valid[1] entry in feide_persti results in exactly one
   affiliation_ansatt. The aff. status for this affiliation is calculated based
-  on the employment code (lønnstittelkode) from that entry.
+  on the employment code (lÃ¸nnstittelkode) from that entry.
 * Each affiliation in Cerebrum must have a corresponding entry in the file.
 
 There are roughly two different ways of synchronising all the affiliations:
@@ -56,9 +56,10 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Database import Database
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import simple_memoize, NotSet
-from Cerebrum.modules.no.hia.mod_sap_utils import load_expired_employees, \
-    load_invalid_employees
+from Cerebrum.Utils import NotSet
+from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.modules.no.hia.mod_sap_utils import load_expired_employees
+from Cerebrum.modules.no.hia.mod_sap_utils import load_invalid_employees
 from Cerebrum.modules.no.hia.mod_sap_utils import make_employment_iterator
 from Cerebrum.modules.no.Constants import SAPLonnsTittelKode
 
@@ -74,7 +75,7 @@ def sap_employment2affiliation(sap_lonnstittelkode):
 
     The rules are:
 
-    * aff = ANSATT, and VIT/ØVR depending on lonnstittelkode, when:
+    * aff = ANSATT, and VIT/Ã˜VR depending on lonnstittelkode, when:
       sap_lonnstittelkode != 20009999 (const.sap_9999_dummy_stillingskode)
       fo_kode != 9999
 
@@ -89,14 +90,14 @@ def sap_employment2affiliation(sap_lonnstittelkode):
         if not isinstance(kategori, unicode):
             kategori = kategori.decode(Database.encoding)
     except Errors.NotFoundError:
-        logger.warn(u"No SAP.STELL/lønnstittelkode <%s> found in Cerebrum",
+        logger.warn(u"No SAP.STELL/lÃ¸nnstittelkode <%s> found in Cerebrum",
                     sap_lonnstittelkode)
         return None, None
 
     if lonnskode != constants.sap_9999_dummy_stillingskode:
         affiliation = constants.affiliation_ansatt
         status = {
-            u'ØVR': constants.affiliation_status_ansatt_tekadm,
+            u'Ã˜VR': constants.affiliation_status_ansatt_tekadm,
             u'VIT': constants.affiliation_status_ansatt_vitenskapelig}[kategori]
     else:
         affiliation = constants.affiliation_tilknyttet
@@ -105,7 +106,7 @@ def sap_employment2affiliation(sap_lonnstittelkode):
     return affiliation, status
 
 
-@simple_memoize
+@memoize
 def get_ou_id(sap_ou_id):
     """Map SAP OU id to Cerebrum entity_id.
     """
@@ -280,7 +281,7 @@ def process_affiliations(employment_file, person_file, use_fok,
 
     for tpl in make_employment_iterator(file(employment_file), use_fok, logger):
         if not tpl.valid():
-            logger.debug("Ignored invalid entry for person: «%s»",
+            logger.debug("Ignored invalid entry for person: Â«%sÂ»",
                          tpl.sap_ansattnr)
             continue
 
@@ -494,7 +495,5 @@ def main():
     else:
         database.commit()
         logger.info("All changes committed")
-
-
 if __name__ == "__main__":
     main()

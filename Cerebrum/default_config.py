@@ -35,6 +35,9 @@ CEREBRUM_DATABASE_CONNECT_DATA = {'user': None,
 # Default bind name for Cerebrum
 CEREBRUM_SERVER_IP = ""
 
+# Cache directory
+CACHE_DIR = pj(prefix, 'var', 'cache')
+
 AUTH_CRYPT_METHODS = ("MD5-crypt",)
 
 # List of full path filenames to files containing non-allowed

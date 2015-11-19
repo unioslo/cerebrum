@@ -1,0 +1,125 @@
+# Set up host as a postgres db host
+#
+# We'll install the neccessary packages, set up postgres users and start the
+# postgres service.
+#
+# Note: For any of these tasks to do changes, you'll need to run the playbook
+# with:
+#
+#   ansible-playbook <file> --ask-sudo-pass
+#
+- name: install postgres packages
+  yum:
+      name: "{{ item }}"
+      state: present
+  with_items:
+    - postgresql
+    - postgresql-server
+    - postgresql-devel
+    - python-psycopg2  # Requirement for the postgresql ansible modules.
+  sudo: yes
+  tags:
+    - pg
+
+- name: init postgres database
+  command: postgresql-setup initdb
+           creates={{ pg_confdir }}/postgresql.conf
+  sudo: yes
+  tags:
+    - pg
+    - pg-conf
+
+- name: start postgres service
+  service: name=postgresql state=started
+  sudo: yes
+  tags:
+    - pg
+
+# TODO: What happens if there's no regex match? Should that be handled better?
+- name: replace default socket auth with ident
+  lineinfile:
+      regexp: "^(local\\s+all\\s+all\\s+) (peer|md5|trust)\\s*$"
+      backrefs: yes
+      line: "\\1 ident map={{ pg_mapname }}"
+      dest: "{{ pg_confdir }}/pg_hba.conf"
+      backup: yes
+      owner: postgres
+      group: postgres
+      mode: 0700
+  sudo: yes
+  sudo_user: postgres
+  notify:
+    - restart postgresql
+  tags:
+    - pg
+    - pg-conf
+
+- name: add ident mapping for same-username
+  lineinfile:
+      line: "{{ pg_mapname }}  /^(.*)$  \\\\1"
+      dest: "{{ pg_confdir }}/pg_ident.conf"
+      backup: yes
+      owner: postgres
+      group: postgres
+      mode: 0700
+  when: pg_sameuser
+  sudo: yes
+  sudo_user: postgres
+  notify:
+    - restart postgresql
+  tags:
+    - pg
+    - pg-conf
+
+# TODO: Beef up the 'create users' and 'create databases' tasks – and move them
+#       to separate files?
+- name: create postgres user
+  postgresql_user:
+      name: "{{ pg_username }}"
+      role_attr_flags: CREATEDB,NOCREATEROLE,NOSUPERUSER
+  when: pg_username is defined
+  sudo: yes
+  sudo_user: postgres
+  tags:
+    - pg
+
+- name: add ident mapping to pg_username for configured users
+  lineinfile:
+      line: "{{ pg_mapname }}  {{ item }}  {{ pg_username }}"
+      dest: "{{ pg_confdir }}/pg_ident.conf"
+      backup: yes
+      owner: postgres
+      group: postgres
+      mode: 0700
+  when: pg_username is defined
+  with_items: pg_usermap|default([])
+  sudo: yes
+  sudo_user: postgres
+  notify:
+    - restart postgresql
+  tags:
+    - pg
+    - pg-conf
+
+# The ansible ssh user must have access to the pg_username that we create
+- name: add ident mapping to pg_username for ansible_ssh_user
+  lineinfile:
+      line: "{{ pg_mapname }}  {{ ansible_ssh_user }}  {{ pg_username }}"
+      dest: "{{ pg_confdir }}/pg_ident.conf"
+      backup: yes
+      owner: postgres
+      group: postgres
+      mode: 0700
+  when: pg_username is defined
+  sudo: yes
+  sudo_user: postgres
+  notify:
+    - restart postgresql
+  tags:
+    - pg
+    - pg-conf
+
+# Manually flush handlers in case we need to use the db in the same role.
+- meta: flush_handlers
+  tags:
+    - always

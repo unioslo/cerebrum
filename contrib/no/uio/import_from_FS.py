@@ -35,7 +35,7 @@ import cereconf
 from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.Utils import XMLHelper, FileChangeTooBigError
-from Cerebrum.modules.no.uio.access_FS import FS
+from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import AtomicFileWriter, SimilarSizeWriter
 from Cerebrum.Utils import Factory
@@ -541,7 +541,7 @@ def main():
             edu_file = val
 
     global fs
-    fs = Factory.get("FS")()
+    fs = make_fs()
 
     for o, val in opts:
         try:

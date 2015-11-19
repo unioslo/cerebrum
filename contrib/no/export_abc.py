@@ -55,6 +55,7 @@ from Cerebrum import Database
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no import Stedkode
+from Cerebrum.modules.no.access_FS import make_fs
 
 
 
@@ -971,7 +972,7 @@ def main():
             with_cell = True
 
     _cache_id_types()
-    fs_db = Factory.get("FS")()
+    fs_db = make_fs()
     stream = Utils.AtomicFileWriter(filename)
     xmlwriter = xmlprinter.xmlprinter(stream,
                                       indent_level=2,

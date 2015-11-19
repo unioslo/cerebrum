@@ -93,10 +93,6 @@ class ConstantsActiveDirectory(Constants):
                                          'HomeDrive for an account in AD',
                                          False)
 
-    ad_attribute_mobile = _ADAttrCode('Mobile',
-                                       'Mobile number for an object in AD',
-                                       True) # multivalued, yes
-
     ad_attribute_scriptpath = _ADAttrCode('ScriptPath',
                                           'ScriptPath for an account in AD',
                                           False)

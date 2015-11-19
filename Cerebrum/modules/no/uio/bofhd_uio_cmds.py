@@ -31,6 +31,7 @@ import select
 import errno
 
 from mx import DateTime
+from flanker.addresslib import address as email_validator
 
 import cereconf
 from Cerebrum import Cache
@@ -48,8 +49,10 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, \
-     AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
+from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
+                                         AuthConstants,
+                                         BofhdAuthOpTarget,
+                                         BofhdAuthRole)
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
@@ -1395,20 +1398,49 @@ class BofhdExtension(BofhdCommonMethods):
         return "OK, removed '%s'" % address
 
     def _check_email_address(self, address):
-        # To stop some typoes, we require that the address consists of
-        # a local part and a domain, and the domain must contain at
-        # least one period.  We also remove leading and trailing
-        # whitespace.  We do an unanchored search as well so that an
-        # address in angle brackets is accepted, e.g. either of
-        # "jdoe@example.com" or "Jane Doe <jdoe@example.com>" is OK.
+        """ Check email address syntax.
+
+        Accepted syntax:
+            - 'local'
+            - <localpart>@<domain>
+                localpart cannot contain @ or whitespace
+                domain cannot contain @ or whitespace
+                domain must have at least one '.'
+            - Any string where a substring wrapped in <> brackets matches the
+              above rule.
+            - Valid examples: jdoe@example.com
+                              <jdoe>@<example.com>
+                              Jane Doe <jdoe@example.com>
+
+        NOTE: Raises CerebrumError if address is invalid
+
+        @rtype: str
+        @return: address.strip()
+
+        """
         address = address.strip()
         if address == 'local':
             return address
         if address.find("@") == -1:
             raise CerebrumError, "E-mail addresses must include the domain name"
-        if not (re.match(r'[^@\s]+@[^@\s.]+\.[^@\s]+$', address) or
-                re.search(r'<[^@>\s]+@[^@>\s.]+\.[^@>\s]+>$', address)):
-            raise CerebrumError, "Invalid e-mail address (%s)" % address
+
+        error_msg = ("Invalid e-mail address: %s\n"
+                     "Valid input:\n"
+                     "jdoe@example.com\n"
+                     "<jdoe>@<example.com>\n"
+                     "Jane Doe <jdoe@example.com>" % address)
+        # Check if we either have a string consisting only of an address,
+        # or if we have an bracketed address prefixed by a name. At last,
+        # verify that the email is RFC-compliant.
+        if not ((re.match(r'[^@\s]+@[^@\s.]+\.[^@\s]+$', address) or
+                re.search(r'<[^@>\s]+@[^@>\s.]+\.[^@>\s]+>$', address))):
+            raise CerebrumError(error_msg)
+
+        # Strip out angle brackets before running proper validation, as the
+        # flanker address parser gets upset if domain is wrapped in them.
+        val_adr = address.replace('<', '').replace('>', '')
+        if not email_validator.parse(val_adr):
+            raise CerebrumError(error_msg)
         return address
 
     def _forward_exists(self, fw, addr):
@@ -5030,22 +5062,29 @@ Addresses and settings:
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         # Warn the user about NFS filegroup limitations.
+        nis_warning = ''
         for spread_name in cereconf.NIS_SPREADS:
             fg_spread = getattr(self.const, spread_name)
             for row in group_d.get_spread():
                 if row['spread'] == fg_spread:
                     count = self._group_count_memberships(src_entity.entity_id,
                                                           fg_spread)
-                    if count > 15:
-                        return ('WARNING: {source_name} is now a member '
-                                'of {amount_groups} NIS groups with '
-                                'spread {spread}. Membership check may not '
-                                'work as expected if a user is member of more '
-                                'than 16 NIS groups.'.format(
-                                    source_name=src_name,
-                                    amount_groups=count,
-                                    spread=fg_spread))
-        return "OK, added %s to %s" % (src_name, dest_group)
+                    if count > 16:
+                        nis_warning = (
+                            'OK, added {source_name} to {group}\n'
+                            'WARNING: {source_name} is now a member of '
+                            '{amount_groups} NIS groups with spread {spread}.'
+                            '\nActual membership lookups in NIS may not work '
+                            'as expected if a user is member of more than 16 '
+                            'NIS groups.'.format(source_name=src_name,
+                                                 amount_groups=count,
+                                                 spread=fg_spread,
+                                                 group=dest_group))
+        if nis_warning:
+            return nis_warning
+        return 'OK, added {source_name} to {group}'.format(
+            source_name=src_name,
+            group=dest_group)
 
     def _group_count_memberships(self, entity_id, spread):
         """Count how many groups of a given spread have entity_id as a member,
@@ -8362,7 +8401,10 @@ Addresses and settings:
         if entity.has_spread(spread):
             raise CerebrumError("entity id=%s already has spread=%s" %
                                 (id, spread))
-        entity.add_spread(spread)
+        try:
+            entity.add_spread(spread)
+        except Errors.RequiresPosixError as e:
+            raise CerebrumError(str(e))
         entity.write_db()
         if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
             self._spread_sync_group(entity)

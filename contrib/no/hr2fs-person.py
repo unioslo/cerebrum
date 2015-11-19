@@ -39,7 +39,6 @@ hr2fs-person.py -p affiliation_ansatt \
                 -f affiliation_tilknyttet/affiliation_tilknyttet_grlaerer \
                 --dryrun
 """
-
 from UserDict import IterableUserDict
 import getopt
 import sys
@@ -47,18 +46,18 @@ import traceback
 
 import cerebrum_path
 import cereconf
+
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum import Errors
-from Cerebrum import Utils
+from Cerebrum.utils.funcwrap import memoize
 from Cerebrum import Database
-
 
 
 logger = Factory.get_logger("cronjob")
 constants = Factory.get("Constants")()
 database = Factory.get("Database")()
-
 
 
 class SimplePerson(IterableUserDict, object):
@@ -88,7 +87,7 @@ class SimplePerson(IterableUserDict, object):
             if key not in self.allowed_keys:
                 return False
         return True
-                    
+
     def __init__(self, **kwargs):
         assert self.__keys_are_legal(*kwargs.iterkeys())
         super(SimplePerson, self).__init__(**kwargs)
@@ -122,7 +121,6 @@ class SimplePerson(IterableUserDict, object):
 # end SimplePerson
 
 
-
 def exc2message(exc_tuple):
     """Return a human-friendly version of exception exc.
 
@@ -137,7 +135,6 @@ def exc2message(exc_tuple):
     msg = msg.split("\n", 1)[0]
     return str(msg)
 # end exc2message
-
 
 
 def _selection2aff_dict(selection_criteria):
@@ -167,7 +164,6 @@ def _selection2aff_dict(selection_criteria):
 # end _selection2aff_dict
 
 
-
 def criteria2affiliations(selection_criteria):
     """Extract affiliations from L{selection_criteria}.
 
@@ -182,7 +178,6 @@ def criteria2affiliations(selection_criteria):
                      for affiliation, status in selection_criteria))
 # end criteria2affiliations
 
-    
 
 def find_fnr(person, authoritative_system):
     """Locate person's fnr.
@@ -224,7 +219,6 @@ def find_fnr(person, authoritative_system):
 # end find_fnr
 
 
-
 def find_name(person, name_variant, authoritative_system):
     """Locate a specific name for person
 
@@ -252,7 +246,6 @@ def find_name(person, name_variant, authoritative_system):
 # end find_name
 
 
-
 def find_title(person):
     """Locate person's work title, if any exists."""
 
@@ -262,13 +255,12 @@ def find_title(person):
 # end find_title
 
 
-
 def find_primary_mail_address(person):
     """Locate person's primary e-mail address.
 
     A person's primary e-mail address is defined as the primary e-mail address
     of the person's primary account.
-    
+
     NB! This could be expensive (a whole bunch of 'expensive' objects are
     created).
 
@@ -291,7 +283,6 @@ def find_primary_mail_address(person):
 
     # NOTREACHED
 # end find_primary_mail_address
-
 
 
 def find_contact_info(person, contact_variant, authoritative_system):
@@ -327,7 +318,6 @@ def find_contact_info(person, contact_variant, authoritative_system):
         return None
     return value
 # end find_contact_info
-        
 
 
 def find_my_affiliations(person, selection_criteria, authoritative_system):
@@ -363,7 +353,6 @@ def find_my_affiliations(person, selection_criteria, authoritative_system):
                   for x, y in my_affiliations])
     return my_affiliations
 # end find_my_affiliations
-
 
 
 def find_primary_ou(person, selection_criteria, authoritative_system):
@@ -434,8 +423,7 @@ def find_primary_ou(person, selection_criteria, authoritative_system):
 # end find_primary_ou
 
 
-
-@Utils.simple_memoize
+@memoize
 def find_primary_sko(primary_ou_id, fs, ou_perspective):
     """Locate sko corresponding to primary_ou_id.
 
@@ -466,7 +454,6 @@ def find_primary_sko(primary_ou_id, fs, ou_perspective):
 
     # NOTREACHED
 # end find_primary_sko
-
 
 
 def _populate_caches(selection_criteria, authoritative_system, email_cache,
@@ -548,7 +535,7 @@ def _populate_caches(selection_criteria, authoritative_system, email_cache,
                 logger.info("Ignoring long contact value for %s: %s",
                             _person_id2fnr[p_id], value)
                 continue
-            
+
             _person_id2contact.setdefault(p_id, {})[int(contact_type)] = value
     global find_contact_info
     find_contact_info = lambda p, c, a: _person_id2contact.get(p.entity_id,
@@ -566,11 +553,10 @@ def _populate_caches(selection_criteria, authoritative_system, email_cache,
             continue
 
         _person_id2name.setdefault(p_id, {})[int(row["name_variant"])] = row["name"]
-            
+
     global find_name
     find_name = lambda p, n, a: _person_id2name.get(p.entity_id,
                                                     {}).get(int(n))
-
 
     logger.debug("Preloading title information")
     _person_id2title = dict((row["entity_id"], row["name"])
@@ -611,7 +597,6 @@ def _populate_caches(selection_criteria, authoritative_system, email_cache,
     logger.debug("Done preloading ansattnr information (%d entries)",
                  len(_fnr2ansattnr))
 # end _populate_caches
-
 
 
 def person2fs_info(row, person, authoritative_system):
@@ -677,10 +662,9 @@ def person2fs_info(row, person, authoritative_system):
     if None in (result['name_first'], result['name_last']):
         logger.warn('Missing name for fnr=%s', fnr)
         return None
-    
+
     return result
 # end person2fs_info
-
 
 
 def select_rows(selection_criteria, row_generator, **kw_args):
@@ -724,10 +708,9 @@ def select_rows(selection_criteria, row_generator, **kw_args):
         if not (None in affiliation2status[aff] or
                 aff_status in affiliation2status[aff]):
             continue
-        
+
         yield row
 # end select_rows
-
 
 
 def select_FS_candidates(selection_criteria, authoritative_system):
@@ -763,7 +746,6 @@ def select_FS_candidates(selection_criteria, authoritative_system):
 
     return result
 # end select_FS_candidates
-
 
 
 def export_person(person_id, info_chunk, fs):
@@ -803,7 +785,6 @@ def export_person(person_id, info_chunk, fs):
             logger.info("Setting of ansattnr=%d on id=%d failed: %s",
                         data.ansattnr, person_id, exc2message(sys.exc_info()))
 # end export_person
-
 
 
 def export_fagperson(person_id, info_chunk, selection_criteria, fs,
@@ -855,9 +836,10 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
                    "faknr_ansatt": primary_sko[1],
                    "instituttnr_ansatt": primary_sko[2],
                    "gruppenr_ansatt": primary_sko[3],
-                   "telefonnr_arbeide": info_chunk.phone,
+                   # "telefonnr_arbeide": info_chunk.phone,
                    "stillingstittel_norsk": info_chunk.work_title,
-                   "telefonnr_fax_arb": info_chunk.fax,}
+                   # "telefonnr_fax_arb": info_chunk.fax
+                   }
     if not fs_info:
         logger.debug("Pushing new entry to FS.fagperson: %s pid=%s",
                      info_chunk, person_id)
@@ -885,9 +867,22 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
 
         logger.debug("Updating data for fagperson fnr=%s", info_chunk.fnr11)
         fs.person.update_fagperson(**values2push)
-# end export_fagperson
-
-
+    phone = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
+                                    fs_info['institusjonsnr_eier'], 'ARB')
+    if info_chunk.phone and not phone:
+        fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
+                                info_chunk.phone)
+    elif info_chunk.phone and phone[0]['telefonnr'] != info_chunk.phone:
+        fs.person.update_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
+                                   info_chunk.phone)
+    fax = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
+                                  fs_info['institusjonsnr_eier'], 'FAKS')
+    if info_chunk.fax and not fax:
+        fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'FAKS',
+                                info_chunk.fax)
+    elif info_chunk.fax and fax[0]['telefonnr'] != info_chunk.fax:
+        fs.person.update_telephone(info_chunk.fnr6, info_chunk.pnr, 'FAKS',
+                                   info_chunk.phone)
 
 def make_fs_updates(person_affiliations, fagperson_affiliations, fs,
                     authoritative_system, ou_perspective):
@@ -909,7 +904,7 @@ def make_fs_updates(person_affiliations, fagperson_affiliations, fs,
       Sequence of affiliations, much like L{person_affiliations}. This one is
       used to populate FS.fagperson.
 
-    @type fs: Factory.get('FS') instance.
+    @type fs: make_fs() instance.
     @param fs:
       An FS db proxy.
 
@@ -938,8 +933,7 @@ def make_fs_updates(person_affiliations, fagperson_affiliations, fs,
                          authoritative_system, ou_perspective)
     fs.db.commit()
 # end make_fs_updates
-    
-    
+
 
 def main():
     try:
@@ -949,22 +943,21 @@ def main():
                                     'dryrun',
                                     'authoritative-system=',
                                     'ou-perspective=',
-				    'with-cache-email',))
+                                    'with-cache-email',))
     except getopt.GetoptError:
         print "Wrong option", sys.exc_info()
         return
 
     def append_affiliation(value, where):
         if len(value.split("/")) == 1:
-            aff, status = (constants.human2constant(value,
-                                                   constants.PersonAffiliation),
-                           None)
+            aff, status = (
+                constants.human2constant(value, constants.PersonAffiliation),
+                None)
         elif len(value.split("/")) == 2:
             aff, status = value.split("/")
-            aff, status = (constants.human2constant(aff,
-                                                   constants.PersonAffiliation),
-                           constants.human2constant(status,
-                                                   constants.PersonAffStatus))
+            aff, status = (
+                constants.human2constant(aff, constants.PersonAffiliation),
+                constants.human2constant(status, constants.PersonAffStatus))
             assert not (aff is None or status is None), "Missing aff/status"
         else:
             logger.error("Wrong syntax for affiliation %s", value)
@@ -986,14 +979,14 @@ def main():
         elif option in ('-d', '--dryrun',):
             dryrun = True
         elif option in ('-a', '--authoritative-system',):
-            authoritative_system = constants.human2constant(value, 
-							    constants.AuthoritativeSystem)
+            authoritative_system = constants.human2constant(
+                value, constants.AuthoritativeSystem)
         elif option in ('-o', '--ou-perspective',):
-            ou_perspective = constants.human2constant(value,
-						      constants.OUPerspective)
+            ou_perspective = constants.human2constant(
+                value, constants.OUPerspective)
         elif option in ('--with-cache-email',):
             email_cache = True
-            
+
     assert authoritative_system is not None
     assert ou_perspective is not None
     if not person_affiliations:
@@ -1001,7 +994,7 @@ def main():
                      "This is most likely not what you want")
         return
     
-    fs = Factory.get("FS")()
+    fs = make_fs()
     if dryrun:
         fs.db.commit = fs.db.rollback
 
@@ -1010,12 +1003,11 @@ def main():
     _populate_caches(person_affiliations + fagperson_affiliations,
                      authoritative_system,
                      email_cache)
-    
+
     make_fs_updates(person_affiliations, fagperson_affiliations, fs,
                     authoritative_system, ou_perspective)
     logger.debug("Pushed all changes to FS")
 # end main
-
 
 
 if __name__ == "__main__":

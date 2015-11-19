@@ -28,6 +28,7 @@ import re
 
 import cereconf
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.access_FS import make_fs
 
 __doc__ = """
 This is a nice module that you should use correctly.
@@ -196,7 +197,7 @@ class FSImport(LMSImport):
 
     def __init__(self):
         LMSImport.__init__(self)
-        self.fs_db = Factory.get('FS')()
+        self.fs_db = make_fs()
         self.UndervEnhet = {}
         self.not_exported_to_lms = {}
         self.enhet_names = {}

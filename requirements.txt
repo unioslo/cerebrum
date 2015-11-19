@@ -13,3 +13,4 @@ pyOpenSSL
 python-ldap
 cx_Oracle
 pygpgme
+flanker

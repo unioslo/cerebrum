@@ -929,7 +929,6 @@ class Factory(object):
                       'Project': 'CLASS_PROJECT',
                       'Allocation': 'CLASS_ALLOCATION',
                       'AllocationPeriod': 'CLASS_ALLOCATION_PERIOD',
-                      'FS': 'CLASS_FS',
                       'LMSImport': 'CLASS_LMS_IMPORT',
                       'LMSExport': 'CLASS_LMS_EXPORT', }
 
@@ -942,6 +941,24 @@ class Factory(object):
             raise ValueError("Unknown component %r" % comp)
 
         import_spec = getattr(cereconf, conf_var)
+        return Factory.make_class(comp, import_spec, conf_var)
+
+    @staticmethod
+    def make_class(name, import_spec, conf_var=None):
+        """Assemble the class according to spec.
+
+        :param string name: Name of class thing.
+
+        :param sequence import_spec: Name of classes to assemble into the
+            returned class. Each element of the form ``module/classname``.
+
+        :param string conf_var: Variable in cereconf
+
+        :return: Class
+        """
+        if name in Factory.class_cache:
+            return Factory.class_cache[name]
+
         if isinstance(import_spec, (tuple, list)):
             bases = []
             for c in import_spec:
@@ -962,9 +979,15 @@ class Factory(object):
                 # misconfiguration won't be used.
                 for override in bases:
                     if issubclass(cls, override):
-                        raise RuntimeError("Class %r should appear earlier in"
-                                           " cereconf.%s, as it's a subclass of"
-                                           " class %r." % (cls, conf_var, override))
+                        if conf_var:
+                            raise RuntimeError("Class %r should appear earlier"
+                                               " in cereconf.%s, as it's a"
+                                               " subclass of class %r." %
+                                               (cls, conf_var, override))
+                        else:
+                            raise RuntimeError("Class %r should appear earlier"
+                                               " than %r as it is a subclass" %
+                                               (cls, override))
                 bases.append(cls)
             if len(bases) == 1:
                 comp_class = bases[0]
@@ -975,12 +998,12 @@ class Factory(object):
                 # prefix of "_dynamic_"; the prefix is there to reduce
                 # the probability of `auto_super` name collision
                 # problems.
-                comp_class = type('_dynamic_' + comp, tuple(bases), {})
-            Factory.class_cache[comp] = comp_class
+                comp_class = type('_dynamic_' + name, tuple(bases), {})
+            Factory.class_cache[name] = comp_class
             return comp_class
         else:
             raise ValueError("Invalid import spec for component %s: %r" %
-                             (comp, import_spec))
+                             (name, import_spec))
 
     def get_logger(name=None):
         """Return THE cerebrum logger.
@@ -1337,39 +1360,6 @@ class RecursiveDict(dict):
             # Wrap it, make sure it follows our rules
             value = RecursiveDict(value)
         dict.__setitem__(self, key, value)
-
-
-def simple_memoize(callobj):
-    """Memoize[1] a callable.
-
-    [1] <http://en.wikipedia.org/wiki/Memoize>.
-
-    The idea is to memoize a callable object supporting rest/optional
-    arguments without placing a limit on the amount of cached pairs. This is
-    useful for mapping ou_id to names and such (i.e. situations where the
-    number of cached values is small, and the information is requested many
-    times for the same 'key').
-
-    NB! keyword arguments ARE NOT supported.
-
-    @type callobj: callable
-    @param callobj:
-      An object for which callable(callobj) == True. I.e. something we can
-      call (lambda, function, bound method, etc.)
-
-    @rtype: function
-    @return:
-      A wrapper that caches the results of previous invocations of callobj.
-    """
-
-    cache = {}
-
-    def wrapper(*rest):
-        if rest not in cache:
-            cache[rest] = callobj(*rest)
-        return cache[rest]
-
-    return wrapper
 
 
 def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):

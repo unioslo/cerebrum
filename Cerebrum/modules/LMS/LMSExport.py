@@ -29,6 +29,7 @@ import time
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.modules.xmlutils.GeneralXMLWriter import XMLWriter
 from Cerebrum.Errors import NotFoundError
 
@@ -134,7 +135,7 @@ class LMSExport(object):
 
     def gather_student_information(self):
         logger.debug("gather_student_information start")
-        fs = Factory.get('FS')()
+        fs = make_fs()
         students = fs.student.list_aktiv()
         person = Factory.get('Person')(db)
 
