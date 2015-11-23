@@ -132,14 +132,17 @@ def write_file(filename, persons, skip_incomplete):
     from string import Template
     f = AtomicFileWriter(filename)
     i = 0
+    f.write(
+        'title;firstname;lastname;feide_id;'
+        'email_address;phone;ssn\n')
     for person in persons:
         if skip_incomplete and not all(person.values()):
             continue
         person = dict(map(lambda (x, y): (x, '' if y is None else y),
                           person.iteritems()))
         f.write(
-            Template('$title, $firstname, $lastname, $feide_id, '
-                     '$email_address, $phone, $ssn\n').substitute(person))
+            Template('$title;$firstname;$lastname;$feide_id;'
+                     '$email_address;$phone;$ssn\n').substitute(person))
         i += 1
     f.close()
     logger.info('Wrote %d users to file %s', i, filename)
