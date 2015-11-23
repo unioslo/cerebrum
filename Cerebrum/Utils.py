@@ -118,7 +118,8 @@ def sendmail(toaddr, fromaddr, subject, body, cc=None,
     if cc:
         toaddr.extend([addr.strip() for addr in cc.split(',')])
         msg['Cc'] = cc.strip()
-    if debug:
+    if debug or (hasattr(cereconf, 'EMAIL_DISABLED') and
+                 cereconf.EMAIL_DISABLED):
         return msg.as_string()
     smtp = smtplib.SMTP(cereconf.SMTP_HOST)
     smtp.sendmail(fromaddr, toaddr, msg.as_string())
