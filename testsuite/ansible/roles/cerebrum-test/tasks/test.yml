@@ -1,9 +1,0 @@
-# This is a test playbook. It is only used to try out ansible behaviour when
-# developing playbooks.
-#
-- name: Print thisvar
-  debug: msg="{{ thisvar|default('<not set>') }}"
-
-- name: Print thatvar
-  debug: msg="{{ thatvar|default('<not set>') }}"
-
