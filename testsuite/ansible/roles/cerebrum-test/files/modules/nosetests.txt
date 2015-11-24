@@ -1,0 +1,2 @@
+test_ad2/test_ADSync.py
+test_bofhd/test_session.py
