@@ -1,15 +1,27 @@
 [localhost]
 localhost ansible_connection=local
 
-[cere-utv01]
-cere-utv01.uio.no
+[cere-utv04]
+cere-utv04.uio.no
 
 [cerebrum-test-node]
 cere-utv02.uio.no
 
 [localtests:children]
+basetest
+dns
+modules
 uio
 tsd
+
+[basetest]
+basetest.localhost config=basetest gnupgtest=yes
+
+[dns]
+dns.localhost config=dns
+
+[modules]
+modules.localhost config=modules
 
 [tsd]
 tsd.localhost config=tsd
