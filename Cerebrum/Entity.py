@@ -21,6 +21,8 @@
 
 """
 
+import collections
+
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
@@ -99,7 +101,7 @@ class Entity(DatabaseAccessor):
         # If __in_db in not present, we'll set it to False.
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
         self.entity_type = entity_type
@@ -227,7 +229,7 @@ class Entity(DatabaseAccessor):
         entity_type = str(self.const.EntityType(self.entity_type))
         component = Factory.type_component_map.get(entity_type)
         if component is None:
-            raise ValueError, "No factory for type %s" % entity_type
+            raise ValueError("No factory for type %s" % entity_type)
         entity = Factory.get(component)(self._db)
         entity.find(self.entity_id)
         return entity
@@ -382,8 +384,8 @@ class EntityName(Entity):
         self._db.log_change(self.entity_id, self.const.entity_name_mod, None,
                             change_params={'domain': int(domain),
                                            'name': name})
-        if int(domain) in [int(self.const.ValueDomain(code_str))
-                           for code_str in cereconf.NAME_DOMAINS_THAT_DENY_CHANGE]:
+        if int(domain) in [int(self.const.ValueDomain(code_str)) for code_str in
+                           cereconf.NAME_DOMAINS_THAT_DENY_CHANGE]:
             raise self._db.IntegrityError, \
                 "Name change illegal for the domain: %s" % domain
         self.execute("""
@@ -410,7 +412,8 @@ class EntityName(Entity):
         tables = []
         where = []
         tables.append('[:table schema=cerebrum name=entity_name] en')
-        where.append(argument_to_sql(value_domain, 'en.value_domain', binds, int))
+        where.append(argument_to_sql(value_domain, 'en.value_domain',
+                                     binds, int))
         if spreads:
             tables.append('[:table schema=cerebrum name=entity_spread] es')
             where.append('en.entity_id = es.entity_id')
@@ -577,9 +580,10 @@ class EntityNameWithLanguage(Entity):
     def delete(self):
         """Remove all known names for self from the database."""
 
-        # We could use search_name_with_language() + delete_name_with_language(), but
-        # that combo cannot be made atomic without extra effort. Is it worth the
-        # effort, just to get changelogging?
+        # We could use search_name_with_language() +
+        # delete_name_with_language(), but that combo cannot be made atomic
+        # without extra effort. Is it worth the effort, just to get
+        # changelogging?
         where, binds = self._query_builder(self.entity_id, None, None, None)
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_language_name] eln
@@ -662,19 +666,18 @@ class EntityNameWithLanguage(Entity):
         elif default != NotSet:
             return default
         elif not names:
-            raise Errors.NotFoundError("Entity id=%s has no name %s in lang=%s" %
-                                       (self.entity_id,
-                                        self.const.EntityNameCode(
-                                            name_variant),
-                                        self.const.LanguageCode(name_language)))
+            raise Errors.NotFoundError(
+                "Entity id=%s has no name %s in lang=%s" %
+                (self.entity_id,
+                 self.const.EntityNameCode(name_variant),
+                 self.const.LanguageCode(name_language)))
         elif len(names) > 1:
-            raise Errors.TooManyRowsError("Too many rows id=%s (%s, %s): %d" %
-                                          (self.entity_id,
-                                           self.const.EntityNameCode(
-                                           name_variant),
-                                              self.const.LanguageCode(
-                                                  name_language),
-                                              len(names)))
+            raise Errors.TooManyRowsError(
+                "Too many rows id=%s (%s, %s): %d" %
+                (self.entity_id,
+                 self.const.EntityNameCode(name_variant),
+                 self.const.LanguageCode(name_language),
+                 len(names)))
         assert False, "NOTREACHED"
     # end get_name_with_language
 # end EntityNameWithLanguage
@@ -742,7 +745,7 @@ class EntityContactInfo(Entity):
             raise ValueError("Can't populate multiple `source_system`s "
                              "w/o write_db().")
         try:
-            foo = self.__data
+            self.__data
         except AttributeError:
             self.__data = {}
         if type is None:
@@ -776,7 +779,7 @@ class EntityContactInfo(Entity):
         for row in self.get_contact_info(source=self._src_sys):
             do_del = True
             row_idx = "%d:%d" % (row['contact_type'], row['contact_pref'])
-            if data.has_key(row_idx):
+            if row_idx in data:
                 tmp = data[row_idx]
                 if (tmp['value'] == row['contact_value'] and
                     tmp['alias'] == row['contact_alias'] and
@@ -908,10 +911,10 @@ class EntityAddress(Entity):
         if not hasattr(self, '_src_sys'):
             self._src_sys = source_system
         elif self._src_sys != source_system:
-            raise ValueError, \
-                "Can't populate multiple `source_system`s w/o write_db()."
+            raise ValueError(
+                "Can't populate multiple `source_system`s w/o write_db().")
         try:
-            foo = self.__data
+            self.__data
         except AttributeError:
             self.__data = {}
         if type is None:
@@ -932,7 +935,7 @@ class EntityAddress(Entity):
             return
         for r in self.get_entity_address(source=self._src_sys):
             do_del = True
-            if data.has_key(int(r['address_type'])):
+            if int(r['address_type']) in data:
                 h = data[int(r['address_type'])]
                 equals = True
                 for k in ('address_text', 'p_o_box', 'postal_number', 'city',
@@ -1016,9 +1019,11 @@ class EntityAddress(Entity):
             e_type += argument_to_sql(entity_type, 'e.entity_type', binds, int)
 
         if source_system is not None:
-            where.append(argument_to_sql(source_system, 'ea.source_system', binds, int))
+            where.append(argument_to_sql(source_system, 'ea.source_system',
+                                         binds, int))
         if address_type is not None:
-            where.append(argument_to_sql(address_type, 'ea.address_type', binds, int))
+            where.append(argument_to_sql(address_type, 'ea.address_type', binds,
+                                         int))
         if entity_id is not None:
             where.append(argument_to_sql(entity_id, 'ea.entity_id', binds, int))
 
@@ -1220,11 +1225,10 @@ class EntityExternalId(Entity):
 
     def populate_external_id(self, source_system, id_type, external_id):
         if not hasattr(self, '_extid_source'):
-            raise ValueError, \
-                "Must call affect_external_id"
+            raise ValueError("Must call affect_external_id")
         elif self._extid_source != source_system:
-            raise ValueError, \
-                "Can't populate multiple `source_system`s w/o write_db()."
+            raise ValueError(
+                "Can't populate multiple `source_system`s w/o write_db().")
         self._external_id[int(id_type)] = external_id
 
     def _delete_external_id(self, source_system, id_type):
@@ -1288,11 +1292,13 @@ class EntityExternalId(Entity):
         @param id_type:
           Specific external ID type (like externalid_fodselsnr)
         @param external_id:
-          Value for the external ID (useful for looking up the owner of a particular external ID).
+          Value for the external ID (useful for looking up the owner of a
+          particular external ID).
         @param entity_type:
           Looks for a specific entity type (i.e. Person, OU).
         @param entity_id:
-          Looks for a specific entity (useful for looking up (all) external ids belonging to a specific entity)
+          Looks for a specific entity (useful for looking up (all) external ids
+          belonging to a specific entity)
         """
         cols = {}
         where = ""
@@ -1398,6 +1404,75 @@ class EntityExternalId(Entity):
         entity_type=:entity_type %s""" % where, binds)
         self.find(entity_id)
 
+    def find_by_external_ids(self, *ids):
+        """Lookup entity by external ID's.
+
+        If the ID's given resolve to one unique person, i.e.:
+        * This person has one or more of these unique ID's, and
+        * No other person has a matching ID, then
+        self is bound to this particular entity.
+
+        :param ids: Each ID should either be a tuple where the first element
+                    denotes an id_type, and the second should be an external_id.
+                    The tuple can also have a third element being the source
+                    system.
+                    Else, the id could be a dict with keys 'id_type',
+                    'external_id', and 'source_system' (optional). The
+                    meaning of each element in ids matches arguments to
+                    find_by_external_id().
+        :returns: Result of self.find()
+        :raises: TooManyRowsError if more than one person matches, or a
+                 NotFoundError if no person matches.
+        """
+        # TODO: Is it better to create a long WHERE clause combined with OR?
+        query = """
+        SELECT DISTINCT entity_id
+        FROM [:table schema=cerebrum name=entity_external_id]
+        WHERE id_type=:id_type AND external_id=:ext_id AND
+        entity_type=:entity_type"""
+
+        def make_bind(id_type, external_id, source_system=None):
+            ret = {'id_type': int(id_type),
+                   'ext_id': external_id,
+                   'entity_type': int(id_type.entity_type)}
+            if source_system:
+                ret['src'] = int(source_system)
+            return ret
+
+        def make_bind_str(id_type, external_id, source_system=None):
+            ret = {'id_type': str(id_type),
+                   'ext_id': external_id,
+                   'src': None}
+            if source_system:
+                ret['src'] = str(source_system)
+            return "(id_type:{id_type} id:{ext_id} source:{src})".format(**ret)
+
+        opt_ss = query + " AND source_system=:src"
+
+        found = []
+        found_ids = set()
+        for i in ids:
+            bind = (make_bind(**i) if isinstance(i, collections.Mapping)
+                    else make_bind(*i))
+            bindstr = (make_bind_str(**i) if isinstance(i, collections.Mapping)
+                       else make_bind_str(*i))
+            q = query if 'src' not in bind else opt_ss
+            rows = self.query(q, bind)
+            if len(rows) > 1:
+                raise Errors.TooManyRowsError(
+                    "External id {} returned too many ({}) rows".format(
+                        bindstr, len(rows)))
+            if rows:
+                found.append((bindstr, rows[0]['entity_id']))
+                found_ids.add(rows[0]['entity_id'])
+        if len(found_ids) == 1:
+            return self.find(*found_ids)
+        if len(found_ids) > 1:
+            strs = ["bind:{} matches id:{}".format(i, j) for i, j in found]
+            raise Errors.TooManyRowsError("More than one entity found: " +
+                                          ", ".join(strs))
+        raise Errors.NotFoundError("No entity found matching given ids")
+
     def _set_cached_external_id(self, variant, value):
         sys_cache = self.const.system_cached
         try:
@@ -1422,9 +1497,8 @@ def object_by_entityid(id, database):
     try:
         component = Factory.type_component_map.get(type)
     except KeyError:
-        raise ValueError, "No component for type %s" % type
+        raise ValueError("No component for type %s" % type)
     Class = Factory.get(component)
     object = Class(database)
     object.find(id)
     return object
-
