@@ -167,19 +167,19 @@ class PasswordNotifier(object):
         self.logger.info('Fetching accounts with no password history')
         old_ids.update(set([int(x['account_id']) for x in ph.find_no_history_accounts()]))
 
-        self.logger.info('Fetching quarantines')
-        # TODO: Select only autopassword quarantines?
-        quarantined_ids = QuarantineHandler.get_locked_entities(
-            self.db,
-            entity_types=self.constants.entity_account,
-            entity_ids=old_ids)
-
         # Do we have special rules for certain person affiliations?
         for aff, max_age in self.config.max_password_age_aff.items():
             self.logger.info(
                 'Fetching accounts with affiliation %s with password older than %d days',
                 str(aff), max_age.days)
             old_ids.update(_with_aff(affiliation=aff, max_age=max_age))
+
+        self.logger.info('Fetching quarantines')
+        # TODO: Select only autopassword quarantines?
+        quarantined_ids = QuarantineHandler.get_locked_entities(
+            self.db,
+            entity_types=self.constants.entity_account,
+            entity_ids=old_ids)
 
         old_ids = old_ids - quarantined_ids
         return old_ids
