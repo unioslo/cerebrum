@@ -20,7 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import cerebrum_path
-import cereconf
 
 from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
 from Cerebrum.modules.pwcheck.common import PasswordChecker
@@ -71,7 +70,7 @@ class OfkPasswordCheckerMixin(CheckUsernameMixin,
 
         # Reversed patterns: abccba abcddcba
         try:
-            pattern = _RepeatedPattern()
+            pattern = _RepeatedPattern(self._db)
             pattern.password_good_enough(fullpasswd, **kw)
         except PasswordNotGoodEnough:
             raise PasswordNotGoodEnough(
@@ -80,7 +79,7 @@ class OfkPasswordCheckerMixin(CheckUsernameMixin,
 
         # Check that the characters in the password are not a sequence
         try:
-            sequence = _CharSequence()
+            sequence = _CharSequence(self._db)
             sequence.password_good_enough(fullpasswd, **kw)
         except PasswordNotGoodEnough:
             raise PasswordNotGoodEnough(
