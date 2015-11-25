@@ -146,19 +146,21 @@ def get_person_info(db, person, ssn_type, source_system,
     }
 
 
-def write_file(filename, persons, skip_incomplete):
+def write_file(filename, persons, skip_incomplete, skip_header=False):
     """Exports info in `persons' and generates file export `filename'.
 
     :param bool skip_incomplete: Don't write persons without all fields.
+    :param bool skip_header: Do not write field header. Default: write header.
     :param [dict()] persons: Person information to write.
     :param basestring filename: The name of the file to write."""
     from Cerebrum.Utils import AtomicFileWriter
     from string import Template
     f = AtomicFileWriter(filename)
     i = 0
-    f.write(
-        'title;firstname;lastname;feide_id;'
-        'email_address;phone;ssn\n')
+    if not skip_header:
+        f.write(
+            'title;firstname;lastname;feide_id;'
+            'email_address;phone;ssn\n')
     for person in persons:
         if skip_incomplete and not all(person.values()):
             continue
@@ -214,7 +216,12 @@ def main(args=None):
                         action='store_true',
                         help='Do not export persons that does not have all '
                              'fields')
+    parser.add_argument('--skip-header',
+                        dest='skip_header',
+                        action='store_true',
+                        help='Do not write field description in export-file')
     parser.set_defaults(skip_incomplete=False)
+    parser.set_defaults(skip_header=False)
 
     args = parser.parse_args(args)
 
@@ -232,7 +239,8 @@ def main(args=None):
                        db,
                        _parse_codes(db, args.source_system),
                        _parse_codes(db, args.affiliations)))),
-               args.skip_incomplete)
+               args.skip_incomplete,
+               args.skip_header)
 
     logger.info("DONE")
 
