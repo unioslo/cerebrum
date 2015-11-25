@@ -202,10 +202,10 @@ def main(args=None):
                    _parse_codes(db, args.ssn_type),
                    _parse_codes(db, args.source_system),
                    _parse_codes(db, args.telephone_types))
-                   for pid in get_affiliated(
+                   for pid in set(get_affiliated(
                        db,
                        _parse_codes(db, args.source_system),
-                       _parse_codes(db, args.affiliations))),
+                       _parse_codes(db, args.affiliations)))),
                args.skip_incomplete)
 
     logger.info("DONE")
