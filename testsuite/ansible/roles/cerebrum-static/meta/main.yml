@@ -1,0 +1,4 @@
+dependencies:
+    - role: cerebrum
+      virtualenv: "{{ virtualenv }}"
+      crb_src_dir: "{{ crb_src_dir }}"

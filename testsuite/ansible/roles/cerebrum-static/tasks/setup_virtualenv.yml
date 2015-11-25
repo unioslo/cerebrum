@@ -1,0 +1,12 @@
+# Extend the virtual environment with static code analysis tools
+
+# This role depends on 'cerebrum', so 'pip_extra_args' should already be set up.
+- name: set up static analysis tools
+  pip:
+      virtualenv: "{{ virtualenv }}"
+      extra_args: "{{ pip_extra_args|default(None) }}"
+      name: "{{ item }}"
+  with_items:
+      - flake8
+      - flake8-junit-report
+      - pylint

@@ -1,0 +1,4 @@
+# Default, mandatory settings
+virtualenv: /tmp/cerebrum-static/env
+crb_src_dir: /tmp/cerebrum-static/src/cerebrum
+reports_dir: /tmp/cerebrum-static/reports
