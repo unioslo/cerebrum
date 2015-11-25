@@ -39,7 +39,7 @@ CLASS_CONSTANTS = [
     'Cerebrum.modules.EntityTrait/TraitConstants',
     'Cerebrum.modules.PosixUser/Constants',
     'Cerebrum.modules.bofhd.utils/Constants',
-    'Cerebrum.modules.PasswordNotifier/Constants',
+    'Cerebrum.modules.PasswordNotifierConstants/Constants',
     'Cerebrum.modules.dns.DnsConstants/Constants',
     'Cerebrum.modules.dns.bofhd_dns_cmds/Constants',
     'Cerebrum.modules.hostpolicy.HostPolicyConstants/Constants',
@@ -53,10 +53,12 @@ CLASS_ENTITY = ['Cerebrum.modules.EntityTrait/EntityTrait',
 CLASS_PERSON = ['Cerebrum.modules.no.Person/PersonFnrMixin',
                 ]
 
-CLASS_ACCOUNT = ['Cerebrum.modules.tsd.Account/AccountTSDMixin',
-                 'Cerebrum.modules.EntityTrait/EntityTrait',
-                 'Cerebrum.modules.PasswordChecker/PasswordChecker',
-                 ]
+CLASS_ACCOUNT = [
+    'Cerebrum.modules.pwcheck.simple/CheckSimpleMixin', 
+    'Cerebrum.modules.pwcheck.history/PasswordHistoryMixin',
+    'Cerebrum.modules.pwcheck.dictionary/PasswordDictionaryMixin',
+    'Cerebrum.modules.tsd.Account/AccountTSDMixin',
+    'Cerebrum.modules.EntityTrait/EntityTrait', ]
 
 CLASS_POSIX_USER = ['Cerebrum.modules.tsd.PosixUser/PosixUserTSDMixin',
                     'Cerebrum.modules.PosixUser/PosixUser']
