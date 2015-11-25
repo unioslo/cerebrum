@@ -63,11 +63,10 @@ def change_type_to_message(db, change_type_code, subject,
             return (entity_id, None, None)
 
     def get_entity_name(entity_id):
-        co = Factory.get('Constants')(db)
         try:
             (_, en, en_type) = get_entity_type(entity_id)
             from cereconf import ENTITY_TYPE_NAMESPACE
-            namespace = co.ValueDomain(
+            namespace = constants.ValueDomain(
                 ENTITY_TYPE_NAMESPACE.get(en_type, None))
             return en.get_name(namespace)
         except (AttributeError, TypeError, Errors.NotFoundError):
