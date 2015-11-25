@@ -306,24 +306,17 @@ def register_cellphone(person, person_info):
     fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
                         int(person_info["personnr"]))
     phone_selector = "telefonnr_mobil"
-    phone_country  = "telefonlandnr_mobil"
-    phone_region   = "telefonretnnr_mobil"
+    phone_country = "telefonlandnr_mobil"
+    phone_region = "telefonretnnr_mobil"
     numbers = set()
     for key in person_info:
         for dct in person_info[key]:
             if phone_selector in dct:
-                # ignore numbers that should not be used
-                country = dct.get(phone_country, '').strip()
-                # Some country codes are with +, others are not...
-                if country and not country.startswith('+'):
-                    country = '+%s' % country
-                if country not in ('', '+46', '+47'):
-                    logger.debug('Skipping unknown country code for %s', fnr)
-                    break
-                # TODO: Should we check the numbers for errors?
-                numbers.add(''.join((country,
-                                     dct.get(phone_region, '').strip(),
-                                     dct.get(phone_selector, '').strip())))
+                phone = (dct.get(phone_region) or '') + dct[phone_selector]
+                if dct.get(phone_country):
+                    phone = '+' + dct[phone_country] + phone
+                numbers.add(phone.strip().replace(' ', ''))
+
     if len(numbers) < 1:
         return
     if len(numbers) == 1:

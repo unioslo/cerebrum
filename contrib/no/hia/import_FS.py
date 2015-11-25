@@ -269,14 +269,10 @@ def register_cellphone(person, person_info):
     for key in person_info:
         for dct in person_info[key]:
             if phone_selector in dct:
-                if phone_country in dct or phone_region in dct:
-                    logger.debug("Skipping phone for %s: '%s', '%s', '%s'",
-                                 fnr,
-                                 dct.get(phone_country, ""),
-                                 dct.get(phone_region, ""),
-                                 dct.get(phone_selector, ""))
-                    break
-                numbers.add(dct[phone_selector].strip())
+                phone = (dct.get(phone_region) or '') + dct[phone_selector]
+                if dct.get(phone_country):
+                    phone = '+' + dct[phone_country] + phone
+                numbers.add(phone.strip().replace(' ', ''))
 
     if len(numbers) < 1:
         return
@@ -320,7 +316,7 @@ def process_person_callback(person_info):
             # Seems to be a bug in time.mktime on some machines
             year = 1970
     except fodselsnr.InvalidFnrError:
-        logger.warn(u"Ugyldig fødselsnr for: %s",
+        logger.warn(u"Ugyldig fï¿½dselsnr for: %s",
                     person_info['fodselsdato'])
         return
 
@@ -421,7 +417,7 @@ def process_person_callback(person_info):
                                      subtype, affiliations,
                                      studieprog2sko[row['studieprogramkode']])
     if etternavn is None:
-        logger.info("Ikke noe navn på %s", fnr)
+        logger.info("Ikke noe navn pï¿½ %s", fnr)
         no_name += 1
         return
 
