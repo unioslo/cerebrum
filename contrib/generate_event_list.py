@@ -213,6 +213,12 @@ def main(args=None):
                         default=parser.prog.split('.')[0],
                         help='Change key to mark exported events with: '
                              'Default: program name.')
+    parser.add_argument('--commit',
+                        dest='commit',
+                        action='store_true',
+                        default=False,
+                        help='Run in commit mode. Exported changes are '
+                             'confirmed.')
 
     args = parser.parse_args(args)
 
@@ -227,7 +233,8 @@ def main(args=None):
                   db,
                   get_events(db, cl, args.criteria, args.change_key)))
 
-    cl.commit_confirmations()
+    if args.commit:
+        cl.commit_confirmations()
 
     logger.info("DONE")
 
