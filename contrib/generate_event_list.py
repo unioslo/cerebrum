@@ -210,6 +210,7 @@ def main(args=None):
     parser.add_argument('--change-key',
                         dest='change_key',
                         metavar='change-key',
+                        default=parser.prog.split('.')[0],
                         help='Change key to mark exported events with: '
                              'Default: program name.')
 
@@ -224,9 +225,7 @@ def main(args=None):
     dump_json(args.filename,
               convert_events(
                   db,
-                  get_events(db, cl, args.criteria,
-                             (args.change_key if args.change_key else
-                              parser.prog.split('.')[0]))))
+                  get_events(db, cl, args.criteria, args.change_key)))
 
     cl.commit_confirmations()
 
