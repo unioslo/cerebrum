@@ -214,14 +214,14 @@ def main(args=None):
     parser.add_argument('--skip-incomplete',
                         dest='skip_incomplete',
                         action='store_true',
+                        default=False,
                         help='Do not export persons that does not have all '
                              'fields')
     parser.add_argument('--skip-header',
                         dest='skip_header',
                         action='store_true',
+                        default=False,
                         help='Do not write field description in export-file')
-    parser.set_defaults(skip_incomplete=False)
-    parser.set_defaults(skip_header=False)
 
     args = parser.parse_args(args)
 
