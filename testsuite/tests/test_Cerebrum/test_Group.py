@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 """ Basic tests for Cerebrum/Group.py.
 
@@ -8,6 +8,7 @@ Searching (members and groups) has to be thoroughly tested.
 """
 #import sys
 from nose.tools import raises, with_setup
+
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory

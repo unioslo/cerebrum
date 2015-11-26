@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 """Testing of Database.py's functionality
 
@@ -22,6 +22,7 @@ import sys
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
+
 import Cerebrum.Database
 from functools import wraps
 

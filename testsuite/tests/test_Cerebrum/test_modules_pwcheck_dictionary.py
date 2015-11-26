@@ -1,8 +1,7 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 """ Tests for Cerebrum.modules.pwcheck.history.
-
 """
 from nose.tools import raises
 from nose.plugins.skip import SkipTest
@@ -10,15 +9,19 @@ from nose.plugins.skip import SkipTest
 import cerebrum_path
 import cereconf
 import os.path
+
 from Cerebrum.modules.pwcheck.dictionary import PasswordDictionaryMixin
 from Cerebrum.modules.pwcheck.common import PasswordChecker
 from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
+from Cerebrum.Utils import Factory
 
 
 class DictionaryCheck(PasswordDictionaryMixin, PasswordChecker):
     pass
 
-dictionary = DictionaryCheck()
+
+db = Factory.get('Database')()
+dictionary = DictionaryCheck(db)
 expect_success = dictionary.password_good_enough
 expect_failure = raises(PasswordNotGoodEnough)(dictionary.password_good_enough)
 

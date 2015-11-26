@@ -35,19 +35,16 @@ bytestring for `string.translate' """
 
 
 class PasswordNotGoodEnough(CerebrumError):
-
     """Exception raised for insufficiently strong passwds."""
 
     pass
 
 
 class PasswordChecker(Account):
-
     """ Password-checker API.
 
     The Cerebrum.Account provides the same API, but this base class can be used
     in tests, etc...
-
     """
 
     def password_good_enough(self, password, **kw):
@@ -61,7 +58,6 @@ class PasswordChecker(Account):
 
         :raise PasswordNotGoodEnough:
             Raises an error if password is not good enough.
-
         """
         pass
 
