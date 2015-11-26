@@ -56,7 +56,7 @@ class GroupHiAMixin(Group.Group):
             return "Must specify group name"
 
         if isinstance(self, PosixGroup.PosixGroup):
-            if len(name) > 16:
+            if len(name) > 32:
                 return "name too long (%d characters)" % len(name)
             if re.search("^[^a-z]", name):
                 return "name must start with a character (%s)" % name
