@@ -1,5 +1,5 @@
-#!/usr/bin/env python2
-# encoding: utf-8
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """ Unit tests adopted from the old PasswordChecker class
 
 HISTORY
@@ -18,6 +18,10 @@ from nose import tools
 from Cerebrum.modules.pwcheck import simple
 from Cerebrum.modules.pwcheck.common import PasswordChecker
 from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
+from Cerebrum.Utils import Factory
+
+
+db = Factory.get('Database')()
 
 
 class InvalidChars(simple.CheckInvalidCharsMixin, PasswordChecker):
@@ -26,13 +30,13 @@ class InvalidChars(simple.CheckInvalidCharsMixin, PasswordChecker):
 
 @tools.raises(PasswordNotGoodEnough)
 def test_nul_byte_fails():
-    pc = InvalidChars()
+    pc = InvalidChars(db)
     pc.password_good_enough("foo\0bar")
 
 
 @tools.raises(PasswordNotGoodEnough)
 def test_non_latin1_fails():
-    pc = InvalidChars()
+    pc = InvalidChars(db)
     pc.password_good_enough("fooæøåbar")
 
 
@@ -42,20 +46,20 @@ class InvalidLength(simple.CheckLengthMixin, PasswordChecker):
 
 @tools.raises(PasswordNotGoodEnough)
 def test_too_short_1():
-    pc = InvalidLength()
+    pc = InvalidLength(db)
     pc.password_good_enough("123")
 
 
 @tools.raises(PasswordNotGoodEnough)
 def test_too_short_2():
-    pc = InvalidLength()
+    pc = InvalidLength(db)
     pc.password_good_enough("1234567")
 
 
 @tools.raises(PasswordNotGoodEnough)
 def test_too_long():
-    pc = InvalidLength()
-    pc.password_good_enough("-"*20)
+    pc = InvalidLength(db)
+    pc.password_good_enough("-"*20, password_max_length=18)
 
 
 class InvalidConcat(simple.CheckConcatMixin, PasswordChecker):
@@ -63,13 +67,13 @@ class InvalidConcat(simple.CheckConcatMixin, PasswordChecker):
 
 
 def test_concat_succeeds():
-    pc = InvalidConcat()
+    pc = InvalidConcat(db)
     pc.password_good_enough("CmToe")
 
 
 @tools.raises(PasswordNotGoodEnough)
 def test_concat_fails():
-    pc = InvalidConcat()
+    pc = InvalidConcat(db)
     pc.password_good_enough("Camel*Toe")
 
 
@@ -94,7 +98,7 @@ def test_invalid_variations():
         "HO/(#)",    # <- just upper+special
         "12()&)",    # <- just digits+special
         )
-    pc = InvalidVariation()
+    pc = InvalidVariation(db)
     not_good = tools.raises(PasswordNotGoodEnough)(pc.password_good_enough)
     for fail in failing_pwds:
         yield not_good, fail
@@ -102,7 +106,7 @@ def test_invalid_variations():
 
 def test_valid_variations():
     successful_pwds = ("hOus3", "h()us3",)
-    pc = InvalidVariation()
+    pc = InvalidVariation(db)
     for success in successful_pwds:
         yield pc.password_good_enough, success
 
@@ -123,7 +127,7 @@ def test_invalid_sequences():
         "zxcvb", "bnm,.",    # <- 'zxcv'-row
         '!@#$%^',            # <- row with digits
         )
-    pc = InvalidSequence()
+    pc = InvalidSequence(db)
     not_good = tools.raises(PasswordNotGoodEnough)(pc.password_good_enough)
     for fail in fail_seqs:
         yield not_good, fail
@@ -132,12 +136,12 @@ def test_invalid_sequences():
 def test_valid_sequences():
     success_seqs = (
         "qwrty",   # gap of 2
-        "abcdfg",  # gap of 2
+        "abcefg",  # gap of 2
         "123567",  # gap of 2
         "bygg",    # used to fail
         "yhn",     # same offset in different kbd rows
         )
-    pc = InvalidSequence()
+    pc = InvalidSequence(db)
     for success in success_seqs:
         yield pc.password_good_enough, success
 
@@ -156,7 +160,7 @@ def test_invalid_repetition():
                  "abccba",
                  "xyz11zyx",)
 
-    pc = InvalidRepetition()
+    pc = InvalidRepetition(db)
     not_good = tools.raises(PasswordNotGoodEnough)(pc.password_good_enough)
 
     for fail in fail_seqs:
@@ -171,7 +175,7 @@ def test_valid_repetition():
                     "abc*cba",  # <- same story
                     "a1a2a3",
                     )
-    pc = InvalidRepetition()
+    pc = InvalidRepetition(db)
     for success in success_seqs:
         yield pc.password_good_enough, success
 
@@ -198,8 +202,7 @@ class InvalidName(simple.CheckOwnerNameMixin, PasswordChecker):
 
 
 def test_failing_name_passwords():
-    from Cerebrum.Utils import Factory
-    pc = InvalidName(Factory.get("Database")())
+    pc = InvalidName(db)
 
     failing_tests = {
         "Schnappi von Krokodil": (
@@ -213,12 +216,11 @@ def test_failing_name_passwords():
 
     for name, failures in failing_tests.iteritems():
         for failure in failures:
-            yield test, name, failure
+            yield test, name, failure, None
 
 
 def test_allowed_name_passwords():
-    from Cerebrum.Utils import Factory
-    pc = InvalidName(Factory.get("Database")())
+    pc = InvalidName(db)
 
     passing_tests = {
         "Schnappi von Krokodil": (
@@ -228,4 +230,4 @@ def test_allowed_name_passwords():
 
     for name, successes in passing_tests.iteritems():
         for success in successes:
-            yield pc._match_password_to_name, name, success
+            yield pc._match_password_to_name, name, success, 5

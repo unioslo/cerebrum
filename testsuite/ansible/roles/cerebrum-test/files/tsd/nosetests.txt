@@ -1,2 +1,8 @@
+test_Cerebrum/test_Database.py
+test_Cerebrum/test_Group.py
+test_Cerebrum/test_Account.py
+test_Cerebrum/test_GnuPG.py
+test_Cerebrum/test_Utils.py
+test_utils/test_memoize.py
 test_tsd/test_Account.py
 test_tsd/test_OU.py

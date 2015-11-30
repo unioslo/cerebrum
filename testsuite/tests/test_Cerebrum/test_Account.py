@@ -1,16 +1,15 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
-#
+# -*- coding: utf-8 -*-
 """ Basic tests for Cerebrum/Account.py.
 
 Searching (members and groups) has to be thoroughly tested.
-
 """
 
-import unittest2 as unittest
+import unittest
 
 import cerebrum_path
 import cereconf
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.Account import Account
@@ -34,14 +33,12 @@ _set_of_ids = lambda accs: \
 
 
 class BaseAccountTest(unittest.TestCase):
-
     """ This is a testcase for Cerebrum.Account class.
 
     No subclass or mixin should cause this test to fail, so the test is valid
     for other setups as well.
     Mixins and subclasses can subclass this test in order to perform additional
     setup and tests.
-
     """
 
     @classmethod
@@ -50,7 +47,6 @@ class BaseAccountTest(unittest.TestCase):
 
         This setup code sets up shared objects between each tests. This is done
         *once* before running any of the tests within this class.
-
         """
 
         # TODO: We might want this basic class setup in other TestCases. Maybe
@@ -82,7 +78,6 @@ class BaseAccountTest(unittest.TestCase):
 
 
 class SimpleAccountsTest(BaseAccountTest):
-
     """ This is a test case for simple scenarios. """
 
     def test_account_populate(self):
@@ -128,13 +123,11 @@ class SimpleAccountsTest(BaseAccountTest):
 
 
 class MultipleAccountsTest(BaseAccountTest):
-
     """ This is a testcase where multiple accounts exists in the system.
 
     Tests of search functions, list functions, and other tests that depend on
     existing accounts should go here. Before every test, a set of accounts are
     created, and those accounts are cleared after each test.
-
     """
 
     def setUp(self):
@@ -142,7 +135,6 @@ class MultipleAccountsTest(BaseAccountTest):
 
         Sets up a series of accounts for testing, and queues a cleanup function
         to remove those accounts.
-
         """
         self._accounts = []
         for account in self.account_ds(limit=5):

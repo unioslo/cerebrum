@@ -8,28 +8,52 @@ cere-utv04.uio.no
 cere-utv02.uio.no
 
 [localtests:children]
-basetest
-dns
-modules
-uio
+core
+extended
 tsd
+#uio
+#uia
 
-[basetest]
-basetest.localhost config=basetest gnupgtest=yes
+[core]
+core.localhost gnupgtest=yes
 
-[dns]
-dns.localhost config=dns
+[core:vars]
+config=core
+crb_db_name=testdb_core
+gnupg_home_dir=/tmp/gnupghome_core/.gnupg
+virtualenv=/tmp/virtualenvs/core
 
-[modules]
-modules.localhost config=modules
+[extended]
+extended.localhost gnupgtest=yes
+
+[extended:vars]
+config=extended
+crb_db_name=testdb_extended
+gnupg_home_dir=/tmp/gnupghome_extended/.gnupg
+virtualenv=/tmp/virtualenvs/extended
 
 [tsd]
-tsd.localhost config=tsd
+tsd.localhost
 
-[uio]
-uio.localhost config=uio gnupgtest=yes
+[tsd:vars]
+config=tsd
+crb_db_name=testdb_tsd
+#gnupg_home_dir=/tmp/gnupghome_tsd/.gnupg
+virtualenv=/tmp/virtualenvs/tsd
+
+# [uio:vars]
+# uio.localhost config=uio gnupgtest=yes
+
 
 [localtests:vars]
 ansible_connection=local
-crb_db_user=ceretest
-crb_src_dir=/tmp/cerebrum
+config=default
+# crb_src_dir=/tmp/cerebrum
+# crb_db_user=ceretest
+# crb_db_name=testdb_default
+# gnupg_home_dir=/tmp/gnupghome_default/.gnupg
+# pip_offline: yes
+# pip_local: /tmp/my_repo
+# pip_proxy: https://localhost:9876
+# pip_cache: /tmp/my_pip_cache
+# virtualenv=/tmp/virtualenvs/default

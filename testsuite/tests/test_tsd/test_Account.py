@@ -1,13 +1,12 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
-#
+# -*- coding: utf-8 -*-
+
 """ Tests for TSD's account mixin - Cerebrum/modules/tsd/Account.py.
 
 Searching (members and groups) has to be thoroughly tested.
-
 """
 
-import unittest2 as unittest
+import unittest
 
 import cerebrum_path
 import cereconf
@@ -65,7 +64,6 @@ class TSDAccountTest(unittest.TestCase):
         cls._db.rollback()
 
 class SimpleAccountsTest(TSDAccountTest):
-
     """ This is a test case for simple scenarios. """
 
     def test_account_otpkey_length(self):
