@@ -9,8 +9,4 @@
   with_items:
       - flake8
       - flake8-junit-report
-      - pbr  # manually resolve deps for pylint
-      - traceback2  # manually resolve deps for pylint
-      - six  # manually resolve deps for pylint
-      - argparse  # manually resolve deps for pylint
       - pylint
