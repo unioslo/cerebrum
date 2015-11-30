@@ -33,18 +33,19 @@ CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
 #
 # Should CLASS_CHANGELOG be empty?!
 #
-CLASS_CONSTANTS = [
-    'Cerebrum.modules.tsd.Constants/Constants',
-    'Cerebrum.modules.ad2.Entity/ConstantsActiveDirectory',
-    'Cerebrum.modules.EntityTrait/TraitConstants',
-    'Cerebrum.modules.PosixUser/Constants',
-    'Cerebrum.modules.bofhd.utils/Constants',
-    'Cerebrum.modules.PasswordNotifierConstants/Constants',
-    'Cerebrum.modules.dns.DnsConstants/Constants',
-    'Cerebrum.modules.dns.bofhd_dns_cmds/Constants',
-    'Cerebrum.modules.hostpolicy.HostPolicyConstants/Constants',
-    'Cerebrum.modules.CLConstants/CLConstants',
-    'Cerebrum.Constants/Constants', ]
+
+CLASS_CONSTANTS=('Cerebrum.modules.no.Constants/ConstantsCommon',
+                 'Cerebrum.modules.tsd.Constants/Constants',
+                 'Cerebrum.modules.ad2.Entity/ConstantsActiveDirectory',
+                 'Cerebrum.modules.ad2.CLConstants/CLConstants',
+                 'Cerebrum.modules.EntityTrait/TraitConstants',
+                 'Cerebrum.modules.PosixUser/Constants',
+                 'Cerebrum.modules.CLConstants/CLConstants',
+                 'Cerebrum.modules.bofhd.utils/Constants',
+                 'Cerebrum.modules.PasswordNotifierConstants/Constants',
+                 'Cerebrum.modules.dns.DnsConstants/Constants',
+                 'Cerebrum.modules.dns.bofhd_dns_cmds/Constants',
+                 'Cerebrum.modules.hostpolicy.HostPolicyConstants/Constants',)
 
 CLASS_ENTITY = ['Cerebrum.modules.EntityTrait/EntityTrait',
                 'Cerebrum.modules.ad2.Entity/EntityADMixin',
@@ -53,18 +54,25 @@ CLASS_ENTITY = ['Cerebrum.modules.EntityTrait/EntityTrait',
 CLASS_PERSON = ['Cerebrum.modules.no.Person/PersonFnrMixin',
                 ]
 
-CLASS_ACCOUNT = [
-    'Cerebrum.modules.pwcheck.simple/CheckSimpleMixin', 
-    'Cerebrum.modules.pwcheck.history/PasswordHistoryMixin',
-    'Cerebrum.modules.pwcheck.dictionary/PasswordDictionaryMixin',
-    'Cerebrum.modules.tsd.Account/AccountTSDMixin',
-    'Cerebrum.modules.EntityTrait/EntityTrait', ]
+CLASS_OU = ['Cerebrum.modules.tsd.OU/OUTSDMixin',]
 
 CLASS_POSIX_USER = ['Cerebrum.modules.tsd.PosixUser/PosixUserTSDMixin',
                     'Cerebrum.modules.PosixUser/PosixUser']
 
-CLASS_OU = ['Cerebrum.modules.tsd.OU/OUTSDMixin',]
+CLASS_POSIX_GROUP = ['Cerebrum.modules.PosixGroup/PosixGroup']
 
+CLASS_CHANGELOG=('Cerebrum.modules.ChangeLog/ChangeLog',)
+
+CLASS_ACCOUNT = [
+        'Cerebrum.modules.pwcheck.simple/CheckSimpleMixin',
+        'Cerebrum.modules.pwcheck.history/PasswordHistoryMixin',
+        'Cerebrum.modules.pwcheck.dictionary/PasswordDictionaryMixin',
+        'Cerebrum.modules.tsd.Account/AccountTSDMixin',
+        'Cerebrum.modules.EntityTrait/EntityTrait', ]
+
+CLASS_GROUP = [
+        'Cerebrum.modules.posix.mixins/PosixGroupMixin',
+        'Cerebrum.Group/Group', ]
 
 DNS_DEFAULT_ZONE = 'tsd'
 INSTITUTION_DOMAIN_NAME = "tsd.usit.no"
@@ -98,9 +106,6 @@ SUBNET_START = '10.%d.%d.0/24'
 # Default subnet prefix for IPv6:
 SUBNET_START_6 = 'fd00:c0de:cafe:%s::/64'
 
-CLASS_GROUP = (
-    'Cerebrum.modules.posix.mixins/PosixGroupMixin',
-    'Cerebrum.Group/Group')
 {% if gnupgtest is defined %}
 PASSWORD_GPG_RECIPIENT_ID = 'cerebrum-test-{{ config }}@uio.no'
 PASSWORD_GNUPGHOME = '{{ gnupg_home_dir }}'
