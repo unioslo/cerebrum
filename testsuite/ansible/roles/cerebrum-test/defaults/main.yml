@@ -18,10 +18,10 @@
 #
 
 # Default, mandatory settings
-virtualenv: "/tmp/virtualenvs/{{ config | default('default')  }}"
-crb_db_user: "testuser_{{ config | default('default') }}"
-crb_db_name: "testdb_{{ config | default('default') }}"
-gnupg_home_dir: "/tmp/gnupghome_{{ config | default('default') }}/.gnupg"
+virtualenv: "/tmp/virtualenvs/default"
+crb_db_user: "ceretest"
+crb_db_name: "testdb_default"
+gnupg_home_dir: "/tmp/gnupghome_default/.gnupg"
 
 # Other mandatory settings, example
 #

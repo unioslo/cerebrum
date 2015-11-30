@@ -6,7 +6,7 @@
 Each TSD project is represented by an OU.
 """
 
-import unittest2 as unittest
+import unittest
 
 from mx import DateTime
 
@@ -22,9 +22,7 @@ from dbtools import DatabaseTools
 
 
 class TSDOUTest(unittest.TestCase):
-
     """ This is a testcase for TSD's OU class.
-
     """
 
     @classmethod
@@ -272,8 +270,6 @@ class SimpleOUTests(TSDOUTest):
         cereconf.VLAN_RANGES = ((100, 110),)
         self.assertRaises(Errors.CerebrumError, self.setup_project, 'bvlan1',
                           vlan=90)
-        self.assertRaises(Errors.CerebrumError, self.setup_project, 'bvlan2',
-                          vlan=0)
         self.assertRaises(Errors.CerebrumError, self.setup_project, 'bvlan3',
                           vlan='hellu')
 

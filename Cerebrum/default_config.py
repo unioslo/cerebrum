@@ -1162,7 +1162,8 @@ INDIVIDUATION_PHONE_TYPES = {}
 # group is automatically included here.
 INDIVIDUATION_PASW_RESERVED = (INITIAL_GROUPNAME,)
 
-# A mapping of building codes to their addresses. Used by the ldif export.
+# A mapping of building codes to their addresses. Used by the SAP import of
+# people, for adding OFFICE adresses and room numbers.
 BUILDING_CODES = {}
 
 #

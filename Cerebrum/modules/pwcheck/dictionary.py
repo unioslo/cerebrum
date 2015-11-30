@@ -33,8 +33,6 @@ structure of the dictionary checks, please see:
 > Mon Jul 20 14:12:55 2015 +0200
 
 """
-from __future__ import with_statement
-
 import cerebrum_path
 import cereconf
 
@@ -195,7 +193,6 @@ def check_two_word_combinations(dictionaries, word):
 
     TODO: This routine is as good as the perl version, but it could be
     smarter by detecting more types of two-word combination
-
     """
     if re.search(r'^.[a-zA-Z]', word):
         others = {}
@@ -248,7 +245,6 @@ def check_two_word_combinations(dictionaries, word):
 
 
 class PasswordDictionaryMixin(common.PasswordChecker):
-
     """ Check if password contains dictionary words. """
 
     @property

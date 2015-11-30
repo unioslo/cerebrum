@@ -5,6 +5,7 @@
       - crb_db_user
       - crb_db_name
       - gnupg_home_dir
+      - virtualenv
   tags:
     - always
 

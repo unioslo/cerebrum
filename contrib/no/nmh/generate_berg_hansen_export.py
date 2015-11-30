@@ -42,6 +42,24 @@ def _parse_codes(db, codes):
         return [co.human2constant(x) for x in codes]
 
 
+def _strip_n_parse_source_system(db, codes):
+    co = Factory.get('Constants')(db)
+
+    def _fuck_it(code):
+        if ':' in code:
+            (ss, c) = code.split(':')
+            return (co.human2constant(ss), _parse_codes(db, c))
+        else:
+            return (None, _parse_codes(db, code))
+
+    if codes is None:
+        return None
+    elif isinstance(codes, basestring):
+        return _fuck_it(codes)
+    else:
+        return [_fuck_it(x) for x in codes]
+
+
 def _construct_feide_id(db, pe):
     from Cerebrum import Errors
     ac = Factory.get('Account')(db)
@@ -69,10 +87,16 @@ def _get_ssn(db, pe, ssn_type, source_system):
 
 
 def _get_phone(db, pe, source_system, telephone_types):
-    phones = pe.get_contact_info(source=source_system, type=telephone_types)
+    phones = []
+    for (ss, tt) in telephone_types:
+        phones.extend(
+            pe.get_contact_info(
+                source=ss, type=tt))
+
     if telephone_types:
-        sort_map = dict(zip([int(x) for x in telephone_types],
-                            range(len(telephone_types))))
+        sort_map = dict(
+            zip([int(t) for t in set([t for (s, t) in telephone_types])],
+                range(len(telephone_types))))
 
         phones.sort(key=lambda x: sort_map[x['contact_type']])
     return None if not phones else phones[0]['contact_value']
@@ -122,24 +146,29 @@ def get_person_info(db, person, ssn_type, source_system,
     }
 
 
-def write_file(filename, persons, skip_incomplete):
+def write_file(filename, persons, skip_incomplete, skip_header=False):
     """Exports info in `persons' and generates file export `filename'.
 
     :param bool skip_incomplete: Don't write persons without all fields.
+    :param bool skip_header: Do not write field header. Default: write header.
     :param [dict()] persons: Person information to write.
     :param basestring filename: The name of the file to write."""
     from Cerebrum.Utils import AtomicFileWriter
     from string import Template
     f = AtomicFileWriter(filename)
     i = 0
+    if not skip_header:
+        f.write(
+            'title;firstname;lastname;feide_id;'
+            'email_address;phone;ssn\n')
     for person in persons:
         if skip_incomplete and not all(person.values()):
             continue
         person = dict(map(lambda (x, y): (x, '' if y is None else y),
                           person.iteritems()))
         f.write(
-            Template('$title, $firstname, $lastname, $feide_id, '
-                     '$email_address, $phone, $ssn\n').substitute(person))
+            Template('$title;$firstname;$lastname;$feide_id;'
+                     '$email_address;$phone;$ssn\n').substitute(person))
         i += 1
     f.close()
     logger.info('Wrote %d users to file %s', i, filename)
@@ -170,11 +199,13 @@ def main(args=None):
     parser.add_argument('--source-system',
                         dest='source_system',
                         metavar='source-system',
-                        help='Source systems to select data from')
+                        help='Source systems to select name and SSN from')
     parser.add_argument('--telephone-types',
                         nargs='*',
                         metavar='phone-type',
-                        help='Telephone types to export, in prioritized order')
+                        help='Telephone types to export, in prioritized '
+                             'order. An authorative system can be defined as '
+                             'a number-source. I.e: SAP:MOBILE')
     parser.add_argument('--ssn-type',
                         dest='ssn_type',
                         required=True,
@@ -183,9 +214,14 @@ def main(args=None):
     parser.add_argument('--skip-incomplete',
                         dest='skip_incomplete',
                         action='store_true',
+                        default=False,
                         help='Do not export persons that does not have all '
                              'fields')
-    parser.set_defaults(skip_incomplete=False)
+    parser.add_argument('--skip-header',
+                        dest='skip_header',
+                        action='store_true',
+                        default=False,
+                        help='Do not write field description in export-file')
 
     args = parser.parse_args(args)
 
@@ -198,12 +234,13 @@ def main(args=None):
                    db, pid,
                    _parse_codes(db, args.ssn_type),
                    _parse_codes(db, args.source_system),
-                   _parse_codes(db, args.telephone_types))
-                   for pid in get_affiliated(
+                   _strip_n_parse_source_system(db, args.telephone_types))
+                   for pid in set(get_affiliated(
                        db,
                        _parse_codes(db, args.source_system),
-                       _parse_codes(db, args.affiliations))),
-               args.skip_incomplete)
+                       _parse_codes(db, args.affiliations)))),
+               args.skip_incomplete,
+               args.skip_header)
 
     logger.info("DONE")
 

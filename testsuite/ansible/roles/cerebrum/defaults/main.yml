@@ -24,7 +24,7 @@
 #
 
 # Default, mandatory settings
-virtualenv: "/cerebrum"
+virtualenv: "/tmp/virtualenvs/default"
 
 # Other mandatory settings, example
 #

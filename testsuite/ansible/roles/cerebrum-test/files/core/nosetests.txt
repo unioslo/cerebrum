@@ -1,0 +1,9 @@
+test_Cerebrum/test_Database.py
+test_Cerebrum/test_Group.py
+test_Cerebrum/test_Account.py
+test_Cerebrum/test_GnuPG.py
+test_Cerebrum/test_Utils.py
+test_Cerebrum/test_modules_pwcheck_dictionary.py
+test_Cerebrum/test_modules_pwcheck_history.py
+test_Cerebrum/test_modules_pwcheck.py
+test_utils/test_memoize.py

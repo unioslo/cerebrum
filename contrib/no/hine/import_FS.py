@@ -191,23 +191,24 @@ def register_contact(person, person_info):
     # is nothing we can do but to complain.
     fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
                         int(person_info["personnr"]))
-    # These should be column names from FS
-    phone_selector = "telefonnr_mobil"
-    phone_country  = "telefonlandnr_mobil"
-    phone_region   = "telefonretnnr_mobil"
-    email_selector = "emailadresse_privat"
     # Variables for storage
     numbers = set()
     email_addresses = set()
+    # These should be column names from FS
+    phone_selector = "telefonnr_mobil"
+    phone_country = "telefonlandnr_mobil"
+    phone_region = "telefonretnnr_mobil"
+    email_selector = "emailadresse_privat"
+    numbers = set()
 
     # We pull out the contact info
     for key in person_info:
         for dct in person_info[key]:
             if phone_selector in dct:
-                if phone_country in dct or phone_region in dct:
-                    logger.debug('Phone country/region is set, skipping phone for %s', fnr)
-                else:
-                    numbers.add(dct[phone_selector].strip())
+                phone = (dct.get(phone_region) or '') + dct[phone_selector]
+                if dct.get(phone_country):
+                    phone = '+' + dct[phone_country] + phone
+                numbers.add(phone.strip().replace(' ', ''))
             if email_selector in dct:
                 email_addresses.add(dct[email_selector].strip())
    
