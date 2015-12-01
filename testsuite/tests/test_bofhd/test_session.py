@@ -1,7 +1,9 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 """Testing of Utils.py's functionality."""
+
+import cerebrum_path
 
 import nose.tools
 import Cerebrum.Utils
@@ -9,7 +11,7 @@ import Cerebrum.modules.bofhd.session as session
 
 
 # TODO: Or use pythons built-in logging?
-logger = Cerebrum.Utils.get_logger('console')
+logger = Cerebrum.Utils.Factory.get_logger('console')
 
 
 def test_ip_to_long():

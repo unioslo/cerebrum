@@ -1,18 +1,12 @@
-import unittest2 as unittest
+# -*- coding: utf-8 -*-
+
+import unittest
 
 
 class BaseUnitTestCase(unittest.TestCase):
-
-    """ This is a subclass of the unittest(2) TestCase.
-
-    When we go to python 2.7, unittest2 will be renamed to unittest, and if we
-    can manage to use this class, we'll only need to update the import
-    statement in one location.
-
+    """ This is a subclass of the unittest TestCase.
     """
-
     pass
-
 
 
 def class_match(cls, module, name):
@@ -36,7 +30,6 @@ def class_match(cls, module, name):
     @rtype: bool
     @return: True if the class, or one of the superclasses is of a given
         name and/or module.
-
     """
     _match_module = lambda cls, mod: (
         bool(mod) and bool(getattr(cls, '__module__')) and

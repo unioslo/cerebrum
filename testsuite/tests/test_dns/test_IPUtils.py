@@ -1,11 +1,13 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 """
 Tests for IPUtils in dns module - Cerebrum/modules/dns/IPUtils.py.
 """
 
-import unittest2 as unittest
+import unittest
+
+import cerebrum_path
 
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.dns.IPUtils import IPUtils

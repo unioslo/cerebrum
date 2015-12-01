@@ -29,10 +29,11 @@ configuration of attributes.
 import pickle
 import random
 import string
-import unittest2 as unittest
+import unittest
 
 import cerebrum_path
 import cereconf
+
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import Constants
@@ -225,7 +226,7 @@ class UserAD2SyncTest(BaseAD2SyncTest):
         # self.sync..fullsync()
         # 2. Feed the sync with an empty list from AD. Needs mocking.
         # 3. Assert that the MockADclient gets a call to create_object with
-        #    correct parameters. Find out how unittest2 supports asserting
+        #    correct parameters. Find out how unittest supports asserting
         #    IsCalled.
 
     def test_fetched_users(self):
@@ -283,7 +284,7 @@ class UserAD2SyncTest(BaseAD2SyncTest):
             self.assertIn('change_params',
                           passwd_events[0],
                           'No change_params in password event')
-            change_params = pickle.loads(passwd_events[0]['change_params'])
+            change_params = pickle.loads(passwd_events[-1]['change_params'])
             self.assertIsInstance(change_params,
                                   dict,
                                   'change_params is not a dictionary')
@@ -297,9 +298,12 @@ class UserAD2SyncTest(BaseAD2SyncTest):
                               stored_password,
                               'Password not encrypted')
                 # test decryption
-                self.assertEqual(gpgme_decrypt(stored_password),
-                                 self.rnd_password_str,
-                                 'Unable to decrypt password')
+                self.assertEqual(
+                    gpgme_decrypt(stored_password),
+                    self.rnd_password_str,
+                    'Unable to decrypt password "{0}" != "{1}"'.format(
+                        gpgme_decrypt(stored_password),
+                        self.rnd_password_str))
             else:
                 # tests when no encryption is performed
                 self.assertIn(self.rnd_password_str,
