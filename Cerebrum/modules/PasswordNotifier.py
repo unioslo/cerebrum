@@ -147,8 +147,6 @@ class PasswordNotifier(object):
                 person.find(person_id)
                 account_id = person.get_primary_account()
                 if account_id:
-                    if account_id in quarantined_ids:
-                        continue
                     history = [x['set_at'] for x in ph.get_history(account_id)]
                     if history and (self.today - max(history) > max_age):
                         old.add(account_id)
