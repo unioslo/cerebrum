@@ -88,7 +88,7 @@ class CLCleanDefConf:
       # overrides it.  Data in max_ages may be removed by keep_togglers.
       # This allows us to allways keep a group_add, unless there was a
       # subsequent group_remove.
-      # Adding an entry for a new entity in max_ages requires 
+      # Adding an entry for a new entity in max_ages requires
       # having it referenced in the keep_togglers data structure.
 
       max_ages = {
@@ -116,7 +116,7 @@ class CLCleanDefConf:
         for c in (co.ephorte_role_add, co.ephorte_role_rem, co.ephorte_role_upd,
                   co.ephorte_perm_add, co.ephorte_perm_rem):
             max_ages[int(c)] = AGE_FOREVER
-            
+
       if hasattr(co, 'subnet_create'):
           max_ages[int(co.subnet_create)] = AGE_FOREVER
           max_ages[int(co.subnet_delete)] = AGE_FOREVER
