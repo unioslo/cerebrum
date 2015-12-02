@@ -4,6 +4,12 @@
 # - install python package requirements
 #
 
+# TODO: Move all pip_extra_args facts setting to a separate role, so that it can
+# be used in other roles without getting duplicated.
+#
+# Also, all pip_extra_args tasks should be skipped if defined outside of this
+# new role.
+
 - name: decide on pip offline install
   when: pip_offline is defined and pip_offline
   set_fact:
@@ -24,8 +30,21 @@
   set_fact:
       pip_extra_args: "{{ pip_extra_args|default('') }} --find-links='{{ pip_local }}'"
 
+# This may give a better idea of progression as well...
+- name: fetch python package requirements
+  set_fact:
+      crb_packages: "{{ lookup('file', crb_src_dir + '/requirements.txt') | split('\\n') | list }}"
+
 - name: set up python environment
   pip:
       virtualenv: "{{ virtualenv }}"
-      requirements: "{{ crb_src_dir }}/requirements.txt"
+      name: "{{ item }}"
       extra_args: "{{ pip_extra_args|default(None) }}"
+  when: skip_oracle is undefined or not (skip_oracle is yes and 'cx_Oracle' in item)
+  with_items: crb_packages
+
+#   - name: set up python environment
+#     pip:
+#         virtualenv: "{{ virtualenv }}"
+#         requirements: "{{ crb_src_dir }}/requirements.txt"
+#         extra_args: "{{ pip_extra_args|default(None) }}"

@@ -34,11 +34,7 @@
     - openssl-devel
     - openldap-devel
     - cyrus-sasl-devel
-    - oracle-instantclient12.1-devel
   sudo: yes
-
-# NOTE: The Oracle instantclient devel package must be installed manually, if
-# the repo uio-nonfree is not set up on the target host.
 
 - name: install dependencies to build lxml module  # Used in Ad2
   yum:
@@ -58,4 +54,14 @@
   with_items:
    - gpgme
    - gpgme-devel
+  sudo: yes
+
+- name: install oracle instantclient
+  yum:
+      name: "{{ item }}"
+      state: present
+  when: skip_oracle is undefined or skip_oracle is yes
+  fail_when: False
+  with_items:
+    - oracle-instantclient12.1-devel
   sudo: yes

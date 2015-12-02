@@ -22,6 +22,9 @@
 #       If defined, pip will use the value of this setting as cache dir for
 #       downloading packages. Mutually exclusive with {{ pip_offline }}
 #
+#   skip_oracle
+#       If defined, oracle-instantclient and cx_Oracle won't be installed.
+#
 
 # Default, mandatory settings
 virtualenv: "/cerebrum"
@@ -36,3 +39,4 @@ virtualenv: "/cerebrum"
 #   pip_local: /tmp/my_repo
 #   pip_proxy: https://localhost:9876
 #   pip_cache: /tmp/my_pip_cache
+#   skip_oracle: yes
