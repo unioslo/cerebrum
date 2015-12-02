@@ -1,0 +1,10 @@
+- name: place flake8 config
+  template:
+      src: "flake8.j2"
+      dest: "{{ virtualenv }}/etc/flake8.ini"
+  register: _flake8
+
+- name: run flake8 on the Cerebrum repository
+  action: shell chdir={{ crb_src_dir }}/.. {{ virtualenv }}/bin/flake8
+                --config {{ virtualenv }}/etc/flake8.ini
+                --output-file {{ reports_dir }}/flake8.txt cerebrum || exit 0
