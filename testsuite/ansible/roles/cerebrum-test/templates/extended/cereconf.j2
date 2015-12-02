@@ -33,15 +33,17 @@ CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
 #
 # Should CLASS_CHANGELOG be empty?!
 #
+CLASS_CHANGELOG = [
+        'Cerebrum.modules.EventLog/EventLog',
+        'Cerebrum.modules.ChangeLog/ChangeLog', ]
+
 CLASS_CONSTANTS = [
     'Cerebrum.modules.CLConstants/CLConstants',
     'Cerebrum.modules.dns.DnsConstants/Constants',
     'Cerebrum.modules.hostpolicy.HostPolicyConstants/Constants',
     'Cerebrum.Constants/Constants', ]
 
-CLASS_ENTITY = [
-    'Cerebrum.modules.EntityTrait/EntityTrait',
-    'Cerebrum.modules.ad2.Entity/EntityADMixin', ]
+CLASS_ENTITY = ['Cerebrum.modules.EntityTrait/EntityTrait',]
 
 {% if gnupgtest is defined %}
 PASSWORD_GPG_RECIPIENT_ID = 'cerebrum-test-{{ config }}@uio.no'

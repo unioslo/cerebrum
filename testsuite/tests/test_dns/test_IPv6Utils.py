@@ -1,11 +1,13 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 """
 Tests for IPv6Utils in dns module - Cerebrum/modules/dns/IPv6Utils.py.
 """
 
-import unittest2 as unittest
+import unittest
+
+import cerebrum_path
 
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.dns.IPv6Utils import IPv6Utils
@@ -32,4 +34,3 @@ class IPUtilsTest(unittest.TestCase):
 
         # Max 8 segments
         self.assertFalse(IPv6Utils.is_valid_ipv6('2342:3252:2352:2352:2352:2535:6436:1:1'))
-

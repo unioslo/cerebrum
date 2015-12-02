@@ -1,11 +1,13 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 """
 Tests for Subnet in dns module - Cerebrum/modules/dns/Subnet.py.
 """
 
-import unittest2 as unittest
+import unittest
+
+import cerebrum_path
 
 from Cerebrum.modules.dns.Subnet import Subnet
 from Cerebrum.modules.dns.Errors import SubnetError

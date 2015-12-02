@@ -1,4 +1,5 @@
 mod_changelog.sql
+mod_eventlog.sql
 mod_password_history.sql
 bofhd_tables.sql
 mod_entity_expire.sql
