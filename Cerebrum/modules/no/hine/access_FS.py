@@ -129,4 +129,4 @@ class FS(access_FS.FS):
 
         # Override with HiNE-spesific classes
         self.info = self._component('studieinfo')(self.db)
-        self.student = HineStudent('student')(self.db)
+        self.student = self._component('student')(self.db)
