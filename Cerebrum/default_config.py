@@ -1047,9 +1047,12 @@ SMS_URL = ''
 SMS_SYSTEM = ''
 # The username for authentication at the gateway
 SMS_USER = ''
-# A regex whitelist of numbers. The SMSSender will only send to phone numbers
-# that pass one of these regexes. Default value: Eight digit number.
-SMS_ACCEPT_REGEX = (r'^\d{8}$', )
+# A regex whitelist of numbers. The SMSSender will only send to phone
+# numbers that pass one of these regexes. Default value: Norwegian
+# numbers, which means eight digit number, with or without +47 as
+# prefix.
+SMS_ACCEPT_REGEX = (r'^\d{8}$', r'^\+47\d{8}$')
+
 
 #
 # Certificates
