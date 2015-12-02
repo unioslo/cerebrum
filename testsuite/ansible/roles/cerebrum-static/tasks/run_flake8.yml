@@ -5,11 +5,6 @@
   register: _flake8
 
 - name: run flake8 on the Cerebrum repository
-  action: shell chdir={{ crb_src_dir }} {{ virtualenv }}/bin/flake8
+  action: shell chdir={{ crb_src_dir }}/.. {{ virtualenv }}/bin/flake8
                 --config {{ virtualenv }}/etc/flake8.ini
-                --output-file {{ reports_dir }}/flake8.txt . || exit 0
-
-- name: convert flake8 output to JUnit format
-  action: command {{ virtualenv }}/bin/junit_conversor
-                  {{ reports_dir }}/flake8.txt
-                  {{ reports_dir }}/flake8.xml
+                --output-file {{ reports_dir }}/flake8.txt cerebrum || exit 0

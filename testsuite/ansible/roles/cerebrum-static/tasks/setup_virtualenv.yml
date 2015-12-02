@@ -8,5 +8,4 @@
       name: "{{ item }}"
   with_items:
       - flake8
-      - flake8-junit-report
       - pylint
