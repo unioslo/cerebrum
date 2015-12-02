@@ -99,7 +99,7 @@ class HIHStudent78(HIHStudent, access_FS.Student78):
         qry = """
             SELECT DISTINCT
               s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
-              s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+              s.adrlin1_semadr, s.adrlin2_semadr, s.postnr_semadr,
               s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
               p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
               p.adresseland_hjemsted, p.status_reserv_nettpubl,
@@ -111,7 +111,7 @@ class HIHStudent78(HIHStudent, access_FS.Student78):
                  fs.person p LEFT JOIN fs.persontelefon pt ON
                  pt.fodselsdato = p.fodselsdato AND
                  pt.personnr = p.personnr AND
-                 pt.telefonnrtypekode = 'MOBILl
+                 pt.telefonnrtypekode = 'MOBIL'
             WHERE p.fodselsdato = sps.fodselsdato AND
               p.personnr = sps.personnr AND
               p.fodselsdato = s.fodselsdato AND
@@ -297,6 +297,7 @@ class HIHUndervisning(access_FS.Undervisning):
 @fsobject('undervisning', '>=7.8')
 class HIHUndervisning78(HIHUndervisning, access_FS.Undervisning78):
     pass
+
 
 @fsobject('studieinfo')
 class HIHStudieInfo(access_FS.StudieInfo):
