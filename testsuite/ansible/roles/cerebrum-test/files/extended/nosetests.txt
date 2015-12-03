@@ -1,5 +1,5 @@
-test_ad2/test_ADSync.py
-test_bofhd/test_session.py
-test_dns/test_IPUtils.py
-test_dns/test_IPv6Utils.py
-test_dns/test_Subnet.py
+test_extended/test_ADSync.py
+test_extended/test_bofhd_session.py
+test_extended/test_IPUtils.py
+test_extended/test_IPv6Utils.py
+test_extended/test_Subnet.py
