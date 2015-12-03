@@ -2724,7 +2724,15 @@ class UserSync(BaseSync):
                 self.logger.debug(
                     "Can only handle %s for accounts, entity_id: %s",
                     change, row['subject_entity'])
-                return False
+                # Remove the event, since we can't do anything about it. Also,
+                # the fullsync will take care of any weird situations.
+                return True
+            if not self.ac.has_spread(self.config['target_spread']):
+                self.logger.debug("Account %s without target_spread, ignoring",
+                                  row['subject_entity'])
+                # The fullsync takes care of disabling accounts without AD
+                # spread.
+                return True
 
             ent = self.cache_entity(self.ac.entity_id,
                                     self.ac.account_name)
