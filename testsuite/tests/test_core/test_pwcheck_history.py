@@ -1,9 +1,8 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
-
+# -*- coding: utf-8 -*-
 """ Tests for Cerebrum.modules.pwcheck.history.
-
 """
+
 from nose.tools import raises, with_setup
 from nose.plugins.skip import SkipTest
 

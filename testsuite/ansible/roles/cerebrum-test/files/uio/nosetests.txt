@@ -4,6 +4,9 @@ test_core/test_Account.py
 test_core/test_GnuPG.py
 test_core/test_Utils.py
 test_core/test_pwcheck_dictionary.py
-test_core/test_pwcheck_history.py
 test_core/test_pwcheck.py
-test_utils/test_utils_memoize.py
+test_extended/test_utils_memoize.py
+test_extended/test_bofhd_session.py
+test_extended/test_IPUtils.py
+test_extended/test_IPv6Utils.py
+test_extended/test_Subnet.py
