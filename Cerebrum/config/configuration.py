@@ -8,7 +8,7 @@ and default values for settings.
 Configuration-objects are containers for actual configuration. A
 configuration-object can be serialized and un-serialized.
 
-Mixin-classes for the `_Configuration` class enables config file reading and
+Mixin-classes for the `Configuration` class enables config file reading and
 writing.
 
 """
@@ -18,7 +18,15 @@ from . import settings
 from .errors import ConfigurationError
 
 
-class _Configuration(object):
+class _odict(OrderedDict):
+
+    u""" OrderedDict with `dict` repr. """
+
+    def __repr__(self):
+        return super(OrderedDict, self).__repr__()
+
+
+class Configuration(object):
 
     """ An abstract configuration. """
 
@@ -71,7 +79,7 @@ class _Configuration(object):
         setting = getattr(cls, attr)
         if rest:
             value = setting.get_value()
-            if not isinstance(value, _Configuration):
+            if not isinstance(value, Configuration):
                 # TODO: What is the correct exception type here?
                 #       get_setting should never be called if the item does not
                 #       exist...
@@ -85,7 +93,7 @@ class _Configuration(object):
         attr, rest = self.__split_path(item)
         try:
             value = getattr(self, attr)
-            if rest and not isinstance(value, _Configuration):
+            if rest and not isinstance(value, Configuration):
                 raise AttributeError()
             return value, rest
         except AttributeError:
@@ -142,13 +150,13 @@ class _Configuration(object):
             With flatten:
                 { 'a.foo': 1, 'a.bar': 2, 'b.foo': 1, 'b.bar': 2, }
 
-        :return OrderedDict:
+        :return dict:
             A dict representation of this Configuration, with serialized
             values.
         """
-        d = OrderedDict() if order else dict()
+        d = _odict()
         for name in sorted(self.list_settings()):
-            if isinstance(self[name], _Configuration) and flatten:
+            if isinstance(self[name], Configuration) and flatten:
                 dd = self[name].dump_dict(flatten=flatten, order=order)
                 for kk, vv in dd.iteritems():
                     d['%s.%s' % (name, kk)] = vv
@@ -232,73 +240,14 @@ class _Configuration(object):
 #         foo.load_dict(JsonConfig.read('filename'))
 #         JsonConfig.write('filename', foo)
 
-class JsonConfigMixin(_Configuration):
-
-    """ A Configuration object that can read and write JSON. """
-
-    def dump_json(self, flatten=False):
-        import json
-        d = self.dump_dict(flatten)
-        return json.dumps(d)
-
-    def load_json(self, jsondata):
-        import json
-        d = json.loads(jsondata)
-        self.load_dict(d)
-
-    def read_json(self, filename):
-        import json
-        with open(filename, 'r') as f:
-            jsondata = json.load(f)
-        self.load_dict(jsondata)
-
-    def write_json(self, filename):
-        with open(filename, 'w') as f:
-            f.write(self.dump_json())
-
-
-class YamlConfigMixin(_Configuration):
-
-    """ A Configuration object that can read and write JSON. """
-
-    def dump_yaml(self, flatten=False):
-        import yaml
-
-        yaml.add_representer(OrderedDict,
-                             yaml.representer.SafeRepresenter.represent_dict)
-        d = self.dump_dict(flatten=flatten)
-        return yaml.dump(d)
-
-    def load_yaml(self, yamldata):
-        from yaml import load
-        d = load(yamldata)
-        self.load_dict(d)
-
-    def read_yaml(self, filename):
-        with open(filename, 'r') as f:
-            yamldata = f.read()
-            self.load_yaml(yamldata)
-
-    def write_yaml(self, filename):
-        yamldata = self.dump_yaml()
-        with open(filename, 'w') as f:
-            f.write(yamldata)
-
-
-class Configuration(
-        JsonConfigMixin,
-        YamlConfigMixin,
-        _Configuration):
-    pass
-
 
 class Namespace(settings.Setting):
 
     """ A setting that contains another Configuration. """
 
-    _valid_types = _Configuration
+    _valid_types = Configuration
 
-    def __init__(self, config=_Configuration, doc="Namespace"):
+    def __init__(self, config=Configuration, doc="Namespace"):
         """ Initialize the Setting. """
         self._cls = config
         self._value = self.default
@@ -310,6 +259,7 @@ class Namespace(settings.Setting):
 
     @property
     def default(self):
+        """ The default value of this Namespace (an empty Configuration). """
         return self._cls()
 
     @property
@@ -322,16 +272,17 @@ class Namespace(settings.Setting):
         return doc
 
     def get_value(self):
-        """ Gets the value of this setting. """
+        """ Gets the Configuration object of this Namespace. """
         return self._value
 
     def set_value(self, value):
+        """ Replaces all values in this Namespace. """
         if isinstance(value, dict):
             value = self._cls(init=value)
         super(Namespace, self).set_value(value)
 
     def reset_value(self):
-        """ Unsets the value of this setting. """
+        """ Re-sets all values in this Namespace. """
         self._value = self.default
 
     def validate(self, value):

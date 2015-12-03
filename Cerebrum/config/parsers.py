@@ -49,7 +49,7 @@ def get_parser(filename):
     ext = os.path.splitext(filename)[1].lstrip('.')
     if ext not in _parsers:
         raise NotImplementedError(
-            u"No parser for filetype {r!} (file={})".format(ext, filename))
+            u"No parser for filetype {!r} (file={})".format(ext, filename))
     return _parsers[ext]
 
 

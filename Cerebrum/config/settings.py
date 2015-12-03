@@ -266,6 +266,13 @@ class Choice(Setting):
         return doc
 
 
+class Boolean(Setting):
+
+    """ Boolean setting. """
+
+    _valid_types = (bool, )
+
+
 class Iterable(Setting):
 
     """ Callback value. """

@@ -3,7 +3,7 @@
 """ Unit tests for configuration. """
 import pytest
 
-from Cerebrum.config.configuration import _Configuration
+from Cerebrum.config.configuration import Configuration
 from Cerebrum.config.configuration import ConfigDescriptor
 from Cerebrum.config.configuration import Namespace
 from Cerebrum.config.settings import String
@@ -13,12 +13,12 @@ from Cerebrum.config.settings import NotSet
 
 @pytest.fixture
 def empty_config():
-    return _Configuration()
+    return Configuration()
 
 
 @pytest.fixture
 def group_cls():
-    class ExampleGroup(_Configuration):
+    class ExampleGroup(Configuration):
         item_a = ConfigDescriptor(String, doc="First item")
         item_b = ConfigDescriptor(String, doc="Second item")
     return ExampleGroup
@@ -26,7 +26,7 @@ def group_cls():
 
 @pytest.fixture
 def config_cls(group_cls):
-    class Example(_Configuration):
+    class Example(Configuration):
         foo = ConfigDescriptor(Numeric, doc="Some foo value")
         bar = ConfigDescriptor(String, doc="Some bar value")
         group = ConfigDescriptor(Namespace, config=group_cls, doc="group")
@@ -250,7 +250,7 @@ def test_error_del_item_in_missing_group(config_inst):
 @pytest.fixture
 def class_mixes():
 
-    class Base(_Configuration):
+    class Base(Configuration):
         foo = ConfigDescriptor(
             String,
             default="foo",
@@ -262,7 +262,7 @@ def class_mixes():
             default="bar",
             doc="Some specialized value")
 
-    class IndependentMixin(_Configuration):
+    class IndependentMixin(Configuration):
         bar = ConfigDescriptor(
             String,
             default="bar",
@@ -292,15 +292,9 @@ def test_str(config_inst):
     assert isinstance(str(config_inst), str)
 
 
-@pytest.yield_fixture
-def OrderedDict():
-    # Temporary import into locals, for eval
-    from collections import OrderedDict as d
-    yield d
-    del d
-
-
-def test_repr(config_inst, config_cls, OrderedDict):
-    reprstr = repr(config_inst).replace('Example', 'config_cls')
+def test_repr(config_inst, config_cls):
+    Example = config_cls  # Namespace
+    reprstr = repr(config_inst)
     copy = eval(reprstr)
     assert copy == config_inst
+    del Example  # Shut up, linter
