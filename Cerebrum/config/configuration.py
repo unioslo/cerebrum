@@ -12,6 +12,7 @@ Mixin-classes for the `_Configuration` class enables config file reading and
 writing.
 
 """
+from collections import OrderedDict
 
 from . import settings
 from .errors import ConfigurationError
@@ -129,26 +130,57 @@ class _Configuration(object):
         if errors:
             raise errors
 
-    def dump_dict(self, flatten=False):
-        """ Convert the config to a dictionary. """
-        d = dict()
-        for name in self.list_settings():
+    def dump_dict(self, flatten=False, order=True):
+        """ Convert the config to a dictionary.
+
+        :param bool flatten:
+            If True, namespaces will be flattened out.
+
+            Without flatten (default):
+                { 'a': {'foo': 1, 'bar': 2}, 'b': {'foo': 1, 'bar': 2}, }
+
+            With flatten:
+                { 'a.foo': 1, 'a.bar': 2, 'b.foo': 1, 'b.bar': 2, }
+
+        :return OrderedDict:
+            A dict representation of this Configuration, with serialized
+            values.
+        """
+        d = OrderedDict() if order else dict()
+        for name in sorted(self.list_settings()):
             if isinstance(self[name], _Configuration) and flatten:
-                dd = self[name].dump_dict(flatten)
+                dd = self[name].dump_dict(flatten=flatten, order=order)
                 for kk, vv in dd.iteritems():
                     d['%s.%s' % (name, kk)] = vv
             else:
                 setting = self.get_setting(name)
+                # TODO: What about NotSet values?
+                #       They should probably be serialized in some way?
+                #       Could we give them some special string value that
+                #       Setting recognizes?
                 d[name] = setting.serialize(self[name])
         return d
 
     def load_dict(self, d):
-        """ Read in config values from a dictionary structure. """
+        """ Read in config values from a dictionary structure.
+
+        :param dict d:
+            A dictionary with serialized values.
+
+            The dictionary keys are read in alphabetical order. This means that
+            given the following dict:
+                 { 'a.b.c': 1,
+                   'a': {'b': {'c': 2}}, }
+
+            we know that the value of 'a.b.c' is 1, because it is
+            alphabetically sorted after 'a'.
+
+        """
         errors = ConfigurationError()
-        for name, value in d.iteritems():
+        for name in sorted(d):
             try:
                 setting = self.get_setting(name)
-                self[name] = setting.unserialize(value)
+                self[name] = setting.unserialize(d[name])
             except Exception as e:
                 errors.set_error(name, e)
         if errors:
@@ -230,9 +262,12 @@ class YamlConfigMixin(_Configuration):
     """ A Configuration object that can read and write JSON. """
 
     def dump_yaml(self, flatten=False):
-        from yaml import dump
-        d = self.dump_dict(flatten)
-        return dump(d)
+        import yaml
+
+        yaml.add_representer(OrderedDict,
+                             yaml.representer.SafeRepresenter.represent_dict)
+        d = self.dump_dict(flatten=flatten)
+        return yaml.dump(d)
 
     def load_yaml(self, yamldata):
         from yaml import load
