@@ -14,8 +14,8 @@
   with_items:
       - nose
       - coverage
-      - nosexcover
       - pep8
       - pylint
       - pytest
+      - pytest-cov
       - pytest-flask

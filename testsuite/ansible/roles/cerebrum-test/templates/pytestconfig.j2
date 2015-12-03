@@ -1,0 +1,10 @@
+# pytest unfortunately has little support for defining options in the .ini
+# file in other ways than through the addopts parameter. Also, every instance
+# needs to have a unique, temporary basetemp, in order to keep pytest from
+# complaining when trying to clear its cache.
+[pytest]
+addopts = --cov Cerebrum --cov-report xml --verbose --junit-xml={{ xunit_report | default('default_pytestxunit.xml') }} --cache-clear --basetemp={{ crb_src_dir }}/testsuite/tests/{{ config }}
+
+# coverage report output options
+[xml]
+output={{ coverage_report | default('default_coverage.xml') }}

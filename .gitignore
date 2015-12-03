@@ -6,3 +6,6 @@ dist/
 .*.sw?
 tags
 TAGS
+*coverage.xml
+*xunit.xml
+*pytestconfig.ini

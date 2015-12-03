@@ -1,6 +1,6 @@
 # Set up and run tests
 #
-# Will run tests from the file `nosetests.txt' either in `files/<config>/' or
+# Will run tests from the file `pytest_tests.txt' either in `files/<config>/' or
 # `files/'.
 #
 # The file should contain one test file or test folder per line, relative to
@@ -18,23 +18,29 @@
 
 # TODO: Should we write a module for this?
 
-- name: place nose config
+- name: place pytest config
   template:
       src: "{{ item }}"
-      dest: "{{ item | tmpfile }}"
+      dest: "{{ crb_src_dir }}/testsuite/tests/{{ config }}_pytestconfig.ini"
   with_file_overload:
     - base: 'templates'
-    - file: 'noseconfig.j2'
+    - file: 'pytestconfig.j2'
     - alt: '{{ config | default(None) }}'
-  register: _noseconfig
+  register: _pytestconfig
 
+# Pytest requires that the config file is in the same path hierarchy as the
+# testfiles, in order to determine its own .cache dir to use under the test
+# session. The config file must also be inserted as both the pytest-config
+# and the pytest-cov config, since the pytest-cov module doesn't
+# automatically read the main pytest-config when it is manually defined.
 - name: Run test
-  action: command {{ virtualenv }}/bin/nosetests
-                  -c {{ _noseconfig | dest }}
-                  {{ lookup('file', item) | split | prefix(crb_src_dir + "/testsuite/tests/") | join( " " ) }}
+  command: '{{ virtualenv }}/bin/py.test
+                  -c {{ crb_src_dir }}/testsuite/tests/{{ config }}_pytestconfig.ini
+                  --cov-config {{ crb_src_dir }}/testsuite/tests/{{ config }}_pytestconfig.ini
+                  {{ lookup("file", item) | split | prefix(crb_src_dir + "/testsuite/tests/") | join( " " ) }}'
   with_file_overload:
     - base: 'files'
-    - file: 'nosetests.txt'
+    - file: 'pytest_tests.txt'
     - alt: '{{ config | default(None) }}'
   register: _test_result
   ignore_errors: yes
@@ -56,5 +62,5 @@
 # Cause playbook to fail, if test has failed.
 - name: Foul play
   when: _test_result | rc_or != 0
-  debug: msg="Nosetests rc != 0, tests failed. Check output files for errors."
+  debug: msg="Pytests rc != 0, tests failed. Check output files for errors."
   failed_when: true
