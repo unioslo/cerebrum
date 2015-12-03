@@ -246,6 +246,7 @@ class UserAD2SyncTest(BaseAD2SyncTest):
             ac = self.db_tools.get_account_object()
             # TODO: This fails for some of the entities! Why???
             ac.add_spread(self.const_spread_ad_user)
+            ac.write_db()
             self.addCleanup(self.db_tools.delete_account_id, account_id)
             yes_ids.append(account_id)
         # Add some accounts without the spread:
