@@ -292,7 +292,15 @@ def test_str(config_inst):
     assert isinstance(str(config_inst), str)
 
 
-def test_repr(config_inst, config_cls):
+@pytest.yield_fixture
+def OrderedDict():
+    # Temporary import into locals, for eval
+    from collections import OrderedDict as d
+    yield d
+    del d
+
+
+def test_repr(config_inst, config_cls, OrderedDict):
     reprstr = repr(config_inst).replace('Example', 'config_cls')
     copy = eval(reprstr)
     assert copy == config_inst
