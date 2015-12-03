@@ -201,9 +201,13 @@ class Config(object):
             from ConfigParser import NoOptionError
             try:
                 c = self._config.get(self._section, key)
+
                 # TODO: This is a bit nasty. Represent this another way?
                 if c == 'None':
                     c = None
+                elif isinstance(c, basestring) and key == 'timeout':
+                    c = self._config.getint(self._section, key)
+
                 return c
             except NoOptionError:
                 raise AttributeError("'%s' object has no attribute '%s'" %
@@ -224,7 +228,8 @@ def make_ephorte_client(config_file, mock=False):
                  client_cert=config.client_cert,
                  ca_certs=config.ca_certs,
                  username=config.username,
-                 password=read_password(config.username, config.wsdl.split('/')[2]))
+                 password=read_password(config.username, config.wsdl.split('/')[2]),
+                 timeout=config.timeout)
     return client, config
 
 
