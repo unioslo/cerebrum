@@ -41,6 +41,7 @@ class EphorteWSError(Exception):
     def __unicode__(self):
         return unicode(self.args[0])
 
+
 class HTTPSClientCertTransport(suds.transport.http.HttpTransport):
     """Transport wrapper for TLS."""
     # Partial copypasta from
@@ -167,6 +168,7 @@ class SudsClient(object):
         else:
             return r
 
+
 class Config(object):
     """Read config through ConfigParser."""
     # TODO: Make this use yaml?
@@ -213,6 +215,7 @@ class Config(object):
                 raise AttributeError("'%s' object has no attribute '%s'" %
                                      (self.__class__.__name__, key))
 
+
 def make_ephorte_client(config_file, mock=False):
     """Setup ephorte ws from config file name
     :type config_file: basestring
@@ -228,7 +231,8 @@ def make_ephorte_client(config_file, mock=False):
                  client_cert=config.client_cert,
                  ca_certs=config.ca_certs,
                  username=config.username,
-                 password=read_password(config.username, config.wsdl.split('/')[2]),
+                 password=read_password(
+                     config.username, config.wsdl.split('/')[2]),
                  timeout=config.timeout)
     return client, config
 
@@ -251,8 +255,9 @@ class Cerebrum2EphorteClientMock(object):
                 pass
             import functools
             for name in ro_mocks:
-                setattr(self, name, functools.partial(self, name,
-                    getattr(Cerebrum2EphorteClient, name).__func__.func_code.co_varnames))
+                setattr(self, name, functools.partial(
+                    self, name, getattr(Cerebrum2EphorteClient, name
+                                        ).__func__.func_code.co_varnames))
 
     def ensure_user(self, user_id, first_name=None, middle_name=None,
                     last_name=None, full_name=None, initials=None,
@@ -265,7 +270,8 @@ class Cerebrum2EphorteClientMock(object):
                              arkivdel, journalenhet, default_role):
         pass
 
-    def disable_user_role(self, user_id, role_id, ou_id, arkivdel, journalenhet):
+    def disable_user_role(self, user_id, role_id, ou_id, arkivdel,
+                          journalenhet):
         pass
 
     def disable_user_authz(self, user_id, access_code, ou_id):
@@ -701,7 +707,8 @@ class Cerebrum2EphorteClient(object):
             self.database,
             user_id)
 
-    def disable_user_role(self, user_id, role_id, ou_id, arkivdel, journalenhet):
+    def disable_user_role(self, user_id, role_id, ou_id, arkivdel,
+                          journalenhet):
         """Disable a user role
 
         :type user_id: str
