@@ -2,13 +2,34 @@
 # encoding: utf-8
 """ Unit tests for configuration. """
 import pytest
+from collections import OrderedDict
 
+from Cerebrum.config.errors import ConfigurationError
+from Cerebrum.config.configuration import flatten_dict
 from Cerebrum.config.configuration import Configuration
 from Cerebrum.config.configuration import ConfigDescriptor
 from Cerebrum.config.configuration import Namespace
 from Cerebrum.config.settings import String
 from Cerebrum.config.settings import Numeric
 from Cerebrum.config.settings import NotSet
+
+
+def test_flatten():
+    d = {'foo': 1,
+         'bar': {'foo': 2,
+                 'bar': {'foo': 3,
+                         'baz': 4, },
+                 'baz': 5, },
+         'baz': {'foo': 6}, }
+    flat = OrderedDict(flatten_dict(d))
+    assert len(flat) == 6
+    assert flat['foo'] == 1
+    assert flat['bar.bar.baz'] == 4
+    assert flat['baz.foo'] == 6
+    assert 'bar.foo' in flat
+    assert 'baz.foo' in flat
+    assert 'bar.bar.foo' in flat
+    assert flat.keys() == sorted(flat.keys())
 
 
 @pytest.fixture
@@ -298,3 +319,38 @@ def test_repr(config_inst, config_cls):
     copy = eval(reprstr)
     assert copy == config_inst
     del Example  # Shut up, linter
+
+
+def test_load_dict(config_inst):
+    cfg = {'group': {'item_a': 'c'}, 'foo': 4, }
+    config_inst.load_dict(cfg)
+    assert config_inst['foo'] == 4
+    assert config_inst['bar'] == 'example'
+    assert config_inst['group.item_a'] == 'c'
+    assert config_inst['group.item_b'] == 'b'
+
+
+def test_load_dict_duplicate(config_inst, group_cls):
+    cfg = {'group': {'item_a': 'c'}, 'foo': 4, 'group.item_a': 'a', }
+    try:
+        config_inst.load_dict(cfg)
+    except ConfigurationError as e:
+        assert 'group.item_a' in e.errors
+
+
+def test_dump_dict(config_inst):
+    d = config_inst.dump_dict()
+    assert 'foo' in d
+    assert 'group' in d
+    assert 'item_a' in d['group']
+    assert d['bar'] == 'example'
+    assert d['group']['item_b'] == 'b'
+
+
+def test_dump_dict_flat(config_inst):
+    d = config_inst.dump_dict(flatten=True)
+    assert 'bar' in d
+    assert 'group.item_b' in d
+    assert d['foo'] == 1
+    assert d['group.item_a'] == 'a'
+    assert d.keys() == sorted(d.keys())

@@ -56,7 +56,41 @@ class _odict(OrderedDict):
     u""" OrderedDict with `dict` repr. """
 
     def __repr__(self):
+        # TODO: Repr output should probably be sorted, to avoid confusion.
+        #       Consider re-implementing __repr__ from collections.OrderedDict
         return super(OrderedDict, self).__repr__()
+
+
+def flatten_dict(d, prefix=''):
+    """ Generate a recursive, sorted iterator.
+
+    This function yields key,value pairs for a dict that is 'flattened'.
+
+    Example input
+        { 'b': {'a': 1, 'b': 2}, 'a': {'b': 3, 'a': 4}, }
+
+    Will yield:
+        'a.a', 4
+        'a.b', 3
+        'b.a', 1
+        'b.b': 2
+
+    :param dict d:
+        The dict to flatten.
+
+    :raise ValueError:
+        If a key gets duplicated in the flattened dict.
+
+    :return generator:
+        A generator that yields sorted, flattened key value pairs.
+    """
+    for k in sorted(d):
+        newkey = '{}.{}'.format(prefix, k) if prefix else k
+        if isinstance(d[k], dict):
+            for kk, vv in flatten_dict(d[k], newkey):
+                yield kk, vv
+        else:
+            yield newkey, d[k]
 
 
 class Configuration(object):
@@ -115,13 +149,22 @@ class Configuration(object):
         if rest:
             value = setting.get_value()
             if not isinstance(value, Configuration):
-                # TODO: What is the correct exception type here?
-                #       get_setting should never be called if the item does not
-                #       exist...
-                raise Exception(
-                    u'get_setting: {!r} has no {!r}'.format(attr, rest))
+                raise AttributeError(
+                    u'{!r} object in {!r} has no setting'
+                    u' {!r}'.format(type(value).__name__, attr, rest))
             return value.get_setting(rest)
         return setting
+
+    @classmethod
+    def list_ns_settings(cls):
+        u""" Generate a list of all settings in all Namespaces. """
+        for attr in cls.list_settings():
+            s = cls.get_setting(attr)
+            if isinstance(s, Namespace):
+                for nsattr in s._cls.list_ns_settings():
+                    yield '{}.{}'.format(attr, nsattr)
+            else:
+                yield attr
 
     def __item(self, item):
         u""" Helper method for fetching setting values.
@@ -186,7 +229,7 @@ class Configuration(object):
         if errors:
             raise errors
 
-    def dump_dict(self, flatten=False, order=True):
+    def dump_dict(self, flatten=False):
         u""" Convert the config to a dictionary.
 
         :param bool flatten:
@@ -202,19 +245,16 @@ class Configuration(object):
             A dict representation of this Configuration, with serialized
             values.
         """
-        d = _odict()
-        for name in sorted(self.list_settings()):
-            if isinstance(self[name], Configuration) and flatten:
-                dd = self[name].dump_dict(flatten=flatten, order=order)
-                for kk, vv in dd.iteritems():
-                    d['%s.%s' % (name, kk)] = vv
-            else:
-                setting = self.get_setting(name)
-                # TODO: What about NotSet values?
-                #       They should probably be serialized in some way?
-                #       Could we give them some special string value that
-                #       Setting recognizes?
-                d[name] = setting.serialize(self[name])
+        d = dict()
+        for name in self.list_settings():
+            setting = self.get_setting(name)
+            # TODO: What about NotSet values?
+            #       They should probably be serialized in some way?
+            #       Could we give them some special string value that
+            #       Setting recognizes?
+            d[name] = setting.serialize(self[name])
+        if flatten:
+            d = _odict(flatten_dict(d))
         return d
 
     def load_dict(self, d):
@@ -235,12 +275,26 @@ class Configuration(object):
             If a dict contains keys that are not settings, or values that
             doesn't pass validation for a given setting.
         """
-        # TODO: Support partial update
         errors = ConfigurationError()
-        for name in sorted(d):
+        loaded_keys = set()
+        for name, value in flatten_dict(d):
+            if name in loaded_keys:
+                errors.set_error(
+                    name,
+                    ValueError(u'Duplicate key {!r}'.format(name)))
+                continue
+            else:
+                loaded_keys.add(name)
+
+            if name not in self:
+                errors.set_error(
+                    name,
+                    Exception(u'No setting for key {!r}'.format(name)))
+                continue
+
             try:
                 setting = self.get_setting(name)
-                self[name] = setting.unserialize(d[name])
+                self[name] = setting.unserialize(value)
             except Exception as e:
                 errors.set_error(name, e)
         if errors:
@@ -290,6 +344,8 @@ class Configuration(object):
 class Namespace(settings.Setting):
     u""" A setting that contains another Configuration. """
 
+    # TODO: Could not Namespace and Configuration be the same class?
+
     _valid_types = Configuration
 
     def __init__(self, config=Configuration, doc="Namespace"):
@@ -331,7 +387,7 @@ class Namespace(settings.Setting):
         self._value = self.default
 
     def validate(self, value):
-        u""" Validate the value.  """
+        u""" Validate the value. """
         if isinstance(value, dict):
             value = self._cls(init=value)
         super(Namespace, self).validate(value)
