@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014 University of Oslo, Norway
+# Copyright 2014-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,31 +25,15 @@ classes (from httplib and urrlib2) works internally. When we go for a newer
 version of python, this must be taken into account. """
 
 
-from __future__ import with_statement
-from warnings import warn
-
 import socket
 import httplib
 import urllib2
 import ssl
 import os.path
 
-try:
-    from backports import ssl_match_hostname
-except ImportError:
-    from Cerebrum.extlib import ssl_match_hostname
-    warn(ImportWarning(u'Using extlib ssl_match_hostname backport'))
+from backports import ssl_match_hostname
+from warnings import warn
 
-
-HostnameError = ssl_match_hostname.CertificateError
-u""" Alternate name for match_hostname errors. This name adjusts to the
-ssl_match_hostname module that is actually used, so that it's possible to do
-
-  try:
-      <use Cerebrum.https.HTTPSConnection>
-  except Cerebrum.https.HostnameError:
-      <handle>
-"""
 
 SSLError = ssl.SSLError
 u""" Import SSLError directly from https"""
@@ -192,9 +176,9 @@ class SSLConfig(object):
     def set_verify_hostname(self, do_verify):
         u""" Enable or disable hostname validation.
 
-        If enabled, an error (HostnameError) is raised if the certificate is
-        not valid for the hostname we connected to. If disabled, invalid
-        hostnames will only cause a RuntimeWarning.
+        If enabled, a ssl_match_hostname.CertificateError is raised if the
+        certificate is not valid for the hostname we connected to. If disabled,
+        invalid hostnames will only cause a RuntimeWarning.
 
         :param bool do_verify: True if certificate must be valid for the
             hostname. If False, an invalid hostname will only cause a warning.
@@ -210,8 +194,7 @@ class SSLConfig(object):
         is also true if we disable hostname verification with
         set_verify_hostname(False). If we require peer certificates and
         hostname verification, this function will raise a
-        HostnameError/ssl_match_hostname.CertificateError if the hostname
-        doesn't match.
+        ssl_match_hostname.CertificateError if the hostname doesn't match.
 
         :param ssl.SSLSocket sock: The connected socket we want to verify
         :param string hostname: The hostname that should match the certificate
@@ -236,7 +219,7 @@ class SSLConfig(object):
 
         try:
             ssl_match_hostname.match_hostname(cert, hostname)
-        except HostnameError:
+        except ssl_match_hostname.CertificateError:
             if not self._do_verify_hostname:
                 # We checked it anyway
                 warn(RuntimeWarning(u'Invalid hostname in certificate'))
