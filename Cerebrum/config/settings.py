@@ -95,15 +95,18 @@ class Setting(object):
 
         :param default:
             Default value to return, if no value has been set.
+        :param bool optional:
+            If true, this setting is an "optional" setting.
+            The default value will be set to None.
 
         :param basestring doc:
             A short text that explains the usage for this setting.
         """
-        if default is not NotSet:
-            self.validate(default)
         self.default = default
         self._doc = doc
         self._value = NotSet
+        if default is not NotSet and default is not None:
+            self.validate(default)
 
     @property
     def is_set(self):
@@ -158,19 +161,25 @@ class Setting(object):
         self._value = NotSet
 
     def validate(self, value):
-        u""" Validate a value.
+        u""" Validates a value.
 
         This check ensures that the value is of a valid type.
 
-        :param value: Any value
+        :param value:
+            The value to validate.
+
+        :return bool:
+            Returns True if the value does not need further validation.
 
         :raises TypeException:
             If value is not an instance of the valid types for this setting.
         """
+        if self.default is None and value is None:
+            return True
         if self._valid_types is None:
-            return
+            return False
         if isinstance(value, self._valid_types):
-            return
+            return False
 
         raise TypeError(
             u'Invalid type {} for setting {}, must be (one of): {}'.format(
@@ -190,19 +199,19 @@ class Numeric(Setting):
 
     _valid_types = (int, long, float)
 
-    def __init__(self, minval=None, maxval=None, **kwargs):
+    def __init__(self, minval=None, maxval=None, **kw):
         u""" Configure a numeric setting.
 
         :param numeric minval:
             Specify a lower limit for values.
         :param numeric maxval:
             Specify an upper limit for values.
-        :param **dict kwargs:
+        :param **dict kw:
             See `Setting` for additional keyword arguments.
         """
         self._minval = minval
         self._maxval = maxval
-        super(Numeric, self).__init__(**kwargs)
+        super(Numeric, self).__init__(**kw)
 
     @property
     def doc_struct(self):
@@ -214,19 +223,15 @@ class Numeric(Setting):
         return doc
 
     def validate(self, value):
-        u""" Validate a value.
-
-        This check ensures that the value is within the bounds of `minval` and
-        `maxval`, if configured.
-
-        :param value: Any value
+        u""" Validates a value.
 
         :see: Setting.validate
 
         :raises ValueError:
             If value is not within the bounds of minval and maxval
         """
-        super(Numeric, self).validate(value)
+        if super(Numeric, self).validate(value):
+            return True
         if self._minval is not None and self._minval > value:
             raise ValueError(
                 u'Invalid value {}, must not be less than {}'.format(
@@ -235,6 +240,7 @@ class Numeric(Setting):
             raise ValueError(
                 u'Invalid value {}, must not be greater than {}'.format(
                     value, self._maxval))
+        return False
 
 
 class Integer(Numeric):
@@ -248,7 +254,7 @@ class String(Setting):
 
     _valid_types = (str, unicode)
 
-    def __init__(self, regex=None, minlen=None, maxlen=None, **kwargs):
+    def __init__(self, regex=None, minlen=None, maxlen=None, **kw):
         u""" Configure a string setting.
 
         :param string regex:
@@ -257,7 +263,7 @@ class String(Setting):
             Specify a minimum string length for values.
         :param int maxlen:
             Specify a maximum string length for values.
-        :param **dict kwargs:
+        :param **dict kw:
             See `Setting` for additional keyword arguments.
         """
         if regex:
@@ -266,23 +272,19 @@ class String(Setting):
             self._regex = None
         self._minlen = minlen
         self._maxlen = maxlen
-        super(String, self).__init__(**kwargs)
+        super(String, self).__init__(**kw)
 
     def validate(self, value):
-        u""" Validate a value.
-
-        This check ensures that the value matches the `regex`, and that its
-        length is within the given bounds, if configured to do so.
-
-        :param value: Any value
+        u""" Validates a value.
 
         :see: Setting.validate
 
         :raises ValueError:
-            If the string value does not pass the regex, or is shorter or
-            longer than the specified limits.
+            If the string value does not pass the configured regex, or is
+            shorter or longer than the specified limits.
         """
-        super(String, self).validate(value)
+        if super(String, self).validate(value):
+            return True
         if self._minlen and self._minlen > len(value):
             raise ValueError(
                 u'Invalid value {!r} of length {}, must be at least {}'.format(
@@ -295,6 +297,7 @@ class String(Setting):
             raise ValueError(
                 u'Invalid value {!r}, must pass regex {!r}'.format(
                     value, self._regex.pattern))
+        return False
 
     @property
     def doc_struct(self):
@@ -311,12 +314,12 @@ class String(Setting):
 class Choice(Setting):
     u""" Choice setting with limited options. """
 
-    def __init__(self, choices=set(), **kwargs):
+    def __init__(self, choices=set(), **kw):
         u""" Configure a choice setting.
 
         :param set choice:
             A set of valid values.
-        :param **dict kwargs:
+        :param **dict kw:
             See `Setting` for additional keyword arguments.
         """
         if not isinstance(choices, set):
@@ -324,25 +327,23 @@ class Choice(Setting):
                 u"Invalid argument 'choices' ({}) must be {}".format(
                     type(choices), set))
         self._choices = choices
-        super(Choice, self).__init__(**kwargs)
+        super(Choice, self).__init__(**kw)
 
     def validate(self, value):
-        u""" Validate a value.
-
-        This check ensures that the value is one of the valid choicess.
-
-        :param value: Any value
+        u""" Validates a value.
 
         :see: Setting.validate
 
         :raises ValueError:
             If the value is not one of the pre-configured choices.
         """
-        super(Choice, self).validate(value)
+        if super(Choice, self).validate(value):
+            return True
         if value not in self._choices:
             raise ValueError(
                 u'Invalid value {!r}, must be one of {!r}'.format(
                     value, self._choices))
+        return False
 
     @property
     def doc_struct(self):
@@ -362,10 +363,10 @@ class Iterable(Setting):
 
     _valid_types = (list, set, tuple)
 
-    def __init__(self, setting=None, min_items=None, max_items=None, **kwargs):
+    def __init__(self, template=Setting(), min_items=None, max_items=None, **kw):
         u""" Configure a list setting.
 
-        :param Setting setting:
+        :param Setting template:
             Template setting for items in this setting. The setting will be
             used to validate and serialize/unserialize items in the value of
             this setting (default 'None' - not enforced).
@@ -375,13 +376,17 @@ class Iterable(Setting):
         :param max_items:
             Maximum number of items in the value of this setting
             (default 'None' - not enforced).
-        :param **dict kwargs:
+        :param **dict kw:
             See `Setting` for additional keyword arguments.
         """
-        self._setting = setting
+        if not isinstance(template, Setting):
+            raise TypeError(
+                u"Invalid argument 'template' ({}) must be {}".format(
+                    type(template), Setting))
+        self._template = template
         self._min_items = min_items
         self._max_items = max_items
-        super(Iterable, self).__init__(**kwargs)
+        super(Iterable, self).__init__(**kw)
 
     def get_value(self, default=NotSet):
         value = super(Iterable, self).get_value(default=default)
@@ -392,21 +397,14 @@ class Iterable(Setting):
     def set_value(self, value):
         if isinstance(value, self._valid_types):
             value = list(value)
-            if self._setting is not None:
-                for idx, item in enumerate(value):
-                    self._setting.set_value(item)
-                    value[idx] = self._setting.get_value()
+            for idx, item in enumerate(value):
+                self._template.set_value(item)
+                value[idx] = self._template.get_value()
 
         super(Iterable, self).set_value(value)
 
     def validate(self, value):
         u""" Validate a value.
-
-        This check ensures that the value contains an appropriate number if
-        items, if a minval or maxval is configured. It will also validate any
-        items according to the template setting, if configured to do so.
-
-        :param value: Any value
 
         :see: Setting.validate
 
@@ -415,7 +413,8 @@ class Iterable(Setting):
         :raises:
             Will raise any exception that the template setting will raise.
         """
-        super(Iterable, self).validate(value)
+        if super(Iterable, self).validate(value):
+            return True
         if self._min_items is not None and self._min_items > len(value):
             raise ValueError(
                 u'Invalid value {}, must have at least {} items'.format(
@@ -424,15 +423,14 @@ class Iterable(Setting):
             raise ValueError(
                 u'Invalid value {}, must have at most {} items'.format(
                     value, self._max_items))
-        if self._setting is not None:
-            for item in value:
-                self._setting.validate(item)
+        for item in value:
+            self._template.validate(item)
+        return False
 
     @property
     def doc_struct(self):
         doc = super(Iterable, self).doc_struct
-        if self._setting is not None:
-            doc['item'] = self._setting.doc_struct
+        doc['template'] = self._template.doc_struct
         if self._min_items is not None:
             doc['min items'] = self._min_items
         if self._max_items is not None:
@@ -441,12 +439,8 @@ class Iterable(Setting):
 
     def serialize(self, value):
         u""" Serialize each item according to any template setting. """
-        if self._setting is not None:
-            return [self._setting.serialize(item) for item in value]
-        return value
+        return [self._template.serialize(item) for item in value]
 
     def unserialize(self, value):
         u""" Unserialize each item according to any template setting. """
-        if self._setting is not None:
-            return [self._setting.unserialize(item) for item in value]
-        return value
+        return [self._template.unserialize(item) for item in value]

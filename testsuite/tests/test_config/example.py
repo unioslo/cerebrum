@@ -52,13 +52,13 @@ class BofhdConfig(Configuration):
     #       Or at the very least be a general Cerebrum config thing?
     new_user_spreads = ConfigDescriptor(
         Iterable,
-        setting=String(),
+        template=String(),
         default=[],
         doc="A list of spreads for users created with user_create.")
 
     new_group_spreads = ConfigDescriptor(
         Iterable,
-        setting=String(),
+        template=String(),
         default=[],
         doc="A list of spreads for groups created with group_create.")
 
@@ -93,7 +93,7 @@ class BofhdConfig(Configuration):
 
     allow_quarantines = ConfigDescriptor(
         Iterable,
-        setting=String(),
+        template=String(),
         default=[],
         doc=("A list of quarantines (string constants) that should allowed"
              " to log into bofhd."))
@@ -106,7 +106,7 @@ class BofhdConfig(Configuration):
 
     auth_systems = ConfigDescriptor(
         Iterable,
-        setting=String(),
+        template=String(),
         default=['system_manual', ],
         doc=("Authoritative source system for bofhd."
              " TODO: What does this really do?"))
