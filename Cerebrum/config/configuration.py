@@ -1,16 +1,50 @@
 #!/usr/bin/env python
-# encoding: utf-8
-""" Configuration container.
+# -*- encoding: utf-8 -*-
+u""" Cerebrum configuration module.
 
-Configuration-subclasses are configuration-specifications. They contain rules
-and default values for settings.
+This module contains the core of the Cerebrum configuration framework. It
+consists of:
 
-Configuration-objects are containers for actual configuration. A
-configuration-object can be serialized and un-serialized.
+Configuration
+    The Configuration class is an config schema framework. Actual configuration
+    implementations consists of Configuration-subclasses with ConfigDescriptor
+    attributes.
 
-Mixin-classes for the `Configuration` class enables config file reading and
-writing.
+    Instances of Configuration-subclasses functions as a data containers for
+    settings.
 
+    Multiple configuration classes can be combined by inheritance:
+
+    >>> class MyConfiguration(CommonConfiguration, SomeOddConfiguration):
+    >>>    pass
+
+    Configurations can also be extended easily:
+
+    >>> MyConfiguration.new_setting = ConfigDescriptor(Setting, default='foo')
+
+    TODO: Rename to ConfigSchema or similar?
+
+ConfigDescriptor
+    The ConfigDescriptor object wraps Settings as class descriptors. This is
+    how a Setting gets assigned to (implemented in) a Configuration-subclass.
+
+    All settings that are implemented in a Configuration should be wrapped in
+    this descriptor:
+
+    >>> class MyConfiguration(Configuration):
+    >>>     a_setting = ConfigDescriptor(Setting, default='foo')
+    >>>     another_setting = ConfigDescriptor(Setting)
+
+Namespace
+    Namespace is a special Setting. It allows us to use another Configuration
+    as a Setting.
+
+    By using Namespaces in a configuration, we can group settings togeher. This
+    makes large Configurations easier to understand. Namespaces can also be
+    read in separately from files.
+
+    >>> class MyConfiguration(Configuration):
+    >>>     my_namespace = ConfigDescriptor(Namespace, config=MyNamespace)
 """
 from collections import OrderedDict
 
@@ -19,7 +53,6 @@ from .errors import ConfigurationError
 
 
 class _odict(OrderedDict):
-
     u""" OrderedDict with `dict` repr. """
 
     def __repr__(self):
@@ -27,19 +60,22 @@ class _odict(OrderedDict):
 
 
 class Configuration(object):
-
-    """ An abstract configuration. """
+    u""" An abstract configuration. """
 
     def __init__(self, init=dict()):
-        """ Initialize a new, empty config. """
+        u""" Initialize a new configuration container.
+
+        :param dict init:
+            Initialize config with settings from dictionary.
+        """
         self.load_dict(init)
 
     @staticmethod
     def __split_path(item):
-        """ Splits `item` by the path separator ('.').
+        u""" Splits `item` by the path separator ('.').
 
-        This is a helper function to help recusing when fetching a
-        dot-separated setting.
+        This is a helper function to help recusing when accessing a
+        dot-separated setting (`config['foo.bar'] = 3`)
 
         :param str item:
             The setting to get. E.g. 'bar' or 'foo.bar.baz'.
@@ -55,7 +91,6 @@ class Configuration(object):
 
         :raise TypeError:
             If `item` is not a string.
-
         """
         if not isinstance(item, (str, unicode)):
             raise TypeError(
@@ -67,14 +102,14 @@ class Configuration(object):
 
     @classmethod
     def list_settings(cls):
-        """ Lists all settings in this class. """
+        u""" Lists all settings in this class. """
         return filter(
             lambda attr: isinstance(getattr(cls, attr), settings.Setting),
             dir(cls))
 
     @classmethod
     def get_setting(cls, item):
-        """ Gets a setting instance. """
+        u""" Gets a setting instance. """
         attr, rest = cls.__split_path(item)
         setting = getattr(cls, attr)
         if rest:
@@ -84,12 +119,19 @@ class Configuration(object):
                 #       get_setting should never be called if the item does not
                 #       exist...
                 raise Exception(
-                    "get_setting: {!r} has no {!r}".format(attr, rest))
+                    u'get_setting: {!r} has no {!r}'.format(attr, rest))
             return value.get_setting(rest)
         return setting
 
     def __item(self, item):
-        """ Helper method, raises KeyError if item does not exist. """
+        u""" Helper method for fetching setting values.
+
+        :param str item:
+            The setting to fetch.
+
+        :raise KeyError:
+            If item does not exist.
+        """
         attr, rest = self.__split_path(item)
         try:
             value = getattr(self, attr)
@@ -97,7 +139,7 @@ class Configuration(object):
                 raise AttributeError()
             return value, rest
         except AttributeError:
-            raise KeyError("No setting {!r} in config".format(item))
+            raise KeyError(u'No setting {!r} in config'.format(item))
 
     def __getitem__(self, item):
         value, rest = self.__item(item)
@@ -121,6 +163,7 @@ class Configuration(object):
 
     @classmethod
     def documentation(cls):
+        u""" Generate a formatted, multiline documentation string. """
         doc = settings.ConfigDocumentation(cls)
         for name in cls.list_settings():
             setting = cls.get_setting(name)
@@ -128,6 +171,11 @@ class Configuration(object):
         return doc.format()
 
     def validate(self):
+        u""" Validate the settings in this configuration.
+
+        :raises ConfigurationError:
+            If validation of any settings fails.
+        """
         errors = ConfigurationError()
         for name in self.list_settings():
             try:
@@ -139,7 +187,7 @@ class Configuration(object):
             raise errors
 
     def dump_dict(self, flatten=False, order=True):
-        """ Convert the config to a dictionary.
+        u""" Convert the config to a dictionary.
 
         :param bool flatten:
             If True, namespaces will be flattened out.
@@ -170,7 +218,7 @@ class Configuration(object):
         return d
 
     def load_dict(self, d):
-        """ Read in config values from a dictionary structure.
+        u""" Read in config values from a dictionary structure.
 
         :param dict d:
             A dictionary with serialized values.
@@ -183,7 +231,11 @@ class Configuration(object):
             we know that the value of 'a.b.c' is 1, because it is
             alphabetically sorted after 'a'.
 
+        :raises ConfigurationError:
+            If a dict contains keys that are not settings, or values that
+            doesn't pass validation for a given setting.
         """
+        # TODO: Support partial update
         errors = ConfigurationError()
         for name in sorted(d):
             try:
@@ -220,46 +272,39 @@ class Configuration(object):
         return bool(len(self))
 
     def __repr__(self):
-        return "{}(init={!r})".format(
+        return '{}(init={!r})'.format(
             self.__class__.__name__,
             self.dump_dict())
 
     def __str__(self):
-        return "{}({})".format(
+        return '{}({})'.format(
             self.__class__.__name__,
             ', '.join((key for key in self)))
 
     def __unicode__(self):
-        return u"{}({})".format(
+        return u'{}({})'.format(
             self.__class__.__name__,
             u', '.join((key for key in self)))
 
 
-# TODO: Should the file read/write rather be a separate class? E.g.:
-#         foo = Configuraiton()
-#         foo.load_dict(JsonConfig.read('filename'))
-#         JsonConfig.write('filename', foo)
-
-
 class Namespace(settings.Setting):
-
-    """ A setting that contains another Configuration. """
+    u""" A setting that contains another Configuration. """
 
     _valid_types = Configuration
 
     def __init__(self, config=Configuration, doc="Namespace"):
-        """ Initialize the Setting. """
+        u""" Initialize the Setting. """
         self._cls = config
         self._value = self.default
 
     @property
     def is_set(self):
-        """ If the setting has been set. """
+        u""" If the setting has been set. """
         return True
 
     @property
     def default(self):
-        """ The default value of this Namespace (an empty Configuration). """
+        u""" The default value of this Namespace (an empty Configuration). """
         return self._cls()
 
     @property
@@ -272,27 +317,27 @@ class Namespace(settings.Setting):
         return doc
 
     def get_value(self):
-        """ Gets the Configuration object of this Namespace. """
+        u""" Gets the Configuration object of this Namespace. """
         return self._value
 
     def set_value(self, value):
-        """ Replaces all values in this Namespace. """
+        u""" Replaces all values in this Namespace. """
         if isinstance(value, dict):
             value = self._cls(init=value)
         super(Namespace, self).set_value(value)
 
     def reset_value(self):
-        """ Re-sets all values in this Namespace. """
+        u""" Re-sets all values in this Namespace. """
         self._value = self.default
 
     def validate(self, value):
-        """ Validate the value.  """
+        u""" Validate the value.  """
         if isinstance(value, dict):
             value = self._cls(init=value)
         super(Namespace, self).validate(value)
 
         if not isinstance(value, self._cls):
-            raise TypeError("Setting must be subtype of %r, got %r" %
+            raise TypeError(u'Setting must be subtype of %r, got %r' %
                             (self._cls, type(value)))
         value.validate()
 
@@ -306,23 +351,33 @@ class Namespace(settings.Setting):
 
 
 class ConfigDescriptor(object):
-
-    """ Wrap a Setting as a data descriptor. """
+    u""" Wrap a Setting as a data descriptor. """
 
     def __init__(self, cls, **kwargs):
+        u""" Wraps a Setting as a data descriptor.
+
+        :param Setting cls:
+            The setting class of this descriptor.
+
+        :param **dict kwargs:
+            Init-arguments for `cls`.
+        u"""
         if not issubclass(cls, settings.Setting):
             raise TypeError(u'Expected {}, got {}'.format(
                 settings.Setting, cls))
-        self.cls = cls
         self.factory = lambda: cls(**kwargs)
-        self.ident = id(self.factory)
         # The following does two things:
         #   1. Test that 'kwargs' are valid arguments for the class 'cls'
         #   2. Set __doc__ to the generated documentation for the attibute
         self.__doc__ = self.factory().doc
 
+    @property
+    def attr(self):
+        u""" Name of the attribute that stores the actual setting. """
+        return '__ConfigDescriptor_setting_{:x}'.format(id(self))
+
     def get_instance(self, parent):
-        """ Get an instance of this setting from the `parent' object .
+        u""" Get an instance of this setting from the `parent' object .
 
         A Descriptor (self) is a class attribute, and so it gets shared between
         instances of the same type.
@@ -344,13 +399,10 @@ class ConfigDescriptor(object):
         if parent is None:
             return parent
 
-        # A reasonably unique attribute name
-        attr = '__ConfigDescriptor_setting_{:x}'.format(self.ident)
+        if not hasattr(parent, self.attr):
+            setattr(parent, self.attr, self.factory())
 
-        if not hasattr(parent, attr):
-            setattr(parent, attr, self.factory())
-
-        return getattr(parent, attr)
+        return getattr(parent, self.attr)
 
     def __get__(self, parent, parent_type=None):
         # Static call, get a _new_ instance of this Setting.
@@ -362,20 +414,20 @@ class ConfigDescriptor(object):
 
     def __set__(self, parent, value):
         if parent is None:
-            # TODO: is there a valid use-case for this?
-            raise Exception("Shouldn't happen!")
+            raise RuntimeError(u'{} is read-only'.format(self.__class__.__name__))
         setting = self.get_instance(parent)
         setting.set_value(value)
 
     def __delete__(self, parent):
         if parent is None:
-            # TODO: is there a valid use-case for this?
-            raise Exception("Shouldn't happen!")
+            raise RuntimeError(u'{} is read-only'.format(self.__class.__.__name__))
         setting = self.get_instance(parent)
         setting.reset_value()
 
 
-def _example():
+if __name__ == '__main__':
+
+    # An example
 
     class Coordinate(Configuration):
 
@@ -415,11 +467,5 @@ def _example():
             max_items=10,
             doc='A list of strings')
 
-    return Coordinate, Group, Example
-
-
-if __name__ == '__main__':
-
-    co, gr, ex = _example()
     print u"Documentation for Configuration 'Example'\n"
-    print ex.documentation()
+    print Example.documentation()

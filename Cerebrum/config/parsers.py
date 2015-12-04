@@ -1,12 +1,28 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-u""" Config file parsers. """
+u""" Cerebrum config serializing module.
+
+This module contains classes that wraps libraries for reading and writing
+serializing formats with a common API.
+
+The API (_AbstractConfigParser) consists of four methods:
+
+dumps
+    Convert a basic data structure to a serialized string.
+loads
+    Convert a serialized string into a basic data structure.
+read
+    Read a serialized file and unserialize.
+write
+    Serialize a data structure and write to file.
+
+"""
 
 import os
 
 
 _parsers = {}
-u""" Config parsers. """
+u""" Known file format parsers. """
 
 
 class _AbstractConfigParser(object):
@@ -14,28 +30,65 @@ class _AbstractConfigParser(object):
 
     @classmethod
     def loads(cls, data):
-        """ Loads data from string. """
+        u""" Loads a string
+
+        :param str data:
+            A serialized string to parse.
+
+        :returns:
+            Unserialized data.
+        """
         raise NotImplementedError("Abstract class method")
 
     @classmethod
-    def dumps(cls, config):
-        """ Dumps data to a string. """
+    def dumps(cls, data):
+        u""" Dumps data.
+
+        :param str data:
+            An unserialized structure to serialize.
+
+        :returns str:
+            A serialized string.
+        """
         raise NotImplementedError("Abstract class method")
 
     @classmethod
     def read(cls, filename):
-        """ Dumps the `config` to a string. """
+        u""" Reads data from a file.
+
+        :param str filename:
+            The file to read.
+
+        :returns:
+            Unserialized data.
+        """
         with open(filename, 'r') as f:
             return cls.loads(f.read())
 
     @classmethod
     def write(cls, data, filename):
+        u""" Writes data.
+
+        :param data:
+            The data structure to write.
+        :param str filename:
+            The file to write to.
+        """
         with open(filename, 'w') as f:
             f.write(cls.dumps(data))
 
 
 def set_parser(extension, parser):
-    u""" Registers a new config file parser. """
+    u""" Registers a new parser for a file format.
+
+    :param str extension:
+        The file extension to use this parser for.
+    :param type parser:
+        An _AbstractConfigParser-like type.
+
+    :raises ValueError:
+        If `parser` does not implement the methods of _AbstractConfigParser.
+    """
     for attr in dir(_AbstractConfigParser):
         if (callable(getattr(_AbstractConfigParser, attr)) and not
                 callable(getattr(parser, attr, None))):
@@ -45,7 +98,17 @@ def set_parser(extension, parser):
 
 
 def get_parser(filename):
-    u""" Gets config file parser. """
+    u""" Gets file parser for a given filename
+
+    :param str filename:
+        Path to, or filename of the file to parse.
+
+    :return type:
+        A _AbstractConfigParser-like parser type.
+
+    :raises NotImplementedError:
+        If no parser exists for the given filename.
+    """
     ext = os.path.splitext(filename)[1].lstrip('.')
     if ext not in _parsers:
         raise NotImplementedError(
@@ -57,8 +120,10 @@ try:
     import json
 
     class JsonParser(_AbstractConfigParser):
+        u""" JSON Parser API.
 
-        """ A Configuration object that can read and write JSON. """
+        Wraps the json module with a common API.
+        """
 
         @classmethod
         def loads(cls, data):
@@ -77,8 +142,10 @@ try:
     import yaml
 
     class YamlParser(_AbstractConfigParser):
+        u""" YAML Parser API.
 
-        """ A Configuration object that can read and write JSON. """
+        Wraps the PyYaml module with a common API.
+        """
 
         @classmethod
         def loads(cls, data):

@@ -1,14 +1,14 @@
 #!/usr/bin/env python
-# encoding: utf-8
-""" Configuration settings.
+# -*- encoding: utf-8 -*-
+u""" Cerebrum setting module.
 
-Settings are containers for individual configuration values.
+Settings are validators and containers for individual configuration values.
 
-They can have default values, rules and transforms for serializing and
-unserializing.
+They can have default values, validation rules and transforms for serializing
+and unserializing.
 
-In addition, all settings should contain a `doc` attribute that contains a
-string that describes the behavoir of the setting.
+In addition, all settings contains a `doc` attribute that should contain a
+string that describes the behavior of the setting and its uses.
 
 """
 import re
@@ -17,7 +17,7 @@ from collections import OrderedDict
 
 class NotSetType(object):
 
-    """ A NotSet type that indicates that nothing has been set. """
+    u""" A NotSet type that indicates that nothing has been set. """
 
     def __nonzero__(self):
         return False
@@ -32,21 +32,28 @@ class NotSetType(object):
         return str(self)
 
 NotSet = NotSetType()
-""" Singleton that indicates that a setting has not been set. """
+u""" Singleton that indicates that a setting has not been set. """
 
 
 class ConfigDocumentation(OrderedDict):
+    u""" A container and formatter for structured documentation.
 
-    """ A structured documentation class. """
+    This class is used when building documentation for a Setting. It contains
+    rules, default values and other interesting facts about a Setting in an
+    OrderedDict.
+
+    In addition, it implements a `format` method that formats that information
+    as a string.
+    """
 
     doc_indent = u'  | '
-    """ Indent for the documentation string. """
+    u""" Indent for the formatted documentation string. """
 
     def __init__(self, setting_type):
-        """ TODO
+        u""" Initialize a documentation container.
 
         :param type setting_type:
-            A type for the documentation.
+            The type of the Setting that this dict-like object documents.
         """
         self._setting_type = setting_type
         super(ConfigDocumentation, self).__init__()
@@ -55,6 +62,17 @@ class ConfigDocumentation(OrderedDict):
         return self.format()
 
     def format(self, indent=u'    ', _count=1):
+        u""" Formats the data contained in this dict-like object.
+
+        :param unicode indent:
+            The indent to use for facts contained in this structure.
+
+        :param int _count:
+            Recursion count (number of indents to use).
+
+        :return unicode:
+            Returns a formatted documentation string.
+        """
         doc = [unicode(self._setting_type)]
         for k, v in self.iteritems():
             if isinstance(v, type(self)):
@@ -65,30 +83,42 @@ class ConfigDocumentation(OrderedDict):
 
 class Setting(object):
 
-    """ Generic setting. """
+    u""" Generic setting. """
 
     _valid_types = None
-    """ The valid value class or classes that this setting accepts. Either
-    None (accept all classes), a Type or an iterable of Types. """
+    u""" The valid value class or classes that this setting accepts.
+
+    Either None (accept all classes), a type or a tuple of types. """
 
     def __init__(self, default=NotSet, doc=""):
-        """ Initialize the Setting. """
+        u""" Configure a new Setting.
+
+        :param default:
+            Default value to return, if no value has been set.
+
+        :param basestring doc:
+            A short text that explains the usage for this setting.
+        """
         if default is not NotSet:
             self.validate(default)
         self.default = default
         self._doc = doc
         self._value = NotSet
-        self.__doc__ = self.doc
 
     @property
     def is_set(self):
-        """ If the setting has been set. """
+        u""" If the setting has been set. """
         if self._value is NotSet:
             return False
         return True
 
     @property
     def doc_struct(self):
+        u""" Structured documentation for this setting.
+
+        :return ConfigDocumentation:
+            An OrderedDict that implements a __str__ method.
+        """
         doc = ConfigDocumentation(type(self))
         doc['description'] = self._doc
         if self.default is not NotSet:
@@ -99,45 +129,44 @@ class Setting(object):
 
     @property
     def doc(self):
+        u""" Documentation string for this setting. """
         return self.doc_struct.format()
 
     def get_value(self, default=NotSet):
-        """ Gets the value of this setting. """
+        u""" Gets the value of this setting.
+
+        :param default:
+            A value to return if the setting has no value or default set.
+        """
         if self.is_set:
             return self._value
         if default is NotSet:
             return self.default
         return default
 
-    def _load_value(self, value):
-        return value
-
     def set_value(self, value):
-        """ Validates and sets the value of this setting. """
-        value = self._load_value(value)
+        u""" Validates and sets the value of this setting.
+
+        :param value:
+            The value to set.
+        """
         self.validate(value)
         self._value = value
 
     def reset_value(self):
+        u""" Removes any value set for this setting. """
         self._value = NotSet
 
     def validate(self, value):
-        """ Validate the value.
+        u""" Validate a value.
 
-        This function checks that the value matches the class requirements:
-         - If _valid_types is None, all classes are accepted.
-         - If _valid_types is a type or tuple of types, the value must be an
-         instance of those classes.
+        This check ensures that the value is of a valid type.
 
-        :value: Any value
-        :raises TypeError: If _valid_types is not None (accept all types), and
-        value is not an instance of any class in a set of Types
+        :param value: Any value
 
-        If a subclass needs to limit the value, it should call super (this
-        methdo), and implement a check that raises ValueError.
-
+        :raises TypeException:
+            If value is not an instance of the valid types for this setting.
         """
-        value = self._load_value(value)
         if self._valid_types is None:
             return
         if isinstance(value, self._valid_types):
@@ -148,28 +177,29 @@ class Setting(object):
                 type(value), self.__class__, repr(self._valid_types)))
 
     def serialize(self, value):
+        u""" Serialize the given value. """
         return value
 
     def unserialize(self, value):
+        u""" Unserialize the given value. """
         return value
 
 
 class Numeric(Setting):
-
-    """ Numerical setting. """
-    # TODO: Should we try to cast the setting?
+    u""" Numerical setting. """
 
     _valid_types = (int, long, float)
 
     def __init__(self, minval=None, maxval=None, **kwargs):
-        if minval and not isinstance(minval, self._valid_types):
-            raise TypeError(
-                u'Invalid type {} for minval, must be one of [{}]'.format(
-                    type(minval), repr(self._valid_types)))
-        if maxval and not isinstance(maxval, self._valid_types):
-            raise TypeError(
-                u'Invalid type {} for maxval, must be one of [{}]'.format(
-                    type(maxval), repr(self._valid_types)))
+        u""" Configure a numeric setting.
+
+        :param numeric minval:
+            Specify a lower limit for values.
+        :param numeric maxval:
+            Specify an upper limit for values.
+        :param **dict kwargs:
+            See `Setting` for additional keyword arguments.
+        """
         self._minval = minval
         self._maxval = maxval
         super(Numeric, self).__init__(**kwargs)
@@ -184,6 +214,18 @@ class Numeric(Setting):
         return doc
 
     def validate(self, value):
+        u""" Validate a value.
+
+        This check ensures that the value is within the bounds of `minval` and
+        `maxval`, if configured.
+
+        :param value: Any value
+
+        :see: Setting.validate
+
+        :raises ValueError:
+            If value is not within the bounds of minval and maxval
+        """
         super(Numeric, self).validate(value)
         if self._minval is not None and self._minval > value:
             raise ValueError(
@@ -196,17 +238,28 @@ class Numeric(Setting):
 
 
 class Integer(Numeric):
+    u""" A whole number setting. """
 
-    _valid_types = int
+    _valid_types = (int, long)
 
 
 class String(Setting):
-
-    """ String setting. """
+    u""" A String setting. """
 
     _valid_types = (str, unicode)
 
     def __init__(self, regex=None, minlen=None, maxlen=None, **kwargs):
+        u""" Configure a string setting.
+
+        :param string regex:
+            A regex rule for this setting.
+        :param int minlen:
+            Specify a minimum string length for values.
+        :param int maxlen:
+            Specify a maximum string length for values.
+        :param **dict kwargs:
+            See `Setting` for additional keyword arguments.
+        """
         if regex:
             self._regex = re.compile(regex)
         else:
@@ -216,6 +269,19 @@ class String(Setting):
         super(String, self).__init__(**kwargs)
 
     def validate(self, value):
+        u""" Validate a value.
+
+        This check ensures that the value matches the `regex`, and that its
+        length is within the given bounds, if configured to do so.
+
+        :param value: Any value
+
+        :see: Setting.validate
+
+        :raises ValueError:
+            If the string value does not pass the regex, or is shorter or
+            longer than the specified limits.
+        """
         super(String, self).validate(value)
         if self._minlen and self._minlen > len(value):
             raise ValueError(
@@ -243,8 +309,16 @@ class String(Setting):
 
 
 class Choice(Setting):
+    u""" Choice setting with limited options. """
 
     def __init__(self, choices=set(), **kwargs):
+        u""" Configure a choice setting.
+
+        :param set choice:
+            A set of valid values.
+        :param **dict kwargs:
+            See `Setting` for additional keyword arguments.
+        """
         if not isinstance(choices, set):
             raise TypeError(
                 u"Invalid argument 'choices' ({}) must be {}".format(
@@ -253,6 +327,17 @@ class Choice(Setting):
         super(Choice, self).__init__(**kwargs)
 
     def validate(self, value):
+        u""" Validate a value.
+
+        This check ensures that the value is one of the valid choicess.
+
+        :param value: Any value
+
+        :see: Setting.validate
+
+        :raises ValueError:
+            If the value is not one of the pre-configured choices.
+        """
         super(Choice, self).validate(value)
         if value not in self._choices:
             raise ValueError(
@@ -267,19 +352,32 @@ class Choice(Setting):
 
 
 class Boolean(Setting):
-
-    """ Boolean setting. """
+    u""" Boolean setting. """
 
     _valid_types = (bool, )
 
 
 class Iterable(Setting):
-
-    """ Callback value. """
+    u""" List value. """
 
     _valid_types = (list, set, tuple)
 
     def __init__(self, setting=None, min_items=None, max_items=None, **kwargs):
+        u""" Configure a list setting.
+
+        :param Setting setting:
+            Template setting for items in this setting. The setting will be
+            used to validate and serialize/unserialize items in the value of
+            this setting (default 'None' - not enforced).
+        :param min_items:
+            Minimum number of items in the value of this setting
+            (default 'None' - not enforced).
+        :param max_items:
+            Maximum number of items in the value of this setting
+            (default 'None' - not enforced).
+        :param **dict kwargs:
+            See `Setting` for additional keyword arguments.
+        """
         self._setting = setting
         self._min_items = min_items
         self._max_items = max_items
@@ -292,7 +390,6 @@ class Iterable(Setting):
         return value
 
     def set_value(self, value):
-        """ Validates and sets the value of this setting. """
         if isinstance(value, self._valid_types):
             value = list(value)
             if self._setting is not None:
@@ -303,6 +400,21 @@ class Iterable(Setting):
         super(Iterable, self).set_value(value)
 
     def validate(self, value):
+        u""" Validate a value.
+
+        This check ensures that the value contains an appropriate number if
+        items, if a minval or maxval is configured. It will also validate any
+        items according to the template setting, if configured to do so.
+
+        :param value: Any value
+
+        :see: Setting.validate
+
+        :raises ValueError:
+            If the value contains too few or too many items.
+        :raises:
+            Will raise any exception that the template setting will raise.
+        """
         super(Iterable, self).validate(value)
         if self._min_items is not None and self._min_items > len(value):
             raise ValueError(
@@ -328,11 +440,13 @@ class Iterable(Setting):
         return doc
 
     def serialize(self, value):
+        u""" Serialize each item according to any template setting. """
         if self._setting is not None:
             return [self._setting.serialize(item) for item in value]
         return value
 
     def unserialize(self, value):
+        u""" Unserialize each item according to any template setting. """
         if self._setting is not None:
             return [self._setting.unserialize(item) for item in value]
         return value
