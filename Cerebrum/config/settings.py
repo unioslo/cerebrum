@@ -94,10 +94,9 @@ class Setting(object):
         u""" Configure a new Setting.
 
         :param default:
-            Default value to return, if no value has been set.
-        :param bool optional:
-            If true, this setting is an "optional" setting.
-            The default value will be set to None.
+            Default value to return if no value has been set.
+            If set to None, this setting will be considered an 'optional'
+            setting.
 
         :param basestring doc:
             A short text that explains the usage for this setting.

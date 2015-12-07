@@ -395,6 +395,7 @@ class Namespace(settings.Setting):
         if not isinstance(value, self._cls):
             raise TypeError(u'Setting must be subtype of %r, got %r' %
                             (self._cls, type(value)))
+
         value.validate()
 
     def serialize(self, value):

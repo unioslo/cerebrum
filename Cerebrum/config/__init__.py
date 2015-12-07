@@ -36,6 +36,7 @@ Cerebrum.config.configuration
     Configurations are configuration schemas and data containers, while
     Namespaces are special Settings that contains Configurations.
 
+
 Cerebrum.config.parsers
     The parsers module contains functionality for using data serialization
     formats with a common API.
@@ -46,8 +47,9 @@ Cerebrum.config.loader
     from predefined locations on the file system.
 
 
-This sub-package has been re-purposed. It still contains modules that consists
-of attributes with default settings. The old documentation:
+This sub-package has been re-purposed. It still contains some 'default
+config' modules that consists of attributes with default settings. The old
+documentation:
 
 >  All default configuration that is imported to the Cerebrum instances'
 >  config files should exist in this directory.

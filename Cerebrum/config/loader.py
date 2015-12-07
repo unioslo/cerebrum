@@ -10,9 +10,7 @@ It is a bridge between the `parsers` module and the `configuration` module.
 
 TODO: Improvements:
 
-1. Improve the namespace writing. Don't overwrite the entire namespace when
-   loading a namespace.
-2. Improve error handling:
+1. Improve error handling:
   - If multiple errors exist in config files, we should gather them up and
     present all the errors.
   - Reading config should be 'transactional'. If any errors exists, no
@@ -114,16 +112,22 @@ def read(config, root_ns=default_root_ns, additional_dirs=[]):
         for f in files:
             yield f
 
+    # TODO: Transactional update: Make a copy here, then update the copy
+
     for d in lookup_dirs(additional_dirs=additional_dirs):
         for f in _get_config_files(d):
             key = _f2key(f)
-            # TODO: Keep track of changes by files, warn if a file changes
-            # something that has already been set from another file?
+            # TODO: Handle errors here
+            #       Also, maybe keep track of changes by files, warn if a file
+            #       changes something that has already been set from another
+            #       file?
             if key == root_ns:
                 config.load_dict(read_config(f))
             elif key in config:
-                # TODO: Replace entire key?
-                config[key] = read_config(f)
+                config[key].load_dict(read_config(f))
+
+    # TODO: Then validate the copy, and write changes back to the original
+    # config object to complete the 'transaction'.
 
 
 def read_config(filename):
