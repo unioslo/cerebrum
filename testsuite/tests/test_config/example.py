@@ -185,7 +185,7 @@ class JobRunnerConfig(Configuration):
 
 def mixin_config(attr, cls):
     return type('_ConfigMixin',
-                (cls, ),
+                (Configuration, ),
                 {attr: ConfigDescriptor(Namespace, config=cls,)})
 
 
