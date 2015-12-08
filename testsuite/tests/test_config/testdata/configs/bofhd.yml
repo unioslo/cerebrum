@@ -1,0 +1,5 @@
+# motd_file: "/tmp/motd.txt"
+new_user_spreads:
+    - 'ad'
+    - 'ldap'
+timeout: 60
