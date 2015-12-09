@@ -447,7 +447,7 @@ def find_primary_sko(primary_ou_id, fs, ou_perspective):
             return ou.institusjon, ou.fakultet, ou.institutt, ou.avdeling
         # go up 1 level to the parent
         return find_primary_sko(ou.get_parent(ou_perspective), fs,
-                                              ou_perspective)
+                                ou_perspective)
     except Errors.NotFoundError:
         return None
 
@@ -456,7 +456,7 @@ def find_primary_sko(primary_ou_id, fs, ou_perspective):
 
 
 def _populate_caches(selection_criteria, authoritative_system, email_cache,
-        ansattnr_code_str="NO_SAPNO"):
+                     ansattnr_code_str="NO_SAPNO"):
     """This is a performance enhacing hack.
 
     Looking things up on per-person basis takes too much time (about a
@@ -869,20 +869,34 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
     instno = primary_sko[0]
     phone = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
                                     instno, 'ARB')
-    if info_chunk.phone and not phone:
-        fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
-                                info_chunk.phone)
-    elif info_chunk.phone and phone[0]['telefonnr'] != info_chunk.phone:
-        fs.person.update_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
-                                   info_chunk.phone)
+    try:
+        if info_chunk.phone and not phone:
+            logger.debug("Setting phone to %s", info_chunk.phone)
+            fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
+                                    info_chunk.phone)
+        elif info_chunk.phone and phone[0]['telefonnr'] != info_chunk.phone:
+            logger.debug("Updating phone: %s > %s",
+                         phone[0]['telefonnr'], info_chunk.phone)
+            fs.person.update_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
+                                       info_chunk.phone)
+    except Exception as e:
+        logger.info("Could not set phone %s: %s", info_chunk.phone, e)
+
     fax = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
                                   instno, 'FAKS')
-    if info_chunk.fax and not fax:
-        fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'FAKS',
-                                info_chunk.fax)
-    elif info_chunk.fax and fax[0]['telefonnr'] != info_chunk.fax:
-        fs.person.update_telephone(info_chunk.fnr6, info_chunk.pnr, 'FAKS',
-                                   info_chunk.phone)
+    try:
+        if info_chunk.fax and not fax:
+            logger.debug("Setting fax to %s", info_chunk.fax)
+            fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'FAKS',
+                                    info_chunk.fax)
+        elif info_chunk.fax and fax[0]['telefonnr'] != info_chunk.fax:
+            logger.debug("Updating fax: %s > %s",
+                         fax[0]['telefonnr'], info_chunk.fax)
+            fs.person.update_telephone(info_chunk.fnr6, info_chunk.pnr, 'FAKS',
+                                       info_chunk.fax)
+    except Exception as e:
+        logger.info("Could not set fax %s: %s", info_chunk.fax, e)
+
 
 def make_fs_updates(person_affiliations, fagperson_affiliations, fs,
                     authoritative_system, ou_perspective):
