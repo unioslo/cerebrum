@@ -858,14 +858,19 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
     instno = primary_sko[0]
     phone = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
                                     instno, 'ARB')
+    if phone:
+        if phone[0]['telefonlandnr']:
+            phone = '+' + phone[0]['telefonlandnr'] + phone[0]['telefonnr']
+        else:
+            phone = phone[0]['telefonnr']
     try:
         if info_chunk.phone and not phone:
             logger.debug("Setting phone to %s", info_chunk.phone)
             fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
                                     info_chunk.phone)
-        elif info_chunk.phone and phone[0]['telefonnr'] != info_chunk.phone:
+        elif info_chunk.phone and phone != info_chunk.phone:
             logger.debug("Updating phone: %s > %s",
-                         phone[0]['telefonnr'], info_chunk.phone)
+                         phone, info_chunk.phone)
             fs.person.update_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
                                        info_chunk.phone)
     except Exception as e:
@@ -873,14 +878,19 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
 
     fax = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
                                   instno, 'FAKS')
+    if fax:
+        if fax[0]['telefonlandnr']:
+            fax = '+' + fax[0]['telefonlandnr'] + fax[0]['telefonnr']
+        else:
+            fax = fax[0]['telefonnr']
     try:
         if info_chunk.fax and not fax:
             logger.debug("Setting fax to %s", info_chunk.fax)
             fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'FAKS',
                                     info_chunk.fax)
-        elif info_chunk.fax and fax[0]['telefonnr'] != info_chunk.fax:
+        elif info_chunk.fax and fax != info_chunk.fax:
             logger.debug("Updating fax: %s > %s",
-                         fax[0]['telefonnr'], info_chunk.fax)
+                         fax, info_chunk.fax)
             fs.person.update_telephone(info_chunk.fnr6, info_chunk.pnr, 'FAKS',
                                        info_chunk.fax)
     except Exception as e:
