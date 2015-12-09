@@ -642,6 +642,8 @@ class Person(FSObject):
                              fetchall=fetchall)
 
     def _phone_to_country(self, country, phone):
+        if phone is None:
+            return None, None
         if phone.startswith('+'):
             return phone[1:3], phone[3:]
         else:
@@ -777,6 +779,16 @@ class Person78(Person):
         """
         if not isinstance(kind, basestring):
             kind = kind[0]
+        binds = {'fodselsdato': fodselsdato,
+                 'personnr': personnr,
+                 'kind': kind}
+
+        if phone is None:
+            self.db.execute("""DELETE FROM fs.persontelefon
+                            WHERE fodselsdato = :fodselsdato AND
+                                  personnr = :personnr AND
+                                  telefonnrtypekode = :kind""",
+                            binds)
         qry = """
         UPDATE fs.persontelefon
         SET
@@ -784,14 +796,10 @@ class Person78(Person):
             telefonnr = :phone
         WHERE fodselsdato = :fodselsdato AND
               personnr = :personnr AND
-              kind = :kind"""
-        country, phone = self._phone_to_country(country, phone)
-        return self.db.execute(qry, {'fodselsdato': fodselsdato,
-                                     'personnr': personnr,
-                                     'country': country,
-                                     'phone': phone,
-                                     'kind': kind,
-                                     })
+              telefonnrtypekode = :kind"""
+        binds['country'], binds['phone'] = self._phone_to_country(country,
+                                                                  phone)
+        return self.db.execute(qry, binds)
 
     def get_telephone(self, fodselsdato, personnr, institusjonsnr, kind=None,
                       fetchall=False):
