@@ -29,6 +29,9 @@ from Cerebrum.Utils import Factory
 from Cerebrum.Errors import NotFoundError
 from . import config
 
+__db = Factory.get('Database')()
+__co = Factory.get('Constants')(__db)
+
 
 def get_cim_person_data(entity_id):
     """
@@ -41,12 +44,9 @@ def get_cim_person_data(entity_id):
              CIM-WS-schema.
     :rtype: dict
     """
-    db = Factory.get('Database')()
-    pe = Factory.get('Person')(db)
-    ac = Factory.get('Account')(db)
-    co = Factory.get('Constants')(db)
     authoritative_system = config.authoritative_system
-
+    pe = Factory.get('Person')(__db)
+    ac = Factory.get('Account')(__db)
     person_dict = {}
     try:
         pe.find(entity_id)
@@ -61,8 +61,8 @@ def get_cim_person_data(entity_id):
     # Get and add first and last names from authoritative system
     pe_names = pe.get_all_names()
     names = _attr_filter('source_system', authoritative_system, pe_names)
-    first_name_list = _attr_filter('name_variant', co.name_first, names)
-    last_name_list = _attr_filter('name_variant', co.name_last, names)
+    first_name_list = _attr_filter('name_variant', __co.name_first, names)
+    last_name_list = _attr_filter('name_variant', __co.name_last, names)
     person_dict['firstname'] = first_name_list[0]['name']
     person_dict['lastname'] = last_name_list[0]['name']
 
@@ -82,8 +82,8 @@ def get_cim_person_data(entity_id):
 
     # Get and add job title if present
     try:
-        person_dict['job_title'] = pe.get_name_with_language(co.work_title,
-                                                             co.language_nb)
+        person_dict['job_title'] = pe.get_name_with_language(__co.work_title,
+                                                             __co.language_nb)
     except NotFoundError:
         pass
 
@@ -159,12 +159,8 @@ def _add_company_info(pe_affs, person_dict):
     :param pe_affs:
     :param person_dict: A dict with person data according to the CIM-WS-schema
     :type person_dict: dict
-    :return:
     """
-    db = Factory.get('Database')()
-    co = Factory.get('Constants')(db)
-    ou = Factory.get('OU')(db)
-
+    ou = Factory.get('OU')(__db)
     affs = _attr_filter('source_system', config.authoritative_system, pe_affs)
 
     try:
@@ -179,8 +175,8 @@ def _add_company_info(pe_affs, person_dict):
     while current_ou_name != config.company_name:
         ou.clear()
         ou.find(current_ou_id)
-        current_ou_name = ou.get_name_with_language(co.ou_name,
-                                                    co.language_nb)
+        current_ou_name = ou.get_name_with_language(__co.ou_name,
+                                                    __co.language_nb)
         ou_list.append(current_ou_name)
         current_ou_id = ou.get_parent(config.system_perspective)
 
