@@ -310,11 +310,6 @@ def find_contact_info(person, contact_variant, authoritative_system):
 
     # They arrive already sorted
     value = result[0]["contact_value"]
-    # FS cannot cope with longer values, apparently.
-    if len(value) > 8:
-        logger.info("Ignoring contact=<%s> for person id=%d (too long)",
-                    value, person.entity_id)
-        return None
     return value
 # end find_contact_info
 
@@ -527,12 +522,6 @@ def _populate_caches(selection_criteria, authoritative_system, email_cache,
             p_id = int(row["entity_id"])
             value = row["contact_value"]
             if p_id not in _person_id2fnr:
-                continue
-
-            # Trap FS silliness
-            if len(value) > 8:
-                logger.info("Ignoring long contact value for %s: %s",
-                            _person_id2fnr[p_id], value)
                 continue
 
             _person_id2contact.setdefault(p_id, {})[int(contact_type)] = value

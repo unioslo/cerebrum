@@ -648,13 +648,31 @@ class Person(FSObject):
             return None, None
         if phone.startswith('+'):
             p = phonenumbers.parse(phone)
-            return str(p.country_code), str(p.national_number)
+            num = str(p.national_number)
+            if p.country_code == 47 and len(num) > 8:
+                raise ValueError("FS doesn't allow more than 8 digits in "
+                                 "Norwegian phone numbers")
+            return str(p.country_code), num
         elif phone.startswith('00'):
             # TODO: Should we do this?
             p = phonenumbers.parse('+' + phone[2:])
-            return str(p.country_code), str(p.national_number)
+            num = str(p.national_number)
+            if p.country_code == 47 and len(num) > 8:
+                raise ValueError("FS doesn't allow more than 8 digits in "
+                                 "Norwegian phone numbers")
+            return str(p.country_code), num
+        elif country is None or country == '47':
+            p = phonenumbers.parse(phone, region='NO')
+            num = str(p.national_number)
+            if len(num) > 8:
+                raise ValueError("FS doesn't allow more than 8 digits in "
+                                 "Norwegian phone numbers")
+            return str(p.country_code), num
         else:
-            return country or '47', phone.strip()
+            p = phonenumbers.parse(phone,
+                                   region=phonenumbers.
+                                   region_code_for_country_code(int(country)))
+            return str(p.country_code), str(p.national_number)
 
     def add_telephone(self, fodselsdato, personnr, kind, phone, country=None):
         """Insert telephone number for person.
