@@ -32,6 +32,19 @@ from Cerebrum.Utils import Factory
 logger = Factory.get_logger('cronjob')
 
 
+def uname2pid(db, username):
+    """Convert a username to a person_id.
+
+    :param Cerebrum.Database db: The database connection
+    :param basestring username: The username
+    """
+    ac = Factory.get('Account')(db)
+    pe = Factory.get('Person')(db)
+    ac.find_by_name(username)
+    pe.find(ac.owner_id)
+    return [pe.entity_id]
+
+
 def collect_candidates(db):
     """Collect candidates for provisioning to CIM.
 
@@ -69,6 +82,11 @@ def main(args=None):
                         default=False,
                         action='store_true',
                         help='Commit changes.')
+    parser.add_argument('--username',
+                        dest='username',
+                        metavar='<username>',
+                        help='Force provisioning of person related to '
+                             '<username>')
     args = parser.parse_args(args)
 
     logger.info("START %s with args: %s", parser.prog, args.__dict__)
@@ -76,8 +94,15 @@ def main(args=None):
     db = Factory.get('Database')()
     db.cl_init(change_program=parser.prog.split('.')[0])
 
+    collector = tuple()
+    if args.username:
+        import functools
+        collector = (
+            functools.partial(
+                uname2pid, **{'username': args.username}),)
+
     try:
-        generate_events(db)
+        generate_events(db, *collector)
     except Exception:
         logger.error("Unexpected exception", exc_info=1)
         db.rollback()
