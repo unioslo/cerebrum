@@ -34,6 +34,8 @@ from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, dyn_import
 
+import phonenumbers
+
 
 compitability_encoding = 'ISO-8859-1'
 
@@ -645,9 +647,14 @@ class Person(FSObject):
         if phone is None:
             return None, None
         if phone.startswith('+'):
-            return phone[1:3], phone[3:]
+            p = phonenumbers.parse(phone)
+            return str(p.country_code), str(p.national_number)
+        elif phone.startswith('00'):
+            # TODO: Should we do this?
+            p = phonenumbers.parse('+' + phone[2:])
+            return str(p.country_code), str(p.national_number)
         else:
-            return country or '47', phone
+            return country or '47', phone.strip()
 
     def add_telephone(self, fodselsdato, personnr, kind, phone, country=None):
         """Insert telephone number for person.
