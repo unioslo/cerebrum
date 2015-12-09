@@ -45,7 +45,6 @@ import sys
 import traceback
 
 import cerebrum_path
-import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
@@ -69,13 +68,13 @@ class SimplePerson(IterableUserDict, object):
     a flexible and simple way.
     """
 
-    allowed_keys = ("fnr11",      # 11-siffret norsk fnr
-                    "fnr6",       # 6-digit birth date part of fnr
-                    "pnr",        # personnummer (5-digit part of fnr)
+    allowed_keys = ("fnr11",       # 11-siffret norsk fnr
+                    "fnr6",        # 6-digit birth date part of fnr
+                    "pnr",         # personnummer (5-digit part of fnr)
                     "ansattnr",        # ansattnummer
-                    "birth_date", # birth date as YYYY-MM-DD
-                    "gender",     # 'M' or 'K'
-                    "email",      # primary e-mail address
+                    "birth_date",  # birth date as YYYY-MM-DD
+                    "gender",      # 'M' or 'K'
+                    "email",       # primary e-mail address
                     "name_first",
                     "name_last",
                     "work_title",
@@ -752,7 +751,7 @@ def export_person(person_id, info_chunk, fs):
     """Push information to FS.person.
 
     Register information in FS about a person with L{person_id}. The necessary
-    entries are created in FS, if they did not exist beforehand. 
+    entries are created in FS, if they did not exist beforehand.
 
     @type person_id: int
     @param person_id: person_id (in Cerebrum) whom L{info_chunk} describes.
@@ -867,8 +866,9 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
 
         logger.debug("Updating data for fagperson fnr=%s", info_chunk.fnr11)
         fs.person.update_fagperson(**values2push)
+    instno = primary_sko[0]
     phone = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
-                                    fs_info['institusjonsnr_eier'], 'ARB')
+                                    instno, 'ARB')
     if info_chunk.phone and not phone:
         fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
                                 info_chunk.phone)
@@ -876,7 +876,7 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
         fs.person.update_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
                                    info_chunk.phone)
     fax = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
-                                  fs_info['institusjonsnr_eier'], 'FAKS')
+                                  instno, 'FAKS')
     if info_chunk.fax and not fax:
         fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'FAKS',
                                 info_chunk.fax)
@@ -993,7 +993,7 @@ def main():
         logger.error("No person affiliations are specified. "
                      "This is most likely not what you want")
         return
-    
+
     fs = make_fs()
     if dryrun:
         fs.db.commit = fs.db.rollback
