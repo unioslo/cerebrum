@@ -1,0 +1,8 @@
+job_runner:
+    max_jobs: 1
+    socket: "/tmp/jr.sock"
+
+db.user: "foo"
+db.db: "bar"
+
+bofhd.motd_file: "/tmp/foo.txt"
