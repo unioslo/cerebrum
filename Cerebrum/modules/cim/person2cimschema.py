@@ -25,11 +25,12 @@ with the CIM-WS schema, based on data from a Cerebrum person object.
 
 import cereconf
 import cerebrum_path
+import phonenumbers
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import NotFoundError
 from . import config
 
-__db = Factory.get('Database')()
+__db = Factory.get('Database')(client_encoding='UTF-8')
 __co = Factory.get('Constants')(__db)
 
 
@@ -55,7 +56,11 @@ def get_cim_person_data(entity_id):
 
     # Get username
     primary_ac_id = pe.get_primary_account()
-    ac.find(primary_ac_id)
+    try:
+        ac.find(primary_ac_id)
+    except NotFoundError:
+        raise
+
     person_dict['username'] = ac.get_account_name()
 
     # Get and add first and last names from authoritative system
@@ -111,20 +116,23 @@ def _attr_filter(attr_name, constant, input_list):
 def _format_phone_number(phone_number):
     """
     Takes a phone number, and adds a default country prefix to it if missing.
-    If a prefix is already present, it returns the phone number as is. It is
-    assumed that phone numbers lacking a prefix, is not of a foreign
+    It is assumed that phone numbers lacking a prefix, is not of a foreign
     nationality, and we will therefore always add the default prefix from the
     configuration.
     :param phone_number: A phone number
-    :type phone_number: str
-    :return: A phone number with a country prefix
+    :type phone_number: unicode
+    :return: A phone number with a country prefix, or None
+    :rtype: unicode
     """
-    if phone_number.startswith('+'):
-        return phone_number
-
-    # Add country-prefix if missing, as this is required by CIM
-    prefixed_number = ''.join([config.country_phone_prefix, phone_number])
-    return prefixed_number
+    try:
+        parsed_nr = phonenumbers.parse(phone_number, config.phone_country)
+        if phonenumbers.is_valid_number(parsed_nr):
+            return phonenumbers.format_number(parsed_nr,
+                                              phonenumbers.
+                                              PhoneNumberFormat.E164)
+        return None
+    except phonenumbers.NumberParseException:
+        return None
 
 
 def _add_phone_entries(pe_contact_info, person_dict):
@@ -145,9 +153,9 @@ def _add_phone_entries(pe_contact_info, person_dict):
                                   config.phone_entry_mappings[contact_entry],
                                   contact_info)
         if entry_list:
-                person_dict[contact_entry] = _format_phone_number(
-                    entry_list[0]['contact_value']
-                )
+            parsed_nr = _format_phone_number(entry_list[0]['contact_value'])
+            if parsed_nr:
+                person_dict[contact_entry] = parsed_nr
 
 
 def _add_company_info(pe_affs, person_dict):

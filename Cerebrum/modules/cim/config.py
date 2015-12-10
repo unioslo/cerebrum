@@ -31,7 +31,7 @@ system_perspective = __co.OUPerspective('SAP')
 
 # Cerebrum -> CIM value mappings
 # Phone data settings
-country_phone_prefix = '+47'
+phone_country = 'NO'
 phone_entry_mappings = {'job_mobile': __co.contact_mobile_phone,
                         'job_phone': __co.contact_phone,
                         'private_mobile': __co.contact_private_mobile,
