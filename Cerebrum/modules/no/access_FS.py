@@ -34,6 +34,8 @@ from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, dyn_import
 
+import phonenumbers
+
 
 compitability_encoding = 'ISO-8859-1'
 
@@ -642,10 +644,35 @@ class Person(FSObject):
                              fetchall=fetchall)
 
     def _phone_to_country(self, country, phone):
+        if phone is None:
+            return None, None
         if phone.startswith('+'):
-            return phone[1:3], phone[3:]
+            p = phonenumbers.parse(phone)
+            num = str(p.national_number)
+            if p.country_code == 47 and len(num) > 8:
+                raise ValueError("FS doesn't allow more than 8 digits in "
+                                 "Norwegian phone numbers")
+            return str(p.country_code), num
+        elif phone.startswith('00'):
+            # TODO: Should we do this?
+            p = phonenumbers.parse('+' + phone[2:])
+            num = str(p.national_number)
+            if p.country_code == 47 and len(num) > 8:
+                raise ValueError("FS doesn't allow more than 8 digits in "
+                                 "Norwegian phone numbers")
+            return str(p.country_code), num
+        elif country is None or country == '47':
+            p = phonenumbers.parse(phone, region='NO')
+            num = str(p.national_number)
+            if len(num) > 8:
+                raise ValueError("FS doesn't allow more than 8 digits in "
+                                 "Norwegian phone numbers")
+            return str(p.country_code), num
         else:
-            return country or '47', phone
+            p = phonenumbers.parse(phone,
+                                   region=phonenumbers.
+                                   region_code_for_country_code(int(country)))
+            return str(p.country_code), str(p.national_number)
 
     def add_telephone(self, fodselsdato, personnr, kind, phone, country=None):
         """Insert telephone number for person.
@@ -777,6 +804,16 @@ class Person78(Person):
         """
         if not isinstance(kind, basestring):
             kind = kind[0]
+        binds = {'fodselsdato': fodselsdato,
+                 'personnr': personnr,
+                 'kind': kind}
+
+        if phone is None:
+            self.db.execute("""DELETE FROM fs.persontelefon
+                            WHERE fodselsdato = :fodselsdato AND
+                                  personnr = :personnr AND
+                                  telefonnrtypekode = :kind""",
+                            binds)
         qry = """
         UPDATE fs.persontelefon
         SET
@@ -784,14 +821,10 @@ class Person78(Person):
             telefonnr = :phone
         WHERE fodselsdato = :fodselsdato AND
               personnr = :personnr AND
-              kind = :kind"""
-        country, phone = self._phone_to_country(country, phone)
-        return self.db.execute(qry, {'fodselsdato': fodselsdato,
-                                     'personnr': personnr,
-                                     'country': country,
-                                     'phone': phone,
-                                     'kind': kind,
-                                     })
+              telefonnrtypekode = :kind"""
+        binds['country'], binds['phone'] = self._phone_to_country(country,
+                                                                  phone)
+        return self.db.execute(qry, binds)
 
     def get_telephone(self, fodselsdato, personnr, institusjonsnr, kind=None,
                       fetchall=False):
