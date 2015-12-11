@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2015 University of Oslo, Norway
 #
@@ -20,15 +20,16 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module defines all neccessary config for the CIM integration. """
 
-from Cerebrum.config.configuration import Configuration
-from Cerebrum.config.configuration import ConfigDescriptor
-from Cerebrum.config.configuration import Namespace
+from Cerebrum.config.configuration import (ConfigDescriptor,
+                                           Configuration,
+                                           Namespace)
 
 from Cerebrum.config.loader import read, read_config
 
-from Cerebrum.config.settings import Setting
-from Cerebrum.config.settings import String
-from Cerebrum.config.settings import Boolean
+from Cerebrum.config.settings import (Boolean,
+                                      Integer,
+                                      Setting,
+                                      String)
 
 
 def mixin_config(attr, cls):
@@ -52,7 +53,37 @@ class CimClientConfig(Configuration):
 
 class CimEventConfig(Configuration):
     """Configuration for the CIM event handler."""
-    pass
+    workers = ConfigDescriptor(
+        Integer(minval=1),
+        default=1,
+        doc=u'Number of workers against CIM')
+
+    channels = ConfigDescriptor(
+        Iterable(template=String(minlen=1)),
+        default=['CIM'],
+        doc=u'Event channel(s)')
+
+    fail_limit = ConfigDescriptor(
+        Integer(minval=1),
+        default=10,
+        doc=u'How many times we retry an event')
+
+    delay_run_interval = ConfigDescriptor(
+        Integer(minval=1),
+        default=180,
+        doc=u'How often (in seconds) we run notification')
+    
+    delay_event_timeout = ConfigDescriptor(
+        Integer(minval=1),
+        default=90*60,
+        doc=(u'How old (seconds) should an event not registred as '
+             'processesed be before we enqueue it'))
+
+    delay_failed = ConfigDescriptor(
+        Integer(minval=1),
+        default=20*60,
+        doc=(u'How long (seconds) should we wait before processesing the '
+             'event again'))
 
 
 class CimConfig(
