@@ -561,9 +561,6 @@ class ExchangeEventHandler(multiprocessing.Process):
         :param event: The event returned from Change- or EventLog."""
         removed_spread_code = self.ut.unpickle_event_params(event)['spread']
         if removed_spread_code == self.mb_spread:
-            # TODO: This is highly temporary! Remove the following line when
-            #       we have solved archiving of mailboxes ;)
-            raise EventExecutionException
             uname = self.ut.get_account_name(event['subject_entity'])
             try:
                 self.ec.remove_mailbox(uname)
