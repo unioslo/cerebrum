@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 u""" Cerebrum setting module.
 
 Settings are validators and containers for individual configuration values.
@@ -82,8 +82,7 @@ class ConfigDocumentation(OrderedDict):
 
 
 class Setting(object):
-
-    u""" Generic setting. """
+    u""" Generic setting."""
 
     _valid_types = None
     u""" The valid value class or classes that this setting accepts.
