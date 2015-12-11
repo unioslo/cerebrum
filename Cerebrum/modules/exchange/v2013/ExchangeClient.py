@@ -36,7 +36,8 @@ getattr(cerebrum_path, "linter", "must be supressed!")
 
 from Cerebrum.Utils import read_password
 from Cerebrum.modules.ad2.winrm import PowershellClient
-from Cerebrum.modules.ad2.winrm import WinRMServerException
+from Cerebrum.modules.ad2.winrm import (WinRMServerException,
+                                        PowershellException)
 from Cerebrum.modules.exchange.Exceptions import (ServerUnavailableException,
                                                   ObjectNotFoundException,
                                                   ExchangeException,
@@ -495,7 +496,10 @@ class ExchangeClient(PowershellClient):
             self.exchange_commands['execute_on_new_mailbox'])
         cmd = self._generate_exchange_command(
             cmd_template.safe_substitute(uname=self.escape_to_string(uname)))
-        out = self.run(cmd)
+        try:
+            out = self.run(cmd)
+        except PowershellException:
+            raise ExchangeException('Could not create mailbox for %s' % uname)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
