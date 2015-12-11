@@ -671,7 +671,10 @@ class ExchangeClient(PowershellClient):
             self.exchange_commands['execute_on_remove_mailbox'])
         cmd = self._generate_exchange_command(
             cmd_template.safe_substitute(uname=self.escape_to_string(uname)))
-        out = self.run(cmd)
+        try:
+            out = self.run(cmd)
+        except PowershellException:
+            raise ExchangeException('Could not remove mailbox for %s' % uname)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
