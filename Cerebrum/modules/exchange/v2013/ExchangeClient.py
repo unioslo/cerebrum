@@ -748,7 +748,10 @@ class ExchangeClient(PowershellClient):
                 'action': self.escape_to_string(action)}
         cmd = self._generate_exchange_command(
             cmd_template.safe_substitute(args))
-        out = self.run(cmd)
+        try:
+            out = self.run(cmd)
+        except PowershellException, e:
+            raise ExchangeException(str(e))
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
