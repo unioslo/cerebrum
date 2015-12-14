@@ -38,7 +38,7 @@ def mixin_config(attr, cls):
                 {attr: ConfigDescriptor(Namespace, config=cls,)})
 
 
-class CimClientConfig(Configuration):
+class CIMClientConfig(Configuration):
     """Configuration for the CIM WS client."""
     api_url = ConfigDescriptor(
         String,
@@ -50,8 +50,23 @@ class CimClientConfig(Configuration):
         default=True,
         doc="Send requests to web service with dry run mode enabled?")
 
+    auth_user = ConfigDescriptor(
+        String,
+        default="webservice",
+        doc="Username to use when connecting to the WS.")
 
-class CimEventConfig(Configuration):
+    auth_system = ConfigDescriptor(
+        String,
+        default=None,
+        doc="The system name used for the password file, for example 'test'.")
+
+    auth_host = ConfigDescriptor(
+        String,
+        default="webservice",
+        doc="The hostname used for the password file.")
+
+
+class CIMEventConfig(Configuration):
     """Configuration for the CIM event handler."""
     workers = ConfigDescriptor(
         Integer(minval=1),
@@ -86,15 +101,15 @@ class CimEventConfig(Configuration):
              'event again'))
 
 
-class CimConfig(
-        mixin_config('client', CimClientConfig),
-        mixin_config('event', CimEventConfig),
+class CIMConfig(
+        mixin_config('client', CIMClientConfig),
+        mixin_config('event', CIMEventConfig),
         Configuration):
     pass
 
 
 def load_config(filepath=None):
-    config_cls = CimConfig()
+    config_cls = CIMConfig()
     if filepath:
         config_cls.load_dict(read_config(filepath))
     else:
