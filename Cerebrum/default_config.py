@@ -1051,6 +1051,9 @@ SMS_USER = ''
 # numbers that pass one of these regexes. Default value: Norwegian
 # numbers, which means eight digit number, with or without +47 as
 # prefix.
+# Note: The SMS system at UiO only accepts nordic countries for now, due to
+# limitations in the invoce system. Please ask them before accepting countries
+# outside Scandinavia.
 SMS_ACCEPT_REGEX = (r'^\d{8}$', r'^\+47\d{8}$')
 
 
