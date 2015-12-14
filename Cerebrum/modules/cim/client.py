@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2015 University of Oslo, Norway
 #
@@ -41,36 +41,32 @@ class CIMClient(object):
         self.logger = logger
         # TODO: Get the configuration object from somewhere else?
         self.config = load_config()['client']
-        self._schema = None
-        self._auth = None
+        self.schema = self._get_schema()
+        self.auth = self._get_auth()
 
-    @property
-    def auth(self):
+    def _get_auth(self):
         """Reads the password from file and returns the credentials.
 
         :return tuple:
             Username and password.
         """
-        if self._auth:
-            return self._auth
+        self.logger.debug("Caching credentials")
         password = read_password(
             user=self.config.auth_user,
             system=self.config.auth_system,
             host=self.config.auth_host)
-        self._auth = (self.config.auth_user, password)
-        return self._auth
+        return (self.config.auth_user, password)
 
-    def _fetch_schema(self):
+    def _get_schema(self):
         """Fetches the JSON schema from the web service.
 
         :return str:
             The JSON schema.
         """
-        if self._schema:
-            return self._schema
-        schema = requests.get(self.config.api_url + 'UserImport.json')
-        self._schema = schema.json()
-        return self._schema
+        schema_url = self.config.api_url + 'UserImport.json'
+        self.logger.debug("Fetching schema from {}".format(schema_url))
+        schema = requests.get(schema_url)
+        return schema.json()
 
     def _make_payload(self, data):
         """Makes the query parameters expected by the web service.
@@ -105,6 +101,11 @@ class CIMClient(object):
             self.logger.error(
                 "Error communicating with CIM WS: {!r}".format(e.message))
             return False
+        finally:
+            self.logger.debug("Got {} {} after {} seconds".format(
+                response.status_code,
+                response.reason,
+                response.elapsed.total_seconds()))
         return True
 
     def validate(self, data):
@@ -117,8 +118,7 @@ class CIMClient(object):
         :raises SchemaError:
             If the schema is invalid.
         """
-        schema = self._fetch_schema()
-        jsonschema.validate(data, schema)
+        jsonschema.validate(data, self.schema)
 
     def update_user(self, userdata):
         """Inserts or updates a user.
@@ -134,6 +134,8 @@ class CIMClient(object):
         data = [userdata]
         self.validate(data)
         payload = self._make_payload(data)
+        self.logger.debug("Calling {} for {!r}".format(
+            endpoint, userdata.get('username')))
         response = requests.post(self.config.api_url + endpoint,
                                  data=payload,
                                  auth=self.auth)
@@ -150,6 +152,8 @@ class CIMClient(object):
         endpoint = 'delete.json.php'
         data = [username]
         payload = self._make_payload(data)
+        self.logger.debug("Calling {} for {!r}".format(
+            endpoint, username))
         response = requests.post(self.config.api_url + endpoint,
                                  data=payload,
                                  auth=self.auth)
