@@ -72,7 +72,8 @@ class EventConsumer(
             self.logger.error(u'Unknown event type: {!r}: {!r}',
                               type(item), item)
             return
-        ch, ev = item
+        ch = item.channel
+        ev = item.event
         self.logger.debug2(u'Got a new event on channel {!r}: {!r}', ch, ev)
 
         try:
@@ -246,14 +247,15 @@ class DBEventListener(
         """
         import psycopg2
         try:
-            self.logger.debug3(u'Fetching results.')
             self._conn.poll()
-            # We reverse it, since we want FIFO, not LIFO.
-            return list(reversed(self._conn.notifies))
+            self.logger.debug('Notifies: {!r}', self._conn.notifies)
+            while self._conn.notifies:
+                # We pop in the same order as items are added to notifies
+                yield self._conn.notifies.pop(0)
         except psycopg2.OperationalError as e:
             self.logger.warn(u'Unable to poll source: {!s}', str(e))
             self._subscribed = False
-        return None
+        return
 
     def process(self):
         if not self.subscribed:
@@ -265,15 +267,7 @@ class DBEventListener(
         if not self.wait():
             return
 
-        items = self.fetch()
-
-        if items is None:
-            self.logger.debug3(u'.. no results')
-            return
-
-        self.logger.debug3(u'.. got {:d} results', len(items))
-        while items:
-            notification = items.pop()
+        for notification in self.fetch():
             # Extract channel and the event
             # Dictifying the event in order to pickle it when
             # enqueueuing.
