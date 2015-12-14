@@ -34,7 +34,7 @@ from . import logutils
 
 
 class Manager(managers.BaseManager):
-    u""" A SIGHUP-able Manager.
+    u""" A SIGHUP-able shared resource manager.
 
     This Manager will start a SIGHUP-able subprocess to manage queues and other
     resources. On SIGHUP, the manager process will send a SIGHUP to its parent
@@ -59,41 +59,54 @@ class Manager(managers.BaseManager):
             return 'Manager (not started)'
 
     @staticmethod
-    def sighup_initializer(parent_pid):
+    def signum_initializer(parent_pid, signums=[signal.SIGHUP, ]):
         u""" Install signal handler in Server process.
 
-        This signal handler only forwards SIGHUP to the `parent_pid`.
+        This signal handler re-sends signals to the parent process
+        `parent_pid`.
 
         :param int parent_pid:
             The PID of the parent process of the manager server (i.e. where
             `Manager().start()` gets called from).
+
+        :param list signums:
+            A list of signals to forward to the parent process.
         """
-        def sighup_handler(sig, frame):
-            print 'Manager got SIGHUP'
+        def sigfwd_handler(signum, frame):
+            print 'Manager got signal {!r}'.format(signum)
             if parent_pid is None:
                 return
             if os.getpid() == parent_pid:
                 return
-            os.kill(parent_pid, sig)
-        signal.signal(signal.SIGHUP, sighup_handler)
+            if signum not in signums:
+                return
+            os.kill(parent_pid, signum)
+
+        for signum in signums:
+            signal.signal(signum, sigfwd_handler)
 
     def start(self, *args, **kwargs):
         u""" Cause `sighup_initializer` to run on init in Server process. """
-        kwargs['initializer'] = self.sighup_initializer
+        # TODO: Select signals to forward.
+        kwargs['initializer'] = self.signum_initializer
         kwargs['initargs'] = tuple((os.getpid(), ))
         super(Manager, self).start(*args, **kwargs)
 
-# Manager.register('queue', multuprocessing.Queue)
-# Manager.register('log_queue', multiprocessing.Queue)
+Manager.register('log_queue', multiprocessing.Queue)
 
 
 class ProcessHandler(object):
+    u""" Simple tool for starting a list of processes. """
 
     join_timeout = 30
     u""" Timeout for process and thread joins. """
 
     def __init__(self, manager=Manager, name='Main', logger=None):
-        u""" An example implementation of an event handler?
+        u"""TODO: Is this class generic enough?
+
+        On init the ProcessHandler will set up and start the `manager`, and a
+        logging thread that logs `logutils.LogQueueRecord`s from the managers
+        `log_queue`-Queue.
 
         :param Manager manager:
             A Manager class or subclass.
@@ -101,18 +114,16 @@ class ProcessHandler(object):
             after initialization.
 
         :param str name:
-            A name for this process.
+            A name for this managing process.
 
         :param Logger logger:
             An actual, initialized logger to use as logging backend for the log
             listener thread.
-
-        TODO: Is this general enough?
         """
         self.name = name
         self.procs = list()
 
-        # Start queue manager
+        # Start shared resource manager
         self.mgr = manager()
         self.mgr.start()
 
@@ -127,38 +138,17 @@ class ProcessHandler(object):
         self.logger.info(u'Started process: {!s} (pid={:d})',
                          self.mgr.name, self.mgr.pid)
 
-    def enable_debug_log(self, level=multiprocessing.SUBDEBUG):
-        self.logger = multiprocessing.log_to_stderr()
-        self.logger.setLevel(multiprocessing.SUBDEBUG)
-        self.logger.info('using debug log')
-
     @property
     @memoize
     def log_queue(self):
-        u""" A shared queue to use for queueing of log messages. """
+        u""" A shared queue to use for log messages. """
         return self.mgr.log_queue()
-
-    @property
-    @memoize
-    def queue(self):
-        u""" A shared queue to use for queueing of events. """
-        return self.mgr.queue()
 
     @property
     @memoize
     def run_trigger(self):
         u""" A shared boolean value to signal run state. """
         return multiprocessing.Value(ctypes.c_int, 1)
-
-    def log_exitcode(self, proc):
-        u""" Logs a process exit code. """
-        log_args = (u'Process {!s} terminated with exit code {:d}',
-                    repr(proc),
-                    proc.exitcode)
-        if proc.exitcode == 0:
-            self.logger.debug(*log_args)
-        else:
-            self.logger.warn(*log_args)
 
     def add_process(self, cls, *args, **kwargs):
         u""" Queues a process to start when calling `serve`. """
@@ -185,24 +175,26 @@ class ProcessHandler(object):
         TODO: Replace with something proper, like `atexit`.
 
         """
+        # Start procs
         for proc in self.procs:
             self.logger.debug(u'Starting process: {!s}', repr(proc))
             proc.start()
             self.logger.info(u'Started process: {!s} (pid={:d})',
                              proc.name, proc.pid)
 
+        # SIGUSR1 - print_process_list
         def sigusr1_handle(sig, frame):
             self.print_process_list()
             signal.pause()
         signal.signal(signal.SIGUSR1, sigusr1_handle)
 
-        self.print_process_list()
+        # Block
         self.logger.info(u'Waiting for signal...')
         signal.pause()
         self.logger.info(u'Got signal, shutting down')
 
+        # Cleanup
         self.run_trigger.value = 0
-
         self.cleanup()
 
     def cleanup(self):
@@ -216,7 +208,14 @@ class ProcessHandler(object):
             self.logger.debug(u'Waiting (max {:d}s for process {!s}',
                               self.join_timeout, repr(proc))
             proc.join(self.join_timeout)
-            self.log_exitcode(proc)
+            # Log result
+            log_args = (u'Process {!s} terminated with exit code {:d}',
+                        repr(proc),
+                        proc.exitcode)
+            if proc.exitcode == 0:
+                self.logger.debug(*log_args)
+            else:
+                self.logger.warn(*log_args)
 
         self.logger.debug(u'Shutting down logger...')
 
@@ -261,3 +260,9 @@ def update_system_mappings(process, target_system, change_types):
         logger.info(
             'Target system %r stopped listening on %s',
             target_system, ', '.join([str(c) for c in removed]))
+
+
+#   def enable_debug_log(self, level=multiprocessing.SUBDEBUG):
+#       self.logger = multiprocessing.log_to_stderr()
+#       self.logger.setLevel(multiprocessing.SUBDEBUG)
+#       self.logger.info('using debug log')
