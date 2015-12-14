@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: UTF-8 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2007 University of Oslo, Norway
+# Copyright 2007-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -325,6 +325,8 @@ def process_affiliations(employment_file, person_file, use_fok,
     # We are done with fetching updates from file.
     # Need to write persons
     for p in person_cache.values():
+        if p is None:
+            continue
         logger.info("Writing cached affs for person id:%s", p.entity_id)
         p.write_db()
 
