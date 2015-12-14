@@ -59,11 +59,6 @@ class EventConsumer(
 
     """
 
-    def run(self):
-        self.logger.debug(u'Process running')
-        super(EventConsumer, self).run()
-        self.logger.debug(u'Process stopped')
-
     def handle(self, item):
         u""" Event processing.
 
@@ -229,11 +224,6 @@ class DBEventListener(
             raise e
         return self.subscribed
 
-    def run(self):
-        self.logger.debug2(u'Process running')
-        super(DBEventListener, self).run()
-        self.logger.debug2(u'Process stopped')
-
     def wait(self):
         u""" Wait for updates.
 
@@ -327,13 +317,10 @@ class DBEventCollector(
                                              self.default_abandon_limit)
         super(DBEventCollector, self).__init__(**kwargs)
 
-    def run(self):
-        u""" Main event-fetching loop. """
+    def setup(self):
+        super(DBEventCollector, self).setup()
         self.target_system = self.co.TargetSystem(self.target_system)
         self.db.rollback()
-        self.logger.info('{!r} starting', self.name)
-        super(DBEventCollector, self).run()
-        self.logger.info('{!r} stopping', self.name)
 
     def proocess(self):
         tmp_db = Factory.get('Database')(client_encoding='UTF-8')

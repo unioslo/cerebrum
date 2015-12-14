@@ -70,9 +70,9 @@ class QueueLogger(object):
             return
         try:
             msg = fmt.format(*args, **kwargs)
-        except:
+        except Exception as e:
             msg = (u'Unable to format record (msg={!r}, args={!r},'
-                   u' kwargs={!r})'.format(fmt, args, kwargs))
+                   u' kwargs={!r}, reason={!s})'.format(fmt, args, kwargs, e))
         self.queue.put(LogQueueRecord(self.source, level, msg))
 
     def __getattribute__(self, attr):
@@ -93,10 +93,13 @@ class LoggerThread(threading.Thread):
 
         :param Logger logger:
             Logger implementation to log the actual messages to.
+
         :param Queue queue:
             Queue to listen for LogQueueRecords on.
+
         :param **dict kwargs:
             Keyword arguments to threading.Thread.
+
         """
         self.logger = logger
         self.queue = queue
@@ -118,6 +121,7 @@ class LoggerThread(threading.Thread):
 
     @property
     def queue(self):
+        u""" The log queue. """
         if not self._queue:
             self._queue = Queue()
         return self._queue
@@ -127,7 +131,7 @@ class LoggerThread(threading.Thread):
         self._queue = queue
 
     def run(self):
-        self._log('info', u'Thread started')
+        self._log('info', u'Logger thread started')
         while self.__run_logger:
             try:
                 entry = self.queue.get(block=True, timeout=self.timeout)
@@ -149,10 +153,10 @@ class LoggerThread(threading.Thread):
                 log(msg)
             except Exception as e:
                 self._log('error', u'Unable to log entry %r: %s', entry, e)
-        self._log('info', u'Thread stopped')
+        self._log('info', u'Logger thread stopped')
 
 
-def get_stderr_logger(level):
+def get_stderr_logger(level=multiprocessing.SUBDEBUG):
     lug = multiprocessing.log_to_stderr()
     lug.setLevel(level)
     return lug

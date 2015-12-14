@@ -122,21 +122,21 @@ class ProcessHandler(object):
         """
         self.name = name
         self.procs = list()
-
-        # Start shared resource manager
         self.mgr = manager()
+
         self.mgr.start()
+        self.logger = logutils.QueueLogger(name,
+                                           self.log_queue)
+
+        self.logger.info(u'Started main process (pid={:d})', os.getpid())
+        self.logger.info(u'Started manager process (pid={:d}): {!s}',
+                         self.mgr.pid, self.mgr.name)
 
         # Start logging thread
         self.__log_th = logutils.LoggerThread(logger=logger,
-                                              queue=self.log_queue)
+                                              queue=self.log_queue,
+                                              name='LogQueueListener')
         self.__log_th.start()
-
-        self.logger = logutils.QueueLogger(name,
-                                           self.log_queue)
-        self.logger.info(u'Main process: {:d}', os.getpid())
-        self.logger.info(u'Started process: {!s} (pid={:d})',
-                         self.mgr.name, self.mgr.pid)
 
     @property
     @memoize
@@ -177,10 +177,7 @@ class ProcessHandler(object):
         """
         # Start procs
         for proc in self.procs:
-            self.logger.debug(u'Starting process: {!s}', repr(proc))
             proc.start()
-            self.logger.info(u'Started process: {!s} (pid={:d})',
-                             proc.name, proc.pid)
 
         # SIGUSR1 - print_process_list
         def sigusr1_handle(sig, frame):
@@ -205,7 +202,7 @@ class ProcessHandler(object):
 
         """
         for proc in self.procs:
-            self.logger.debug(u'Waiting (max {:d}s for process {!s}',
+            self.logger.debug(u'Waiting (max {:d}s) for process {!s}',
                               self.join_timeout, repr(proc))
             proc.join(self.join_timeout)
             # Log result
@@ -260,9 +257,3 @@ def update_system_mappings(process, target_system, change_types):
         logger.info(
             'Target system %r stopped listening on %s',
             target_system, ', '.join([str(c) for c in removed]))
-
-
-#   def enable_debug_log(self, level=multiprocessing.SUBDEBUG):
-#       self.logger = multiprocessing.log_to_stderr()
-#       self.logger.setLevel(multiprocessing.SUBDEBUG)
-#       self.logger.info('using debug log')

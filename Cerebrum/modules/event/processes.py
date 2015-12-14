@@ -50,7 +50,23 @@ class ProcessBase(multiprocessing.Process):
         return os.getpid() != self._parent_pid
 
     def run(self):
-        u""" A no-op run method. """
+        u""" Process runtime method. """
+        try:
+            self.setup()
+            self.main()
+        finally:
+            self.cleanup()
+
+    def setup(self):
+        u""" A no-op setup method. """
+        return
+
+    def cleanup(self):
+        u""" A no-op cleanup method. """
+        return
+
+    def main(self):
+        u""" A no-op main method. """
         return
 
 
@@ -60,8 +76,8 @@ class ProcessLoggingMixin(ProcessBase):
     Example
     -------
     >>> class MyClass(ProcessLoggingMixin):
-    ...     def run(self):
-    ...         super(MyClass, self).run()
+    ...     def main(self):
+    ...         super(MyClass, self).main()
     ...         self.logger.info('Process {!r} is done', self.name)
     >>> proc = MyClass(log_queue=Queue())
     >>> proc.start()
@@ -78,6 +94,16 @@ class ProcessLoggingMixin(ProcessBase):
         """
         super(ProcessLoggingMixin, self).__init__(**kwargs)
         self.logger = QueueLogger(self.name, log_queue)
+
+    def setup(self):
+        super(ProcessLoggingMixin, self).setup()
+        self.logger.info(u'Process starting (pid={:d}): {!s}',
+                         os.getpid(), str(self))
+
+    def cleanup(self):
+        self.logger.info(u'Process stopping (pid={:d}): {!s}',
+                         os.getpid(), str(self))
+        super(ProcessLoggingMixin, self).cleanup()
 
 
 class ProcessLoopMixin(ProcessBase):
@@ -180,10 +206,13 @@ class ProcessLoopMixin(ProcessBase):
         if os.getpid() != self._parent_pid:
             os.kill(self._parent_pid, signum)
 
-    def run(self):
-        u""" Sets up signal handler. """
+    def setup(self):
+        super(ProcessLoopMixin, self).setup()
         signal.signal(signal.SIGHUP, self.__sighup_handler)
-        super(ProcessLoopMixin, self).run()
+
+    def main(self):
+        u""" Sets up signal handler. """
+        super(ProcessLoopMixin, self).main()
         while self.running:
             self.process()
 
