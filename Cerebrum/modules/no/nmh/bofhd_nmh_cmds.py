@@ -38,6 +38,7 @@ from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
+from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailMixin
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
 
@@ -45,7 +46,7 @@ def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
 
-class BofhdExtension(BofhdCommonMethods):
+class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
     OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
@@ -125,6 +126,9 @@ class BofhdExtension(BofhdCommonMethods):
         '_convert_ticks_to_timestamp'
         )
 
+    # Decide which email mixins to 'copy'?
+    email_mixin_commands = ('email_mod_name',)
+
     def __new__(cls, *arg, **karg):
         # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
         # into seperate classes.
@@ -169,6 +173,9 @@ class BofhdExtension(BofhdCommonMethods):
             if not self.all_commands.has_key(key):
                 self.all_commands[key] = cmd
 
+        # ...and the desired email mixin commands
+        for key in self.email_mixin_commands:
+            self.all_commands[key] = self.default_email_commands[key]
 
     def get_help_strings(self):
         return (bofhd_nmh_help.group_help,
