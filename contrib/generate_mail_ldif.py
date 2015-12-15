@@ -249,7 +249,7 @@ def write_ldif():
 
             if et == co.entity_group:
                 try:
-                    addrs, missing = ldap.read_multi_target(ei, ignore_missing=True)
+                    addrs, missing = ldap.get_multi_target(ei, ignore_missing=True)
                 except ValueError, e:
                     logger.warn("Target id=%s (type %s): %s", t, tt, e)
                     continue
@@ -400,7 +400,12 @@ def get_data(spread):
         if verbose:
             logger.debug("  done in %d sec." % (now() - curr))
     if verbose:
-        logger.debug("Starting read_misc()...")
+        logger.debug("Starting read_multi_data()...")
+        curr = now()
+    ldap.read_multi_data(ignore_missing=True)
+    if verbose:
+        logger.debug("  done in %d sec." % (now() - curr))
+        logger.debug("Starting read_misc_target()...")
         curr = now()
     # ldap.read_misc_target() is by default empty. See EmailLDAP for details.
     ldap.read_misc_target()
