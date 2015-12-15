@@ -286,6 +286,7 @@ class BofhdExtension(BofhdCommandBase):
             'host_unused_list': 'List unused IP addresses',
             'host_used_list': 'List used IP addresses',
             'host_mx_set': 'Set MX for host to specified MX definition',
+            'host_mx_unset': 'Remove MX from host',
             'host_mxdef_add': 'Add host to MX definition',
             'host_mxdef_remove': 'Remove host from MX definition',
             'host_mxdef_show': ('List all MX definitions, or show hosts in '
@@ -1155,6 +1156,26 @@ class BofhdExtension(BofhdCommandBase):
             owner_id = self.mb_utils.alloc_dns_owner(name, mx_set=mx_set_id)
         self.mb_utils.mx_set_set(owner_id, mx_set)
         return "OK, mx set for %s" % name
+
+    # host mx_unset
+    all_commands['host_mx_unset'] = Command(
+        ("host", "mx_unset"), HostName(), Force(optional=True),
+        perm_filter='is_dns_superuser')
+    def host_mx_unset(self, operator, name, force=False):
+        self.ba.assert_dns_superuser(operator.get_entity_id())
+        force = self.dns_parser.parse_force(force)
+        try:
+            owner_id = self._find.find_target_by_parsing(
+                name, dns.DNS_OWNER)
+        except CerebrumError:
+            # FIXME: a bit ugly, since all kinds of errors in
+            # find_target_by_parsing will raise CerebrumError
+            if not force:
+                raise
+            name = self.dns_parser.qualify_hostname(name)
+            owner_id = self.mb_utils.alloc_dns_owner(name, mx_set=None)
+        self.mb_utils.mx_set_set(owner_id, '')
+        return "OK, mx cleared for %s" % name
 
     # host mxdef_show
     all_commands['host_mxdef_show'] = Command(
