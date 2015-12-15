@@ -28,76 +28,91 @@ from Cerebrum.config.loader import read, read_config
 
 from Cerebrum.config.settings import (Boolean,
                                       Integer,
-                                      Setting,
                                       String,
                                       Iterable,
                                       NotSet)
 
 
-def mixin_config(attr, cls):
-    return type('_ConfigMixin',
-                (Configuration, ),
-                {attr: ConfigDescriptor(Namespace, config=cls,)})
-
-
 class CIMClientConfig(Configuration):
-    """Configuration for the CIM WS client."""
+    u"""Configuration for the CIM WS client."""
     api_url = ConfigDescriptor(
         String,
-        default=None,
-        doc="URL to the JSON API. Will be suffixed with endpoints.")
+        default=u"https://localhost/test/_webservices/system/rest/person/1.0/",
+        doc=u"URL to the JSON API. Will be suffixed with endpoints.")
 
     dry_run = ConfigDescriptor(
         Boolean,
         default=True,
-        doc="Send requests to web service with dry run mode enabled?")
+        doc=u"Send requests to web service with dry run mode enabled?")
 
     auth_user = ConfigDescriptor(
         String,
-        default="webservice",
-        doc="Username to use when connecting to the WS.")
+        default=u"webservice",
+        doc=u"Username to use when connecting to the WS.")
 
     auth_system = ConfigDescriptor(
         String,
         default=None,
-        doc="The system name used for the password file, for example 'test'.")
+        doc=u"The system name used for the password file, for example 'test'.")
 
     auth_host = ConfigDescriptor(
         String,
-        default="webservice",
-        doc="The hostname used for the password file.")
+        default=u"webservice",
+        doc=u"The hostname used for the password file.")
+
+
+class CIMPhoneMappingConfig(Configuration):
+    u"""Configuration for the CIM data source phone mappings."""
+    job_mobile = ConfigDescriptor(
+        String,
+        default=u"MOBILE",
+        doc=u'Contact info constant for job mobile')
+
+    job_phone = ConfigDescriptor(
+        String,
+        default=u"PHONE",
+        doc=u'Contact info constant for job phone')
+
+    private_mobile = ConfigDescriptor(
+        String,
+        default=u"PRIVATEMOBILE",
+        doc=u'Contact info constant for private mobile')
+
+    private_phone = ConfigDescriptor(
+        String,
+        default=u"MOBILE",
+        doc=u'Contact info constant for private phone')
 
 
 class CIMDataSourceConfig(Configuration):
-    """Configuration for the CIM data source."""
+    u"""Configuration for the CIM data source."""
     authoritative_system = ConfigDescriptor(
         String,
-        default="SAP",
+        default=u"SAP",
         doc=u'Authoritative system to fetch contact information from.')
 
     ou_perspective = ConfigDescriptor(
         String,
-        default="SAP",
+        default=u"SAP",
         doc=u'Perspective to use when fetching OU structure.')
 
     phone_country_default = ConfigDescriptor(
         String,
-        default="NO",
+        default=u"NO",
         doc=u'Assume this phone region when otherwise unknown.')
 
-    # TODO
-    #phone_mappings = ConfigDescriptor(
-    #    Iterable,
-    #    default=NotSet,
-    #    doc=u'Mapping from field name to contact constant code.')
+    phone_mappings = ConfigDescriptor(
+        Namespace,
+        config=CIMPhoneMappingConfig)
 
     company_name = ConfigDescriptor(
         String,
         default=NotSet,
-        doc=(u'Company name.'))
+        doc=u'Company name.')
 
     company_hierarchy = ConfigDescriptor(
-        Iterable(template=String),
+        Iterable,
+        template=String(),
         default=['company',
                  'department',
                  'subdep1',
@@ -115,45 +130,59 @@ class CIMDataSourceConfig(Configuration):
 
 
 class CIMEventConfig(Configuration):
-    """Configuration for the CIM event handler."""
+    u"""Configuration for the CIM event handler."""
     workers = ConfigDescriptor(
-        Integer(minval=1),
+        Integer,
+        minval=1,
         default=1,
         doc=u'Number of workers against CIM')
 
     channels = ConfigDescriptor(
-        Iterable(template=String(minlen=1)),
+        Iterable,
+        template=String(minlen=1),
         default=['CIM'],
         doc=u'Event channel(s)')
 
     fail_limit = ConfigDescriptor(
-        Integer(minval=1),
+        Integer,
+        minval=1,
         default=10,
         doc=u'How many times we retry an event')
 
     delay_run_interval = ConfigDescriptor(
-        Integer(minval=1),
+        Integer,
+        minval=1,
         default=180,
         doc=u'How often (in seconds) we run notification')
-    
+
     delay_event_timeout = ConfigDescriptor(
-        Integer(minval=1),
+        Integer,
+        minval=1,
         default=90*60,
         doc=(u'How old (seconds) should an event not registred as '
              'processesed be before we enqueue it'))
 
     delay_failed = ConfigDescriptor(
-        Integer(minval=1),
+        Integer,
+        minval=1,
         default=20*60,
         doc=(u'How long (seconds) should we wait before processesing the '
              'event again'))
 
 
-class CIMConfig(
-        mixin_config('client', CIMClientConfig),
-        mixin_config('event', CIMEventConfig),
-        Configuration):
-    pass
+class CIMConfig(Configuration):
+    u"""Configuration for the CIM integration."""
+    client = ConfigDescriptor(
+        Namespace,
+        config=CIMClientConfig)
+
+    datasource = ConfigDescriptor(
+        Namespace,
+        config=CIMDataSourceConfig)
+
+    event = ConfigDescriptor(
+        Namespace,
+        config=CIMEventConfig)
 
 
 def load_config(filepath=None):
