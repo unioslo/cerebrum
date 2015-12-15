@@ -14,5 +14,6 @@ cx_Oracle
 pygpgme
 flanker
 pika
+phonenumbers
 requests
 jsonschema
