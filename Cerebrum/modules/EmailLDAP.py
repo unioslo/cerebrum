@@ -114,8 +114,7 @@ class EmailLDAP(DatabaseAccessor):
             result["target"] = alias
         elif target_type in (co.email_target_account, co.email_target_deleted):
             if et == co.entity_account and ei in self.acc2name:
-                target, junk = self.acc2name[ei]
-                result["target"] = target
+                result["target"] = self.acc2name[ei]
 
         return result
     # end get_target_info
@@ -141,7 +140,6 @@ class EmailLDAP(DatabaseAccessor):
         ei = row['target_entity_id']
         if ei is not None:
             ei = int(ei)
-        uname, home = self.acc2name.get(ei, (None, None))
         result = dict()
 
         if target not in self.targ2server_id:
@@ -149,14 +147,7 @@ class EmailLDAP(DatabaseAccessor):
 
         server_type, server_name = self.serv_id2server[
                                        int(self.targ2server_id[target])]
-        if server_type == self.const.email_server_type_nfsmbox:
-            if not home:
-                home = "/home/%s" % uname
-            maildrop = "/var/spool/mail"
-            result["spoolInfo"] = "home=%s maildrop=%s/%s" % (home,
-                                                              maildrop,
-                                                              uname)
-        elif server_type == self.const.email_server_type_exchange:
+        if server_type == self.const.email_server_type_exchange:
             result["ExchangeServer"] = server_name
         elif server_type == self.const.email_server_type_cyrus:
             result["IMAPserver"] = server_name
@@ -244,13 +235,8 @@ class EmailLDAP(DatabaseAccessor):
     def read_accounts(self, spread):
         # Since get_target() can be called for target type "deleted",
         # we need to include expired accounts.
-        for row in self.acc.list_account_home(home_spread=spread,
-                                              include_nohome=True,
-                                              filter_expired=False):
-            home = self.acc.resolve_homedir(account_name=row['entity_name'],
-                                            home=row['home'],
-                                            disk_path=row['path'])
-            self.acc2name[int(row['account_id'])] = [row['entity_name'], home]
+        for row in self.acc.list_names(self.const.account_namespace):
+            self.acc2name[int(row['entity_id'])] = row['entity_name']
 
 
     def read_pending_moves(self):
