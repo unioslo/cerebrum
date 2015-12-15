@@ -231,7 +231,6 @@ AD_SERVER_PORT = 1681
 AD_DOMAIN = 'WinNT://WINTEST'
 AD_LDAP = 'DC=wintest,DC=uio,DC=no'
 AD_SOURCE_SEARCH_ORDER = (
-    'system_ureg',
     'system_sap',
     'system_fs',
     'system_lt')
