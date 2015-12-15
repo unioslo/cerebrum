@@ -18,15 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" This module contains a consumer for Cerebrum events.
-
-It is designed to be used with:
-
-* The Cerebrum.modules.event message queue
-* The servers/event/event_daemon.py event listener
-* The .client WS-client.
-
-"""
+u""" This module contains a consumer for Cerebrum events. """
 from Cerebrum.modules.event.EventExceptions import EntityTypeError
 from Cerebrum.modules.event.EventExceptions import UnrelatedEvent
 from Cerebrum.modules.event.mapping import EventMap
