@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # encoding: utf-8
-""" Unit tests for configuration. """
+""" Unit tests for event mappings. """
 import pytest
 
 
