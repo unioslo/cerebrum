@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 u""" Processes to handle events from the Cerebrum.modules.EventLog module. """
-
+import pickle
 import time
 import select
 import traceback
@@ -42,6 +42,20 @@ EventItem = namedtuple('EventItem', ('channel', 'event'))
 u""" Simple event representation for the queue. """
 
 
+# EventItem = namedtuple('EventItem', ('channel',
+#                                      'channel_id',
+#                                      'event',
+#                                      'event_id',
+#                                      'index',
+#                                      'timestamp',
+#                                      'subject',
+#                                      'destination',
+#                                      'params',
+#                                      'failed',
+#                                      'taken_time',))
+# u""" Simple event representation for the queue. """
+
+
 class EventConsumer(
         ProcessDBMixin,
         ProcessLoggingMixin,
@@ -58,6 +72,60 @@ class EventConsumer(
     implemented in subclasses.
 
     """
+
+    def __lock_event(self, event_id):
+        u""" Acquire lock on event.
+
+        :param int event_id:
+            The event id to lock
+
+        :return bool:
+            True if locked, False otherwise.
+        """
+        try:
+            self.db.lock_event(event_id)
+            self.db.commit()
+            return True
+        except Errors.NotFoundError:
+            self.logger.debug(u'Unable to lock event {!r}', event_id)
+            self.db.rollback()
+            return False
+
+    def __release_event(self, event_id):
+        u""" Remove lock on event.
+
+        :param int event_id:
+            The event id to unlock
+
+        :return bool:
+            True if unlocked, False otherwise.
+        """
+        try:
+            self.db.release_event(event_id)
+            self.db.commit()
+            return True
+        except Errors.NotFoundError:
+            self.logger.warn(u'Unable to release event {!r}', event_id)
+            self.db.rollback()
+            return False
+
+    def __remove_event(self, event_id):
+        u""" Remove an event
+
+        :param int event_id:
+            The event id to remove.
+
+        :return bool:
+            True if removed, False otherwise.
+        """
+        try:
+            self.db.remove_event(event_id)
+            self.db.commit()
+            return True
+        except Errors.NotFoundError:
+            self.logger.warn(u'Unable to remove event {!r}', event_id)
+            self.db.rollback()
+            return False
 
     def handle(self, item):
         u""" Event processing.
@@ -76,24 +144,12 @@ class EventConsumer(
         ev = item.event
         self.logger.debug2(u'Got a new event on channel {!r}: {!r}', ch, ev)
 
-        try:
-            # Acquire lock.
-            # We must commit here, regardless of dryrun?
-            self.db.lock_event(ev['event_id'])
-            self.db.commit()
-        except Errors.NotFoundError:
-            # The event was processed before we could acquire lock.
-            self.logger.debug2(u'Event already processed!')
-            self.db.rollback()
+        if not self.__lock_event(ev['event_id']):
             return
 
         try:
             self.handle_event(ev)
-            try:
-                self.db.remove_event(ev['event_id'])
-            except Errors.NotFoundError:
-                self.logger.warn(u'Event deleted after lock was acquired!')
-                self.db.commit()
+            if not self.__remove_event(ev['event_id']):
                 return
 
             # TODO: Store the receipt in ChangeLog! We need to handle
@@ -108,18 +164,12 @@ class EventConsumer(
             # DelayedNotificationCollector enqueue it when appropriate
             self.logger.debug(u'Failed to process event_id {:d}: {!s}',
                               ev['event_id'], str(e))
-            try:
-                self.db.release_event(ev['event_id'])
-            except Errors.NotFoundError:
-                self.db.rollback()
-            else:
-                self.db.commit()
+            self.__release_event(ev['event_id'])
 
         except EventHandlerNotImplemented as e:
             self.logger.debug3('Unable to handle event_id {:d}: {!s}',
                                ev['event_id'], str(e))
-            self.db.remove_event(ev['event_id'])
-            self.db.commit()
+            self.__remove_event(ev['event_id'])
 
         except Exception as e:
             # What happened here? We have an unhandled error,
@@ -164,11 +214,69 @@ class EventConsumer(
             u'Abstract event handler called')
 
 
-class DBEventListener(
+class _DBEventProducer(
         ProcessQueueMixin,
         ProcessDBMixin,
         ProcessLoopMixin,
         ProcessLoggingMixin):
+
+    def __event_to_item(self, event):
+        u""" Format `get_event` db-row to EventItem. """
+        # transform = {
+        #     'channel': ('target_system',
+        #                 lambda v: str(self.co.TargetSystem(v))),
+        #     'channel_id': ('target_system',
+        #                    lambda v: int(self.co.TargetSystem(v))),
+        #     'event': ('event_type',
+        #               lambda v: str(self.co.ChangeType(v))),
+        #     'event_id': ('event_type',
+        #                  lambda v: int(self.co.ChangeType(v))),
+        #     'index': ('event_id', None),
+        #     'timestamp': ('tstamp', None),
+        #     'subject': ('subject_entity', None),
+        #     'destination': ('dest_entity', None),
+        #     'params': ('change_params',
+        #                lambda v: pickle.loads(v) if v else None),
+        #     'failed': ('failed', None),
+        #     'taken_time': ('taken_time', None)
+        # }
+        transform = {
+            'channel': ('target_system',
+                        lambda v: str(self.co.TargetSystem(v))),
+            'event': (None, dict), }
+
+        args = {}
+        for name, (from_key, transform) in transform.iteritems():
+            if not callable(transform):
+                transform = lambda x: x
+            try:
+                if from_key:
+                    args[name] = transform(event[from_key])
+                else:
+                    args[name] = transform(event)
+            except Exception as e:
+                self.logger.debug('Unable to transform {!r} -> {!r}: {!s}',
+                                  from_key, name, e)
+                raise
+        return EventItem(**args)
+
+    def push(self, db_row):
+        u""" Push a event_log row onto the queue.
+
+        This method transforms the row to a EventItem tuple.
+
+        :param dict db_row:
+            A db_row, see `EventLog.get_event()`.
+        """
+        try:
+            item = self.__event_to_item(db_row)
+            super(_DBEventProducer, self).push(item)
+        except Exception as e:
+            self.logger.error(u'Unable to push db event {!r}: {!s}',
+                              db_row, str(e))
+
+
+class DBEventListener(_DBEventProducer):
     u""" Producer for EventConsumer processes.
 
     This process LISTENs for Postgres notifications. When a notification is
@@ -272,21 +380,13 @@ class DBEventListener(
             # Dictifying the event in order to pickle it when
             # enqueueuing.
             ev = self.db.get_event(int(notification.payload))
-            # Append the channel and payload to the queue
-            self.push(
-                EventItem(
-                    channel=str(notification.channel),
-                    event=dict(ev)))
+            self.push(ev)
 
         # Rolling back to avoid IDLE in transact
         self.db.rollback()
 
 
-class DBEventCollector(
-        ProcessQueueMixin,
-        ProcessDBMixin,
-        ProcessLoopMixin,
-        ProcessLoggingMixin):
+class DBEventCollector(_DBEventProducer):
     u""" Batch processing of Cerebrum.modules.EventLog events. """
 
     default_run_interval = 30
@@ -316,17 +416,14 @@ class DBEventCollector(
         self.target_system = self.co.TargetSystem(self.target_system)
         self.db.rollback()
 
-    def proocess(self):
+    def process(self):
         tmp_db = Factory.get('Database')(client_encoding='UTF-8')
         for x in tmp_db.get_unprocessed_events(self.target_system,
                                                self.failed_limit,
                                                self.failed_delay,
                                                self.unpropagated_delay,
                                                include_taken=True):
-            self.push(
-                EventItem(
-                    channel=str(self.target_system),
-                    event=dict(x)))
+            self.push(x)
         tmp_db.close()
 
         # Sleep for a while
