@@ -28,11 +28,16 @@ from Cerebrum.Utils import Factory
 from Cerebrum.Errors import NotFoundError
 
 
-class CIMPersonDataSource(object):
-    """Fetches person data and formats it for CIM."""
+class CIMDataSource(object):
+    """Fetches data and formats it for CIM."""
     def __init__(self, db, config):
         self.db = db
+        self.config = config.datasource
         self.co = Factory.get('Constants')(self.db)
+        self.authoritative_system = self.co.AuthoritativeSystem(
+            str(self.config.authoritative_system))
+        self.ou_perspective = self.co.OUPerspective(
+            str(self.config.ou_perspective))
 
     def get_person_data(self, person_id):
         """
@@ -44,7 +49,6 @@ class CIMPersonDataSource(object):
                  CIM-WS-schema.
         :rtype: dict
         """
-        authoritative_system = config.authoritative_system
         pe = Factory.get('Person')(self.db)
         ac = Factory.get('Account')(self.db)
 
@@ -57,7 +61,7 @@ class CIMPersonDataSource(object):
         # Get and add first and last names from authoritative system
         pe_names = pe.get_all_names()
         names = self._attr_filter(
-            'source_system', authoritative_system, pe_names)
+            'source_system', self.authoritative_system, pe_names)
         first_name_list = self._attr_filter(
             'name_variant', self.co.name_first, names)
         last_name_list = self._attr_filter(
@@ -67,7 +71,7 @@ class CIMPersonDataSource(object):
 
         # Get and add phone entries
         contact_info = pe.get_contact_info()
-        person.update(self._add_phone_entries(contact_info))
+        person.update(self._get_phone_entries(contact_info))
 
         # Get and add email address
         try:
@@ -77,9 +81,11 @@ class CIMPersonDataSource(object):
 
         # Get and add company info
         affs = self._attr_filter(
-            'source_system', config.authoritative_system, pe.get_affiliations())
+            'source_system',
+            self.authoritative_system,
+            pe.get_affiliations())
         primary_aff_ou_id = affs[0]['ou_id']
-        person.update(self._add_org_structure(primary_aff_ou_id))
+        person.update(self._get_org_structure(primary_aff_ou_id))
 
         # Get and add job title if present
         try:
@@ -105,13 +111,11 @@ class CIMPersonDataSource(object):
         """
         return filter(lambda x: x[attr_name] == constant, unfiltered)
 
-
     def _format_phone_number(self, phone_number):
         """
-        Takes a phone number, and adds a default country prefix to it if missing.
-        It is assumed that phone numbers lacking a prefix, is not of a foreign
-        nationality, and we will therefore always add the default prefix from the
-        configuration.
+        Takes a phone number, and adds a default country prefix to it if
+        missing. It is assumed that phone numbers lacking a prefix, is from
+        the default region defined in the configuration.
 
         :param unicode phone_number: A phone number
         :return: A phone number with a country prefix, or None
@@ -120,7 +124,7 @@ class CIMPersonDataSource(object):
         try:
             parsed_nr = phonenumbers.parse(
                 number=phone_number,
-                region=config.phone_country)
+                region=self.config.phone_country_default)
             if phonenumbers.is_valid_number(parsed_nr):
                 return phonenumbers.format_number(
                     numobj=parsed_nr,
@@ -142,13 +146,14 @@ class CIMPersonDataSource(object):
         """
         contact_info = self._attr_filter(
             'source_system',
-            config.authoritative_system,
+            self.authoritative_system,
             contact_info)
         phones = {}
-        for contact_entry in config.phone_entry_mappings:
+        for contact_entry in self.config.phone_mappings:
             entries = self._attr_filter(
                 'contact_type',
-                config.phone_entry_mappings[contact_entry],
+                self.co.ContactInfo(
+                    str(self.config.phone_mappings[contact_entry])),
                 contact_info)
             if entries:
                 parsed_number = self._format_phone_number(
@@ -170,23 +175,28 @@ class CIMPersonDataSource(object):
         """
         ou = Factory.get('OU')(self.db)
         ou.find(from_ou_id)
+
+        ou_roots = set([x['ou_id'] for x in ou.root()])
         ous = []
         structure = {}
         current_ou_id = ou.entity_id
         current_ou_name = None
 
-        while current_ou_name != config.company_name:
+        while current_ou_id not in ou_roots:
             ou.clear()
             ou.find(current_ou_id)
             current_ou_name = ou.get_name_with_language(
-                name_variant=self.co.ou_name,
+                name_variant=self.co.ou_name_acronym,
                 name_language=self.co.language_nb)
             ous.append(current_ou_name)
-            current_ou_id = ou.get_parent(config.system_perspective)
+            current_ou_id = ou.get_parent(self.ou_perspective)
+            if not current_ou_id:
+                break
 
         ous.reverse()
         for i, ou_entry in enumerate(ous):
-            if i == len(config.company_hierarchy):  # No more room in schema
+            if i == len(self.config.company_hierarchy):
+                # No more room in schema
                 break
-            structure[config.company_hierarchy[i]] = ou_entry
+            structure[self.config.company_hierarchy[i]] = ou_entry
         return structure
