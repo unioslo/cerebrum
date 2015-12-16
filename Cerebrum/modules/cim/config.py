@@ -145,7 +145,7 @@ class CIMEventCollectorConfig(Configuration):
         doc=(u'How long (seconds) should we wait before processesing the '
              'event again'))
 
-    unpropogated_delay = ConfigDescriptor(
+    unpropagated_delay = ConfigDescriptor(
         Integer,
         minval=1,
         default=90*60,

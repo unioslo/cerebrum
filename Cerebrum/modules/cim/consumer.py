@@ -38,10 +38,8 @@ class Listener(evhandlers.EventConsumer):
     event_map = EventMap()
 
     def __init__(self, cim_config, cim_mock=False, **kwargs):
-        self.config = cim_config
-        self.mock = cim_mock
-        self.datasource = CIMDataSource(db=self.db,
-                                        config=self.config.datasource)
+        self._config = cim_config
+        self._mock = cim_mock
         super(Listener, self).__init__(**kwargs)
 
     def handle_event(self, event):
@@ -63,6 +61,12 @@ class Listener(evhandlers.EventConsumer):
 
     @property
     @memoize
+    def datasource(self):
+        return CIMDataSource(db=self.db,
+                             config=self.__config.datasource)
+
+    @property
+    @memoize
     def client(self):
         # TODO: Really use memoize here?
         if self.mock:
@@ -72,7 +76,7 @@ class Listener(evhandlers.EventConsumer):
                         self.logger.info('MOCK: {!s}({!r}, {!r})', n, a, kw)
                     return _log
             return _mock_cim_client()
-        return CIMClient(config=self.config.client,
+        return CIMClient(config=self.__config.client,
                          logger=self.logger)
 
     @event_map(

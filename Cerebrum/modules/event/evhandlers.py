@@ -389,11 +389,6 @@ class DBEventListener(_DBEventProducer):
 class DBEventCollector(_DBEventProducer):
     u""" Batch processing of Cerebrum.modules.EventLog events. """
 
-    default_run_interval = 30
-    default_failed_limit = 3
-    default_failed_delay = 60
-    default_abandon_limit = 90
-
     def __init__(self, channel, config={}, **kwargs):
         """ Event collector.
 
@@ -401,14 +396,7 @@ class DBEventCollector(_DBEventProducer):
 
         """
         self.target_system = channel
-        self.run_interval = config.get('run_interval',
-                                       self.default_run_interval)
-        self.failed_limit = config.get('fail_limit',
-                                       self.default_failed_limit)
-        self.failed_delay = config.get('failed_delay',
-                                       self.default_failed_delay)
-        self.unpropagated_delay = config.get('unpropagated_delay',
-                                             self.default_abandon_limit)
+        self.config = config
         super(DBEventCollector, self).__init__(**kwargs)
 
     def setup(self):
@@ -418,13 +406,14 @@ class DBEventCollector(_DBEventProducer):
 
     def process(self):
         tmp_db = Factory.get('Database')(client_encoding='UTF-8')
-        for x in tmp_db.get_unprocessed_events(self.target_system,
-                                               self.failed_limit,
-                                               self.failed_delay,
-                                               self.unpropagated_delay,
-                                               include_taken=True):
+        for x in tmp_db.get_unprocessed_events(
+                self.target_system,
+                self.config['failed_limit'],
+                self.config['failed_delay'],
+                self.config['unpropagated_delay'],
+                include_taken=True):
             self.push(x)
         tmp_db.close()
 
         # Sleep for a while
-        time.sleep(self.run_interval)
+        time.sleep(self.config['run_interval'])
