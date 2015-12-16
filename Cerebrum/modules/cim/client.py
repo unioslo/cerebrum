@@ -136,7 +136,7 @@ class CIMClient(object):
         data = [userdata]
         self.validate(data)
         payload = self._make_payload(data)
-        self.logger.debug("Calling {} for {!r}".format(
+        self.logger.debug("CIMClient: Calling {} for {!r}".format(
             endpoint, userdata.get('username')))
         response = requests.post(self.config.api_url + endpoint,
                                  data=payload,
@@ -154,7 +154,7 @@ class CIMClient(object):
         endpoint = 'delete.json.php'
         data = [username]
         payload = self._make_payload(data)
-        self.logger.debug("Calling {} for {!r}".format(
+        self.logger.debug("CIMClient: Calling {} for {!r}".format(
             endpoint, username))
         response = requests.post(self.config.api_url + endpoint,
                                  data=payload,
