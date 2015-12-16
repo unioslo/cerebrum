@@ -23,7 +23,7 @@
 import requests
 import json
 import jsonschema
-import time
+import random
 
 from requests.exceptions import (HTTPError,
                                  ConnectionError,
@@ -71,8 +71,11 @@ class CIMClient(object):
         :return dict:
             The payload.
         """
+        # Why are we using a random float as the time, you ask?
+        # If we use the same value for two consecutive requests to the web
+        # service, we'll be denied.
         payload = {
-            'time': int(time.time()),
+            'time': random.random(),
             'generic': json.dumps(data)
         }
         if self.config.dry_run:
