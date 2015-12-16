@@ -105,11 +105,6 @@ class CIMDataSourceConfig(Configuration):
         Namespace,
         config=CIMPhoneMappingConfig)
 
-    company_name = ConfigDescriptor(
-        String,
-        default=NotSet,
-        doc=u'Company name.')
-
     company_hierarchy = ConfigDescriptor(
         Iterable,
         template=String(),
@@ -129,45 +124,33 @@ class CIMDataSourceConfig(Configuration):
         doc=(u'Hierarchy of field names expected by the CIM web service.'))
 
 
-class CIMEventConfig(Configuration):
-    u"""Configuration for the CIM event handler."""
-    workers = ConfigDescriptor(
-        Integer,
-        minval=1,
-        default=1,
-        doc=u'Number of workers against CIM')
-
-    channels = ConfigDescriptor(
-        Iterable,
-        template=String(minlen=1),
-        default=['CIM'],
-        doc=u'Event channel(s)')
-
-    fail_limit = ConfigDescriptor(
-        Integer,
-        minval=1,
-        default=10,
-        doc=u'How many times we retry an event')
-
-    delay_run_interval = ConfigDescriptor(
+class CIMEventCollectorConfig(Configuration):
+    u"""Configuration for the CIM event collector."""
+    run_interval = ConfigDescriptor(
         Integer,
         minval=1,
         default=180,
         doc=u'How often (in seconds) we run notification')
 
-    delay_event_timeout = ConfigDescriptor(
+    failed_limit = ConfigDescriptor(
         Integer,
         minval=1,
-        default=90*60,
-        doc=(u'How old (seconds) should an event not registred as '
-             'processesed be before we enqueue it'))
+        default=10,
+        doc=u'How many times we retry an event')
 
-    delay_failed = ConfigDescriptor(
+    failed_delay = ConfigDescriptor(
         Integer,
         minval=1,
         default=20*60,
         doc=(u'How long (seconds) should we wait before processesing the '
              'event again'))
+
+    unpropogated_delay = ConfigDescriptor(
+        Integer,
+        minval=1,
+        default=90*60,
+        doc=(u'How old (seconds) should an event not registered as '
+             'processesed be before we enqueue it'))
 
 
 class CIMConfig(Configuration):
@@ -180,9 +163,9 @@ class CIMConfig(Configuration):
         Namespace,
         config=CIMDataSourceConfig)
 
-    event = ConfigDescriptor(
+    eventcollector = ConfigDescriptor(
         Namespace,
-        config=CIMEventConfig)
+        config=CIMEventCollectorConfig)
 
 
 def load_config(filepath=None):

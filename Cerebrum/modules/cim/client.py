@@ -31,16 +31,13 @@ from requests.exceptions import (HTTPError,
 
 from Cerebrum.Utils import read_password
 
-from Cerebrum.modules.cim.config import load_config
-
 
 class CIMClient(object):
     """Client for communicating with the CIM JSON web service."""
 
-    def __init__(self, logger):
+    def __init__(self, config, logger):
+        self.config = config
         self.logger = logger
-        # TODO: Get the configuration object from somewhere else?
-        self.config = load_config()['client']
         self.schema = self._get_schema()
         self.auth = self._get_auth()
 

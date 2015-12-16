@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2015 University of Oslo, Norway
 #
@@ -25,34 +25,11 @@ from Cerebrum.modules.event.mapping import EventMap
 from Cerebrum.modules.event import evhandlers
 from Cerebrum.utils.funcwrap import memoize
 
+from Cerebrum.modules.cim.client import CIMClient
+from Cerebrum.modules.cim.datasource import CIMDataSource
+
 from Cerebrum.Utils import Factory
 import pickle
-
-
-class default_config(object):
-    u""" Mock config. """
-
-    client = {
-        'url': 'http://localhost:80',
-        'version': 'v1'
-    }
-
-    event = {
-        'run_interval': 30,
-        'fail_limit': 3,
-        'fail_delay': 60,
-        'abandon_limit': 90
-    }
-
-    def __getitem__(self, name):
-        for prefix in ('client', 'event'):
-            if name == prefix:
-                return getattr(self, name)
-            if '.' in name:
-                pre, key = name.split('.', 1)
-                if pre == prefix:
-                    return getattr(self, prefix)[key]
-        raise KeyError(u'No config {!r}'.format(name))
 
 
 class Listener(evhandlers.EventConsumer):
@@ -60,10 +37,11 @@ class Listener(evhandlers.EventConsumer):
 
     event_map = EventMap()
 
-    def __init__(self, cim_mock=False, cim_config=default_config(), **kwargs):
-        # TODO Replace with real config
-        self.__config = cim_config
-        self.__mock = cim_mock
+    def __init__(self, cim_config, cim_mock=False, **kwargs):
+        self.config = cim_config
+        self.mock = cim_mock
+        self.datasource = CIMDataSource(db=self.db,
+                                        config=self.config.datasource)
         super(Listener, self).__init__(**kwargs)
 
     def handle_event(self, event):
@@ -87,17 +65,15 @@ class Listener(evhandlers.EventConsumer):
     @memoize
     def client(self):
         # TODO: Really use memoize here?
-        # TODO: return real, initialized client?
-        if self.__mock or True:
+        if self.mock:
             class _mock_cim_client(object):
-                def __init__(s, c):
-                    s.config = c
-
                 def __getattribute__(s, n):
                     def _log(*a, **kw):
                         self.logger.info('MOCK: {!s}({!r}, {!r})', n, a, kw)
                     return _log
-            return _mock_cim_client(self.__config['client'])
+            return _mock_cim_client()
+        return CIMClient(config=self.config.client,
+                         logger=self.logger)
 
     @event_map(
         'e_account:create',
@@ -117,8 +93,8 @@ class Listener(evhandlers.EventConsumer):
 
         pe.find(ac.owner_id)
 
-        # TODO: Replace with real client call
-        self.client.update_person(pe.entity_id)
+        userdata = self.datasource.get_person_data(pe.entity_id)
+        self.client.update_user(userdata)
 
     @event_map(
         'ac_type:add',
@@ -152,8 +128,8 @@ class Listener(evhandlers.EventConsumer):
             except Exception as e:
                 params = e
 
-        # TODO: Replace with real client calls
-        self.client.update_person(key, pe.entity_id)
+        userdata = self.datasource.get_person_data(pe.entity_id)
+        self.client.update_user(userdata)
 
     @event_map('e_account:delete', 'e_account:destroy')
     def account_delete(self, key, event):
@@ -171,8 +147,8 @@ class Listener(evhandlers.EventConsumer):
         account_id = pe.get_primary_account()
         ac.find(account_id)
 
-        # TODO: Replace with real client call
-        self.client.update_person(key, pe.entity_id)
+        userdata = self.datasource.get_person_data(pe.entity_id)
+        self.client.update_user(userdata)
 
     @event_map(
         'person:name_del',
@@ -187,8 +163,8 @@ class Listener(evhandlers.EventConsumer):
         account_id = pe.get_primary_account()
         ac.find(account_id)
 
-        # TODO: Replace with real client call
-        self.client.update_person(key, pe.entity_id)
+        userdata = self.datasource.get_person_data(pe.entity_id)
+        self.client.update_user(userdata)
 
     @event_map(
         'person:aff_add',
@@ -206,5 +182,5 @@ class Listener(evhandlers.EventConsumer):
         # TODO: Decide on delete or update
         # So much could have happened here!
 
-        # TODO: Replace with real client call
-        self.client.update_person(key, pe.entity_id)
+        userdata = self.datasource.get_person_data(pe.entity_id)
+        self.client.update_user(userdata)

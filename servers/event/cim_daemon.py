@@ -39,6 +39,7 @@ from Cerebrum import Utils
 from Cerebrum.modules.event import utils
 from Cerebrum.modules.event import evhandlers
 from Cerebrum.modules.cim.consumer import Listener
+from Cerebrum.modules.cim.config import load_config
 
 
 TARGET_SYSTEM = 'CIM'
@@ -51,7 +52,7 @@ Manager.register('queue', Queue)
 Manager.register('log_queue', Queue)
 
 
-def serve(logger, num_workers, enable_listener, enable_collectors):
+def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
     logger.info('Starting {!r} event utils'.format(TARGET_SYSTEM))
 
     channels = [TARGET_SYSTEM, ]
@@ -64,7 +65,8 @@ def serve(logger, num_workers, enable_listener, enable_collectors):
             Listener,
             queue=event_queue,
             log_queue=cimd.log_queue,
-            running=cimd.run_trigger)
+            running=cimd.run_trigger,
+            cim_config=cim_config)
 
     if enable_listener:
         cimd.add_process(
@@ -81,7 +83,8 @@ def serve(logger, num_workers, enable_listener, enable_collectors):
                 queue=event_queue,
                 log_queue=cimd.log_queue,
                 running=cimd.run_trigger,
-                channel=chan)
+                channel=chan,
+                config=cim_config.eventcollector)
 
     cimd.serve()
 
@@ -94,7 +97,7 @@ def main(args=None):
                         dest='configfile',
                         metavar='FILE',
                         default=None,
-                        help='Not implemented')
+                        help='Use a custom configuration file')
 
     parser.add_argument('-n', '--num-workers',
                         dest='num_workers',
@@ -120,10 +123,13 @@ def main(args=None):
     utils.update_system_mappings(
         parser.prog, TARGET_SYSTEM, Listener.event_map.events)
 
-    # Run event processes
     args = parser.parse_args(args)
+    cim_config = load_config(filepath=args.configfile)
+
+    # Run event processes
     serve(
         logger,
+        cim_config,
         args.num_workers,
         args.listen_db,
         args.collect_db)

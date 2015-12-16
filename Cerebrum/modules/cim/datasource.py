@@ -26,18 +26,33 @@ with the CIM-WS schema, based on data from a Cerebrum person object.
 import phonenumbers
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import NotFoundError
+from Cerebrum.utils.funcwrap import memoize
 
 
 class CIMDataSource(object):
     """Fetches data and formats it for CIM."""
     def __init__(self, db, config):
         self.db = db
-        self.config = config.datasource
+        self.config = config
         self.co = Factory.get('Constants')(self.db)
+        self.pe = Factory.get('Person')(self.db)
+        self.ac = Factory.get('Account')(self.db)
+        self.ou = Factory.get('OU')(self.db)
         self.authoritative_system = self.co.AuthoritativeSystem(
             str(self.config.authoritative_system))
         self.ou_perspective = self.co.OUPerspective(
             str(self.config.ou_perspective))
+
+    def is_eligible(self, person_id):
+        """Decide whether a person should be exported to CIM.
+
+        :return: Export?
+        :rtype: bool
+        """
+        self.pe.clear()
+        self.pe.find(person_id)
+        affs = [aff['affiliation'] for aff in self.pe.get_affiliations()]
+        return self.co.affiliation_ansatt in affs
 
     def get_person_data(self, person_id):
         """
@@ -49,17 +64,16 @@ class CIMDataSource(object):
                  CIM-WS-schema.
         :rtype: dict
         """
-        pe = Factory.get('Person')(self.db)
-        ac = Factory.get('Account')(self.db)
+        self.pe.clear()
+        self.ac.clear()
+        self.pe.find(person_id)
+        self.ac.find(self.pe.get_primary_account())
 
         person = {}
-        pe.find(person_id)
-        ac.find(pe.get_primary_account())
-
-        person['username'] = ac.get_account_name()
+        person['username'] = self.ac.get_account_name()
 
         # Get and add first and last names from authoritative system
-        pe_names = pe.get_all_names()
+        pe_names = self.pe.get_all_names()
         names = self._attr_filter(
             'source_system', self.authoritative_system, pe_names)
         first_name_list = self._attr_filter(
@@ -70,12 +84,12 @@ class CIMDataSource(object):
         person['lastname'] = last_name_list[0]['name']
 
         # Get and add phone entries
-        contact_info = pe.get_contact_info()
+        contact_info = self.pe.get_contact_info()
         person.update(self._get_phone_entries(contact_info))
 
         # Get and add email address
         try:
-            person['email'] = ac.get_primary_mailaddress()
+            person['email'] = self.ac.get_primary_mailaddress()
         except NotFoundError:
             pass
 
@@ -83,13 +97,13 @@ class CIMDataSource(object):
         affs = self._attr_filter(
             'source_system',
             self.authoritative_system,
-            pe.get_affiliations())
+            self.pe.get_affiliations())
         primary_aff_ou_id = affs[0]['ou_id']
         person.update(self._get_org_structure(primary_aff_ou_id))
 
         # Get and add job title if present
         try:
-            person['job_title'] = pe.get_name_with_language(
+            person['job_title'] = self.pe.get_name_with_language(
                 name_variant=self.co.work_title,
                 name_language=self.co.language_nb)
         except NotFoundError:
@@ -162,6 +176,7 @@ class CIMDataSource(object):
                     phones[contact_entry] = parsed_number
         return phones
 
+    @memoize
     def _get_org_structure(self, from_ou_id):
         """
         Makes an organization structure (company/department/sub-department)
@@ -173,23 +188,23 @@ class CIMDataSource(object):
             The organizational units to include in the person data.
         :rtype: dict
         """
-        ou = Factory.get('OU')(self.db)
-        ou.find(from_ou_id)
+        self.ou.clear()
+        self.ou.find(from_ou_id)
 
-        ou_roots = set([x['ou_id'] for x in ou.root()])
+        ou_roots = set([x['ou_id'] for x in self.ou.root()])
         ous = []
         structure = {}
-        current_ou_id = ou.entity_id
+        current_ou_id = self.ou.entity_id
         current_ou_name = None
 
         while current_ou_id not in ou_roots:
-            ou.clear()
-            ou.find(current_ou_id)
-            current_ou_name = ou.get_name_with_language(
+            self.ou.clear()
+            self.ou.find(current_ou_id)
+            current_ou_name = self.ou.get_name_with_language(
                 name_variant=self.co.ou_name_acronym,
                 name_language=self.co.language_nb)
             ous.append(current_ou_name)
-            current_ou_id = ou.get_parent(self.ou_perspective)
+            current_ou_id = self.ou.get_parent(self.ou_perspective)
             if not current_ou_id:
                 break
 
