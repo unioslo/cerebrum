@@ -148,6 +148,10 @@ class Listener(evhandlers.EventConsumer):
 
         pe.find(event['subject_entity'])
         account_id = pe.get_primary_account()
+        if not account_id:
+            self.logger.warning(
+                "person_id:{} has no primary account, skipping")
+            raise UnrelatedEvent
         ac.find(account_id)
 
         userdata = self.datasource.get_person_data(pe.entity_id)
@@ -164,6 +168,10 @@ class Listener(evhandlers.EventConsumer):
 
         pe.find(event['subject_entity'])
         account_id = pe.get_primary_account()
+        if not account_id:
+            self.logger.warning(
+                "person_id:{} has no primary account, skipping")
+            raise UnrelatedEvent
         ac.find(account_id)
 
         userdata = self.datasource.get_person_data(pe.entity_id)
@@ -180,6 +188,10 @@ class Listener(evhandlers.EventConsumer):
 
         pe.find(event['subject_entity'])
         account_id = pe.get_primary_account()
+        if not account_id:
+            self.logger.warning(
+                "person_id:{} has no primary account, skipping")
+            raise UnrelatedEvent
         ac.find(account_id)
 
         # TODO: Decide on delete or update
