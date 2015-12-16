@@ -63,20 +63,19 @@ class Listener(evhandlers.EventConsumer):
     @memoize
     def datasource(self):
         return CIMDataSource(db=self.db,
-                             config=self.__config.datasource)
+                             config=self._config.datasource)
 
     @property
     @memoize
     def client(self):
-        # TODO: Really use memoize here?
-        if self.mock:
+        if self._mock:
             class _mock_cim_client(object):
                 def __getattribute__(s, n):
                     def _log(*a, **kw):
                         self.logger.info('MOCK: {!s}({!r}, {!r})', n, a, kw)
                     return _log
             return _mock_cim_client()
-        return CIMClient(config=self.__config.client,
+        return CIMClient(config=self._config.client,
                          logger=self.logger)
 
     @event_map(
@@ -147,7 +146,7 @@ class Listener(evhandlers.EventConsumer):
         pe = Factory.get('Person')(self.db)
         ac = Factory.get('Account')(self.db)
 
-        pe.find(ac.owner_id)
+        pe.find(event['subject_entity'])
         account_id = pe.get_primary_account()
         ac.find(account_id)
 
@@ -163,7 +162,7 @@ class Listener(evhandlers.EventConsumer):
         pe = Factory.get('Person')(self.db)
         ac = Factory.get('Account')(self.db)
 
-        pe.find(ac.owner_id)
+        pe.find(event['subject_entity'])
         account_id = pe.get_primary_account()
         ac.find(account_id)
 
@@ -179,7 +178,7 @@ class Listener(evhandlers.EventConsumer):
         pe = Factory.get('Person')(self.db)
         ac = Factory.get('Account')(self.db)
 
-        pe.find(ac.owner_id)
+        pe.find(event['subject_entity'])
         account_id = pe.get_primary_account()
         ac.find(account_id)
 

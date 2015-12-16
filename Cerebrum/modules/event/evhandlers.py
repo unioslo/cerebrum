@@ -415,5 +415,7 @@ class DBEventCollector(_DBEventProducer):
             self.push(x)
         tmp_db.close()
 
+        self.logger.debug2("Ping!")
+
         # Sleep for a while
         time.sleep(self.config['run_interval'])

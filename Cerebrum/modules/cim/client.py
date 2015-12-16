@@ -47,7 +47,7 @@ class CIMClient(object):
         :return tuple:
             Username and password.
         """
-        self.logger.debug("Caching credentials")
+        self.logger.debug("CIMClient: Caching credentials")
         password = read_password(
             user=self.config.auth_user,
             system=self.config.auth_system,
@@ -61,7 +61,8 @@ class CIMClient(object):
             The JSON schema.
         """
         schema_url = self.config.api_url + 'UserImport.json'
-        self.logger.debug("Fetching schema from {}".format(schema_url))
+        self.logger.debug(
+            "CIMClient: Fetching schema from {}".format(schema_url))
         schema = requests.get(schema_url)
         return schema.json()
 
@@ -93,16 +94,17 @@ class CIMClient(object):
             response.raise_for_status()
         except HTTPError, e:
             self.logger.warning(
-                "HTTP error {} from CIM WS: {}".format(
+                "CIMClient: HTTP error {} from CIM WS: {}".format(
                     response.status_code,
-                    response.content))
+                    response.text))
             return False
         except (ConnectionError, Timeout), e:
             self.logger.error(
-                "Error communicating with CIM WS: {!r}".format(e.message))
+                "CIMClient: Error communicating with CIM WS: {!r}".format(
+                    e.message))
             return False
         finally:
-            self.logger.debug("Got {} {} after {} seconds".format(
+            self.logger.debug("CIMClient: Got {} {} after {} seconds".format(
                 response.status_code,
                 response.reason,
                 response.elapsed.total_seconds()))

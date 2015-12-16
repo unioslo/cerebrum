@@ -130,7 +130,7 @@ def main(args=None):
     serve(
         logger,
         cim_config,
-        args.num_workers,
+        int(args.num_workers),
         args.listen_db,
         args.collect_db)
 
