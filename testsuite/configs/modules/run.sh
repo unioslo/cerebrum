@@ -17,11 +17,6 @@ root_dir=${WORKSPACE:-/tmp}
 # TODO: Should we check out cerebrum directly into WORKSPACE?
 crb_src=${root_dir}/src/cerebrum
 
-# The list of test directories with modules to be tested.
-# Update this list when new modules gets their own tests:
-test_dirs=${crb_src}/testsuite/tests/test_ad2 
-          #${crb_src}/testsuite/tests/test_cis
-
 # If the folder ${HOME}/pypi exists, we expect to find all the relevant packages
 # there, and we'll install packages in 'offline mode' (pip --no-index)
 if [ -d "${HOME}/pypi" ]
@@ -58,6 +53,7 @@ fi
 # It's the directory we're working from, i.e. the dirname of this script. This
 # directory *must* contain a certain set of config files, e.g. 'cereconf.py.in'.
 config=$( abs_dirname "${BASH_SOURCE[0]}" )
+export CONFIG_EWS_WSDL=$( abs_dirname "${BASH_SOURCE[0]}" )/ews.wsdl
 
 # 
 # Setup a new test environmnet 
@@ -82,7 +78,9 @@ fi
 # Setup OK, run tests
 #
 info "Running nosetests"
-${env_dir}/bin/nosetests -c "${config}/noseconfig.cfg" "${crb_src}/testsuite/tests/test_ad2"
+${env_dir}/bin/nosetests -c "${config}/noseconfig.cfg" \
+    "${crb_src}/testsuite/tests/test_ad2" \    
+    "${crb_src}/testsuite/tests/test_ePhorte"
 error=$(($? + $error))
 
 exit $error
