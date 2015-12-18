@@ -21,6 +21,7 @@
 u""" This module contains a consumer for Cerebrum events. """
 from Cerebrum.modules.event.EventExceptions import EntityTypeError
 from Cerebrum.modules.event.EventExceptions import UnrelatedEvent
+from Cerebrum.modules.event.EventExceptions import EventExecutionException
 from Cerebrum.modules.event.mapping import EventMap
 from Cerebrum.modules.event import evhandlers
 from Cerebrum.utils.funcwrap import memoize
@@ -28,6 +29,7 @@ from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.cim.client import CIMClient
 from Cerebrum.modules.cim.datasource import CIMDataSource
 
+from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 import pickle
 
@@ -56,14 +58,15 @@ class Listener(evhandlers.EventConsumer):
                 callback(self, key, event)
             except (EntityTypeError, UnrelatedEvent) as e:
                 self.logger.debug3(
-                    u'callback {!r} failed for event {!r} ({!r}): {!s}',
+                    u'Callback {!r} failed for event {!r} ({!r}): {!s}',
                     callback, key, event, e)
 
     @property
     @memoize
     def datasource(self):
         return CIMDataSource(db=self.db,
-                             config=self._config.datasource)
+                             config=self._config.datasource,
+                             logger=self.logger)
 
     @property
     @memoize
@@ -78,6 +81,46 @@ class Listener(evhandlers.EventConsumer):
         return CIMClient(config=self._config.client,
                          logger=self.logger)
 
+    def update_user(self, key, event, person_id):
+        self.logger.info(
+            "eid:{} {}: "
+            "Fetching data and updating user for person_id:{}".format(
+                event['event_id'], key, person_id))
+        userdata = self.datasource.get_person_data(person_id)
+        if not self.client.update_user(userdata):
+            self.logger.error(
+                "eid:{}: {}: "
+                "Failed to add/update user account:{!r} person_id:{}".format(
+                    event['event_id'],
+                    key,
+                    userdata.get('username'),
+                    person_id))
+            raise EventExecutionException
+        return True
+
+    def delete_user(self, key, event, username):
+        self.logger.info(
+            "eid:{}: {}: Deleting user {!r}".format(
+                event['event_id'], key, username))
+        if not self.client.delete_user(username):
+            self.logger.error(
+                "eid:{}: {}: "
+                "Could not delete user {!r}".format(
+                    event['event_id'], key, username))
+            raise EventExecutionException
+        return True
+
+    def delete_users_for_person(self, key, event, person_id, ac,
+                                except_account_id):
+        all_accounts = [x['account_id'] for x in
+                        ac.search(owner_id=person_id)]
+        to_delete = [a for a in all_accounts if a != except_account_id]
+        for account_id in to_delete:
+            ac.clear()
+            ac.find(account_id)
+            self.delete_user(key, event, ac.account_name)
+        return True
+
     @event_map(
         'e_account:create',
         'e_account:mod',
@@ -89,15 +132,14 @@ class Listener(evhandlers.EventConsumer):
 
         ac.find(event['subject_entity'])
         if ac.owner_type != self.co.entity_person:
-            self.logger.debug3('Invalid owner type {!r}', ac.owner_type)
-            # TODO: What if account owner has changed from person to group?
-            #       Can that happen?
-            return
+            raise UnrelatedEvent
 
         pe.find(ac.owner_id)
+        if not self.datasource.is_eligible(pe.entity_id):
+            return UnrelatedEvent
 
-        userdata = self.datasource.get_person_data(pe.entity_id)
-        self.client.update_user(userdata)
+        if not self.update_user(key, event, pe.entity_id):
+            raise EventExecutionException
 
     @event_map(
         'ac_type:add',
@@ -110,29 +152,20 @@ class Listener(evhandlers.EventConsumer):
 
         ac.find(event['subject_entity'])
         if ac.owner_type != self.co.entity_person:
-            self.logger.debug3('Invalid owner type {!r}', ac.owner_type)
-            return
+            raise UnrelatedEvent
+
         pe.find(ac.owner_id)
+        new_primary = None
 
-        # 1. List all pe users.
-        # 2. Check current pri vs params pri?
-        # 2. Del all non-pri
-        # 3. Del or update pri, if eligible
+        if self.datasource.is_eligible(pe.entity_id):
+            new_primary = pe.get_primary_account()
+            # Make sure the current primary account exists
+            if new_primary:
+                self.update_user(key, event, pe.entity_id)
 
-        pri_account = pe.get_primary_account()
-
-        self.logger.info(u'Current primary account: {:d}', pri_account)
-        self.logger.info(u'Current account: {:d}', ac.entity_id)
-
-        params = event.get('change_params')
-        if params:
-            try:
-                params = pickle.loads(params)
-            except Exception as e:
-                params = e
-
-        userdata = self.datasource.get_person_data(pe.entity_id)
-        self.client.update_user(userdata)
+        # Delete all other accounts
+        self.delete_users_for_person(key, event, pe.entity_id, ac,
+                                     except_account_id=new_primary)
 
     @event_map('e_account:delete', 'e_account:destroy')
     def account_delete(self, key, event):
@@ -147,15 +180,11 @@ class Listener(evhandlers.EventConsumer):
         ac = Factory.get('Account')(self.db)
 
         pe.find(event['subject_entity'])
-        account_id = pe.get_primary_account()
-        if not account_id:
-            self.logger.warning(
-                "person_id:{} has no primary account, skipping")
-            raise UnrelatedEvent
-        ac.find(account_id)
+        if not self.datasource.is_eligible(pe.entity_id):
+            return UnrelatedEvent
 
-        userdata = self.datasource.get_person_data(pe.entity_id)
-        self.client.update_user(userdata)
+        if not self.update_user(key, event, pe.entity_id):
+            raise EventExecutionException
 
     @event_map(
         'person:name_del',
@@ -164,38 +193,48 @@ class Listener(evhandlers.EventConsumer):
     def person_name_change(self, key, event):
         u""" Person name change - update CIM. """
         pe = Factory.get('Person')(self.db)
-        ac = Factory.get('Account')(self.db)
-
         pe.find(event['subject_entity'])
-        account_id = pe.get_primary_account()
-        if not account_id:
-            self.logger.warning(
-                "person_id:{} has no primary account, skipping")
-            raise UnrelatedEvent
-        ac.find(account_id)
 
-        userdata = self.datasource.get_person_data(pe.entity_id)
-        self.client.update_user(userdata)
+        if not self.datasource.is_eligible(pe.entity_id):
+            return UnrelatedEvent
+        self.update_user(key, event, pe.entity_id)
+
+    @event_map(
+        'entity_cinfo:add',
+        'entity_cinfo:del')
+    def entity_cinfo_change(self, key, event):
+        u""" Person name change - update CIM. """
+        pe = Factory.get('Person')(self.db)
+        try:
+            pe.find(event['subject_entity'])
+        except NotFoundError:
+            raise UnrelatedEvent
+
+        if not self.datasource.is_eligible(pe.entity_id):
+            return UnrelatedEvent
+        self.update_user(key, event, pe.entity_id)
 
     @event_map(
         'person:aff_add',
         'person:aff_mod',
-        'person:aff_del')
+        'person:aff_del',
+        'person:aff_src_add',
+        'person:aff_src_mod',
+        'person:aff_src_del')
     def person_aff_change(self, key, event):
         u""" Person aff change - update CIM. """
         pe = Factory.get('Person')(self.db)
         ac = Factory.get('Account')(self.db)
 
         pe.find(event['subject_entity'])
-        account_id = pe.get_primary_account()
-        if not account_id:
-            self.logger.warning(
-                "person_id:{} has no primary account, skipping")
-            raise UnrelatedEvent
-        ac.find(account_id)
+        new_primary = None
 
-        # TODO: Decide on delete or update
-        # So much could have happened here!
+        if self.datasource.is_eligible(pe.entity_id):
+            new_primary = pe.get_primary_account()
+            # Make sure the current primary account exists
+            if new_primary:
+                self.update_user(key, event, pe.entity_id)
 
-        userdata = self.datasource.get_person_data(pe.entity_id)
-        self.client.update_user(userdata)
+        # Delete all other accounts
+        self.delete_users_for_person(key, event, pe.entity_id, ac,
+                                     except_account_id=new_primary)
