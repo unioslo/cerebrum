@@ -58,7 +58,14 @@ class UiAExchangeClient(ExchangeClient):
         :type domain_admin: string
         :param domain_admin: The username of the account we use to connect to
             the AD domain we are going to synchronize with."""
-        super(UiAExchangeClient, self).__init__(*args, **kwargs)
+        super(UiAExchangeClient, self).__init__(auth_user,
+                                                domain_admin,
+                                                ex_domain_admin,
+                                                management_server,
+                                                None,
+                                                session_key=session_key,
+                                                *args,
+                                                **kwargs)
         self.logger.debug("UiAExchangeClient super returned")
         self.add_credentials(
             username=auth_user,
