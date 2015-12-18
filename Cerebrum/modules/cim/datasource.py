@@ -31,7 +31,8 @@ from Cerebrum.utils.funcwrap import memoize
 
 class CIMDataSource(object):
     """Fetches data and formats it for CIM."""
-    def __init__(self, db, config):
+    def __init__(self, db, config, logger):
+        self.logger = logger
         self.db = db
         self.config = config
         self.co = Factory.get('Constants')(self.db)
@@ -49,10 +50,10 @@ class CIMDataSource(object):
         :return: Export?
         :rtype: bool
         """
-        self.pe.clear()
-        self.pe.find(person_id)
-        affs = [aff['affiliation'] for aff in self.pe.get_affiliations()]
-        return self.co.affiliation_ansatt in affs
+        return bool(self.pe.list_affiliations(
+            person_id=person_id,
+            source_system=self.authoritative_system,
+            affiliation=self.co.affiliation_ansatt))
 
     def get_person_data(self, person_id):
         """
@@ -84,8 +85,7 @@ class CIMDataSource(object):
         person['lastname'] = last_name_list[0]['name']
 
         # Get and add phone entries
-        contact_info = self.pe.get_contact_info()
-        person.update(self._get_phone_entries(contact_info))
+        person.update(self._get_phone_entries())
 
         # Get and add email address
         try:
@@ -94,6 +94,8 @@ class CIMDataSource(object):
             pass
 
         # Get and add company info
+        # FIXME: Store information about main employment when importing data
+        #        from SAP. Use that here to choose the best affiliation.
         affs = self._attr_filter(
             'source_system',
             self.authoritative_system,
@@ -125,16 +127,26 @@ class CIMDataSource(object):
         """
         return filter(lambda x: x[attr_name] == constant, unfiltered)
 
-    def _format_phone_number(self, phone_number):
+    def _format_phone_number_entry(self, entry):
         """
         Takes a phone number, and adds a default country prefix to it if
         missing. It is assumed that phone numbers lacking a prefix, is from
         the default region defined in the configuration.
 
-        :param unicode phone_number: A phone number
+        :param unicode : A phone number
         :return: A phone number with a country prefix, or None
         :rtype: unicode
         """
+        def warn():
+            self.logger.warning(
+                "CIMDataSource: Invalid phone number for person_id:{}, "
+                "account_name:{}: {} {!r}".format(
+                    self.pe.entity_id,
+                    self.ac.account_name,
+                    str(self.co.ContactInfo(entry['contact_type'])),
+                    phone_number))
+
+        phone_number = entry['contact_value']
         try:
             parsed_nr = phonenumbers.parse(
                 number=phone_number,
@@ -143,17 +155,17 @@ class CIMDataSource(object):
                 return phonenumbers.format_number(
                     numobj=parsed_nr,
                     num_format=phonenumbers.PhoneNumberFormat.E164)
-            return None
-        except phonenumbers.NumberParseException:
-            return None
+            else:
+                warn()
+        except (phonenumbers.NumberParseException, UnicodeDecodeError):
+            warn()
+        return None
 
-    def _get_phone_entries(self, contact_info):
+    def _get_phone_entries(self):
         """
         Based on the mappings in the configuration, extracts relevant phone
         numbers.
 
-        :param list contact_info:
-            A list of tuples with Cerebrum contact_info entries
         :return:
             The phone numbers to include in the person data.
         :rtype: dict
@@ -161,7 +173,7 @@ class CIMDataSource(object):
         contact_info = self._attr_filter(
             'source_system',
             self.authoritative_system,
-            contact_info)
+            self.pe.get_contact_info())
         phones = {}
         for contact_entry in self.config.phone_mappings:
             entries = self._attr_filter(
@@ -169,14 +181,13 @@ class CIMDataSource(object):
                 self.co.ContactInfo(
                     str(self.config.phone_mappings[contact_entry])),
                 contact_info)
-            if entries:
-                parsed_number = self._format_phone_number(
-                    entries[0]['contact_value'])
+            for entry in entries:
+                parsed_number = self._format_phone_number_entry(entry)
                 if parsed_number:
                     phones[contact_entry] = parsed_number
+                    break
         return phones
 
-    @memoize
     def _get_org_structure(self, from_ou_id):
         """
         Makes an organization structure (company/department/sub-department)
@@ -200,10 +211,15 @@ class CIMDataSource(object):
         while current_ou_id not in ou_roots:
             self.ou.clear()
             self.ou.find(current_ou_id)
-            current_ou_name = self.ou.get_name_with_language(
-                name_variant=self.co.ou_name_acronym,
-                name_language=self.co.language_nb)
-            ous.append(current_ou_name)
+            try:
+                current_ou_name = self.ou.get_name_with_language(
+                    name_variant=self.co.ou_name_acronym,
+                    name_language=self.co.language_nb)
+            except NotFoundError as e:
+                self.logger.warning(
+                    "CIMDataSource: Missing OU name: {!r}".format(e))
+            else:
+                ous.append(current_ou_name)
             current_ou_id = self.ou.get_parent(self.ou_perspective)
             if not current_ou_id:
                 break
