@@ -40,10 +40,10 @@ class CIMClientConfig(Configuration):
         default=u"https://localhost/test/_webservices/system/rest/person/1.0/",
         doc=u"URL to the JSON API. Will be suffixed with endpoints.")
 
-    dry_run = ConfigDescriptor(
+    commit = ConfigDescriptor(
         Boolean,
         default=True,
-        doc=u"Send requests to web service with dry run mode enabled?")
+        doc=u"Should requests sent to the web service be committed?")
 
     auth_user = ConfigDescriptor(
         String,

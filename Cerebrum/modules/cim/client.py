@@ -41,10 +41,10 @@ class CIMClient(object):
         self.schema = self._get_schema()
         self.auth = self._get_auth()
 
-        if self.config.dry_run:
-            self.logger.info("CIMClient: Running in dry run mode")
-        else:
+        if self.config.commit:
             self.logger.info("CIMClient: Running in commit mode")
+        else:
+            self.logger.info("CIMClient: Running in dry run mode")
 
     def _get_auth(self):
         """Reads the password from file and returns the credentials.
@@ -84,7 +84,7 @@ class CIMClient(object):
             'time': random.random(),
             'generic': json.dumps(data)
         }
-        if self.config.dry_run:
+        if not self.config.commit:
             payload['dry_run'] = 1
         return payload
 
