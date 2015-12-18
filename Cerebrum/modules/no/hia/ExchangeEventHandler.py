@@ -110,7 +110,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                 if self.run_state.value:
                     time.sleep(3*60)
             except Exception, e:
-                self.logger.error("ExchangeClient failed setup: %s" % e)
+                self.logger.exception("ExchangeClient failed setup: %s" % e)
                 # If we shut down, we don't want to wait X minutes :)
                 if self.run_state.value:
                     time.sleep(3*60)

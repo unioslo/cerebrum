@@ -153,6 +153,11 @@ class ExchangeEventHandler(multiprocessing.Process):
                 # If we shut down, we don't want to wait X minutes :)
                 if self.run_state.value:
                     time.sleep(3*60)
+            except Exception, e:
+                self.logger.exception("ExchangeClient failed setup: %s" % e)
+                # If we shut down, we don't want to wait X minutes :)
+                if self.run_state.value:
+                    time.sleep(3*60)
             else:
                 break
         self.logger.debug("Connected to springboard")
