@@ -57,7 +57,10 @@ class UiAExchangeClient(ExchangeClient):
 
         :type domain_admin: string
         :param domain_admin: The username of the account we use to connect to
-            the AD domain we are going to synchronize with."""
+            the AD domain we are going to synchronize with.
+
+        """
+        self.exchange_server = exchange_server
         super(UiAExchangeClient, self).__init__(auth_user,
                                                 domain_admin,
                                                 ex_domain_admin,
@@ -67,43 +70,6 @@ class UiAExchangeClient(ExchangeClient):
                                                 *args,
                                                 **kwargs)
         self.logger.debug("UiAExchangeClient super returned")
-        self.add_credentials(
-            username=auth_user,
-            password=unicode(read_password(auth_user, self.host), 'utf-8'))
-
-        self.ignore_stdout_pattern = re.compile('.*EOB\n', flags=re.DOTALL)
-        self.wash_output_patterns = [
-            re.compile('ConvertTo-SecureString.*\\w*...', flags=re.DOTALL)]
-        self.management_server = management_server
-        self.exchange_server = exchange_server
-        self.session_key = session_key if session_key else 'cereauth'
-
-        # TODO: Make the following line pretty
-        self.auth_user_password = unicode(read_password(auth_user,
-                                                        kwargs['host']),
-                                          'utf-8')
-        # Note that we save the user's password by domain and not the host. It
-        # _could_ be the wrong way to do it. TBD: Maybe both host and domain?
-        (self.ad_user,
-         self.ad_domain) = self._split_domain_username(domain_admin)
-        self.ad_user_password = unicode(read_password(self.ad_user,
-                                                      self.ad_domain),
-                                        'utf-8')
-        (self.ex_user,
-         self.ex_domain) = self._split_domain_username(ex_domain_admin)
-        self.ex_user_password = unicode(read_password(self.ex_user,
-                                                      self.ex_domain),
-                                        'utf-8')
-        # Set up the winrm / PowerShell connection
-        self.connect()
-
-        # Collect AD-controllers
-        controllers = self._get_domain_controllers(self.ad_domain,
-                                                   self.ex_domain)
-        self.ad_server = controllers['domain']
-        self.resource_ad_server = controllers['resource_domain']
-        # TODO: For all commands. Use the two variables above, and specify
-        # which DC we use
 
     # The pre-execution code is run when a command is run. This is what it does
     # in a nutshell:
