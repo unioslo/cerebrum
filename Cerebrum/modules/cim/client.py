@@ -41,6 +41,11 @@ class CIMClient(object):
         self.schema = self._get_schema()
         self.auth = self._get_auth()
 
+        if self.config.dry_run:
+            self.logger.info("CIMClient: Running in dry run mode")
+        else:
+            self.logger.info("CIMClient: Running in commit mode")
+
     def _get_auth(self):
         """Reads the password from file and returns the credentials.
 
@@ -83,7 +88,7 @@ class CIMClient(object):
             payload['dry_run'] = 1
         return payload
 
-    def _handle_response(self, response):
+    def _handle_response(self, response, deletion=False):
         """Takes a `Response`, determines whether the request was succesful
         and logs any errors.
 
@@ -93,11 +98,15 @@ class CIMClient(object):
         try:
             response.raise_for_status()
         except HTTPError, e:
-            self.logger.warning(
-                "CIMClient: HTTP error {} from CIM WS: {}".format(
-                    response.status_code,
-                    response.text))
-            return False
+            if deletion and response.status_code == 404:
+                # We tried to delete a non-existing user. That's okay.
+                pass
+            else:
+                self.logger.warning(
+                    "CIMClient: HTTP error {} from CIM WS: {}".format(
+                        response.status_code,
+                        response.text))
+                return False
         except (ConnectionError, Timeout), e:
             self.logger.error(
                 "CIMClient: Error communicating with CIM WS: {!r}".format(
@@ -159,4 +168,4 @@ class CIMClient(object):
         response = requests.post(self.config.api_url + endpoint,
                                  data=payload,
                                  auth=self.auth)
-        return self._handle_response(response)
+        return self._handle_response(response, deletion=True)
