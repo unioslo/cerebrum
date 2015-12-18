@@ -75,10 +75,17 @@ epat.populate(ea.entity_id, parent=et)
 epat.write_db()
 
 dg.clear()
-dg.populate(creator_id=ac.entity_id, visibility=co.group_visibility_all, name='groupadmin',
-            description='Default group moderator', create_date=None, expire_date=None,
-            roomlist='F',  mngdby_addrid=ea.entity_id, modenable='T', modby='',
-            deprestr='Closed', joinrestr='Closed', hidden='T', parent=gr)
+dg.populate(creator_id=ac.entity_id,
+            visibility=co.group_visibility_all,
+            name='groupadmin',
+            description='Default group moderator',
+            create_date=None,
+            expire_date=None,
+            roomlist='F',
+            deprestr='Closed',
+            joinrestr='Closed',
+            hidden='T',
+            parent=gr)
 dg.write_db()
 
 db.commit()

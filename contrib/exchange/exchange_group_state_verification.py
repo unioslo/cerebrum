@@ -249,13 +249,8 @@ class StateChecker(object):
         attrs = ['displayName',
                  'info',
                  'proxyAddresses',
-                 'managedBy',
-                 'msExchHideFromAddressLists',
-                 'msExchModeratedByLink',
-                 'msExchEnableModeration']
-
+                 'msExchHideFromAddressLists']
         r = self.search(group_ou, attrs)
-
         ret = {}
         for cn, data in r:
             tmp = {}
@@ -280,11 +275,6 @@ class StateChecker(object):
                     if tmp_man == 'Default group moderator':
                         tmp_man = u'groupadmin'
                     tmp[u'ManagedBy'] = [tmp_man]
-                elif key == 'msExchModeratedByLink':
-                    mods = []
-                    for mod in data[key]:
-                        mods.append(mod[3:].split(',')[0].decode('UTF-8'))
-                    tmp[u'ModeratedBy'] = sorted(mods)
 
             # Skip reporting memberships for roomlists, since we don't manage
             # those memberships.
@@ -304,15 +294,6 @@ class StateChecker(object):
                     False)
             else:
                 tmp[u'HiddenFromAddressListsEnabled'] = False
-
-            if 'msExchEnableModeration' in data:
-                tmp_key = 'msExchEnableModeration'
-                tmp[u'ModerationEnabled'] = (
-                    True if data[tmp_key][0].decode('UTF-8') == 'TRUE' else
-                    False)
-            else:
-                tmp[u'ModerationEnabled'] = False
-
             ret[name] = tmp
         return ret
 
@@ -344,53 +325,15 @@ class StateChecker(object):
             data = self.dg.get_distgroup_attributes_and_targetdata(
                 roomlist=roomlist)
 
-            # Yes. We must look up the user/group name......!!11
-            try:
-                self.ea.clear()
-                self.ea.find_by_address(data['mngdby_address'])
-                self.et.clear()
-                self.et.find(self.ea.get_target_id())
-                if self.et.email_target_entity_type == self.co.entity_group:
-                    self.gr.clear()
-                    self.gr.find(self.et.email_target_entity_id)
-                    manager = self.gr.group_name
-                elif (self.et.email_target_entity_type ==
-                        self.co.entity_account):
-                    self.ac.clear()
-                    self.ac.find(self.et.email_target_entity_id)
-                    manager = self.ac.account_name
-                else:
-                    raise Exception
-            except:
-                manager = u'Unknown'
-
             tmp[self.dg.group_name] = {
                 u'Description': self.dg.description,
                 u'DisplayName': data['displayname'],
-                u'ManagedBy': [manager],
             }
 
             if not roomlist:
                 # Split up the moderated by field, and resolve group members
                 # from groups if there are groups in the moderated by field!
-                moderators = []
-                for mod in data['modby']:
-                    try:
-                        self.gr.clear()
-                        self.gr.find_by_name(mod)
-                        membs = self.gr.search_members(
-                            group_id=self.gr.entity_id,
-                            indirect_members=True,
-                            member_spread=self.co.spread_exchange_account,
-                            include_member_entity_name=True)
-                        for row in membs:
-                            moderators.append(row['member_name'])
-                    except Errors.NotFoundError:
-                        moderators.append(mod)
-
                 tmp[self.dg.group_name].update({
-                    u'ModerationEnabled': _true_or_false(data['modenable']),
-                    u'ModeratedBy': sorted(moderators),
                     u'HiddenFromAddressListsEnabled':
                         _true_or_false(data['hidden']),
                     u'Primary': data['primary'],
@@ -502,7 +445,7 @@ class StateChecker(object):
                 if diff_group[key][attr][u'Time'] < now - delta:
                     t = time.strftime(u'%d%m%Y-%H:%M', time.localtime(
                         diff_group[key][attr][u'Time']))
-                    if attr in (u'ModeratedBy', u'Aliases', u'Members',):
+                    if attr in (u'Aliases', u'Members',):
                         # We report the difference for these types, for
                         # redability
                         s_ce_attr = set(diff_group[key][attr][u'Cerebrum'])

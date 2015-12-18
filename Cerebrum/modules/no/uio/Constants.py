@@ -41,7 +41,7 @@ from Cerebrum.modules.Email import \
     _EmailDomainCategoryCode, \
     EmailConstants
 from Cerebrum.modules.EntityTrait import \
-    _EntityTraitCode 
+    _EntityTraitCode
 from Cerebrum.modules.consent import Consent
 
 
@@ -328,6 +328,10 @@ class Constants(Constants.Constants):
     spread_uio_ad_group = _SpreadCode(
         'AD_group', Constants.Constants.entity_group,
         'Group included in Active Directory at UiO')
+    spread_uio_ad_xpand = _SpreadCode(
+        'Xpand_group', Constants.Constants.entity_group,
+        "Group included in Xpand's AD-OU")
+
     spread_uio_ua = _SpreadCode(
         'UA@uio', Constants.Constants.entity_person,
         'Person exported to UA')

@@ -1931,6 +1931,7 @@ class BofhdAuth(DatabaseAccessor):
         allowed to do this by default."""
         if not self.is_postmaster(operator_id, query_run_any=query_run_any):
             raise PermissionDenied("Currently limited to superusers")
+        return True
 
     def _is_local_postmaster(self, operator, operation, account=None,
                              domain=None, query_run_any=False):

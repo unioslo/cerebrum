@@ -45,7 +45,6 @@ import sys
 import traceback
 
 import cerebrum_path
-import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
@@ -69,13 +68,13 @@ class SimplePerson(IterableUserDict, object):
     a flexible and simple way.
     """
 
-    allowed_keys = ("fnr11",      # 11-siffret norsk fnr
-                    "fnr6",       # 6-digit birth date part of fnr
-                    "pnr",        # personnummer (5-digit part of fnr)
+    allowed_keys = ("fnr11",       # 11-siffret norsk fnr
+                    "fnr6",        # 6-digit birth date part of fnr
+                    "pnr",         # personnummer (5-digit part of fnr)
                     "ansattnr",        # ansattnummer
-                    "birth_date", # birth date as YYYY-MM-DD
-                    "gender",     # 'M' or 'K'
-                    "email",      # primary e-mail address
+                    "birth_date",  # birth date as YYYY-MM-DD
+                    "gender",      # 'M' or 'K'
+                    "email",       # primary e-mail address
                     "name_first",
                     "name_last",
                     "work_title",
@@ -311,11 +310,6 @@ def find_contact_info(person, contact_variant, authoritative_system):
 
     # They arrive already sorted
     value = result[0]["contact_value"]
-    # FS cannot cope with longer values, apparently.
-    if len(value) > 8:
-        logger.info("Ignoring contact=<%s> for person id=%d (too long)",
-                    value, person.entity_id)
-        return None
     return value
 # end find_contact_info
 
@@ -448,7 +442,7 @@ def find_primary_sko(primary_ou_id, fs, ou_perspective):
             return ou.institusjon, ou.fakultet, ou.institutt, ou.avdeling
         # go up 1 level to the parent
         return find_primary_sko(ou.get_parent(ou_perspective), fs,
-                                              ou_perspective)
+                                ou_perspective)
     except Errors.NotFoundError:
         return None
 
@@ -457,7 +451,7 @@ def find_primary_sko(primary_ou_id, fs, ou_perspective):
 
 
 def _populate_caches(selection_criteria, authoritative_system, email_cache,
-        ansattnr_code_str="NO_SAPNO"):
+                     ansattnr_code_str="NO_SAPNO"):
     """This is a performance enhacing hack.
 
     Looking things up on per-person basis takes too much time (about a
@@ -528,12 +522,6 @@ def _populate_caches(selection_criteria, authoritative_system, email_cache,
             p_id = int(row["entity_id"])
             value = row["contact_value"]
             if p_id not in _person_id2fnr:
-                continue
-
-            # Trap FS silliness
-            if len(value) > 8:
-                logger.info("Ignoring long contact value for %s: %s",
-                            _person_id2fnr[p_id], value)
                 continue
 
             _person_id2contact.setdefault(p_id, {})[int(contact_type)] = value
@@ -752,7 +740,7 @@ def export_person(person_id, info_chunk, fs):
     """Push information to FS.person.
 
     Register information in FS about a person with L{person_id}. The necessary
-    entries are created in FS, if they did not exist beforehand. 
+    entries are created in FS, if they did not exist beforehand.
 
     @type person_id: int
     @param person_id: person_id (in Cerebrum) whom L{info_chunk} describes.
@@ -867,22 +855,47 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
 
         logger.debug("Updating data for fagperson fnr=%s", info_chunk.fnr11)
         fs.person.update_fagperson(**values2push)
+    instno = primary_sko[0]
     phone = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
-                                    fs_info['institusjonsnr_eier'], 'ARB')
-    if info_chunk.phone and not phone:
-        fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
-                                info_chunk.phone)
-    elif info_chunk.phone and phone[0]['telefonnr'] != info_chunk.phone:
-        fs.person.update_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
-                                   info_chunk.phone)
+                                    instno, 'ARB')
+    if phone:
+        if phone[0]['telefonlandnr']:
+            phone = '+' + phone[0]['telefonlandnr'] + phone[0]['telefonnr']
+        else:
+            phone = phone[0]['telefonnr']
+    try:
+        if info_chunk.phone and not phone:
+            logger.debug("Setting phone to %s", info_chunk.phone)
+            fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
+                                    info_chunk.phone)
+        elif info_chunk.phone and phone != info_chunk.phone:
+            logger.debug("Updating phone: %s > %s",
+                         phone, info_chunk.phone)
+            fs.person.update_telephone(info_chunk.fnr6, info_chunk.pnr, 'ARB',
+                                       info_chunk.phone)
+    except Exception as e:
+        logger.info("Could not set phone %s: %s", info_chunk.phone, e)
+
     fax = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
-                                  fs_info['institusjonsnr_eier'], 'FAKS')
-    if info_chunk.fax and not fax:
-        fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'FAKS',
-                                info_chunk.fax)
-    elif info_chunk.fax and fax[0]['telefonnr'] != info_chunk.fax:
-        fs.person.update_telephone(info_chunk.fnr6, info_chunk.pnr, 'FAKS',
-                                   info_chunk.phone)
+                                  instno, 'FAKS')
+    if fax:
+        if fax[0]['telefonlandnr']:
+            fax = '+' + fax[0]['telefonlandnr'] + fax[0]['telefonnr']
+        else:
+            fax = fax[0]['telefonnr']
+    try:
+        if info_chunk.fax and not fax:
+            logger.debug("Setting fax to %s", info_chunk.fax)
+            fs.person.add_telephone(info_chunk.fnr6, info_chunk.pnr, 'FAKS',
+                                    info_chunk.fax)
+        elif info_chunk.fax and fax != info_chunk.fax:
+            logger.debug("Updating fax: %s > %s",
+                         fax, info_chunk.fax)
+            fs.person.update_telephone(info_chunk.fnr6, info_chunk.pnr, 'FAKS',
+                                       info_chunk.fax)
+    except Exception as e:
+        logger.info("Could not set fax %s: %s", info_chunk.fax, e)
+
 
 def make_fs_updates(person_affiliations, fagperson_affiliations, fs,
                     authoritative_system, ou_perspective):
@@ -993,7 +1006,7 @@ def main():
         logger.error("No person affiliations are specified. "
                      "This is most likely not what you want")
         return
-    
+
     fs = make_fs()
     if dryrun:
         fs.db.commit = fs.db.rollback

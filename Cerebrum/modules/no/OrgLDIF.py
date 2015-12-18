@@ -476,6 +476,10 @@ class norEduLDIFMixin(OrgLDIF):
                 (v[1] for s in self.person_authn_selection.itervalues()
                  for v in s))
 
+            if not source_systems or not contact_types:
+                # No authn methods to cache
+                return self._person_authn_methods
+
             # Cache contact info
             count = 0
             for row in entity.list_contact_info(

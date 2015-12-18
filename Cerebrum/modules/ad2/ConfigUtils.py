@@ -204,11 +204,12 @@ def _prepare_constants(input, const_class):
     @type input: Cerebrum constant or sequence thereof or None
     @param input: The constants that should be used.
 
-    @type const_class: CerebrumCode class or sequence thereof
+    @type const_class: A class or sequence thereof
     @param const_class:
         The class that the given constant(s) must be instances of to be valid.
         If a sequence is given, the constants must be an instance of one of the
-        classes.
+        classes. Could for instance be a CerebrumCode class, or simply a
+        `basestring`.
 
     :rtype: sequence of Cerebrum constants
     :return:
@@ -784,9 +785,7 @@ class AccountCriterias(AttrCriterias):
             attribute-configuration.
         """
         self.primary_account = primary_account
-        if isinstance(affiliations, basestring):
-            affiliations = [affiliations]
-        self.affiliations = affiliations
+        self.affiliations = _prepare_constants(affiliations, basestring)
         super(AccountCriterias, self).__init__(*args, **kwargs)
 
     def check(self, ent):
