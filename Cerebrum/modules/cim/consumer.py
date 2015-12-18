@@ -31,7 +31,6 @@ from Cerebrum.modules.cim.datasource import CIMDataSource
 
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
-import pickle
 
 
 class Listener(evhandlers.EventConsumer):
