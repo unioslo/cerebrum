@@ -138,8 +138,7 @@ class Listener(evhandlers.EventConsumer):
         if not self.datasource.is_eligible(pe.entity_id):
             return UnrelatedEvent
 
-        if not self.update_user(key, event, pe.entity_id):
-            raise EventExecutionException
+        elf.update_user(key, event, pe.entity_id)
 
     @event_map(
         'ac_type:add',
@@ -177,14 +176,10 @@ class Listener(evhandlers.EventConsumer):
     def person_change(self, key, event):
         u""" Person change - update CIM. """
         pe = Factory.get('Person')(self.db)
-        ac = Factory.get('Account')(self.db)
-
         pe.find(event['subject_entity'])
         if not self.datasource.is_eligible(pe.entity_id):
             return UnrelatedEvent
-
-        if not self.update_user(key, event, pe.entity_id):
-            raise EventExecutionException
+        self.update_user(key, event, pe.entity_id)
 
     @event_map(
         'person:name_del',
@@ -194,7 +189,6 @@ class Listener(evhandlers.EventConsumer):
         u""" Person name change - update CIM. """
         pe = Factory.get('Person')(self.db)
         pe.find(event['subject_entity'])
-
         if not self.datasource.is_eligible(pe.entity_id):
             return UnrelatedEvent
         self.update_user(key, event, pe.entity_id)
