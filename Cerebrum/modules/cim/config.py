@@ -80,7 +80,7 @@ class CIMPhoneMappingConfig(Configuration):
 
     private_phone = ConfigDescriptor(
         String,
-        default=u"MOBILE",
+        default=u"PRIVPHONE",
         doc=u'Contact info constant for private phone')
 
 
