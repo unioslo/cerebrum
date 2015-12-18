@@ -138,7 +138,7 @@ class Listener(evhandlers.EventConsumer):
         if not self.datasource.is_eligible(pe.entity_id):
             return UnrelatedEvent
 
-        elf.update_user(key, event, pe.entity_id)
+        self.update_user(key, event, pe.entity_id)
 
     @event_map(
         'ac_type:add',
