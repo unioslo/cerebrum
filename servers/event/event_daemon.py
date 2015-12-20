@@ -48,6 +48,7 @@ def usage(i=0):
     print('-d --no-delayed-notifications    '
           'Disable the DelayedNotificationCollector')
     print('-h --help                        This help')
+    print('-m --mock                        Mock the integration')
     print('')
     print('HUP me ONCE (but not my children) if you want to shut me down'
           'with grace.')

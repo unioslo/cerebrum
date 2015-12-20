@@ -104,7 +104,7 @@ class ExchangeEventHandler(multiprocessing.Process):
         We also initialize the ExchangeClient here.. We can start faster
         when we do it in paralell.
         """
-        # fhl said I shoul rather use the PID or something truly unique here.
+        # fhl said I should rather use the PID or something truly unique here.
         # That sounds acceptable.
         gen_key = lambda: 'CB%s' % hex(os.getpid())[2:].upper()
         self.key = gen_key
@@ -114,36 +114,13 @@ class ExchangeEventHandler(multiprocessing.Process):
         # down, we need to re-try connecting. Also, the while depens on the run
         # state, so we will shut down if we are signaled to do so.
         self.ec = None
-
-        if self.mock:
-            self.logger.info('Running in mock-mode')
-            from Cerebrum.modules.exchange.v2013.ExchangeClient import (
-                ClientMock as ExchangeClient, )
-        else:
-            from Cerebrum.modules.exchange.v2013.ExchangeClient import (
-                ExchangeClient, )
         self.logger.debug("EventHandler post fork")
-
         i = 0
         while self.run_state.value:
             i = i + 1
             self.logger.debug("Trying to connect to springboard (%d)", i)
             try:
-                self.ec = ExchangeClient(
-                    auth_user=self.config['auth_user'],
-                    domain_admin=self.config['domain_admin'],
-                    ex_domain_admin=self.config['ex_domain_admin'],
-                    management_server=self.config['management_server'],
-                    exchange_commands=self.config.get('exchange_commands'),
-                    session_key=gen_key(),
-                    logger=self.logger,
-                    host=self.config['server'],
-                    port=self.config['port'],
-                    ca=self.config.get('ca'),
-                    client_key=self.config.get('client_key'),
-                    client_cert=self.config.get('client_cert'),
-                    check_name=self.config.get('check_name', True),
-                    encrypted=self.config['encrypted'])
+                self.ec = self._get_exchange_client()
             except URLError:
                 # Here, we handle the rare circumstance that the springboard is
                 # down when we connect to it. We log an error so someone can
@@ -153,11 +130,9 @@ class ExchangeEventHandler(multiprocessing.Process):
                 # If we shut down, we don't want to wait X minutes :)
                 if self.run_state.value:
                     time.sleep(3*60)
-            except Exception, e:
-                self.logger.exception("ExchangeClient failed setup: %s" % e)
-                # If we shut down, we don't want to wait X minutes :)
-                if self.run_state.value:
-                    time.sleep(3*60)
+            except Exception:
+                self.logger.exception("ExchangeClient failed setup")
+                raise
             else:
                 break
         self.logger.debug("Connected to springboard")
@@ -182,6 +157,35 @@ class ExchangeEventHandler(multiprocessing.Process):
         # Initialise the Utils. This contains functions to pull data from
         # Cerebrum
         self.ut = CerebrumUtils()
+
+    def _get_exchange_client(self):
+        """Get an instantiated Exchange Client to use for communicating
+
+        :rtype Cerebrum.modules.exchange.v2013.ExchangeClient.ExchangeClient
+
+        """
+        if self.mock:
+            self.logger.info('Running in mock-mode')
+            from Cerebrum.modules.exchange.v2013.ExchangeClient import (
+                ClientMock as excclass, )
+        else:
+            from Cerebrum.modules.exchange.v2013.ExchangeClient import (
+                ExchangeClient as excclass, )
+        return excclass(
+                    auth_user=self.config['auth_user'],
+                    domain_admin=self.config['domain_admin'],
+                    ex_domain_admin=self.config['ex_domain_admin'],
+                    management_server=self.config['management_server'],
+                    exchange_commands=self.config.get('exchange_commands'),
+                    session_key=gen_key(),
+                    logger=self.logger,
+                    host=self.config['server'],
+                    port=self.config['port'],
+                    ca=self.config.get('ca'),
+                    client_key=self.config.get('client_key'),
+                    client_cert=self.config.get('client_cert'),
+                    check_name=self.config.get('check_name', True),
+                    encrypted=self.config['encrypted'])
 
     def run(self):
         """Main event-multiprocessing loop.

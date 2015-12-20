@@ -53,39 +53,20 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
     # Event to method lookup table. Populated by decorators.
     _lut_type2meth = {}
 
-    def _post_fork_init(self):
-        """Post-fork init method.
+    def _get_exchange_client(self):
+        """Get an instantiated Exchange Client to use for communicating
 
-        We need to initialize the database-connection after we fork,
-        or else we will get random errors since all the threads share
-        the same sockets.. This is somewhat documented here:
-        http://www.postgresql.org/docs/current/static/libpq-connect.html \
-                #LIBPQ-CONNECT
+        :rtype Cerebrum.modules.exchange.v2013.ExchangeClient.ExchangeClient
 
-        We also initialize the ExchangeClient here.. We can start faster
-        when we do it in paralell.
         """
-        # fhl said I shoul rather use the PID or something truly unique here.
-        # That sounds acceptable.
-        gen_key = lambda: 'CB%s' % hex(os.getpid())[2:].upper()
-        self.key = gen_key
-
         if self.mock:
             self.logger.info('Running in mock-mode')
             from Cerebrum.modules.no.hia.ExchangeClient import (
-                ClientMock as UiAExchangeClient, )
+                ClientMock as excclass, )
         else:
             from Cerebrum.modules.no.hia.ExchangeClient import (
-                UiAExchangeClient, )
-
-        # Try to connect to Exchange.
-        # We do this in a loop, since if we connect while the springboard is
-        # down, we need to re-try connecting. Also, the while depens on the run
-        # state, so we will shut down if we are signaled to do so.
-        self.ec = None
-        while self.run_state.value:
-            try:
-                self.ec = UiAExchangeClient(
+                UiAExchangeClient as excclass, )
+        return excclass(
                     auth_user=self.config['auth_user'],
                     domain_admin=self.config['domain_admin'],
                     ex_domain_admin=self.config['ex_domain_admin'],
@@ -100,43 +81,6 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                     client_cert=self.config.get('client_cert'),
                     check_name=self.config.get('check_name', True),
                     encrypted=self.config['encrypted'])
-            except URLError:
-                # Here, we handle the rare circumstance that the springboard is
-                # down when we connect to it. We log an error so someone can
-                # act upon this if it is appropriate.
-                self.logger.error(
-                    "Can't connect to springboard! Please notify postmaster!")
-                # If we shut down, we don't want to wait X minutes :)
-                if self.run_state.value:
-                    time.sleep(3*60)
-            except Exception, e:
-                self.logger.exception("ExchangeClient failed setup: %s" % e)
-                # If we shut down, we don't want to wait X minutes :)
-                if self.run_state.value:
-                    time.sleep(3*60)
-            else:
-                break
-
-        # Initialize the Database and Constants object
-        self.db = Factory.get('Database')(client_encoding='UTF-8')
-        self.co = Factory.get('Constants')(self.db)
-
-        # Spreads to use!
-        self.mb_spread = self.co.Spread(self.config['mailbox_spread'])
-        self.group_spread = self.co.Spread(self.config['group_spread'])
-        self.ad_spread = self.co.Spread(self.config['ad_spread'])
-
-        # Group lookup patterns
-        self.group_name_translation = self.config['group_name_translation']
-        # Group defining that rendzone users should be shown in address book
-        self.randzone_unreserve_group = self.config['randzone_unreserve_group']
-
-        # Throw away our implicit transaction after fetching spreads
-        self.db.rollback()
-
-        # Initialise the Utils. This contains functions to pull data from
-        # Cerebrum
-        self.ut = CerebrumUtils()
 
     # We register spread:add as the event which should trigger this function
     @EventDecorator.RegisterHandler('spread:add')
