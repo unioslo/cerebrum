@@ -132,7 +132,8 @@ class ExchangeEventHandler(multiprocessing.Process):
                     time.sleep(3*60)
             except Exception:
                 self.logger.exception("ExchangeClient failed setup")
-                raise
+                if self.run_state.value:
+                    time.sleep(3*60)
             else:
                 break
         self.logger.debug("Connected to springboard")
