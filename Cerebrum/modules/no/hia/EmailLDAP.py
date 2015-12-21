@@ -26,6 +26,10 @@ import re
 class EmailLDAPUiAMixin(EmailLDAP):
     """Methods specific for UiA."""
 
+    def __init__(self, db):
+        super(EmailLDAPUiAMixin, self).__init__(db)
+        self.target_hosts_cache = {}
+
     def get_target_info(self, row):
         """Return additional EmailLDAP-entry derived from L{row}.
 
@@ -48,15 +52,19 @@ class EmailLDAPUiAMixin(EmailLDAP):
             server_id = row["server_id"]
             if server_id is None:
                 return sdict
-            host = Factory.get("Host")(self._db)
-            try:
-                host.find(server_id)
-                # XXX Postmaster said this was sufficient for now
-                if re.search('test', host.name):
-                    sdict["commandHost"] = host.name + ".uio.no"
-                else:
-                    sdict["commandHost"] = host.name + ".uia.no"
-            except Errors.NotFoundError:
-                pass
+            if server_id in self.target_hosts_cache:
+                sdict['commandHost'] = self.target_hosts_cache[server_id]
+            else:
+                host = Factory.get("Host")(self._db)
+                try:
+                    host.find(server_id)
+                    # XXX Postmaster said this was sufficient for now
+                    if re.search('test', host.name):
+                        sdict['commandHost'] = host.name + '.uio.no'
+                    else:
+                        sdict['commandHost'] = host.name + '.uia.no'
+                    self.target_hosts_cache[server_id] = sdict['commandHost']
+                except Errors.NotFoundError:
+                    pass
 
         return sdict
