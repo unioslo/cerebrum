@@ -72,7 +72,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                     ex_domain_admin=self.config['ex_domain_admin'],
                     management_server=self.config['management_server'],
                     exchange_server=self.config['exchange_server'],
-                    session_key=gen_key(),
+                    session_key=self._gen_key(),
                     logger=self.logger,
                     host=self.config['server'],
                     port=self.config['port'],
