@@ -71,114 +71,76 @@ class UiAExchangeClient(ExchangeClient):
                                                 **kwargs)
         self.logger.debug("UiAExchangeClient super returned")
 
-    # The pre-execution code is run when a command is run. This is what it does
-    # in a nutshell:
-    # 1. Define a credential for the communication between the springboard and
-    #    the management server.
-    # 2. Collect & connect to a previous PSSession, if this client has created
-    #    one.
-    # 3. If there is not an existing PSSession, create a new one
-    # 3.1. Import the Active-Directory module
-    # 3.2. Define credentials on the management server
-    # 3.3. Initialize the Exchange module that gives us
-    #      management-opportunities
-    _pre_execution_code = u"""
-        $pass = ConvertTo-SecureString -Force -AsPlainText %(ex_pasw)s;
-        $cred = New-Object System.Management.Automation.PSCredential( `
-        %(ex_domain_user)s, $pass);
+    def _get_pre_execution_code(self):
+        """Return Powershell commands that should be run before a command.
 
-        $sessions = Get-PSSession -ComputerName %(management_server)s `
-        -Credential $cred -Name %(session_key)s 2> $null;
+        This is a override, as UiA has a bit different setup than UiO. Mostly,
+        it does the same as its superclass, except from 1) making use of a
+        session configuration on the AD side, and 2) specifying an Exchange
+        server to talk with instead of using a custom Powershell module, written
+        for Cerebrum to talk with Exchange.
 
-        if ( $sessions ) {
-            $ses = $sessions[0];
-            Connect-PSSession -Session $ses 2> $null > $null;
-        }
+        """
+        return u"""
+            $pass = ConvertTo-SecureString -Force -AsPlainText %(ex_pasw)s;
+            $cred = New-Object System.Management.Automation.PSCredential( `
+            %(ex_domain_user)s, $pass);
 
-        if (($? -and ! $ses) -or ! $?) {
-            $ses = New-PSSession -ComputerName %(management_server)s `
-            -Credential $cred -Name %(session_key)s
-            -ConfigurationName Cerebrum;
+            $sessions = Get-PSSession -ComputerName %(management_server)s `
+            -Credential $cred -Name %(session_key)s 2> $null;
 
-            Import-Module ActiveDirectory 2> $null > $null;
+            if ( $sessions ) {
+                $ses = $sessions[0];
+                Connect-PSSession -Session $ses 2> $null > $null;
+            }
 
-            Invoke-Command { . RemoteExchange.ps1 } -Session $ses;
+            if (($? -and ! $ses) -or ! $?) {
+                $ses = New-PSSession -ComputerName %(management_server)s `
+                -Credential $cred -Name %(session_key)s
+                -ConfigurationName Cerebrum;
 
-            Invoke-Command { $pass = ConvertTo-SecureString -Force `
-            -AsPlainText %(ex_pasw)s } -Session $ses;
+                Import-Module ActiveDirectory 2> $null > $null;
 
-            Invoke-Command { $cred = New-Object `
-            System.Management.Automation.PSCredential(%(ex_user)s, $pass) } `
-            -Session $ses;
+                Invoke-Command { . RemoteExchange.ps1 } -Session $ses;
 
-            Invoke-Command { $ad_pass = ConvertTo-SecureString -Force `
-            -AsPlainText %(ad_pasw)s } -Session $ses;
+                Invoke-Command { $pass = ConvertTo-SecureString -Force `
+                -AsPlainText %(ex_pasw)s } -Session $ses;
 
-            Invoke-Command { $ad_cred = New-Object `
-            System.Management.Automation.PSCredential(`
-            %(ad_domain_user)s, $ad_pass) } -Session $ses;
+                Invoke-Command { $cred = New-Object `
+                System.Management.Automation.PSCredential(%(ex_user)s, $pass) } `
+                -Session $ses;
 
-            Invoke-Command { Import-Module ActiveDirectory } -Session $ses;
+                Invoke-Command { $ad_pass = ConvertTo-SecureString -Force `
+                -AsPlainText %(ad_pasw)s } -Session $ses;
 
-            Invoke-Command { function get-credential () { return $cred;} } `
-            -Session $ses;
+                Invoke-Command { $ad_cred = New-Object `
+                System.Management.Automation.PSCredential(`
+                %(ad_domain_user)s, $ad_pass) } -Session $ses;
 
-            Invoke-Command { Connect-ExchangeServer `
-            -ServerFqdn %(exchange_server)s -UserName %(ex_user)s } `
-            -Session $ses;
-        }
-        write-output EOB;"""
+                Invoke-Command { Import-Module ActiveDirectory } -Session $ses;
 
-    # After a command has run, we run the post execution code. We must
-    # disconnect from the PSSession, in order to be able to resume it later
-    _post_execution_code = u"""; Disconnect-PSSession $ses 2> $null > $null;"""
+                Invoke-Command { function get-credential () { return $cred;} } `
+                -Session $ses;
 
-    # As with the post execution code, we want to clean up after us, when
-    # the client terminates, hence the termination code
-    _termination_code = (
-        u"""; Remove-PSSession -Session $ses 2> $null > $null;""")
-
-    def execute(self, *args, **kwargs):
-        """Override the execute command with all the startup and teardown
-        commands for Exchange.
-
-        :type kill_session: bool
-        :param kill_session: If True, run Remove-PSSession instead of
-            Disconnect-PSSession.
-
-        :rtype: tuple
-        :return: A two element tuple: (ShellId, CommandId). Could later be used
-            to get the result of the command."""
-        setup = self._pre_execution_code % {
-            'session_key': self.session_key,
-            'ad_domain_user': self.escape_to_string(
-                '%s\\%s' % (self.ad_domain, self.ad_user)),
-            'ad_user': self.escape_to_string(self.ad_user),
-            'ad_pasw': self.escape_to_string(self.ad_user_password),
-            'ex_domain_user': self.escape_to_string(
-                '%s\\%s' % (self.ex_domain, self.ex_user)),
-            'ex_user': self.escape_to_string(self.ex_user),
-            'ex_pasw': self.escape_to_string(self.ex_user_password),
-            'management_server': self.escape_to_string(
-                self.management_server),
-            'exchange_server': self.escape_to_string(
-                self.exchange_server)}
-        # TODO: Fix this on a lower level
-        if kwargs.get('kill_session', False):
-            args = (args[0] + self._termination_code, )
-        else:
-            args = (args[0] + self._post_execution_code, )
-
-        try:
-            return super(UiAExchangeClient, self).execute(
-                setup, *args, **kwargs)
-        except WinRMServerException, e:
-            raise ExchangeException(e)
-        except URLError, e:
-            # We can expect that the servers go up-and-down a bit.
-            # We need to tell the caller about this. For example, events
-            # should be queued for later attempts.
-            raise ServerUnavailableException(e)
+                Invoke-Command { Connect-ExchangeServer `
+                -ServerFqdn %(exchange_server)s -UserName %(ex_user)s } `
+                -Session $ses;
+            }
+            write-output EOB;""" % {
+                'session_key': self.session_key,
+                'ad_domain_user': self.escape_to_string(
+                    '%s\\%s' % (self.ad_domain, self.ad_user)),
+                'ad_user': self.escape_to_string(self.ad_user),
+                'ad_pasw': self.escape_to_string(self.ad_user_password),
+                'ex_domain_user': self.escape_to_string(
+                    '%s\\%s' % (self.ex_domain, self.ex_user)),
+                'ex_user': self.escape_to_string(self.ex_user),
+                'ex_pasw': self.escape_to_string(self.ex_user_password),
+                'management_server': self.escape_to_string(
+                    self.management_server),
+                'exchange_server': self.escape_to_string(
+                    self.exchange_server)
+                }
 
 #    # TODO THIS IS ONLY FOR TESTING THE DELAYED NOTIFICATION COLLECTOR
 #    def run(self, *args, **kwargs):

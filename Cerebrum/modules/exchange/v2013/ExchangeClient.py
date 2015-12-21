@@ -199,66 +199,83 @@ class ExchangeClient(PowershellClient):
         # we can't redirect.
         write-output EOB;"""
 
-    # The pre-execution code is run when a command is run. This is what it does
-    # in a nutshell:
-    # 1. Define a credential for the communication between the springboard and
-    #    the management server.
-    # 2. Collect & connect to a previous PSSession, if this client has created
-    #    one.
-    # 3. If there is not an existing PSSession, create a new one
-    # 3.1. Import the Active-Directory module
-    # 3.2. Define credentials on the management server
-    # 3.3. Initialize the Exchange module that gives us
-    #      management-opportunities
-    _pre_execution_code = u"""
-        $pass = ConvertTo-SecureString -Force -AsPlainText %(ex_pasw)s;
-        $cred = New-Object System.Management.Automation.PSCredential( `
-        %(ex_domain_user)s, $pass);
+    def _get_pre_execution_code(self):
+        """Return Powershell commands that should be run before a command.
 
-        $sessions = Get-PSSession -ComputerName %(management_server)s `
-        -Credential $cred -Name %(session_key)s 2> $null;
+        This is what it does, in a nutshell:
 
-        if ( $sessions ) {
-            $ses = $sessions[0];
-            Connect-PSSession -Session $ses 2> $null > $null;
-        }
+        1. Define a credential for the communication between the springboard and
+           the management server.
+        2. Collect & connect to a previous PSSession, if this client has created
+           one.
+        3. If there is not an existing PSSession, create a new one
+        3.1. Import the Active-Directory module
+        3.2. Define credentials on the management server
+        3.3. Initialize the Exchange module that gives us
+             management-opportunities
 
-        if (($? -and ! $ses) -or ! $?) {
-            $ses = New-PSSession -ComputerName %(management_server)s `
-            -Credential $cred -Name %(session_key)s;
+        """
+        return u"""
+            $pass = ConvertTo-SecureString -Force -AsPlainText %(ex_pasw)s;
+            $cred = New-Object System.Management.Automation.PSCredential( `
+            %(ex_domain_user)s, $pass);
 
-            Import-Module ActiveDirectory 2> $null > $null;
+            $sessions = Get-PSSession -ComputerName %(management_server)s `
+            -Credential $cred -Name %(session_key)s 2> $null;
 
-            Invoke-Command { . RemoteExchange.ps1 } -Session $ses;
+            if ( $sessions ) {
+                $ses = $sessions[0];
+                Connect-PSSession -Session $ses 2> $null > $null;
+            }
 
-            Invoke-Command { $pass = ConvertTo-SecureString -Force `
-            -AsPlainText %(ex_pasw)s } -Session $ses;
+            if (($? -and ! $ses) -or ! $?) {
+                $ses = New-PSSession -ComputerName %(management_server)s `
+                -Credential $cred -Name %(session_key)s;
 
-            Invoke-Command { $cred = New-Object `
-            System.Management.Automation.PSCredential(%(ex_user)s, $pass) } `
-            -Session $ses;
+                Import-Module ActiveDirectory 2> $null > $null;
 
-            Invoke-Command { $ad_pass = ConvertTo-SecureString -Force `
-            -AsPlainText %(ad_pasw)s } -Session $ses;
+                Invoke-Command { . RemoteExchange.ps1 } -Session $ses;
 
-            Invoke-Command { $ad_cred = New-Object `
-            System.Management.Automation.PSCredential(`
-            %(ad_domain_user)s, $ad_pass) } -Session $ses;
+                Invoke-Command { $pass = ConvertTo-SecureString -Force `
+                -AsPlainText %(ex_pasw)s } -Session $ses;
 
-            Invoke-Command { Import-Module ActiveDirectory } -Session $ses;
+                Invoke-Command { $cred = New-Object `
+                System.Management.Automation.PSCredential(%(ex_user)s, $pass) } `
+                -Session $ses;
 
-            Invoke-Command { function get-credential () { return $cred;} } `
-            -Session $ses;
+                Invoke-Command { $ad_pass = ConvertTo-SecureString -Force `
+                -AsPlainText %(ad_pasw)s } -Session $ses;
 
-            Invoke-Command { Connect-ExchangeServer `
-            -ServerFqdn %(management_server)s -UserName %(ex_user)s } `
-            -Session $ses;
+                Invoke-Command { $ad_cred = New-Object `
+                System.Management.Automation.PSCredential(`
+                %(ad_domain_user)s, $ad_pass) } -Session $ses;
 
-            Invoke-Command { Import-Module C:\Modules\CerebrumExchange }
-            -Session $ses;
+                Invoke-Command { Import-Module ActiveDirectory } -Session $ses;
 
-        }
-        write-output EOB;"""
+                Invoke-Command { function get-credential () { return $cred;} } `
+                -Session $ses;
+
+                Invoke-Command { Connect-ExchangeServer `
+                -ServerFqdn %(management_server)s -UserName %(ex_user)s } `
+                -Session $ses;
+
+                Invoke-Command { Import-Module C:\Modules\CerebrumExchange }
+                -Session $ses;
+
+            }
+            write-output EOB;""" % {
+                'session_key': self.session_key,
+                'ad_domain_user': self.escape_to_string(
+                    '%s\\%s' % (self.ad_domain, self.ad_user)),
+                'ad_user': self.escape_to_string(self.ad_user),
+                'ad_pasw': self.escape_to_string(self.ad_user_password),
+                'ex_domain_user': self.escape_to_string(
+                    '%s\\%s' % (self.ex_domain, self.ex_user)),
+                'ex_user': self.escape_to_string(self.ex_user),
+                'ex_pasw': self.escape_to_string(self.ex_user_password),
+                'management_server': self.escape_to_string(
+                    self.management_server),
+                }
 
     # After a command has run, we run the post execution code. We must
     # disconnect from the PSSession, in order to be able to resume it later
@@ -280,18 +297,8 @@ class ExchangeClient(PowershellClient):
         :rtype: tuple
         :return: A two element tuple: (ShellId, CommandId). Could later be used
             to get the result of the command."""
-        setup = self._pre_execution_code % {
-            'session_key': self.session_key,
-            'ad_domain_user': self.escape_to_string(
-                '%s\\%s' % (self.ad_domain, self.ad_user)),
-            'ad_user': self.escape_to_string(self.ad_user),
-            'ad_pasw': self.escape_to_string(self.ad_user_password),
-            'ex_domain_user': self.escape_to_string(
-                '%s\\%s' % (self.ex_domain, self.ex_user)),
-            'ex_user': self.escape_to_string(self.ex_user),
-            'ex_pasw': self.escape_to_string(self.ex_user_password),
-            'management_server': self.escape_to_string(
-                self.management_server)}
+        setup = self._get_pre_execution_code()
+
         # TODO: Fix this on a lower level
         if 'kill_session' in kwargs and kwargs['kill_session']:
             args = (args[0] + self._termination_code, )
