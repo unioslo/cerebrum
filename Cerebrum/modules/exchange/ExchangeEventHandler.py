@@ -90,7 +90,7 @@ class ExchangeEventHandler(multiprocessing.Process):
         self.mock = mock
 
         super(ExchangeEventHandler, self).__init__()
-        self.logger.debug("Hello from event handler class: %s" % self.__class__)
+        self.logger.debug2("Hello from event handler class: %s" % self.__class__)
 
     def _post_fork_init(self):
         r"""Post-fork init method.
@@ -109,11 +109,11 @@ class ExchangeEventHandler(multiprocessing.Process):
         # down, we need to re-try connecting. Also, the while depens on the run
         # state, so we will shut down if we are signaled to do so.
         self.ec = None
-        self.logger.debug("EventHandler post fork")
+        self.logger.debug2("EventHandler post fork")
         i = 0
         while self.run_state.value:
             i = i + 1
-            self.logger.debug("Trying to connect to springboard (%d)" % i)
+            self.logger.debug2("Trying to connect to springboard (%d)" % i)
             try:
                 self.ec = self._get_exchange_client()
             except URLError:
@@ -236,6 +236,8 @@ class ExchangeEventHandler(multiprocessing.Process):
                 self.handle_event(ev)
                 # When the command(s) have run sucessfully, we remove the
                 # the triggering event.
+                self.logger.debug2("Event completely processed: %s",
+                                   ev['event_id'])
                 try:
                     self.db.remove_event(ev['event_id'])
                 except Errors.NotFoundError:
