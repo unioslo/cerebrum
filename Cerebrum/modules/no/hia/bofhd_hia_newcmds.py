@@ -1081,7 +1081,7 @@ class BofhdExtension(BofhdCommonMethods,
                        self.const.bofh_delete_user,
                        account.entity_id, None,
                        state_data=None)
-        return "User %s queued for deletion at 20:00" % account.account_name
+        return "User %s queued for deletion at 17:15" % account.account_name
 
     # user_create_prompt_fun_helper
     #
