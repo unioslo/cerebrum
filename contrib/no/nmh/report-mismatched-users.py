@@ -59,7 +59,7 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import memoize
+from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.Utils import sendmail
 from Cerebrum import Errors
 
