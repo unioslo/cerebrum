@@ -21,9 +21,11 @@ import datetime
 import mx.DateTime
 
 import cerebrum_path
-import cereconf
 
 from Cerebrum.Utils import argument_to_sql
+
+
+del cerebrum_path
 
 
 class PersonEmploymentMixin(object):
@@ -84,14 +86,16 @@ class PersonEmploymentMixin(object):
         binds = {"person_id": self.entity_id,
                  "ou_id": int(ou_id),
                  "description": description,
-                 "source_system": int(self.const.AuthoritativeSystem(source_system)),
+                 "source_system": int(
+                     self.const.AuthoritativeSystem(source_system)),
                  "employment_code": str(employment_code),
                  "percentage": float(percentage),
                  "start_date": self._human2mxDateTime(start_date),
                  "end_date": self._human2mxDateTime(end_date),
                  "main_employment": main_employment and "T" or "F"}
 
-        existing = list(self.search_employment(self.entity_id, ou_id, description,
+        existing = list(self.search_employment(self.entity_id,
+                                               ou_id, description,
                                                source_system))
         if not existing:
             self.execute("""
@@ -183,7 +187,8 @@ class PersonEmploymentMixin(object):
         if ou_id is not None:
             where.append(argument_to_sql(ou_id, "ou_id", binds, int))
         if description is not None:
-            where.append(argument_to_sql(description, "description", binds, str))
+            where.append(argument_to_sql(description, "description",
+                                         binds, str))
         if source_system is not None:
             where.append(argument_to_sql(source_system, "source_system",
                                          binds, int))
@@ -197,7 +202,8 @@ class PersonEmploymentMixin(object):
 
         query = """
         SELECT person_id, ou_id, description, source_system,
-               employment_code, main_employment, percentage, start_date, end_date
+               employment_code, main_employment, percentage, start_date,
+               end_date
         FROM %s
         WHERE %s
         """ % (self.table, " AND ".join(where))
