@@ -25,6 +25,7 @@ import cerebrum_path
 from Cerebrum.Utils import argument_to_sql
 
 
+__version__ = '1.0'  # Should match design/mod_employment.sql
 del cerebrum_path
 
 

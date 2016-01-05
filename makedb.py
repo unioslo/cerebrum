@@ -316,6 +316,7 @@ def check_schema_versions(db, strict=False):
         'posixuser': 'Cerebrum.modules.PosixUser',
         'stedkode': 'Cerebrum.modules.no.Stedkode',
         'consent': 'Cerebrum.modules.consent.Consent',
+        'employment': 'Cerebrum.modules.no.PersonEmployment',
     }
     meta = Metainfo.Metainfo(db)
     for name, value in meta.list():
