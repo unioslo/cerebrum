@@ -38,7 +38,7 @@ class PersonEmploymentMixin(object):
     (i.e. it won't be very useful on its own).
     """
 
-    table = "[:table schema=cerebrum name=person_employment]"
+    __table = "[:table schema=cerebrum name=person_employment]"
 
     def write_db(self):
         super(PersonEmploymentMixin, self).write_db()
@@ -47,7 +47,7 @@ class PersonEmploymentMixin(object):
         self.execute("""
         DELETE FROM %s
         WHERE person_id = :person_id
-        """ % self.table, {"person_id": self.entity_id})
+        """ % self.__table, {"person_id": self.entity_id})
         super(PersonEmploymentMixin, self).delete()
 
     def _human2mxDateTime(self, something):
@@ -104,7 +104,7 @@ class PersonEmploymentMixin(object):
             (:person_id, :ou_id, :description, :source_system,
              :employment_code, :main_employment, :percentage,
              :start_date, :end_date)
-             """ % self.table, binds)
+             """ % self.__table, binds)
             return
 
         # An entry exists. There has to be exactly 1 (since the fields specified
@@ -129,7 +129,7 @@ class PersonEmploymentMixin(object):
                 ou_id = :ou_id AND
                 description = :description AND
                 source_system = :source_system
-            """ % self.table, binds)
+            """ % self.__table, binds)
 
     def delete_employment(self, ou_id, description, source_system):
         """Remove a specific entry from person_employment.
@@ -148,7 +148,7 @@ class PersonEmploymentMixin(object):
               ou_id = :ou_id AND
               description = :description AND
               source_system = :source_system
-        """ % self.table, binds)
+        """ % self.__table, binds)
 
     def search_employment(self, person_id=None, ou_id=None, description=None,
                           source_system=None, employment_code=None,
@@ -207,7 +207,7 @@ class PersonEmploymentMixin(object):
                end_date
         FROM %s
         WHERE %s
-        """ % (self.table, " AND ".join(where))
+        """ % (self.__table, " AND ".join(where))
 
         # This voodoo is necessary to hide how we represent booleans in the db.
         for row in self.query(query, binds, fetchall=False):
