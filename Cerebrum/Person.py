@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -20,6 +20,8 @@
 """
 
 """
+
+import collections
 
 import cereconf
 from Cerebrum.Entity import \
@@ -625,13 +627,156 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         FROM [:table schema=cerebrum name=person_affiliation_source] pas
         %s""" % where, fetchall=fetchall)
 
-    def add_affiliation(self, ou_id, affiliation, source, status):
+    def __get_affiliation_precedence_rule(self, source, afforrule, status=None):
+        """ Helper for aff calculation """
+        def search(rule, first, *rest):
+            if not isinstance(rule, dict):
+                # We have found our goal
+                return rule
+            if not rest:
+                if first in rule:
+                    return rule[first]
+                return rule.get('*')
+            if first in rule:
+                res = search(rule[first], *rest)
+                if res is not None:
+                    return res
+            if '*' in rule:
+                return search(rule['*'], *rest)
+            return None
+
+        source = str(self.const.AuthoritativeSystem(source))
+        if not isinstance(afforrule, basestring):
+            afforrule = str(self.const.PersonAffiliation(afforrule))
+        args = [cereconf.PERSON_AFFILIATION_PRECEDENCE_RULE, source, afforrule]
+        if status is not None:
+            if not isinstance(status, basestring):
+                status = self.const.PersonAffStatus(status).str
+            args.append(status)
+        return search(*args)
+
+    def __calculate_affiliation_precedence(self, affiliation, source,
+                                           status, precedence, old):
+        """ Helper for add_affiliation """
+        if precedence is None:
+            if old:
+                return old
+            precedence = self.__get_affiliation_precedence_rule(source,
+                                                                affiliation,
+                                                                status)
+            return self.__calculate_affiliation_precedence(affiliation,
+                                                           source, status,
+                                                           precedence, old)
+        if isinstance(precedence, int):
+            return precedence
+        if isinstance(precedence, basestring):
+            precedence = self.__get_affiliation_precedence_rule(source,
+                                                                precedence)
+            return self.__calculate_affiliation_precedence(affiliation,
+                                                           source, status,
+                                                           precedence, old)
+        else:
+            # Assume some sequence
+            assert (isinstance(precedence, collections.Sequence)
+                    and len(precedence) in (2, 3))
+            if isinstance(precedence[0], basestring):
+                precedence = self.__get_affiliation_precedence_rule(source,
+                                                                    *precedence)
+                return self.__calculate_affiliation_precedence(affiliation,
+                                                               source, status,
+                                                               precedence, old)
+            # We should now have a range, (min, max)
+            mn, mx = precedence[:2]  # special case of single value
+            if mn == mx:
+                return mn
+            if old:
+                # Old is in correct range, change nothing
+                if mn <= old < mx:
+                    return old
+
+                # If there is an override range, use old if inside
+                override = cereconf.PERSON_AFFILIATION_PRECEDENCE_RULE.get(
+                    'core:override')
+                if override and override[0] <= old < override[1]:
+                    return old
+
+            # No old, find new spot
+            all_precs = set((x['precedence'] for x in
+                             self.get_affiliations(include_deleted=True)))
+            x = max([mn] + [x for x in all_precs if mn <= x < mx])
+            step = 5
+            if len(precedence) > 2:
+                step = precedence[2]
+            while x in all_precs:
+                x += step
+            return x
+
+    def __clear_precedence(self, precedence, all_precs):
+        """ Clear precedences. """
+        row = all_precs[precedence]
+        if precedence + 1 in all_precs:
+            self.__clear_precedence(precedence + 1, all_precs)
+
+        keys = "person_id ou_id affiliation source_system".split()
+        binds = dict((x for x in row.items() if x[0] in keys))
+        binds['precedence'] = precedence + 1
+        self.execute(
+            """
+            UPDATE [:table schema=cerebrum name=person_affiliation_source]
+            SET precedence = :precedence
+            WHERE person_id = :person_id AND
+                  ou_id = :ou_id AND
+                  affiliation = :affiliation AND
+                  source_system = :source_system""", binds)
+
+    def add_affiliation(self, ou_id, affiliation,
+                        source, status, precedence=None):
+        """Add or update affiliation.
+
+        :type ou_id: OU object or int
+        :param ou_id: Specifies an OU for this aff.
+
+        :type affiliation: PersonAffiliation code or int
+        :param affiliation: An affiliation code.
+
+        :type source: AuthoritativeSystem code or int
+        :param source: Source system
+
+        :type status: PersonAffStatus code or int
+        :param status: Affiliation status
+
+        :type precedence: int, sequence or NoneType
+        :param precedence:
+            Precedence is a number, and affiliations are sorted by preference
+            (lowest to highest).
+            :None:
+                The current precedence is kept, or a precedence is calculated
+                using cereconf.PERSON_AFFILIATION_PRECEDENCE_RULE (PAPR).
+            :int:
+                Updates the precedence to given number. If not available,
+                will lower precedence for colliding affiliations. (i.e.
+                having affs [a(1), b(2), c(3)], adding d(2) makes
+                [a(1), d(2), b(3), c(4)].
+            :string or sequence of strings:
+                Works as with None, but will look for string in PAPR:
+                * "foo" → PAPR[str(source)][precedence]
+                * ["foo", "bar"] →
+                  PAPR[str(source)][precedence[0]][precedence[1]]
+            If a matching precedence rule is not found in PAPR, a more general
+            rule will be selected.
+        """
+
+        all_prs = dict()
+        for row in self.list_affiliations(person_id=self.entity_id,
+                                          include_deleted=True):
+            all_prs[int(row['precedence'])] = row
         binds = {'ou_id': int(ou_id),
                  'affiliation': int(affiliation),
                  'source': int(source),
                  'status': int(status),
                  'p_id': self.entity_id,
                  }
+        updprec = ", precedence=:precedence"
         # If needed, add to table 'person_affiliation'.
         try:
             self.query_1("""
@@ -649,30 +794,43 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             self._db.log_change(self.entity_id,
                                 self.const.person_aff_add, None)
         try:
-            cur_status = int(self.query_1("""
-            SELECT status
+            cur_status, cur_precedence = map(int, self.query_1("""
+            SELECT status, precedence
             FROM [:table schema=cerebrum name=person_affiliation_source]
             WHERE
               person_id=:p_id AND
               ou_id=:ou_id AND
               affiliation=:affiliation AND
               source_system=:source""", binds))
+
+            new_prec = self.__calculate_affiliation_precedence(affiliation,
+                                                               source, status,
+                                                               precedence,
+                                                               cur_precedence)
+            binds['precedence'] = new_prec
+            if new_prec in all_prs and new_prec != cur_precedence:
+                self.__clear_precedence(new_prec, all_prs)
             self.execute("""
             UPDATE [:table schema=cerebrum name=person_affiliation_source]
-            SET status=:status, last_date=[:now], deleted_date=NULL
+            SET status=:status, last_date=[:now], deleted_date=NULL {}
             WHERE
               person_id=:p_id AND
               ou_id=:ou_id AND
               affiliation=:affiliation AND
-              source_system=:source""", binds)
-            if not cur_status == int(status):
+              source_system=:source""".format(updprec), binds)
+            if cur_status != int(status) or cur_precedence != new_prec:
                 self._db.log_change(self.entity_id,
                                     self.const.person_aff_src_mod, None)
         except Errors.NotFoundError:
+            pr = binds['precedence'] = self.__calculate_affiliation_precedence(
+                affiliation, source, status, precedence, None)
+            if pr in all_prs:
+                self.__clear_precedence(pr, all_prs)
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=person_affiliation_source]
-              (person_id, ou_id, affiliation, source_system, status)
-            VALUES (:p_id, :ou_id, :affiliation, :source, :status)""",
+              (person_id, ou_id, affiliation, source_system, status, precedence)
+            VALUES (:p_id, :ou_id, :affiliation, :source, :status, :precedence)
+            """,
                          binds)
             self._db.log_change(self.entity_id,
                                 self.const.person_aff_src_add, None)
