@@ -37,7 +37,7 @@ from Cerebrum.Utils import Factory, dyn_import
 import phonenumbers
 
 
-compitability_encoding = 'ISO-8859-1'
+compatibility_encoding = 'ISO-8859-1'
 
 
 # A tuple to hold the version number
@@ -326,10 +326,10 @@ class FSObject(object):
         t = time.localtime()[0:3]
         if t[1] <= 6:
             self.sem = 'V'
-            self.semester = u'VÅR'.encode(compitability_encoding)
+            self.semester = u'VÅR'.encode(compatibility_encoding)
         else:
             self.sem = 'H'
-            self.semester = u'HØST'.encode(compitability_encoding)
+            self.semester = u'HØST'.encode(compatibility_encoding)
         self.year = t[0]
         self.mndnr = t[1]
         self.dday = t[2]
@@ -379,16 +379,16 @@ class FSObject(object):
             current = u"(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % self.year
             if only_current or self.mndnr >= 3 or (self.mndnr == 2
                                                    and self.dday > 15):
-                return current.encode(compitability_encoding)
-            return u"(%s OR (r.terminkode = 'HØST' AND r.arstall=%d))\n" % (
-                current, self.year-1).encode(compitability_encoding)
+                return current.encode(compatibility_encoding)
+            return (u"(%s OR (r.terminkode = 'HØST' AND r.arstall=%d))\n" % (
+                current, self.year-1)).encode(compatibility_encoding)
         # Months July - December == Autumn semester
         current = u"(r.terminkode = 'HØST' AND r.arstall=%d)\n" % self.year
         if only_current or self.mndnr >= 10 or (self.mndnr == 9
                                                 and self.dday > 15):
-            return current.encode(compitability_encoding)
-        return u"(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" % (
-            current, self.year).encode(compitability_encoding)
+            return current.encode(compatibility_encoding)
+        return (u"(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" % (
+            current, self.year)).encode(compatibility_encoding)
 
     def _get_next_termin_aar(self):
         """henter neste semesters terminkode og årstal."""
@@ -1401,7 +1401,7 @@ class Undervisning(FSObject):
             EXISTS(SELECT 'x' FROM fs.arstermin tt
             WHERE tt.terminkode = :sem AND
                   t.sorteringsnokkel >= tt.sorteringsnokkel)))"""
-                             .encode(compitability_encoding),
+                             .encode(compatibility_encoding),
                              {'aar': year,
                               'aar2': year,  # db-driver bug work-around
                               'sem': sem})
@@ -1428,7 +1428,7 @@ class Undervisning(FSObject):
             EXISTS (SELECT 'x' FROM fs.arstermin tt
                     WHERE tt.terminkode = :semester AND
                           t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
-           ua.arstall > :aar)""".encode(compitability_encoding),
+           ua.arstall > :aar)""".encode(compatibility_encoding),
                              {'aar': start_aar,
                               'semester': start_semester})
 
@@ -1459,7 +1459,7 @@ class Undervisning(FSObject):
             EXISTS (SELECT 'x' FROM fs.arstermin tt
                     WHERE tt.terminkode = :termk AND
                     t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
-           ua.arstall > :aar)""".encode(compitability_encoding),
+           ua.arstall > :aar)""".encode(compatibility_encoding),
                              {"Instnr": Instnr,
                               "emnekode": emnekode,
                               "versjon": versjon,
@@ -1487,7 +1487,7 @@ class Undervisning(FSObject):
           ua.terminkode = t.terminkode AND
           (EXISTS (SELECT 'x' FROM fs.arstermin tt
                    WHERE t.sorteringsnokkel >= tt.sorteringsnokkel))
-          """.encode(compitability_encoding), {"undformkode": undformkode})
+          """.encode(compatibility_encoding), {"undformkode": undformkode})
 
     def list_studenter_underv_enhet(self, Instnr, emnekode,
                                     versjon, termk, aar, termnr):
@@ -1892,7 +1892,7 @@ class Alumni(FSObject):
                sps.studentstatkode = 'FULLFØRT'  AND
                sps.studierettstatkode IN ('AUTOMATISK', 'CANDMAG', 'DIVERSE',
                'OVERGANG', 'ORDOPPTAK')
-               """.encode(compitability_encoding)
+               """.encode(compatibility_encoding)
         return self.db.query(qry)
 
 
