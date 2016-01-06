@@ -208,20 +208,23 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                     db_prim['%s:%s' % (row['ou_id'], row['affiliation'])] = idx
             pop_affil = self.__affil_data
             for prim in pop_affil.keys():
-                idx = "%s:%d" % (prim, pop_affil[prim])
+                status, precedence = pop_affil[prim]
+                idx = "%s:%d" % (prim, status)
                 if idx in db_affil:
                     # This affiliation, including status, exists in the
                     # database already:
-                    #   - If deleted: ressurect
+                    #   - If deleted: resurrect
                     #   - If not deleted: Update last_date.
                     ou_id, affil, status = [int(x) for x in idx.split(":")]
-                    self.add_affiliation(ou_id, affil, source, status)
+                    self.add_affiliation(ou_id, affil, source,
+                                         status, precedence)
                     del db_affil[idx]
                 else:
                     # This may be a completely new affiliation, or just a
                     # change in status.
                     ou_id, affil, status = [int(x) for x in idx.split(":")]
-                    self.add_affiliation(ou_id, affil, source, status)
+                    self.add_affiliation(ou_id, affil, source,
+                                         status, precedence)
                     if is_new != 1:
                         is_new = False
                     if prim in db_prim:
@@ -544,7 +547,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         self._name_info[variant] = name
 
     def populate_affiliation(self, source_system, ou_id=None,
-                             affiliation=None, status=None):
+                             affiliation=None, status=None, precedence=None):
         if not hasattr(self, '_affil_source'):
             self._affil_source = source_system
             self.__affil_data = {}
@@ -554,7 +557,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         if ou_id is None:
             return
         idx = "%d:%d" % (ou_id, affiliation)
-        self.__affil_data[idx] = int(status)
+        self.__affil_data[idx] = int(status), precedence
 
     def get_affiliations(self, include_deleted=False):
         return self.list_affiliations(self.entity_id,
