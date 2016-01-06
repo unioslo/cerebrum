@@ -24,11 +24,12 @@ import sys
 import time
 
 import cerebrum_path
-import cereconf
 
 from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+
+del cerebrum_path
 
 
 def get_constants_by_type(co, class_type):
@@ -39,8 +40,9 @@ def get_constants_by_type(co, class_type):
             ret.append(c)
     return ret
 
+
 def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
-                                with_uio_ephorte, with_uio_voip):
+                with_uio_ephorte, with_uio_voip):
     old_id = old_person.entity_id
     new_id = new_person.entity_id
 
@@ -56,33 +58,34 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
     types = types.keys()
     for ss in source_systems:
         logger.debug("person_external_id: %s" % ss)
-        old_ids = {}
-        new_person.clear()      # Avoid "Attribute '_extid_source' is read-only."
+        new_person.clear()     # Avoid "Attribute '_extid_source' is read-only."
         new_person.find(new_id)
         new_person.affect_external_id(ss, *types)
-        old_person.clear()      
+        old_person.clear()
         old_person.find(old_id)
         old_person.affect_external_id(ss, *types)
         try:
             for id in old_person.get_external_id(ss):
-                new_person.populate_external_id(ss, id['id_type'], id['external_id'])
+                new_person.populate_external_id(ss, id['id_type'],
+                                                id['external_id'])
         except Errors.NotFoundError:
             continue  # Old person didn't have data, no point in continuing
         try:
             for id in new_person.get_external_id(ss):
-                new_person.populate_external_id(ss, id['id_type'], id['external_id'])
+                new_person.populate_external_id(ss, id['id_type'],
+                                                id['external_id'])
         except Errors.NotFoundError:
             pass
         old_person.write_db()   # Avoids unique external_id constraint violation
         new_person.write_db()
-            
+
     # person_name
     variants = []
     for c in old_person.list_person_name_codes():
         variants.append(int(c['code']))
     for ss in source_systems:
         logger.debug("person_name: %s" % ss)
-        new_person.clear()      
+        new_person.clear()
         new_person.find(new_id)
         new_person.affect_names(ss, *variants)
         for c in variants:
@@ -95,11 +98,11 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
             except Errors.NotFoundError:
                 pass
         new_person.write_db()
-    
+
     # entity_contact_info
     for ss in source_systems:
         logger.debug("entity_contact_info: %s" % ss)
-        new_person.clear()      
+        new_person.clear()
         new_person.find(new_id)
         for ci in old_person.get_contact_info(ss):
             new_person.populate_contact_info(
@@ -114,7 +117,7 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
     # entity_address
     for ss in source_systems:
         logger.debug("entity_address: %s" % ss)
-        new_person.clear()      
+        new_person.clear()
         new_person.find(new_id)
         try:
             for ea in old_person.get_entity_address(ss):
@@ -148,13 +151,13 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
             new_person.add_spread(s['spread'])
 
     # person_affiliation
-    has_affs = {}
     for ss in source_systems:
         logger.debug("person_affiliation: %s" % ss)
-        new_person.clear()      
+        new_person.clear()
         new_person.find(new_id)
         do_del = []
-        for aff in old_person.list_affiliations(old_person.entity_id, ss, include_deleted=True):
+        for aff in old_person.list_affiliations(old_person.entity_id, ss,
+                                                include_deleted=True):
             new_person.populate_affiliation(
                 aff['source_system'], aff['ou_id'], aff['affiliation'],
                 aff['status'], aff['precedence'])
@@ -173,7 +176,7 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
         new_person.write_db()
         for d in do_del:
             new_person.delete_affiliation(*d)
-    
+
     if with_uio_pq:
         join_uio_printerquotas(old_id, new_id)
 
@@ -203,7 +206,7 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
         account.clear()
         account.find(a['account_id'])
         account.set_account_type(a['ou_id'], a['affiliation'], a['priority'])
-        
+
     # group_member
     group = Factory.get('Group')(db)
     for g in group.search(member_id=old_person.entity_id,
@@ -220,7 +223,8 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
 
     if with_uio_voip:
         join_uio_voip_objects(old_id, new_id)
-        
+
+
 def join_ephorte_roles(old_id, new_id):
     # All ephorte roles belonging to old_person must be deleted.
     # Any roles that are manual (auto=F) should be given to new person
@@ -232,11 +236,11 @@ def join_ephorte_roles(old_id, new_id):
             row['role_type'], row['adm_enhet'], row['arkivdel'],
             row['journalenhet'], old_id)
         if row['auto_role'] == 'F':
-            ## TODO: we should check if a person has a role before
-            ## adding, so that we don't need the try: ... except:...
-            ## but that is a bit swinish the way Ephorte.py is
-            ## designed at the moment and will be more dirty than this
-            ## hack. Ephorte.py will be redesigned pretty soon.
+            # TODO: we should check if a person has a role before
+            # adding, so that we don't need the try: ... except:...
+            # but that is a bit swinish the way Ephorte.py is
+            # designed at the moment and will be more dirty than this
+            # hack. Ephorte.py will be redesigned pretty soon.
             try:
                 ephorte_role.add_role(new_id,
                                       int(row['role_type']),
@@ -246,11 +250,13 @@ def join_ephorte_roles(old_id, new_id):
                                       auto_role='F')
                 logger.debug("Transferring %s to %s" % (role_str, new_id))
             except Exception, e:
-                logger.warn("Couldn't transfer %s to %s\n%s" % (role_str, new_id, e))
+                logger.warn("Couldn't transfer %s to %s\n%s" %
+                            (role_str, new_id, e))
         else:
             logger.debug("Removing %s" % role_str)
         # Remove role from old_person
-        ephorte_role.remove_role(old_id, int(row['role_type']), int(row['adm_enhet']),
+        ephorte_role.remove_role(old_id, int(row['role_type']),
+                                 int(row['adm_enhet']),
                                  row['arkivdel'], row['journalenhet'])
 
 
@@ -266,8 +272,8 @@ def join_uia_printerquotas(old_id, new_id):
         old_quota = pq_old.find(old_id)
     except Errors.NotFoundError:
         logger.debug("No quota registered for %s, skipping", old_id)
-    # find quota if registered for new_person_id        
-    try:    
+    # find quota if registered for new_person_id
+    try:
         new_quota = pq_new.find(new_id)
     except Errors.NotFoundError:
         logger.debug("No quota registered for %s, skipping", old_id)
@@ -282,11 +288,12 @@ def join_uia_printerquotas(old_id, new_id):
         pq_new.update_total(new_id, old_quota['total_quota'])
         pq_old.delete_quota(old_id)
     else:
-        # if no quota is registered for either persons or quota is 
+        # if no quota is registered for either persons or quota is
         # registered for the new_person_id only do nothing
-        logger.info("No need to transfer quotas from %s (old) to %s (new)", old_id, new_id)
-        
-        
+        logger.info("No need to transfer quotas from %s (old) to %s (new)",
+                    old_id, new_id)
+
+
 def join_uio_printerquotas(old_id, new_id):
     # Delayed import in case module is not installed
     from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
@@ -300,22 +307,22 @@ def join_uio_printerquotas(old_id, new_id):
     # Assert that user hasn't received a free quota more than once
     term_init_prefix = PPQUtil.get_term_init_prefix(*time.localtime()[0:3])
     free_this_term = {}
-    
+
     # Now figure out if the user has been granted the same free-quota
     # twice, and if so, undo the duplicate(s)
     for row in ppq.get_history_payments(
-        transaction_type=co.pqtt_quota_fill_free,
-        desc_mask=term_init_prefix+'%%',
-        person_id=new_id, order_by_job_id=True):
+            transaction_type=co.pqtt_quota_fill_free,
+            desc_mask=term_init_prefix+'%%',
+            person_id=new_id, order_by_job_id=True):
 
         free_this_term[int(row['job_id'])] = row['description']
 
     logger.debug("Free this_term: %s" % free_this_term)
     for row in ppq.get_history_payments(
-        transaction_type=co.pqtt_undo,
-        person_id=new_id, order_by_job_id=True):
+            transaction_type=co.pqtt_undo,
+            person_id=new_id, order_by_job_id=True):
 
-        if free_this_term.has_key(int(row['target_job_id'])):
+        if int(row['target_job_id']) in free_this_term:
             del free_this_term[int(row['target_job_id'])]
 
     logger.debug("... removed already undone: %s" % free_this_term)
@@ -358,9 +365,9 @@ def join_uio_voip_objects(old_id, new_id):
         try:
             va.find_by_owner_id(old_id)
         except Errors.NotFoundError:
-            logger.info("No voip address found for owner id %s"%(old_id))
+            logger.info("No voip address found for owner id %s" % (old_id))
             return
-        logger.debug("Change owner of voip_address %s to %s" %(va.entity_id,
+        logger.debug("Change owner of voip_address %s to %s" % (va.entity_id,
                                                                 new_id))
         va.populate(new_id)
         va.write_db()
@@ -368,10 +375,10 @@ def join_uio_voip_objects(old_id, new_id):
         logger.info("Nothing to transfer."
                     " Person %s owns no voip addresses" % (old_id))
     else:
-        logger.warn("Source person %s owns voip addresses: %s" %(old_id,
-            old_person_voip_addr))
-        logger.warn("Target person %s owns voip addresses:%s" %(new_id,
-            new_person_voip_addr))
+        logger.warn("Source person %s owns voip addresses: %s" %
+                    (old_id, old_person_voip_addr))
+        logger.warn("Target person %s owns voip addresses:%s" %
+                    (new_id, new_person_voip_addr))
         db.rollback()
         logger.warn("Cannot transfer, rollback all changes."
                     "Manual intervention required to join voip objects.")
@@ -393,6 +400,7 @@ is permanently removed from the database.
 """
     sys.exit(exitcode)
 
+
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], '',
@@ -411,7 +419,7 @@ def main():
         elif opt == '--pq-uio':
             with_uio_pq = True
         elif opt == '--pq-uia':
-            with_uia_pq = True            
+            with_uia_pq = True
         elif opt == '--new':
             new = int(val)
         elif opt == '--ephorte-uio':
@@ -427,7 +435,7 @@ def main():
     new_person = Factory.get('Person')(db)
     new_person.find(new)
     person_join(old_person, new_person, with_uio_pq, with_uia_pq,
-                                with_uio_ephorte, with_uio_voip)
+                with_uio_ephorte, with_uio_voip)
     old_person.delete()
 
     if dryrun:
@@ -443,4 +451,3 @@ source_systems = get_constants_by_type(co, Constants._AuthoritativeSystemCode)
 
 if __name__ == '__main__':
     main()
-
