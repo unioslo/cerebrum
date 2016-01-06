@@ -303,16 +303,23 @@ class EphorteRole(DatabaseAccessor):
             ["%s IS NULL" % x for x in binds if binds[x] is None]),
                      binds)
             
-    def list_roles(self, person_id=None):
+    def list_roles(self, person_id=None, filter_expired=False):
+        where = []
         if person_id:
-            where = "WHERE person_id=:person_id"
+            where.append("person_id=:person_id")
+        if filter_expired:
+            where.append("""(end_date IS NULL OR end_date > [:now])
+                         AND (start_date IS NULL OR start_date <= [:now])""")
+        if where:
+            where = "WHERE %s" % " AND ".join(where)
         else:
             where = ""
         return self.query("""
         SELECT person_id, role_type, standard_role, adm_enhet,
                arkivdel, journalenhet, rolletittel, stilling,
                start_date, end_date, auto_role
-        FROM [:table schema=cerebrum name=ephorte_role] %s""" % where, {
+        FROM [:table schema=cerebrum name=ephorte_role] %s
+        ORDER BY person_id, standard_role DESC, role_type""" % where, {
             'person_id': person_id})
 
     def is_standard_role(self, person_id, role, sko, arkivdel, journalenhet):
@@ -400,7 +407,7 @@ class EphortePermission(DatabaseAccessor):
         if adm_enhet:
             where.append("adm_enhet=:adm_enhet")
         if filter_expired:
-            where.append("(end_date IS NULL OR end_date > [:now])")            
+            where.append("start_date <= [:now] AND (end_date IS NULL OR end_date > [:now])")            
         if where:
             where = "WHERE %s" % " AND ".join(where)
         else:

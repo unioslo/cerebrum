@@ -87,8 +87,8 @@ class AttrConfig(object):
     """Configuration settings for an AD attribute.
 
     This class, and its subclasses, is used to specify what a given attribute
-    should contain of information. The configuration is then used by the AD sync
-    to feed the given attribute with the values from db that matches these
+    should contain of information. The configuration is then used by the AD
+    sync to feed the given attribute with the values from db that matches these
     criterias.
 
     """
@@ -188,7 +188,7 @@ class AttrConfig(object):
         if transform:
             self.transform = transform
         self.source_systems = _prepare_constants(source_systems,
-                                                      const.AuthoritativeSystem)
+                                                 const.AuthoritativeSystem)
         self.spread = _prepare_constants(spread, const.Spread)
         if criterias and not isinstance(criterias, AttrCriterias):
             raise ConfigError('Criterias is not an AttrCriterias object')
@@ -204,11 +204,12 @@ def _prepare_constants(input, const_class):
     @type input: Cerebrum constant or sequence thereof or None
     @param input: The constants that should be used.
 
-    @type const_class: CerebrumCode class or sequence thereof
+    @type const_class: A class or sequence thereof
     @param const_class:
         The class that the given constant(s) must be instances of to be valid.
         If a sequence is given, the constants must be an instance of one of the
-        classes.
+        classes. Could for instance be a CerebrumCode class, or simply a
+        `basestring`.
 
     :rtype: sequence of Cerebrum constants
     :return:
@@ -488,6 +489,55 @@ class CallbackAttr(AttrConfig):
         super(CallbackAttr, self).__init__(*args, **kwargs)
         self.callback = callback
 
+
+class SimpleMemberAttr(CallbackAttr):
+
+    """ An attribute for AD group memberships in the 'froupsync'.
+
+    All this config does, is to append expected OU to the cerebrum membership
+    names, and attempt to fix any case differences in the DN strings.
+
+    NOTE: This class was written for the 'froupsync'. If you use it in other
+    syncs, you're doing something wrong!
+
+    """
+
+    def __init__(self, member_ou):
+        super(SimpleMemberAttr, self).__init__(
+            default=[],
+            callback=self._callback,
+            ad_transform=self._ad_transform)
+        self._member_ou = member_ou
+
+    @staticmethod
+    def format_dn(dn):
+        def format_part(p):
+            # Format each part of the DN
+            kv = p.split('=', 1)
+            return '%s=%s' % (kv[0].upper(), kv[1].lower())
+        try:
+            return u','.join(
+                [format_part(part) for part in dn.split(',')])
+        except IndexError:
+            # Formatting failed, return as is and let the comparison fail.
+            return dn
+
+    @classmethod
+    def _ad_transform(cls, ad_members):
+        """ A callback that ensures the casing in AD membership DNs. """
+        # TODO: This really should be a generator, but the AD sync doesn't
+        # allow that.
+        return [cls.format_dn(m) for m in ad_members]
+
+    def _callback(self, crb_object):
+        """ A callback to fetch members from a CerebrumGroup object. """
+        # TODO: Should we do some uname -> ad_id conversion here, or has that
+        # been done elsewhere?
+        # TODO: Same as for the _ad_transform result: This should yield.
+        return [self.format_dn(u'CN=%s,%s' % (m.lower(), self._member_ou))
+                for m in getattr(crb_object, 'members', [])]
+
+
 class EmailAddrAttr(AttrConfig):
     """Config for all e-mail addresses for an entity from the Email module.
 
@@ -497,8 +547,8 @@ class EmailAddrAttr(AttrConfig):
         - alias (list of strings): A list of all the e-mail aliases for the
           entity.
 
-    You would like to use L{transform} or other methods to set what you want for
-    the given attribute.
+    You would like to use L{transform} or other methods to set what you want
+    for the given attribute.
 
     """
     pass
@@ -534,8 +584,8 @@ class PosixAttr(AttrConfig):
     """Config for POSIX data, like GID, UID, shell and gecos.
 
     It is possible to sync posix data, like GID, with AD, for instance for
-    environments that should support both environments where both UNIX and AD is
-    used. Note, however, that AD needs to include an extra schema before the
+    environments that should support both environments where both UNIX and AD
+    is used. Note, however, that AD needs to include an extra schema before the
     posix attributes could be populated.
 
     This class makes available a dict with the elements:
@@ -735,9 +785,7 @@ class AccountCriterias(AttrCriterias):
             attribute-configuration.
         """
         self.primary_account = primary_account
-        if isinstance(affiliations, basestring):
-            affiliations = [affiliations]
-        self.affiliations = affiliations
+        self.affiliations = _prepare_constants(affiliations, basestring)
         super(AccountCriterias, self).__init__(*args, **kwargs)
 
     def check(self, ent):

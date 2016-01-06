@@ -86,7 +86,8 @@ getattr(cerebrum_path, 'This will shut the linters up', None)
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, NotSet, simple_memoize
+from Cerebrum.Utils import Factory, NotSet
+from Cerebrum.utils.funcwrap import memoize
 
 
 logger = Factory.get_logger("cronjob")
@@ -96,6 +97,7 @@ constants = Factory.get("Constants")(database)
 INDENT_STEP = 2
 
 ignored_groups = []
+
 
 class group_attributes(object):
 
@@ -154,7 +156,7 @@ def ou_id2ou_info(ou_id):
     # NOTREACHED
     assert False
 # end ou_id2ou_info
-ou_id2ou_info = simple_memoize(ou_id2ou_info)
+ou_id2ou_info = memoize(ou_id2ou_info)
 
 
 def ou_id2parent_info(ou_id, perspective):
@@ -186,7 +188,7 @@ def ou_id2parent_info(ou_id, perspective):
     # NOTREACHED
     assert False
 # end ou_id2parent_info
-ou_id2parent_info = simple_memoize(ou_id2parent_info)
+ou_id2parent_info = memoize(ou_id2parent_info)
 
 
 def ou_get_children(ou_id, perspective):
@@ -216,7 +218,7 @@ def ou_get_children(ou_id, perspective):
     # NOTREACHED
     assert False
 # end ou_get_children
-ou_get_children = simple_memoize(ou_get_children)
+ou_get_children = memoize(ou_get_children)
 
 
 def get_create_account_id():
@@ -229,7 +231,7 @@ def get_create_account_id():
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     return account.entity_id
 # end get_create_account_id
-get_create_account_id = simple_memoize(get_create_account_id)
+get_create_account_id = memoize(get_create_account_id)
 
 
 def group_name_is_valid(group_name):
@@ -317,7 +319,7 @@ def group_name2group_id(group_name, description, current_groups, trait=NotSet):
             pass
         else:
             if group_name not in ignored_groups:
-                logger.warn("Group %s is missing trait '%s', ignoring group", 
+                logger.warn("Group %s is missing trait '%s', ignoring group",
                             group_name, str(trait))
                 ignored_groups.append(group_name)
             return None

@@ -6,7 +6,7 @@ Cerebrum is a Python/RDBMS framework upon which user administration systems can 
 Requirements
 ------------
 
-* Python 2.5
+* Python 2.7
 * PostgreSQL Database
 
 

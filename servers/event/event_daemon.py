@@ -42,11 +42,13 @@ logger = Utils.Factory.get_logger('cronjob')
 
 
 def usage(i=0):
-    print('usage: python event_daemon.py [--type --no-notifications'
+    print('usage: python event_daemon.py [--type --no-notifications '
           '--no-delayed-notifications]')
     print('-n --no-notifications            Disable the NotificationCollector')
     print('-d --no-delayed-notifications    '
           'Disable the DelayedNotificationCollector')
+    print('-h --help                        This help')
+    print('-m --mock                        Mock the integration')
     print('')
     print('HUP me ONCE (but not my children) if you want to shut me down'
           'with grace.')
@@ -71,8 +73,10 @@ def log_it(queue, run_state):
         log_func(*entry[1])
     logger.info('Shutting down logger thread')
 
+
 def signal_hup_handler(signal, frame):
     frame.f_locals['run_state'].value = 0
+
 
 def main():
     log_queue = multiprocessing.Queue()
@@ -80,20 +84,16 @@ def main():
     run_state = multiprocessing.Value(ctypes.c_int, 1)
     # Separate run-state for the logger
     logger_run_state = multiprocessing.Value(ctypes.c_int, 1)
-    # Start the thread that writes to the log
-    logger_thread = threading.Thread(target=log_it,
-                                     args=(log_queue, logger_run_state,))
-    
-    logger_thread.start()
 
     # Parse args
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   't:ndm',
+                                   't:ndmh',
                                    ['type=',
                                     'no-notifications',
                                     'no-delayed-notifications',
-                                    'mock'])
+                                    'mock',
+                                    'help'])
     except getopt.GetoptError, err:
         print err
         usage(1)
@@ -113,12 +113,19 @@ def main():
             delayed_notifications = False
         elif opt in ('-m', '--mock'):
             mock = True
+        elif opt in ('-h', '--help'):
+            usage(0)
 
     # Can't run without a config!
     if not conf:
         logger.error('No configuration given')
         run_state.value = 0
         usage(2)
+
+    # Start the thread that writes to the log
+    logger_thread = threading.Thread(target=log_it,
+                                     args=(log_queue, logger_run_state,))
+    logger_thread.start()
 
     # We need to store the procecess
     procs = []
@@ -137,8 +144,8 @@ def main():
     # We look for classes that we can import dynamically, but if that is not
     # defined, we fall back to the BaseQueue-class, which really is
     # multiprocessing.Queue (as of now).
-    # TODO: This is not totally sane? Should we support mixins? We should define
-    # a manager in BaseQueue, and implement everything on top of that?
+    # TODO: This is not totally sane? Should we support mixins? We should
+    # define a manager in BaseQueue, and implement everything on top of that?
     try:
         event_queue_class_name = conf['event_queue_class']
     except KeyError:
@@ -147,7 +154,8 @@ def main():
     class QueueManager(managers.BaseManager):
         pass
 
-    QueueManager.register(event_queue_class_name, dyn_import(event_queue_class_name))
+    QueueManager.register(event_queue_class_name,
+                          dyn_import(event_queue_class_name))
     q_manager = QueueManager()
     q_manager.start()
     event_queue = getattr(q_manager, event_queue_class_name)()
@@ -195,13 +203,14 @@ def main():
     for x in procs:
         x.join()
 
-    manager.shutdown()
+    q_manager.shutdown()
 
     # Stop the logger
     logger_run_state.value = 0
     logger_thread.join()
 
-    # TODO: Instead of signal.pause, wait for joinage of proccesses or something
+    # TODO: Instead of signal.pause, wait for joinage of proccesses or
+    # something
 
     # TODO: Here
     # - Trap singals. We want to exit cleanly <- Done to some extent.

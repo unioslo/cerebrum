@@ -34,17 +34,6 @@ class CLConstants(CLConstants):
     # when events are handled by the recieving system
     #
 
-    # Temporary hack, we need this in order to requeue the setting of
-    # the adress book policy for a mailbox if someone pulls the plug on
-    # one of the Exchange-servers at exactly the right time.
-    # Ask jsama about this.
-    ea_policy = _ChangeTypeCode('exchange', 'set_ea_policy',
-                                'Address book policy changed')
-    # SingleItemRecoveryEnabled
-    # Fake event to be able to requeue if fail
-    item_recovery = _ChangeTypeCode('exchange', 'item_recovery',
-                                    'Set SingleItemRecovery')
-
     # Account mailbox created/deleted
     acc_mbox_create = _ChangeTypeCode('exchange', 'acc_mbox_create',
                                       'account mailbox added')
@@ -79,12 +68,6 @@ class CLConstants(CLConstants):
                                   'dist group address added')
     dl_addr_rem = _ChangeTypeCode('exchange', 'dl_addr_rem',
                                   'dist group address deleted')
-    # Dist group set managed by
-    dl_manby_set = _ChangeTypeCode('exchange', 'dl_manby_set',
-                                   'dist group set Managedby')
-    # Dist group set moderated by
-    dl_modby_set = _ChangeTypeCode('exchange', 'dl_modby_set',
-                                   'dist group set Moderatedby')
     # Dist group set hidden
     dl_hidden_set = _ChangeTypeCode('exchange', 'dl_hidden_set',
                                     'dist group set HiddenAddr')
@@ -103,9 +86,9 @@ class CLConstants(CLConstants):
     dl_group_remove = _ChangeTypeCode('dlgroup', 'remove',
                                       'group remove distribution %(subject)s')
 
-    dl_group_add = _ChangeTypeCode('dlgroup', 'add',
-                                   'added %(subject)s to %(dest)s',
-                                   ('AlreadyPerformed=%(string:AlreadyPerformed)s',))
+    dl_group_add = _ChangeTypeCode(
+        'dlgroup', 'add', 'added %(subject)s to %(dest)s',
+        ('AlreadyPerformed=%(string:AlreadyPerformed)s',))
     dl_group_rem = _ChangeTypeCode('dlgroup', 'rem',
                                    'removed %(subject)s from %(dest)s')
 
@@ -133,12 +116,6 @@ class CLConstants(CLConstants):
     dl_group_manby = _ChangeTypeCode('dlgroup', 'modmanby',
                                      'group mod managed by for %(subject)s',
                                      ('manby:%(str:manby)'))
-    dl_group_modby = _ChangeTypeCode('dlgroup', 'modmodby',
-                                     'group mod modify by for %(subject)s',
-                                     ('modby:%(str:modby)'))
     dl_group_room = _ChangeTypeCode('dlgroup', 'modroom',
                                     'group mod room stat for %(subject)s',
                                     ('roomlist:%(str:roomlist)'))
-    dl_group_modrt = _ChangeTypeCode('dlgroup', 'moderate',
-                                     'group mod room stat for %(subject)s',
-                                     ('modenable:%(str:enable)'))

@@ -41,6 +41,7 @@ from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.no.access_FS import make_fs
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
@@ -234,7 +235,7 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         har_opptak = {}
         ret = []
         try:
-            fs_db = Factory.get("FS")()
+            fs_db = make_fs()
         except Database.DatabaseError, e:
             self.logger.warn("Can't connect to FS (%s)" % e)
             raise CerebrumError("Can't connect to FS, try later")

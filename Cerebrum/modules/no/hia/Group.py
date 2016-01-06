@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -38,12 +38,12 @@ class GroupHiAMixin(Group.Group):
                 pg.clear()
                 pg.find(self.entity_id)
             except Errors.NotFoundError:
-                raise self._db.IntegrityError, \
-                      "Can't add NIS-spread to non-posix group."
+                raise Errors.RequiresPosixError(
+                    "Can't add NIS-spread to non-POSIX group.")
             tmp = pg.illegal_name(pg.group_name)
             if tmp:
-                raise self._db.IntegrityError, \
-                      "Illegal name for filegroup, %s." % tmp                
+                raise self._db.IntegrityError(
+                    "Illegal name for filegroup, {0}.".format(tmp))
         #
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)
@@ -56,7 +56,7 @@ class GroupHiAMixin(Group.Group):
             return "Must specify group name"
 
         if isinstance(self, PosixGroup.PosixGroup):
-            if len(name) > 16:
+            if len(name) > 32:
                 return "name too long (%d characters)" % len(name)
             if re.search("^[^a-z]", name):
                 return "name must start with a character (%s)" % name

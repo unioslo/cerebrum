@@ -1,0 +1,61 @@
+# Set up host as a Cerebrum host.
+#
+# We need to install the neccessary packages to:
+#  - set up a virtualenv for Cerebrum
+#  - build python modules
+#
+# NOTE: For any of these tasks to do changes, you'll need to run the playbook
+# with:
+#
+#   ansible-playbook <file> --ask-sudo-pass
+
+#
+# Install missing packages with yum.
+#
+- name: install python environment packages
+  yum:
+      name: "{{ item }}"
+      state: present
+  with_items:
+    - python
+    - python-virtualenv
+
+- name: install dependencies to build python packages
+  yum:
+      name: "{{ item }}"
+      state: present
+  with_items:
+    - gcc
+    - gcc-c++
+    - swig
+    - python-devel
+    - postgresql-devel
+    - libffi-devel
+    - openssl-devel
+    - openldap-devel
+    - cyrus-sasl-devel
+    - oracle-instantclient12.1-devel
+  sudo: yes
+
+# NOTE: The Oracle instantclient devel package must be installed manually, if
+# the repo uio-nonfree is not set up on the target host.
+
+- name: install dependencies to build lxml module  # Used in Ad2
+  yum:
+      name: "{{ item }}"
+      state: present
+  with_items:
+   - libxml2
+   - libxml2-devel
+   - libxslt
+   - libxslt-devel
+  sudo: yes
+
+- name: install dependencies to build pygpgme module  # Used in Ad2
+  yum:
+      name: "{{ item }}"
+      state: present
+  with_items:
+   - gpgme
+   - gpgme-devel
+  sudo: yes

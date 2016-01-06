@@ -3,13 +3,17 @@
 This playbook is used to run unit tests and database integration tests of
 Cerebrum.
 
-It is used to assert that all the necessary packages are installed, configures
-the database, and runs the tests that it is asked to run.
+It is used to assert that:
+ - all the necessary packages are installed
+ - database is configured
+ - dependencies are installed
+ - Cerebrum is installed
+ - Cerebrum is configured
+ - database-schema is created and up to date
+
+It will also run the tests that it is asked to run.
 
 ## Requirements
-
-Certain requirements cannot be solved by Ansible, for obvious reasons:. This
-includes setting up system auths/authz, and installing Python, Ansible, etc.
 
 ### Local host
 
@@ -24,29 +28,26 @@ installed:
 The host that executes the actual modules, requires the following packages:
 
 - python
-- python-simplejson (if running on a python version without a built-in json
-  module)
-- python-psycopg2 (for the ansible postgresql modules)
-- yum-utils (for the ansible yum module)
+- yum-utils
 
-TODO: Create test user. Should ansible do this?
+All other dependencies should be installed by the roles that depends on them.
+
 
 ## Ansible extensions
 
-This folder contains some custom modules and plugins.
-
-TODO: Document better?
+The Cerebrum ansible playbooks depends on some custom modules and plugins, which
+are defined within this folder.
 
 ### Modules
 
- - `makedb`
- - `virtualenv_info`
+ - `makedb`: Set up database schema for Cerebrum
+ - `virtualenv_info`: Gets info from a virtualenv, e.g. the path to site-packages
 
 TODO: Not sure if makedb will work remotely?
 
 ### Lookup plugins
 
- - `file_overload` (`with_file_overload`)
+ - `file_overload` (`with_file_overload`):
 
 ### Filter plugins
 
@@ -54,7 +55,7 @@ TODO: Not sure if makedb will work remotely?
  - postfix - postfix a string or list of strings
  - stdout - capture stdout from a command result
  - stderr - capture stderr from a command result
- - rc_or  - capture rc from a command result
+ - rc\_or  - capture rc from a command result
  - tmpfile - generate a unique temporary name to use remotely
  - dest    - fetch path/dest from a task result
 
@@ -63,58 +64,58 @@ TODO: Not sure if makedb will work remotely?
 
 This folder contains multiple roles.
 
+### `postgres`
+
+Set up a host as postgres db host.
+
+TODO: Better setup – allow the host to run on a different host than the
+cerebrum-host?
+
+### `phpunit`
+
+Install neccessary packages to use a host to run PHP unit tests. This doesn't
+really belong here, but we currently have no better place to put this role.
+
+TODO: Set up playbooks for other products in a separate repository.
+
+### `cerebrum`
+
+Set up a python environment, and installs Cerebrum
+
 ### `cerebrum-test`
 
-Sets up a test host, test environment and runs tests.
+Configure a cerebrum-environment as a test environment, and run tests.
 
-#### Playbooks
+## Playbooks
 
-- `crbtest_local.yml` - targets the host `localhost`, wihtout using ssh.
-- `crbtest_remote.yml` - targets hosts in the group `cerebrum-test-node`.
+- `crbtest_local.yml` - targets the hosts in the group `localtests`, with
+  `ansible_connection=local`. Use this playbook to run tests on a ci-node.
+- `crbtest_remote.yml` - targets hosts in the group `cerebrum-test-node`. Use
+  this playbook to set up a node as testnode.
 
-TODO: Is this the right way to separate host groups?
+## Tags
 
-#### Tags
+### host
 
-- host
+Sets up a host with the required packages from epel, and a postgres database
+with ident authentication.
 
-  Sets up a host with the required packages from epel, and a postgres database
-  with ident authentication.
+All tasks or group of tags that requires specific user privilegies (`sudo`,
+`sudo_user`) should be in tagged with this tag.
 
-- env
-  
-  Sets up a test environment with python-virtualenv, installs
-  test utils, Cerebrum-dependencies and installs and configures Cerebrum.
+### env
 
-- test
+Sets up a test environment with python-virtualenv, installs test utils,
+Cerebrum-dependencies and installs and configures Cerebrum.
 
-  Runs nosetests.
+### test
 
-#### Interesting variables
+Runs tests.
 
-TODO: Some improvements could probably be done here.
-      Could we use var-files?
 
-- `system_users` (tags: host)
+## Variables
 
-  List of users to grant ident authentication for.
-
-- `virtualenv` (tags: env, test)
-
-   Absolute path to a location to a virtualenv. Will be created, if it doesn't
-   already exist.
-
-- `crb_src_dir` (tags: env, test)
-
-  An absolute path to where the cerebrum source files can be found.
-
-- `crb_db_user` (tags: host, env)
-
-  Name of the database user to use for a given Cerebrum environment.
-
-- `crb_db_name` (tags: env)
-
-  Name of the database to use for a given Cerebrum environment.
+See the documentation in `vars/main.yml` and `defaults/main.yml` of each role.
 
 - `config` (tags: host, env, test)
 
@@ -124,23 +125,8 @@ TODO: Some improvements could probably be done here.
   Whenever we use the `with_file_overload` lookup plugin, we'll look for
   alternate files in a sub-folder with this name.
 
-- `gnupg_home_dir` (tags: env, test)
-
-   Absolute path to the location of the GNUPGHOME. Will be created, if it doesn't
-   already exist.
-
-- `pip_offine` (tags: env)
-
-  Install PIP packages from a local folder (on the remote host). Absolute path,
-  must start with 'file://', and contain all packages to be installed. Useful if
-  the remote host is unable to reach `pypi.python.org`.
-
-  TODO: Prepend 'file://', automatically, if missing.
-
-- `pip_cache` (tags: env)
-
-  Cache downloaded packages from `pypi.python.org`, for faster recurring env
-  setups.
+  This variable is also used to create separate environments/namespaces on the
+  test node.
 
 
 ## Creating a test configuration
@@ -163,5 +149,5 @@ should be used:
         - alt: "{{ config | default(None) }}"
       register: _result_of_sometask
 
-Note: If you need to inspect the result (`_result_of_sometask`), note that
+NOTE: If you need to inspect the result (`_result_of_sometask`), note that
 the actual results are dicts in a list, `_result_of_sometask.results`.

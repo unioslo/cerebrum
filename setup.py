@@ -136,7 +136,7 @@ do_not_replace = ('design/cereconf.py',
                   'design/logging.ini', )
 
 
-class my_install_data (install_data.install_data, object):
+class my_install_data(install_data.install_data, object):
 
     """ Custom install_data class. """
 
@@ -463,6 +463,7 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
                   'Cerebrum/modules/virthome',
                   'Cerebrum/modules/cis',
                   'Cerebrum/config',
+                  'Cerebrum/utils',
                   ],
 
       # options override --prefix
@@ -476,5 +477,5 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
       cmdclass={'install_data': my_install_data, },
       )
 
-setup(name='SoapAPI', packages = ['SoapAPI'])
-setup(name='ClientAPI', packages = ['ClientAPI'])
+setup(name='SoapAPI', packages=['SoapAPI'])
+setup(name='ClientAPI', packages=['ClientAPI'])

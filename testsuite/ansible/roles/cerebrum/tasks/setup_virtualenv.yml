@@ -1,0 +1,31 @@
+# Set up an environment for Cerebrum
+#
+# - ensure that a virtualenv exists
+# - install python package requirements
+#
+
+- name: decide on pip offline install
+  when: pip_offline is defined and pip_offline
+  set_fact:
+      pip_extra_args: "{{ pip_extra_args|default('') }} --no-index"
+
+- name: decide to use pip proxy
+  when: pip_proxy is defined
+  set_fact:
+      pip_extra_args: "{{ pip_extra_args|default('') }} --proxy='{{ pip_proxy }}'"
+
+- name: decide on pip download cache
+  when: pip_cache is defined
+  set_fact:
+      pip_extra_args: "{{ pip_extra_args|default('') }} --download-cache='{{ pip_cache }}'"
+
+- name: decide to use local pip repo
+  when: pip_local is defined
+  set_fact:
+      pip_extra_args: "{{ pip_extra_args|default('') }} --find-links='{{ pip_local }}'"
+
+- name: set up python environment
+  pip:
+      virtualenv: "{{ virtualenv }}"
+      requirements: "{{ crb_src_dir }}/requirements.txt"
+      extra_args: "{{ pip_extra_args|default(None) }}"

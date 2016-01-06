@@ -1,0 +1,20 @@
+- debug: var={{ item }}
+  when: debug is defined
+  with_items:
+      - virtualenv
+      - crb_src_dir
+      - reports_dir
+  tags:
+    - always
+
+- include: setup_virtualenv.yml
+  tags:
+    - env
+
+- include: run_pylint.yml
+  tags:
+    - pylint
+
+- include: run_flake8.yml
+  tags:
+    - flake8

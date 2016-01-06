@@ -315,16 +315,17 @@ def register_cellphone(person, person_info):
     fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
                         int(person_info["personnr"]))
     phone_selector = "telefonnr_mobil"
-    phone_country  = "telefonlandnr_mobil"
-    phone_region   = "telefonretnnr_mobil"
+    phone_country = "telefonlandnr_mobil"
+    phone_region = "telefonretnnr_mobil"
     numbers = set()
     for key in person_info:
         for dct in person_info[key]:
             if phone_selector in dct:
-                if phone_country in dct or phone_region in dct:
-                    logger.debug('Skipping phone for %s', fnr)
-                    break
-                numbers.add(dct[phone_selector].strip())
+                phone = (dct.get(phone_region) or '') + dct[phone_selector]
+                if dct.get(phone_country):
+                    phone = '+' + dct[phone_country] + phone
+                numbers.add(phone.strip().replace(' ', ''))
+
 
     if len(numbers) < 1:
         return

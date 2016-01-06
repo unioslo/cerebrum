@@ -16,18 +16,18 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Constants specific for Exchange
-"""
+"""Constants specific for Exchange."""
 
 from Cerebrum import Constants
 from Cerebrum.Constants import _EntityNameCode
 
+
 class Constants(Constants.Constants):
     # exchange-relatert-jazz
     # using entity_language_name in order to support display
-    # names in various languages if that should be required at 
+    # names in various languages if that should be required at
     # some point
-    dl_group_displ_name = _EntityNameCode("DL display name", 
-                                    "DL-group display name",
-                                    {"nb": "Fremvisningsnavn",
-                                     "en": "Display Name", })
+    dl_group_displ_name = _EntityNameCode(
+        "DL display name", "DL-group display name",
+        {"nb": "Fremvisningsnavn",
+         "en": "Display Name", })

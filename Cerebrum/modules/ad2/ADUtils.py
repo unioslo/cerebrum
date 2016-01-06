@@ -1361,12 +1361,12 @@ class ADclient(PowershellClient):
         """
         if not isinstance(member_ids, collections.Sequence):
             member_ids = [member_ids, ]
-        self.logger.debug("Removing %d members for group: %s",
+        self.logger.debug("Adding %d members for group: %s",
                           len(member_ids), group_id)
         cmd = self._generate_ad_command(
             'Add-ADGroupMember',
             {'Identity': group_id,
-             'Members': ','.join(["%s" % i for i in member_ids])})
+             'Members': member_ids, })
         if self.dryrun:
             return True
         output = self.run(cmd)
@@ -1390,7 +1390,7 @@ class ADclient(PowershellClient):
         cmd = self._generate_ad_command(
             'Remove-ADGroupMember',
             {'Identity': group_id,
-             'Members': ','.join(["%s" % i for i in member_ids])},
+             'Members': member_ids, },
             ('Confirm:$false', ))
         if self.dryrun:
             return True

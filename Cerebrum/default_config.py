@@ -35,6 +35,9 @@ CEREBRUM_DATABASE_CONNECT_DATA = {'user': None,
 # Default bind name for Cerebrum
 CEREBRUM_SERVER_IP = ""
 
+# Cache directory
+CACHE_DIR = pj(prefix, 'var', 'cache')
+
 AUTH_CRYPT_METHODS = ("MD5-crypt",)
 
 # List of full path filenames to files containing non-allowed
@@ -127,7 +130,7 @@ CLASS_CONSTANTS = [
 
 CLASS_CL_CONSTANTS = ['Cerebrum.modules.CLConstants/CLConstants']
 
-CLASS_DBDRIVER = ['Cerebrum.Database/PostgreSQL']
+CLASS_DBDRIVER = ['Cerebrum.Database/PsycoPG2']
 CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
 
 # exchange-relatert-jazz
@@ -545,6 +548,21 @@ AUTH_PGP = {}
 
 # Realm for HA1 md5 crypt, used by const.auth_type_ha1_md5
 AUTH_HA1_REALM = ""
+
+# A string representing the recipient's ID.
+# The ID is used by pygpgme to determine which public key to use for encryption
+# 'gpg2 -k --fingerprint' can be used to list all available public keys in the
+# current GnuPG database, along with their fingerprints. Possible values:
+# uid: (f.i. "Cerebrum Test <cerebrum@uio.no>")
+# key-id: (f.i. "FEAC69E4")
+# fingerprint (recommended!): (f.i. '78D9E8FEB39594D4EAB7A9B85B17D23FFEAC69E4')
+# PASSWORD_GPG_RECIPIENT_ID = 'DE2801BE77377C124091142819368B5CB341836F'
+
+# The path (str) of an alternative GnuPG home-directory.
+# The default GNUPGHOME is usually: ~/.gnupg
+# The default GNUPGHOME will be used if this attribute is not set
+# (or if it evaluates to False).
+# PASSWORD_GNUPGHOME = '~/.cerebrum_gnupg'
 
 #
 # LDAP stuff
@@ -1029,9 +1047,12 @@ SMS_URL = ''
 SMS_SYSTEM = ''
 # The username for authentication at the gateway
 SMS_USER = ''
-# A regex whitelist of numbers. The SMSSender will only send to phone numbers
-# that pass one of these regexes. Default value: Eight digit number.
-SMS_ACCEPT_REGEX = (r'^\d{8}$', )
+# A regex whitelist of numbers. The SMSSender will only send to phone
+# numbers that pass one of these regexes. Default value: Norwegian
+# numbers, which means eight digit number, with or without +47 as
+# prefix.
+SMS_ACCEPT_REGEX = (r'^\d{8}$', r'^\+47\d{8}$')
+
 
 #
 # Certificates
@@ -1144,7 +1165,8 @@ INDIVIDUATION_PHONE_TYPES = {}
 # group is automatically included here.
 INDIVIDUATION_PASW_RESERVED = (INITIAL_GROUPNAME,)
 
-# A mapping of building codes to their addresses. Used by the ldif export.
+# A mapping of building codes to their addresses. Used by the SAP import of
+# people, for adding OFFICE adresses and room numbers.
 BUILDING_CODES = {}
 
 #

@@ -493,15 +493,20 @@ class BofhdCommandBase(object):
             person.find(entity_id)
             return person.get_name(self.const.system_cached,
                                    self.const.name_full)
-        elif entity_type == self.const.entity_email_target:
-            etarget = Factory.get('EmailTarget')(self.db)
-            etarget.find(entity_id)
-            return '%s:%s' % (str(etarget.get_target_type_name()),
-                              self._get_entity_name(etarget.get_target_entity_id()))
-        elif entity_type == self.const.entity_email_address:
-            ea = Email.EmailAddress(self.db)
-            ea.find(entity_id)
-            return ea.get_address()
+
+        # TODO: This should NOT be put in bofhd_core, as it should not require
+        # the Email module! Subclassing? This is only a quickfix:
+        if hasattr(self.const, 'entity_email_target'):
+            if entity_type == self.const.entity_email_target:
+                etarget = Factory.get('EmailTarget')(self.db)
+                etarget.find(entity_id)
+                return '%s:%s' % (str(etarget.get_target_type_name()),
+                                  self._get_entity_name(etarget.get_target_entity_id()))
+            elif entity_type == self.const.entity_email_address:
+                ea = Email.EmailAddress(self.db)
+                ea.find(entity_id)
+                return ea.get_address()
+
         # Okey, we've run out of good options. Let's try a sensible fallback:
         # many entities have a generic name in entity_name. Let's use that:
         try:

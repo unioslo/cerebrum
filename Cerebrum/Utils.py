@@ -28,6 +28,8 @@ import new
 import os
 import re
 import smtplib
+import ssl
+import imaplib
 import sys
 import time
 import traceback
@@ -116,7 +118,8 @@ def sendmail(toaddr, fromaddr, subject, body, cc=None,
     if cc:
         toaddr.extend([addr.strip() for addr in cc.split(',')])
         msg['Cc'] = cc.strip()
-    if debug:
+    if debug or (hasattr(cereconf, 'EMAIL_DISABLED') and
+                 cereconf.EMAIL_DISABLED):
         return msg.as_string()
     smtp = smtplib.SMTP(cereconf.SMTP_HOST)
     smtp.sendmail(fromaddr, toaddr, msg.as_string())
@@ -927,7 +930,6 @@ class Factory(object):
                       'Project': 'CLASS_PROJECT',
                       'Allocation': 'CLASS_ALLOCATION',
                       'AllocationPeriod': 'CLASS_ALLOCATION_PERIOD',
-                      'FS': 'CLASS_FS',
                       'LMSImport': 'CLASS_LMS_IMPORT',
                       'LMSExport': 'CLASS_LMS_EXPORT', }
 
@@ -940,6 +942,24 @@ class Factory(object):
             raise ValueError("Unknown component %r" % comp)
 
         import_spec = getattr(cereconf, conf_var)
+        return Factory.make_class(comp, import_spec, conf_var)
+
+    @staticmethod
+    def make_class(name, import_spec, conf_var=None):
+        """Assemble the class according to spec.
+
+        :param string name: Name of class thing.
+
+        :param sequence import_spec: Name of classes to assemble into the
+            returned class. Each element of the form ``module/classname``.
+
+        :param string conf_var: Variable in cereconf
+
+        :return: Class
+        """
+        if name in Factory.class_cache:
+            return Factory.class_cache[name]
+
         if isinstance(import_spec, (tuple, list)):
             bases = []
             for c in import_spec:
@@ -960,9 +980,15 @@ class Factory(object):
                 # misconfiguration won't be used.
                 for override in bases:
                     if issubclass(cls, override):
-                        raise RuntimeError("Class %r should appear earlier in"
-                                           " cereconf.%s, as it's a subclass of"
-                                           " class %r." % (cls, conf_var, override))
+                        if conf_var:
+                            raise RuntimeError("Class %r should appear earlier"
+                                               " in cereconf.%s, as it's a"
+                                               " subclass of class %r." %
+                                               (cls, conf_var, override))
+                        else:
+                            raise RuntimeError("Class %r should appear earlier"
+                                               " than %r as it is a subclass" %
+                                               (cls, override))
                 bases.append(cls)
             if len(bases) == 1:
                 comp_class = bases[0]
@@ -973,12 +999,12 @@ class Factory(object):
                 # prefix of "_dynamic_"; the prefix is there to reduce
                 # the probability of `auto_super` name collision
                 # problems.
-                comp_class = type('_dynamic_' + comp, tuple(bases), {})
-            Factory.class_cache[comp] = comp_class
+                comp_class = type('_dynamic_' + name, tuple(bases), {})
+            Factory.class_cache[name] = comp_class
             return comp_class
         else:
             raise ValueError("Invalid import spec for component %s: %r" %
-                             (comp, import_spec))
+                             (name, import_spec))
 
     def get_logger(name=None):
         """Return THE cerebrum logger.
@@ -1335,39 +1361,6 @@ class RecursiveDict(dict):
             # Wrap it, make sure it follows our rules
             value = RecursiveDict(value)
         dict.__setitem__(self, key, value)
-
-
-def simple_memoize(callobj):
-    """Memoize[1] a callable.
-
-    [1] <http://en.wikipedia.org/wiki/Memoize>.
-
-    The idea is to memoize a callable object supporting rest/optional
-    arguments without placing a limit on the amount of cached pairs. This is
-    useful for mapping ou_id to names and such (i.e. situations where the
-    number of cached values is small, and the information is requested many
-    times for the same 'key').
-
-    NB! keyword arguments ARE NOT supported.
-
-    @type callobj: callable
-    @param callobj:
-      An object for which callable(callobj) == True. I.e. something we can
-      call (lambda, function, bound method, etc.)
-
-    @rtype: function
-    @return:
-      A wrapper that caches the results of previous invocations of callobj.
-    """
-
-    cache = {}
-
-    def wrapper(*rest):
-        if rest not in cache:
-            cache[rest] = callobj(*rest)
-        return cache[rest]
-
-    return wrapper
 
 
 def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
@@ -1806,3 +1799,37 @@ class SMSSender():
         else:
             self._logger.warning("SMS to %s could not be sent" % phone_to)
         return bool(resp)
+
+class CerebrumIMAP4_SSL(imaplib.IMAP4_SSL):
+    """
+    A changed version of imaplib.IMAP4_SSL that lets the caller specify
+    ssl_version in order to please older versions of OpenSSL. CRB-1246
+    """
+    def __init__(self,
+                 host='',
+                 port=imaplib.IMAP4_SSL_PORT,
+                 keyfile=None,
+                 certfile=None,
+                 ssl_version=ssl.PROTOCOL_TLSv1):
+        """
+        """
+        self.keyfile = keyfile
+        self.certfile = certfile
+        self.ssl_version = ssl_version
+        imaplib.IMAP4.__init__(self, host, port)
+
+    def open(self, host='', port=imaplib.IMAP4_SSL_PORT):
+        """
+        """
+        self.host = host
+        self.port = port
+        self.sock = socket.create_connection((host, port))
+        # "If not specified, the default is PROTOCOL_SSLv23;...
+        # Which connections succeed will vary depending on the version
+        # of OpenSSL. For example, before OpenSSL 1.0.0, an SSLv23
+        # client would always attempt SSLv2 connections."
+        self.sslobj = ssl.wrap_socket(self.sock,
+                                      self.keyfile,
+                                      self.certfile,
+                                      ssl_version=self.ssl_version)
+        self.file = self.sslobj.makefile('rb')

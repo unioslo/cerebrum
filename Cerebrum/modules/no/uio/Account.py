@@ -645,3 +645,10 @@ class AccountUiOMixin(Account.Account):
 
     def is_passphrase(self, password):
         return ' ' in password
+
+    def set_password(self, password):
+        super(AccountUiOMixin, self).set_password(password)
+        if self.is_passphrase(password):
+            self.populate_trait(self.const.trait_has_passphrase, self.entity_id)
+        elif self.const.trait_has_passphrase in self.get_traits():
+            self.delete_trait(self.const.trait_has_passphrase)

@@ -41,7 +41,7 @@ from Cerebrum.modules.Email import \
     _EmailDomainCategoryCode, \
     EmailConstants
 from Cerebrum.modules.EntityTrait import \
-    _EntityTraitCode 
+    _EntityTraitCode
 from Cerebrum.modules.consent import Consent
 
 
@@ -328,6 +328,10 @@ class Constants(Constants.Constants):
     spread_uio_ad_group = _SpreadCode(
         'AD_group', Constants.Constants.entity_group,
         'Group included in Active Directory at UiO')
+    spread_uio_ad_xpand = _SpreadCode(
+        'Xpand_group', Constants.Constants.entity_group,
+        "Group included in Xpand's AD-OU")
+
     spread_uio_ua = _SpreadCode(
         'UA@uio', Constants.Constants.entity_person,
         'Person exported to UA')
@@ -504,6 +508,12 @@ class Constants(Constants.Constants):
         "sysadm_account", Constants.Constants.entity_account,
         "An account used for system administration,"
         " e.g. foo-adm, foo-drift and foo-null users")
+
+    # Trait for passphrase stats
+    trait_has_passphrase = _EntityTraitCode(
+        'has_passphrase',
+        Constants.Constants.entity_account,
+        "Account uses passphrase")
 
     address_other_street = _AddressCode('OTHER_STREET', 'Other street address')
     address_other_post = _AddressCode('OTHER_POST', 'Other post address')

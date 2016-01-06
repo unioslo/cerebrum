@@ -1,0 +1,8 @@
+# This is a playbook for running the cerebrum-static role on any host.
+- hosts: localhost
+  roles:
+   - cerebrum-static
+  vars:
+   - virtualenv: /tmp/cerebrum-static/env
+   - crb_src_dir: /tmp/cerebrum-static/src/cerebrum
+   - reports_dir: /tmp/cerebrum-static/reports

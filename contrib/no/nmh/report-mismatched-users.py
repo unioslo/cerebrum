@@ -50,8 +50,6 @@ A typical run for NMH would look something like this:
 -g lists groups to scan for memberships based on affiliations.
 Multiple options of either kind may be provided.
 """
-
-
 from cStringIO import StringIO
 import getopt
 import sys
@@ -61,23 +59,18 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import simple_memoize
+from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.Utils import sendmail
 from Cerebrum import Errors
-
-
-
 
 
 database = Factory.get("Database")()
 logger = None
 
 
-
-@simple_memoize
+@memoize
 def get_group(ident):
     """Fetch a group based on its id (name or entity_id)."""
-    
     db = Factory.get("Database")()
     group = Factory.get("Group")(db)
     if isinstance(ident, str):
@@ -96,15 +89,13 @@ def get_group(ident):
 # end get_group
 
 
-
-@simple_memoize
+@memoize
 def get_ou(ident):
     "Fetch an OU based on its id (stedkode, acronym or entity_id)."
-    
     ou = Factory.get("OU")(database)
     if isinstance(ident, str):
         ident = ident.strip()
-    
+
     if isinstance(ident, str) and ident.isdigit():
         # 123456 - sko
         if len(ident) == 6:
@@ -120,11 +111,12 @@ def get_ou(ident):
     # Assume it's an acronym
     elif isinstance(ident, str):
         const = Factory.get("Constants")()
-        result = ou.search_name_with_language(entity_type=const.entity_ou,
-                                         name_variant=const.ou_name_acronym,
-                                         name=ident,
-                                         name_language=const.language_nb,
-                                         exact_match=False)
+        result = ou.search_name_with_language(
+            entity_type=const.entity_ou,
+            name_variant=const.ou_name_acronym,
+            name=ident,
+            name_language=const.language_nb,
+            exact_match=False)
         assert len(result) == 1
         ou.find(result[0]["ou_id"])
         return ou
@@ -137,20 +129,18 @@ def get_ou(ident):
 # end get_ou
 
 
-
-@simple_memoize
+@memoize
 def ou_id2report(ou_id):
     """Produce a human-friendly OU designation from its ID."""
 
     try:
         ou = get_ou(ou_id)
-        return  "%02d-%02d-%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
+        return "%02d-%02d-%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
     except:
         return "ou id=%s" % str(ou_id)
 
     assert False, "NOTREACHED"
 # end ou_id2report
-
 
 
 def person_id2report(person_id):
@@ -163,9 +153,9 @@ def person_id2report(person_id):
 
         for ss in ("system_cached",) + cereconf.SYSTEM_LOOKUP_ORDER:
             try:
-                return p.get_name(const.human2constant(ss, 
-                                                   const.AuthoritativeSystem),
-                                  const.name_full)
+                return p.get_name(
+                    const.human2constant(ss, const.AuthoritativeSystem),
+                    const.name_full)
             except Errors.NotFoundError:
                 pass
 
@@ -175,7 +165,6 @@ def person_id2report(person_id):
 
     assert False, "NOTREACHED"
 # end person_id2report
-    
 
 
 def account_id2report(account_id):
@@ -190,7 +179,6 @@ def account_id2report(account_id):
 
     assert False, "NOTREACHED"
 # end account_id2report
-
 
 
 def fetch_persons(affiliations, source):
@@ -220,12 +208,11 @@ def fetch_persons(affiliations, source):
             for x in person_affs)
 
     logger.debug("Collected %d people matching affiliation%s%s",
-                 len(result),                 
+                 len(result),
                  len(set(affiliations)) != 1 and "s " or " ",
                  ", ".join(set(str(const.PersonAffiliation(x))
                                for x in affiliations)))
 
-    #
     # Alas, we can't look at people alone. A person maybe without an affiliation
     # (say, it has been deleted) whereas his/her account may still have the
     # affiliation. I.e. we need to scan the accounts with affiliations from
@@ -255,7 +242,6 @@ def fetch_persons(affiliations, source):
 # end fetch_persons
 
 
-
 def person_user_mismatch(person2affiliations):
     """Collect mismatching person-user pairs.
 
@@ -281,7 +267,7 @@ def person_user_mismatch(person2affiliations):
         else:
             account_id = accounts[0]["account_id"]
             account_affs = set()
-            
+
             for row in account.list_accounts_by_type(account_id=account_id):
                 account_affs.add((row["affiliation"], row["ou_id"]))
 
@@ -293,10 +279,8 @@ def person_user_mismatch(person2affiliations):
 # end person_user_mismatch
 
 
-
 def prepare_user_mismatch_report(affiliations, accountless, multi_account, mismatched):
     """Generate a person-user mismatch report."""
-
     db = Factory.get("Database")()
     account = Factory.get("Account")(db)
     const = Factory.get("Constants")(db)
@@ -328,7 +312,7 @@ def prepare_user_mismatch_report(affiliations, accountless, multi_account, misma
     if accountless:
         sink.write("Accountless peple:\n")
         for person_id in accountless:
-            sink.write("\tPerson %s (id=%s) has no active accounts\n" % 
+            sink.write("\tPerson %s (id=%s) has no active accounts\n" %
                        (person_id2report(person_id), person_id))
 
     if multi_account:
@@ -358,7 +342,6 @@ def prepare_user_mismatch_report(affiliations, accountless, multi_account, misma
 # end prepare_user_mismatch_report
 
 
-
 def groups_matching_user_affs(user_affs, aff2groups):
     """Collect group_ids matching (aff, status, ou_id) in user_affs.
 
@@ -376,7 +359,6 @@ def groups_matching_user_affs(user_affs, aff2groups):
     required.discard(None)
     return required
 # end groups_matching_person_affs
-    
 
 
 def load_group_members(aff2groups):
@@ -414,7 +396,6 @@ def load_group_members(aff2groups):
 # end load_group_members
 
 
-
 def remap_people_to_accounts(person2affiliations):
     """Remap person_id to the corresponding account.
 
@@ -444,7 +425,6 @@ def remap_people_to_accounts(person2affiliations):
                  len(result))
     return result
 # end remap_people_to_accounts
-
 
 
 def user_group_mismatch(user2affiliations, aff2groups):
@@ -478,7 +458,6 @@ def user_group_mismatch(user2affiliations, aff2groups):
 # end user_group_mismatch
 
 
-
 def prepare_user_group_mismatch_report(aff2groups, mismatches):
     """Generate a report for user<->group mismatches.
 
@@ -490,7 +469,7 @@ def prepare_user_group_mismatch_report(aff2groups, mismatches):
       should have been a member but is not.
     """
 
-    @simple_memoize
+    @memoize
     def affkey2string(tpl):
         components = [str(const.PersonAffiliation(tpl[0])),]
         if tpl[1]:
@@ -506,7 +485,7 @@ def prepare_user_group_mismatch_report(aff2groups, mismatches):
                                             acronym))
         return "".join(components)
     # end affkey2string
-    
+
     const = Factory.get("Constants")()
     sink = StringIO()
     sink.write("User-group mismatch report for affiliations %s\n" %
@@ -524,7 +503,6 @@ def prepare_user_group_mismatch_report(aff2groups, mismatches):
 
     return sink.getvalue()
 # end prepare_user_group_mismatch_report
-
 
 
 def cli_quadruple2dict(seq):
@@ -586,7 +564,7 @@ def cli_quadruple2dict(seq):
             status = human2affstatus(status)
         if ou:
             ou = get_ou(ou)
-            
+
         group = get_group(group)
 
         key = [int(affiliation), None, None]
@@ -600,12 +578,11 @@ def cli_quadruple2dict(seq):
             logger.error("Multiple values for key %s. Group %s (id=%s) ignored",
                          key, group.group_name, group.entity_id)
             continue
-            
+
         result[tuple(key)] = group.entity_id
 
     return result
 # end cli_quadruple2dict
-
 
 
 def send_report(report, subject, to, cc=None):
@@ -622,8 +599,6 @@ def send_report(report, subject, to, cc=None):
              pretty_message,
              cc=cc)
 # end send_report
-
-
 
 
 def main(argv):
@@ -688,7 +663,6 @@ def main(argv):
                                        for x in "\n".join(reports).split("\n"))
             logger.debug("Report to send:\n%s", pretty_message)
 # end main
-
 
 
 if __name__ == "__main__":

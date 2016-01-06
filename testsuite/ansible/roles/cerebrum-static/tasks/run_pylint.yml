@@ -1,0 +1,10 @@
+- name: place pylint config
+  template:
+      src: "pylintrc.j2"
+      dest: "{{ virtualenv }}/etc/pylintrc"
+  register: _pylintrc
+
+- name: run pylint on the Cerebrum package
+  action: shell chdir={{ crb_src_dir }} {{ virtualenv }}/bin/pylint
+                --rcfile {{ virtualenv }}/etc/pylintrc
+                Cerebrum > {{ reports_dir }}/pylint.txt || exit 0

@@ -511,7 +511,9 @@ class BofhdExtension(BofhdCommonMethods,
                                              'note_subject',
                                              'note_description')),
             ("Title:         %s [from %s]", ("employment_title",
-                                             "source_system"))
+                                             "source_system")),
+            ("Primary account: %s [%s]", ("prim_acc", 'prim_acc_status')),
+            ("Primary email: %s", ("prim_email",))
         ]))
 
     def person_info(self, operator, person_id):
@@ -702,6 +704,30 @@ class BofhdExtension(BofhdCommonMethods,
         except:
             pass
 
+        # Get primary account
+        acc_id = person.get_primary_account()
+        if acc_id:
+            account.find(acc_id)
+            data.append({'prim_acc': account.account_name,
+                         'prim_acc_status': 'Active'})
+        else:
+            # Accounts deleted or expired
+            accounts = account.get_account_types(owner_id=person.entity_id,
+                                                filter_expired=False)
+            if accounts:
+                account.clear()
+                account.find(accounts[0]['account_id'])
+                data.append({'prim_acc': account.account_name,
+                             'prim_acc_status':
+                                'Expired %s' % account.expire_date.date})
+            else:
+                data.append({'prim_acc': None,
+                             'prim_acc_status': 'none found'})
+        # Fetch primary email
+        if acc_id:
+            data.append({'prim_email': account.get_primary_mailaddress()})
+        else:
+            data.append({'prim_email': None})
         return data
 
 
@@ -1057,7 +1083,7 @@ class BofhdExtension(BofhdCommonMethods,
                        self.const.bofh_delete_user,
                        account.entity_id, None,
                        state_data=None)
-        return "User %s queued for deletion at 20:00" % account.account_name
+        return "User %s queued for deletion at 17:15" % account.account_name
 
     # user_create_prompt_fun_helper
     #

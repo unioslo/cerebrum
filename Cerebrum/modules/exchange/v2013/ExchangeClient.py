@@ -26,13 +26,23 @@ This is a subclass of PowershellClient.
 This module can be used by exports or an event daemon for creating,
 deleting and updating mailboxes and distribution groups in Exchange 2013."""
 
+import re
+
+from urllib2 import URLError
+from string import Template
 
 import cerebrum_path
+getattr(cerebrum_path, "linter", "must be supressed!")
+
 from Cerebrum.Utils import read_password
 from Cerebrum.modules.ad2.winrm import PowershellClient
-from Cerebrum.modules.ad2.winrm import WinRMServerException
-from Cerebrum.modules.exchange.Exceptions import *
-import re
+from Cerebrum.modules.ad2.winrm import (WinRMServerException,
+                                        PowershellException)
+from Cerebrum.modules.exchange.Exceptions import (ServerUnavailableException,
+                                                  ObjectNotFoundException,
+                                                  ExchangeException,
+                                                  ADError,
+                                                  AlreadyPerformedException)
 
 
 # Reeeaally  simple and stupid mock of the client…
@@ -45,28 +55,27 @@ class ClientMock(object):
 
 
 class ExchangeClient(PowershellClient):
-
     """A PowerShell client implementing function calls against Exchange."""
-
-    def __init__(self, auth_user, domain_admin, ex_domain_admin,
-                 management_server, session_key=None, *args, **kwargs):
+    def __init__(self,
+                 auth_user,
+                 domain_admin,
+                 ex_domain_admin,
+                 management_server,
+                 exchange_commands,
+                 session_key=None,
+                 *args,
+                 **kwargs):
         """Set up the WinRM client to be used with running Exchange commands.
 
-        @type auth_user: string
-        @param auth_user: The username of the account we use to connect to the
+        :type auth_user: string
+        :param auth_user: The username of the account we use to connect to the
             server.
 
-        @type domain_admin: string
-        @param domain_admin: The username of the account we use to connect to
-            the AD domain we are going to synchronize with.
-
-        """
-        # TODO: THIS IS ONLY FOR TESTING DNC, REMOVE AFTER THAT
-        self.deliberate_failure = 0
-
+        :type domain_admin: string
+        :param domain_admin: The username of the account we use to connect to
+            the AD domain we are going to synchronize with."""
         super(ExchangeClient, self).__init__(*args, **kwargs)
         self.logger.debug("ExchangeClient super returned")
-
         self.add_credentials(
             username=auth_user,
             password=unicode(read_password(auth_user, self.host), 'utf-8'))
@@ -76,6 +85,7 @@ class ExchangeClient(PowershellClient):
         self.wash_output_patterns = [
             re.compile('ConvertTo-SecureString.*\\w*...', flags=re.DOTALL)]
         self.management_server = management_server
+        self.exchange_commands = exchange_commands
         self.session_key = session_key if session_key else 'cereauth'
 
         # TODO: Make the following line pretty
@@ -115,15 +125,13 @@ class ExchangeClient(PowershellClient):
          - domain\username
          - domain/username
 
-        @type name: string
-        @param name: domain\username
+        :type name: string
+        :param name: domain\username
 
-        @rtype: tuple
-        @return: Two elements: the username and the domain. If the username is
+        :rtype: tuple
+        :return: Two elements: the username and the domain. If the username is
             only a username without a domain, the last element is an empty
-            string.
-
-        """
+            string."""
         if '@' in name:
             return name.split('@', 1)
         for char in ('\\', '/'):
@@ -132,7 +140,7 @@ class ExchangeClient(PowershellClient):
                 return user, domain
         # Guess the domain is not set then:
         return name, ''
-    
+
     _pre_execution_code_commented = u"""
         # Create credentials for the new-PSSession
         $pass = ConvertTo-SecureString -Force -AsPlainText %(ex_pasw)s;
@@ -153,21 +161,21 @@ class ExchangeClient(PowershellClient):
         if (($? -and ! $ses) -or ! $?) {
             $ses = New-PSSession -ComputerName %(management_server)s `
             -Credential $cred -Name %(session_key)s;
-            
+
             # We need to access Active-directory in order to find out if a
             # user is in AD:
             Import-Module ActiveDirectory 2> $null > $null;
-            
+
             # Import Exchange stuff or everything else:
             Invoke-Command { . RemoteExchange.ps1 } -Session $ses;
-           
+
             Invoke-Command { $pass = ConvertTo-SecureString -Force `
             -AsPlainText %(ex_pasw)s } -Session $ses;
 
             Invoke-Command { $cred = New-Object `
             System.Management.Automation.PSCredential(%(ex_user)s, $pass) } `
             -Session $ses;
-            
+
             Invoke-Command { $ad_pass = ConvertTo-SecureString -Force `
             -AsPlainText %(ad_pasw)s } -Session $ses;
 
@@ -191,62 +199,83 @@ class ExchangeClient(PowershellClient):
         # we can't redirect.
         write-output EOB;"""
 
-    # The pre-execution code is run when a command is run. This is what it does
-    # in a nutshell:
-    # 1. Define a credential for the communication between the springboard and
-    #    the management server.
-    # 2. Collect & connect to a previous PSSession, if this client has created
-    #    one.
-    # 3. If there is not an existing PSSession, create a new one
-    # 3.1. Import the Active-Directory module
-    # 3.2. Define credentials on the management server
-    # 3.3. Initialize the Exchange module that gives us
-    #      management-opportunities
-    _pre_execution_code = u"""
-        $pass = ConvertTo-SecureString -Force -AsPlainText %(ex_pasw)s;
-        $cred = New-Object System.Management.Automation.PSCredential( `
-        %(ex_domain_user)s, $pass);
+    def _get_pre_execution_code(self):
+        """Return Powershell commands that should be run before a command.
 
-        $sessions = Get-PSSession -ComputerName %(management_server)s `
-        -Credential $cred -Name %(session_key)s 2> $null;
+        This is what it does, in a nutshell:
 
-        if ( $sessions ) {
-            $ses = $sessions[0];
-            Connect-PSSession -Session $ses 2> $null > $null;
-        }
+        1. Define a credential for the communication between the springboard and
+           the management server.
+        2. Collect & connect to a previous PSSession, if this client has created
+           one.
+        3. If there is not an existing PSSession, create a new one
+        3.1. Import the Active-Directory module
+        3.2. Define credentials on the management server
+        3.3. Initialize the Exchange module that gives us
+             management-opportunities
 
-        if (($? -and ! $ses) -or ! $?) {
-            $ses = New-PSSession -ComputerName %(management_server)s `
-            -Credential $cred -Name %(session_key)s;
-            
-            Import-Module ActiveDirectory 2> $null > $null;
-            
-            Invoke-Command { . RemoteExchange.ps1 } -Session $ses;
-           
-            Invoke-Command { $pass = ConvertTo-SecureString -Force `
-            -AsPlainText %(ex_pasw)s } -Session $ses;
+        """
+        return u"""
+            $pass = ConvertTo-SecureString -Force -AsPlainText %(ex_pasw)s;
+            $cred = New-Object System.Management.Automation.PSCredential( `
+            %(ex_domain_user)s, $pass);
 
-            Invoke-Command { $cred = New-Object `
-            System.Management.Automation.PSCredential(%(ex_user)s, $pass) } `
-            -Session $ses;
-            
-            Invoke-Command { $ad_pass = ConvertTo-SecureString -Force `
-            -AsPlainText %(ad_pasw)s } -Session $ses;
+            $sessions = Get-PSSession -ComputerName %(management_server)s `
+            -Credential $cred -Name %(session_key)s 2> $null;
 
-            Invoke-Command { $ad_cred = New-Object `
-            System.Management.Automation.PSCredential(`
-            %(ad_domain_user)s, $ad_pass) } -Session $ses;
+            if ( $sessions ) {
+                $ses = $sessions[0];
+                Connect-PSSession -Session $ses 2> $null > $null;
+            }
 
-            Invoke-Command { Import-Module ActiveDirectory } -Session $ses;
-            
-            Invoke-Command { function get-credential () { return $cred;} } `
-            -Session $ses;
+            if (($? -and ! $ses) -or ! $?) {
+                $ses = New-PSSession -ComputerName %(management_server)s `
+                -Credential $cred -Name %(session_key)s;
 
-            Invoke-Command { Connect-ExchangeServer `
-            -ServerFqdn %(management_server)s -UserName %(ex_user)s } `
-            -Session $ses;
-        }
-        write-output EOB;"""
+                Import-Module ActiveDirectory 2> $null > $null;
+
+                Invoke-Command { . RemoteExchange.ps1 } -Session $ses;
+
+                Invoke-Command { $pass = ConvertTo-SecureString -Force `
+                -AsPlainText %(ex_pasw)s } -Session $ses;
+
+                Invoke-Command { $cred = New-Object `
+                System.Management.Automation.PSCredential(%(ex_user)s, $pass) } `
+                -Session $ses;
+
+                Invoke-Command { $ad_pass = ConvertTo-SecureString -Force `
+                -AsPlainText %(ad_pasw)s } -Session $ses;
+
+                Invoke-Command { $ad_cred = New-Object `
+                System.Management.Automation.PSCredential(`
+                %(ad_domain_user)s, $ad_pass) } -Session $ses;
+
+                Invoke-Command { Import-Module ActiveDirectory } -Session $ses;
+
+                Invoke-Command { function get-credential () { return $cred;} } `
+                -Session $ses;
+
+                Invoke-Command { Connect-ExchangeServer `
+                -ServerFqdn %(management_server)s -UserName %(ex_user)s } `
+                -Session $ses;
+
+                Invoke-Command { Import-Module C:\Modules\CerebrumExchange }
+                -Session $ses;
+
+            }
+            write-output EOB;""" % {
+                'session_key': self.session_key,
+                'ad_domain_user': self.escape_to_string(
+                    '%s\\%s' % (self.ad_domain, self.ad_user)),
+                'ad_user': self.escape_to_string(self.ad_user),
+                'ad_pasw': self.escape_to_string(self.ad_user_password),
+                'ex_domain_user': self.escape_to_string(
+                    '%s\\%s' % (self.ex_domain, self.ex_user)),
+                'ex_user': self.escape_to_string(self.ex_user),
+                'ex_pasw': self.escape_to_string(self.ex_user_password),
+                'management_server': self.escape_to_string(
+                    self.management_server),
+                }
 
     # After a command has run, we run the post execution code. We must
     # disconnect from the PSSession, in order to be able to resume it later
@@ -254,34 +283,24 @@ class ExchangeClient(PowershellClient):
 
     # As with the post execution code, we want to clean up after us, when
     # the client terminates, hence the termination code
-    _termination_code = u"""; Remove-PSSession -Session $ses 2> $null > $null;"""
+    _termination_code = (u"""; Remove-PSSession -Session $ses """
+                         u"""2> $null > $null;""")
 
     def execute(self, *args, **kwargs):
         """Override the execute command with all the startup and teardown
         commands for Exchange.
 
-        @type kill_session: bool
-        @param kill_session: If True, run Remove-PSSession instead of
+        :type kill_session: bool
+        :param kill_session: If True, run Remove-PSSession instead of
             Disconnect-PSSession.
 
-        @rtype: tuple
-        @return: A two element tuple: (ShellId, CommandId). Could later be used
-            to get the result of the command.
-        """
-        setup = self._pre_execution_code % {
-                    'session_key': self.session_key,
-                    'ad_domain_user': self.escape_to_string('%s\\%s' % 
-                                        (self.ad_domain, self.ad_user)),
-                    'ad_user': self.escape_to_string(self.ad_user),
-                    'ad_pasw': self.escape_to_string(self.ad_user_password),
-                    'ex_domain_user': self.escape_to_string('%s\\%s' % 
-                                        (self.ex_domain, self.ex_user)),
-                    'ex_user': self.escape_to_string(self.ex_user),
-                    'ex_pasw': self.escape_to_string(self.ex_user_password),
-                    'management_server': self.escape_to_string(
-                                                self.management_server)}
+        :rtype: tuple
+        :return: A two element tuple: (ShellId, CommandId). Could later be used
+            to get the result of the command."""
+        setup = self._get_pre_execution_code()
+
         # TODO: Fix this on a lower level
-        if kwargs.has_key('kill_session') and kwargs['kill_session']:
+        if 'kill_session' in kwargs and kwargs['kill_session']:
             args = (args[0] + self._termination_code, )
         else:
             args = (args[0] + self._post_execution_code, )
@@ -297,7 +316,8 @@ class ExchangeClient(PowershellClient):
             raise ServerUnavailableException(e)
 
     def escape_to_string(self, data):
-        """Override PowershellClient and return appropriate empty strings.
+        """
+        Override PowershellClient and return appropriate empty strings.
 
         :type data: mixed (dict, list, tuple, string or int)
         :param data: The data that must be escaped to be usable in powershell.
@@ -310,22 +330,11 @@ class ExchangeClient(PowershellClient):
         else:
             return super(ExchangeClient, self).escape_to_string(data)
 
-#    # TODO THIS IS ONLY FOR TESTING THE DELAYED NOTIFICATION COLLECTOR
-#    def run(self, *args, **kwargs):
-#        # Fail one out of three times. Seems like a good number for test?
-#        if self.deliberate_failure == 4:
-#            self.deliberate_failure = 0
-#            raise ExchangeException
-#        else:
-#            self.deliberate_failure += 1
-#        return super(ExchangeClient, self).run(*args, **kwargs)
-
     def get_output(self, commandid=None, signal=True, timeout_retries=50):
         """Override the output getter to remove unwanted output.
 
         Someone decided to implement write-host. We need to remove the stuff
-        from write-host.
-        """
+        from write-host."""
         hit_eob = False
         for code, out in super(PowershellClient, self).get_output(
                 commandid, signal, timeout_retries):
@@ -344,92 +353,90 @@ class ExchangeClient(PowershellClient):
 
     def _generate_exchange_command(self, command, kwargs={}, novalueargs=()):
         """Utility function for generating Exchange commands. Will stuff the
-        command instide a Invoke-Command call.
+        command inside a Invoke-Command call.
 
-        @type command: string
-        @param command: The command to run
+        :type command: string
+        :param command: The command to run.
 
-        @type kwargs: dict
-        @param kwargs: Keyword arguments to command
+        :type kwargs: dict
+        :param kwargs: Keyword arguments to command.
 
-        @type novalueargs: tuple
-        @param novalueargs: Arguments that won't be escaped
+        :type novalueargs: tuple
+        :param novalueargs: Arguments that won't be escaped.
 
-        @rtype: string
-        @return: The command that will be invoked on the management server
-        """
+        :rtype: string
+        :return: The command that will be invoked on the management server."""
         # TODO: Should we make escape_to_string handle credentials in a special
         #  way? Now we just add 'em as novalueargs in the functions.
         # We could define a Credential-class which subclasses str...
-        return 'Invoke-Command { %s %s %s } -Session $ses;' % (command,
-                            ' '.join('-%s %s' % (k, self.escape_to_string(v))
-                                for k, v in kwargs.iteritems()),
-                            ' '.join('-%s' % v for v in novalueargs))
+        return 'Invoke-Command { %s %s %s } -Session $ses;' % (
+            command,
+            ' '.join('-%s %s' % (k, self.escape_to_string(v))
+                     for k, v in kwargs.iteritems()),
+            ' '.join('-%s' % v for v in novalueargs))
 
     def kill_session(self):
         """Kill the current PSSession."""
 
         # TODO: Program this better. Do we really care about the return status?
         out = self.run(';', kill_session=True)
-        return False if out.has_key('stderr') and out['stderr'] else True
+        return False if 'stderr' in out and out['stderr'] else True
 
     def in_ad(self, username):
         """Check if a user exists in AD.
 
-        @type username: string
-        @param username: The users username
+        :type username: string
+        :param username: The users username.
 
-        @rtype: bool
-        @return: Return True if the user exists
-        
-        @raises ObjectNotFoundException: Raised if the account does not exist
-            in AD
-        @raises ADError: Raised if the credentials are wrong, the server is
-            down, and probarbly a whole lot of other reasons
-        """
-        
+        :rtype: bool
+        :return: Return True if the user exists.
+
+        :raises ObjectNotFoundException: Raised if the account does not exist
+            in AD.
+        :raises ADError: Raised if the credentials are wrong, the server is
+            down, and probarbly a whole lot of other reasons."""
+
         out = self.run(self._generate_exchange_command(
-                    'Get-ADUser',
-                    {'Identity': username, 'Server': self.ad_server },
-                    ('Credential $cred',)))
+            'Get-ADUser',
+            {'Identity': username, 'Server': self.ad_server},
+            ('Credential $cred',)))
 
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             if 'ADIdentityNotFoundException' in out['stderr']:
                 # When this gets raised, the account does not exist in the
                 # master domain.
                 raise ObjectNotFoundException(
-                        '%s not found on %s' % (username, self.ad_server))
+                    '%s not found on %s' % (username, self.ad_server))
             else:
                 # We'll end up here if the server is down, or the credentials
                 # are wrong. TODO: Should we raise this exception?
                 raise ADError(out['stderr'])
         return True
-    
+
     def in_exchange(self, name):
         """Check if an object exists in Exchange.
 
-        @type name: string
-        @param name: The objects distinguished name
+        :type name: string
+        :param name: The objects distinguished name.
 
-        @rtype: bool
-        @return: Return True if the object exists
-        
-        @raises ObjectNotFoundException: Raised if the object does not exist
-            in Exchange
-        @raises ADError: Raised if the credentials are wrong, the server is
-            down, and probarbly a whole lot of other reasons
-        """
-        
+        :rtype: bool
+        :return: Return True if the object exists.
+
+        :raises ObjectNotFoundException: Raised if the object does not exist
+            in Exchange.
+        :raises ADError: Raised if the credentials are wrong, the server is
+            down, and probarbly a whole lot of other reasons."""
+
         out = self.run(self._generate_exchange_command(
-                    'Get-ADObject',
-                    {'Identity': name, 'Server': self.ad_server },
-                    ('Credential $cred',)))
+            'Get-ADObject',
+            {'Identity': name, 'Server': self.ad_server},
+            ('Credential $cred',)))
 
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             if 'ADIdentityNotFoundException' in out['stderr']:
                 # When this gets raised, the object does not exist in Exchange
                 raise ObjectNotFoundException(
-                        '%s not found in Exchange' % username)
+                    '%s not found in Exchange' % name)
             else:
                 # We'll end up here if the server is down, or the credentials
                 # are wrong. TODO: Should we raise this exception?
@@ -438,29 +445,26 @@ class ExchangeClient(PowershellClient):
 
     def _get_domain_controllers(self, domain, resource_domain=''):
         """Collect DomainControllers.
-        
-        @type domain: string
-        @param domain: domain-name of the master domain
-        
-        @rtype: dict
-        @return: {'resource_domain': 'b.exutv.uio.no', 'domain': 'a.uio.no'}
 
-        @raises ADError: Raised upon errors
-        """
+        :type domain: string
+        :param domain: domain-name of the master domain-
+
+        :rtype: dict
+        :return: {'resource_domain': 'b.exutv.uio.no', 'domain': 'a.uio.no'}.
+
+        :raises ADError: Raised upon errors."""
         cmd = self._generate_exchange_command(
-                        'Get-ADDomainController -DomainName ' +
-                        '\'%s\' -Discover | Select -Expand HostName'
-                                % domain)
+            'Get-ADDomainController -DomainName ' +
+            '\'%s\' -Discover | Select -Expand HostName' % domain)
         cmd += self._generate_exchange_command(
-                        'Get-ADDomainController -DomainName ' +
-                        '\'%s\' -Discover | Select -Expand HostName'
-                            % resource_domain)
+            'Get-ADDomainController -DomainName ' +
+            '\'%s\' -Discover | Select -Expand HostName' % resource_domain)
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ADError(out['stderr'])
         else:
             tmp = out['stdout'].split()
-            return {'resource_domain' : tmp[1], 'domain': tmp[0]}
+            return {'resource_domain': tmp[1], 'domain': tmp[0]}
 
     ######
     # Mailbox-specific operations
@@ -471,56 +475,60 @@ class ExchangeClient(PowershellClient):
         """Create a new mailbox in Exchange.
 
         :type username: string
-        :param username: The users username
+        :param username: The users username.
 
         :type display_name: string
-        :param display_name: The users full name
+        :param display_name: The users full name.
 
         :type first_name: string
-        :param first_name: The users given name
+        :param first_name: The users given name.
 
         :type last_name: string
-        :param last_name: The users family name
+        :param last_name: The users family name.
 
         :type db: string
-        :param db: The DB the user should reside on
+        :param db: The DB the user should reside on.
 
         :type ou: string
-        :param ou: The container that the mailbox should be organized in
+        :param ou: The container that the mailbox should be organized in.
 
         :rtype: bool
-        :return: Return True if success
+        :return: Return True if success.
 
         :raise ExchangeException: If the command failed to run for some reason
         """
-        kwargs = {'LinkedDomainController': self.ad_server,
-                  'LinkedMasterAccount': '%s\%s' % (self.ad_domain, uname),
-                  'Alias': uname,
-                  'Name': uname,
-                  'DisplayName': display_name,
-                  }
+        assert(isinstance(self.exchange_commands, dict) and
+               'execute_on_new_mailbox' in self.exchange_commands)
+        cmd_template = Template(
+            self.exchange_commands['execute_on_new_mailbox'])
+        cmd = self._generate_exchange_command(
+            cmd_template.safe_substitute(uname=self.escape_to_string(uname)))
+        try:
+            out = self.run(cmd)
+        except PowershellException:
+            raise ExchangeException('Could not create mailbox for %s' % uname)
+        if 'stderr' in out:
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
 
-        if first_name:
-            kwargs['FirstName'] = first_name
-        if last_name:
-            kwargs['LastName'] = last_name
+    def set_primary_mailbox_address(self, uname, address):
+        """Set primary email addresses from a mailbox.
 
-        if db:
-            kwargs['Database'] = db
-        if ou:
-            kwargs['OrganizationalUnit'] = ou
+        :type uname: string
+        :param uname: The user name to look up associated mailbox by.
 
-        nva = ('LinkedCredential $ad_cred',)
-        cmd = self._generate_exchange_command('New-Mailbox', kwargs, nva)
+        :type address: string
+        :param address: The email address to set as primary.
 
-        # We set the mailbox as hidden, in the same call. We won't
-        # risk exposing in the really far-fetched case that the integration
-        # crashes in between new-mailbox and set-mailbox.
-
-        cmd += '; ' + self._generate_exchange_command(
+        :raise ExchangeException: If the command failed to run
+            for some reason."""
+        # TODO: Do we want to set EmailAddressPolicyEnabled at the same time?
+        # TODO: Verify how this acts with address policy on
+        cmd = self._generate_exchange_command(
             'Set-Mailbox',
             {'Identity': uname,
-             'HiddenFromAddressListsEnabled': True})
+             'PrimarySmtpAddress': address})
 
         out = self.run(cmd)
         if 'stderr' in out:
@@ -528,72 +536,48 @@ class ExchangeClient(PowershellClient):
         else:
             return True
 
-    def set_primary_mailbox_address(self, uname, address):
-        """Set primary email addresses from a mailbox
-
-        @type uname: string
-        @param uname: The user name to look up associated mailbox by
-
-        @type address: string
-        @param address: The email address to set as primary
-
-        @raise ExchangeException: If the command failed to run for some reason
-        """
-        # TODO: Do we want to set EmailAddressPolicyEnabled at the same time?
-        # TODO: Verify how this acts with address policy on
-        cmd = self._generate_exchange_command(
-                'Set-Mailbox',
-               {'Identity': uname,
-                'PrimarySmtpAddress': address})
-        
-        out = self.run(cmd)
-        if out.has_key('stderr'):
-            raise ExchangeException(out['stderr'])
-        else:
-            return True
-
     def add_mailbox_addresses(self, uname, addresses):
-        """Add email addresses from a mailbox
+        """Add email addresses from a mailbox.
 
-        @type uname: string
-        @param uname: The user name to look up associated mailbox by
+        :type uname: string
+        :param uname: The user name to look up associated mailbox by.
 
-        @type addresses: list
-        @param addresses: A list of addresses to add
+        :type addresses: list
+        :param addresses: A list of addresses to add.
 
-        @raise ExchangeException: If the command failed to run for some reason
-        """
+        :raise ExchangeException: If the command failed to run
+            for some reason."""
         addrs = {'add': addresses}
         cmd = self._generate_exchange_command(
-                'Set-Mailbox',
-               {'Identity': uname,
-                'EmailAddresses': addrs})
+            'Set-Mailbox',
+            {'Identity': uname,
+             'EmailAddresses': addrs})
         out = self.run(cmd)
 
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
 
     def remove_mailbox_addresses(self, uname, addresses):
-        """Remove email addresses from a mailbox
+        """Remove email addresses from a mailbox.
 
-        @type uname: string
-        @param uname: The user name to look up associated mailbox by
+        :type uname: string
+        :param uname: The user name to look up associated mailbox by.
 
-        @type addresses: list
-        @param addresses: A list of addresses to remove
+        :type addresses: list
+        :param addresses: A list of addresses to remove.
 
-        @raise ExchangeException: If the command failed to run for some reason
-        """
+        :raise ExchangeException: If the command failed to run
+            for some reason."""
         addrs = {'remove': addresses}
         cmd = self._generate_exchange_command(
-                'Set-Mailbox',
-               {'Identity': uname,
-                'EmailAddresses': addrs})
+            'Set-Mailbox',
+            {'Identity': uname,
+             'EmailAddresses': addrs})
         out = self.run(cmd)
 
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
@@ -601,89 +585,46 @@ class ExchangeClient(PowershellClient):
     def set_mailbox_visibility(self, uname, visible=False):
         """Set the visibility of a mailbox in the address books.
 
-        @type uname: string
-        @param uname: The username associated with the mailbox
-
-        @type enabled: bool
-        @param enabled: To show or hide the mailbox. Default hide.
-
-        @raises ExchangeException: If the command fails to run.
-        """
-        cmd = self._generate_exchange_command(
-                'Set-Mailbox',
-                {'Identity': uname,
-                 'HiddenFromAddressListsEnabled': not visible})
-        out = self.run(cmd)
-        if out.has_key('stderr'):
-            raise ExchangeException(out['stderr'])
-        else:
-            return True
-
-    def set_mailbox_address_policy(self, uname, enabled=False):
-        """Set the EmailAddressPolicEnabled for a mailbox.
-
-        @type uname: string
-        @param uname: The username to look up associated malbox by
-
-        @type enabled: bool
-        @param enabled: Enable or disable the AddressPolicy
-
-        @raise ExchangeException: If the command failed to run for some reason
-        """
-        cmd = self._generate_exchange_command(
-                'Set-Mailbox',
-               {'Identity': uname,
-                'EmailAddressPolicyEnabled': enabled})
-        out = self.run(cmd)
-        if out.has_key('stderr'):
-            raise ExchangeException(out['stderr'])
-        else:
-            return True
-
-    def set_mailbox_singleitemrecovery(self, uname, enabled=True):
-        """Set SingleItemRecoveryEnabled for a mailbox.
-
         :type uname: string
-        :param uname: The username to look up associated malbox by
+        :param uname: The username associated with the mailbox.
 
         :type enabled: bool
-        :param enabled: Enable or disable SingleItemRecoveryEnabled
+        :param enabled: To show or hide the mailbox. Default hide.
 
-        :raise ExchangeException: If the command failed to run for some reason
-        """
+        :raises ExchangeException: If the command fails to run."""
         cmd = self._generate_exchange_command(
-                'Set-Mailbox',
-                {'Identity': uname,
-                 'SingleItemRecoveryEnabled': enabled})
+            'Set-Mailbox',
+            {'Identity': uname,
+             'HiddenFromAddressListsEnabled': not visible})
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
 
     def set_mailbox_quota(self, uname, soft, hard):
         """Set the quota for a particular mailbox.
-        
-        @type uname: string
-        @param uname: The username to look up associated mailbox by
 
-        @type soft: int
-        @param soft: The soft-quota limit in MB
+        :type uname: string
+        :param uname: The username to look up associated mailbox by.
 
-        @type hard: int
-        @param hard: The hard-quota limit in MB
+        :type soft: int
+        :param soft: The soft-quota limit in MB.
 
-        @raise ExchangeException: If the command failed to run for some reason
-        """
+        :type hard: int
+        :param hard: The hard-quota limit in MB.
+
+        :raise ExchangeException: If the command failed to run
+            for some reason."""
         cmd = self._generate_exchange_command(
-                'Set-Mailbox',
-                   {'Identity': uname,
-                    'IssueWarningQuota': '"%d MB"' % int(soft),
-                    'ProhibitSendReceiveQuota': '"%d MB"' % int(hard),
-                    'ProhibitSendQuota': '"%d MB"' % int(hard)},
-                ('UseDatabaseQuotaDefaults:$false',))
+            'Set-Mailbox',
+            {'Identity': uname,
+             'IssueWarningQuota': '"%d MB"' % int(soft),
+             'ProhibitSendReceiveQuota': '"%d MB"' % int(hard),
+             'ProhibitSendQuota': '"%d MB"' % int(hard)},
+            ('UseDatabaseQuotaDefaults:$false',))
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
@@ -692,19 +633,18 @@ class ExchangeClient(PowershellClient):
         """Set a users name.
 
         :type uname: string
-        :param uname: The uname to select account by
+        :param uname: The uname to select account by.
 
         :type first_name: string
-        :param first_name: The persons first name
+        :param first_name: The persons first name.
 
         :type last_name: string
-        :param last_name: The persons last name
+        :param last_name: The persons last name.
 
         :type full_name: string
-        :param full_name: The persons full name, to use as display name
+        :param full_name: The persons full name, to use as display name.
 
-        :raises ExchangeException: Raised upon errors
-        """
+        :raises ExchangeException: Raised upon errors."""
         # TODO: When empty strings as args to the keyword args are handled
         # appropriatly, change this back.
         args = ["FirstName %s" % self.escape_to_string(first_name),
@@ -725,20 +665,24 @@ class ExchangeClient(PowershellClient):
         raise NotImplementedError
 
     def remove_mailbox(self, uname):
-        """Remove a mailbox and it's linked account from Exchange
-        
-        @type uname: string
-        @param uname: The users username
+        """Remove a mailbox and it's linked account from Exchange.
 
-        @raises ExchangeException: If the command fails to run
+        :type uname: string
+        :param uname: The users username.
+
+        :raises ExchangeException: If the command fails to run.
         """
+        assert(isinstance(self.exchange_commands, dict) and
+               'execute_on_remove_mailbox' in self.exchange_commands)
+        cmd_template = Template(
+            self.exchange_commands['execute_on_remove_mailbox'])
         cmd = self._generate_exchange_command(
-                'Remove-Mailbox',
-               {'Identity': uname},
-               ('Confirm:$false',))
-        # TODO: Verify how this is to be done
-        out = self.run(cmd)
-        if out.has_key('stderr'):
+            cmd_template.safe_substitute(uname=self.escape_to_string(uname)))
+        try:
+            out = self.run(cmd)
+        except PowershellException:
+            raise ExchangeException('Could not remove mailbox for %s' % uname)
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
@@ -747,13 +691,12 @@ class ExchangeClient(PowershellClient):
         """Set forwarding address for a mailbox.
 
         :type uname: string
-        :param uname: The users username
+        :param uname: The users username.
 
         :type address: String or None
-        :param address: The forwarding address to set
+        :param address: The forwarding address to set.
 
-        :raises ExchangeException: If the command fails to run
-        """
+        :raises ExchangeException: If the command fails to run."""
         if not address:
             cmd = self._generate_exchange_command(
                 'Set-Mailbox',
@@ -774,13 +717,12 @@ class ExchangeClient(PowershellClient):
         """Set local delivery for a mailbox.
 
         :type uname: string
-        :param uname: The users username
+        :param uname: The users username.
 
         :type local_delivery: bool
-        :param local_delivery: Enable or disable local delivery
+        :param local_delivery: Enable or disable local delivery.
 
-        :raises ExchangeException: If the command fails to run
-        """
+        :raises ExchangeException: If the command fails to run."""
         cmd = self._generate_exchange_command(
             'Set-Mailbox',
             {'Identity': uname,
@@ -791,6 +733,36 @@ class ExchangeClient(PowershellClient):
         else:
             return True
 
+    def set_spam_settings(self, uname, level, action):
+        """Set spam settings for a user.
+
+        :type uname: string
+        :param uname: The username.
+
+        :type level: int
+        :param level: The spam level to set.
+
+        :type action: string
+        :param action: The spam action to set.
+
+        :raises ExchangeException: If the command fails to run."""
+        assert(isinstance(self.exchange_commands, dict) and
+               'execute_on_set_spam_settings' in self.exchange_commands)
+        cmd_template = Template(
+            self.exchange_commands['execute_on_set_spam_settings'])
+        args = {'uname': self.escape_to_string(uname),
+                'level': self.escape_to_string(level),
+                'action': self.escape_to_string(action)}
+        cmd = self._generate_exchange_command(
+            cmd_template.safe_substitute(args))
+        try:
+            out = self.run(cmd)
+        except PowershellException, e:
+            raise ExchangeException(str(e))
+        if 'stderr' in out:
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
 
     ######
     # General group operations
@@ -799,13 +771,13 @@ class ExchangeClient(PowershellClient):
     def new_group(self, gname, ou=None):
         """Create a new mail enabled security group.
 
-        @type gname: string
-        @param gname: The groups name
-        
-        @type ou: string
-        @param ou: The container the group should be organized in
+        :type gname: string
+        :param gname: The groups name.
 
-        @raises ExchangeException: Raised if the command fails to run
+        :type ou: string
+        :param ou: The container the group should be organized in.
+
+        :raises ExchangeException: Raised if the command fails to run.
         """
         param = {'Name':  gname,
                  'GroupCategory': 'Security',
@@ -814,48 +786,46 @@ class ExchangeClient(PowershellClient):
         if ou:
             param['Path'] = ou
         cmd = self._generate_exchange_command(
-                'New-ADGroup',
-                param,
-                ('Credential $cred',))
+            'New-ADGroup',
+            param,
+            ('Credential $cred',))
 
         param = {'Identity': '"CN=%s,%s"' % (gname, ou),
                  'DomainController': self.resource_ad_server}
         nva = ('Confirm:$false',)
-        cmd += self._generate_exchange_command('Enable-Distributiongroup',
-                param,
-                nva)
+        cmd += self._generate_exchange_command(
+            'Enable-Distributiongroup',
+            param,
+            nva)
 
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
 
     def new_roomlist(self, gname, ou=None):
-        """Create a new Room List
+        """Create a new Room List.
 
-        @type gname: string
-        @param gname: The roomlists name
+        :type gname: string
+        :param gname: The roomlists name.
 
-        @type ou: string
-        @param ou: Which container to put the object into
-        
-        @raise ExchangeException: If the command cannot be run, raise.
-        """
+        :type ou: string
+        :param ou: Which container to put the object into.
+
+        :raise ExchangeException: If the command cannot be run, raise."""
         # Yeah, we need to specify the Confirm-option as a NVA,
         # due to the silly syntax.
         param = {'Name': gname,
-                'Type': 'Distribution'}
+                 'Type': 'Distribution'}
         if ou:
             param['OrganizationalUnit'] = ou
-
         cmd = self._generate_exchange_command(
-                'New-DistributionGroup',
-                param,
-                ('RoomList', 'Confirm:$false',))
-
+            'New-DistributionGroup',
+            param,
+            ('RoomList', 'Confirm:$false',))
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
@@ -863,17 +833,16 @@ class ExchangeClient(PowershellClient):
     def remove_roomlist(self, gname):
         """Remove a roomlist.
 
-        @type gname: string
-        @param gname: The roomlists name
+        :type gname: string
+        :param gname: The roomlists name.
 
-        @raise ExchangeException: If the command cannot be run, raise.
-        """
+        :raise ExchangeException: If the command cannot be run, raise."""
         cmd = self._generate_exchange_command(
-                'Remove-DistributionGroup',
-               {'Identity': gname},
-               ('Confirm:$false',))
+            'Remove-DistributionGroup',
+            {'Identity': gname},
+            ('Confirm:$false',))
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
@@ -881,41 +850,38 @@ class ExchangeClient(PowershellClient):
     def remove_group(self, gname):
         """Remove a mail enabled securitygroup.
 
-        @type gname: string
-        @param gname: The groups name
+        :type gname: string
+        :param gname: The groups name.
 
-        @raises ExchangeException: Raised if the command fails to run
-        """
+        :raises ExchangeException: Raised if the command fails to run."""
         cmd = self._generate_exchange_command(
-                'Remove-ADGroup',
-                {'Identity':  gname},
-                ('Confirm:$false', 'Credential $cred'))
+            'Remove-ADGroup',
+            {'Identity':  gname},
+            ('Confirm:$false', 'Credential $cred'))
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
 
-
     def set_group_display_name(self, gname, dn):
         """Set a groups display name.
 
-        @type gname: string
-        @param gname: The groups name
+        :type gname: string
+        :param gname: The groups name.
 
-        @type dn: str
-        @param dn: display name
+        :type dn: str
+        :param dn: display name.
 
-        @raises ExchangeException: If the command fails to run
-        """
+        :raises ExchangeException: If the command fails to run."""
         cmd = self._generate_exchange_command(
-                'Set-ADGroup',
-               {'Identity': gname,
-                'DisplayName': dn},
-                ('Credential $cred',))
+            'Set-ADGroup',
+            {'Identity': gname,
+             'DisplayName': dn},
+            ('Credential $cred',))
         # TODO: Verify how this is to be done
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
@@ -924,13 +890,12 @@ class ExchangeClient(PowershellClient):
         """Set a distributiongroups description.
 
         :type gname: string
-        :param gname: The groups name
+        :param gname: The groups name.
 
         :type description: str
-        :param description: The groups description
+        :param description: The groups description.
 
-        :raises ExchangeException: If the command fails to run
-        """
+        :raises ExchangeException: If the command fails to run."""
         cmd = self._generate_exchange_command(
             'Set-Group',
             {'Identity': gname},
@@ -956,31 +921,30 @@ class ExchangeClient(PowershellClient):
     def set_distgroup_address_policy(self, gname, enabled=False):
         """Enable or disable the AddressPolicy for the Distribution Group.
 
-        @type gname: string
-        @param gname: The groups name
+        :type gname: string
+        :param gname: The groups name.
 
-        @type enabled: bool
-        @param enabled: Enable or disable address policy
+        :type enabled: bool
+        :param enabled: Enable or disable address policy.
 
-        @raise ExchangeException: If the command cannot be run, raise.
-        """
+        :raise ExchangeException: If the command cannot be run, raise."""
         cmd = self._generate_exchange_command(
-                'Set-DistributionGroup',
-               {'Identity': gname,
-                'EmailAddressPolicyEnabled': enabled})
+            'Set-DistributionGroup',
+            {'Identity': gname,
+             'EmailAddressPolicyEnabled': enabled})
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
-    
+
 #    def set_roomlist(self, gname):
 #        """Define a distribution group as a roomlist.
 #
-#        @type gname: string
-#        @param gname: The groups name
+#        :type gname: string
+#        :param gname: The groups name
 #
-#        @raise ExchangeException: Raised if the command cannot be run.
+#        :raise ExchangeException: Raised if the command cannot be run.
 #        """
 #        cmd = self._generate_exchange_command(
 #                'Set-DistributionGroup',
@@ -995,65 +959,64 @@ class ExchangeClient(PowershellClient):
     def set_distgroup_primary_address(self, gname, address):
         """Set the primary-address of a Distribution Group.
 
-        @type gname: string
-        @param gname: The groups name
+        :type gname: string
+        :param gname: The groups name.
 
-        @type address: string
-        @param address: The primary address
+        :type address: string
+        :param address: The primary address.
 
-        @raise ExchangeException: If the command cannot be run, raise.
-        """
+        :raise ExchangeException: If the command cannot be run, raise."""
         #   TODO: We want to diable address policy while doing htis?
         cmd = self._generate_exchange_command(
-                'Set-DistributionGroup',
-               {'Identity': gname,
-                'PrimarySmtpAddress': address})
+            'Set-DistributionGroup',
+            {'Identity': gname,
+             'PrimarySmtpAddress': address})
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
-    
+
     def set_distgroup_visibility(self, gname, visible=True):
         """Set the visibility of a DistributionGroup in the address books.
 
-        @type gname: string
-        @param gname: The gropname associated with the mailbox
+        :type gname: string
+        :param gname: The gropname associated with the mailbox.
 
-        @type enabled: bool
-        @param enabled: To show or hide the mailbox. Default show.
+        :type enabled: bool
+        :param enabled: To show or hide the mailbox. Default show.
 
-        @raises ExchangeException: If the command fails to run.
-        """
+        :raises ExchangeException: If the command fails to run."""
         cmd = self._generate_exchange_command(
-                'Set-DistributionGroup',
-                {'Identity': gname,
-                 'HiddenFromAddressListsEnabled': visible})
+            'Set-DistributionGroup',
+            {'Identity': gname,
+             'HiddenFromAddressListsEnabled': visible})
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
 
     def add_distgroup_addresses(self, gname, addresses):
-        """Add email addresses from a distribution group
+        """
+        Add email addresses from a distribution group
 
-        @type gname: string
-        @param gname: The group name to look up associated distgroup by
+        :type gname: string
+        :param gname: The group name to look up associated distgroup by.
 
-        @type addresses: list
-        @param addresses: A list of addresses to add
+        :type addresses: list
+        :param addresses: A list of addresses to add.
 
-        @raise ExchangeException: If the command failed to run for some reason
+        :raise ExchangeException: If the command failed to run for some reason.
         """
         # TODO: Make me handle single addresses too!
         addrs = {'add': addresses}
         cmd = self._generate_exchange_command(
-                'Set-DistributionGroup',
-               {'Identity': gname,
-                'EmailAddresses': addrs})
+            'Set-DistributionGroup',
+            {'Identity': gname,
+             'EmailAddresses': addrs})
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
@@ -1062,17 +1025,16 @@ class ExchangeClient(PowershellClient):
         """Add member to a distgroup.
 
         :type gname: string
-        :param gname: The groups name
+        :param gname: The groups name.
 
         :type member: string
-        :param member: The members name
+        :param member: The members name.
 
         :rtype: bool
         :return: Returns True if the operation resulted in an update, False if
             it does not.
 
-        :raise ExchangeException: If it fails to run
-        """
+        :raise ExchangeException: If it fails to run."""
         cmd = self._generate_exchange_command(
             'Add-DistributionGroupMember',
             {'Identity': gname,
@@ -1090,101 +1052,80 @@ class ExchangeClient(PowershellClient):
             return True
 
     def remove_distgroup_member(self, gname, member):
-        """Remove a member from a distributiongroup
+        """Remove a member from a distributiongroup.
 
-        @type gname: string
-        @param gname: The groups name
+        :type gname: string
+        :param gname: The groups name.
 
-        @type member: string
-        @param member: The members username
+        :type member: string
+        :param member: The members username.
 
-        @raises ExchangeException: If it fails
-        """
-        #TODO: Add DomainController arg.
+        :raises ExchangeException: If it fails."""
+        # TODO: Add DomainController arg.
         cmd = self._generate_exchange_command(
-                'Remove-DistributionGroupMember',
-                {'Identity': gname,
-                 'Member': member},
-                ('BypassSecurityGroupManagerCheck',
-                 'Confirm:$false'))
+            'Remove-DistributionGroupMember',
+            {'Identity': gname,
+             'Member': member},
+            ('BypassSecurityGroupManagerCheck',
+             'Confirm:$false'))
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
 
     def remove_distgroup_addresses(self, gname, addresses):
-        """Remove email addresses from a distgroup
+        """
+        Remove email addresses from a distgroup.
 
-        @type gname: string
-        @param gname: The group name to look up associated distgroup by
+        :type gname: string
+        :param gname: The group name to look up associated distgroup by.
 
-        @type addresses: list
-        @param addresses: A list of addresses to remove
+        :type addresses: list
+        :param addresses: A list of addresses to remove.
 
-        @raise ExchangeException: If the command failed to run for some reason
+        :raise ExchangeException: If the command failed to run for some reason.
         """
         # TODO: Make me handle single addresses too!
         addrs = {'remove': addresses}
         cmd = self._generate_exchange_command(
-                'Set-DistributionGroup',
-               {'Identity': gname,
-                'EmailAddresses': addrs})
+            'Set-DistributionGroup',
+            {'Identity': gname,
+             'EmailAddresses': addrs})
         out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
 
     def set_distgroup_member_restrictions(self, gname, join='Closed',
-                                                       part='Closed'):
-        # TODO: fix docstring
+                                          part='Closed'):
         """Set the member restrictions on a Distribution Group.
-        Default is all-false. False results in 'Closed'-state, True results
-        in 'Open'-state.
+        Default is 'Closed'-state.
 
-        @type gname: string
-        @param gname: The groups name
+        :type gname: string
+        :param gname: The groups name.
 
-        @type join: str
-        @param join: Enable, disable or restrict MemberJoinRestriction
-        
-        @type part: str
-        @param part: Enable, disable or restrict MemberPartRestriction
+        :type join: str
+        :param join: Set MemberJoinRestriction to 'Open', 'Closed' or
+            'ApprovalRequired'.
 
-        @raise ExchangeException: If the command cannot be run, raise.
-        """
+        :type part: str
+        :param part: Set MemberPartApprovalRequiredion to 'Open', 'Closed' or
+            'ApprovalRequired'.
+
+        :raise ExchangeException: If the command cannot be run, raise."""
+        # TBD: Enforce constraints on join- and part-restrictions?
         params = {'Identity': gname}
         if join:
             params['MemberJoinRestriction'] = join
         if part:
             params['MemberDepartRestriction'] = part
         cmd = self._generate_exchange_command(
-                'Set-DistributionGroup', params)
-        
+            'Set-DistributionGroup', params)
+
         out = self.run(cmd)
-        if out.has_key('stderr'):
-            raise ExchangeException(out['stderr'])
-        else:
-            return True
-
-    def set_distgroup_moderation(self, gname, enabled=True):
-        """Enable/disable moderation of group
-
-        @type gname: string
-        @param gname: The groups name
-
-        @type enabled: bool
-        @param enabled: Enable or disable moderation
-
-        @raise ExchangeException: If the command cannot be run, raise.
-        """
-        cmd = self._generate_exchange_command(
-                'Set-DistributionGroup',
-               {'Identity':  gname,
-                'ModerationEnabled': enabled})
-        out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
@@ -1192,50 +1133,20 @@ class ExchangeClient(PowershellClient):
     def set_distgroup_manager(self, gname, addr):
         """Set the manager of a distribution group.
 
-        @type gname: string
-        @param gname: The groups name
+        :type gname: string
+        :param gname: The groups name.
 
-        @type addr: str
-        @param uname: The e-mail address which manages this group
+        :type addr: str
+        :param uname: The e-mail address which manages this group.
 
-        @raise ExchangeException: If the command cannot be run, raise.
-        """
+        :raise ExchangeException: If the command cannot be run, raise."""
         cmd = self._generate_exchange_command(
-                'Set-DistributionGroup',
-               {'Identity':  gname,
-                'ManagedBy': addr},
-               ('BypassSecurityGroupManagerCheck',))
+            'Set-DistributionGroup',
+            {'Identity':  gname,
+             'ManagedBy': addr},
+            ('BypassSecurityGroupManagerCheck',))
         out = self.run(cmd)
-        if out.has_key('stderr'):
-            raise ExchangeException(out['stderr'])
-        else:
-            return True
-    
-    def set_distgroup_moderator(self, gname, addr):
-        """Set the moderators of a distribution group.
-
-        @type gname: string
-        @param gname: The groups name
-
-        @type addr: str
-        @param uname: The e-mail addresses which moderates this group
-
-        @raise ExchangeException: If the command cannot be run, raise.
-        """
-        # TODO: Make ModeratedBy a kwarg that accepts a list
-        params = {'Identity':  gname}
-        if addr == '':
-            params['ModerationEnabled'] = False
-            addr = '$null'
-        else:
-            params['ModerationEnabled'] = True
-            
-        cmd = self._generate_exchange_command(
-                'Set-DistributionGroup',
-                params,
-                ('ModeratedBy ' + addr,))
-        out = self.run(cmd)
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
             return True
@@ -1246,16 +1157,16 @@ class ExchangeClient(PowershellClient):
 
     # TODO: Refactor these two or something
     def get_mailbox_info(self, attributes):
-        """Get information about the mailboxes in Exchange
+        """Get information about the mailboxes in Exchange.
 
-        @type attributes: list(string)
-        @param attributes: Which attributes we want to return
+        :type attributes: list(string)
+        :param attributes: Which attributes we want to return.
 
-        @raises ExchangeException: Raised if the command fails to run
-        """
+        :raises ExchangeException: Raised if the command fails to run."""
         # TODO: Filter by '-Filter {IsLinked -eq "True"}' on get-mailbox.
         cmd = self._generate_exchange_command(
-                '''Get-Mailbox -ResultSize Unlimited | Select %s''' % ', '.join(attributes))
+            '''Get-Mailbox -ResultSize Unlimited | Select %s''' %
+            ', '.join(attributes))
         # TODO: Do we really need to add that ;? We can't have it here...
         json_wrapped = '''if ($str = %s | ConvertTo-Json) {
             $str -replace '$', ';'
@@ -1267,28 +1178,27 @@ class ExchangeClient(PowershellClient):
             error = '%s\n%s' % (str(e), str(out))
             raise ExchangeException('No mailboxes exists?: %s' % error)
 
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         elif not ret:
-            raise ExchangeException('Bad output while fetching mailboxes: %s' \
-                    % str(out))
+            raise ExchangeException(
+                'Bad output while fetching mailboxes: %s' % str(out))
         else:
             return ret
 
     def get_user_info(self, attributes):
-        """Get information about a user in Exchange
+        """Get information about a user in Exchange.
 
-        @type attributes: list(string)
-        @param attributes: Which attributes we want to return
+        :type attributes: list(string)
+        :param attributes: Which attributes we want to return.
 
-        @raises ExchangeException: Raised if the command fails to run
-        """
+        :raises ExchangeException: Raised if the command fails to run."""
         # TODO: I hereby leave the tidying up this call generation as an
         #       exercise to my followers.
         cmd = self._generate_exchange_command(
-            '''Get-User -Filter * -ResultSize Unlimited | Select %s''' % \
-                        ', '.join(attributes))
-        
+            '''Get-User -Filter * -ResultSize Unlimited | Select %s''' %
+            ', '.join(attributes))
+
         # TODO: Do we really need to add that ;? We can't have it here...
         json_wrapped = '''if ($str = %s | ConvertTo-Json) {
             $str -replace '$', ';'
@@ -1299,11 +1209,11 @@ class ExchangeClient(PowershellClient):
         except ValueError, e:
             raise ExchangeException('No users exist?: %s' % str(e))
 
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         elif not ret:
-            raise ExchangeException('Bad output while fetching users: %s' \
-                    % str(out))
+            raise ExchangeException(
+                'Bad output while fetching users: %s' % str(out))
         else:
             return ret
 
@@ -1312,24 +1222,23 @@ class ExchangeClient(PowershellClient):
     ######
 
     def get_group_info(self, attributes, ou=None):
-        """Get information about the distribution group in Exchange
+        """Get information about the distribution group in Exchange.
 
-        @type attributes: list(string)
-        @param attributes: Which attributes we want to return
+        :type attributes: list(string)
+        :param attributes: Which attributes we want to return.
 
-        @type ou: string
-        @param ou: The organizational unit to look in
+        :type ou: string
+        :param ou: The organizational unit to look in.
 
-        @raises ExchangeException: Raised if the command fails to run
-        """
+        :raises ExchangeException: Raised if the command fails to run."""
         if ou:
             f_org = '-OrganizationalUnit \'%s\'' % ou
         else:
             f_org = ''
-        
+
         cmd = self._generate_exchange_command(
-                '''Get-DistributionGroup %s -ResultSize Unlimited | Select %s''' % \
-                    (f_org, ', '.join(attributes)))
+            '''Get-DistributionGroup %s -ResultSize Unlimited | Select %s''' %
+            (f_org, ', '.join(attributes)))
         # TODO: Do we really need to add that ;? We can't have it here...
         json_wrapped = '''if ($str = %s | ConvertTo-Json) {
             $str -replace '$', ';'
@@ -1340,29 +1249,29 @@ class ExchangeClient(PowershellClient):
         except ValueError, e:
             raise ExchangeException('No groups exists?: %s' % str(e))
 
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         elif not ret:
-            raise ExchangeException('Bad output while fetching groups: %s' \
-                    % str(out))
+            raise ExchangeException(
+                'Bad output while fetching groups: %s' % str(out))
         else:
             return ret
 
     def get_group_description(self, ou=None):
-        """Get the description from groups in Exchange
+        """Get the description from groups in Exchange.
 
-        @type ou: string
-        @param ou: The organizational unit to look in
+        :type ou: string
+        :param ou: The organizational unit to look in.
 
-        @raises ExchangeException: Raised if the command fails to run
-        """
+        :raises ExchangeException: Raised if the command fails to run."""
         if ou:
             f_org = '-OrganizationalUnit \'%s\'' % ou
         else:
             f_org = ''
-        
+
         cmd = self._generate_exchange_command(
-                '''Get-Group %s -ResultSize Unlimited | Select Name, Notes''' % f_org)
+            '''Get-Group %s -ResultSize Unlimited | Select Name, Notes''' %
+            f_org)
         # TODO: Do we really need to add that ;? We can't have it here...
         json_wrapped = '''if ($str = %s | ConvertTo-Json) {
             $str -replace '$', ';'
@@ -1373,39 +1282,37 @@ class ExchangeClient(PowershellClient):
         except ValueError, e:
             raise ExchangeException('No groups exists?: %s' % str(e))
 
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         elif not ret:
-            raise ExchangeException('Bad output while fetching NOTES: %s' \
-                    % str(out))
+            raise ExchangeException(
+                'Bad output while fetching NOTES: %s' % str(out))
         else:
             return ret
-    
+
     def get_group_members(self, gname):
-        """Return the members of a group
+        """Return the members of a group.
 
-        @type gname: string
-        @param gname: The groups name
+        :type gname: string
+        :param gname: The groups name.
 
-        @raises ExchangeException: Raised if the command fails to run
-        """
+        :raises ExchangeException: Raised if the command fails to run."""
         # Jeg er mesteren!!!!!11
         cmd = self._generate_exchange_command(
-        '$m = @(); $m += Get-ADGroupMember %s -Credential $cred | ' % gname + \
-            'Select -ExpandProperty Name; ConvertTo-Json $m')
+            '$m = @(); $m += Get-ADGroupMember %s -Credential $cred | ' %
+            gname + 'Select -ExpandProperty Name; ConvertTo-Json $m')
         out = self.run(cmd)
         try:
             ret = self.get_output_json(out, dict())
         except ValueError, e:
             raise ExchangeException('No group members in %s?: %s' % (gname, e))
 
-        if out.has_key('stderr'):
+        if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         # TODO: Be more specific in this check?
-        elif ret == None:
+        elif ret is None:
             raise ExchangeException(
-                'Bad output while fetching members from %s: %s' \
-                    % (gname, str(out)))
+                'Bad output while fetching members from %s: %s' %
+                (gname, str(out)))
         else:
             return ret
-

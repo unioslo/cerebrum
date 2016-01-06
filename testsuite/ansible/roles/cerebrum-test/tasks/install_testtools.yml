@@ -1,0 +1,21 @@
+# Set up an environment for Cerebrum
+#
+# - ensure that a virtualenv exists
+# - install python package requirements
+#
+
+
+# This role depends on 'cerebrum', so 'pip_extra_args' should already be set up.
+- name: set up python environment
+  pip:
+      virtualenv: "{{ virtualenv }}"
+      extra_args: "{{ pip_extra_args|default(None) }}"
+      name: "{{ item }}"
+  with_items:
+      - nose
+      - coverage
+      - pep8
+      - pylint
+      - pytest
+      - pytest-cov
+      - pytest-flask

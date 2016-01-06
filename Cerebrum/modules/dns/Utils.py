@@ -15,7 +15,6 @@ from Cerebrum.modules.dns import IPv6Subnet
 from Cerebrum.modules.dns.Errors import DNSError, SubnetError
 from Cerebrum.modules.dns.IPUtils import IPCalc, IPUtils
 from Cerebrum.modules.dns.IPv6Utils import IPv6Calc, IPv6Utils
-from Cerebrum.modules.dns.IPv6Subnet import IPv6Subnet
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules import dns
@@ -74,7 +73,7 @@ class DnsParser(object):
             full_ip = True
             ip = ip_id
 
-        elif IPv6Subnet.is_valid_subnet(ip_id):
+        elif IPv6Subnet.IPv6Subnet.is_valid_subnet(ip_id):
             ip = ip_id
 
         else:
@@ -442,7 +441,7 @@ class Find(object):
             sub = Subnet.Subnet(self._db)
             sub.find(subnet)
         except SubnetError:
-            sub = IPv6Subnet(self._db)
+            sub = IPv6Subnet.IPv6Subnet(self._db)
             sub.find(subnet)
         return sub.subnet_ip
 
@@ -457,7 +456,7 @@ class Find(object):
             ipnr = lambda x: x['ipnr']
             start = sub.ip_min
         except SubnetError:
-            sub = IPv6Subnet(self._db)
+            sub = IPv6Subnet.IPv6Subnet(self._db)
             sub.find(subnet)
             ip_number = IPv6Number.IPv6Number(self._db)
             ip_key = 'ipv6_number_id'
