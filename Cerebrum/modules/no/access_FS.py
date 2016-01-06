@@ -380,15 +380,15 @@ class FSObject(object):
             if only_current or self.mndnr >= 3 or (self.mndnr == 2
                                                    and self.dday > 15):
                 return current.encode(compatibility_encoding)
-            return u"(%s OR (r.terminkode = 'HØST' AND r.arstall=%d))\n" % (
-                current, self.year-1).encode(compatibility_encoding)
+            return (u"(%s OR (r.terminkode = 'HØST' AND r.arstall=%d))\n" % (
+                current, self.year-1)).encode(compatibility_encoding)
         # Months July - December == Autumn semester
         current = u"(r.terminkode = 'HØST' AND r.arstall=%d)\n" % self.year
         if only_current or self.mndnr >= 10 or (self.mndnr == 9
                                                 and self.dday > 15):
             return current.encode(compatibility_encoding)
-        return u"(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" % (
-            current, self.year).encode(compatibility_encoding)
+        return (u"(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" % (
+            current, self.year)).encode(compatibility_encoding)
 
     def _get_next_termin_aar(self):
         """henter neste semesters terminkode og årstal."""
