@@ -567,6 +567,46 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                           affiliation=None, status=None, ou_id=None,
                           include_deleted=False, ret_primary_acc=False,
                           fetchall=True):
+        """Retrieve a list of affiliations matching criteria. Retrieves
+        rows from person_affiliation_source.
+
+        :type person_id: NoneType or int
+        :param person_id: Only matching this person. Also, sort result
+            by precedence (unless ret_primary_acc).
+
+        :type source_system: NoneType, int or AuthoritativeSystem code
+        :param source_system: Filter by source system
+
+        :type affiliation: NoneType, int or PersonAffiliation code
+        :param affiliation: Only this kind of affiliation
+
+        :type status: NoneType, int or PersonAffStatus code
+        :param status: Filter by affiliation status
+
+        :type ou_id: NoneType or int
+        :param ou_id: Filter by ou (not recursive)
+
+        :type include_deleted: bool
+        :param include_deleted: If false, filter out deleted affs,
+            i.e. deleted_date in past.
+
+        :type ret_primary_acc: bool
+        :param ret_primary_acc: Hack to make person_id become account_id.
+
+        :type fetchall: bool
+        :param fetchall: Fetch all rows?
+
+        :returns: List of dbrows:
+            * person_id
+            * ou_id
+            * affiliation
+            * source_system
+            * status
+            * deleted_date
+            * create_date
+            * last_date
+            * precedence
+        """
         where = []
         for t in ('person_id', 'affiliation', 'source_system', 'status',
                   'ou_id'):
@@ -583,6 +623,9 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         where = " AND ".join(where)
         if where:
             where = "WHERE " + where
+        order = ""
+        if person_id is not None:
+            order = "ORDER BY precedence ASC"
         # exchange-relatert-jazz
         # this is a bit dirty as the return values are registered as
         # "person_id" while they actually are account_id's
@@ -598,7 +641,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
               pas.source_system AS source_system, pas.status AS status,
               pas.deleted_date AS deleted_date,
               pas.create_date AS create_date,
-              pas.last_date AS last_date
+              pas.last_date AS last_date,
+              pas.precedence AS precedence
             FROM [:table schema=cerebrum name=person_affiliation_source] pas,
                  [:table schema=cerebrum name=account_info] ai,
                  [:table schema=cerebrum name=account_type] at
@@ -623,9 +667,11 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
               pas.source_system AS source_system, pas.status AS status,
               pas.deleted_date AS deleted_date,
               pas.create_date AS create_date,
-              pas.last_date AS last_date
+              pas.last_date AS last_date,
+              pas.precedence AS precedence
         FROM [:table schema=cerebrum name=person_affiliation_source] pas
-        %s""" % where, fetchall=fetchall)
+        {} {}
+        """.format(where, order), fetchall=fetchall)
 
     def __get_affiliation_precedence_rule(self, source, afforrule, status=None):
         """ Helper for aff calculation """
