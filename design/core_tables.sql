@@ -1,6 +1,6 @@
 /* encoding: latin-1
  *
- * Copyright 2002-2009 University of Oslo, Norway
+ * Copyright 2002-2016 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -23,7 +23,7 @@
 category:metainfo;
 name=cerebrum_database_schema_version;
 category:metainfo;
-version=0.9.16;
+version=0.9.17;
 
 /* Define role hierarchy used for granting access to various database
    objects.
@@ -1382,6 +1382,8 @@ CREATE TABLE person_affiliation_source
 		DEFAULT NULL,
   description	CHAR VARYING(512)
 		DEFAULT NULL,
+  precedence    NUMERIC(6,0)
+        NOT NULL,
   CONSTRAINT person_aff_src_pk
     PRIMARY KEY (person_id, ou_id, affiliation, source_system),
   CONSTRAINT person_aff_src_exists
@@ -1389,7 +1391,9 @@ CREATE TABLE person_affiliation_source
     REFERENCES person_affiliation(person_id, ou_id, affiliation),
   CONSTRAINT person_aff_src_status
     FOREIGN KEY (affiliation, status)
-    REFERENCES person_aff_status_code(affiliation, status)
+    REFERENCES person_aff_status_code(affiliation, status),
+  CONSTRAINT person_affiliation_source_p_u
+    UNIQUE (person_id, precedence)
 );
 category:main/Oracle;
 GRANT SELECT ON person_affiliation_source TO read_person;
