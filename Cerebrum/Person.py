@@ -91,7 +91,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         # If __in_db in not present, we'll set it to False.
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
         self.birth_date = birth_date
@@ -155,7 +155,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                   (entity_type, person_id, export_id, birth_date, gender,
                    deceased_date, description)
                 VALUES
-                  (:e_type, :p_id, :exp_id, :b_date, :gender, :deceased_date, :desc)""",
+                  (:e_type, :p_id, :exp_id, :b_date, :gender,
+                   :deceased_date, :desc)""",
                              {'e_type': int(self.const.entity_person),
                               'p_id': self.entity_id,
                               'exp_id': 'exp-' + str(self.entity_id),
@@ -488,8 +489,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         #      such a more correct change, we'll live with this hack.
         if not [n for n in cached_name if cached_name[n] is not None]:
             # We have no cacheable name variants.
-            raise ValueError, "No cacheable name for %d / %r" % (
-                self.entity_id, self._name_info)
+            raise ValueError("No cacheable name for %d / %r" % (
+                self.entity_id, self._name_info))
         for ntype, name in cached_name.items():
             name_type = getattr(self.const, ntype)
             self._set_cached_name(name_type, name)
@@ -535,8 +536,9 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
     def populate_name(self, variant, name):
         if (not self._pn_affect_source or
-                str(variant) not in ["%s" % v for v in self._pn_affect_variants]):
-            raise ValueError, "Improper API usage, must call affect_names()"
+                str(variant) not in ["%s" % v
+                                     for v in self._pn_affect_variants]):
+            raise ValueError("Improper API usage, must call affect_names()")
         self._name_info[variant] = name
 
     def populate_affiliation(self, source_system, ou_id=None,
@@ -545,8 +547,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             self._affil_source = source_system
             self.__affil_data = {}
         elif self._affil_source != source_system:
-            raise ValueError, \
-                "Can't populate multiple `source_system`s w/o write_db()."
+            raise ValueError(
+                "Can't populate multiple `source_system`s w/o write_db().")
         if ou_id is None:
             return
         idx = "%d:%d" % (ou_id, affiliation)
@@ -564,7 +566,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                           include_deleted=False, ret_primary_acc=False,
                           fetchall=True):
         where = []
-        for t in ('person_id', 'affiliation', 'source_system', 'status', 
+        for t in ('person_id', 'affiliation', 'source_system', 'status',
                   'ou_id'):
             val = locals()[t]
             if val is not None:
@@ -574,7 +576,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 else:
                     where.append("pas.%s = %d" % (t, val))
         if not include_deleted:
-            where.append("(pas.deleted_date IS NULL OR pas.deleted_date > [:now])")
+            where.append("(pas.deleted_date IS NULL OR "
+                         "pas.deleted_date > [:now])")
         where = " AND ".join(where)
         if where:
             where = "WHERE " + where
@@ -586,18 +589,18 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         # (Jazz, 2013-12)
         if ret_primary_acc:
             return self.query("""
-            SELECT 
-              ai.account_id AS person_id, 
+            SELECT
+              ai.account_id AS person_id,
               pas.ou_id AS ou_id,
-              pas.affiliation AS affiliation, 
-              pas.source_system AS source_system, pas.status AS status, 
-              pas.deleted_date AS deleted_date, 
-              pas.create_date AS create_date, 
+              pas.affiliation AS affiliation,
+              pas.source_system AS source_system, pas.status AS status,
+              pas.deleted_date AS deleted_date,
+              pas.create_date AS create_date,
               pas.last_date AS last_date
             FROM [:table schema=cerebrum name=person_affiliation_source] pas,
                  [:table schema=cerebrum name=account_info] ai,
                  [:table schema=cerebrum name=account_type] at
-            %s AND            
+            %s AND
             ai.owner_id=pas.person_id AND
             at.account_id=ai.account_id AND
             at.priority = (SELECT min(at2.priority)
@@ -609,15 +612,15 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                                at2.account_id = ai2.account_id AND
                                (ai2.expire_date IS NULL OR
                                 ai2.expire_date > [:now]))
-            """ % where , fetchall=fetchall)
+            """ % where, fetchall=fetchall)
         return self.query("""
-        SELECT 
-              pas.person_id AS person_id, 
+        SELECT
+              pas.person_id AS person_id,
               pas.ou_id AS ou_id,
-              pas.affiliation AS affiliation, 
-              pas.source_system AS source_system, pas.status AS status, 
-              pas.deleted_date AS deleted_date, 
-              pas.create_date AS create_date, 
+              pas.affiliation AS affiliation,
+              pas.source_system AS source_system, pas.status AS status,
+              pas.deleted_date AS deleted_date,
+              pas.create_date AS create_date,
               pas.last_date AS last_date
         FROM [:table schema=cerebrum name=person_affiliation_source] pas
         %s""" % where, fetchall=fetchall)
@@ -785,19 +788,18 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                                 ai2.expire_date > [:now])) AND
               -- ... and finally to find the name of the account
               at.account_id = en.entity_id
-            """, {"id_type" : int(id_type)}):
+                              """, {"id_type": int(id_type)}):
             result[row["external_id"]] = row["entity_name"]
-        # od
 
         return result
-    # end getdict_external_id2primary_account
 
     def list_persons(self, person_id=None):
         """Return all persons' person_id and birth_date."""
         binds = dict()
         where = ''
         if person_id is not None:
-            where = 'WHERE ' + argument_to_sql(person_id,'person_id',binds,int)
+            where = 'WHERE ' + argument_to_sql(person_id, 'person_id',
+                                               binds, int)
         return self.query("""
         SELECT person_id, birth_date
         FROM [:table schema=cerebrum name=person_info]
@@ -853,7 +855,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                eei.entity_type = [:get_constant name=entity_person]"""
 
         return self.query("""
-        SELECT DISTINCT pi.person_id, pi.birth_date, at.account_id, eei.external_id,
+        SELECT DISTINCT pi.person_id, pi.birth_date,
+                        at.account_id, eei.external_id,
           at.ou_id, at.affiliation %(ecols)s
         FROM
           [:table schema=cerebrum name=person_info] pi
