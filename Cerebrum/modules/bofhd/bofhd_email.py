@@ -609,6 +609,9 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
             self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
         fw.find(et.entity_id)
+        if address == 'local':
+            fw.enable_local_delivery()
+            return 'OK, local delivery turned on'
         addr = self._check_email_address(address)
 
         if self._forward_exists(fw, addr):
@@ -691,6 +694,9 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
             self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
         fw.find(et.entity_id)
+        if address == 'local':
+            fw.disable_local_delivery()
+            return 'OK, local delivery turned off'
         addr = self._check_email_address(address)
         removed = 0
         for a in [addr]:
