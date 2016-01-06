@@ -156,13 +156,15 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
         do_del = []
         for aff in old_person.list_affiliations(old_person.entity_id, ss, include_deleted=True):
             new_person.populate_affiliation(
-                aff['source_system'], aff['ou_id'], aff['affiliation'], aff['status'])
+                aff['source_system'], aff['ou_id'], aff['affiliation'],
+                aff['status'], aff['precedence'])
             if aff['deleted_date']:
                 do_del.append((int(aff['ou_id']), int(aff['affiliation']),
                                int(aff['source_system'])))
         for aff in new_person.list_affiliations(new_person.entity_id, ss):
             new_person.populate_affiliation(
-                aff['source_system'], aff['ou_id'], aff['affiliation'], aff['status'])
+                aff['source_system'], aff['ou_id'], aff['affiliation'],
+                aff['status'], aff['precedence'])
             try:
                 do_del.remove((int(aff['ou_id']), int(aff['affiliation']),
                                int(aff['source_system'])))
