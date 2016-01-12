@@ -363,7 +363,7 @@ class _SAPPersonDataTuple(_SAPTupleBase):
                                        y.strip() or x.strip()),
                     'sap_last_name': _with_strip(8),
                     'sap_initials': _with_strip(3),
-                    'sap_work_title': _with_strip(28),
+                    'sap_personal_title': _with_strip(28),
                     'sap_phone_private': _with_strip(12),
                     'sap_phone': _with_strip(13),
                     'sap_phone_mobile': _with_strip(14),

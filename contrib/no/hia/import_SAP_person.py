@@ -280,18 +280,18 @@ def populate_names(person, fields):
     person.populate_name(const.name_first, fields.sap_first_name)
 
 
-def populate_title(person, fields):
-    """Register work title for person."""
+def populate_personal_title(person, fields):
+    """Register personal title for person."""
 
-    source_title = fields.sap_work_title
+    source_title = fields.sap_personal_title
     if source_title:
-        person.add_name_with_language(name_variant=const.work_title,
+        person.add_name_with_language(name_variant=const.personal_title,
                                       name_language=const.language_nb,
                                       name=source_title)
         logger.debug("Added %s '%s' for person id=%s",
-                     str(const.work_title), source_title, person.entity_id)
+                     str(const.personal_title), source_title, person.entity_id)
     else:
-        person.delete_name_with_language(name_variant=const.work_title,
+        person.delete_name_with_language(name_variant=const.personal_title,
                                          name_language=const.language_nb)
         logger.debug("Removed %s for person id=%s",
                      str(const.work_title), person.entity_id)
@@ -541,7 +541,7 @@ def process_people(filename, use_fok, use_mgmu=False):
 
         add_person_to_group(person, p)
 
-        populate_title(person, p)
+        populate_personal_title(person, p)
 
         populate_medarbeidergruppe(person, p)
 
@@ -552,7 +552,7 @@ def process_people(filename, use_fok, use_mgmu=False):
 def main():
 
     global logger
-    logger = Factory.get_logger("cronjob")
+    logger = Factory.get_logger("console")
 
     # Creating this locally costs about 20 seconds out of a 3 minute run.
     global const
