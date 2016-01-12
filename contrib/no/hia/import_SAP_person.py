@@ -552,7 +552,7 @@ def process_people(filename, use_fok, use_mgmu=False):
 def main():
 
     global logger
-    logger = Factory.get_logger("console")
+    logger = Factory.get_logger("cronjob")
 
     # Creating this locally costs about 20 seconds out of a 3 minute run.
     global const
