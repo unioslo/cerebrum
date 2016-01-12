@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2015 University of Oslo, Norway
+# Copyright 2013-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -280,7 +280,7 @@ class ExchangeEventHandler(multiprocessing.Process):
 #                # is probably wrong. We silently discard the event
 #                self.db.remove_event(ev['event_id'])
 #                self.db.commit()
-            except Exception, e:
+            except Exception as e:
                 # If we wind up here, we have found a "state" that the
                 # programmer failed to imagine. We log it, so we can process
                 # further events, and shut down the event dæmon gracefully
@@ -320,10 +320,9 @@ class ExchangeEventHandler(multiprocessing.Process):
         key = str(self.co.ChangeType(event['event_type']))
         self.logger.debug3('Got event key: %s' % key)
         try:
-            cmds = ExchangeEventHandler._lut_type2meth[key]
+            cmds = self.__class__._lut_type2meth[key]
         except KeyError:
             raise EventHandlerNotImplemented
-
         # Call the appropriate handler(s)
         # TODO: Think about what happens if one of the commands fail,
         # if that happens, the event will be requeued, and the next
