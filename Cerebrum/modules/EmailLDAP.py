@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2003-2009 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2003-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,7 +24,6 @@ import mx
 from collections import defaultdict
 
 from Cerebrum import Errors
-from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
@@ -36,17 +35,17 @@ try:
 except NameError:
     from sets import Set as set
 
+
 class EmailLDAP(DatabaseAccessor):
     """The EmailLDAP class is used to gather methodes used to generate
     an ldif for mail-backends."""
-    
+
     __metaclass__ = mark_update
 
     __write_attr__ = ('aid2addr', 'targ2addr', 'targ2prim', 'targ2spam',
                       'targ2quota', 'serv_id2server', 'targ2server_id',
                       'targ2forward', 'targ2vacation', 'acc2name', 'pending',
                       'e_id2passwd')
-
 
     def __init__(self, db):
         super(EmailLDAP, self).__init__(db)
@@ -63,6 +62,7 @@ class EmailLDAP(DatabaseAccessor):
         self.serv_id2server = {}
         self.targ2server_id = {}
         self.targ2forward = defaultdict(list)
+        self.targ2localdelivery = set()
         self.targ2vacation = {}
         self.acc2name = {}
         self.pending = {}
@@ -77,24 +77,19 @@ class EmailLDAP(DatabaseAccessor):
     def _build_addr(self, local_part, domain):
         return '@'.join((local_part, domain))
 
-
     def get_targettype(self, targettype):
         return str(targettype)
 
     def get_target_info(self, row):
         """Return additional EmailLDAP-entry derived from L{row}.
 
-        Return site-specific mail-ldap-information pertaining to the
-        EmailTarget info in L{row}.
+        Return site-specific mail-ldap-information pertaining to the EmailTarget info in L{row}.
 
         @type row: db-row instance
-        @param row:
-          A db-row holding one result of L{list_email_targets_ext}.
+        @param row: A db-row holding one result of L{list_email_targets_ext}.
 
         @rtype: dict
-        @return:
-          A dictinary mapping attributes to values for the specified
-          EmailTarget in L{row}. 
+        @return: A dictinary mapping attributes to values for the specified EmailTarget in L{row}.
         """
 
         co = self.const
@@ -107,7 +102,7 @@ class EmailLDAP(DatabaseAccessor):
         if et is not None:
             et = int(et)
 
-        result = {"targetType": self.get_targettype(target_type),}
+        result = {"targetType": self.get_targettype(target_type)}
         if target_type in (co.email_target_Mailman, co.email_target_Sympa,
                            co.email_target_pipe, co.email_target_RT,
                            co.email_target_file):
@@ -117,9 +112,7 @@ class EmailLDAP(DatabaseAccessor):
                 result["target"] = self.acc2name[ei]
 
         return result
-    # end get_target_info
 
-        
     def get_server_info(self, row):
         """Return additional mail server info for EmailLDAP-entry derived
         from row.
@@ -153,11 +146,8 @@ class EmailLDAP(DatabaseAccessor):
             result["IMAPserver"] = server_name
 
         return result
-    # end get_server_info
-    
-    
+
     def read_addr(self):
-        mail_dom = Email.EmailDomain(self._db)
         mail_addr = Email.EmailAddress(self._db)
         for row in mail_addr.list_email_addresses_ext():
             a_id, t_id = int(row['address_id']), int(row['target_id'])
@@ -166,12 +156,10 @@ class EmailLDAP(DatabaseAccessor):
             self.targ2addr[t_id].add(addr)
             self.aid2addr[a_id] = addr
 
-
     def read_prim(self):
         mail_prim = Email.EmailPrimaryAddressTarget(self._db)
         for row in mail_prim.list_email_primary_address_targets():
             self.targ2prim[int(row['target_id'])] = int(row['address_id'])
-
 
     def read_spam(self):
         mail_spam = Email.EmailSpamFilter(self._db)
@@ -179,14 +167,12 @@ class EmailLDAP(DatabaseAccessor):
             self.targ2spam[int(row['target_id'])] = [row['level'],
                                                      row['code_str']]
 
-
     def read_quota(self):
         mail_quota = Email.EmailQuota(self._db)
         for row in mail_quota.list_email_quota_ext():
             self.targ2quota[int(row['target_id'])] = [row['quota_soft'],
                                                       row['quota_hard']]
 
-        
     def read_target_filter(self):
         const2str = {}
         for c in dir(self.const):
@@ -216,6 +202,10 @@ class EmailLDAP(DatabaseAccessor):
         for row in mail_forw.search(enable=True):
             self.targ2forward[int(row['target_id'])].append(row['forward_to'])
 
+    def read_local_delivery(self):
+        mail_forw = Email.EmailForward(self._db)
+        self.targ2localdelivery = set([x['target_id'] for x in mail_forw.list_local_delivery()])
+
     def read_vacation(self):
         mail_vaca = Email.EmailVacation(self._db)
         for row in mail_vaca.list_email_active_vacations():
@@ -231,13 +221,11 @@ class EmailLDAP(DatabaseAccessor):
                                             row['start_date'],
                                             row['end_date'])
 
-
     def read_accounts(self, spread):
         # Since get_target() can be called for target type "deleted",
         # we need to include expired accounts.
         for row in self.acc.list_names(self.const.account_namespace):
             self.acc2name[int(row['entity_id'])] = row['entity_name']
-
 
     def read_pending_moves(self):
         br = BofhdRequests(self._db, self.const)
@@ -347,7 +335,3 @@ class EmailLDAP(DatabaseAccessor):
     def get_misc(self, row):
         """Return optional strings to the script."""
         return dict()
-    # end get_misc
-
-# end class EmailLDAP
-

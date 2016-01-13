@@ -1208,67 +1208,53 @@ class BofhdExtension(BofhdCommonMethods):
         source_acc.update_email_addresses()
         return "OK, reassigned %s" % address
 
-    # email forward "on"|"off"|"local" <account>+ [<address>+]
-    all_commands['email_forward'] = Command(
-        ('email', 'forward'),
-        SimpleString(help_ref='email_forward_action'),
-        AccountName(help_ref='account_name', repeat=True),
-        EmailAddress(help_ref='email_address',
-                     repeat=True, optional=True),
+    all_commands['email_local_delivery'] = Command(
+        ('email', 'local_delivery'),
+        AccountName(help_ref='account_name'),
+        SimpleString(help_ref='string_email_on_off'),
         perm_filter='can_email_forward_toggle')
-    def email_forward(self, operator, action, uname, addr=None):
-        """Toggle forward settings.  addr is optional and used as a
-        pattern, if there is no addr, all addresses are affected.
 
-        The action 'local' is special, it adds local delivery.  If
-        addr is specified, turn on matching addresses, too.  If it is
-        not specified, only add local delivery.
-
-        The address 'local' is special, it matches any valid e-mail
-        address.
-        """
-
+    def email_local_delivery(self, operator, uname, on_off):
+        """Turn on or off local delivery of E-mail."""
         acc = self._get_account(uname)
         self.ba.can_email_forward_toggle(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
         fw.find_by_target_entity(acc.entity_id)
-        matches = []
-        local_delivery = False
+        on_off = on_off.lower()
+        if on_off == 'on':
+            fw.enable_local_delivery()
+        elif on_off == 'off':
+            fw.disable_local_delivery()
+        else:
+            raise CerebrumError("Must specify 'on' or 'off'")
+        return "OK, local delivery turned %s" % on_off
 
-        if action == 'local' or addr == 'local':
-            valid_addrs = self._get_valid_email_addrs(fw)
-            for r in fw.get_forward():
-                if r['forward_to'] in valid_addrs:
-                    matches.append(r['forward_to'])
-                    local_delivery = True
+    all_commands['email_forward'] = Command(
+        ('email', 'forward'),
+        AccountName(),
+        EmailAddress(),
+        SimpleString(help_ref='string_email_on_off'),
+        perm_filer='can_email_forward_toggle')
 
-        if not (action == 'local' and addr is None):
-            for r in fw.get_forward():
-                if addr is None or r['forward_to'].find(addr) != -1:
-                    matches.append(r['forward_to'])
+    def email_forward(self, operator, uname, addr, on_off):
+        """Toggle if a forward is active or not."""
+        acc = self._get_account(uname)
+        self.ba.can_email_forward_toggle(operator.get_entity_id(), acc)
+        fw = Email.EmailForward(self.db)
+        fw.find_by_target_entity(acc.entity_id)
 
-        if action == 'local' or (action == 'on' and addr == 'local'):
-            if not local_delivery:
-                if not fw.get_forward():
-                    # Don't add redundant forwarding
-                    return "OK"
-                prim = acc.get_primary_mailaddress()
-                fw.add_forward(prim)
-                matches.append(prim)
-        if not matches:
-            if addr is None:
-                raise CerebrumError, "No forward addresses"
-            raise CerebrumError, "No such forward address: %s" % addr
-        for a in matches:
-            if action == 'on' or action == 'local':
-                fw.enable_forward(a)
-            elif action == 'off':
-                fw.disable_forward(a)
-            else:
-                raise CerebrumError, ("Unknown action (%s), " +
-                                      "choose one of on, off or local") % action
+        if addr not in [r['forward_to'] for r in fw.get_forward()]:
+            raise CerebrumError("Forward address not registered in target")
+
+        on_off = on_off.lower()
+        if on_off == 'on':
+            fw.enable_forward(addr)
+        elif on_off == 'off':
+            fw.disable_forward(addr)
+        else:
+            raise CerebrumError("Must specify 'on' or 'off'")
         fw.write_db()
-        return 'OK'
+        return "OK, forward to %s turned %s" % (addr, on_off)
 
     # email add_forward <account>+ <address>+
     # account can also be an e-mail address for pure forwardtargets
@@ -1291,25 +1277,14 @@ class BofhdExtension(BofhdCommonMethods):
             self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
         fw.find(et.entity_id)
-        addr = self._check_email_address(address)
         if addr == 'local':
-            if acc:
-                addr = acc.get_primary_mailaddress()
-            else:
-                raise CerebrumError(
-                    "Forward address '%s' does not make sense" % addr)
+            fw.enable_local_delivery()
+            return 'OK, local delivery turned on'
+        addr = self._check_email_address(address)
         if self._forward_exists(fw, addr):
             raise CerebrumError("Forward address added already (%s)" % addr)
 
-        # Here, we pull out the email addresses, and the forward addreses, and
-        # exclude local deliveries (trought the set difference operation),
-        # before checking if we should enforce the one-email-forward limit.
-        fwd_addrs = [x['forward_to'] for x in filter(lambda x:
-                     x['enable'] == 'T', fw.get_forward())]
-        existing_addrs = ['%s@%s' % (x['local_part'], x['domain']) for
-                          x in fw.get_addresses()]
-
-        if addr not in existing_addrs and set(fwd_addrs) - set(existing_addrs):
+        if fw.get_forward():
             raise CerebrumError("Only one forward allowed at a time")
 
         fw.add_forward(addr)
@@ -1337,8 +1312,7 @@ class BofhdExtension(BofhdCommonMethods):
             # but if one exists, we require the user to supply that
             # address, not an arbitrary alias.
             if address != self._get_address(epat):
-                raise CerebrumError("%s is not the primary address of "
-                                    "the target" % address)
+                raise CerebrumError("%s is not the primary address of the target" % address)
             epat.delete()
         except Errors.NotFoundError:
             # a forward address does not need a primary address
@@ -1383,13 +1357,12 @@ class BofhdExtension(BofhdCommonMethods):
             self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
         fw.find(et.entity_id)
+        if addr == 'local':
+            fw.disable_local_delivery()
+            return 'OK, local delivery turned off'
         addr = self._check_email_address(address)
-        if addr == 'local' and acc:
-            locals = self._get_valid_email_addrs(fw)
-        else:
-            locals = [addr]
         removed = 0
-        for a in locals:
+        for a in [addr]:
             if self._forward_exists(fw, a):
                 fw.delete_forward(a)
                 removed += 1
@@ -1419,8 +1392,6 @@ class BofhdExtension(BofhdCommonMethods):
 
         """
         address = address.strip()
-        if address == 'local':
-            return address
         if address.find("@") == -1:
             raise CerebrumError, "E-mail addresses must include the domain name"
 
@@ -1915,21 +1886,14 @@ class BofhdExtension(BofhdCommonMethods):
     def _email_info_forwarding(self, target, addrs):
         info = []
         forw = []
-        local_copy = ""
         ef = Email.EmailForward(self.db)
         ef.find(target.entity_id)
         for r in ef.get_forward():
-            if r['enable'] == 'T':
-                enabled = "on"
-            else:
-                enabled = "off"
-            if r['forward_to'] in addrs:
-                local_copy = "+ local delivery (%s)" % enabled
-            else:
-                forw.append("%s (%s) " % (r['forward_to'], enabled))
+            enabled = 'on' if (r['enable'] == 'T') else 'off'
+            forw.append("%s (%s) " % (r['forward_to'], enabled))
         # for aesthetic reasons, print "+ local delivery" last
-        if local_copy:
-            forw.append(local_copy)
+        if ef.local_delivery:
+            forw.append("+ local delivery (on)")
         if forw:
             info.append({'forward_1': forw[0]})
             for idx in range(1, len(forw)):

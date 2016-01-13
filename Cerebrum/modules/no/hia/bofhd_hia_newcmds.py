@@ -206,6 +206,8 @@ class BofhdExtension(BofhdCommonMethods,
                             # Tripnote
                             'email_tripnote', 'email_add_tripnote',
                             'email_list_tripnotes', 'email_remove_tripnote',
+                            # Local delivery
+                            'email_local_delivery',
                             # Generic
                             'email_forward', 'email_info', 'email_move',
                             'email_quota', 'email_update',
