@@ -42,6 +42,9 @@ class EmailLDAPUiOMixin(EmailLDAP):
         # accounts with Exchange-mailbox
         self.targ2spread = self.target2spread_populate()
 
+        # Host cache for get_target_info
+        self.target_hosts_cache = {}
+
         # keys: account email target ids with pending 'email_primary_address' events
         # values: list of event ids
         # read_pending_primary_email() is called by read_addr()
@@ -115,15 +118,19 @@ class EmailLDAPUiOMixin(EmailLDAP):
             if server_id is None:
                 return sdict
 
-            # Let's try locating the bugger:
-            host = Factory.get("Host")(self._db)
-            try:
-                host.find(server_id)
-                sdict["commandHost"] = host.name + ".uio.no"
-            except Errors.NotFoundError:
-                # IVR 2008-07-24 TBD: What to do? Can we have an LDIF-entry
-                # for sympa without the host part?
-                pass
+            if server_id in self.target_hosts_cache:
+                sdict["commandHost"] = self.target_hosts_cache[server_id]
+            else:
+                # Let's try locating the bugger:
+                host = Factory.get("Host")(self._db)
+                try:
+                    host.find(server_id)
+                    sdict["commandHost"] = host.name + ".uio.no"
+                    self.target_hosts_cache[server_id] = sdict["commandHost"]
+                except Errors.NotFoundError:
+                    # IVR 2008-07-24 TBD: What to do? Can we have an LDIF-entry
+                    # for sympa without the host part?
+                    pass
         elif target_type == self.const.email_target_account:
             if target_id in self.targ2ulrik_addr:
                 sdict["stableMailAddress"] = self.targ2ulrik_addr[target_id]

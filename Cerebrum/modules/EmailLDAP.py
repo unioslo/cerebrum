@@ -49,7 +49,9 @@ class EmailLDAP(DatabaseAccessor):
 
     def __init__(self, db):
         super(EmailLDAP, self).__init__(db)
+        self.acc = Factory.get('Account')(db)
         self.const = Factory.get('Constants')(db)
+        self.grp = Factory.get('Group')(db)
         # Internal structure:
         self.aid2addr = {}
         self.targ2addr = defaultdict(set)
@@ -65,6 +67,12 @@ class EmailLDAP(DatabaseAccessor):
         self.acc2name = {}
         self.pending = {}
         self.e_id2passwd = {}
+        # Used by multi
+        self.group2addr = defaultdict(set)
+        self.group2missing = defaultdict(set)
+        self.multi_addr_cache = {}
+        self.multi_missing_cache = {}
+        self.multi_reserved_cache = {}
 
     def _build_addr(self, local_part, domain):
         return '@'.join((local_part, domain))
@@ -101,8 +109,7 @@ class EmailLDAP(DatabaseAccessor):
             result["target"] = alias
         elif target_type in (co.email_target_account, co.email_target_deleted):
             if et == co.entity_account and ei in self.acc2name:
-                target, junk = self.acc2name[ei]
-                result["target"] = target
+                result["target"] = self.acc2name[ei]
 
         return result
 
@@ -126,21 +133,14 @@ class EmailLDAP(DatabaseAccessor):
         ei = row['target_entity_id']
         if ei is not None:
             ei = int(ei)
-        uname, home = self.acc2name.get(ei, (None, None))
         result = dict()
 
         if target not in self.targ2server_id:
             return result
 
-        server_type, server_name = self.serv_id2server[int(self.targ2server_id[target])]
-        if server_type == self.const.email_server_type_nfsmbox:
-            if not home:
-                home = "/home/%s" % uname
-            maildrop = "/var/spool/mail"
-            result["spoolInfo"] = "home=%s maildrop=%s/%s" % (home,
-                                                              maildrop,
-                                                              uname)
-        elif server_type == self.const.email_server_type_exchange:
+        server_type, server_name = self.serv_id2server[
+                                       int(self.targ2server_id[target])]
+        if server_type == self.const.email_server_type_exchange:
             result["ExchangeServer"] = server_name
         elif server_type == self.const.email_server_type_cyrus:
             result["IMAPserver"] = server_name
@@ -222,16 +222,10 @@ class EmailLDAP(DatabaseAccessor):
                                             row['end_date'])
 
     def read_accounts(self, spread):
-        acc = Factory.get('Account')(self._db)
         # Since get_target() can be called for target type "deleted",
         # we need to include expired accounts.
-        for row in acc.list_account_home(home_spread=spread,
-                                         include_nohome=True,
-                                         filter_expired=False):
-            home = acc.resolve_homedir(account_name=row['entity_name'],
-                                       home=row['home'],
-                                       disk_path=row['path'])
-            self.acc2name[int(row['account_id'])] = [row['entity_name'], home]
+        for row in self.acc.list_names(self.const.account_namespace):
+            self.acc2name[int(row['entity_id'])] = row['entity_name']
 
     def read_pending_moves(self):
         br = BofhdRequests(self._db, self.const)
@@ -244,50 +238,83 @@ class EmailLDAP(DatabaseAccessor):
                 if r['run_at'] < near_future:
                     self.pending[int(r['entity_id'])] = True
 
-    def read_multi_target(self, group_id, ignore_missing=False):
-        grp = Factory.get('Group')(self._db)
-        acc = Factory.get('Account')(self._db)
-        grp.clear()
-        try:
-            grp.find(group_id)
-        except Errors.NotFoundError:
-            raise ValueError("No such group with id:%d" % group_id)
-        member_addrs = set()
-        missing_addrs = set()
-        for member in grp.search_members(group_id=grp.entity_id,
-                                         indirect_members=True,
-                                         member_type=self.const.entity_account):
-            acc.clear()
-            acc.find(member["member_id"])
-            if acc.is_reserved():
-                continue
-            # The address selected for the target will become the
-            # envelope recipient address after expansion, so it must
-            # be a value the user expects.  Use primary address rather
-            # than random element from targ2addr.
-            try:
-                member_addrs.add(acc.get_primary_mailaddress())
-            except Errors.NotFoundError:
-                missing_addrs.add(acc.account_name)
-                if not ignore_missing:
-                    raise ValueError("%s in group %s has no primary address" % (
-                        acc.account_name, grp.group_name))
+    def get_multi_target(self, group_id, ignore_missing=False):
+        member_addrs = list(self.group2addr[group_id])
         if ignore_missing:
-            return list(member_addrs), list(missing_addrs)
+            return member_addrs, list(self.group2missing[group_id])
         else:
-            return list(member_addrs)
+            return member_addrs
+
+    def read_multi_data(self, ignore_missing=False):
+        et = Email.EmailTarget(self._db)
+        multi_groups = set()
+        for row in et.list_email_targets_ext(target_type=
+                                             self.const.email_target_multi):
+            multi_groups.add(row['target_entity_id'])
+
+        group2groupmembers = defaultdict(set)
+        for row in self.grp.search_members(group_id=multi_groups,
+                                           indirect_members=True):
+            member_id = int(row['member_id'])
+            member_type = row['member_type']
+            # Note group_id is the actual group the member is a member of, not
+            # necessarily any of those given as argument to search_members.
+            group_id = int(row['group_id'])
+            if member_type == self.const.entity_group:
+                group2groupmembers[group_id].add(member_id)
+            elif member_type == self.const.entity_account:
+                if member_id in self.multi_addr_cache:
+                    self.group2addr[group_id].add(self.multi_addr_cache[member_id])
+                elif member_id in self.multi_missing_cache:
+                    self.group2missing[group_id].add(self.multi_missing_cache[member_id])
+                elif member_id in self.multi_reserved_cache:
+                    continue
+                else:
+                    self.acc.clear()
+                    self.acc.find(member_id)
+                    if self.acc.is_reserved():
+                        self.multi_reserved_cache.add(member_id)
+                        continue
+                    # The address selected for the target will become the
+                    # envelope recipient address after expansion, so it must
+                    # be a value the user expects.  Use primary address rather
+                    # than random element from targ2addr.
+                    try:
+                        tmp = self.acc.get_primary_mailaddress()
+                        self.multi_addr_cache[member_id] = tmp
+                        self.group2addr[group_id].add(tmp)
+                    except Errors.NotFoundError:
+                        self.group2missing[group_id].add(self.acc.account_name)
+                        self.multi_missing_cache[member_id] = self.acc.account_name
+                        if not ignore_missing:
+                            raise ValueError('%s in group %s has no primary address' %
+                                             (self.acc.account_name, group_id))
+
+        def update_addr_and_missing(m_group, group_id):
+            if group_id in self.group2addr:
+                self.group2addr[m_group].update(self.group2addr[group_id])
+            if group_id in self.group2missing:
+                self.group2missing[m_group].update(self.group2missing[group_id])
+            if group_id in group2groupmembers:
+                for g in group2groupmembers[group_id]:
+                    update_addr_and_missing(m_group, g)
+
+        # Make sure to add any members from indirect members
+        for m_group in multi_groups:
+            if m_group in group2groupmembers:
+                for group_id in group2groupmembers[m_group]:
+                    update_addr_and_missing(m_group, group_id)
 
     def read_target_auth_data(self):
-        a = Factory.get('Account')(self._db)
         # For the time being, remove passwords for all quarantined
         # accounts, regardless of quarantine type.
         quarantines = dict([(x, "*locked") for x in
                             QuarantineHandler.get_locked_entities(
                             self._db, entity_types=self.const.entity_account)])
-        for row in a.list_account_authentication():
+        for row in self.acc.list_account_authentication():
             a_id = int(row['account_id'])
             self.e_id2passwd[a_id] = quarantines.get(a_id) or row['auth_data']
-        for row in a.list_account_authentication(
+        for row in self.acc.list_account_authentication(
                 self.const.auth_type_crypt3_des):
             # *sigh* Special-cases do exist. If a user is created when the
             # above for-loop runs, this loop gets a row more. Before I ignored
@@ -296,7 +323,6 @@ class EmailLDAP(DatabaseAccessor):
             if not self.e_id2passwd.get(a_id, 0):
                 self.e_id2passwd[a_id] = (quarantines.get(a_id) or
                                           row['auth_data'])
-
 
     def read_misc_target(self):
         # Dummy method for Mixin-classes. By default it generates a hash with

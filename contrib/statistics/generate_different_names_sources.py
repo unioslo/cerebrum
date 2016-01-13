@@ -35,7 +35,6 @@ Usage:
                 system_sap
                 system_fs
                 system_manual
-                system_ureg
                 system_migrate
                 system_sats
                 system_virthome
@@ -143,8 +142,8 @@ def main(argv=None):
                   error = getopt.GetoptError
                   usage(message=error.msg)
                   return 1
-                if ((a[0] and a[1]) not in ("system_sap","system_fs","system_manual",
-                                            "system_ureg","system_migrate",
+                if ((a[0] and a[1]) not in ("system_sap","system_fs",
+                                            "system_manual","system_migrate",
                                             "system_sats","system_virthome",)):
                   error = getopt.GetoptError
                   usage(message=error.msg)

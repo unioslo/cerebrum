@@ -33,13 +33,11 @@ Options:
   -a | --no-auth-data:     Don't populate userPassword.
   -h | --help:             This message."""
 
-import sys
 import base64
 import argparse
 from time import time as now
 
 import cereconf
-import cerebrum_path
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.LDIFutils import ldapconf, map_spreads, ldif_outfile, \
@@ -133,10 +131,9 @@ def write_ldif():
             # Target is the local delivery defined for the Account whose
             # account_id == email_target.target_entity_id.
             target = ""
-            home = ""
             if et == co.entity_account:
                 if ei in ldap.acc2name:
-                    target, home = ldap.acc2name[ei]
+                    target = ldap.acc2name[ei]
                 else:
                     logger.warn("Target id=%s (type %s): no user id=%s found",
                                 t, tt, ei)
@@ -196,7 +193,7 @@ def write_ldif():
             # is taken from email_target.alias_value
             if et == co.entity_account:
                 if ei in ldap.acc2name:
-                    target = ldap.acc2name[ei][0]
+                    target = ldap.acc2name[ei]
             if alias:
                 rest += "forwardDestination: %s\n" % alias
 
@@ -235,7 +232,7 @@ def write_ldif():
 
             if run_as_id is not None:
                 if run_as_id in ldap.acc2name:
-                    uid = ldap.acc2name[run_as_id][0]
+                    uid = ldap.acc2name[run_as_id]
                 else:
                     logger.warn("Target id=%s (type %s) no user id=%s found",
                                 t, tt, ei)
@@ -248,7 +245,7 @@ def write_ldif():
 
             if et == co.entity_group:
                 try:
-                    addrs, missing = ldap.read_multi_target(ei, ignore_missing=True)
+                    addrs, missing = ldap.get_multi_target(ei, ignore_missing=True)
                 except ValueError, e:
                     logger.warn("Target id=%s (type %s): %s", t, tt, e)
                     continue
@@ -412,7 +409,12 @@ def get_data(spread):
         if verbose:
             logger.debug("  done in %d sec." % (now() - curr))
     if verbose:
-        logger.debug("Starting read_misc()...")
+        logger.debug("Starting read_multi_data()...")
+        curr = now()
+    ldap.read_multi_data(ignore_missing=True)
+    if verbose:
+        logger.debug("  done in %d sec." % (now() - curr))
+        logger.debug("Starting read_misc_target()...")
         curr = now()
     # ldap.read_misc_target() is by default empty. See EmailLDAP for details.
     ldap.read_misc_target()
