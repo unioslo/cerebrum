@@ -1136,7 +1136,7 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         fs=FormatSuggestion(
             "Name and e-mail address altered for: %i",
             ("person_id",)),
-        perm_filter='can_email_mod_name')
+        perm_filter='is_postmaster')
 
     def email_mod_name(self, operator, person_id, firstname, lastname):
         """ Modify email name. """
