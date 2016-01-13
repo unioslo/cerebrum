@@ -208,7 +208,9 @@ class BofhdExtension(BofhdCommonMethods,
                             'email_list_tripnotes', 'email_remove_tripnote',
                             # Generic
                             'email_forward', 'email_info', 'email_move',
-                            'email_quota', 'email_update', )
+                            'email_quota', 'email_update',
+                            # Mangle names
+                            'email_mod_name',)
 
     # Decide which mailman list commands to use?
     email_mailman_mixin_commands = ('mailman_create_list',
