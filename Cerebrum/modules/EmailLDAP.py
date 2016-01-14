@@ -24,6 +24,7 @@ import mx
 from collections import defaultdict
 
 from Cerebrum import Errors
+from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
