@@ -880,47 +880,83 @@ def migrate_to_email_1_4():
 
     from Cerebrum.modules import Email
     from collections import defaultdict
+
+    # since the API is used directly in this migration,
+    # we'd end up generating several thousand events. let's avoid that.
+    def fake_log_change(*args, **kwargs):
+        pass
+    old_log_change = db.log_change
+    db.log_change = fake_log_change
+
+    ed = Email.EmailDomain(db)
     ef = Email.EmailForward(db)
+    ea = Email.EmailAddress(db)
 
     print 'Fetching forwards...'
     forwards = defaultdict(list)
     for fw in ef.search(enable=True):
-        forwards[fw['target_id']].append(dict(fw))
+        forwards[fw['target_id']].append(fw['forward_to'])
 
-    print 'Fetching primary addresses...'
-    primary_addrs = {}
-    for pa in ef.list_email_target_primary_addresses(target_type=co.email_target_account):
-        addr = "%s@%s" % (pa['local_part'], pa['domain'])
-        primary_addrs[pa['target_id']] = addr
+    domain = dict()
+    for dom in ed.list_email_domains():
+        domain[dom['domain_id']] = dom['domain']
 
-    def target_has_forward(target_id, addr):
-        for fw in forwards[target_id]:
-            if fw['forward_to'] == addr:
-                return True
-        return False
+    print 'Fetching all email targets...'
+    target2account = defaultdict(list)
+    for etarget in ef.list_email_targets_ext(
+            target_type=co.email_target_account):
+        target2account[etarget['target_id']] = etarget['target_entity_id']
+    print '...found for', len(target2account), 'accounts'
 
-    print 'Converting primary -> primary address forwards to local delivery flag...'
-    stats = {True: 0, False: 0}
-    seen = 0
-    for target_id, addr in primary_addrs.items():
-        seen += 1
-        if seen % 1000 == 0:
-            print 'Processed %s of %s' % (seen, len(primary_addrs))
-        has_forward_to_primary = target_has_forward(target_id, addr)
-        stats[has_forward_to_primary] += 1
+    target_ids = set(target2account.keys())
 
-        if has_forward_to_primary:
-            ef.clear()
-            ef.find(target_id)
-            ef.delete_forward(addr)
+    print 'Fetching all email addresses...'
+    addrs = defaultdict(list)
+    addrs_count = 0
+    for emad in ea.search():
+        if not emad['target_id'] in target_ids:
+            continue
+        addrs[target2account[emad['target_id']]].append(
+            '%s@%s' % (emad['local_part'], domain[emad['domain_id']]))
+        addrs_count += 1
+        if (addrs_count % 5000) == 0:
+            print addrs_count, 'of ???'
+    print '...found for', len(addrs), 'accounts'
+
+    print 'Checking for local email addresses in forwards...'
+    todo_list = list()
+    for target_id, account_id in target2account.items():
+        local_forwards = set(forwards[target_id]) & set(addrs[account_id])
+        remote_forwards = set(forwards[target_id]) - set(addrs[account_id])
+        if local_forwards:
+            todo_list.append((target_id, account_id, local_forwards, remote_forwards))
+
+    print 'Found', len(todo_list), 'targets with old-style local delivery'
+
+    not_enabled = 0
+
+    for task in todo_list:
+        target_id, account_id, local_forwards, remote_forwards = task
+        ef.clear()
+        ef.find(target_id)
+        for forward in local_forwards:
+            print 'Deleting forward address', forward, 'for', (target_id, account_id)
+            ef.delete_forward(forward)
+        if remote_forwards:
+            print 'Enabling local delivery for', (target_id, account_id)
             ef.enable_local_delivery()
-            ef.write_db()
+        else:
+            not_enabled += 1
+            print 'Not enabling local delivery for', (target_id, account_id)
+        ef.write_db()
 
-    print 'Action taken for', stats[True], 'of', stats[False], 'email targets'
+    print 'Corrected', len(todo_list), 'targets to use new-style local delivery'
+    print not_enabled, 'accounts had no remote forwards left'
     print 'Committing, stay calm...'
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_email", "1.4")
     db.commit()
+    db.log_change = old_log_change
     print "Migration to email 1.4 completed successfully"
 
 
