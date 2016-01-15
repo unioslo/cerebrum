@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2015 University of Oslo, Norway
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -8258,7 +8258,7 @@ Addresses and settings:
                                 (id, spread))
         try:
             entity.add_spread(spread)
-        except Errors.RequiresPosixError as e:
+        except (Errors.RequiresPosixError, self.db.IntegrityError) as e:
             raise CerebrumError(str(e))
         entity.write_db()
         if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
