@@ -210,6 +210,9 @@ class Constants(Constants.Constants):
     spread_uia_office_365 = _SpreadCode(
         'acc@office365', Constants.Constants.entity_account,
         'Account included in Office365')
+    spread_uia_forward = _SpreadCode(
+        'acc@forward', Constants.Constants.entity_account,
+        'Account contains only email forward and not a mailbox')
 
     ## Definisjon av traits
     trait_accept_nondisc = _EntityTraitCode(
