@@ -63,13 +63,7 @@ from Cerebrum.modules.no.hia.mod_sap_utils import make_employment_iterator
 from Cerebrum.modules.no.Constants import SAPLonnsTittelKode
 
 
-database = Factory.get("Database")()
-database.cl_init(change_program="import_SAP")
-constants = Factory.get("Constants")()
-employees = set()
-
-
-def sap_employment2affiliation(sap_lonnstittelkode, logger):
+def sap_employment2affiliation(sap_lonnstittelkode):
     """Decide the affiliation to assign to a particular employment entry.
 
     The rules are:
@@ -107,7 +101,8 @@ def sap_employment2affiliation(sap_lonnstittelkode, logger):
 
 @memoize
 def get_ou_id(sap_ou_id):
-    """Map SAP OU id to Cerebrum entity_id.
+    """
+    Map SAP OU id to Cerebrum entity_id.
     """
 
     ou = Factory.get("OU")(database)
@@ -119,7 +114,8 @@ def get_ou_id(sap_ou_id):
 
 
 def get_person(sap_person_id):
-    """Map SAP ansattnr to Cerebrum entity_id.
+    """
+    Map SAP ansattnr to Cerebrum entity_id.
     """
 
     person = Factory.get("Person")(database)
@@ -131,7 +127,7 @@ def get_person(sap_person_id):
         return None
 
 
-def cache_db_affiliations(logger):
+def cache_db_affiliations():
     """Return a cache with all affilliation_ansatt.
 
     The cache itself is a mapping person_id -> person-mapping, where
@@ -162,7 +158,7 @@ def cache_db_affiliations(logger):
     return cache
 
 
-def remove_affiliations(cache, logger):
+def remove_affiliations(cache):
     "Remove all affiliations in cache from Cerebrum."
 
     # cache is mapping person-id => mapping (ou-id, aff) => status. All these
@@ -196,7 +192,7 @@ def remove_affiliations(cache, logger):
 
 
 def synchronize_affiliations(aff_cache, person, ou_id,
-                             affiliation, status, logger):
+                             affiliation, status):
     """Register/update an affiliation for a specific person.
 
     aff_cache is updated destructively.
@@ -253,7 +249,7 @@ def synchronize_affiliations(aff_cache, person, ou_id,
                          status, person.entity_id)
 
 
-def process_affiliations(employment_file, person_file, use_fok, logger,
+def process_affiliations(employment_file, person_file, use_fok,
                          people_to_ignore=None):
     """Parse employment_file and determine all affiliations.
 
@@ -270,7 +266,7 @@ def process_affiliations(employment_file, person_file, use_fok, logger,
 
     # First we cache all existing affiliations. It's a mapping person-id =>
     # mapping (ou-id, affiliation) => status.
-    affiliation_cache = cache_db_affiliations(logger)
+    affiliation_cache = cache_db_affiliations()
     person_cache = dict()
 
     def person_cacher(empid):
@@ -316,13 +312,12 @@ def process_affiliations(employment_file, person_file, use_fok, logger,
             continue
 
         (affiliation,
-         affiliation_status) = sap_employment2affiliation(tpl.lonnstittel, logger)
+         affiliation_status) = sap_employment2affiliation(tpl.lonnstittel)
 
         synchronize_affiliations(affiliation_cache,
                                  person,
                                  ou_id, affiliation,
-                                 affiliation_status,
-                                 logger)
+                                 affiliation_status)
 
     # We are done with fetching updates from file.
     # Need to write persons
@@ -334,10 +329,10 @@ def process_affiliations(employment_file, person_file, use_fok, logger,
 
     # All the affiliations left in the cache exist in Cerebrum, but NOT in the
     # datafile. Thus delete them!
-    remove_affiliations(affiliation_cache, logger)
+    remove_affiliations(affiliation_cache)
 
 
-def cache_db_employments(logger):
+def cache_db_employments():
     """
     Preload all existing employment data.
 
@@ -356,7 +351,7 @@ def cache_db_employments(logger):
     return result
 
 
-def remove_db_employments(remaining_employments, logger):
+def remove_db_employments(remaining_employments):
     """
     Nuke whatever remains of employments.
 
@@ -375,7 +370,7 @@ def remove_db_employments(remaining_employments, logger):
     logger.debug("Completed deletion")
 
 
-def synchronise_employment(employment_cache, tpl, person, ou_id, logger):
+def synchronise_employment(employment_cache, tpl, person, ou_id):
     """
     Synchronise a specific employment entry with the database.
 
@@ -420,12 +415,11 @@ def synchronise_employment(employment_cache, tpl, person, ou_id, logger):
                           code, tpl.stillingstype == 'H')
 
 
-def process_employments(employment_file, use_fok, logger,
-                        people_to_ignore=None):
+def process_employments(employment_file, use_fok, people_to_ignore=None):
     "Synchronise the data in person_employment based on the latest SAP file."
 
     logger.debug("processing employments")
-    employment_cache = cache_db_employments(logger)
+    employment_cache = cache_db_employments()
     for tpl in make_employment_iterator(file(employment_file), use_fok, logger):
         # TODO: shouldn't we skip entry if not tpl.valid() here?
 
@@ -446,17 +440,17 @@ def process_employments(employment_file, use_fok, logger,
                          tpl.sap_ansattnr)
             continue
 
-        synchronise_employment(employment_cache, tpl, person, ou_id, logger)
+        synchronise_employment(employment_cache, tpl, person, ou_id)
         # Add person to employee-set, which is later used by
         # populate_work_titles()
         if person not in employees:
             employees.add(person)
 
-    remove_db_employments(employment_cache, logger)
+    remove_db_employments(employment_cache)
     logger.debug("done with employments")
 
 
-def populate_work_titles(logger):
+def populate_work_titles():
     """
     Calculates the main employment entry for every person listed in the
     source file, and adds the description as the person's work_title.
@@ -487,9 +481,11 @@ def populate_work_titles(logger):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-e', '--employment-file', dest='employment_file',
+                        required=True,
                         help='File containing employment data-export '
                              'from SAP.')
     parser.add_argument('-p', '--person-file', dest='person_file',
+                        required=True,
                         help='File containing person data-export from SAP.')
     parser.add_argument('--without-fok', dest='use_fok', action='store_false',
                         help='Do not use forretningsområdekode for checking '
@@ -499,6 +495,7 @@ def main():
                         action='store_true',
                         help='Synchronise person employments based '
                              'on specified employment-file.')
+    parser.set_defaults(sync_employment=False)
     parser.add_argument('-c', '--commit', dest='commit', action='store_true',
                         help='Write changes to DB.')
     parser.add_argument('-l', '--logger-name', dest='logname',
@@ -512,27 +509,36 @@ def main():
     assert (args.employment_file is not None and
             os.access(args.employment_file, os.F_OK))
 
+    global logger
     logger = Factory.get_logger(args.logname)
+
+    global database
+    database = Factory.get("Database")()
+    database.cl_init(change_program="import_SAP")
+
+    global constants
+    constants = Factory.get("Constants")()
+
+    global employees
+    employees = set()
+
     if getattr(cereconf, 'SAP_MG_MU_CODES', None) and args.use_fok:
         raise Exception("Use of both MG/MU codes and fok isn't implemented")
 
     ignored_people = load_invalid_employees(file(args.person_file),
-                                            args.use_fok,
-                                            logger)
+                                            args.use_fok)
 
     if args.sync_employment:
         process_employments(args.employment_file,
                             args.use_fok,
-                            logger,
                             ignored_people)
 
     process_affiliations(args.employment_file,
                          args.person_file,
                          args.use_fok,
-                         logger,
                          ignored_people)
 
-    populate_work_titles(logger)
+    populate_work_titles()
 
     if args.commit:
         database.commit()
