@@ -37,32 +37,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import make_person_iterator
 from Cerebrum.modules.no import fodselsnr
 
-import getopt
-import sys
-import re
-
-
-def usage(exitcode=0):
-    print __doc__
-    print """
-    Usage: import_SAP_person.py --with[out]-fok --sap-file SAPFILE
-
-    -s --sap-file       The SAP person data file to import from. The file is in
-                        csv format and is normally called feide_persondata.txt.
-
-    --with-fok          Use forretningsområdekode as a check in the SAP file if
-                        a person should be imported or not.
-
-    --without-fok       Do not use forretningsområdekode for checking if a
-                        person should be imported.
-
-    --with-mgmu         Import medarbeider- and medarbeiderundergrupper
-
-    -d --dryrun         Do not commit changes.
-
-    -h --help           Show this and quit.
-    """
-    sys.exit(exitcode)
+import argparse
 
 
 def locate_person(sap_id, fnr):
@@ -550,65 +525,44 @@ def process_people(filename, use_fok, use_mgmu=False):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-p', '--person-file', dest='person_file',
+                        required=True,
+                        help='File containing person data-export from SAP.')
+    parser.add_argument('--without-fok', dest='use_fok', action='store_false',
+                        help='Do not use forretningsområdekode for checking '
+                             'if a person should be imported. (default: use.')
+    parser.set_defaults(use_fok=True)
+    parser.add_argument('--with-mgmu', dest='use_mgmu', action='store_true',
+                        help='Import medarbeider- and medarbeiderundergrupper')
+    parser.set_defaults(use_mgmu=False)
+    parser.add_argument('-c', '--commit', dest='commit', action='store_true',
+                        help='Write changes to DB.')
+    parser.add_argument('-l', '--logger-name', dest='logname',
+                        default='cronjob',
+                        help='Specify logger (default: cronjob)')
 
-    global logger
-    logger = Factory.get_logger("cronjob")
+    args = parser.parse_args()
 
     # Creating this locally costs about 20 seconds out of a 3 minute run.
     global const
     const = Factory.get("Constants")()
 
-    try:
-        options, rest = getopt.getopt(sys.argv[1:],
-                                      "s:d",
-                                      ["sap-file=",
-                                       "dryrun",
-                                       "with-fok",
-                                       "without-fok",
-                                       "with-mgmu"])
-    except getopt.GetoptError, e:
-        print e
-        usage(1)
-
-    input_name = None
-    dryrun = False
-    use_fok = None
-    use_mgmu = False
-    for option, value in options:
-        if option in ("-s", "--sap-file"):
-            input_name = value
-        elif option in ("-d", "--dryrun"):
-            dryrun = True
-        elif option in ("-h", "--help"):
-            usage()
-        elif option in ("--with-fok",):
-            use_fok = True
-        elif option in ("--without-fok",):
-            use_fok = False
-        elif option in ("--with-mgmu",):
-            use_mgmu = True
-        else:
-            print "Unknown argument: %s" % option
-            usage(1)
-
-    if use_fok is None:
-        sys.exit("You MUST specify --with{out}-fok")
-    if input_name is None:
-        print "No SAP file is specified"
-        usage(1)
+    global logger
+    logger = Factory.get_logger(args.logname)
 
     global database
     database = Factory.get("Database")()
     database.cl_init(change_program='import_SAP')
 
-    process_people(input_name, use_fok, use_mgmu)
+    process_people(args.person_file, args.use_fok, args.use_mgmu)
 
-    if dryrun:
-        database.rollback()
-        logger.info("Rolled back all changes")
-    else:
+    if args.commit:
         database.commit()
         logger.info("Committed all changes")
+    else:
+        database.rollback()
+        logger.info("Rolled back all changes")
 
 
 if __name__ == "__main__":
