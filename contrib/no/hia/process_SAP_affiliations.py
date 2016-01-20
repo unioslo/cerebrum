@@ -553,13 +553,12 @@ def main():
         process_employments(args.employment_file,
                             args.use_fok,
                             ignored_people)
+        populate_work_titles()
 
     process_affiliations(args.employment_file,
                          args.person_file,
                          args.use_fok,
                          ignored_people)
-
-    populate_work_titles()
 
     if args.commit:
         database.commit()
