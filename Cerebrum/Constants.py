@@ -1070,14 +1070,14 @@ class CoreConstants(ConstantsBase):
     group_memberop_difference = _GroupMembershipOpCode(
         'difference', 'Difference')
 
-    language_nb = _LanguageCode("nb", "Bokmï¿½l")
+    language_nb = _LanguageCode("nb", "Bokmål")
     language_nn = _LanguageCode("nn", "Nynorsk")
     language_en = _LanguageCode("en", "English")
     language_de = _LanguageCode("de", "Deutsch")
     language_it = _LanguageCode("it", "Italiano")
     language_nl = _LanguageCode("nl", "Nederlands")
     language_sv = _LanguageCode("sv", "Svenska")
-    language_sv = _LanguageCode("fr", "Franï¿½ais")
+    language_sv = _LanguageCode("fr", "Français")
     language_ru = _LanguageCode("ru", "Russian")
 
     system_cached = _AuthoritativeSystemCode(
@@ -1160,11 +1160,18 @@ class CommonConstants(ConstantsBase):
     name_last = _PersonNameCode('LAST', 'Last name')
     name_full = _PersonNameCode('FULL', 'Full name')
 
+    name_personal_title = _PersonNameCode(
+        'PERSONALTITLE', 'Persons personal title',
+        {"nb": "Personlig tittel",
+         "en": "Personal title", },)
+    name_work_title = _PersonNameCode('WORKTITLE', 'Persons work title',
+                                      {"nb": "Arbeidstittel",
+                                       "en": "Work title", },)
+
     personal_title = _EntityNameCode(
         'PERSONALTITLE', "Person's personal title",
         {"nb": "Personlig tittel",
          "en": "Personal title", },)
-
     work_title = _EntityNameCode('WORKTITLE', "Person's work title",
                                  {"nb": "Arbeidstittel",
                                   "en": "Work title", },)
