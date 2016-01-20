@@ -526,12 +526,14 @@ def process_people(filename, use_fok, use_mgmu=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-p', '--person-file', dest='person_file',
-                        required=True,
-                        help='File containing person data-export from SAP.')
+    required_args = parser.add_argument_group('required arguments')
+    required_args.add_argument('-p', '--person-file', dest='person_file',
+                               required=True,
+                               help='File containing person data-export '
+                                    'from SAP.')
     parser.add_argument('--without-fok', dest='use_fok', action='store_false',
                         help='Do not use forretningsområdekode for checking '
-                             'if a person should be imported. (default: use.')
+                             'if a person should be imported. (default: use.)')
     parser.set_defaults(use_fok=True)
     parser.add_argument('--with-mgmu', dest='use_mgmu', action='store_true',
                         help='Import medarbeider- and medarbeiderundergrupper')
