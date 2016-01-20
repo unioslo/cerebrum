@@ -366,6 +366,15 @@ def remove_db_employments(remaining_employments):
         person.clear()
         person.find(pid)
         person.delete_employment(ou_id, title, source)
+        # If person has a work_title defined and it matches the current
+        # employment's title, remove work_title as well.
+        try:
+            if title == person.get_name_with_language(constants.work_title,
+                                                      constants.language_nb):
+                person.delete_name_with_language(constants.work_title,
+                                                 constants.language_nb)
+        except Errors.NotFoundError:
+            pass
 
     logger.debug("Completed deletion")
 
@@ -454,19 +463,28 @@ def populate_work_titles():
     """
     Calculates the main employment entry for every person listed in the
     source file, and adds the description as the person's work_title.
-    The main employment entry is the entry with the highest percentage number.
+    We first try to check which employment is defined as the person's main one.
+    If no employment entry is defined as the main employment, we look through
+    the other employments and use the entry with the highest percentage number.
     If several entries with an equal percentage number exists for a given
     person, the first one encountered is used.
     """
     logger.debug('Populating work_titles...')
-    print 'Number of persons to set titles for: ', len(employees)
+    logger.debug('Number of persons to set titles for: %d' % len(employees))
     for person in employees:
         main_employment = None
-        employments = person.search_employment(person.entity_id)
+        employments = person.search_employment(person.entity_id,
+                                               main_employment=True)
         for employment in employments:
             if main_employment is None or \
                employment['percentage'] > main_employment['percentage']:
                 main_employment = employment
+        if main_employment is None:
+            employments = person.search_employment(person.entity_id)
+            for employment in employments:
+                if main_employment is None or \
+                   employment['percentage'] > main_employment['percentage']:
+                    main_employment = employment
         if main_employment is not None:
             person.add_name_with_language(name_variant=constants.work_title,
                                           name_language=constants.language_nb,
@@ -480,16 +498,19 @@ def populate_work_titles():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-e', '--employment-file', dest='employment_file',
-                        required=True,
-                        help='File containing employment data-export '
-                             'from SAP.')
-    parser.add_argument('-p', '--person-file', dest='person_file',
-                        required=True,
-                        help='File containing person data-export from SAP.')
+    required_args = parser.add_argument_group('required arguments')
+    required_args.add_argument('-e', '--employment-file',
+                               dest='employment_file',
+                               required=True,
+                               help='File containing employment data-export '
+                                    'from SAP.')
+    required_args.add_argument('-p', '--person-file', dest='person_file',
+                               required=True,
+                               help='File containing person data-export '
+                                    'from SAP.')
     parser.add_argument('--without-fok', dest='use_fok', action='store_false',
                         help='Do not use forretningsområdekode for checking '
-                             'if a person should be imported. (default: use.')
+                             'if a person should be imported. (default: use.)')
     parser.set_defaults(use_fok=True)
     parser.add_argument('--with-employment', dest='sync_employment',
                         action='store_true',
