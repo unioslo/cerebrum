@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2015 University of Oslo, Norway
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -72,8 +72,10 @@ import thread
 import threading
 import time
 import SocketServer
-from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
 import xmlrpclib
+
+from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
+from xml.parsers.expat import ExpatError
 
 from Cerebrum import Errors
 from Cerebrum import Utils
@@ -260,6 +262,15 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                                                   sys.exc_value)))
             else:
                 response = xmlrpclib.dumps(response, methodresponse=1)
+        except ExpatError as e:
+            # a malformed XMLRPC request should end up here.
+            logger.warn('ExpatError ({code}) - malformed XML content detected '
+                        '(client {client}, data={data})'.format(
+                            code=e.code,
+                            client=self.client_address,
+                            data=data))
+            self.send_response(500)
+            self.end_headers()
         except:
             logger.warn("Unexpected exception 2 (client %r, data=%r)",
                         self.client_address, data,
