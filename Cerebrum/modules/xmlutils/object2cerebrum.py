@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: UTF-8 -*-
 
-# Copyright 2005 University of Oslo, Norway
+# Copyright 2005-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,10 +24,7 @@ This module provides an interface to store objects representing XML
 information in Cerebrum. It is intended to go together with xml2object
 module (and its various incarnations (SAP, LT, etc.).
 """
-from mx import DateTime
-
-
-import cerebrum_path
+import collections
 import cereconf
 
 from Cerebrum import Errors
@@ -36,6 +33,8 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.xml2object import DataAddress, DataContact
 from Cerebrum.modules.xmlutils.xml2object import HRDataPerson
 from Cerebrum.modules.xmlutils.sapxml2object import SAPPerson
+
+from mx import DateTime
 
 
 class XML2Cerebrum:
@@ -160,7 +159,8 @@ class XML2Cerebrum:
         # on the inconsistencies
         if len(id_collection) > 1:
             self.logger.error("Person on file with IDs %s maps to several"
-                              " person_ids in Cerebrum (%s). Manual intervention"
+                              " person_ids in Cerebrum (%s)."
+                              " Manual intervention"
                               " required. No changes made in Cerebrum",
                               list(xmlperson.iterids()), id_collection)
             return False
@@ -176,7 +176,8 @@ class XML2Cerebrum:
             # IVR 2007-08-21 We cannot allow automatic ansatt# changes
             if not self.match_sap_ids(xmlperson, dbperson):
                 self.logger.error("SAP ID on file does not match SAP ID in "
-                                  "Cerebrum for file ids %s. This is an error. Person is "
+                                  "Cerebrum for file ids %s. This is an error. "
+                                  "Person is "
                                   "ignored. This has to be corrected manually.",
                                   list(xmlperson.iterids()))
                 return False
@@ -217,7 +218,7 @@ class XML2Cerebrum:
           Work titles for a person. There may be several, since we support
           multiple languages.
 
-        @type affiliations: set (of triples)
+        @type affiliations: set (of quadruples)
         @param affiliations:
           A set of affiliations to be assigned to this person. The
           affiliations are calculated elsewhere on the basis of employment
@@ -303,8 +304,9 @@ class XML2Cerebrum:
 
         # add personal titles if any are found in the file
         for personal_title in xmlperson.get_name(xmlperson.NAME_TITLE, ()):
-            # self.logger.debug('personal_title %s, lang %s', personal_title.value,
-            #                  personal_title.language)
+            # self.logger.debug('personal_title %s, lang %s',
+            #                   personal_title.value,
+            #                   personal_title.language)
             language = int(const.LanguageCode(personal_title.language))
             person.add_name_with_language(name_variant=const.personal_title,
                                           name_language=language,
@@ -362,6 +364,17 @@ class XML2Cerebrum:
         return status, person.entity_id
     # end store_person
 
+    @staticmethod
+    def _calculate_precedence(source_system, main):
+        """Helper method for getting precedence for main employment."""
+        if main:
+            p = cereconf.PERSON_AFFILIATION_PRECEDENCE_RULE
+            p = p[str(source_system)] if str(source_system) in p else p['*']
+            if isinstance(p, collections.Mapping):
+                key = 'xmlutils:main'
+                return p.get(key)
+        return None
+
     def _assign_person_affiliations(self, person, source_system, affiliations):
         """Assign affiliations to person.
 
@@ -374,7 +387,7 @@ class XML2Cerebrum:
           Source_system for which the affiliation assignment is to be
           performed.
 
-        @type affiliations: set (of triples)
+        @type affiliations: set (of quadruples)
         @param affiliations:
           See L{import_HR_person.py:determine_affiliations} for the
           description.
@@ -383,9 +396,11 @@ class XML2Cerebrum:
         """
 
         person.populate_affiliation(source_system)
-        for ou_id, aff, aff_stat in affiliations:
+        for ou_id, aff, aff_stat, main_empl in affiliations:
             person.populate_affiliation(source_system, ou_id,
-                                        int(aff), int(aff_stat))
+                                        int(aff), int(aff_stat),
+                                        self._calculate_precedence(
+                                            source_system, main_empl))
             self.logger.info("Person id=%s acquires affiliation "
                              "aff=%s status=%s ou_id=%s",
                              person.entity_id,
