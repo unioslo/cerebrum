@@ -248,7 +248,6 @@ class BofhdEmailMixinBase(BofhdCommandBase):
         """ Check email address syntax.
 
         Accepted syntax:
-            - 'local'
             - <localpart>@<domain>
                 localpart cannot contain @ or whitespace
                 domain cannot contain @ or whitespace
@@ -266,8 +265,6 @@ class BofhdEmailMixinBase(BofhdCommandBase):
 
         """
         address = address.strip()
-        if address == 'local':
-            return address
         if address.find("@") == -1:
             raise CerebrumError(
                 "E-mail addresses must include the domain name")
@@ -536,71 +533,58 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         return "OK, reassigned %s" % address
 
     #
-    # email forward "on"|"off"|"local" <account>+ [<address>+]
+    # email local_delivery <account> "on"/"off"
+    #
+    default_email_commands['email_local_delivery'] = Command(
+        ('email', 'local_delivery'),
+        AccountName(help_ref='account_name'),
+        SimpleString(help_ref='string_email_on_off'),
+        perm_filter='can_email_forward_toggle')
+
+    def email_local_delivery(self, operator, uname, on_off):
+        """Turn on or off local delivery of E-mail."""
+        acc = self._get_account(uname)
+        self.ba.can_email_forward_toggle(operator.get_entity_id(), acc)
+        fw = Email.EmailForward(self.db)
+        fw.find_by_target_entity(acc.entity_id)
+        on_off = on_off.lower()
+        if on_off == 'on':
+            fw.enable_local_delivery()
+        elif on_off == 'off':
+            fw.disable_local_delivery()
+        else:
+            raise CerebrumError("Must specify 'on' or 'off'")
+        return "OK, local delivery turned %s" % on_off
+
+    #
+    # email forward <account> <address> "on"/"off"
     #
     default_email_commands['email_forward'] = Command(
         ('email', 'forward'),
-        SimpleString(help_ref='email_forward_action'),
-        AccountName(help_ref='account_name', repeat=True),
-        EmailAddress(help_ref='email_address',
-                     repeat=True, optional=True),
-        perm_filter='can_email_forward_toggle')
+        AccountName(),
+        EmailAddress(),
+        SimpleString(help_ref='string_email_on_off'),
+        perm_filer='can_email_forward_toggle')
 
-    def email_forward(self, operator, action, uname, addr=None):
-        """Toggle forward settings.  addr is optional and used as a
-        pattern, if there is no addr, all addresses are affected.
-
-        The action 'local' is special, it adds local delivery.  If
-        addr is specified, turn on matching addresses, too.  If it is
-        not specified, only add local delivery.
-
-        The address 'local' is special, it matches any valid e-mail
-        address.
-
-        """
-        acc = self._get_account(uname, idtype='name')
+    def email_forward(self, operator, uname, addr, on_off):
+        """Toggle if a forward is active or not."""
+        acc = self._get_account(uname)
         self.ba.can_email_forward_toggle(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
         fw.find_by_target_entity(acc.entity_id)
 
-        matches = []
-        local_delivery = False
+        if addr not in [r['forward_to'] for r in fw.get_forward()]:
+            raise CerebrumError("Forward address not registered in target")
 
-        if action == 'local' or addr == 'local':
-            valid_addrs = self._get_valid_email_addrs(fw)
-            for r in fw.get_forward():
-                if r['forward_to'] in valid_addrs:
-                    matches.append(r['forward_to'])
-                    local_delivery = True
-
-        if not (action == 'local' and addr is None):
-            for r in fw.get_forward():
-                if addr is None or r['forward_to'].find(addr) != -1:
-                    matches.append(r['forward_to'])
-
-        if action == 'local' or (action == 'on' and addr == 'local'):
-            if not local_delivery:
-                if not fw.get_forward():
-                    # Don't add redundant forwarding
-                    # TODO: Return dict + FormatSuggestion
-                    return "OK"
-                prim = acc.get_primary_mailaddress()
-                fw.add_forward(prim)
-                matches.append(prim)
-        if not matches:
-            if addr is None:
-                raise CerebrumError("No forward addresses")
-            raise CerebrumError("No such forward address: %s" % addr)
-        for a in matches:
-            if action == 'on' or action == 'local':
-                fw.enable_forward(a)
-            elif action == 'off':
-                fw.disable_forward(a)
-            else:
-                raise CerebrumError(
-                    "Unknown action (%s), must be on|off|local" % action)
+        on_off = on_off.lower()
+        if on_off == 'on':
+            fw.enable_forward(addr)
+        elif on_off == 'off':
+            fw.disable_forward(addr)
+        else:
+            raise CerebrumError("Must specify 'on' or 'off'")
         fw.write_db()
-        return 'OK'
+        return "OK, forward to %s turned %s" % (addr, on_off)
 
     #
     # email add_forward <account>+ <address>+
@@ -613,9 +597,8 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         perm_filter='can_email_forward_edit')
 
     def email_add_forward(self, operator, uname, address):
-        """ Add forward. """
+        """Add an e-mail forward."""
         et, acc = self._get_email_target_and_account(uname)
-
         if uname.count('@') and not acc:
             lp, dom = uname.split('@')
             ed = Email.EmailDomain(self.db)
@@ -626,19 +609,17 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
             self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
         fw.find(et.entity_id)
+        if address == 'local':
+            fw.enable_local_delivery()
+            return 'OK, local delivery turned on'
         addr = self._check_email_address(address)
-        if addr == 'local':
-            if acc:
-                addr = acc.get_primary_mailaddress()
-            else:
-                raise CerebrumError("Forward address '%s' does not make sense"
-                                    % addr)
+
         if self._forward_exists(fw, addr):
             raise CerebrumError("Forward address added already (%s)" % addr)
+
         fw.add_forward(addr)
-        # TODO: Return dict + FormatSuggestion
-        return "OK, added '%s' as forward-address for '%s'" % (
-            address, uname)
+        return "OK, added '%s' as forward-address for '%s'" % (address, uname)
+
     #
     # email delete_forward address
     #
@@ -699,6 +680,7 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         AccountName(help_ref="account_name", repeat=True),
         EmailAddress(help_ref='email_address', repeat=True),
         perm_filter='can_email_forward_edit')
+
     def email_remove_forward(self, operator, uname, address):
         et, acc = self._get_email_target_and_account(uname)
 
@@ -712,15 +694,12 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
             self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
         fw.find(et.entity_id)
+        if address == 'local':
+            fw.disable_local_delivery()
+            return 'OK, local delivery turned off'
         addr = self._check_email_address(address)
-        if addr == 'local' and acc:
-            # Forward for all valid email addresses
-            locals = self._get_valid_email_addrs(fw)
-        else:
-            # Forward for the given address
-            locals = [addr]
         removed = 0
-        for a in locals:
+        for a in [addr]:
             if self._forward_exists(fw, a):
                 fw.delete_forward(a)
                 removed += 1
@@ -990,7 +969,7 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
 
     def _email_info_detail(self, acc):
         """ Get email account details.
-        
+
         This method should be implemented differently for each subclass.
         Typical information would be quotas, usage, pause state, ...
 
@@ -999,24 +978,16 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         return []
 
     def _email_info_forwarding(self, target, addrs):
-        """ Forwarding info for EmailTarget and addresses. """
         info = []
         forw = []
-        local_copy = ""
         ef = Email.EmailForward(self.db)
         ef.find(target.entity_id)
         for r in ef.get_forward():
-            if r['enable'] == 'T':
-                enabled = "on"
-            else:
-                enabled = "off"
-            if r['forward_to'] in addrs:
-                local_copy = "+ local delivery (%s)" % enabled
-            else:
-                forw.append("%s (%s) " % (r['forward_to'], enabled))
+            enabled = 'on' if (r['enable'] == 'T') else 'off'
+            forw.append("%s (%s) " % (r['forward_to'], enabled))
         # for aesthetic reasons, print "+ local delivery" last
-        if local_copy:
-            forw.append(local_copy)
+        if ef.local_delivery:
+            forw.append("+ local delivery (on)")
         if forw:
             info.append({'forward_1': forw[0]})
             for idx in range(1, len(forw)):
@@ -1136,7 +1107,7 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         fs=FormatSuggestion(
             "Name and e-mail address altered for: %i",
             ("person_id",)),
-        perm_filter='can_email_mod_name')
+        perm_filter='is_postmaster')
 
     def email_mod_name(self, operator, person_id, firstname, lastname):
         """ Modify email name. """

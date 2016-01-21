@@ -43,7 +43,7 @@ targets = {
              'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3',),
     'changelog': ('changelog_1_2', 'changelog_1_3'),
-    'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3'),
+    'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4'),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
     'stedkode': ('stedkode_1_1', ),
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
@@ -949,6 +949,94 @@ def migrate_to_email_1_3():
     meta.set_metainfo("sqlmodule_email", "1.3")
     db.commit()
     print "Migration to email 1.3 completed successfully %s" % time_spent(start)
+
+
+def migrate_to_email_1_4():
+    print "\ndone."
+    assert_db_version("1.3", component='email')
+    makedb('email_1_4', 'pre')
+
+    from Cerebrum.modules import Email
+    from collections import defaultdict
+
+    # since the API is used directly in this migration,
+    # we'd end up generating several thousand events. let's avoid that.
+    def fake_log_change(*args, **kwargs):
+        pass
+    old_log_change = db.log_change
+    db.log_change = fake_log_change
+
+    ed = Email.EmailDomain(db)
+    ef = Email.EmailForward(db)
+    ea = Email.EmailAddress(db)
+
+    print 'Fetching forwards...'
+    forwards = defaultdict(list)
+    for fw in ef.search(enable=True):
+        forwards[fw['target_id']].append(fw['forward_to'])
+
+    domain = dict()
+    for dom in ed.list_email_domains():
+        domain[dom['domain_id']] = dom['domain']
+
+    print 'Fetching all email targets...'
+    target2account = defaultdict(list)
+    for etarget in ef.list_email_targets_ext(
+            target_type=co.email_target_account):
+        target2account[etarget['target_id']] = etarget['target_entity_id']
+    print '...found for', len(target2account), 'accounts'
+
+    target_ids = set(target2account.keys())
+
+    print 'Fetching all email addresses...'
+    addrs = defaultdict(list)
+    addrs_count = 0
+    for emad in ea.search():
+        if not emad['target_id'] in target_ids:
+            continue
+        addrs[target2account[emad['target_id']]].append(
+            '%s@%s' % (emad['local_part'], domain[emad['domain_id']]))
+        addrs_count += 1
+        if (addrs_count % 5000) == 0:
+            print addrs_count, 'of ???'
+    print '...found for', len(addrs), 'accounts'
+
+    print 'Checking for local email addresses in forwards...'
+    todo_list = list()
+    for target_id, account_id in target2account.items():
+        local_forwards = set(forwards[target_id]) & set(addrs[account_id])
+        remote_forwards = set(forwards[target_id]) - set(addrs[account_id])
+        if local_forwards:
+            todo_list.append((target_id, account_id, local_forwards, remote_forwards))
+
+    print 'Found', len(todo_list), 'targets with old-style local delivery'
+
+    not_enabled = 0
+
+    for task in todo_list:
+        target_id, account_id, local_forwards, remote_forwards = task
+        ef.clear()
+        ef.find(target_id)
+        for forward in local_forwards:
+            print 'Deleting forward address', forward, 'for', (target_id, account_id)
+            ef.delete_forward(forward)
+        if remote_forwards:
+            print 'Enabling local delivery for', (target_id, account_id)
+            ef.enable_local_delivery()
+        else:
+            not_enabled += 1
+            print 'Not enabling local delivery for', (target_id, account_id)
+        ef.write_db()
+
+    print 'Corrected', len(todo_list), 'targets to use new-style local delivery'
+    print not_enabled, 'accounts had no remote forwards left'
+    print 'Committing, stay calm...'
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_email", "1.4")
+    db.commit()
+    db.log_change = old_log_change
+    print "Migration to email 1.4 completed successfully"
+
 
 
 def migrate_to_ephorte_1_1():

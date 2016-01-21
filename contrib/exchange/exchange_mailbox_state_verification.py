@@ -83,6 +83,7 @@ class StateChecker(object):
         self._cache_accounts = self._populate_account_cache(
             self.co.spread_exchange_account)
         self._cache_addresses = self._populate_address_cache()
+        self._cache_local_delivery = self._populate_local_delivery_cache()
         self._cache_forwards = self._populate_forward_cache()
         self._cache_quotas = self._populate_quota_cache()
         self._cache_targets = self._populate_target_cache()
@@ -200,6 +201,12 @@ class StateChecker(object):
                                               (addr['local_part'],
                                                addr['domain']))
         return tmp
+
+    def _populate_local_delivery_cache(self):
+        r = {}
+        for ld in self.ef.list_local_delivery():
+            r[ld['target_id']] = ld['local_delivery']
+        return r
 
     def _populate_forward_cache(self):
         tmp = {}
@@ -321,11 +328,8 @@ class StateChecker(object):
             tmp[u'HiddenFromAddressListsEnabled'] = hide
 
             # Collect local delivery status
-            tmp[u'DeliverToMailboxAndForward'] = False
-            for fwd in self._cache_forwards.get(tid, []):
-                if fwd in self._cache_addresses[tid]:
-                    tmp[u'DeliverToMailboxAndForward'] = True
-                    break
+            tmp[u'DeliverToMailboxAndForward'] = \
+                self._cache_local_delivery.get(tid, False)
 
             # Collect forwarding address
             # We do this by doing a difference operation on the forwards and

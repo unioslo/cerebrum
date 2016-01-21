@@ -935,6 +935,14 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             self._db.log_change(self.entity_id,
                                 self.const.person_aff_del, None)
 
+    # Will remove all entries in person_affiliation_source for a given
+    # source system. Typically to clean up authorative sources no longer
+    # in use, such as Ureg.
+    def nuke_affiliation_for_source_system(self, source_system):
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=person_affiliation_source]
+        WHERE source_system=%s""" % source_system)
+
     def get_accounts(self, filter_expired=True):
         acc = Utils.Factory.get('Account')(self._db)
         return acc.list_accounts_by_owner_id(self.entity_id,

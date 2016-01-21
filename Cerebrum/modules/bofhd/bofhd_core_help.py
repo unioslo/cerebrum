@@ -137,6 +137,8 @@ command_help = {
             "Add a forward address",
         "email_remove_forward":
             "Remove a forward address",
+        "email_local_delivery":
+            "Turn on/off local e-mail delivery for an account with a forward address",
         "email_info":
             "View e-mail information about a user or address",
         "email_create_archive":
@@ -257,17 +259,15 @@ command_help = {
         'group_premove': 'Remove a person from a group',
         'group_personal': 'Create a new personal filegroup for an account',
         'group_promote_posix': 'Make an existing group into a POSIX-group',
-        'group_roomlist_create': 
+        'group_roomlist_create':
             'Make a roomlist from scratch. Remove with spread remove/group delete',
-# TODO: Remove me! secgroup jsama
-#            'group_secgroup_create': 
-#            'Make a sec group from existing. Remove with spread remove/group delete',
         'group_multi_remove': 'Remove member(s) from a given group',
         'group_remove': 'Remove member accounts from a given group',
         'group_request': 'Send in request for a new Cerebrum group',
         'group_search': 'Search for a group using various criteria',
         'group_set_description': 'Set description for a group',
-        'group_set_displayname': 'Set displayname with nb as varian for an Exchange-group/room list',
+        'group_set_displayname':
+            'Set displayname with nb as varian for an Exchange-group/room list',
         'group_set_expire': 'Set expire date for a group',
         'group_set_visibility': 'Set visibility for a group',
         'group_user': 'List all groups an account is a member of',
@@ -588,7 +588,7 @@ arg_help = {
          """Enter the entity as type:name, for example: 'account:bob'
 
          If only a name is entered, it will be assumed to be either an account or a fnr.
-         
+
          Valid types are
           - 'account' (name of user => Account or PosixUser)
           - 'person' (name of user => Person)
@@ -810,11 +810,11 @@ arg_help = {
          'desc'   - Description text of group
          'expire' - Include expired groups (default "no")
          'spread' - List only groups with specified spread
-         
+
          A filter is entered on the format 'type:value'.  If you leave out the
          type, 'name' is assumed.  The values for 'name' and 'desc' can contain
          wildcards (* and ?).
-         
+
          Example:
          pc*,spread:AD_group  - list all AD groups whose names start with 'pc'"""],
     'string_host':
@@ -910,17 +910,21 @@ arg_help = {
          'host will be listed'],
 }
 
+
 def get_help_strings():
     """Return the dictionaries containing the help strings."""
     return group_help, command_help, arg_help
+
 
 def remove_keys(dictionary, keylist):
     """Remove a list of keys from a dictionary"""
     for key in keylist:
         del dictionary[key]
 
+
 def remove_keys_subkeys(dictionary, remove_dictionary, verbose=False):
-    """Remove the list of subkeys given a dictionary and a dictionary of keys and subkeys that are to be removed."""
+    """Remove the list of subkeys given a dictionary and a dictionary of keys and subkeys
+    that are to be removed."""
     # Remove every subkey in the remove_dictionary
     removelist = []
     for key, subkeys in remove_dictionary.items():
@@ -934,8 +938,10 @@ def remove_keys_subkeys(dictionary, remove_dictionary, verbose=False):
     for key, subkey in removelist:
         del dictionary[key][subkey]
 
+
 def remove_not_kept_subkeys(dictionary, keep_dictionary, verbose=False):
-    """Remove the list of subkeys given a dictionary and a dictionary of keys and subkeys that are to be kept."""
+    """Remove the list of subkeys given a dictionary and a dictionary of keys and subkeys
+    that are to be kept."""
     # Remove every subkey not in the keep dictionary for a given key.
     removelist = []
     for key, subkeys in dictionary.items():
@@ -947,4 +953,3 @@ def remove_not_kept_subkeys(dictionary, keep_dictionary, verbose=False):
     # Do the actual removal
     for key, subkey in removelist:
         del dictionary[key][subkey]
-

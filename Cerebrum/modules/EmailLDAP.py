@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2003-2009 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2003-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,10 +19,6 @@
 
 """."""
 
-import os
-import re
-import time
-import string
 import mx
 
 from collections import defaultdict
@@ -40,10 +36,11 @@ try:
 except NameError:
     from sets import Set as set
 
+
 class EmailLDAP(DatabaseAccessor):
     """The EmailLDAP class is used to gather methodes used to generate
     an ldif for mail-backends."""
-    
+
     __metaclass__ = mark_update
 
     __write_attr__ = ('aid2addr', 'targ2addr', 'targ2prim', 'targ2spam',
@@ -51,10 +48,11 @@ class EmailLDAP(DatabaseAccessor):
                       'targ2forward', 'targ2vacation', 'acc2name', 'pending',
                       'e_id2passwd')
 
-
     def __init__(self, db):
         super(EmailLDAP, self).__init__(db)
+        self.acc = Factory.get('Account')(db)
         self.const = Factory.get('Constants')(db)
+        self.grp = Factory.get('Group')(db)
         # Internal structure:
         self.aid2addr = {}
         self.targ2addr = defaultdict(set)
@@ -65,15 +63,20 @@ class EmailLDAP(DatabaseAccessor):
         self.serv_id2server = {}
         self.targ2server_id = {}
         self.targ2forward = defaultdict(list)
+        self.targ2localdelivery = set()
         self.targ2vacation = {}
         self.acc2name = {}
         self.pending = {}
         self.e_id2passwd = {}
-       
+        # Used by multi
+        self.group2addr = defaultdict(set)
+        self.group2missing = defaultdict(set)
+        self.multi_addr_cache = {}
+        self.multi_missing_cache = {}
+        self.multi_reserved_cache = {}
 
     def _build_addr(self, local_part, domain):
         return '@'.join((local_part, domain))
-
 
     def get_targettype(self, targettype):
         return str(targettype)
@@ -81,17 +84,13 @@ class EmailLDAP(DatabaseAccessor):
     def get_target_info(self, row):
         """Return additional EmailLDAP-entry derived from L{row}.
 
-        Return site-specific mail-ldap-information pertaining to the
-        EmailTarget info in L{row}.
+        Return site-specific mail-ldap-information pertaining to the EmailTarget info in L{row}.
 
         @type row: db-row instance
-        @param row:
-          A db-row holding one result of L{list_email_targets_ext}.
+        @param row: A db-row holding one result of L{list_email_targets_ext}.
 
         @rtype: dict
-        @return:
-          A dictinary mapping attributes to values for the specified
-          EmailTarget in L{row}. 
+        @return: A dictinary mapping attributes to values for the specified EmailTarget in L{row}.
         """
 
         co = self.const
@@ -104,20 +103,17 @@ class EmailLDAP(DatabaseAccessor):
         if et is not None:
             et = int(et)
 
-        result = {"targetType": self.get_targettype(target_type),}
+        result = {"targetType": self.get_targettype(target_type)}
         if target_type in (co.email_target_Mailman, co.email_target_Sympa,
                            co.email_target_pipe, co.email_target_RT,
                            co.email_target_file):
             result["target"] = alias
         elif target_type in (co.email_target_account, co.email_target_deleted):
             if et == co.entity_account and ei in self.acc2name:
-                target, junk = self.acc2name[ei]
-                result["target"] = target
+                result["target"] = self.acc2name[ei]
 
         return result
-    # end get_target_info
 
-        
     def get_server_info(self, row):
         """Return additional mail server info for EmailLDAP-entry derived
         from row.
@@ -138,7 +134,6 @@ class EmailLDAP(DatabaseAccessor):
         ei = row['target_entity_id']
         if ei is not None:
             ei = int(ei)
-        uname, home = self.acc2name.get(ei, (None, None))
         result = dict()
 
         if target not in self.targ2server_id:
@@ -146,24 +141,14 @@ class EmailLDAP(DatabaseAccessor):
 
         server_type, server_name = self.serv_id2server[
                                        int(self.targ2server_id[target])]
-        if server_type == self.const.email_server_type_nfsmbox:
-            if not home:
-                home = "/home/%s" % uname
-            maildrop = "/var/spool/mail"
-            result["spoolInfo"] = "home=%s maildrop=%s/%s" % (home,
-                                                              maildrop,
-                                                              uname)
-        elif server_type == self.const.email_server_type_exchange:
+        if server_type == self.const.email_server_type_exchange:
             result["ExchangeServer"] = server_name
         elif server_type == self.const.email_server_type_cyrus:
             result["IMAPserver"] = server_name
 
         return result
-    # end get_server_info
-    
-    
+
     def read_addr(self):
-        mail_dom = Email.EmailDomain(self._db)
         mail_addr = Email.EmailAddress(self._db)
         for row in mail_addr.list_email_addresses_ext():
             a_id, t_id = int(row['address_id']), int(row['target_id'])
@@ -172,12 +157,10 @@ class EmailLDAP(DatabaseAccessor):
             self.targ2addr[t_id].add(addr)
             self.aid2addr[a_id] = addr
 
-
     def read_prim(self):
         mail_prim = Email.EmailPrimaryAddressTarget(self._db)
         for row in mail_prim.list_email_primary_address_targets():
             self.targ2prim[int(row['target_id'])] = int(row['address_id'])
-
 
     def read_spam(self):
         mail_spam = Email.EmailSpamFilter(self._db)
@@ -185,14 +168,12 @@ class EmailLDAP(DatabaseAccessor):
             self.targ2spam[int(row['target_id'])] = [row['level'],
                                                      row['code_str']]
 
-
     def read_quota(self):
         mail_quota = Email.EmailQuota(self._db)
         for row in mail_quota.list_email_quota_ext():
             self.targ2quota[int(row['target_id'])] = [row['quota_soft'],
                                                       row['quota_hard']]
 
-        
     def read_target_filter(self):
         const2str = {}
         for c in dir(self.const):
@@ -222,6 +203,10 @@ class EmailLDAP(DatabaseAccessor):
         for row in mail_forw.search(enable=True):
             self.targ2forward[int(row['target_id'])].append(row['forward_to'])
 
+    def read_local_delivery(self):
+        mail_forw = Email.EmailForward(self._db)
+        self.targ2localdelivery = set([x['target_id'] for x in mail_forw.list_local_delivery()])
+
     def read_vacation(self):
         mail_vaca = Email.EmailVacation(self._db)
         for row in mail_vaca.list_email_active_vacations():
@@ -237,19 +222,11 @@ class EmailLDAP(DatabaseAccessor):
                                             row['start_date'],
                                             row['end_date'])
 
-
     def read_accounts(self, spread):
-        acc = Factory.get('Account')(self._db)
         # Since get_target() can be called for target type "deleted",
         # we need to include expired accounts.
-        for row in acc.list_account_home(home_spread=spread,
-                                         include_nohome=True,
-                                         filter_expired=False):
-            home = acc.resolve_homedir(account_name=row['entity_name'],
-                                       home=row['home'],
-                                       disk_path=row['path'])
-            self.acc2name[int(row['account_id'])] = [row['entity_name'], home]
-
+        for row in self.acc.list_names(self.const.account_namespace):
+            self.acc2name[int(row['entity_id'])] = row['entity_name']
 
     def read_pending_moves(self):
         br = BofhdRequests(self._db, self.const)
@@ -262,52 +239,83 @@ class EmailLDAP(DatabaseAccessor):
                 if r['run_at'] < near_future:
                     self.pending[int(r['entity_id'])] = True
 
-
-    def read_multi_target(self, group_id, ignore_missing=False):
-        mail_targ = Email.EmailTarget(self._db)
-        grp = Factory.get('Group')(self._db)
-        acc = Factory.get('Account')(self._db)
-        grp.clear()
-        try:
-            grp.find(group_id)
-        except Errors.NotFoundError:
-            raise ValueError, "no group found: %d" % group_id
-        member_addrs = set()
-        missing_addrs = set()
-        for member in grp.search_members(group_id=grp.entity_id,
-                                         indirect_members=True,
-                                         member_type=self.const.entity_account):
-            acc.clear()
-            acc.find(member["member_id"])
-            if acc.is_reserved():
-                continue
-            # The address selected for the target will become the
-            # envelope recipient address after expansion, so it must
-            # be a value the user expects.  Use primary address rather
-            # than random element from targ2addr.
-            try:
-                member_addrs.add(acc.get_primary_mailaddress())
-            except Errors.NotFoundError:
-                missing_addrs.add(acc.account_name)
-                if not ignore_missing:
-                    raise ValueError, ("%s in group %s has no primary address" %
-                                        (acc.account_name, grp.group_name))
+    def get_multi_target(self, group_id, ignore_missing=False):
+        member_addrs = list(self.group2addr[group_id])
         if ignore_missing:
-            return list(member_addrs), list(missing_addrs)
+            return member_addrs, list(self.group2missing[group_id])
         else:
-            return list(member_addrs)
+            return member_addrs
+
+    def read_multi_data(self, ignore_missing=False):
+        et = Email.EmailTarget(self._db)
+        multi_groups = set()
+        for row in et.list_email_targets_ext(target_type=
+                                             self.const.email_target_multi):
+            multi_groups.add(row['target_entity_id'])
+
+        group2groupmembers = defaultdict(set)
+        for row in self.grp.search_members(group_id=multi_groups,
+                                           indirect_members=True):
+            member_id = int(row['member_id'])
+            member_type = row['member_type']
+            # Note group_id is the actual group the member is a member of, not
+            # necessarily any of those given as argument to search_members.
+            group_id = int(row['group_id'])
+            if member_type == self.const.entity_group:
+                group2groupmembers[group_id].add(member_id)
+            elif member_type == self.const.entity_account:
+                if member_id in self.multi_addr_cache:
+                    self.group2addr[group_id].add(self.multi_addr_cache[member_id])
+                elif member_id in self.multi_missing_cache:
+                    self.group2missing[group_id].add(self.multi_missing_cache[member_id])
+                elif member_id in self.multi_reserved_cache:
+                    continue
+                else:
+                    self.acc.clear()
+                    self.acc.find(member_id)
+                    if self.acc.is_reserved():
+                        self.multi_reserved_cache.add(member_id)
+                        continue
+                    # The address selected for the target will become the
+                    # envelope recipient address after expansion, so it must
+                    # be a value the user expects.  Use primary address rather
+                    # than random element from targ2addr.
+                    try:
+                        tmp = self.acc.get_primary_mailaddress()
+                        self.multi_addr_cache[member_id] = tmp
+                        self.group2addr[group_id].add(tmp)
+                    except Errors.NotFoundError:
+                        self.group2missing[group_id].add(self.acc.account_name)
+                        self.multi_missing_cache[member_id] = self.acc.account_name
+                        if not ignore_missing:
+                            raise ValueError('%s in group %s has no primary address' %
+                                             (self.acc.account_name, group_id))
+
+        def update_addr_and_missing(m_group, group_id):
+            if group_id in self.group2addr:
+                self.group2addr[m_group].update(self.group2addr[group_id])
+            if group_id in self.group2missing:
+                self.group2missing[m_group].update(self.group2missing[group_id])
+            if group_id in group2groupmembers:
+                for g in group2groupmembers[group_id]:
+                    update_addr_and_missing(m_group, g)
+
+        # Make sure to add any members from indirect members
+        for m_group in multi_groups:
+            if m_group in group2groupmembers:
+                for group_id in group2groupmembers[m_group]:
+                    update_addr_and_missing(m_group, group_id)
 
     def read_target_auth_data(self):
-        a = Factory.get('Account')(self._db)
         # For the time being, remove passwords for all quarantined
         # accounts, regardless of quarantine type.
         quarantines = dict([(x, "*locked") for x in
                             QuarantineHandler.get_locked_entities(
                             self._db, entity_types=self.const.entity_account)])
-        for row in a.list_account_authentication():
+        for row in self.acc.list_account_authentication():
             a_id = int(row['account_id'])
             self.e_id2passwd[a_id] = quarantines.get(a_id) or row['auth_data']
-        for row in a.list_account_authentication(
+        for row in self.acc.list_account_authentication(
                 self.const.auth_type_crypt3_des):
             # *sigh* Special-cases do exist. If a user is created when the
             # above for-loop runs, this loop gets a row more. Before I ignored
@@ -316,7 +324,6 @@ class EmailLDAP(DatabaseAccessor):
             if not self.e_id2passwd.get(a_id, 0):
                 self.e_id2passwd[a_id] = (quarantines.get(a_id) or
                                           row['auth_data'])
-
 
     def read_misc_target(self):
         # Dummy method for Mixin-classes. By default it generates a hash with
@@ -329,7 +336,3 @@ class EmailLDAP(DatabaseAccessor):
     def get_misc(self, row):
         """Return optional strings to the script."""
         return dict()
-    # end get_misc
-
-# end class EmailLDAP
-

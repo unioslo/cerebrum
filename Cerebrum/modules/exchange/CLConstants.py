@@ -47,6 +47,12 @@ class CLConstants(CLConstants):
     # Account change primary address
     acc_primaddr = _ChangeTypeCode('exchange', 'acc_primaddr',
                                    'account primary changed')
+
+    # Setting of local delivery
+    acc_local_delivery = _ChangeTypeCode(
+        'exchange', 'local_delivery',
+        'local delivery setting changed', ('enabled = %(string:enabled)s',))
+
     # Electronic reservation registered
     pers_reservation = _ChangeTypeCode(
         'exchange', 'per_e_reserv',

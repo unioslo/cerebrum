@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # encoding: latin-1
 #
-# Copyright 2006 University of Oslo, Norway
+# Copyright 2006-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -206,9 +206,13 @@ class BofhdExtension(BofhdCommonMethods,
                             # Tripnote
                             'email_tripnote', 'email_add_tripnote',
                             'email_list_tripnotes', 'email_remove_tripnote',
+                            # Local delivery
+                            'email_local_delivery',
                             # Generic
                             'email_forward', 'email_info', 'email_move',
-                            'email_quota', 'email_update', )
+                            'email_quota', 'email_update',
+                            # Mangle names
+                            'email_mod_name',)
 
     # Decide which mailman list commands to use?
     email_mailman_mixin_commands = ('mailman_create_list',
@@ -1269,6 +1273,7 @@ class BofhdExtension(BofhdCommonMethods,
                                 [int(self.const.spread_exchange_account),
                                  int(self.const.spread_exchange_acc_old),
                                  int(self.const.spread_uia_office_365),
+                                 int(self.const.spread_uia_forward),
                                  int(self.const.spread_hia_email)]:
                     raise CerebrumError, "Not an e-mail spread: %s!" % email_spread
             try:
