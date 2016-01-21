@@ -18,11 +18,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-import cereconf
-
 from Cerebrum import Person
-from Cerebrum import Errors
-from Cerebrum.Utils import Factory
 
 
 class PersonHiHMixin(Person.Person):
@@ -33,7 +29,8 @@ class PersonHiHMixin(Person.Person):
     Cerebrum.Utils.Factory.get() provide functionality that reflects
     the policies as stated by HiH.
     """
-    def add_affiliation(self, ou_id, affiliation, source, status):
+    def add_affiliation(self, ou_id, affiliation, source, status,
+                        precedence=None):
         # bewator-ids are built as follows
         #
         # affiliation ANSATT and TILKNYTTET:
@@ -60,23 +57,27 @@ class PersonHiHMixin(Person.Person):
                 self.populate_external_id(self.const.system_manual,
                                           self.const.externalid_bewatorid,
                                           bew_id)
-            
+
             if int(affiliation) == int(self.const.affiliation_student):
-                if int(status) == int(self.const.affiliation_status_student_ekstern):
-                    bew_id = '01221' + str(self.nextval('bewatorid_extstud_seq')) + '0'
+                if int(status) == int(
+                        self.const.affiliation_status_student_ekstern):
+                    bew_id = '01221' + str(
+                        self.nextval('bewatorid_extstud_seq')) + '0'
                     self.populate_external_id(self.const.system_manual,
                                               self.const.externalid_bewatorid,
                                               bew_id)
                 # for other students we usually register bewator_id during
                 # FS-import
                 else:
-                    tmp = self.get_external_id(source_system=self.const.system_fs,
-                                               id_type=self.const.externalid_studentnr)
+                    tmp = self.get_external_id(
+                        source_system=self.const.system_fs,
+                        id_type=self.const.externalid_studentnr)
                     if tmp:
                         studentnr = "%06d" % int(tmp[0]['external_id'])
                     if not studentnr:
                         # cannot create bewator id for this person
-                        return 
+                        return
                     bew_id = '01221' + studentnr + '0'
             self.write_db()
-        self.__super.add_affiliation(ou_id, affiliation, source, status)            
+        self.__super.add_affiliation(ou_id, affiliation, source, status,
+                                     precedence)
