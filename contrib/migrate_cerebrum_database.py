@@ -40,7 +40,7 @@ targets = {
     'core': ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5',
              'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9',
              'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
-             'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', ),
+             'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3',),
     'changelog': ('changelog_1_2', 'changelog_1_3'),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3'),
@@ -591,6 +591,58 @@ def migrate_to_rel_0_9_16():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 16))
     print "Migration to 0.9.16 completed successfully"
+    db.commit()
+
+
+def migrate_to_rel_0_9_17():
+    """Migrate from 0.9.16 database to the 0.9.17 database schema."""
+    continue_prompt("Make sure cereconf.PERSON_AFFILIATION_PRECEDENCE_RULE "
+                    "has a sensible default before migrating!")
+    assert_db_version("0.9.16")
+    makedb('0_9_17', 'pre', False)
+    print("Inserting precedences")
+    pe = Utils.Factory.get('Person')(db)
+    ids = set((x['person_id'] for x in pe.query(
+        "SELECT person_id FROM person_affiliation_source "
+        "WHERE precedence IS NULL")))
+    precedence = 'precedence'
+    for i in ids:
+        print ".",
+        pe.find(i)
+        affs = map(dict, pe.list_affiliations(person_id=i,
+                                              include_deleted=True))
+        active = filter(lambda x: not x['deleted_date'], affs)
+        precs = set()
+        mx = 0
+        for aff in active:
+            aff[precedence] = pe._Person__calculate_affiliation_precedence(
+                affiliation=aff['affiliation'], source=aff['source_system'],
+                status=aff['status'], precedence=None, old=None)
+            mx = max(aff[precedence], mx)
+        mx += 10
+        for aff in sorted(affs, key=lambda x: x[precedence] or mx):
+            prec = pe._Person__calculate_affiliation_precedence(
+                affiliation=aff['affiliation'], source=aff['source_system'],
+                status=aff['status'], precedence=None, old=None)
+            while prec in precs:
+                prec += 5
+            precs.add(prec)
+            aff[precedence] = prec
+            pe.execute("""
+                       UPDATE person_affiliation_source
+                       SET precedence = :precedence
+                       WHERE person_id = :person_id AND
+                             ou_id = :ou_id AND
+                             affiliation = :affiliation AND
+                             source_system = :source_system""", aff)
+        pe.clear()
+    db.commit()
+    print "\ninsertion done."
+    makedb('0_9_17', 'post')
+    print "\ndone."
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 17))
+    print "Migration to 0.9.17 completed successfully"
     db.commit()
 
 
