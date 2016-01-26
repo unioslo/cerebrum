@@ -174,6 +174,17 @@ def usage(exitcode=0):
 
     sys.exit(exitcode)
 
+
+def make_sync(classes, sync_type, mock=False):
+    """Make an instantiated sync."""
+    sync_class = BaseSync.get_class(classes=classes, sync_type=sync_type)
+    sync = sync_class(db=db, logger=logger)
+    adconf.SYNCS[sync_type]['mock'] = mock
+    adconf.SYNCS[sync_type]['sync_type'] = sync_type
+    sync.configure(adconf.SYNCS[sync_type])
+    return sync
+
+
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:],

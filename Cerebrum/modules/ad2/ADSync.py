@@ -389,6 +389,11 @@ class BaseSync(object):
             self.logger.info('In mock mode, AD will not be connected to')
             from Cerebrum.modules.ad2 import ADMock
             self.server_class = ADMock.ADclientMock
+            # We'll need to set mock mode for all sync configurations, since
+            # the sync will instantiate clients with other configurations, in
+            # order to collect necessary AD attributes.
+            for key in adconf.SYNCS:
+                adconf.SYNCS[key]['mock'] = True
 
         # TODO: Check the attributes?
 
@@ -3143,8 +3148,10 @@ class GroupSync(BaseSync):
             # Go through each member in the group and add it to all the parent
             # groups that should be in AD:
             for mem in members:
-                member = self.id2extraentity.get(mem)
-                # TODO: persons to primary account mapping here?
+                # Select the primary account if the member is a person. If the
+                # member is some other entity, use the member:
+                member = self.id2extraentity.get(
+                    self.personid2primary.get(mem, mem))
                 if not member:
                     continue
                 for t_id in target_groups:
