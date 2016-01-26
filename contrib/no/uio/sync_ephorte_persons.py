@@ -429,8 +429,6 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
     for person_id, events in event_selector:
         if not sanity_check_person(person_id=person_id,
                                    selection_spread=selection_spread):
-            for event in events:
-                clh.confirm_event(event)
             continue
 
         pe.clear()
@@ -519,8 +517,9 @@ def update_person_perms(person, client, remove_superfluous=False):
             try:
                 client.ensure_access_code_authorization(userid, *perm)
             except Exception, e:
-                logger.error(
-                    u"Something happened, ephorte says: %s", e.args[0])
+                logger.exception(
+                    u"Could not ensure perm for %s: %s@%s, authorized=%s",
+                    userid, *perm)
     except Exception, e:
         logger.exception(
             u'Failed to update permissions for person_id:%s',
