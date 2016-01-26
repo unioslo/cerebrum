@@ -3148,7 +3148,8 @@ class GroupSync(BaseSync):
             # Go through each member in the group and add it to all the parent
             # groups that should be in AD:
             for mem in members:
-                member = self.id2extraentity.get(mem)
+                member = self.id2extraentity.get(
+                    self.personid2primary.get(mem, mem))
                 # TODO: persons to primary account mapping here?
                 if not member:
                     continue
