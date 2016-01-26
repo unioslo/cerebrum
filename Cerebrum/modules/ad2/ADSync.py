@@ -389,6 +389,11 @@ class BaseSync(object):
             self.logger.info('In mock mode, AD will not be connected to')
             from Cerebrum.modules.ad2 import ADMock
             self.server_class = ADMock.ADclientMock
+            # We'll need to set mock mode for all sync configurations, since
+            # the sync will instantiate clients with other configurations, in
+            # order to collect necessary AD attributes.
+            for key in adconf.SYNCS:
+                adconf.SYNCS[key]['mock'] = True
 
         # TODO: Check the attributes?
 
