@@ -30,12 +30,8 @@ via the ePhorte web service.
 import sys
 import time
 import functools
+import argparse
 from collections import defaultdict
-
-try:
-    import argparse
-except ImportError:
-    from Cerebrum.extlib import argparse
 
 import cerebrum_path
 import cereconf
@@ -188,14 +184,15 @@ def update_person_info(pe, client):
         user_id = get_user_id(pe)
         initials = get_username(pe)
     except Errors.NotFoundError:
-        logger.warn('Skipping %d: Does not appear to have a primary account',
-                    pe.entity_id)
+        logger.warn(
+            'Skipping person_id:%d: Does not appear to have a primary account',
+            pe.entity_id)
         return
 
     try:
         email_address = u(get_email_address(pe))
     except Errors.NotFoundError:
-        logger.warn('Email address non-existent for %s', user_id)
+        logger.warn('No email address for %s', user_id)
         email_address = None
 
     telephone = u((lambda x: x[0]['contact_value'] if len(x) else None)
@@ -305,8 +302,7 @@ def select_persons_for_update(selection_spread):
         yield pers
 
 
-def select_events_by_person(clh, config, change_key, change_types,
-                            selection_spread):
+def select_events_by_person(clh, config, change_types, selection_spread):
     """Yield unhandled events, sorted by person_id.
 
     :type clh: CLHandler
@@ -314,9 +310,6 @@ def select_events_by_person(clh, config, change_key, change_types,
 
     :type config: Config
     :param config: Configuration
-
-    :type change_key: str
-    :param change_key: Handled events are marked with this key
 
     :type change_types: iterable
     :param change_types: Get events of this type
@@ -329,8 +322,9 @@ def select_events_by_person(clh, config, change_key, change_types,
     """
     too_old = time.time() - int(config.changes_too_old_days) * 60*60*24
 
-    logger.debug("Fetching unhandled events using change key: %s", change_key)
-    all_events = clh.get_events(change_key, change_types)
+    logger.debug("Fetching unhandled events using change key: %s",
+        config.change_key)
+    all_events = clh.get_events(config.change_key, change_types)
     logger.debug("Found %d events to process", len(all_events))
 
     events_by_person = defaultdict(list)
@@ -420,7 +414,6 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
     clh = CLHandler.CLHandler(db)
     pe = Factory.get('Person')(db)
 
-    change_key = 'eph_sync'
     change_types_roles = (co.ephorte_role_add,
                           co.ephorte_role_rem,
                           co.ephorte_role_upd)
@@ -430,7 +423,6 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
     event_selector = select_events_by_person(
         clh=clh,
         config=config,
-        change_key=change_key,
         change_types=change_types,
         selection_spread=selection_spread)
 
@@ -530,7 +522,9 @@ def update_person_perms(person, client, remove_superfluous=False):
                 logger.error(
                     u"Something happened, ephorte says: %s", e.args[0])
     except Exception, e:
-        logger.exception("update person perms failed")
+        logger.exception(
+            u'Failed to update permissions for person_id:%s',
+            person.entity_id)
         return False
     return True
 
@@ -684,8 +678,7 @@ def update_person_roles(pe, client, remove_superfluous=False):
         # set difference, or else we'll remove roles that we should have when
         # changing the standard role.
         for role in map(dict,
-                        remove_default_flag_from_set(ephorte_roles)
-                        -
+                        remove_default_flag_from_set(ephorte_roles) -
                         remove_default_flag_from_set(cerebrum_roles)):
             logger.info('Removing superfluous role %s@%s for %s',
                         role['role_id'], role['ou_id'], user_id)
@@ -874,6 +867,7 @@ def main():
   client_cert=None
   ca_certs=None
   selection_spread=ePhorte_person
+  change_key=eph_sync_foo
   changes_too_old_days=30""")
         sys.exit(0)
 
@@ -894,6 +888,12 @@ def main():
     except Errors.NotFoundError:
         logger.error('Spread %s could not be found, aborting.',
                      config.selection_spread)
+        sys.exit(1)
+
+    try:
+        _ = config.change_key
+    except AttributeError:
+        logger.error('Missing change_key in configuration.')
         sys.exit(1)
 
     if args.quick_roles_perms:
