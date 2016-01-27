@@ -1089,9 +1089,9 @@ class ADclient(PowershellClient):
         for k, v in attributes.iteritems():
             if 'remove' in v:
                 removes[self.attribute_write_map.get(k, k)] = v['remove']
-            elif 'add' in v:
+            if 'add' in v:
                 adds[self.attribute_write_map.get(k, k)] = v['add']
-            else:
+            if (('remove' not in v) and ('add' not in v)):
                 fullupdates[k] = v['fullupdate']
 
         # Remove attributes
