@@ -391,8 +391,19 @@ def fullsync_roles_and_perms(client, selection_spread):
     for person in select_persons_for_update(selection_spread):
         if sanity_check_person(person_id=person.entity_id,
                                selection_spread=selection_spread):
-            update_person_roles(person, client, remove_superfluous=True)
-            update_person_perms(person, client, remove_superfluous=True)
+            try:
+                update_person_roles(person, client, remove_superfluous=True)
+            except:
+                logger.warn(
+                    u'Failed to update roles for person_id:%s',
+                    person.entity_id, exc_info=True)
+
+            try:
+                update_person_perms(person, client, remove_superfluous=True)
+            except:
+                logger.warn(
+                    u'Failed to update permissions for person_id:%s',
+                    person.entity_id, exc_info=True)
 
 
 def quicksync_roles_and_perms(client, selection_spread, config, commit):
@@ -434,97 +445,86 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
         pe.clear()
         pe.find(person_id)
 
-        update_roles = any(e['change_type_id'] in change_types_roles
-                           for e in events)
-        update_perms = any(e['change_type_id'] in change_types_perms
-                           for e in events)
+        try:
+            if update_person_roles(pe, client, remove_superfluous=True):
+                for event in events:
+                    if event['change_type_id'] in change_types_roles:
+                        clh.confirm_event(event)
+        except:
+            logger.warn(
+                u'Failed to update roles for person_id:%s',
+                person_id, exc_info=True)
+        else:
+            if commit:
+                clh.commit_confirmations()
 
-        if update_roles:
-            try:
-                if update_person_roles(pe, client, remove_superfluous=True):
-                    for event in events:
-                        if event['change_type_id'] in change_types_roles:
-                            clh.confirm_event(event)
-            except Exception:
-                logger.warn(
-                    u'Failed to update roles for person_id:%s',
-                    person_id, exc_info=True)
-            else:
-                if commit:
-                    clh.commit_confirmations()
-
-        if update_perms:
-            try:
-                if update_person_perms(pe, client, remove_superfluous=True):
-                    for event in events:
-                        if event['change_type_id'] in change_types_perms:
-                            clh.confirm_event(event)
-            except Exception:
-                logger.warn(
-                    u'Failed to update permissions for person_id:%s',
-                    person_id, exc_info=True)
-            else:
-                if commit:
-                    clh.commit_confirmations()
+        try:
+            if update_person_perms(pe, client, remove_superfluous=True):
+                for event in events:
+                    if event['change_type_id'] in change_types_perms:
+                        clh.confirm_event(event)
+        except:
+            logger.warn(
+                u'Failed to update permissions for person_id:%s',
+                person_id, exc_info=True)
+        else:
+            if commit:
+                clh.commit_confirmations()
 
     if commit:
         clh.commit_confirmations()
 
 
 def update_person_perms(person, client, remove_superfluous=False):
-    try:
-        userid = get_user_id(person)
+    userid = get_user_id(person)
 
-        logger.info("Updating perms for %s", userid)
+    logger.info("Updating perms for %s", userid)
 
-        ephorte_perms = set(user_details_to_perms(
-            client.get_user_details(userid)))
-        for perm in ephorte_perms:
-            logger.debug("Found perm for %s in ePhorte: %s@%s, authorized=%s",
-                         userid, *perm)
+    ephorte_perms = set(user_details_to_perms(
+        client.get_user_details(userid)))
+    for perm in ephorte_perms:
+        logger.debug("Found perm for %s in ePhorte: %s@%s, authorized=%s",
+                     userid, *perm)
 
-        cerebrum_perms = set(list_perm_for_person(person))
-        for perm in cerebrum_perms:
-            logger.debug("Should have perm for %s: %s@%s, authorized=%s",
-                         userid, *perm)
+    cerebrum_perms = set(list_perm_for_person(person))
+    for perm in cerebrum_perms:
+        logger.debug("Should have perm for %s: %s@%s, authorized=%s",
+                     userid, *perm)
 
-        # Remove perms?
-        if remove_superfluous:
-            superfluous = ephorte_perms.difference(cerebrum_perms)
-            for perm in superfluous:
-                logger.info("Removing perm for %s: %s@%s, authorized=%s",
-                            userid, *perm)
-                try:
-                    client.disable_user_authz(userid, perm[0], perm[1])
-                except Exception, e:
-                    logger.exception(
-                        "Failed to remove perm for %s: %s@%s, authorized=%s",
+    # Remove permissions
+    if remove_superfluous:
+        superfluous = ephorte_perms.difference(cerebrum_perms)
+        for perm in superfluous:
+            logger.info("Removing perm for %s: %s@%s, authorized=%s",
                         userid, *perm)
-
-        for perm in cerebrum_perms:
-            if perm not in ephorte_perms:
-                logger.info(u"Adding new perm for %s: %s@%s, authorized=%s",
-                            userid, *perm)
-            else:
-                logger.info(u"Ensuring perm for %s: %s@%s, authorized=%s",
-                            userid, *perm)
-
-            if perm[1] and not ephorte_has_ou(client, perm[1]):
-                logger.warn("No OU in ePhorte for %s for perm %s for %s",
-                            perm[1], perm[0], userid)
-                continue
-
             try:
-                client.ensure_access_code_authorization(userid, *perm)
+                client.disable_user_authz(userid, perm[0], perm[1])
             except Exception, e:
                 logger.exception(
-                    u"Could not ensure perm for %s: %s@%s, authorized=%s",
+                    "Failed to remove perm for %s: %s@%s, authorized=%s",
                     userid, *perm)
-    except Exception, e:
-        logger.exception(
-            u'Failed to update permissions for person_id:%s',
-            person.entity_id)
-        return False
+
+    # Add new permissions
+    for perm in cerebrum_perms:
+        if perm not in ephorte_perms:
+            logger.info(u"Adding new perm for %s: %s@%s, authorized=%s",
+                        userid, *perm)
+        else:
+            logger.info(u"Ensuring perm for %s: %s@%s, authorized=%s",
+                        userid, *perm)
+
+        if perm[1] and not ephorte_has_ou(client, perm[1]):
+            logger.warn("No OU in ePhorte for %s for perm %s for %s",
+                        perm[1], perm[0], userid)
+            continue
+
+        try:
+            client.ensure_access_code_authorization(userid, *perm)
+        except Exception, e:
+            logger.exception(
+                u"Could not ensure perm for %s: %s@%s, authorized=%s",
+                userid, *perm)
+
     return True
 
 
