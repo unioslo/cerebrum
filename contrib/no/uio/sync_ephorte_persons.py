@@ -286,6 +286,47 @@ def fullsync_persons(client, selection_spread):
         update_person_info(pe=person, client=client)
 
 
+def fullsync_account(client, selection_spread, account_name):
+    """Sync info, roles and permissions for a single account/person.
+
+    :type client: EphorteWS
+    :param client: The client used to talk to ePhorte
+
+    :type selection_spread: Spread
+    :param selection_spread: A person must have this spread to be synced
+
+    :type account_name: str
+    :param account_name: Account name of person to be synced
+    """
+    ac = Factory.get('Account')(db)
+    try:
+        ac.find_by_name(account_name)
+    except Errors.NotFoundError:
+        logger.error("No such account %s", account_name)
+        return
+
+    if sanity_check_person(person_id=ac.owner_id,
+                           selection_spread=selection_spread):
+        person = Factory.get('Person')(db)
+        person.find(ac.owner_id)
+
+        update_person_info(pe=person, client=client)
+
+        try:
+            update_person_roles(person, client, remove_superfluous=True)
+        except:
+            logger.warn(
+                u'Failed to update roles for person_id:%s',
+                person.entity_id, exc_info=True)
+
+        try:
+            update_person_perms(person, client, remove_superfluous=True)
+        except:
+            logger.warn(
+                u'Failed to update permissions for person_id:%s',
+                person.entity_id, exc_info=True)
+
+
 def select_persons_for_update(selection_spread):
     """Yield persons satisfying criteria.
 
@@ -323,7 +364,7 @@ def select_events_by_person(clh, config, change_types, selection_spread):
     too_old = time.time() - int(config.changes_too_old_days) * 60*60*24
 
     logger.debug("Fetching unhandled events using change key: %s",
-        config.change_key)
+                 config.change_key)
     all_events = clh.get_events(config.change_key, change_types)
     logger.debug("Found %d events to process", len(all_events))
 
@@ -832,6 +873,10 @@ def main():
     cmdgrp.add_argument('--full-persons',
                         help='Full sync of persons',
                         action='store_true')
+    cmdgrp.add_argument('--full-sync-account',
+                        type=str,
+                        metavar="<account_name>",
+                        help='Full sync of a single account/person')
     cmdgrp.add_argument('--full-roles-perms',
                         help='Full sync of roles and permissions',
                         action='store_true')
@@ -907,6 +952,14 @@ def main():
         fullsync_roles_and_perms(client=client,
                                  selection_spread=selection_spread)
         logger.info('Full sync of roles and permissions finished')
+    elif args.full_sync_account:
+        logger.info("Syncing person info, roles and permissions for %s",
+                    args.full_sync_account)
+        fullsync_account(client=client,
+                         selection_spread=selection_spread,
+                         account_name=args.full_sync_account)
+        logger.info("Done syncing person info, roles and permissions for %s",
+                    args.full_sync_account)
     elif args.disable_users:
         logger.info('Starting to disable users')
         disable_users(client=client,
