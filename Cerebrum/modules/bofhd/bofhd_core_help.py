@@ -527,6 +527,15 @@ arg_help = {
         ['disp_name', 'Enter display name (optional, may differ from name)'],
     'group_dl_managedby':
         ['dl_managedby', 'Enter address for ou/person managing this group'],
+    'group_exchange_attr':
+        ['exchange_attr', 'Enter attribute to modify',
+         """Valid attributes:
+            - depart_restriction (Open, Closed, ApprovalRequired)
+            - join_restriction (Open, Closed, ApprovalRequired)
+            - moderation_enabled (T/F)
+            - moderated_by ('uname1, uname2,...')
+            - managed_by (e-mailaddress)
+            - addrbook_visibility (H/V)"""],
     'group_name':
         ['gname', 'Enter groupname'],
     'group_name_dest':
