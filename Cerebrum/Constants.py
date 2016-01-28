@@ -180,7 +180,7 @@ class _CerebrumCode(DatabaseAccessor):
                 code = ()
                 for i in range(cls._key_size):
                     if isinstance(args[i], int):
-                        raise TypeError, "Arguments must be constants or str."
+                        raise TypeError("Arguments must be constants or str.")
                     code += (str(args[i]), )
             else:
                 code = str(args[0])
@@ -196,14 +196,14 @@ class _CerebrumCode(DatabaseAccessor):
                 cls._cache[str(new)] = new
         else:
             if cls._key_size > 1 and len(args) > 1:
-                raise ValueError, ("When initialising a multi key constant, "
-                                   "the first argument must be a CerebrumCode "
-                                   "or string")
+                raise ValueError("When initialising a multi key constant, "
+                                 "the first argument must be a CerebrumCode "
+                                 "or string")
             # Handle PgNumeric and other integer-like types
             try:
                 code = int(args[0])
             except ValueError:
-                raise TypeError, "Argument 'code' must be int or str."
+                raise TypeError("Argument 'code' must be int or str.")
             if code in cls._cache:
                 return cls._cache[code]
 
@@ -241,11 +241,15 @@ class _CerebrumCode(DatabaseAccessor):
             self.str = code
         elif not hasattr(self, "int"):
             self.int = code
-            self.str = self.sql.query_1("SELECT %s FROM %s WHERE %s=:code" %
-                                        (self._lookup_str_column,
-                                         self._lookup_table,
-                                         self._lookup_code_column),
-                                        {'code': code})
+            try:
+                self.str = self.sql.query_1(
+                    "SELECT %s FROM %s WHERE %s=:code" %
+                    (self._lookup_str_column,
+                     self._lookup_table,
+                     self._lookup_code_column),
+                    {'code': code})
+            except Errors.NotFoundError:
+                raise Errors.NotFoundError('Constant %r' % self)
         self._lang = self._build_language_mappings(lang)
     # end __init__
 
@@ -298,16 +302,17 @@ class _CerebrumCode(DatabaseAccessor):
         return self.str
 
     def __repr__(self):
-        int = ""
-        if self.int is not None:
-            int = " int=%d" % self.int
-        return "<%(class)s instance code_str='%(str)s'%(int)s at %(id)s>" % {
+        return "<%(class)s instance%(str)s%(int)s at %(id)s>" % {
             'class': self.__class__.__name__,
-            'str': self.str,
-            'int': int,
-            'id': hex(id(self) & 2 ** 32 - 1)}  # Avoid FutureWarning in hex conversion
+            'str': ("" if getattr(self, 'str', None) is None
+                    else " code_str=%r" % self.str),
+            'int': ("" if getattr(self, 'int', None) is None
+                    else " code=%d" % self.int),
+            'id': hex(id(self) & 2 ** 32 - 1)}
 
-    def _get_description(self):
+    @property
+    def description(self):
+        u""" This code value's description. """
         if self._desc is None:
             self._desc = self.sql.query_1("SELECT %s FROM %s WHERE %s=:code" %
                                           (self._lookup_desc_column,
@@ -315,19 +320,21 @@ class _CerebrumCode(DatabaseAccessor):
                                            self._lookup_code_column),
                                           {'code': int(self)})
         return self._desc
-    description = property(_get_description, None, None,
-                           "This code value's description.")
 
     def __int__(self):
         if not cereconf.CACHE_CONSTANTS:
             self.int = None
 
         if self.int is None:
-            self.int = int(self.sql.query_1("SELECT %s FROM %s WHERE %s=:str" %
-                                            (self._lookup_code_column,
-                                             self._lookup_table,
-                                             self._lookup_str_column),
-                                            self.__dict__))
+            try:
+                self.int = int(
+                    self.sql.query_1("SELECT %s FROM %s WHERE %s=:str" %
+                                     (self._lookup_code_column,
+                                      self._lookup_table,
+                                      self._lookup_str_column),
+                                     self.__dict__))
+            except Errors.NotFoundError:
+                raise Errors.NotFoundError('Constant %r' % self)
         return self.int
 
     def __hash__(self):
@@ -371,7 +378,7 @@ class _CerebrumCode(DatabaseAccessor):
             code = int(self)
             # If conversion worked without raising NotFoundError, our
             # job has been done before.
-            raise CodeValuePresentError, "Code value %r present." % self
+            raise CodeValuePresentError("Code value %r present." % self)
         except Errors.NotFoundError:
             pass
 
@@ -606,29 +613,48 @@ class _PersonAffStatusCode(_CerebrumCode):
                                   "from code value")
 
             self.int = code
-            (affiliation, status, description) = \
-                self.sql.query_1("""
-                         SELECT affiliation, %s, %s FROM %s
-                         WHERE %s=:status""" % (self._lookup_str_column,
-                                                self._lookup_desc_column,
-                                                self._lookup_table,
-                                                self._lookup_code_column),
-                                 {'status': code})
+            try:
+                (affiliation, status, description) = self.sql.query_1(
+                    """ SELECT affiliation, %s, %s FROM %s
+                    WHERE %s=:status""" % (
+                        self._lookup_str_column,
+                        self._lookup_desc_column,
+                        self._lookup_table,
+                        self._lookup_code_column),
+                    {'status': code})
+            except Errors.NotFoundError:
+                raise Errors.NotFoundError('Constant %r' % self)
         if isinstance(affiliation, _PersonAffiliationCode):
             self.affiliation = affiliation
         else:
             self.affiliation = _PersonAffiliationCode(affiliation)
         super(_PersonAffStatusCode, self).__init__(status, description, lang)
 
+    def __repr__(self):
+        return "<%(class)s instance%(aff)s%(str)s%(int)s at %(id)s>" % {
+            'class': self.__class__.__name__,
+            'str': ("" if getattr(self, 'str', None) is None
+                    else " code_str=%r" % self.str),
+            'int': ("" if getattr(self, 'int', None) is None
+                    else " code=%d" % self.int),
+            'aff': ("" if getattr(self, 'affiliation', None) is None
+                    else " affiliation=%r" % self.affiliation),
+            'id': hex(id(self) & 2 ** 32 - 1)}
+
     def __int__(self):
         if self.int is None:
-            self.int = int(self.sql.query_1("""
-            SELECT %s FROM %s WHERE affiliation=:aff AND %s=:str""" %
-                                            (self._lookup_code_column,
-                                             self._lookup_table,
-                                             self._lookup_str_column),
-                                            {'str': self.str,
-                                             'aff': int(self.affiliation)}))
+            try:
+                self.int = int(
+                    self.sql.query_1(
+                        """SELECT %s FROM %s
+                        WHERE affiliation=:aff AND %s=:str""" % (
+                            self._lookup_code_column,
+                            self._lookup_table,
+                            self._lookup_str_column),
+                        {'str': self.str,
+                         'aff': int(self.affiliation)}))
+            except Errors.NotFoundError:
+                raise Errors.NotFoundError('Constant %r' % self)
         return self.int
 
     def __str__(self):
@@ -660,6 +686,7 @@ class _AuthoritativeSystemCode(_CerebrumCode):
     "Mappings stored in the authoritative_system_code table"
     _lookup_table = '[:table schema=cerebrum name=authoritative_system_code]'
     pass
+
 
 class _OUPerspectiveCode(_CerebrumCode):
 
@@ -782,14 +809,17 @@ class _ChangeTypeCode(_CerebrumCode):
                 # Handle PgNumeric etc.
                 self.int = int(category)
             except ValueError:
-                raise TypeError, ("Must pass integer when initialising "
-                                  "from code value")
-            self.category, self.type = self.sql.query_1(
-                """SELECT category, type
-                FROM %s
-                WHERE %s = :code""" % (self._lookup_table,
-                                       self._lookup_code_column),
-                {'code': self.int})
+                raise TypeError("Must pass integer when initialising "
+                                "from code value")
+            try:
+                self.category, self.type = self.sql.query_1(
+                    """SELECT category, type
+                    FROM %s
+                    WHERE %s = :code""" % (self._lookup_table,
+                                           self._lookup_code_column),
+                    {'code': self.int})
+            except Errors.NotFoundError:
+                raise Errors.NotFoundError('Constant %r' % self)
         else:
             self.category = category
             self.type = type
@@ -805,16 +835,34 @@ class _ChangeTypeCode(_CerebrumCode):
             self.format = format
         super(_ChangeTypeCode, self).__init__(category, type)
 
+    def __repr__(self):
+        return "<%(class)s instance%(cat)s%(type)s%(str)s%(int)s at %(id)s>" % {
+            'class': self.__class__.__name__,
+            'str': ("" if getattr(self, 'str', None) is None
+                    else " code_str=%r" % self.str),
+            'int': ("" if getattr(self, 'int', None) is None
+                    else " code=%d" % self.int),
+            'cat': ("" if getattr(self, 'category', None) is None
+                    else " category=%r" % self.category),
+            'type': ("" if getattr(self, 'type', None) is None
+                     else " type=%r" % self.type),
+            'id': hex(id(self) & 2 ** 32 - 1)}
+
     def __str__(self):
         return "%s:%s" % (self.category, self.type)
 
     def __int__(self):
         if self.int is None:
-            self.int = int(self.sql.query_1("""
-            SELECT change_type_id FROM [:table schema=cerebrum name=change_type]
-            WHERE category=:category AND type=:type""", {
-                'category': self.category,
-                'type': self.type}))
+            try:
+                self.int = int(
+                    self.sql.query_1(
+                        """SELECT change_type_id
+                        FROM [:table schema=cerebrum name=change_type]
+                        WHERE category=:category AND type=:type""",
+                        {'category': self.category,
+                         'type': self.type}))
+            except Errors.NotFoundError:
+                raise Errors.NotFoundError('Constant %r' % self)
         return self.int
 
     def insert(self):
@@ -1232,6 +1280,45 @@ class Constants(CoreConstants, CommonConstants):
     Quarantine = _QuarantineCode
     LanguageCode = _LanguageCode
     EntityNameCode = _EntityNameCode
+
+    def get_affiliation(self, aff_hint):
+        u""" Get an affiliation from hint.
+
+        Utility function to look up affiliation and affiliation status from
+        strings. Example:
+
+        >>> Constants().get_affiliation('MY_AFFILIATION')
+        >>> Constants().get_affiliation('MY_AFFILIATION/my_status')
+
+        :type aff_hint: str, _PersonAffiliation, _PersonAffStatus
+        :param aff_hint:
+            The affiliation we want to look up.
+
+        :return tuple:
+            Returns a tuple with the affiliation and affiliation status.
+            Affiliation status may be None.
+
+        :raise NotFoundError:
+            If the affiliation or affiliation status doesn't exist.
+        """
+        if isinstance(aff_hint, self.PersonAffiliation):
+            int(aff_hint)
+            return aff_hint, None
+        if isinstance(aff_hint, self.PersonAffStatus):
+            int(aff_hint)
+            return aff_hint.affiliation, aff_hint
+        try:
+            aff_str, status_str = aff_hint.split('/')
+        except ValueError:
+            aff = self.PersonAffiliation(aff_hint)
+            int(aff)
+            return aff, None
+        else:
+            aff = self.PersonAffiliation(aff_str)
+            status = self.PersonAffStatus(aff, status_str)
+            int(aff)
+            int(status)
+            return aff, status
 
 
 # TODO: CLConstants are typically included in the CLASS_CONSTANTS definition.
