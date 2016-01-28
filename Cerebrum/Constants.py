@@ -1008,7 +1008,7 @@ class ConstantsBase(DatabaseAccessor):
         """
 
         obj = None
-        if isinstance(human_repr, int):
+        if isinstance(human_repr, (int, long)):
             obj = self.map_const(human_repr)
         elif isinstance(human_repr, str):
 
