@@ -60,7 +60,7 @@
   yum:
       name: "{{ item }}"
       state: present
-  when: skip_oracle is undefined or skip_oracle is no
+  when: skip_oracle is undefined or not skip_oracle
   failed_when: False
   with_items:
     - oracle-instantclient12.1-devel
