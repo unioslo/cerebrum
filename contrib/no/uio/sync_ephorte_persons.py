@@ -874,6 +874,7 @@ def main():
                         help='Full sync of persons',
                         action='store_true')
     cmdgrp.add_argument('--full-sync-account',
+                        type=str,
                         metavar="<account_name>",
                         help='Full sync of a single account/person')
     cmdgrp.add_argument('--full-roles-perms',
