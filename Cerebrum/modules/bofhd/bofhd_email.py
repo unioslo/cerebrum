@@ -947,9 +947,9 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
             spam_lev = self.const.EmailSpamLevel(spam.email_spam_level)
             spam_act = self.const.EmailSpamAction(spam.email_spam_action)
             info.append({'spam_level':       str(spam_lev),
-                         'spam_level_desc':  spam_lev._get_description(),
+                         'spam_level_desc':  spam_lev.description,
                          'spam_action':      str(spam_act),
-                         'spam_action_desc': spam_act._get_description()})
+                         'spam_action_desc': spam_act.description})
         except Errors.NotFoundError:
             pass
         return info
