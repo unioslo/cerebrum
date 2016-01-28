@@ -3150,8 +3150,9 @@ class GroupSync(BaseSync):
             for mem in members:
                 # Select the primary account if the member is a person. If the
                 # member is some other entity, use the member:
-                member = self.id2extraentity.get(
-                    self.personid2primary.get(mem, mem))
+                if getattr(self, 'personid2primary', False):
+                    mem = self.personid2primary.get(mem, mem)
+                member = self.id2extraentity.get(mem)
                 if not member:
                     continue
                 for t_id in target_groups:
