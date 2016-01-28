@@ -1939,7 +1939,7 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
             ret.append({'name': "%s" % c,
                         'lock': lock,
                         'shell': shell,
-                        'desc': c._get_description()})
+                        'desc': c.description})
         return ret
     # end quarantine list
 

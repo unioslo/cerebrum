@@ -407,7 +407,7 @@ class _CerebrumCode(DatabaseAccessor):
         new_desc = self._desc
         # Force fetching the description from the database
         self._desc = None
-        db_desc = self._get_description()
+        db_desc = self.description
         if new_desc != db_desc:
             self._desc = new_desc
             self.sql.execute("UPDATE %s SET %s=:desc WHERE %s=:code" %
