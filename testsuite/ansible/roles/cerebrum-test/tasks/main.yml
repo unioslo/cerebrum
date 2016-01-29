@@ -25,7 +25,7 @@
   tags:
     - env
 
-- include: run_nosetests.yml
+- include: run_pytest_tests.yml
   vars:
     coverage_report: "{{ config | default('default')  }}_coverage.xml"
     xunit_report: "{{ config | default('default') }}_xunit.xml"
