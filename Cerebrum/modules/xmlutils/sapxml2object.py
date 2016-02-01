@@ -598,7 +598,7 @@ class XMLPerson2Object(XMLEntity2Object):
                     unicodedata.normalize('NFKD', string),
                     'latin1', 'ignore')
             else:
-                return codecs.encode(string, 'latin1', 'ignore')
+                return string
 
         # Per baardj's request, we consider middle names as first names.
         middle = ""
