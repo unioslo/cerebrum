@@ -214,13 +214,14 @@ def update_person_info(pe, client):
     else:
         street_address = zip_code = city = None
 
-    logger.info('Ensuring existence of %s, with params: %s', user_id, str((
+    logger.info('Ensuring existence of %s: %s', user_id, str((
         first_name, None, initials, last_name, full_name, initials,
         email_address, telephone, mobile, street_address, zip_code, city)))
     try:
         client.ensure_user(user_id, first_name, None, last_name, full_name,
                            initials, email_address, telephone, mobile,
                            street_address, zip_code, city)
+        return True
     except EphorteWSError, e:
         # Temporary hack to return prettier error-message if EphorteWS returns
         # an unspecified rule violation for field length.
@@ -232,6 +233,7 @@ def update_person_info(pe, client):
                  '%s characters.' % max_length)
         logger.warn(u'Could not ensure existence of %s in ePhorte: %s',
                     user_id, unicode(e))
+        return False
 
 
 def perm_code_id_to_perm(code):
@@ -485,6 +487,9 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
 
         pe.clear()
         pe.find(person_id)
+
+        if not update_person_info(pe, client):
+            continue
 
         try:
             if update_person_roles(pe, client, remove_superfluous=True):
