@@ -107,6 +107,7 @@ SUBNET_START = '10.%d.%d.0/24'
 SUBNET_START_6 = 'fd00:c0de:cafe:%s::/64'
 
 {% if gnupgtest is defined %}
-PASSWORD_GPG_RECIPIENT_ID = 'cerebrum-test-{{ config }}@uio.no'
+#PASSWORD_GPG_RECIPIENT_ID = 'cerebrum-test-{{ config }}@uio.no'
+PASSWORD_GPG_RECIPIENT_ID = 'cerebrum-test@uio.no'
 PASSWORD_GNUPGHOME = '{{ gnupg_home_dir }}'
 {% endif %}
