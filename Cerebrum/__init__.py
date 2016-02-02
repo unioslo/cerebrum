@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,7 +20,7 @@
 
 
 # Current Cerebrum version as a (major, minor, micro) tuple.
-_version = (0, 9, 16)
+_version = (0, 9, 17)
 
 __version__ = ".".join(map(str, _version))
 
@@ -31,4 +31,3 @@ if __name__ == '__main__':
     # This can be useful for non-Python scripts that want to get at
     # the Cerebrum release number.
     print __version__
-

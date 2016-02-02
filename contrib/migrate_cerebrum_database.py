@@ -33,12 +33,14 @@ from Cerebrum import Account
 from Cerebrum import Metainfo
 from Cerebrum.Constants import _SpreadCode
 
+del cerebrum_path
+
 # run migrate_* in this order
 targets = {
     'core': ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5',
              'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9',
              'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
-             'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16',),
+             'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3',),
     'changelog': ('changelog_1_2', 'changelog_1_3'),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4'),
@@ -54,6 +56,7 @@ targets = {
 # Global variables
 makedb_path = design_path = db = co = None
 
+
 def time_spent(start):
     spent = now() - start
     hours = spent // 3600
@@ -67,6 +70,7 @@ def time_spent(start):
     txt += "s:%d" % seconds
     return txt
 
+
 def makedb(release, stage, insert_codes=True):
     print "Running Makedb(%s, %s)..." % (release, stage)
     cmd = ['%s/makedb.py' % makedb_path, '-d', '--stage', stage,
@@ -79,6 +83,7 @@ def makedb(release, stage, insert_codes=True):
         r = os.system(" ".join(cmd))
         if r:
             continue_prompt("Exit value was %i, continue? (y/n)[y]" % r)
+
 
 def continue_prompt(message):
     print message
@@ -126,7 +131,7 @@ def migrate_to_rel_0_9_2():
         if isinstance(tmp, _SpreadCode):
             str2const[str(tmp)] = tmp
             num2const[int(tmp)] = tmp
-    
+
     # TODO: Assert that the new classes has been installed
     makedb('0_9_2', 'pre')
 
@@ -148,12 +153,12 @@ def migrate_to_rel_0_9_2():
     # Add an entry in account_home for each spread in HOME_SPREADS
     # that the account currently has a spread to
     for row in db.query(
-        """SELECT account_id, home, disk_id, spread
-        FROM [:table schema=cerebrum name=entity_spread] es,
-             [:table schema=cerebrum name=account_info] ai
-        WHERE es.entity_id=ai.account_id
-        """, fetchall=False):
-        spread = num2const[ int(row['spread']) ]
+            """SELECT account_id, home, disk_id, spread
+            FROM [:table schema=cerebrum name=entity_spread] es,
+                [:table schema=cerebrum name=account_info] ai
+            WHERE es.entity_id=ai.account_id
+            """, fetchall=False):
+        spread = num2const[int(row['spread'])]
         if str(spread) in spreads:
             ac.clear()
             ac.find(row['account_id'])
@@ -173,9 +178,9 @@ def migrate_to_rel_0_9_2():
     # bound to the first spread in HOME_SPREADS
     spread = str2const[spreads[0]]
     for row in db.query(
-        """SELECT account_id, home, disk_id
-        FROM [:table schema=cerebrum name=account_info]""", fetchall=False):
-        if processed.has_key(int(row['account_id'])):
+            """SELECT account_id, home, disk_id
+            FROM [:table schema=cerebrum name=account_info]""", fetchall=False):
+        if int(row['account_id']) in processed:
             continue
         if not row['disk_id'] and not row['home']:
             continue
@@ -198,9 +203,10 @@ def migrate_to_rel_0_9_2():
     db.commit()
     makedb('0_9_2', 'post')
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,2))
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 2))
     print "Migration to 0.9.2 completed successfully"
     db.commit()
+
 
 def migrate_to_rel_0_9_3():
     """Migrate from 0.9.2 database to the 0.9.3 database schema."""
@@ -251,12 +257,12 @@ def migrate_to_rel_0_9_3():
             # doesn't have multiple attr values, I won't bother to
             # implement it.  Let me know if you need it!
             raise NotImplementedError
-    
+
     db.commit()
     print "\ndone."
     makedb('0_9_3', 'post')
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,3))
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 3))
     print "Migration to 0.9.3 completed successfully"
     db.commit()
 
@@ -284,10 +290,10 @@ def migrate_to_rel_0_9_4():
         count += 1
         homedir_id = None
         for home, disk_id, status, tmp_hid in account_id2home.get(
-            long(row['account_id']), []):
+                long(row['account_id']), []):
             if home == row['home'] and disk_id == row['disk_id']:
                 if status != row['status']:
-                    print >>sys.stderr, "WARNING, check status on", tmp_hid 
+                    print >>sys.stderr, "WARNING, check status on", tmp_hid
                 homedir_id = tmp_hid
                 break
         if homedir_id is None:
@@ -316,7 +322,7 @@ def migrate_to_rel_0_9_4():
     print "\ndone."
     makedb('0_9_4', 'post')
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,4))
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 4))
     print "Migration to 0.9.4 completed successfully"
     db.commit()
 
@@ -340,10 +346,10 @@ def migrate_to_rel_0_9_5():
     SELECT DISTINCT peic.code, peic.code_str, ei.entity_type, peic.description
     FROM person_external_id_code peic, person_external_id pei, entity_info ei
     WHERE peic.code=pei.id_type AND pei.person_id=ei.entity_id""")
-    
+
     db.execute("""
     INSERT INTO entity_external_id
-    SELECT pei.person_id, ei.entity_type, pei.id_type, pei.source_system, 
+    SELECT pei.person_id, ei.entity_type, pei.id_type, pei.source_system,
            pei.external_id
     FROM person_external_id pei, entity_info ei
     WHERE pei.person_id=ei.entity_id""")
@@ -353,13 +359,14 @@ def migrate_to_rel_0_9_5():
     UPDATE [:table schema=cerebrum name=change_type]
     SET category='entity'
     WHERE type IN ('ext_id_add', 'ext_id_del', 'ext_id_mod')""")
-    
+
     db.commit()
     makedb('0_9_5', 'post')
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,5))
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 5))
     print "Migration to 0.9.5 completed successfully"
     db.commit()
+
 
 def migrate_to_rel_0_9_6():
     """Migrate from 0.9.5 database to the 0.9.6 database schema."""
@@ -369,17 +376,18 @@ def migrate_to_rel_0_9_6():
     # This database change doesn't require any smarts.
     print "\ndone."
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,6))
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 6))
     print "Migration to 0.9.6 completed successfully"
     db.commit()
+
 
 def migrate_to_rel_0_9_7():
     """Migrate from 0.9.6 database to the 0.9.7 database schema."""
     assert_db_version("0.9.6")
     makedb('0_9_7', 'pre')
-    
-    # deceased-field in person_info is being made into a date-field 
-    # replace any deceased = 'T' with now() 
+
+    # deceased-field in person_info is being made into a date-field
+    # replace any deceased = 'T' with now()
     db.execute("""
     UPDATE [:table schema=cerebrum name=person_info]
     SET deceased_date= [:now]
@@ -389,7 +397,7 @@ def migrate_to_rel_0_9_7():
     makedb('0_9_7', 'post')
     print "\ndone."
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,7))
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 7))
     print "Migration to 0.9.7 completed successfully"
     db.commit()
 
@@ -404,7 +412,7 @@ def migrate_to_rel_0_9_8():
     db.commit()
     print "\ndone."
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,8))
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 8))
     print "Migration to 0.9.8 completed successfully"
     db.commit()
 
@@ -419,7 +427,8 @@ def migrate_to_rel_0_9_9():
     SELECT account_id, spread FROM account_home ah
     WHERE NOT EXISTS (SELECT 'foo'
                       FROM entity_spread es
-                      WHERE ah.spread=es.spread AND ah.account_id=es.entity_id)""")
+                      WHERE ah.spread=es.spread AND
+                            ah.account_id=es.entity_id)""")
     print "%d rows to convert..." % len(rows)
     ac = Utils.Factory.get('Account')(db)
     rows_per_dot = int(len(rows) / 79 + 1)
@@ -430,7 +439,8 @@ def migrate_to_rel_0_9_9():
             sys.stdout.write('.')
             sys.stdout.flush()
         count += 1
-        # PK is "account_id, spread", thus clear_home will remove the correct entry
+        # PK is "account_id, spread",
+        # thus clear_home will remove the correct entry
         ac.clear()
         ac.find(r['account_id'])
         ac.clear_home(r['spread'])
@@ -446,9 +456,10 @@ def migrate_to_rel_0_9_9():
     makedb('0_9_9', 'post')
     print "\ndone."
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,9))
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 9))
     print "Migration to 0.9.9 completed successfully"
     db.commit()
+
 
 def migrate_to_rel_0_9_10():
     """Migrate from 0.9.9 database to the 0.9.10 database schema."""
@@ -459,9 +470,10 @@ def migrate_to_rel_0_9_10():
     makedb('0_9_10', 'post')
     print "\ndone."
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,10))
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 10))
     print "Migration to 0.9.10 completed successfully"
     db.commit()
+
 
 def migrate_to_rel_0_9_11():
     """Migrate from 0.9.10 database to the 0.9.11 database schema."""
@@ -470,9 +482,10 @@ def migrate_to_rel_0_9_11():
     makedb('0_9_11', 'pre')
     print "\ndone."
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,11))
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 11))
     print "Migration to 0.9.11 completed successfully"
     db.commit()
+
 
 def migrate_to_rel_0_9_12():
     """Migrate from 0.9.11 database to the 0.9.12 database schema."""
@@ -481,9 +494,10 @@ def migrate_to_rel_0_9_12():
     makedb('0_9_12', 'pre')
     print "\ndone."
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,12))
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 12))
     print "Migration to 0.9.12 completed successfully"
     db.commit()
+
 
 def migrate_to_rel_0_9_13():
     """Migrate from 0.9.12 database to the 0.9.13 database schema.
@@ -496,9 +510,10 @@ def migrate_to_rel_0_9_13():
     makedb('0_9_13', 'pre')
     print "\ndone."
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,13))
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 13))
     print "Migration to 0.9.13 completed successfully"
     db.commit()
+
 
 def migrate_to_rel_0_9_14():
     """Migrate from 0.9.13 database to the 0.9.14 database schema."""
@@ -509,9 +524,10 @@ def migrate_to_rel_0_9_14():
     makedb('0_9_14', 'post')
     print "\ndone."
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,14))
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 14))
     print "Migration to 0.9.14 completed successfully"
     db.commit()
+
 
 def migrate_to_rel_0_9_15():
     """Migrate from 0.9.14 database to the 0.9.15 database schema."""
@@ -519,7 +535,7 @@ def migrate_to_rel_0_9_15():
     makedb('0_9_15', 'pre')
     print "\ndone."
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,15))
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 15))
     print "Migration to 0.9.15 completed successfully"
     db.commit()
 
@@ -541,7 +557,7 @@ def migrate_to_rel_0_9_16():
     name_map = {"name": co.ou_name,
                 "acronym": co.ou_name_acronym,
                 "short_name": co.ou_name_short,
-                "display_name": co.ou_name_display,}
+                "display_name": co.ou_name_display, }
     for row in db.query(query):
         ou_id = row["ou_id"]
         ou.clear()
@@ -563,8 +579,7 @@ def migrate_to_rel_0_9_16():
     db.execute("""
     DELETE
     FROM [:table schema=cerebrum name=person_name] pn
-    WHERE 
-    """ + args, binds)
+    WHERE """ + args, binds)
 
     # We must commit at this point in this transaction, since the post stage
     # touches ou_info, which we have extracted data from (i.e. read lock) in
@@ -574,11 +589,63 @@ def migrate_to_rel_0_9_16():
     db.commit()
     makedb('0_9_16', 'post')
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,16))
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 16))
     print "Migration to 0.9.16 completed successfully"
     db.commit()
-# end migrate_to_rel_0_9_16
-    
+
+
+def migrate_to_rel_0_9_17():
+    """Migrate from 0.9.16 database to the 0.9.17 database schema."""
+    continue_prompt("Make sure cereconf.PERSON_AFFILIATION_PRECEDENCE_RULE "
+                    "has a sensible default before migrating!")
+    assert_db_version("0.9.16")
+    makedb('0_9_17', 'pre', False)
+    print("Inserting precedences")
+    pe = Utils.Factory.get('Person')(db)
+    ids = set((x['person_id'] for x in pe.query(
+        "SELECT person_id FROM person_affiliation_source "
+        "WHERE precedence IS NULL")))
+    precedence = 'precedence'
+    for i in ids:
+        print ".",
+        pe.find(i)
+        affs = map(dict, pe.list_affiliations(person_id=i,
+                                              include_deleted=True))
+        active = filter(lambda x: not x['deleted_date'], affs)
+        precs = set()
+        mx = 0
+        for aff in active:
+            aff[precedence] = pe._Person__calculate_affiliation_precedence(
+                affiliation=aff['affiliation'], source=aff['source_system'],
+                status=aff['status'], precedence=None, old=None)
+            mx = max(aff[precedence], mx)
+        mx += 10
+        for aff in sorted(affs, key=lambda x: x[precedence] or mx):
+            prec = pe._Person__calculate_affiliation_precedence(
+                affiliation=aff['affiliation'], source=aff['source_system'],
+                status=aff['status'], precedence=None, old=None)
+            while prec in precs:
+                prec += 5
+            precs.add(prec)
+            aff[precedence] = prec
+            pe.execute("""
+                       UPDATE person_affiliation_source
+                       SET precedence = :precedence
+                       WHERE person_id = :person_id AND
+                             ou_id = :ou_id AND
+                             affiliation = :affiliation AND
+                             source_system = :source_system""", aff)
+        pe.clear()
+    db.commit()
+    print "\ninsertion done."
+    makedb('0_9_17', 'post')
+    print "\ndone."
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 17))
+    print "Migration to 0.9.17 completed successfully"
+    db.commit()
+
+
 def migrate_to_bofhd_1_1():
     print "\ndone."
     assert_db_version("1.0", component='bofhd')
@@ -588,6 +655,7 @@ def migrate_to_bofhd_1_1():
     print "Migration to bofhd 1.1 completed successfully"
     db.commit()
 
+
 def migrate_to_bofhd_1_2():
     print "\ndone."
     assert_db_version("1.1", component='bofhd')
@@ -596,7 +664,7 @@ def migrate_to_bofhd_1_2():
     meta.set_metainfo("sqlmodule_bofhd", "1.2")
     print "Migration to bofhd 1.2 completed successfully"
     db.commit()
-# end migrate_to_bofhd_1_2
+
 
 def migrate_to_bofhd_1_3():
     print "\ndone."
@@ -606,7 +674,7 @@ def migrate_to_bofhd_1_3():
     meta.set_metainfo("sqlmodule_bofhd", "1.3")
     print "Migration to bofhd 1.3 completed successfully"
     db.commit()
-# end migrate_to_bofhd_1_3
+
 
 def migrate_to_changelog_1_2():
     print "\ndone."
@@ -617,17 +685,20 @@ def migrate_to_changelog_1_2():
     print "Migration to changelog 1.2 completed successfully"
     db.commit()
 
+
 def migrate_to_changelog_1_3():
     print "\ndone."
     assert_db_version("1.2", component='changelog')
-    print "The statement for migrating to 1.3 might fail if your database was first created with"
-    print "module changelog 1.2 (CONSTRAINT evthdlr_key_pk does not exist)."
-    print "This is not an error."
+    print("The statement for migrating to 1.3 might fail")
+    print("if your database was first created with")
+    print("module changelog 1.2 (CONSTRAINT evthdlr_key_pk does not exist).")
+    print("This is not an error.")
     makedb('changelog_1_3', 'pre')
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_changelog", "1.3")
     print "Migration to changelog 1.3 completed successfully"
     db.commit()
+
 
 def migrate_to_email_1_1():
     print "\ndone."
@@ -638,6 +709,7 @@ def migrate_to_email_1_1():
     print "Migration to email 1.1 completed successfully"
     db.commit()
 
+
 def migrate_to_email_1_2():
     print "\ndone."
     assert_db_version("1.1", component='email')
@@ -646,6 +718,7 @@ def migrate_to_email_1_2():
     meta.set_metainfo("sqlmodule_email", "1.2")
     print "Migration to email 1.2 completed successfully"
     db.commit()
+
 
 def migrate_to_email_1_3():
     print "\ndone."
@@ -658,7 +731,8 @@ def migrate_to_email_1_3():
     try:
         [int(c) for c in entity_types]
     except Errors.NotFoundError:
-        print "*** New email entity-types not added to database. Run makedb.py --update-codes first."
+        print ("*** New email entity-types not added to database. "
+               "Run makedb.py --update-codes first.")
         sys.exit(0)
     # Remove constraints and add tmp-columns
     start = now()
@@ -697,7 +771,7 @@ def migrate_to_email_1_3():
     print "  ...done %s" % time_spent(curr)
     curr = now()
     print "  email_domain"
-    rows = db.query("""SELECT domain_id, domain, description 
+    rows = db.query("""SELECT domain_id, domain, description
                        FROM [:table schema=cerebrum name=email_domain]""")
     for row in rows:
         ent.clear()
@@ -727,23 +801,25 @@ def migrate_to_email_1_3():
         if counter % 100000 == 0:
             print "      counter at %d/%d" % (counter, total)
         a_id2e_id[int(row['address_id'])] = ent.entity_id
-        db.execute("""INSERT INTO [:table schema=cerebrum name=tmp_email_address]
-                      VALUES (:e_t, :a_id, :l_p, :d_id, :t_id, :cr_d, :ch_d,
-                              :e_d)""", {'e_t': int(co.entity_email_address),
-                                         'a_id': ent.entity_id,
-                                         'l_p': row['local_part'],
-                                         'd_id': d_id2e_id[int(row['domain_id'])],
-                                         't_id': t_id2e_id[int(row['target_id'])],
-                                         'cr_d': row['create_date'],
-                                         'ch_d': row['change_date'],
-                                         'e_d': row['expire_date']})
+        db.execute(
+            """INSERT INTO [:table schema=cerebrum name=tmp_email_address]
+               VALUES (:e_t, :a_id, :l_p, :d_id, :t_id, :cr_d, :ch_d,
+                       :e_d)""", {'e_t': int(co.entity_email_address),
+                                  'a_id': ent.entity_id,
+                                  'l_p': row['local_part'],
+                                  'd_id': d_id2e_id[int(row['domain_id'])],
+                                  't_id': t_id2e_id[int(row['target_id'])],
+                                  'cr_d': row['create_date'],
+                                  'ch_d': row['change_date'],
+                                  'e_d': row['expire_date']})
     print "...done %s" % time_spent(curr)
     print "filling in misc tables"
     # email_entity_domain
     curr = now()
     print "  email_entity_domain"
-    rows = db.query("""SELECT DISTINCT domain_id
-                       FROM [:table schema=cerebrum name=email_entity_domain]""")
+    rows = db.query(
+        """SELECT DISTINCT domain_id
+           FROM [:table schema=cerebrum name=email_entity_domain]""")
     for row in rows:
         d_id = int(row['domain_id'])
         db.execute("""UPDATE [:table schema=cerebrum name=email_entity_domain]
@@ -814,8 +890,9 @@ def migrate_to_email_1_3():
     print "  ...done %s" % time_spent(curr)
     curr = now()
     print "  email_primary_address"
-    rows = db.query("""SELECT target_id, address_id
-                       FROM [:table schema=cerebrum name=email_primary_address]""")
+    rows = db.query(
+        """SELECT target_id, address_id
+           FROM [:table schema=cerebrum name=email_primary_address]""")
     for row in rows:
         t_id = int(row['target_id'])
         a_id = int(row['address_id'])
@@ -831,8 +908,9 @@ def migrate_to_email_1_3():
     print "  ...done %s" % time_spent(curr)
     curr = now()
     print "  email_domain_category"
-    rows = db.query("""SELECT DISTINCT domain_id
-                       FROM [:table schema=cerebrum name=email_domain_category]""")
+    rows = db.query(
+        """SELECT DISTINCT domain_id
+           FROM [:table schema=cerebrum name=email_domain_category]""")
     for row in rows:
         d_id = int(row['domain_id'])
         db.execute("""UPDATE [:table schema=cerebrum name=email_domain_category]
@@ -844,15 +922,15 @@ def migrate_to_email_1_3():
     print "  ...done %s" % time_spent(curr)
     curr = now()
     print "  email_target_filter"
-    rows = db.query("""SELECT DISTINCT target_id
-                       FROM [:table schema=cerebrum name=email_target_filter]""")
+    rows = db.query(
+        """SELECT DISTINCT target_id
+           FROM [:table schema=cerebrum name=email_target_filter]""")
     for row in rows:
         t_id = int(row['target_id'])
         db.execute("""UPDATE [:table schema=cerebrum name=email_target_filter]
                       SET tmp_target_id=:e_id
                       WHERE target_id=:t_id""", {'t_id': t_id,
                                                  'e_id': t_id2e_id[t_id]})
- 
 
     print "  ...done %s" % time_spent(curr)
     curr = now()
@@ -960,6 +1038,7 @@ def migrate_to_email_1_4():
     print "Migration to email 1.4 completed successfully"
 
 
+
 def migrate_to_ephorte_1_1():
     print "\ndone."
     assert_db_version("1.0", component='ephorte')
@@ -993,6 +1072,7 @@ def migrate_to_ephorte_1_1():
     print "Migration to ephorte 1.1 completed successfully"
     db.commit()
 
+
 def migrate_to_ephorte_1_2():
     print '\ndone'
     assert_db_version("1.1", component='ephorte')
@@ -1001,6 +1081,7 @@ def migrate_to_ephorte_1_2():
     meta.set_metainfo("sqlmodule_ephorte", "1.2")
     print "Migration to ephorte 1.2 completed successfully"
     db.commit()
+
 
 def migrate_to_stedkode_1_1():
     """Migrate from initial stedkode to the 1.1 stedkode schema."""
@@ -1013,7 +1094,7 @@ def migrate_to_stedkode_1_1():
     meta.set_metainfo("sqlmodule_stedkode", "1.1")
     print "Migration to stedkode 1.1 completed successfully"
     db.commit()
-# end migrate_to_stedkode_1_1
+
 
 def migrate_to_posixuser_1_1():
     assert_db_version("1.0", component='posixuser')
@@ -1031,7 +1112,7 @@ def migrate_to_posixuser_1_1():
     meta.set_metainfo("sqlmodule_posixuser", "1.1")
     db.commit()
     print "Migration to posixuser 1.1 completed successfully"
-# end migrate_to_posixuser_1_1
+
 
 def migrate_to_dns_1_1():
     print "\ndone."
@@ -1042,6 +1123,7 @@ def migrate_to_dns_1_1():
     print "Migration to DNS 1.1 completed successfully"
     db.commit()
 
+
 def migrate_to_dns_1_2():
     print "\ndone."
     assert_db_version("1.1", component='dns')
@@ -1050,6 +1132,7 @@ def migrate_to_dns_1_2():
     meta.set_metainfo("sqlmodule_dns", "1.2")
     print "Migration to DNS 1.2 completed successfully"
     db.commit()
+
 
 def migrate_to_dns_1_3():
     print "\ndone."
@@ -1060,6 +1143,7 @@ def migrate_to_dns_1_3():
     print "Migration to DNS 1.3 completed successfully"
     db.commit()
 
+
 def migrate_to_dns_1_4():
     print "\ndone."
     assert_db_version("1.3", component='dns')
@@ -1068,6 +1152,7 @@ def migrate_to_dns_1_4():
     meta.set_metainfo("sqlmodule_dns", "1.4")
     print "Migration to DNS 1.4 completed successfully"
     db.commit()
+
 
 def migrate_to_sap_1_1():
     assert_db_version("1.0", component="sap")
@@ -1079,7 +1164,6 @@ def migrate_to_sap_1_1():
     meta.set_metainfo("sqlmodule_sap", "1.1")
     db.commit()
     print "Migration to SAP 1.1 completed successfully"
-# end migrate_to_sap_1_1
 
 
 def migrate_to_printer_quota_1_2():
@@ -1098,7 +1182,8 @@ def migrate_to_entity_trait_1_1():
     try:
         meta.get_metainfo("sqlmodule_entity_trait")
     except Errors.NotFoundError:
-        print "Schema version for sqlmodule_entity_trait is missing, setting to 1.0"
+        print("Schema version for sqlmodule_entity_trait "
+              "is missing, setting to 1.0")
         meta.set_metainfo("sqlmodule_entity_trait", "1.0")
     assert_db_version("1.0", component='entity_trait')
     makedb('entity_trait_1_1', 'pre')
@@ -1119,7 +1204,7 @@ def init():
 def show_migration_info():
     init()
     print "Your current db-version is:", get_db_version()
-    
+
     meta = Metainfo.Metainfo(db)
     print "Additional modules with metainfo:"
     mod_prefix = "sqlmodule_"
@@ -1185,9 +1270,9 @@ def main():
         print "You must specify --makedb-path and --design-path"
         usage()
 
-    continue_prompt("Do you have a backup of your '%s' database? (y/n)[y]" % \
+    continue_prompt("Do you have a backup of your '%s' database? (y/n)[y]" %
                     cereconf.CEREBRUM_DATABASE_NAME)
-    init()    
+    init()
     started = False
     if not from_rel:
         started = True
@@ -1202,6 +1287,7 @@ def main():
             if to_rel == v:
                 started = False
 
+
 def usage(exitcode=64):
     # TBD: --from could be fetched from Metainfo, but do we want that?
     print """Usage: [options]
@@ -1215,7 +1301,7 @@ def usage(exitcode=64):
     --design-path: directory where the sql files are
     --no-changelog: don't log the changes to the changelog
     --info: show info about installation, and available migration targets
-    
+
     If --from is omitted, all migrations up to --to is performed.  If
     --to is omitted, all migrations from --from is performed.
 

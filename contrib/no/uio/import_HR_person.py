@@ -233,9 +233,9 @@ def determine_affiliations(xmlperson, source_system):
       All affiliations for L{xmlperson} collected in a set. Each item is a
       triple structured thus::
 
-        (ou_id, affiliation, affiliation_status).
+        (ou_id, affiliation, affiliation_status, main?).
 
-      All individual entries are of type int.
+      All individual entries are of type int, the main? part being True or False
     """
 
     def str_pid():
@@ -245,8 +245,8 @@ def determine_affiliations(xmlperson, source_system):
 
     ret = set()
 
-    def adjoin_affiliation(ou_id, affiliation, status):
-        value = (int(ou_id), int(affiliation), int(status))
+    def adjoin_affiliation(ou_id, affiliation, status, main=False):
+        value = (int(ou_id), int(affiliation), int(status), main)
         ret.add(value)
     # end adjoin_affiliation
 
@@ -328,7 +328,8 @@ def determine_affiliations(xmlperson, source_system):
             continue
 
         adjoin_affiliation(place["id"], const.affiliation_ansatt,
-                           kind2affstat[t.category])
+                           kind2affstat[t.category],
+                           t.kind == DataEmployment.HOVEDSTILLING)
 
     #
     # #2 -- Bilagslønnede
@@ -435,9 +436,9 @@ def parse_data(parser, source_system, group, group_members, gen_groups,
     :param group_members:
       Members of L{group}.
 
-    :type old_affs: dict
+    :type old_affs: set
     :param old_affs:
-      This mapping contains affiliations for every person currently present in
+      This set contains affiliations for every person currently present in
       Cerebrum. It is used to synchronise affiliation information (clean up
       'old' affiliations that are no longer present in the employee data).
 
@@ -520,7 +521,7 @@ def parse_data(parser, source_system, group, group_members, gen_groups,
         # requested later). Whatever remains in old_affs when we are done is
         # to be deleted.
         if old_affs:
-            for my_ou, my_affiliation, my_status in affiliations:
+            for my_ou, my_affiliation, my_status, _ in affiliations:
                 tmp = (int(p_id), int(my_ou), int(my_affiliation))
                 old_affs.discard(tmp)
 
@@ -690,7 +691,6 @@ def load_old_person2external(source_system):
     return person2external
 
 
-
 def remove_old_addresses(source_system, person2external):
     addresses = defaultdict(list)
     for row in person.list_entity_addresses(source_system=source_system,
@@ -745,7 +745,8 @@ def remove_old_titles(person2external):
                                                  name=name)
 
     logger.debug('Deleted %d personal_titles from %d persons' %
-                 (sum(len(v) for v in titles[const.personal_title].itervalues()),
+                 (sum(len(v) for v in
+                      titles[const.personal_title].itervalues()),
                   len(titles[const.personal_title].keys())))
     logger.debug('Deleted %d work_titles from %d persons' %
                  (sum(len(v) for v in titles[const.work_title].itervalues()),
@@ -811,7 +812,7 @@ def locate_and_build((group_name, group_desc)):
     :Returns:
       Group instance that is associated with group_name, and the members.
     """
-    
+
     members = {'current': set(), 'add': set(), 'remove': set()}
 
     try:
@@ -831,7 +832,8 @@ def locate_and_build((group_name, group_desc)):
 
 
 def update_reservations(group, group_members, person2external):
-    group_members['remove'] |= group_members['current'] & set(person2external.keys())
+    group_members['remove'] |= (group_members['current'] &
+                                set(person2external.keys()))
 
     logger.debug("Adding %d persons to %s",
                  len(group_members['add']), group.group_name)
@@ -905,7 +907,7 @@ def main():
         group, group_members = locate_and_build(system2group[system_name])
 
         # Load old affiliations
-        cerebrum_affs = dict()
+        cerebrum_affs = set()
         if include_del:
             cerebrum_affs = load_old_affiliations(source_system)
             person2external = load_old_person2external(source_system)
@@ -917,7 +919,7 @@ def main():
                        group,
                        group_members,
                        gen_groups,
-                       include_del and cerebrum_affs or dict(),
+                       include_del and cerebrum_affs or set(),
                        include_del and cerebrum_traits or dict(),
                        include_del and person2external or dict(),
                        dryrun)

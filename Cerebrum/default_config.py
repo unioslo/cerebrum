@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -200,6 +200,31 @@ DEFAULT_HOME_SPREAD = None
 # class for information on the proper structure of the value.
 ACCOUNT_PRIORITY_RANGES = None
 
+# Decides the precedence rules for entries in person_affiliation_source.
+# Should be a dict with keys matching AuthoritativeSystem code, or '*' (Default)
+# The values being
+# - start, end - a range, or
+# - dict with keys matching PersonAffiliation code, some other key
+#   or '*', values being
+#
+#   * a range, or
+#   * dict with keys matching PersonAffStatus code or '*', with range as values.
+#   * in the case of a value for a key, value should be an int suggesting a
+#     precedence. E.g. object2cerebrum (import_HR_person.py) uses
+#     «xmlutils:main» for hovedstilling
+#
+# §: key means a key given
+PERSON_AFFILIATION_PRECEDENCE_RULE = {
+    'core:override': (0, 49),  # ignore if old value inside
+    '*': [200, 300],
+    'SAP': {
+        'xmlutils:main': (50, 50),
+        'ANSATT': (60, 100),
+        '*': (150, 200),
+    },
+    'alumni': (290, 300),
+}
+
 # Utils.SimilarSizeWriter default values
 
 # Checks should be not be globally disabled.
@@ -213,7 +238,7 @@ SIMILARSIZE_LIMIT_MULTIPLIER = 1.0
 # What encoding the database data is encoded in. This must be set to be able to
 # decode the data to Unicode, which is needed in some exports. If the database
 # contains data in other encodings, an attempt of unicodifying it would raise
-# exceptions when special characters occur, like ���. Note that this is not used
+# exceptions when special characters occur, like æøå. Note that this is not used
 # everywhere - It started with the AD sync, but should be expanded to other jobs
 # too.
 #
@@ -295,7 +320,8 @@ EXCHANGE_GROUP_SPREAD = None
 # distribution group default admin list in exchange, override localy
 DISTGROUP_DEFAULT_ADMIN = ""
 #
-# list all valid homeMDBs for the given instance, max nr og users per MDB as follows:
+# list all valid homeMDBs for the given instance,
+# max nr og users per MDB as follows:
 # EXCHANGE_HOMEMDB_VALID = {'homeMDB01': 200,
 #                           'homeMDB02': 800,
 #                           ...}
@@ -440,7 +466,8 @@ USE_STUDENTNR_AS_UNAME = False
 # untrusted users
 JOB_RUNNER_SOCKET = pj(prefix, 'var', 'lock', 'job_runner')
 
-JOB_RUNNER_LOG_DIR = pj(prefix, 'var', 'log', 'job_runner')  # Set to a place where only 'cerebrum' has write access
+# Set to a place where only 'cerebrum' has write access
+JOB_RUNNER_LOG_DIR = pj(prefix, 'var', 'log', 'job_runner')
 
 JOB_RUNNER_MAX_PARALELL_JOBS = 3
 # Warn if job-runner has been paused for more than N seconds, every N second

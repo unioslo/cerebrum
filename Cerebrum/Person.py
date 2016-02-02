@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -20,6 +20,8 @@
 """
 
 """
+
+import collections
 
 import cereconf
 from Cerebrum.Entity import \
@@ -91,7 +93,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         # If __in_db in not present, we'll set it to False.
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
         self.birth_date = birth_date
@@ -155,7 +157,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                   (entity_type, person_id, export_id, birth_date, gender,
                    deceased_date, description)
                 VALUES
-                  (:e_type, :p_id, :exp_id, :b_date, :gender, :deceased_date, :desc)""",
+                  (:e_type, :p_id, :exp_id, :b_date, :gender,
+                   :deceased_date, :desc)""",
                              {'e_type': int(self.const.entity_person),
                               'p_id': self.entity_id,
                               'exp_id': 'exp-' + str(self.entity_id),
@@ -205,20 +208,23 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                     db_prim['%s:%s' % (row['ou_id'], row['affiliation'])] = idx
             pop_affil = self.__affil_data
             for prim in pop_affil.keys():
-                idx = "%s:%d" % (prim, pop_affil[prim])
+                status, precedence = pop_affil[prim]
+                idx = "%s:%d" % (prim, status)
                 if idx in db_affil:
                     # This affiliation, including status, exists in the
                     # database already:
-                    #   - If deleted: ressurect
+                    #   - If deleted: resurrect
                     #   - If not deleted: Update last_date.
                     ou_id, affil, status = [int(x) for x in idx.split(":")]
-                    self.add_affiliation(ou_id, affil, source, status)
+                    self.add_affiliation(ou_id, affil, source,
+                                         status, precedence)
                     del db_affil[idx]
                 else:
                     # This may be a completely new affiliation, or just a
                     # change in status.
                     ou_id, affil, status = [int(x) for x in idx.split(":")]
-                    self.add_affiliation(ou_id, affil, source, status)
+                    self.add_affiliation(ou_id, affil, source,
+                                         status, precedence)
                     if is_new != 1:
                         is_new = False
                     if prim in db_prim:
@@ -488,8 +494,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         #      such a more correct change, we'll live with this hack.
         if not [n for n in cached_name if cached_name[n] is not None]:
             # We have no cacheable name variants.
-            raise ValueError, "No cacheable name for %d / %r" % (
-                self.entity_id, self._name_info)
+            raise ValueError("No cacheable name for %d / %r" % (
+                self.entity_id, self._name_info))
         for ntype, name in cached_name.items():
             name_type = getattr(self.const, ntype)
             self._set_cached_name(name_type, name)
@@ -535,22 +541,23 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
     def populate_name(self, variant, name):
         if (not self._pn_affect_source or
-                str(variant) not in ["%s" % v for v in self._pn_affect_variants]):
-            raise ValueError, "Improper API usage, must call affect_names()"
+                str(variant) not in ["%s" % v
+                                     for v in self._pn_affect_variants]):
+            raise ValueError("Improper API usage, must call affect_names()")
         self._name_info[variant] = name
 
     def populate_affiliation(self, source_system, ou_id=None,
-                             affiliation=None, status=None):
+                             affiliation=None, status=None, precedence=None):
         if not hasattr(self, '_affil_source'):
             self._affil_source = source_system
             self.__affil_data = {}
         elif self._affil_source != source_system:
-            raise ValueError, \
-                "Can't populate multiple `source_system`s w/o write_db()."
+            raise ValueError(
+                "Can't populate multiple `source_system`s w/o write_db().")
         if ou_id is None:
             return
         idx = "%d:%d" % (ou_id, affiliation)
-        self.__affil_data[idx] = int(status)
+        self.__affil_data[idx] = int(status), precedence
 
     def get_affiliations(self, include_deleted=False):
         return self.list_affiliations(self.entity_id,
@@ -563,8 +570,48 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                           affiliation=None, status=None, ou_id=None,
                           include_deleted=False, ret_primary_acc=False,
                           fetchall=True):
+        """Retrieve a list of affiliations matching criteria. Retrieves
+        rows from person_affiliation_source.
+
+        :type person_id: NoneType or int
+        :param person_id: Only matching this person. Also, sort result
+            by precedence (unless ret_primary_acc).
+
+        :type source_system: NoneType, int or AuthoritativeSystem code
+        :param source_system: Filter by source system
+
+        :type affiliation: NoneType, int or PersonAffiliation code
+        :param affiliation: Only this kind of affiliation
+
+        :type status: NoneType, int or PersonAffStatus code
+        :param status: Filter by affiliation status
+
+        :type ou_id: NoneType or int
+        :param ou_id: Filter by ou (not recursive)
+
+        :type include_deleted: bool
+        :param include_deleted: If false, filter out deleted affs,
+            i.e. deleted_date in past.
+
+        :type ret_primary_acc: bool
+        :param ret_primary_acc: Hack to make person_id become account_id.
+
+        :type fetchall: bool
+        :param fetchall: Fetch all rows?
+
+        :returns: List of dbrows:
+            * person_id
+            * ou_id
+            * affiliation
+            * source_system
+            * status
+            * deleted_date
+            * create_date
+            * last_date
+            * precedence
+        """
         where = []
-        for t in ('person_id', 'affiliation', 'source_system', 'status', 
+        for t in ('person_id', 'affiliation', 'source_system', 'status',
                   'ou_id'):
             val = locals()[t]
             if val is not None:
@@ -574,10 +621,14 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 else:
                     where.append("pas.%s = %d" % (t, val))
         if not include_deleted:
-            where.append("(pas.deleted_date IS NULL OR pas.deleted_date > [:now])")
+            where.append("(pas.deleted_date IS NULL OR "
+                         "pas.deleted_date > [:now])")
         where = " AND ".join(where)
         if where:
             where = "WHERE " + where
+        order = ""
+        if person_id is not None:
+            order = "ORDER BY precedence ASC"
         # exchange-relatert-jazz
         # this is a bit dirty as the return values are registered as
         # "person_id" while they actually are account_id's
@@ -586,18 +637,19 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         # (Jazz, 2013-12)
         if ret_primary_acc:
             return self.query("""
-            SELECT 
-              ai.account_id AS person_id, 
+            SELECT
+              ai.account_id AS person_id,
               pas.ou_id AS ou_id,
-              pas.affiliation AS affiliation, 
-              pas.source_system AS source_system, pas.status AS status, 
-              pas.deleted_date AS deleted_date, 
-              pas.create_date AS create_date, 
-              pas.last_date AS last_date
+              pas.affiliation AS affiliation,
+              pas.source_system AS source_system, pas.status AS status,
+              pas.deleted_date AS deleted_date,
+              pas.create_date AS create_date,
+              pas.last_date AS last_date,
+              pas.precedence AS precedence
             FROM [:table schema=cerebrum name=person_affiliation_source] pas,
                  [:table schema=cerebrum name=account_info] ai,
                  [:table schema=cerebrum name=account_type] at
-            %s AND            
+            %s AND
             ai.owner_id=pas.person_id AND
             at.account_id=ai.account_id AND
             at.priority = (SELECT min(at2.priority)
@@ -609,26 +661,171 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                                at2.account_id = ai2.account_id AND
                                (ai2.expire_date IS NULL OR
                                 ai2.expire_date > [:now]))
-            """ % where , fetchall=fetchall)
+            """ % where, fetchall=fetchall)
         return self.query("""
-        SELECT 
-              pas.person_id AS person_id, 
+        SELECT
+              pas.person_id AS person_id,
               pas.ou_id AS ou_id,
-              pas.affiliation AS affiliation, 
-              pas.source_system AS source_system, pas.status AS status, 
-              pas.deleted_date AS deleted_date, 
-              pas.create_date AS create_date, 
-              pas.last_date AS last_date
+              pas.affiliation AS affiliation,
+              pas.source_system AS source_system, pas.status AS status,
+              pas.deleted_date AS deleted_date,
+              pas.create_date AS create_date,
+              pas.last_date AS last_date,
+              pas.precedence AS precedence
         FROM [:table schema=cerebrum name=person_affiliation_source] pas
-        %s""" % where, fetchall=fetchall)
+        {} {}
+        """.format(where, order), fetchall=fetchall)
 
-    def add_affiliation(self, ou_id, affiliation, source, status):
+    def __get_affiliation_precedence_rule(self, source, afforrule, status=None):
+        """ Helper for aff calculation """
+        def search(rule, first, *rest):
+            if not isinstance(rule, dict):
+                # We have found our goal
+                return rule
+            if not rest:
+                if first in rule:
+                    return rule[first]
+                return rule.get('*')
+            if first in rule:
+                res = search(rule[first], *rest)
+                if res is not None:
+                    return res
+            if '*' in rule:
+                return search(rule['*'], *rest)
+            return None
+
+        source = str(self.const.AuthoritativeSystem(source))
+        if not isinstance(afforrule, basestring):
+            afforrule = str(self.const.PersonAffiliation(afforrule))
+        args = [cereconf.PERSON_AFFILIATION_PRECEDENCE_RULE, source, afforrule]
+        if status is not None:
+            if not isinstance(status, basestring):
+                status = self.const.PersonAffStatus(status).str
+            args.append(status)
+        return search(*args)
+
+    def __calculate_affiliation_precedence(self, affiliation, source,
+                                           status, precedence, old):
+        """ Helper for add_affiliation """
+        if precedence is None:
+            if old:
+                return old
+            precedence = self.__get_affiliation_precedence_rule(source,
+                                                                affiliation,
+                                                                status)
+            return self.__calculate_affiliation_precedence(affiliation,
+                                                           source, status,
+                                                           precedence, old)
+        if isinstance(precedence, int):
+            return precedence
+        if isinstance(precedence, basestring):
+            precedence = self.__get_affiliation_precedence_rule(source,
+                                                                precedence)
+            return self.__calculate_affiliation_precedence(affiliation,
+                                                           source, status,
+                                                           precedence, old)
+        else:
+            # Assume some sequence
+            assert (isinstance(precedence, collections.Sequence)
+                    and len(precedence) in (2, 3))
+            if isinstance(precedence[0], basestring):
+                precedence = self.__get_affiliation_precedence_rule(source,
+                                                                    *precedence)
+                return self.__calculate_affiliation_precedence(affiliation,
+                                                               source, status,
+                                                               precedence, old)
+            # We should now have a range, (min, max)
+            mn, mx = precedence[:2]  # special case of single value
+            if mn == mx:
+                return mn
+            if old:
+                # Old is in correct range, change nothing
+                if mn <= old < mx:
+                    return old
+
+                # If there is an override range, use old if inside
+                override = cereconf.PERSON_AFFILIATION_PRECEDENCE_RULE.get(
+                    'core:override')
+                if override and override[0] <= old < override[1]:
+                    return old
+
+            # No old, find new spot
+            all_precs = set((x['precedence'] for x in
+                             self.get_affiliations(include_deleted=True)))
+            x = max([mn] + [x for x in all_precs if mn <= x < mx])
+            step = 5
+            if len(precedence) > 2:
+                step = precedence[2]
+            while x in all_precs:
+                x += step
+            return x
+
+    def __clear_precedence(self, precedence, all_precs):
+        """ Clear precedences. """
+        row = all_precs[precedence]
+        if precedence + 1 in all_precs:
+            self.__clear_precedence(precedence + 1, all_precs)
+
+        keys = "person_id ou_id affiliation source_system".split()
+        binds = dict((x for x in row.items() if x[0] in keys))
+        binds['precedence'] = precedence + 1
+        self.execute(
+            """
+            UPDATE [:table schema=cerebrum name=person_affiliation_source]
+            SET precedence = :precedence
+            WHERE person_id = :person_id AND
+                  ou_id = :ou_id AND
+                  affiliation = :affiliation AND
+                  source_system = :source_system""", binds)
+
+    def add_affiliation(self, ou_id, affiliation,
+                        source, status, precedence=None):
+        """Add or update affiliation.
+
+        :type ou_id: OU object or int
+        :param ou_id: Specifies an OU for this aff.
+
+        :type affiliation: PersonAffiliation code or int
+        :param affiliation: An affiliation code.
+
+        :type source: AuthoritativeSystem code or int
+        :param source: Source system
+
+        :type status: PersonAffStatus code or int
+        :param status: Affiliation status
+
+        :type precedence: int, sequence or NoneType
+        :param precedence:
+            Precedence is a number, and affiliations are sorted by preference
+            (lowest to highest).
+            :None:
+                The current precedence is kept, or a precedence is calculated
+                using cereconf.PERSON_AFFILIATION_PRECEDENCE_RULE (PAPR).
+            :int:
+                Updates the precedence to given number. If not available,
+                will lower precedence for colliding affiliations. (i.e.
+                having affs [a(1), b(2), c(3)], adding d(2) makes
+                [a(1), d(2), b(3), c(4)].
+            :string or sequence of strings:
+                Works as with None, but will look for string in PAPR:
+                * "foo" → PAPR[str(source)][precedence]
+                * ["foo", "bar"] →
+                  PAPR[str(source)][precedence[0]][precedence[1]]
+            If a matching precedence rule is not found in PAPR, a more general
+            rule will be selected.
+        """
+
+        all_prs = dict()
+        for row in self.list_affiliations(person_id=self.entity_id,
+                                          include_deleted=True):
+            all_prs[int(row['precedence'])] = row
         binds = {'ou_id': int(ou_id),
                  'affiliation': int(affiliation),
                  'source': int(source),
                  'status': int(status),
                  'p_id': self.entity_id,
                  }
+        updprec = ", precedence=:precedence"
         # If needed, add to table 'person_affiliation'.
         try:
             self.query_1("""
@@ -646,30 +843,43 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             self._db.log_change(self.entity_id,
                                 self.const.person_aff_add, None)
         try:
-            cur_status = int(self.query_1("""
-            SELECT status
+            cur_status, cur_precedence = map(int, self.query_1("""
+            SELECT status, precedence
             FROM [:table schema=cerebrum name=person_affiliation_source]
             WHERE
               person_id=:p_id AND
               ou_id=:ou_id AND
               affiliation=:affiliation AND
               source_system=:source""", binds))
+
+            new_prec = self.__calculate_affiliation_precedence(affiliation,
+                                                               source, status,
+                                                               precedence,
+                                                               cur_precedence)
+            binds['precedence'] = new_prec
+            if new_prec in all_prs and new_prec != cur_precedence:
+                self.__clear_precedence(new_prec, all_prs)
             self.execute("""
             UPDATE [:table schema=cerebrum name=person_affiliation_source]
-            SET status=:status, last_date=[:now], deleted_date=NULL
+            SET status=:status, last_date=[:now], deleted_date=NULL {}
             WHERE
               person_id=:p_id AND
               ou_id=:ou_id AND
               affiliation=:affiliation AND
-              source_system=:source""", binds)
-            if not cur_status == int(status):
+              source_system=:source""".format(updprec), binds)
+            if cur_status != int(status) or cur_precedence != new_prec:
                 self._db.log_change(self.entity_id,
                                     self.const.person_aff_src_mod, None)
         except Errors.NotFoundError:
+            pr = binds['precedence'] = self.__calculate_affiliation_precedence(
+                affiliation, source, status, precedence, None)
+            if pr in all_prs:
+                self.__clear_precedence(pr, all_prs)
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=person_affiliation_source]
-              (person_id, ou_id, affiliation, source_system, status)
-            VALUES (:p_id, :ou_id, :affiliation, :source, :status)""",
+              (person_id, ou_id, affiliation, source_system, status, precedence)
+            VALUES (:p_id, :ou_id, :affiliation, :source, :status, :precedence)
+            """,
                          binds)
             self._db.log_change(self.entity_id,
                                 self.const.person_aff_src_add, None)
@@ -793,19 +1003,18 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                                 ai2.expire_date > [:now])) AND
               -- ... and finally to find the name of the account
               at.account_id = en.entity_id
-            """, {"id_type" : int(id_type)}):
+                              """, {"id_type": int(id_type)}):
             result[row["external_id"]] = row["entity_name"]
-        # od
 
         return result
-    # end getdict_external_id2primary_account
 
     def list_persons(self, person_id=None):
         """Return all persons' person_id and birth_date."""
         binds = dict()
         where = ''
         if person_id is not None:
-            where = 'WHERE ' + argument_to_sql(person_id,'person_id',binds,int)
+            where = 'WHERE ' + argument_to_sql(person_id, 'person_id',
+                                               binds, int)
         return self.query("""
         SELECT person_id, birth_date
         FROM [:table schema=cerebrum name=person_info]
@@ -861,7 +1070,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                eei.entity_type = [:get_constant name=entity_person]"""
 
         return self.query("""
-        SELECT DISTINCT pi.person_id, pi.birth_date, at.account_id, eei.external_id,
+        SELECT DISTINCT pi.person_id, pi.birth_date,
+                        at.account_id, eei.external_id,
           at.ou_id, at.affiliation %(ecols)s
         FROM
           [:table schema=cerebrum name=person_info] pi
