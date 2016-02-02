@@ -256,6 +256,7 @@ sbin_files = [
 if (install_servers):
     sbin_files.append(('servers/bofhd/bofhd.py', 0755))
     sbin_files.append(('servers/event/event_daemon.py', 0755))
+    sbin_files.append(('servers/event/cim_daemon.py', 0755))
     sbin_files.append(('servers/cis/SoapIndividuationServer.py', 0755))
     sbin_files.append(('servers/cis/SoapPostmasterServer.py', 0755))
     sbin_files.append(('servers/cis/SoapGroupServer.py', 0755))
