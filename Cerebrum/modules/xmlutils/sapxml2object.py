@@ -594,7 +594,7 @@ class XMLPerson2Object(XMLEntity2Object):
                 return codecs.encode(string, 'latin1')
             except UnicodeEncodeError:
                 return codecs.encode(
-                    unicodedata.normalize('NKFD', string),
+                    unicodedata.normalize('NFKD', string),
                     'latin1',
                     'ignore')
 
