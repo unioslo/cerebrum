@@ -47,7 +47,7 @@ The script works like this:
   - Profit!
 
 """
-import getopt
+import argparse
 import locale
 import mx.DateTime
 import re
@@ -70,12 +70,9 @@ from Cerebrum.modules.Email import EmailServer
 from Cerebrum import Errors
 
 
-logger = None
 STATUS_ADD = "1"
 STATUS_UPDATE = "2"
 STATUS_DELETE = "3"
-
-uname_suffix = ""
 
 
 class cf_permission(object):
@@ -277,7 +274,7 @@ class cf_tree(object):
         groups in topological order.
 
         Fronter requires parent groups to be output before children, in order
-        for their import routines to function properly. 
+        for their import routines to function properly.
         """
 
         if not self._root:
@@ -388,7 +385,7 @@ class cf_group_interface(object):
             # 2 possibilities here -- self is either a ROOM or a group with a
             # kull role holder. In all cases the parent is the same - kull
             # corridor. In either case the parent's name is deduced similarily.
-            # 
+            #
             idx = parent_components.index("kull")
             return "Kull %s %s %s" % (
                 parent_components[idx-1],  # stprog
@@ -991,7 +988,7 @@ class cf_members(object):
     # end person2address
 
     def member_info(self):
-        """Slurp i info about all members.
+        """Slurp in info about all members.
 
         There is a bit of dict-building in this method. That takes time.
 
@@ -1007,7 +1004,7 @@ class cf_members(object):
             - user        (uname@<suffi>)
             - imap-server (imap server associated for email)
             - address     (a dict representing account owner's address)
-            - mobile      (account owner's mobile phone number)
+            - mobile      (account owner's mobile work number from SAP)
         """
 
         account = Factory.get("Account")(self.db)
@@ -1026,14 +1023,11 @@ class cf_members(object):
         logger.debug("%d person_id -> name mappings", len(person_id2name))
 
         logger.debug("Caching mobile phone numbers")
-        # TBD: this code is not really correct, and should be fixed:
-        # A person can have more than one phone, and the returned value
-        # has a priority
         person_id2phone = dict((int(x["entity_id"]), x["contact_value"])
                                for x in person.list_contact_info(
-                                   contact_type=(const.contact_private_mobile,
-                                                 const.contact_mobile_phone),
-                                   entity_type=const.entity_person))
+                                   contact_type=const.contact_mobile_phone,
+                                   entity_type=const.entity_person,
+                                   source_system=const.system_sap))
 
         logger.debug("Caching complete user records")
         candidates = account.search(owner_type=const.entity_person)
@@ -1414,7 +1408,7 @@ def output_viewcontacts(target, permission_holders, printer):
 def process_viewcontacts_permissions(cf_group, local_permissions,
                                      inherited_permissions, printer):
     """Generate XML for represeting viewContacts permissions related to
-    cf_group. 
+    cf_group.
 
     This is where it gets hairy.
     """
@@ -1697,45 +1691,43 @@ def build_multisemester_mapping(undenh_file, undakt_file):
 # end build_multisemester_mapping
 
 
-def main(argv):
+def main():
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-x', '--xml-file', dest='xml_file',
+                        help='XML-file to be generated',
+                        required=True)
+    parser.add_argument('-e', '--undenh-file', dest='undenh_file',
+                        help='Department XML-export from FS',
+                        required=True)
+    parser.add_argument('-a', '--undakt-file', dest='undakt_file',
+                        help='Activity XML-export from FS',
+                        required=True)
+    parser.add_argument('-u', '--uname-suffix', dest='uname_suffix',
+                        help='Username suffix to be added (default: None)',
+                        default='')
+    parser.add_argument('-l', '--logger-name', dest='logger',
+                        help='Name of logger instance (default: cronjob)',
+                        default='cronjob')
+    args = parser.parse_args()
 
     # Upper/lowercasing of Norwegian letters.
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
     global logger
-    logger = Factory.get_logger("cronjob")
+    logger = Factory.get_logger(args.logger)
 
     global uname_suffix
-
-    options, junk = getopt.getopt(argv[1:],
-                                  "x:",
-                                  ("xml-file=",
-                                   "undenh-file=",
-                                   "undakt-file=",
-                                   "uname-suffix=", ))
-
-    xml_file = undenh_file = undakt_file = None
-    for option, value in options:
-        if option in ("-x", "--xml-file",):
-            xml_file = value
-        elif option in ("--undenh-file",):
-            undenh_file = value
-        elif option in ("--undakt-file",):
-            undakt_file = value
-        elif option in ("--uname-suffix"):
-            # 2015-06-24: Hiof needs to generate two exports, one with a
-            # @hiof.no suffix, and one without:
-            #   https://rt.uio.no/Ticket/Display.html?id=1831656
-            if value:
-                uname_suffix = value
+    uname_suffix = args.uname_suffix
 
     db = Factory.get("Database")()
     groups = collect_cf_groups(db)
-    multisemester_map = build_multisemester_mapping(undenh_file, undakt_file)
+    multisemester_map = build_multisemester_mapping(args.undenh_file,
+                                                    args.undakt_file)
     tree = build_cf_tree(db, groups, multisemester_map)
-    generate_xml_file(xml_file, db, tree)
+    generate_xml_file(args.xml_file, db, tree)
 # end main
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()
