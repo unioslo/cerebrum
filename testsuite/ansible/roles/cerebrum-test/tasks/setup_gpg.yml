@@ -14,20 +14,53 @@
       state: directory
       mode: 0700
 
-- name: Make a gpg key generation template
+# - name: Make a gpg key generation template
+#   when: gnupgtest is defined
+#   template:
+#       src: "{{ item }}"
+#       dest: "{{ gnupg_home_dir }}/gpg_gen_key.tmpl"
+#   with_file_overload:
+#     - base: 'templates'
+#     - file: 'gpg_gen_key.j2'
+#     - alt: '{{ config | default(None) }}'
+
+- name: Copy GnuPG pubkeys
   when: gnupgtest is defined
-  template:
+  copy:
       src: "{{ item }}"
-      dest: "{{ gnupg_home_dir }}/gpg_gen_key.tmpl"
+      dest: "{{ gnupg_home_dir }}"
+      mode: 0700
   with_file_overload:
-    - base: 'templates'
-    - file: 'gpg_gen_key.j2'
+    - base: 'files'
+    - file: 'pubring.gpg'
     - alt: '{{ config | default(None) }}'
 
-- name: Generate GnuPG keys
+- name: Copy GnuPG privkeys
   when: gnupgtest is defined
-  command: /usr/bin/gpg --homedir {{ gnupg_home_dir }} --batch --gen-key {{ gnupg_home_dir }}/gpg_gen_key.tmpl
+  copy:
+      src: "{{ item }}"
+      dest: "{{ gnupg_home_dir }}"
+      mode: 0700
+  with_file_overload:
+    - base: 'files'
+    - file: 'secring.gpg'
+    - alt: '{{ config | default(None) }}'
 
-- name: Create GnuPG2 keys
+- name: Copy GnuPG trustdb
+  when: gnupgtest is defined
+  copy:
+      src: "{{ item }}"
+      dest: "{{ gnupg_home_dir }}"
+      mode: 0700
+  with_file_overload:
+    - base: 'files'
+    - file: 'trustdb.gpg'
+    - alt: '{{ config | default(None) }}'
+
+# - name: Generate GnuPG keys
+#   when: gnupgtest is defined
+#   command: /usr/bin/gpg --homedir {{ gnupg_home_dir }} --batch --gen-key {{ gnupg_home_dir }}/gpg_gen_key.tmpl
+
+- name: Convert GnuPG keys to GnuPG2 keys if GnuPG2 installed
   when: gnupgtest is defined
   command: /usr/bin/gpg2 -q --homedir {{ gnupg_home_dir }} -K removes=/usr/bin/gpg2

@@ -1,4 +1,4 @@
-cffi==1.2.1
+cffi
 egenix-mx-base
 psycopg2
 smbpasswd
