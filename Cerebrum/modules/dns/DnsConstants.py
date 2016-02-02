@@ -25,7 +25,7 @@ class _DnsZoneCode(Constants._CerebrumCode):
 
     def _get_postfix(self):
         if not hasattr(self, '_postfix'):
-            self._postfix = self._get_description()
+            self._postfix = self.description
         return self._postfix
     postfix = property(_get_postfix, None, None, "the postfix")
 

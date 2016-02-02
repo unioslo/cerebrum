@@ -1792,9 +1792,9 @@ class BofhdExtension(BofhdCommonMethods):
             spam_lev = self.const.EmailSpamLevel(esf.email_spam_level)
             spam_act = self.const.EmailSpamAction(esf.email_spam_action)
             info.append({'spam_level':       str(spam_lev),
-                         'spam_level_desc':  spam_lev._get_description(),
+                         'spam_level_desc':  spam_lev.description,
                          'spam_action':      str(spam_act),
-                         'spam_action_desc': spam_act._get_description()})
+                         'spam_action_desc': spam_act.description})
         except Errors.NotFoundError:
             pass
         return info
@@ -6133,10 +6133,10 @@ Addresses and settings:
             if aff not in tmp:
                 tmp[aff] = [{'aff': aff,
                              'status': '',
-                             'desc': co.affiliation._get_description()}]
+                             'desc': co.affiliation.description}]
             tmp[aff].append({'aff': '',
                              'status': "%s" % co._get_status(),
-                             'desc': co._get_description()})
+                             'desc': co.description})
         # fetch_constants returns a list sorted according to the name
         # of the constant.  Since the name of the constant and the
         # affiliation status usually are kept related, the list for
@@ -8159,7 +8159,7 @@ Addresses and settings:
             ret.append({'name': "%s" % c,
                         'lock': lock,
                         'shell': shell,
-                        'desc': c._get_description()})
+                        'desc': c.description})
         return ret
 
     # quarantine remove

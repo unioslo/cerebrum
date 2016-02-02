@@ -260,7 +260,7 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
     all_commands['list_defined_spreads'] = None
     def list_defined_spreads(self, operator):
         return [{'code_str': str(y),
-                 'desc': y._get_description(),
+                 'desc': y.description,
                  'entity_type': str(self.const.EntityType(y.entity_type))}
                 for y in self.const.fetch_constants(self.const.Spread)]
 
@@ -268,7 +268,7 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
     def get_entity_spreads(self, operator, entity_id):
         entity = self._get_entity(ident=int(entity_id))
         return [{'spread': str(self.const.Spread(int(row['spread']))),
-                 'spread_desc': self.const.Spread(int(row['spread']))._get_description()}
+                 'spread_desc': self.const.Spread(int(row['spread'])).description}
                 for row in entity.get_spread()]
 
     all_commands['get_default_email'] = None
