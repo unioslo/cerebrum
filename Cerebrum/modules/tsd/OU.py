@@ -26,13 +26,13 @@ project ID stored as an external ID. When a project has finished, we will
 delete all details about the project, except the project's OU and its external
 ID and acronym, to avoid reuse of the project ID and name for later projects.
 """
-
 import re
 import itertools
 from mx import DateTime
 
 import cerebrum_path
 import cereconf
+
 from Cerebrum import Errors
 from Cerebrum.Database import DatabaseError
 from Cerebrum.OU import OU
@@ -44,16 +44,85 @@ from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum.modules.tsd import TSDUtils
 
 
-class OUTSDMixin(OU, EntityTrait):
-    """
-    Mixin of OU for TSD. Projects in TSD are stored as OUs, which then has to
-    be unique.
-    """
-    def find_by_tsd_projectid(self, project_id):
-        """TSD specific helper method for finding an OU by the project's ID.
+class TsdProjectMixin(OU):
+    u""" Adds the idea of an OU as a project.
 
-        In TSD, each project is stored as an OU, with the project ID stored as
-        an external ID.
+    In TSD, OUs are 'projects' that we use to bind entities together. This
+    mixin adds:
+
+    project IDs
+        Each OU/project is given a unique, generated project ID, e.g. 'p08'.
+        This ID uniquely identifies a project. We use EntityExternalId to store
+        the project Id.
+
+    project acronyms
+        Each OU/project must be given a unique short name, or acronym, e.g.
+        'my-proj'. This name uniquely identifies a project. We use
+        EntityNameWithLanguage to store the project acronym under the language
+        'english'.
+    """
+
+    def get_next_free_project_id(self):
+        u""" Return a procjet_id for use with a new project. """
+        for number in itertools.count():
+            candidate = 'p%02d' % number
+            if not list(
+                self.list_external_ids(
+                    id_type=self.const.externalid_project_id,
+                    external_id=candidate)):
+                return candidate
+
+    def get_project_id(self):
+        u""" Get the project ID of this project. """
+        ret = self.get_external_id(id_type=self.const.externalid_project_id)
+        if ret:
+            return ret[0]['external_id']
+        raise Errors.NotFoundError(
+            'Mandatory project ID not found for %s' % self.entity_id)
+
+    @property
+    def project_id(self):
+        u""" The project id of this project/ou. """
+        try:
+            return self.get_project_id()
+        except Errors.NotFoundError:
+            raise AttributeError("OU (%r) is missing project id!",
+                                 self.entity_id)
+
+    def get_project_name(self):
+        """Shortcut for getting the given OU's project name."""
+        try:
+            project_name = self.get_name_with_language(
+                self.const.ou_name_acronym,
+                self.const.language_en)
+        except Errors.CerebrumError:
+            project_name = '<Not Set>'
+        return project_name
+
+    @property
+    def project_name(self):
+        u""" The project name for this project/ou. """
+        return self.get_project_name()
+
+    @property
+    def project_int(self):
+        u""" The project id as an int.
+
+        Example:
+            p01 -> 1
+            p29 -> 29
+        """
+        return int(self.project_id[1:])
+
+    def find_by_tsd_projectid(self, project_id):
+        u""" Finds Project OU by project id.
+
+        This is a L{find}-method, it will populate this entity with any project
+        it finds.
+
+        :param str project_id: The project ID to find.
+
+        :raise NotFoundError: If project_id is not found.
         """
         return self.find_by_external_id(
             entity_type=self.const.entity_ou,
@@ -61,82 +130,117 @@ class OUTSDMixin(OU, EntityTrait):
             external_id=project_id)
 
     def find_by_tsd_projectname(self, project_name):
-        """TSD specific helper method for finding an OU by the project's name.
+        u""" Finds Project OU by project name.
 
-        In TSD, each project is stored as an OU, with the acronym as the unique
-        project name.
+        This is a L{find}-method, it will populate this entity with any project
+        it finds.
 
-        TODO: All project OUs could be stored under the same OU, if we need
-        other OUs than project OUs.
+        :param str project_name: The short-name of the project to find.
+
+        :raise NotFoundError:
+            If the project is not found.
+        :raise TooManyRowsError:
+            If multiple projects matches the name (should not be possible).
         """
         matched = self.search_tsd_projects(name=project_name, exact_match=True)
         if not matched:
-            raise Errors.NotFoundError("Unknown project: %s" % project_name)
+            raise Errors.NotFoundError(u"Unknown project: %s" % project_name)
         if len(matched) != 1:
             raise Errors.TooManyRowsError(
-                "Found several OUs with given name: %s" % project_name)
+                u"Found several OUs with given name: %s" % project_name)
         return self.find(matched[0]['entity_id'])
 
+    def populate_external_id(self, source_system, id_type, external_id):
+        u"""Sets external id for project.
+
+        This overrides the parent method to add uniqueness for project IDs.
+
+        :see: EntityExternalId.populate_external_id
+        """
+        # Check that the ID is not in use
+        if id_type == self.const.externalid_project_id:
+            for row in self.list_external_ids(id_type=id_type,
+                                              external_id=external_id):
+                raise Errors.CerebrumError(u"Project ID already in use")
+
+        return super(TsdProjectMixin, self).populate_external_id(
+            source_system, id_type, external_id)
+
     def search_tsd_projects(self, name=None, exact_match=True):
-        """Search method for finding projects by given input.
+        u"""Search method for finding projects by given input.
 
-        TODO: Only project name is in use for now. Fix it if we need more
-        functionality.
-
-        @type name: string
-        @param name: The project name.
-
-        @type exact_match: bool
-        @param exact_match:
+        :param str name: The project name.
+        :param bool exact_match:
             If it should search for the exact name, or through an sql query
             with LIKE.
 
-        @rtype: list of db-rows
-        @return:
-            The db rows for each project. Each element contains what is
-            returned from L{search_name_with_language}.
+        :return list:
+            Returns a list of all matching project `db_rows` (see
+            L{search_name_with_languate}).
         """
         return self.search_name_with_language(
             entity_type=self.const.entity_ou,
             name_variant=self.const.ou_name_acronym,
-            # TODO: name_language=self.const.language_en,
             name=name, exact_match=exact_match)
+
+    def add_name_with_language(self, name_variant, name_language, name):
+        u"""Adds name to project.
+
+        This overrides the parent method to add verification of names.
+
+        :see: EntityNameWithLanguage.add_name_with_language
+        """
+        if name_variant == self.const.ou_name_acronym:
+            # TODO: Do we accept *changing* project names?
+
+            # Validate the format of the acronym. The project name is used as a
+            # prefix for other entities, like accounts, groups and machines, so
+            # we need to be careful.
+            self._validate_project_name(name)
+            matched = self.search_tsd_projects(name=name, exact_match=True)
+            if any(r['name'] == name for r in matched):
+                raise Errors.CerebrumError('Acronym already in use: %s' % name)
+        return super(TsdProjectMixin, self).add_name_with_language(
+            name_variant, name_language, name)
 
     def _validate_project_name(self, name):
         """Check if a given project name is valid.
 
-        Project names are used as prefix for most of the project's entities,
-        like accounts, groups and machines. We need to make sure that the name
-        doesn't cause problems for e.g. AD.
+        Project names are used to identify project entities in other systems,
+        so we need to enforce some limits to avoid potential problems.
 
-        Some requirements:
+        Requirements
+        ------------
+        Can not contain spaces
+            TODO: Why?
 
-        - Can not contain spaces. TODO: Why?
+        Can not contain commas.
+            This is due to AD's way of identifying objects. Example:
+            CN=username,OU=projectname,DC=tsd,DC=uio,DC=no.
 
-        - Can not contain commas. This is due to AD's way of identifying
-          objects. Example: CN=username,OU=projectname,DC=tsd,DC=uio,DC=no.
+        Can not contain the SQL wildcards ? and %.
+            This is a convenience limit, to be able to use Cerebrum's existing
+            API without modifications.
 
-        - Can not contain the SQL wildcards ? and %. This is a convenience
-          limit, to be able to use Cerebrum's existing API without
-          modifications.
+        Can not contain control characters.
 
-        - Can not contain control characters.
+        Can not contain characters outside of ASCII.
+            This is to avoid unexpected encoding issues.
 
-        - Should not contains characters outside of ASCII. This is due to
-          Cerebrum's lack of unicode support, and to avoid unexpected encoding
-          issues.
-
-        - TBD: A maximum length in the name? AD probably has a limit. As a
-          prefix, it should be a bit less than AD's limit.
+        TBD: A maximum length in the name?
+            AD probably has a limit. As a prefix, it should be a bit less than
+            AD's limit.
 
         In practice, we only accept regular alphanumeric characters in ASCII,
         in addition to some punctuation characters, like colon, dash and
         question marks. This would need to be extended in the future.
 
-        @raise Errors.CerebrumError: If the given project name was not accepted
+        :param str name:
+            The name to check.
+
+        :raise Errors.CerebrumError:
+            If the given project name was not accepted
         """
-        # TODO: whitelisting accepted characters, might want to extend the list
-        # with characters I've forgotten:
         m = re.search('[^A-Za-z0-9_\-:;\*"\'\#\&\=!\?]', name)
         if m:
             raise Errors.CerebrumError(
@@ -147,37 +251,61 @@ class OUTSDMixin(OU, EntityTrait):
             raise Errors.CerebrumError('Project name is too long')
         return True
 
-    def get_project_name(self):
-        """Shortcut for getting the given OU's project name."""
-        try:
-            project_name = self.get_name_with_language(
-                self.const.ou_name_acronym,
-                self.const.language_en)
-        except Errors.CerebrumError, e:
-            project_name = '<Not Set>'
-        return project_name
+    def create_project(self, project_name):
+        """ Create a new project in TSD.
 
-    def get_project_id(self):
-        """Shortcut for getting the given OU's project ID."""
-        ret = self.get_external_id(id_type=self.const.externalid_project_id)
-        if ret:
-            return ret[0]['external_id']
-        raise Errors.NotFoundError(
-            'Mandatory project ID not found for %s' % self.entity_id)
+        Note that this method calls `write_db`.
 
-    def get_project_int(self):
-        """Shortcut for getting the "integer" for the project.
+        :param str project_name:
+            A unique, short project name to use to identify the project.
+            This is not the *project ID*, which is created automatically.
 
-        An integer is needed e.g. to map a project to a subnet and/or VLAN. For
-        now, is this mapped from the number in the project ID, so p01 would
-        become 1 and p21 would become 21. This might be changed in the future
-        when we reach p99.
+        :return str:
+            The generated project ID for the new project.
         """
-        projectid = self.get_project_id()
-        return int(projectid[1:])
+        # Check if given project name is already in use:
+        if tuple(self.search_tsd_projects(name=project_name,
+                                          exact_match=True)):
+            raise Errors.CerebrumError(
+                'Project name already taken: %s' % project_name)
+        self.populate()
+        self.write_db()
+        # Set a generated project ID
+        self.affect_external_id(self.const.system_cached,
+                                self.const.externalid_project_id)
+        pid = self.get_next_free_project_id()
+        self.populate_external_id(self.const.system_cached,
+                                  self.const.externalid_project_id, pid)
+        self.write_db()
+        # Set the project name
+        self.add_name_with_language(name_variant=self.const.ou_name_acronym,
+                                    name_language=self.const.language_en,
+                                    name=project_name)
+        self.write_db()
+        return pid
+
+
+class OULockMixin(OU):
+    u""" Adds methods to lock OUs.
+
+    This mixin uses EntityQuarantine to lock OUs. The following quarantine
+    locks exists:
+
+    Approve
+        All new projects should have an active quarantine (not_approved) until
+        manually approved.
+
+    Expire
+        All projects should get an expire date on approval. This expire_date is
+        stored as a delayed quarantine (project_end).
+
+    Freeze
+        All prjects can get a 'freeze' quarantine to temporarily lock the
+        project (e.g. for setting a delayed start date).
+    """
 
     def is_approved(self):
-        """Check if this project is approved by TSD-admins.
+        u""" Check if this project has been approved by TSD-admins.
 
         The approval is registered through a quarantine.
 
@@ -201,12 +329,11 @@ class OUTSDMixin(OU, EntityTrait):
 
     @property
     def has_freeze_quarantine(self):
-        """
-        has_freeze_quarantine-property - getter
+        """ If this project is currently frozen.
 
-        :rtype: bool
-        :return: Return True if the OU (Project) has freeze quarantine(s),
-            otherwise - False
+        :return bool:
+            True if the OU (Project) has freeze quarantine(s),
+            False otherwise.
         """
         return bool(
             self.get_entity_quarantine(
@@ -214,11 +341,11 @@ class OUTSDMixin(OU, EntityTrait):
 
     @property
     def freeze_quarantine_start(self):
-        """
-        freeze_quarantine_start-property - getter
+        """ Start date of any freeze quarantine on the project.
 
-        :rtype: mx.DateTime or None
-        :return: Return the start_date of the freeze quarantine
+        :rtype: mx.DateTime, NoneType
+        :return:
+            Return the start_date (mx.DateTime) of the freeze quarantine
             (Note: None will be returned in a case of no freeze-quarantines
             for the OU (Project). Hence mx.DateTime return value is a proof
             that the OU (Project) has at least one autofreeze-quarantine,
@@ -230,82 +357,362 @@ class OUTSDMixin(OU, EntityTrait):
             return frozen_quarantines[0]['start_date']
         return None
 
-    def add_name_with_language(self, name_variant, name_language, name):
-        """Override to be able to verify project names (acronyms)."""
-        if name_variant == self.const.ou_name_acronym:
-            # TODO: Do we accept *changing* project names?
 
-            # Validate the format of the acronym. The project name is used as a
-            # prefix for other entities, like accounts, groups and machines, so
-            # we need to be careful.
-            self._validate_project_name(name)
+class OUAffiliateMixin(OU):
+    u""" Adds the ability to affiliate entities with OU.
 
-            # TODO: check name_language too
-            matched = self.search_name_with_language(
-                entity_type=self.const.entity_ou,
-                name_variant=self.const.ou_name_acronym,
-                # TODO: name_language
-                name=name)
-            if any(r['name'] == name for r in matched):
-                raise Errors.CerebrumError('Acronym already in use: %s' % name)
-        return self.__super.add_name_with_language(name_variant, name_language,
-                                                   name)
+    A project affiliation is stored as an EntityTrait on the affiliated entity,
+    with this OU as 'target'.
 
-    def get_next_free_project_id(self):
-        """Return the first project ID that is not in use."""
-        for number in itertools.count():
-            candidate = 'p%02d' % number
-            if not list(
-                self.list_external_ids(id_type=self.const.externalid_project_id,
-                                       external_id=candidate)):
-                return candidate
+    Trait types and supported entitiy types are listed in
+    L{_get_affiliate_trait}.
+    """
 
-    def populate_external_id(self, source_system, id_type, external_id):
-        """Subclass to avoid changing the project IDs and reuse them."""
-        # Check that the ID is not in use:
-        if id_type == self.const.externalid_project_id:
-            for row in self.list_external_ids(id_type=id_type,
-                                              external_id=external_id):
-                raise Errors.CerebrumError("Project ID already in use")
+    def _get_affiliate_trait(self, etype):
+        u""" Get trait used to affiliate an entity with this project.
 
-        return self.__super.populate_external_id(source_system,
-                                                 id_type,
-                                                 external_id)
-
-    def create_project(self, project_name):
-        """Shortcut for creating a project in TSD with necessary data.
-
-        Note that this method calls `write_db`.
-
-        :param str project_name:
-            A unique, short project name to use to identify the project.
-            This is not the *project ID*, which is created automatically.
-
-        :rtype: str
-        :return:
-            The generated project ID for the new project. `self` is populated
-            with the new project.
+        :type etype:
+            Constants.EntityType, int, str
+        :param entity_type:
+            The entity type
         """
-        # Check if given project name is already in use:
-        if tuple(self.search_tsd_projects(name=project_name,
-                                          exact_match=True)):
+        type2trait = {
+            self.const.entity_group:
+                self.const.trait_project_group,
+            self.const.entity_dns_owner:
+                self.const.trait_project_host,
+            self.const.entity_dns_subnet:
+                self.const.trait_project_subnet,
+            self.const.entity_dns_ipv6_subnet:
+                self.const.trait_project_subnet6,
+        }
+        entity_type = (
+            etype if isinstance(etype, self.const.EntityType)
+            else self.const.human2constant(etype, self.const.EntityType))
+        try:
+            return type2trait[entity_type]
+        except KeyError:
             raise Errors.CerebrumError(
-                'Project name already taken: %s' % project_name)
-        self.populate()
-        self.write_db()
-        # Generate a project ID:
-        self.affect_external_id(self.const.system_cached,
-                                self.const.externalid_project_id)
-        pid = self.get_next_free_project_id()
-        self.populate_external_id(self.const.system_cached,
-                                  self.const.externalid_project_id, pid)
-        self.write_db()
-        # Store the project name:
-        self.add_name_with_language(name_variant=self.const.ou_name_acronym,
-                                    name_language=self.const.language_en,
-                                    name=project_name)
-        self.write_db()
-        return pid
+                u"Entity type %s (%r) cannot be affilated with project." %
+                (entity_type, etype))
+
+    def get_affiliated_entities(self, entity_type):
+        u""" Gets entities that are affiliated with this project.
+
+        :type etype:
+            Constants.EntityType, int, str
+        :param entity_type:
+            The entity type
+
+        :returns generator:
+            Returns the same `db_rows` as EntityTrait.list_traits.
+
+        :see:
+            EntityTrait.list_traits
+        """
+        # TDB: Support lookup of multiple entity types?
+        trait = self._get_affiliate_trait(entity_type)
+        for row in self.list_traits(code=trait, target_id=self.entity_id):
+            yield row
+
+    def is_affiliated_entity(self, entity):
+        u""" Check if entity is affiliated with project.
+
+        :param Entity entity:
+            An entity to check
+
+        :return bool:
+            Returns True if entity is affiliated with project
+        """
+        try:
+            trait_code = self._get_affiliate_trait(entity.entity_type)
+        except Errors.CerebrumError:
+            return False
+
+        try:
+            trait = EntityTrait(self._db)
+            trait.find(entity.entity_id)
+            return trait.get_trait(trait_code)['target_id'] == self.entity_id
+        except Errors.NotFoundError:
+            return False
+        except TypeError:
+            return False
+
+    def affiliate_entity(self, entity):
+        u""" Affiliate an entity with this project.
+
+        :type entity: Group, DnsOwner, DnsSubnet, DnsSubnet6
+        :param entity:
+            An entity to affiliate with this project
+
+        """
+        trait_code = self._get_affiliate_trait(entity.entity_type)
+        trait = EntityTrait(self._db)
+        trait.find(entity.entity_id)
+        trait.populate_trait(trait_code,
+                             target_id=self.entity_id,
+                             date=DateTime.now())
+        trait.write_db()
+
+
+class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
+    u""" Create and affiliate entities with project.
+
+    Project group
+        A group that is affiliated with a project.
+
+    Project person
+        A person that is affiliated with a project
+
+    Project user
+        TODO
+
+    A project group given a group name that consists of a 'base name' that is
+    prefixed with the project id.
+
+    Each created group is automatically affiliated with the project OU.
+    """
+
+    def _project_entity_name(self, basename):
+        u""" Get real entity name from base name. """
+        return '-'.join((self.project_id, basename)).lower()
+
+    def get_project_group(self, basename):
+        u""" Get a project group from its basename. """
+        gr = Factory.get('Group')(self._db)
+        gr.find_by_name(self._project_entity_name(basename))
+        return gr
+
+    def create_project_group(self, creator_id, basename,
+                             description=None, spreads=[]):
+        u""" Create or update a project group.
+
+        :param int creator_id:
+            The creator that we create this group on behalf of.
+        :param str basename:
+            The group base name. The actual group name will be prefixed with
+            the project ID of this project.
+        :param str description:
+            The group description (default: None, will fetch description from
+            config).
+        :param tuple spreads:
+            A list of spreads for the group (default: None, will fetch spreads
+            from config).
+
+        :return Group:
+            The created or updated group.
+        """
+        name = self._project_entity_name(basename)
+        description = ('Group %r' % self._project_entity_name(basename)
+                       if description is None else description)
+        spreads = [s if isinstance(s, self.const.Spread)
+                   else self.const.Spread(s)
+                   for s in (spreads or [])]
+        gr = Factory.get('Group')(self._db)
+        try:
+            gr.find_by_name(name)
+            if gr.description != description:
+                gr.description = description
+                gr.write_db()
+        except Errors.NotFoundError:
+            gr.populate(creator_id, self.const.group_visibility_all,
+                        name, description)
+            gr.write_db()
+
+        if not self.is_affiliated_entity(gr):
+            self.affiliate_entity(gr)
+
+        for spr in spreads:
+            if not isinstance(spr, self.const.Spread):
+                spr = self.const.Spread(spr)
+            if not gr.has_spread(spr):
+                gr.add_spread(spr)
+                gr.write_db()
+        return gr
+
+    def update_project_group_members(self, basename, selectors=()):
+        u""" Update group based on selector.
+
+        :param str basename:
+            The basename for the group to update.
+
+        :param tuple selectors:
+            A list of string selectors to find new members to add
+            (default: None, will fetch membership selectors from config).
+
+            Each selector is a string that consists of a ':'-separated
+            member-type and member-selector. The following
+            member-types and member-selectors are supported:
+
+            - 'group:<basename>'
+            - 'person_aff:<affiliation>'
+            - 'person_aff:<affiliation>/<aff-status>'
+
+            Example
+
+                ('group:admin-group',
+                 'person_aff:PROJECT',
+                 'person_aff:PROJECT/member', )
+        """
+        gr = self.get_project_group(basename)
+        selectors = (selectors or ())
+
+        def _aff_accounts(aff, status):
+            pe = Factory.get('Person')(self._db)
+            ac = Factory.get('Account')(self._db)
+            for p_row in pe.list_affiliations(
+                    ou_id=self.entity_id,
+                    affiliation=aff,
+                    status=status,
+                    fetchall=False):
+                for a_row in ac.list_accounts_by_type(
+                        person_id=p_row['person_id'],
+                        ou_id=self.entity_id,
+                        fetchall=False):
+                    yield a_row['account_id']
+
+        for selector in selectors:
+            memtype, memvalue = selector.split(':')
+
+            if memtype.lower() == 'group':
+                member = self.get_project_group(memvalue)
+                if not gr.has_member(member.entity_id):
+                    gr.add_member(member.entity_id)
+
+            elif memtype.lower() == 'person_aff':
+                # Fetch the correct affiliation, handle both a single
+                # "AFFILIATION" and the "AFFILIATION/status" format:
+                aff, status = self.const.get_affiliation(memvalue)
+                for account_id in _aff_accounts(aff, status):
+                    if not gr.has_member(account_id):
+                        gr.add_member(account_id)
+
+            else:
+                raise Exception(
+                    u"Unknown member type %r in selector %r" %
+                    (memtype, selector))
+        gr.write_db()
+
+    def create_project_user(self, creator_id, basename,
+                            fname=None, lname=None, gender=None, bdate=None,
+                            shell='bash', affiliation=None):
+        u""" Create a personal account affiliated with this project.
+
+        Will also create a person to own the account.
+
+        Names
+            The special values "<pid>" and "<pname>" for `fname` or `lname`
+            will be replaced with the project id and project name,
+            respectively.  If a name is not given, the `basename` value will be
+            used.
+
+        :param int creator_id:
+            The entity_id of the account that runs this method.
+
+        :param str basename:
+            The username base name. The actual username will be prefixed with
+            the project ID of this project.
+
+        :param str fname:
+            The given name of the person that should own this account.
+
+        :param str lname:
+            The surname of the person that should own this account.
+
+        :type gender: Gender, str, NoneType
+        :param gender:
+            The gender of the person that should own this account. If None,
+            "X" (unknown) will be used.
+
+        :type: bdate: mx.DateTime, str, NoneType
+        :param bdate:
+            The birth date for the person that should own this acocunt. If
+            given as string, the expected format is yyyy-mm-dd.
+
+        :type shell: PosixShell, str, NoneType
+        :param shell:
+            The shell for the account. If None, 'bash' will be set.
+
+        :type affiliation: PersonAffiliation, PersonAffStatus, str, NoneType
+        :param affiliation:
+            An affiliation to give the person that owns the account. If string,
+            the expected format is "AFFILIATION" or "AFFILIATION/status".
+
+        :return PosixUser:
+            Returns the created account.
+        """
+        names = {'<pid>': self.project_id, '<pname>': self.project_name}
+
+        # Check arguments
+        username = self._project_entity_name(basename)
+        fname = names.get(fname) or fname or basename
+        lname = names.get(lname) or lname or basename
+        gender = (self.const.human2constant(str(gender), self.const.Gender)
+                  or self.const.gender_unknown)
+        shell = (self.const.human2constant(str(shell), self.const.PosixShell)
+                 or self.const.posix_shell_bash)
+        bdate = (DateTime.Parser.DateFromString(bdate, formats=('ymd1', ))
+                 if bdate and not isinstance(bdate, DateTime.DateTimeType)
+                 else bdate)
+        aff, status = self.get_affiliation(affiliation)
+
+        # TODO: Should this not be in Account.illegal_name?
+        if username != username.lower():
+            raise Errors.CerebrumError(
+                u"Account names cannot contain capital letters")
+
+        person = Factory.get('Person')(self._db)
+        user = Factory.get('PosixUser')(self._db)
+
+        try:
+            user.find_by_name(username)
+        except Errors.NotFoundError:
+            person.populate(bdate, gender,
+                            description='Owner of %r' % username)
+            person.write_db()
+
+            uid = user.get_free_uid()
+            user.populate(
+                uid, None, None, shell,
+                name=username,
+                owner_type=self.const.entity_person,
+                owner_id=person.entity_id,
+                np_type=None,
+                creator_id=creator_id,
+                expire_date=None)
+            user.write_db()
+        else:
+            person.find(user.owner_id)
+
+        # Update person names and affiliations.
+        person.affect_names(self.const.system_manual,
+                            self.const.name_first,
+                            self.const.name_last)
+        person.populate_name(self.const.name_first, fname)
+        person.populate_name(self.const.name_last, lname)
+        if affiliation:
+            person.populate_affiliation(self.const.system_manual,
+                                        ou_id=self.entity_id,
+                                        affiliation=aff,
+                                        status=status)
+        person.write_db()
+
+        # Update user aff/account type
+        user.set_account_type(self.entity_id, self.const.affiliation_project)
+        user.write_db()
+
+        if not self.is_affiliated_entity(user.pg):
+            self.affiliate_entity(user.pg)
+
+        return user
+
+
+class OUTSDMixin(TsdDefaultEntityMixin,
+                 TsdProjectMixin,
+                 OUAffiliateMixin,
+                 OULockMixin,
+                 EntityTrait):
+    u""" Mixin of OU for TSD. """
 
     def setup_project(self, creator_id, vlan=None):
         """Set up an approved project properly.
@@ -334,118 +741,62 @@ class OUTSDMixin(OU, EntityTrait):
         if not self.is_approved():
             raise Errors.CerebrumError("Project is not approved, cannot setup")
 
+        # DNS and hosts
         self._setup_project_dns(creator_id, vlan)
         self._setup_project_hosts(creator_id)
+
+        # Users and groups
+        self._setup_project_users(creator_id)
         self._setup_project_groups(creator_id)
+
+        # Posix?
         self._setup_project_posix(creator_id)
 
-    def _setup_project_groups(self, creator_id):
-        """Setup the groups belonging to the given project.
+    def _setup_project_users(self, creator_id):
+        u""" Create or update project users.
 
-        @type creator_id: int
-        @param creator_id:
-            The creator of the project. Either the entity_id of the
-            administrator that created the project or a system user.
+        This will ensure that users given in `cereconf.TSD_PROJECT_USERS`
+        exists and are tied to this project.
+
+        :param int creator_id:
+            The entity_id we are operating on behalf of.
         """
-        projectid = self.get_project_id()
-        gr = Factory.get("PosixGroup")(self._db)
-        ac = Factory.get('Account')(self._db)
-        pe = Factory.get('Person')(self._db)
+        for basename, settings in getattr(cereconf, 'TSD_PROJECT_USERS',
+                                          dict()).iteritems():
+            self.create_project_user(
+                creator_id,
+                basename,
+                fname=settings.get('first_name', basename),
+                lname=settings.get('last_name', basename),
+                gender=settings.get('gender'),
+                bdate=settings.get('birth_date'),
+                shell=settings.get('shell', 'bash'),
+                affiliation=settings.get('affiliation'))
 
-        def _create_group(groupname, desc, spreads):
-            """Helper function for creating a group.
+    def _setup_project_groups(self, creator_id):
+        u""" Create or update project groups.
 
-            @type groupname: string
-            @param groupname: The name of the new group. Gets prefixed by the
-                project-ID.
+        This will ensure that groups given in `cereconf.TSD_PROJECT_GROUPS`
+        exists and are tied to this project. It will also add members based on
+        the 'member' setting of each group in `cereconf.TSD_PROJECT_GROUPS`.
 
-            @type desc: string
-            @param desc: The description that should get stored at the new
-                group.
-
-            @type spreads: list of str
-            @param spreads:
-                A list of strcode for spreads that the group should have.
-            """
-            groupname = '-'.join((projectid, groupname))
-            gr.clear()
-            try:
-                gr.find_by_name(groupname)
-                # If group already exists, we skip creating it.
-            except Errors.NotFoundError:
-                gr.clear()
-                gr.populate(creator_id, self.const.group_visibility_all,
-                            groupname, desc)
-                gr.write_db()
-            # Each group is linked to the project by a project trait:
-            gr.populate_trait(code=self.const.trait_project_group,
-                              target_id=self.entity_id, date=DateTime.now())
-            gr.write_db()
-            # Add defined spreads:
-            for strcode in spreads:
-                spr = self.const.Spread(strcode)
-                if not gr.has_spread(spr):
-                    gr.add_spread(spr)
-                    gr.write_db()
-
-        for suffix, desc, spreads in getattr(cereconf,
-                                             'TSD_PROJECT_GROUPS', ()):
-            _create_group(suffix, desc, spreads)
-
-        def _get_persons_accounts(person_id):
-            """Helper method for getting this project's accounts for a person.
-
-            Only the accounts related to this project OU are returned.
-
-            @type person_id: int
-            @param person_id:
-                Only return the accounts belonging to the given person.
-
-            @rtype: generator (yielding ints)
-            @return:
-                The persons accounts' entity_ids.
-            """
-            return (r['account_id'] for r in
-                    ac.list_accounts_by_type(person_id=person_id,
-                                             ou_id=self.entity_id))
-
-        # Update group memberships:
-        for grname, members in getattr(cereconf, 'TSD_GROUP_MEMBERS',
-                                       dict()).iteritems():
-            grname = '-'.join((projectid, grname))
-            gr.clear()
-            try:
-                gr.find_by_name(grname)
-            except Errors.NotFoundError:
-                # Group not created, skipping
-                continue
-            for mem in members:
-                memtype, memvalue = mem.split(':')
-                if memtype == 'group':
-                    gr2 = Factory.get('Group')(self._db)
-                    gr2.find_by_name('-'.join((projectid, memvalue)))
-                    if not gr.has_member(gr2.entity_id):
-                        gr.add_member(gr2.entity_id)
-                elif memtype == 'person_aff':
-                    # Fetch the correct affiliation, handle both a single
-                    # "AFFILIATION" and the "AFFILIATION/status" format:
-                    try:
-                        af, st = memvalue.split('/')
-                    except ValueError:
-                        aff = self.const.PersonAffiliation(memvalue)
-                        status = None
-                    else:
-                        aff = self.const.PersonAffiliation(af)
-                        status = self.const.PersonAffStatus(aff, st)
-                    for row in pe.list_affiliations(ou_id=self.entity_id,
-                                                    affiliation=aff,
-                                                    status=status):
-                        for a_id in _get_persons_accounts(row['person_id']):
-                            if not gr.has_member(a_id):
-                                gr.add_member(a_id)
-                else:
-                    raise Exception("Unknown member type in: %s" % mem)
-            gr.write_db()
+        :param int creator_id:
+            The entity_id we are operating on behalf of.
+        """
+        # Create groups
+        for basename, settings in getattr(cereconf, 'TSD_PROJECT_GROUPS',
+                                          dict()).iteritems():
+            self.create_project_group(
+                creator_id,
+                basename,
+                description=settings.get('description'),
+                spreads=settings.get('spreads', []))
+        # Update group members
+        for basename, settings in getattr(cereconf, 'TSD_PROJECT_GROUPS',
+                                          dict()).iteritems():
+            self.update_project_group_members(
+                basename,
+                selectors=settings.get('members', ()))
 
     def get_next_free_vlan(self):
         """Get the first VLAN number that is not in use.
@@ -484,7 +835,6 @@ class OUTSDMixin(OU, EntityTrait):
             If set to None, the first free VLAN will be chosen.
         """
         projectid = self.get_project_id()
-        etrait = EntityTrait(self._db)
         if not vlan:
             try:
                 # Check if a VLAN is already assigned
@@ -505,15 +855,13 @@ class OUTSDMixin(OU, EntityTrait):
             raise Errors.CerebrumError('VLAN out of range: %s' % vlan)
 
         # TODO: Find a better way for mapping between project ID and VLAN:
-        intpid = self.get_project_int()
+        intpid = self.project_int
         subnetstart, subnet6start = self._generate_subnets_for_project_id(
             project_id=intpid)
 
-        for cls, trait, start, my_subnets in (
-                (dns.Subnet.Subnet, self.const.trait_project_subnet,
-                 subnetstart, self.ipv4_subnets),
-                (dns.IPv6Subnet.IPv6Subnet, self.const.trait_project_subnet6,
-                 subnet6start, self.ipv6_subnets)):
+        for cls, start, my_subnets in (
+                (dns.Subnet.Subnet, subnetstart, self.ipv4_subnets),
+                (dns.IPv6Subnet.IPv6Subnet, subnet6start, self.ipv6_subnets)):
             sub = cls(self._db)
             try:
                 sub.find(start)
@@ -524,11 +872,8 @@ class OUTSDMixin(OU, EntityTrait):
                 if sub.entity_id not in my_subnets:
                     raise Exception("Subnet %s exists, but does not belong"
                                     " to %s" % (start, projectid))
-            etrait.clear()
-            etrait.find(sub.entity_id)
-            etrait.populate_trait(trait, date=DateTime.now(),
-                                  target_id=self.entity_id)
-            etrait.write_db()
+            if not self.is_affiliated_entity(sub):
+                self.affiliate_entity(sub)
 
         # TODO: Reserve 10 PTR addresses in the start of the subnet!
 
@@ -582,7 +927,11 @@ class OUTSDMixin(OU, EntityTrait):
                                                       dnsowner.entity_id, comp)
 
     def _setup_project_posix(self, creator_id):
-        """Setup POSIX data for the project."""
+        u""" Upgrade non-posix entities.
+
+        This makes all non-posix accounts tied to this project into posix
+        accounts.
+        """
         ac = Factory.get('Account')(self._db)
         pu = Factory.get('PosixUser')(self._db)
         for row in ac.list_accounts_by_type(
@@ -664,22 +1013,26 @@ class OUTSDMixin(OU, EntityTrait):
             values that might be relevant are `entity_id`, `entity_type`,
             `code` and `date`. The other values might not be used.
         """
-        for row in self.list_traits(code=(self.const.trait_project_subnet6,
-                                          self.const.trait_project_subnet),
-                                    target_id=self.entity_id):
+        for row in self.get_affiliated_entities(
+                self.const.entity_dns_subnet):
+            yield row
+        for row in self.get_affiliated_entities(
+                self.const.entity_dns_ipv6_subnet):
             yield row
 
     @property
     def ipv4_subnets(self):
-        """ Read-only attribute with the IPv4 subnets for this project. """
-        return (row['entity_id'] for row in self.get_project_subnets()
-                if row['code'] == self.const.trait_project_subnet)
+        u""" Generator that lists the IPv4 subnets for this project. """
+        return (row['entity_id'] for row
+                in self.get_affiliated_entities(
+                    self.const.entity_dns_subnet))
 
     @property
     def ipv6_subnets(self):
-        """ Read-only attribute with the IPv6 subnets for this project. """
-        return (row['entity_id'] for row in self.get_project_subnets()
-                if row['code'] == self.const.trait_project_subnet6)
+        u""" Generator that lists the IPv6 subnets for this project. """
+        return (row['entity_id'] for row
+                in self.get_affiliated_entities(
+                    self.const.entity_dns_ipv6_subnet))
 
     def get_pre_approved_persons(self):
         """Get a list of pre approved persons by their fnr.
@@ -707,7 +1060,6 @@ class OUTSDMixin(OU, EntityTrait):
         """
         approvals = self.get_pre_approved_persons()
         approvals.update(ids)
-        # TODO: check if this works!
         self.populate_trait(code=self.const.trait_project_persons_accepted,
                             date=DateTime.now(), strval=','.join(approvals))
         return True
