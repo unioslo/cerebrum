@@ -15,3 +15,5 @@ pygpgme
 flanker
 pika
 phonenumbers
+requests
+jsonschema
