@@ -106,8 +106,8 @@ class EventToTargetUtils(object):
         @type event_type: int or str
         @param event_type: The code(_str) for the event/change type
         """
-        v = {'ts': int(self.co.TargetSystem(target_system)),
-                'et': int(self.co.ChangeType(*event_type.split(':')))}
+        v = {'ts': int(self._target_system_to_code(target_system)),
+             'et': int(self._event_type_to_code(event_type))}
         # (target_system, event_type) has an UNIQUE constraint.
         # Calling this method with the same pair of values will
         # result in an exception.
