@@ -37,25 +37,13 @@ There are roughly these categories of data being output:
 * organizational information (OUs)
 * information about people (ids, names, account and e-mail information)
 * various relations involving people and OUs:
-** kull
+** kull 
 ** undervisningsenhet
 ** affiliations
 ** payment information (semester fee (semesteravgift)).
-
-When adding extra contact-fields, be sure to quote the input string so that
-the argument is parsed correctly. When adding several contact fields, separate
-them by commas.
-
-Example: "cellular private:contact_private_mobile:system_sap,
-          cellular work:contact_mobile_phone:system_sap"
-
-These two fields will be added as extra contactinfo-tags, like this:
-
-<contactinfo contacttype="cellular private">value</contactinfo>
-<contactinfo contacttype="cellular work">value</contactinfo>
 """
 
-import argparse
+import getopt
 import sys
 import time
 
@@ -70,6 +58,9 @@ from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.access_FS import make_fs
 
 
+
+
+
 def out(element, element_data, attributes={}):
     """Small helper function for XML output.
 
@@ -79,6 +70,7 @@ def out(element, element_data, attributes={}):
     if element_data or attributes:
         xmlwriter.dataElement(element, element_data, attributes)
 # end out
+
 
 
 def output_OU(sko):
@@ -92,10 +84,12 @@ def output_OU(sko):
 # end output_OU
 
 
+
 def make_sko(fakultet, institutt, avdeling):
     return "".join(["%02d" % int(x)
                     for x in (fakultet, institutt, avdeling)])
 # end make_sko
+
 
 
 def make_id(*rest):
@@ -105,6 +99,7 @@ def make_id(*rest):
 # end make_id
 
 
+
 def fnr_to_external_id(fnr, person, person_info):
     """Remap an FNR from FS to an ID we know exists in Cerebrum.
 
@@ -112,7 +107,7 @@ def fnr_to_external_id(fnr, person, person_info):
     people are in fact identified by FS' fnrs in the XML file. Therefore, a
     remapping takes place.
     """
-
+    
     try:
         person.clear()
         person.find_by_external_id(constants.externalid_fodselsnr,
@@ -130,6 +125,7 @@ def fnr_to_external_id(fnr, person, person_info):
     id_type, person_external_id = person_info[int(person.entity_id)]
     return id_type, person_external_id
 # end fnr_to_external_id
+
 
 
 def remap_fnrs(sequence, person, person_info):
@@ -154,12 +150,14 @@ def remap_fnrs(sequence, person, person_info):
     return result
 # end remap_fnr
 
+
+
+
+
 #
 # Dictionary for mapping entities/names in cerebrum into XML attribute names
 #
 _id_type_cache = dict()
-
-
 def _cache_id_types():
     """Create a cache for looking up various IDs later."""
 
@@ -170,29 +168,26 @@ def _cache_id_types():
                          ("cell", "cellular phone")):
         _id_type_cache[id] = xml_name
 
+    #
     # <affiliation, status> -> description
     _id_type_cache["affiliation"] = dict()
     for tmp in c.fetch_constants(c.PersonAffStatus):
         affiliation, status = int(tmp.affiliation), int(tmp)
         _id_type_cache["affiliation"][affiliation, status] = tmp.description
-# end _cache_id_types
-
+# end _cache_id_types        
 
 def get_name_type(name_type):
     return _id_type_cache[name_type]
 # end _cache_id_types
 
-
 def get_contact_type(name):
     return _id_type_cache[name]
 # end get_contact_type
-
 
 def get_person_id_type(external_id):
     # FIXME: Perhaps we ought to validate whatever is fed in here.
     return str(external_id)
 # end get_person_id_type
-
 
 def get_affiliation_type(affiliation, status):
     """Return a human-friendly description for a given affiliation/status."""
@@ -205,7 +200,6 @@ def get_affiliation_type(affiliation, status):
     return title + " (%d:%d)" % (int(affiliation), int(status))
 # end get_affiliation_type
 
-
 def get_group_id_type(kind):
     """Maps a group id kind to a type in XML"""
     return {"pay": "paid-group",
@@ -213,12 +207,10 @@ def get_group_id_type(kind):
             "ue": "uegroup" }[kind]
 # end get_group_id_type
 
-
 def get_all_affiliations():
     """Returns all affiliation/status pairs registered."""
     return _id_type_cache["affiliation"].keys()
 # end get_all_affiliations
-
 
 def _cache_ou2sko(ou):
     """Cache all ou_id -> sko mappings."""
@@ -229,10 +221,12 @@ def _cache_ou2sko(ou):
         _cache_ou2sko.cache[int(row["ou_id"])] = sko
 # end _cache_ou2sko
 
-
 def ou_id2sko(ou_id):
     return _cache_ou2sko.cache.get(int(ou_id))
 # end ou_id2sko
+
+
+
 
 
 def prepare_kull():
@@ -275,6 +269,7 @@ def prepare_kull():
 
     return kull_cache
 # end prepare_kull
+
 
 
 def prepare_ue():
@@ -322,7 +317,7 @@ def fetch_external_ids(db_person):
     @rtype: dict
     @return:
       Returns a dictionary D1 mapping entity_id (for people) to D2. Each D2 is
-      a dictionary mapping external id type to its value.
+      a dictionary mapping external id type to its value. 
     """
 
     # First, we assign weights to all source systems. The greater the number,
@@ -359,6 +354,7 @@ def fetch_external_ids(db_person):
 
     return tmp
 # end fetch_external_ids
+
 
 
 def cache_person_info(db_person, db_account):
@@ -429,33 +425,21 @@ def cache_person_info(db_person, db_account):
         # Sort according to SYSTEM_LOOKUP_ORDER and pick the first.
         for x in eid2cell:
             eid2cell[x] = sorted(eid2cell[x],
-                                 cmp=lambda p, n: lookup_order_index(p[1]) -
-                                 lookup_order_index(n[1]))[0][1]
+                    cmp=lambda p, n: lookup_order_index(p[1])
+                    - lookup_order_index(n[1]))[0][1]
     else:
         eid2cell = dict()
-
-    extra_fields = dict()
-    if extra_contact_fields is not None:
-        for contact_field in extra_contact_fields:
-            cont_type = constants.human2constant(contact_field['contact_type'])
-            src_sys = constants.human2constant(contact_field['source_system'])
-            eid2contact_field = dict()
-            contact_info_entries = db_person.list_contact_info(
-                    contact_type=cont_type,
-                    source_system=src_sys)
-            for x in contact_info_entries:
-                eid2contact_field[x['entity_id']] = x['contact_value']
-            extra_fields[contact_field['xml_name']] = eid2contact_field
-
+    
     logger.debug("person caching complete")
     return person_id2names, person_id2external_ids, fnr2uname, uname2mail, \
-            eid2cell, extra_fields
+            eid2cell
 # end cache_person_info
+
 
 
 def output_people():
     """Output all information about people."""
-
+    
     person = Factory.get("Person")(cerebrum_db)
     account = Factory.get("Account")(cerebrum_db)
 
@@ -465,7 +449,7 @@ def output_people():
     (person_id2name,
      person_id2external_ids,
      fnr2uname, uname2mail,
-     eid2cell, extra_fields) = cache_person_info(person, account)
+     eid2cell) = cache_person_info(person, account)
 
     # cache for person_id -> external-IDs
     person_info = dict()
@@ -499,16 +483,12 @@ def output_people():
             logger.debug("name_collection %s; id_collection: %s",
                          name_collection, id_collection)
             continue
-
+        
         # people need at least one valid affiliation to be output.
-        import Cerebrum.Errors
-        try:
-            if not person.list_affiliations(person_id=id):
-                logger.debug("Person (e_id:%s; %s) has no affiliations. Skipped",
-                             id, id_collection)
-                continue
-        except Cerebrum.Errors.ProgrammingError:
-            print id
+        if not person.list_affiliations(person_id=id):
+            logger.debug("Person (e_id:%s; %s) has no affiliations. Skipped",
+                         id, id_collection)
+            continue
 
         # Cache the mapping. It does not really matter which external ID we
         # use to identify people, but since FNR is ubiquitous, we settle for
@@ -543,7 +523,7 @@ def output_people():
         work_title = names.get(int(constants.work_title))
         if work_title:
             out("partname", work_title, {"partnametype": get_name_type("work")})
-
+          
         xmlwriter.endElement("n")
         xmlwriter.endElement("name")
 
@@ -562,15 +542,11 @@ def output_people():
                 out("contactinfo", value, {"contacttype":
                                            get_contact_type(contact_type)})
 
-        for field in extra_fields:
-            value = extra_fields[field].get(id)
-            if value:
-                out('contactinfo', value, {'contacttype': field})
-
         xmlwriter.endElement("person")
 
     return person_info
-# end output_people
+# end output_people        
+
 
 
 def output_all_OUs(orgname):
@@ -612,6 +588,7 @@ def output_all_OUs(orgname):
 # end output_all_OUs
 
 
+
 def output_properties():
     """Write a (semi)fixed header for out target XML document.
 
@@ -649,7 +626,7 @@ def output_properties():
     for group_name in ("kull", "ue", "pay"):
         out("groupidtype", get_group_id_type(group_name))
 
-    #
+    # 
     # For N-ary relationships with N > 2, we split each such relationship into
     # a number of pairs. E.g. "kull" is an association between an OU, people
     # and "kull" designation:
@@ -667,15 +644,16 @@ def output_properties():
     # Students who paid semester fee
     out("relationtype", "paid-people",
         {"subject": "group", "object": "person"})
-
+    
     for affiliation, status in get_all_affiliations():
         out("relationtype", get_affiliation_type(affiliation, status),
             {"subject": "organization", "object": "person"})
-
+    
     xmlwriter.endElement("types")
 
     xmlwriter.endElement("properties")
 # end output_properties
+
 
 
 def prepare_pay():
@@ -686,6 +664,7 @@ def prepare_pay():
     out("description", "Studenter som har betalt semavgift")
     xmlwriter.endElement("group")
 # end prepare_pay
+
 
 
 def output_pay_relation(person_info):
@@ -717,6 +696,7 @@ def output_pay_relation(person_info):
 # end output_pay_relation
 
 
+
 def sort_affiliations(sequence):
     """Sort all aff/status entries in sequence by ou_id.
 
@@ -741,6 +721,7 @@ def sort_affiliations(sequence):
 # end sort_affiliations
 
 
+
 def output_affiliation_relation(affiliation, status, sko, people, person_info):
     """Output one <relation>-element as described in output_affiliations."""
 
@@ -758,13 +739,14 @@ def output_affiliation_relation(affiliation, status, sko, people, person_info):
             logger.info("person_id %d is in Cerebrum, but (s)he has no "
                         "external id in cached data", pid)
             continue
-
+            
         idtype, value = person_info[pid]
         out("personid", value, {"personidtype": get_person_id_type(idtype)})
 
     xmlwriter.endElement("object")
     xmlwriter.endElement("relation")
 # end output_affiliation_relation
+
 
 
 def output_affiliations(person_info):
@@ -809,6 +791,7 @@ def output_affiliations(person_info):
 # end output_affiliations
 
 
+
 def output_kull_relations(kull_info, person_info):
     """Output all relations representing 'kull'.
 
@@ -818,7 +801,7 @@ def output_kull_relations(kull_info, person_info):
 
     logger.debug("Writing all kull <relation>s")
     person = Factory.get("Person")(cerebrum_db)
-
+    
     for internal_id, sko in kull_info.items():
         xml_id = make_id(*internal_id)
 
@@ -832,7 +815,7 @@ def output_kull_relations(kull_info, person_info):
                         internal_id)
             continue
 
-        #
+        # 
         # Output a relation linking kull and OU:
         xmlwriter.startElement("relation", {"relationtype": "kull-ou"})
         xmlwriter.startElement("subject")
@@ -843,13 +826,13 @@ def output_kull_relations(kull_info, person_info):
         xmlwriter.endElement("object")
         xmlwriter.endElement("relation")
 
-        #
+        # 
         # Output a relation linking kull and its students:
         xmlwriter.startElement("relation", {"relationtype" : "kull-people"})
         xmlwriter.startElement("subject")
         out("groupid", xml_id, {"groupidtype": get_group_id_type("kull")})
         xmlwriter.endElement("subject")
-
+        
         # All students have the same OU within the same kull. 'relationtype'
         # attribute will contain this information.
         xmlwriter.startElement("object")
@@ -862,6 +845,7 @@ def output_kull_relations(kull_info, person_info):
 
     logger.debug("Done with all kull <relation>s")
 # end output_kull_relations
+
 
 
 def output_ue_relations(ue_info, person_info):
@@ -922,6 +906,7 @@ def output_ue_relations(ue_info, person_info):
 # end output_ue_relations
 
 
+
 def generate_report(orgname):
     """Main driver for the report generation."""
 
@@ -949,82 +934,58 @@ def generate_report(orgname):
     output_kull_relations(kull_info, person_info)
 
     output_ue_relations(ue_info, person_info)
-
+    
     xmlwriter.endElement("document")
     xmlwriter.endDocument()
 # end generate_report
 
 
+
 def main():
     global cerebrum_db, constants, fs_db, xmlwriter, logger, with_email, \
-            with_cell, extra_contact_fields
+            with_cell
 
+    logger = Factory.get_logger("cronjob")
+    logger.info("generating ABC export")
+
+    
     cerebrum_db = Factory.get("Database")()
     constants = Factory.get("Constants")(cerebrum_db)
 
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-f', '--out-file', dest='filename',
-                        help='XML-file to be generated',
-                        required=True)
-    parser.add_argument('-i', '--institution',
-                        dest='institution',
-                        help='Name of institution to put in report',
-                        required=True)
-    parser.add_argument('-e', '--with-email',
-                        dest='with_email',
-                        action='store_true',
-                        default=False,
-                        help='Include email info')
-    parser.add_argument('-c', '--with-cellular',
-                        dest='with_cell',
-                        action='store_true',
-                        default=False,
-                        help='Include cellphone data')
-    parser.add_argument('-x', '--extra-contact-fields',
-                        dest='extra_contact_fields',
-                        default=None,
-                        help=('Add extra contact-fields to the export. '
-                              'Format: xml_name:contact_type:source_system. '
-                              'contact_type and source_system must be valid '
-                              'constant names.'))
-    parser.add_argument('-l', '--logger-name',
-                        dest='logger',
-                        help='Logger instance to use (default: cronjob)',
-                        default='cronjob')
-    args = parser.parse_args()
+    options, rest = getopt.getopt(sys.argv[1:], "f:i:ec",
+                                  ["out-file=",
+                                   "institution=",
+                                   "with-email",
+                                   "with-cellular"])
 
-    if args.extra_contact_fields is not None:
-        extra_fields_unparsed = args.extra_contact_fields.split(',')
-        extra_fields_unparsed = [field_entry.strip()
-                                 for field_entry in extra_fields_unparsed]
-        extra_contact_fields = []
-        for unparsed_field in extra_fields_unparsed:
-            field_raw_data = unparsed_field.split(':')
-            field_dict = dict()
-            field_dict['xml_name'] = field_raw_data[0]
-            field_dict['contact_type'] = field_raw_data[1]
-            field_dict['source_system'] = field_raw_data[2]
-            extra_contact_fields.append(field_dict)
-    else:
-        extra_contact_fields = None
-
-    logger = Factory.get_logger(args.logger)
-    logger.info("generating ABC export")
-
-    with_email = args.with_email
-    with_cell = args.with_cell
+    filename = institution = None
+    with_email = False
+    with_cell = False
+    for option, value in options:
+        if option in ("-f", "--out-file",):
+            filename = value
+        elif option in ("-i", "--institution",):
+            institution = value
+        elif option in ("-e", "--with-email",):
+            with_email = True
+        elif option in ("-c", "--with-cellular",):
+            with_cell = True
 
     _cache_id_types()
     fs_db = make_fs()
-    stream = Utils.AtomicFileWriter(args.filename)
+    stream = Utils.AtomicFileWriter(filename)
     xmlwriter = xmlprinter.xmlprinter(stream,
                                       indent_level=2,
                                       # human-friendly output
                                       data_mode=True,
                                       input_encoding="latin1")
-    generate_report(args.institution)
+    generate_report(institution)
     stream.close()
 # end main
+
+
+
+
 
 if __name__ == "__main__":
     main()
