@@ -81,7 +81,6 @@ def out(element, element_data, attributes={}):
 # end out
 
 
-
 def output_OU(sko):
     """Typeset exactly one OU (this happens often enough)."""
 
@@ -93,12 +92,10 @@ def output_OU(sko):
 # end output_OU
 
 
-
 def make_sko(fakultet, institutt, avdeling):
     return "".join(["%02d" % int(x)
                     for x in (fakultet, institutt, avdeling)])
 # end make_sko
-
 
 
 def make_id(*rest):
@@ -106,7 +103,6 @@ def make_id(*rest):
 
     return ":".join([str(x) for x in rest])
 # end make_id
-
 
 
 def fnr_to_external_id(fnr, person, person_info):
@@ -136,7 +132,6 @@ def fnr_to_external_id(fnr, person, person_info):
 # end fnr_to_external_id
 
 
-
 def remap_fnrs(sequence, person, person_info):
     """Remap fnrs in sequence to fnrs that exist in Cerebrum.
 
@@ -159,14 +154,12 @@ def remap_fnrs(sequence, person, person_info):
     return result
 # end remap_fnr
 
-
-
-
-
 #
 # Dictionary for mapping entities/names in cerebrum into XML attribute names
 #
 _id_type_cache = dict()
+
+
 def _cache_id_types():
     """Create a cache for looking up various IDs later."""
 
@@ -184,18 +177,22 @@ def _cache_id_types():
         _id_type_cache["affiliation"][affiliation, status] = tmp.description
 # end _cache_id_types
 
+
 def get_name_type(name_type):
     return _id_type_cache[name_type]
 # end _cache_id_types
+
 
 def get_contact_type(name):
     return _id_type_cache[name]
 # end get_contact_type
 
+
 def get_person_id_type(external_id):
     # FIXME: Perhaps we ought to validate whatever is fed in here.
     return str(external_id)
 # end get_person_id_type
+
 
 def get_affiliation_type(affiliation, status):
     """Return a human-friendly description for a given affiliation/status."""
@@ -208,6 +205,7 @@ def get_affiliation_type(affiliation, status):
     return title + " (%d:%d)" % (int(affiliation), int(status))
 # end get_affiliation_type
 
+
 def get_group_id_type(kind):
     """Maps a group id kind to a type in XML"""
     return {"pay": "paid-group",
@@ -215,10 +213,12 @@ def get_group_id_type(kind):
             "ue": "uegroup" }[kind]
 # end get_group_id_type
 
+
 def get_all_affiliations():
     """Returns all affiliation/status pairs registered."""
     return _id_type_cache["affiliation"].keys()
 # end get_all_affiliations
+
 
 def _cache_ou2sko(ou):
     """Cache all ou_id -> sko mappings."""
@@ -229,12 +229,10 @@ def _cache_ou2sko(ou):
         _cache_ou2sko.cache[int(row["ou_id"])] = sko
 # end _cache_ou2sko
 
+
 def ou_id2sko(ou_id):
     return _cache_ou2sko.cache.get(int(ou_id))
 # end ou_id2sko
-
-
-
 
 
 def prepare_kull():
@@ -277,7 +275,6 @@ def prepare_kull():
 
     return kull_cache
 # end prepare_kull
-
 
 
 def prepare_ue():
@@ -362,7 +359,6 @@ def fetch_external_ids(db_person):
 
     return tmp
 # end fetch_external_ids
-
 
 
 def cache_person_info(db_person, db_account):
@@ -455,7 +451,6 @@ def cache_person_info(db_person, db_account):
     return person_id2names, person_id2external_ids, fnr2uname, uname2mail, \
             eid2cell, extra_fields
 # end cache_person_info
-
 
 
 def output_people():
@@ -578,7 +573,6 @@ def output_people():
 # end output_people
 
 
-
 def output_all_OUs(orgname):
     """Output all OUs in target organization."""
 
@@ -616,7 +610,6 @@ def output_all_OUs(orgname):
 
     xmlwriter.endElement("organization")
 # end output_all_OUs
-
 
 
 def output_properties():
@@ -685,7 +678,6 @@ def output_properties():
 # end output_properties
 
 
-
 def prepare_pay():
     """Output a group for all students who paid semavgift."""
 
@@ -694,7 +686,6 @@ def prepare_pay():
     out("description", "Studenter som har betalt semavgift")
     xmlwriter.endElement("group")
 # end prepare_pay
-
 
 
 def output_pay_relation(person_info):
@@ -726,7 +717,6 @@ def output_pay_relation(person_info):
 # end output_pay_relation
 
 
-
 def sort_affiliations(sequence):
     """Sort all aff/status entries in sequence by ou_id.
 
@@ -749,7 +739,6 @@ def sort_affiliations(sequence):
 
     return result
 # end sort_affiliations
-
 
 
 def output_affiliation_relation(affiliation, status, sko, people, person_info):
@@ -776,7 +765,6 @@ def output_affiliation_relation(affiliation, status, sko, people, person_info):
     xmlwriter.endElement("object")
     xmlwriter.endElement("relation")
 # end output_affiliation_relation
-
 
 
 def output_affiliations(person_info):
@@ -819,7 +807,6 @@ def output_affiliations(person_info):
                                         people, person_info)
 
 # end output_affiliations
-
 
 
 def output_kull_relations(kull_info, person_info):
@@ -875,7 +862,6 @@ def output_kull_relations(kull_info, person_info):
 
     logger.debug("Done with all kull <relation>s")
 # end output_kull_relations
-
 
 
 def output_ue_relations(ue_info, person_info):
@@ -936,7 +922,6 @@ def output_ue_relations(ue_info, person_info):
 # end output_ue_relations
 
 
-
 def generate_report(orgname):
     """Main driver for the report generation."""
 
@@ -968,7 +953,6 @@ def generate_report(orgname):
     xmlwriter.endElement("document")
     xmlwriter.endDocument()
 # end generate_report
-
 
 
 def main():
@@ -1041,10 +1025,6 @@ def main():
     generate_report(args.institution)
     stream.close()
 # end main
-
-
-
-
 
 if __name__ == "__main__":
     main()
