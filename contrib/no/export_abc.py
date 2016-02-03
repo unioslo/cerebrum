@@ -408,6 +408,7 @@ def cache_person_info(db_person, db_account):
     else:
         uname2mail = dict()
 
+    eid2cell = dict()
     if with_cell:
         # Helper function for ordering items.
         def lookup_order_index(system):
@@ -421,7 +422,6 @@ def cache_person_info(db_person, db_account):
             return i
 
         logger.debug("eid -> cell")
-        eid2cell = {}
         for x in db_person.list_contact_info(
                 contact_type=constants.contact_mobile_phone):
             eid2cell.setdefault(x['entity_id'], []).append(
@@ -432,8 +432,6 @@ def cache_person_info(db_person, db_account):
             eid2cell[x] = sorted(eid2cell[x],
                                  cmp=lambda p, n: lookup_order_index(p[1]) -
                                  lookup_order_index(n[1]))[0][1]
-    else:
-        eid2cell = dict()
 
     extra_fields = dict()
     if extra_contact_fields is not None:
@@ -502,14 +500,10 @@ def output_people():
             continue
 
         # people need at least one valid affiliation to be output.
-        import Cerebrum.Errors
-        try:
-            if not person.list_affiliations(person_id=id):
-                logger.debug("Person (e_id:%s; %s) has no affiliations. Skipped",
-                             id, id_collection)
-                continue
-        except Cerebrum.Errors.ProgrammingError:
-            print id
+        if not person.list_affiliations(person_id=id):
+            logger.debug("Person (e_id:%s; %s) has no affiliations. Skipped",
+                         id, id_collection)
+            continue
 
         # Cache the mapping. It does not really matter which external ID we
         # use to identify people, but since FNR is ubiquitous, we settle for
