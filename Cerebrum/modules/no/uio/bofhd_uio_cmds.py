@@ -5475,7 +5475,7 @@ Addresses and settings:
         body = []
         body.append("Please create a new group:")
         body.append("")
-        body.append("Groupname: %s." % groupname)
+        body.append("Group-name: %s." % groupname)
         body.append("Description:  %s" % description)
         body.append("Requested by: %s" % fromaddr)
         body.append("Moderator: %s" % moderator)
@@ -5486,10 +5486,13 @@ Addresses and settings:
                 [self.const.spread_uio_nis_fg, self.const.spread_ifi_nis_fg,
                  self.const.spread_hpc_nis_fg]):
                 pg = Utils.Factory.get('PosixGroup')(self.db)
-                if not pg.illegal_name(groupname):
-                    body.append("group promote_posix %s" % groupname)
-                else:
-                    raise CerebrumError, "Illegal groupname, max 8 characters allowed."
+                err_str = pg.illegal_name(groupname)
+                if err_str:
+                    if not isinstance(err_str, basestring):  # paranoia
+                        err_str = 'Illegal groupname'
+                    raise CerebrumError('Group-name error: {err_str}'.format(
+                        err_str=err_str))
+                body.append("group promote_posix %s" % groupname)
         if spread:
             body.append("spread add group %s %s" % (groupname, spreadstring))
         body.append("access grant Group-owner (%s) group %s" % (moderator, groupname))
