@@ -41,6 +41,18 @@ There are roughly these categories of data being output:
 ** undervisningsenhet
 ** affiliations
 ** payment information (semester fee (semesteravgift)).
+
+When adding extra contact-fields, be sure to quote the input string so that
+the argument is parsed correctly. When adding several contact fields, separate
+them by commas.
+
+Example: "cellular private:contact_private_mobile:system_sap,
+          cellular work:contact_mobile_phone:system_sap"
+
+These two fields will be added as extra contactinfo-tags, like this:
+
+<contactinfo contacttype="cellular private">value</contactinfo>
+<contactinfo contacttype="cellular work">value</contactinfo>
 """
 
 import argparse
@@ -56,9 +68,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.access_FS import make_fs
-
-
-
 
 
 def out(element, element_data, attributes={}):
@@ -165,14 +174,9 @@ def _cache_id_types():
     for id, xml_name in (("work", "work title"),
                          ("uname", "primary account"),
                          ("email", "primary e-mail address"),
-                         ("cell", "cellular phone"),
-                         ):
+                         ("cell", "cellular phone")):
         _id_type_cache[id] = xml_name
 
-    if extra_contact_fields is not None:
-        for contact_field in extra_contact_fields:
-            _id_type_cache[contact_field['id']] = contact_field['xml_name']
-    #
     # <affiliation, status> -> description
     _id_type_cache["affiliation"] = dict()
     for tmp in c.fetch_constants(c.PersonAffStatus):
@@ -407,7 +411,6 @@ def cache_person_info(db_person, db_account):
     else:
         uname2mail = dict()
 
-    eid2cell = dict()
     if with_cell:
         # Helper function for ordering items.
         def lookup_order_index(system):
@@ -421,33 +424,36 @@ def cache_person_info(db_person, db_account):
             return i
 
         logger.debug("eid -> cell")
+        eid2cell = {}
         for x in db_person.list_contact_info(
                 contact_type=constants.contact_mobile_phone):
             eid2cell.setdefault(x['entity_id'], []).append(
-                    (x['source_system'], x['contact_value']))
+                    (x['source_system'], x['contact_value'],))
 
         # Sort according to SYSTEM_LOOKUP_ORDER and pick the first.
         for x in eid2cell:
             eid2cell[x] = sorted(eid2cell[x],
                                  cmp=lambda p, n: lookup_order_index(p[1]) -
                                  lookup_order_index(n[1]))[0][1]
+    else:
+        eid2cell = dict()
 
     extra_fields = dict()
     if extra_contact_fields is not None:
         for contact_field in extra_contact_fields:
+            cont_type = constants.human2constant(contact_field['contact_type'])
+            src_sys = constants.human2constant(contact_field['source_system'])
             eid2contact_field = dict()
             contact_info_entries = db_person.list_contact_info(
-                    contact_type=contact_field['contact_type'],
-                    source_system=contact_field['source_system'])
+                    contact_type=cont_type,
+                    source_system=src_sys)
             for x in contact_info_entries:
-                eid2contact_field.setdefault(x['entity_id'], [])
-                eid2contact_field[x['entity_id']].append((x['source_system'],
-                                                          x['contact_value']))
+                eid2contact_field[x['entity_id']] = x['contact_value']
             extra_fields[contact_field['xml_name']] = eid2contact_field
 
     logger.debug("person caching complete")
     return person_id2names, person_id2external_ids, fnr2uname, uname2mail, \
-           eid2cell, extra_fields
+            eid2cell, extra_fields
 # end cache_person_info
 
 
@@ -500,10 +506,14 @@ def output_people():
             continue
 
         # people need at least one valid affiliation to be output.
-        if not person.list_affiliations(person_id=id):
-            logger.debug("Person (e_id:%s; %s) has no affiliations. Skipped",
-                         id, id_collection)
-            continue
+        import Cerebrum.Errors
+        try:
+            if not person.list_affiliations(person_id=id):
+                logger.debug("Person (e_id:%s; %s) has no affiliations. Skipped",
+                             id, id_collection)
+                continue
+        except Cerebrum.Errors.ProgrammingError:
+            print id
 
         # Cache the mapping. It does not really matter which external ID we
         # use to identify people, but since FNR is ubiquitous, we settle for
@@ -557,7 +567,6 @@ def output_people():
                 out("contactinfo", value, {"contacttype":
                                            get_contact_type(contact_type)})
 
-        # TODO: This must be tested in production!
         for field in extra_fields:
             value = extra_fields[field].get(id)
             if value:
@@ -970,10 +979,10 @@ def main():
     constants = Factory.get("Constants")(cerebrum_db)
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('f', '--out-file', dest='filename',
+    parser.add_argument('-f', '--out-file', dest='filename',
                         help='XML-file to be generated',
                         required=True)
-    parser.add_argument('i', '--institution',
+    parser.add_argument('-i', '--institution',
                         dest='institution',
                         help='Name of institution to put in report',
                         required=True)
@@ -990,7 +999,10 @@ def main():
     parser.add_argument('-x', '--extra-contact-fields',
                         dest='extra_contact_fields',
                         default=None,
-                        help='Which types of phone numbers to include in ')
+                        help=('Add extra contact-fields to the export. '
+                              'Format: xml_name:contact_type:source_system. '
+                              'contact_type and source_system must be valid '
+                              'constant names.'))
     parser.add_argument('-l', '--logger-name',
                         dest='logger',
                         help='Logger instance to use (default: cronjob)',
@@ -1005,11 +1017,12 @@ def main():
         for unparsed_field in extra_fields_unparsed:
             field_raw_data = unparsed_field.split(':')
             field_dict = dict()
-            field_dict['id'] = field_raw_data[0]
-            field_dict['xml_name'] = field_raw_data[1]
-            field_dict['contact_type'] = field_raw_data[2]
-            field_dict['source_system'] = field_raw_data[3]
+            field_dict['xml_name'] = field_raw_data[0]
+            field_dict['contact_type'] = field_raw_data[1]
+            field_dict['source_system'] = field_raw_data[2]
             extra_contact_fields.append(field_dict)
+    else:
+        extra_contact_fields = None
 
     logger = Factory.get_logger(args.logger)
     logger.info("generating ABC export")
