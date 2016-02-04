@@ -11,12 +11,11 @@ BOFHD_SHORT_TIMEOUT_HOSTS = ['10.10.0.0/5', '10.10.128.0']
 
 
 @pytest.fixture
-def cereconf():
+def cereconf(cereconf):
     u""" Patched `cereconf` with known BOFHD_ session values. """
-    conf = pytest.importorskip('cereconf')
-    setattr(conf, 'BOFHD_SHORT_TIMEOUT', BOFHD_SHORT_TIMEOUT)
-    setattr(conf, 'BOFHD_SHORT_TIMEOUT_HOSTS', BOFHD_SHORT_TIMEOUT_HOSTS)
-    return conf
+    setattr(cereconf, 'BOFHD_SHORT_TIMEOUT', BOFHD_SHORT_TIMEOUT)
+    setattr(cereconf, 'BOFHD_SHORT_TIMEOUT_HOSTS', BOFHD_SHORT_TIMEOUT_HOSTS)
+    return cereconf
 
 
 @pytest.fixture
