@@ -1,123 +1,76 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-""" Basic tests for Cerebrum/Group.py.
-
-Searching (members and groups) has to be thoroughly tested.
-
-"""
-#import sys
-from nose.tools import raises, with_setup
-
-import cerebrum_path
-import cereconf
-from Cerebrum.Utils import Factory
-from Cerebrum import Errors
-from Cerebrum.Constants import _SpreadCode as SpreadCode
-
-# Cerebrum-specific test modules
-from datasource import BasicGroupSource
-#from datasource import expired_filter
-from datasource import nonexpired_filter
-from dbtools import DatabaseTools
-
-# Global cererbum objects
-db = None
-gr = None
-co = None
-
-# Group datasource generator
-group_ds = None
-
-# Groups, global list of groups in a given test
-groups = None
-
-# Database tools to do common tasks
-db_tools = None
-
-# A group spread constant
-group_spread = None
-group_spread_name = 'gipyzhfeqzpqjzde'
+""" Basic tests for Cerebrum/Group.py (GROUP_CLASS). """
+import pytest
+import datasource
 
 
-def setup_module():
-    """ Setup for this test module.
-
-    This function is called is called once (and only once) by nosetests before
-    any test in this script is performed.
-
-    """
-    global db, gr, co, group_spread, group_ds, db_tools
-    db = Factory.get('Database')()
-    db.cl_init(change_program='nosetests')
-    db.commit = db.rollback  # Let's try not to screw up other tests
-
-    gr = Factory.get('Group')(db)
-    co = Factory.get('Constants')(db)
-
-    # Data source for groups
-    group_ds = BasicGroupSource()
-
-    # Tools for creating and destroying temporary db items
-    db_tools = DatabaseTools(db)
-
-    # Create group_spread
-    group_spread = db_tools.insert_constant(SpreadCode,
-                                            group_spread_name,
-                                            co.entity_group,
-                                            'Temp group spread (test)')
+@pytest.fixture
+def group_ds():
+    u""" Data source for creating groups. """
+    return datasource.BasicGroupSource()
 
 
-def teardown_module():
-    """ Clean up this module.
-
-    This function is called once by nosetests after performing tests in this
-    module. It is called regardless of the test results, but may not be called
-    it the test itself crashes.
-
-    """
-
-    db_tools.clear_groups()
-    db_tools.clear_accounts()
-    db_tools.clear_persons()
-    db_tools.clear_constants()
-    db.rollback()
+@pytest.fixture
+def database(database):
+    u""" Database with cl_init set. """
+    database.cl_init(change_program='test_core_Group')
+    return database
 
 
-def create_groups(num=5):
-    """ Create a set of groups to use in a test.
+@pytest.fixture
+def gr(database, factory):
+    u""" Empty, initialized group entity. """
+    return factory.get('Group')(database)
 
-    See C{groups} in this file for format.
 
-    """
-    def wrapper():
-        global groups
-        groups = []
-        for entry in group_ds(limit=num):
-            entity_id = db_tools.create_group(entry)
-            entry['entity_id'] = entity_id
+@pytest.fixture
+def group_spread(constant_module, initial_group):
+    u""" A new, unique group spread. """
+    code = constant_module._SpreadCode
+    spread = code('c8df4be6be5b9dca',
+                  entity_type=initial_group.entity_type,
+                  description='spread')
+    spread.insert()
+    return spread
+
+
+@pytest.fixture
+def group_visibility(constant_module):
+    u""" A new, unique group visibility setting. """
+    code = constant_module._GroupVisibilityCode
+    vis = code('8d9cbd5ac0e9b4f8', description='test visibility')
+    vis.insert()
+    return vis
+
+
+@pytest.fixture
+def groups(gr, group_visibility, group_ds, initial_account):
+    u""" Group info on five new groups. """
+    groups = list()
+    for entry in group_ds(limit=5):
+        try:
+            # creator_id = self.get_initial_account_id()
+            gr.populate(
+                initial_account.entity_id,
+                int(group_visibility),
+                entry['group_name'],
+                entry['description'])
+            gr.expire_date = entry.get('expire_date')
+            gr.write_db()
+            entry['entity_id'] = gr.entity_id
+            entry['entity_type'] = gr.entity_type
             groups.append(entry)
-        for entry in groups:
-            assert entry['entity_id'] is not None
-    return wrapper
-
-
-def remove_groups():
-    """ Remove all groups.
-
-    Complementary function/cleanup code for C{create_groups}.
-
-    """
-    def wrapper():
-        global groups
-        for entry in groups:
-            db_tools.delete_group_id(entry['entity_id'])
-        groups = None
-    return wrapper
+        except:
+            gr._db.rollback()
+            raise
+        finally:
+            gr.clear()
+    return groups
 
 
 def modify_chain(chain, operation):
-    """ Helper function for creating/deleting memberships.
+    u""" Helper function for creating/deleting memberships.
 
     For every item in chain, but the last, do operation with arguments (this
     items entity_id, next items entity_id)
@@ -127,78 +80,68 @@ def modify_chain(chain, operation):
         operation(chain[index]['entity_id'], chain[index+1]['entity_id'])
 
 
-def add_member(group_id, member_id):
-    """ Helper function for adding a member_id to a group. """
-    gr.clear()
-    gr.find(group_id)
-    gr.add_member(member_id)
+def modify_add_member(obj):
+    u""" Helper function for adding a member_id to a group. """
+    def add(group_id, member_id):
+        obj.find(group_id)
+        obj.add_member(member_id)
+        obj.clear()
+    return add
 
 
-def remove_member(group_id, member_id):
-    """ Helper function for removing a member_id from a group. """
-    gr.clear()
-    gr.find(group_id)
-    gr.remove_member(member_id)
-
-
-@with_setup(create_groups(num=5), remove_groups())
-def test_simple_find():
-    """ Group.find() existing entity. """
+def test_find(gr, groups):
+    if len(groups) < 1:
+        pytest.skip('Test needs at least one group')
     for entry in groups:
-        gr.clear()
         gr.find(entry['entity_id'])
-
-
-@raises(Errors.NotFoundError)
-def test_simple_find_fail():
-    """ Group.find() non-existing entity. """
-    gr.clear()
-    gr.find(-10)  # negative IDs are impossible in Cerebrum
-
-
-@with_setup(create_groups(num=5), remove_groups())
-def test_find_by_name():
-    """ Group.find_by_name() existing name. """
-
-    for entry in groups:
         gr.clear()
+
+
+def test_find_error(gr):
+    from Cerebrum.Errors import NotFoundError
+    with pytest.raises(NotFoundError):
+        gr.find(-10)  # negative IDs are impossible in Cerebrum
+        gr.clear()
+
+
+def test_find_by_name(gr, groups):
+    if len(groups) < 1:
+        pytest.skip('Test needs at least one group')
+    for entry in groups:
         gr.find_by_name(entry['group_name'])
+        gr.clear()
 
 
-@raises(Errors.NotFoundError)
-def test_find_by_name_fail():
-    """ Group.find_by_name() non-existing name. """
-    gr.clear()
-    gr.find_by_name('n' * (256+1))  # entity_name is a varchar(256), no group
-                                    # with longer name should exist.
+def test_find_by_name_error(gr):
+    from Cerebrum.Errors import NotFoundError
+    with pytest.raises(NotFoundError):
+        # entity_name is a varchar(256), no group with longer name should exist
+        gr.find_by_name('n' * (256+1))
+        gr.clear()
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_group_expired():
-    """ Group.is_expired() on known set. """
-    non_expired = set((g['entity_id'] for g in
-                       filter(nonexpired_filter, groups)))
+def test_is_expired(gr, groups):
+    non_expired = set((v['entity_id'] for v in
+                       filter(datasource.nonexpired_filter, groups)))
 
-    # We must have at least one expired and one non-expired group
-    assert (len(non_expired) > 0 and
-            len(non_expired) < len(set((g['entity_id'] for g in groups))))
+    if len(non_expired) < 1:
+        pytest.skip('Test needs at least one non-expired group')
+    if len(non_expired) == len(groups):
+        pytest.skip('Test needs at least one expired group')
 
     for entry in groups:
-        gr.clear()
         gr.find(entry['entity_id'])
         if gr.entity_id in non_expired:
             assert not gr.is_expired()
         else:
             assert gr.is_expired()
+        gr.clear()
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_membership1():
-    """ Group.add_member/has_member() test membership. """
-    assert len(groups) >= 2  # We need min 2 groups for this test
+def test_has_member(gr, groups):
+    if len(groups) < 2:
+        pytest.skip('Test needs at least two groups')
     member_id = groups[1]['entity_id']
-
-    gr.clear()
     gr.find_by_name(groups[0]['group_name'])
     gr.add_member(member_id)
     gr.write_db()
@@ -207,13 +150,11 @@ def test_membership1():
     assert not gr.has_member(member_id)
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_membership2():
-    """ Group, test a bunch of add/has/remove members."""
-
+def test_add_remove_member(gr, groups):
+    if len(groups) < 2:
+        pytest.skip('Test needs at least two groups')
     e1 = groups[0]
     test_case = groups[1:4]
-    gr.clear()
     gr.find_by_name(e1['group_name'])
 
     for entry in test_case:
@@ -226,13 +167,12 @@ def test_membership2():
             gr.remove_member(entry['entity_id'])
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_id():
-    """ Group.search() with group_id keyword argument. """
+def test_search_id(gr, groups):
+    if len(groups) < 2:
+        pytest.skip('Test needs at least two groups')
     assert len(list(gr.search(group_id=groups[0]['entity_id'],
                               filter_expired=False))) == 1
 
-    assert len(groups) >= 2  # We need min 2 groups for this test
     for seq_type in (tuple, set, list):
         result = list(gr.search(group_id=seq_type((groups[0]['entity_id'],
                                                    groups[1]['entity_id'])),
@@ -240,10 +180,9 @@ def test_search_id():
         assert len(result) == 2
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_result():
-    """ Group.search() db_row result attributes. """
-    assert len(groups) >= 2  # We need min 2 groups for this test
+def test_search_result(gr, groups):
+    if len(groups) < 2:
+        pytest.skip('Test needs at least two groups')
     attributes = ('group_id', 'name', 'description', 'visibility',
                   'creator_id', 'create_date', 'expire_date')
     rows = list(gr.search(group_id=[g['entity_id'] for g in groups],
@@ -255,102 +194,95 @@ def test_search_result():
             assert attr_name in row.dict()
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_for_member():
+def test_search_member_id(gr, groups):
     """ Group.search(member_id). """
-    assert len(groups) >= 3  # We need at least 3 groups for this test
+    if len(groups) < 3:
+        pytest.skip('Test needs at least three groups')
 
-    modify_chain(groups, add_member)
+    # Make memberships
+    modify_chain(groups, modify_add_member(gr))
 
-    try:
-        # Each group, except the first, should now be member of exactly ONE
-        # group. 
-        for index, group in enumerate(groups):
-            if index == 0:
-                continue  # ...all groups except the first
-            result = list(gr.search(member_id=groups[index]['entity_id'],
-                                    indirect_members=False,
-                                    filter_expired=False))
-            assert len(result) == 1
-            assert result[0]['group_id'] == groups[index-1]['entity_id']
-
-        # And now via the transitive closure
-        result = list(gr.search(member_id=groups[-1]['entity_id'],
-                                indirect_members=True,
+    # Each group, except the first, should now be member of exactly ONE
+    # group.
+    for index, group in enumerate(groups):
+        if index == 0:
+            continue  # ...all groups except the first
+        result = list(gr.search(member_id=groups[index]['entity_id'],
+                                indirect_members=False,
                                 filter_expired=False))
+        assert len(result) == 1
+        assert result[0]['group_id'] == groups[index-1]['entity_id']
 
-        # The answer is the remaining chain
-        assert len(result) == len(groups)-1
-        assert (set(x['entity_id'] for x in groups[:-1]) ==
-                set(x['group_id'] for x in result))
-    finally:
-        modify_chain(groups, remove_member)
+    # And now via the transitive closure
+    result = list(gr.search(member_id=groups[-1]['entity_id'],
+                            indirect_members=True,
+                            filter_expired=False))
+
+    # The answer is the remaining chain
+    assert len(result) == len(groups)-1
+    assert (set(x['entity_id'] for x in groups[:-1])
+            == set(x['group_id'] for x in result))
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_member2():
+def test_search_member_complex(gr, groups):
     """ Group.search(member_id) (complex membership graph). """
-    assert len(groups) >= 3  # We need at least 3 groups for this test
+    if len(groups) < 3:
+        pytest.skip('Test needs at least three groups')
 
-    modify_chain(groups, add_member)
-    modify_chain((groups[0], groups[2]), add_member)
+    modify_chain(groups, modify_add_member(gr))
+    modify_chain((groups[0], groups[2]), modify_add_member(gr))
     # now groups[2] is a direct member of groups[0] as well
 
-    try:
-        result = list(gr.search(member_id=groups[-1]['entity_id'],
-                                indirect_members=True,
-                                filter_expired=False))
-        assert len(result) == len(groups)-1
-        assert (set(x['entity_id'] for x in groups[:-1]) ==
-                set(x['group_id'] for x in result))
-    finally:
-        modify_chain(groups, remove_member)
-        modify_chain((groups[0], groups[2]), remove_member)
+    result = list(gr.search(member_id=groups[-1]['entity_id'],
+                            indirect_members=True,
+                            filter_expired=False))
+    assert len(result) == len(groups)-1
+    assert (set(x['entity_id'] for x in groups[:-1])
+            == set(x['group_id'] for x in result))
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_name():
+def test_search_name(gr, groups):
     """ Group.search() for name. """
-    assert len(groups) >= 1  # We need at least 1 group for this test
+    if len(groups) < 1:
+        pytest.skip('Test needs at least one group')
     for item in groups:
         result = list(gr.search(name=item['group_name'], filter_expired=False))
         assert len(result) == 1
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_name_wildcard():
+def test_search_name_wildcard(gr, groups, group_ds):
     """ Group.search() for name with wildcards. """
-    assert len(groups) >= 1  # We need at least 1 group for this test
+    if len(groups) < 1:
+        pytest.skip('Test needs at least one group')
     search_expr = group_ds.get_name_prefix() + '%'
     result = list(gr.search(name=search_expr, filter_expired=False))
     assert len(result) == len(groups)
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_description():
+def test_search_description(gr, groups):
     """ Group.search() for description. """
-    assert len(groups) >= 1  # We need at least 1 group for this test
+    if len(groups) < 1:
+        pytest.skip('Test needs at least one group')
     for item in groups:
         result = list(gr.search(description=item['description'],
                                 filter_expired=False))
         assert len(result) == 1
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_description_wildcard():
+def test_search_description_wildcard(gr, groups, group_ds):
     """Group.search() for description with wildcards. """
-    assert len(groups) >= 1  # We need at least 1 group for this test
+    if len(groups) < 1:
+        pytest.skip('Test needs at least one group')
     search_expr = group_ds.get_description_prefix() + '%'
     results = list(gr.search(description=search_expr, filter_expired=False))
     assert len(results) == len(groups)
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_expired():
+def test_search_expired(gr, groups, group_ds):
     """ Group.search() filter_expired keyword argument. """
-    non_expired = filter(nonexpired_filter, groups)
-    assert (len(groups) - len(non_expired)) >= 1  # We need at least 1 expired
-                                                  # group for this test
+    non_expired = filter(datasource.nonexpired_filter, groups)
+    if (len(groups) - len(non_expired)) < 1:
+        pytest.skip('Test needs at least one expired group')
 
     search_expr = group_ds.get_name_prefix() + '%'
 
@@ -361,12 +293,11 @@ def test_search_expired():
     assert (len(result) == len(groups))
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_spread():
+def test_search_spread(gr, groups, group_spread):
     """ Group.search() for spread. """
-    assert len(groups) >= 1  # We need at least 1 group for this test
+    if len(groups) < 1:
+        pytest.skip('Test needs at least one group')
 
-    gr.clear()
     gr.find_by_name(groups[0]['group_name'])
 
     # It does not really matter which spread we pick out, as long as it is
@@ -383,207 +314,173 @@ def test_search_spread():
         gr.delete_spread(group_spread)
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_empty_search():
+def test_empty_search(gr, groups):
     """ Group.search() without args. """
-    non_expired = filter(nonexpired_filter, groups)
-    assert len(non_expired) >= 1  # We need at least 1 non-expired group for
-                                  # this test
+    non_expired = filter(datasource.nonexpired_filter, groups)
+    if len(non_expired) < 1:
+        pytest.skip('Test needs at least one non-expired group')
 
     result = list(gr.search())
     assert len(result) >= len(non_expired)
-    assert (set(x['group_id'] for x in result).issuperset(
-            set(x['entity_id'] for x in non_expired)))
+    assert set(x['group_id'] for x in result).issuperset(set(x['entity_id'] for
+                                                             x in non_expired))
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_cyclic_membership():
+def test_cyclic_membership(gr, groups):
     """Check if Group-API handles cyclic memberships."""
-    assert len(groups) >= 2  # We need at least 2 groups for this test
+    if len(groups) < 2:
+        pytest.skip('Test needs at least two groups')
 
     # Make every group[x+1] a member of group[x]
-    modify_chain(groups, add_member)
+    modify_chain(groups, modify_add_member(gr))
     # Make every group[x] a member of group[x+1]
-    modify_chain(groups[::-1], add_member)
+    modify_chain(groups[::-1], modify_add_member(gr))
 
     # Now that we have a cycle spanning the entire default_groups, let's
     # look for groups where default_groups[-1] is an indirect member.
-    try:
-        result = list(gr.search(member_id=groups[-1]['entity_id'],
-                                indirect_members=True,
-                                filter_expired=False))
-        assert len(result) == len(groups)
-    finally:
-        modify_chain(groups, remove_member)
-        modify_chain(groups[::-1], remove_member)
+    result = list(gr.search(member_id=groups[-1]['entity_id'],
+                            indirect_members=True,
+                            filter_expired=False))
+    assert len(result) == len(groups)
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_members_simple():
+def test_search_members_simple(gr, groups):
     """ Group.search_members() by group_id. """
-    assert len(groups) >= 3  # We need at least 3 groups for this test
+    if len(groups) < 3:
+        pytest.skip('Test needs at least three groups')
 
     members = [g['entity_id'] for g in groups[1:3]]
     for m in members:
-        add_member(groups[0]['entity_id'], m)
+        modify_add_member(gr)(groups[0]['entity_id'], m)
 
-    try:
-        result = list(gr.search_members(group_id=groups[0]['entity_id'],
-                                        member_filter_expired=False))
-        assert len(result) == len(members)
-        assert (set(x['member_id'] for x in result) == set(members))
-    finally:
-        for m in members:
-            remove_member(groups[0]['entity_id'], m)
+    result = list(gr.search_members(group_id=groups[0]['entity_id'],
+                                    member_filter_expired=False))
+    assert len(result) == len(members)
+    assert set(x['member_id'] for x in result) == set(members)
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_members_group_id_indirect():
+def test_search_members_group_id_indirect(gr, groups):
     """ Group.search_members() indirect members of given group. """
-    assert len(groups) >= 3  # We need at least 3 groups for this test
+    if len(groups) < 3:
+        pytest.skip('Test needs at least three groups')
 
-    modify_chain(groups, add_member)
+    modify_chain(groups, modify_add_member(gr))
 
     # *all* other groups are transient members of groups[0]
-    try:
-        result = list(gr.search_members(group_id=groups[0]['entity_id'],
-                                        indirect_members=True,
-                                        member_filter_expired=False))
-        assert len(result) == len(groups)-1
-        assert (set(x['member_id'] for x in result) ==
-                set(x['entity_id'] for x in groups[1:]))
-    finally:
-        modify_chain(groups, remove_member)
+    result = list(gr.search_members(group_id=groups[0]['entity_id'],
+                                    indirect_members=True,
+                                    member_filter_expired=False))
+    assert len(result) == len(groups)-1
+    assert (set(x['member_id'] for x in result)
+            == set(x['entity_id'] for x in groups[1:]))
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_members_assert_keys():
+def test_search_members_assert_keys(gr, groups):
     """ Check that required keys are returned by Group.search_members(). """
-    assert len(groups) >= 2  # We need at least 2 groups for this test
+    if len(groups) < 2:
+        pytest.skip('Test needs at least two groups')
 
     attributes = ('member_type', 'member_id', 'expire_date')
-    add_member(groups[0]['entity_id'], groups[1]['entity_id'])
+    modify_add_member(gr)(groups[0]['entity_id'], groups[1]['entity_id'])
 
-    try:
-        result = list(gr.search_members(group_id=groups[0]['entity_id']))
-        assert len(result) == 1
-        for attr in attributes:
-            assert attr in result[0].dict()
-    finally:
-        remove_member(groups[0]['entity_id'], groups[1]['entity_id'])
+    result = list(gr.search_members(group_id=groups[0]['entity_id'],
+                                    member_filter_expired=False))
+    assert len(result) == 1
+    for attr in attributes:
+        assert attr in result[0].dict()
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_members_by_id():
+def test_search_members_by_id(gr, groups):
     """ Group.search_members() multiple member_ids. """
-    assert len(groups) >= 3  # We need at least 3 groups for this test
+    if len(groups) < 3:
+        pytest.skip('Test needs at least three groups')
 
     members = [g['entity_id'] for g in groups[1:3]]
     for m in members:
-        add_member(groups[0]['entity_id'], m)
-    try:
-        result = list(gr.search_members(member_id=members,
-                                        member_filter_expired=False))
-        assert len(result) == len(members)
-        assert (set(x['member_id'] for x in result) == set(members))
-    finally:
-        for m in members:
-            remove_member(groups[0]['entity_id'], m)
+        modify_add_member(gr)(groups[0]['entity_id'], m)
+    result = list(gr.search_members(member_id=members,
+                                    member_filter_expired=False))
+    assert len(result) == len(members)
+    assert (set(x['member_id'] for x in result) == set(members))
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_members_member_id_indirect_expired():
+def test_search_members_member_id_indirect_expired(gr, groups):
     """ Group.search_members() indirect members, filtering expired. """
-    non_expired = filter(nonexpired_filter, groups)
-    assert len(non_expired) >= 3  # We need at least 2 non-expired groups for
-                                  # this test
-    modify_chain(non_expired, add_member)
+    non_expired = filter(datasource.nonexpired_filter, groups)
+    if len(non_expired) < 3:
+        pytest.skip('Test needs at least three non-expired groups')
+
+    modify_chain(non_expired, modify_add_member(gr))
 
     # *all* non_expired groups are indirect members of non_expired[0]
-    try:
-        result = list(gr.search_members(member_id=non_expired[-1]['entity_id'],
-                                        indirect_members=True,
-                                        member_filter_expired=True))
-        assert len(result) == len(non_expired)-1
-        assert (set(x['member_id'] for x in result) ==
-                set(x['entity_id'] for x in non_expired[1:]))
-    finally:
-        modify_chain(non_expired, remove_member)
+    result = list(gr.search_members(member_id=non_expired[-1]['entity_id'],
+                                    indirect_members=True,
+                                    member_filter_expired=True))
+    assert len(result) == len(non_expired) - 1
+    assert (set(x['member_id'] for x in result)
+            == set(x['entity_id'] for x in non_expired[1:]))
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_members_by_type():
-    """ Group.search_members() by member_type. """
-    assert len(groups) >= 2  # We need at least 2 groups for this test
+def test_search_members_by_type(gr, groups, initial_account):
+    non_expired = filter(datasource.nonexpired_filter, groups)
+    if len(non_expired) < 2:
+        pytest.skip('Test needs at least two non-expired groups')
 
-    account_id = db_tools.get_initial_account_id()
+    for m in (non_expired[1]['entity_id'], initial_account.entity_id):
+        modify_add_member(gr)(non_expired[0]['entity_id'], m)
 
-    members = groups[1]['entity_id'], account_id
-    for m in members:
-        add_member(groups[0]['entity_id'], m)
+    result = list(gr.search_members(member_type=initial_account.entity_type,
+                                    group_id=non_expired[0]["entity_id"],
+                                    member_filter_expired=False))
+    assert len(result) == 1
+    assert result[0]['member_id'] == initial_account.entity_id
 
-    try:
-        result = list(gr.search_members(member_type=co.entity_account,
-                                        group_id=groups[0]["entity_id"],))
-        assert len(result) == 1
-        assert result[0]['member_id'] == account_id
-
-        result = list(gr.search_members(member_type=co.entity_group,
-                                        group_id=groups[0]["entity_id"],))
-        assert len(result) == 1
-        assert result[0]['member_id'] == groups[1]['entity_id']
-    finally:
-        for m in members:
-            remove_member(groups[0]['entity_id'], m)
+    result = list(gr.search_members(member_type=non_expired[1]['entity_type'],
+                                    group_id=non_expired[0]["entity_id"]))
+    assert len(result) == 1
+    assert result[0]['member_id'] == non_expired[1]['entity_id']
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_members_by_spread():
-    """ Group.search_members() by spread. """
-    assert len(groups) >= 2  # We need at least 2 groups for this test
-    assert group_spread is not None
+def test_search_members_by_spread(gr, groups, group_spread):
+    non_expired = filter(datasource.nonexpired_filter, groups)
+    if len(non_expired) < 2:
+        pytest.skip('Test needs at least two non-expired groups')
 
-    gr.clear()
-    gr.find_by_name(groups[1]['group_name'])
+    gr.find_by_name(non_expired[1]['group_name'])
     gr.add_spread(group_spread)
+    gr.clear()
 
-    try:
-        # Make group[1] a child of group[0]
-        modify_chain(groups[:2], add_member)
-        result = list(gr.search_members(member_spread=group_spread,
-                                        member_filter_expired=False,))
-        assert len(result) == 1
-        assert result[0]['member_id'] == groups[1]['entity_id']
-    finally:
-        gr.delete_spread(group_spread)
-        modify_chain(groups[:2], remove_member)
+    # Make group[1] a child of group[0]
+    modify_chain(non_expired[:2], modify_add_member(gr))
+    result = list(gr.search_members(member_spread=group_spread))
+    assert len(result) == 1
+    assert result[0]['member_id'] == non_expired[1]['entity_id']
 
 
-@with_setup(create_groups(num=5), remove_groups())
-def test_search_members_expired():
-    """ Group.search_members() with member_filter_expired. """
+def test_search_members_expired(gr, groups):
+    U""" Group.search_members() with member_filter_expired. """
     non_expired = set((g['entity_id'] for g in
-                       filter(nonexpired_filter, groups)))
+                       filter(datasource.nonexpired_filter, groups)))
     expired = set((g['entity_id'] for g in groups)) - non_expired
-    assert len(expired) >= 1  # We need at least one expired group
+
+    if len(expired) < 1:
+        pytest.skip('Test needs at least one expired group')
+
     # Check our sets
     assert not expired.intersection(non_expired)
     assert expired.union(non_expired) == set((g['entity_id'] for g in groups))
 
-    modify_chain(groups, add_member)
-    try:
-        # Check that everything is there, when we disregard expired
-        result = list(gr.search_members(group_id=expired.union(non_expired),
-                                        member_filter_expired=False,))
-        assert len(result) == len(groups)-1
+    modify_chain(groups, modify_add_member(gr))
+    # Check that everything is there, when we disregard expired
+    result = list(gr.search_members(group_id=expired.union(non_expired),
+                                    member_filter_expired=False,))
+    assert len(result) == len(groups)-1
 
-        # Check that every *member* group that is *not expired* is returned
-        result = list(gr.search_members(group_id=expired.union(non_expired),
-                                        member_filter_expired=True,))
-        expected_results = [len(expired),
-                            len(expired)-1][int(groups[0]['entity_id']
-                                                in expired)]
-        assert len(result) == len(groups) - 1 - expected_results
-        assert not set(x['member_id'] for x in result).intersection(expired)
-    finally:
-        modify_chain(groups, remove_member)
+    # Check that every *member* group that is *not expired* is returned
+    result = list(gr.search_members(group_id=expired.union(non_expired),
+                                    member_filter_expired=True,))
+    expected_results = (len(expired) - 1
+                        if groups[0]['entity_id'] in expired
+                        else len(expired))
+    assert len(result) == len(groups) - 1 - expected_results
+    assert not set(x['member_id'] for x in result).intersection(expired)
