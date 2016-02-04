@@ -9,9 +9,29 @@ import types
 
 
 @pytest.fixture
-def factory():
-    u""" `Cerebrum.Utils.Factory` """
-    return getattr(pytest.importorskip('Cerebrum.Utils'), 'Factory')
+def cereconf():
+    u""" 'cereconf' config.
+
+    This fixture allows test modules to change cereconf settings when certain
+    settings need to be tested, or when certain changes needs to be injected in
+    the config.
+    """
+    try:
+        import cereconf
+        return cereconf
+    except ImportError:
+        pytest.xfail(u"Unable to import 'cereconf'")
+
+
+@pytest.fixture
+def factory(cereconf):
+    u""" `Cerebrum.Utils.Factory`.
+
+    We list cereconf as a 'dependency' in order to have it processed before
+    importing and using the factory.
+    """
+    from Cerebrum.Utils import Factory
+    return Factory
 
 
 @pytest.fixture
@@ -25,9 +45,9 @@ def database(factory):
     u""" `Cerebrum.Database` with automatic rollback. """
     db = factory.get('Database')()
     db.commit = db.rollback
-    print 'db init', db, db._cursor
+    print 'database init', db, db._cursor
     yield db
-    print 'db rollback', db, db._cursor
+    print 'database rollback', db, db._cursor
     db.rollback()
 
 
@@ -42,7 +62,7 @@ def constant_module(database):
     cleared for each scope.
 
     """
-    module = pytest.importorskip("Cerebrum.Constants")
+    from Cerebrum import Constants as module
     # Patch the `sql` property to always return a known db-object
     module._CerebrumCode.sql = property(lambda *args: database)
     # Clear the constants cache of each _CerebrumCode class, to avoid caching
@@ -52,3 +72,17 @@ def constant_module(database):
                 and issubclass(item, module._CerebrumCode)):
             item._cache = dict()
     return module
+
+
+@pytest.fixture
+def initial_account(database, factory, cereconf):
+    ac = factory.get('Account')(database)
+    ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+    return ac
+
+
+@pytest.fixture
+def initial_group(database, factory, cereconf):
+    gr = factory.get('Group')(database)
+    gr.find_by_name(cereconf.INITIAL_GROUPNAME)
+    return gr
