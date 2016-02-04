@@ -87,7 +87,7 @@ class cf_permission(object):
 
     ROLE_READ = '01'
     ROLE_WRITE = '02'
-    ROLE_DELETE = '03'
+    ROLE_DELETE = '06'
     ROLE_CHANGE = '07'
 
     access2symbol = {
@@ -277,7 +277,7 @@ class cf_tree(object):
         groups in topological order.
 
         Fronter requires parent groups to be output before children, in order
-        for their import routines to function properly. 
+        for their import routines to function properly.
         """
 
         if not self._root:
@@ -388,7 +388,7 @@ class cf_group_interface(object):
             # 2 possibilities here -- self is either a ROOM or a group with a
             # kull role holder. In all cases the parent is the same - kull
             # corridor. In either case the parent's name is deduced similarily.
-            # 
+            #
             idx = parent_components.index("kull")
             return "Kull %s %s %s" % (
                 parent_components[idx-1],  # stprog
@@ -831,6 +831,15 @@ class cf_member_group(cf_group_interface):
             "avdeling": cf_permission.ROLE_WRITE,
         }
 
+        all_delete = {
+            "stprog": cf_permission.ROLE_DELETE,
+            "kull": cf_permission.ROLE_DELETE,
+            "kullklasse": cf_permission.ROLE_DELETE,
+            "undenh": cf_permission.ROLE_DELETE,
+            "undakt": cf_permission.ROLE_DELETE,
+            "avdeling": cf_permission.ROLE_DELETE,
+        }
+
         all_change = {
             "stprog": cf_permission.ROLE_CHANGE,
             "kull": cf_permission.ROLE_CHANGE,
@@ -844,7 +853,7 @@ class cf_member_group(cf_group_interface):
             "assistent":   all_read,
             "hovedlærer":  all_change,
             "kursansv":    all_write,
-            "lærer":       all_write,
+            "lærer":       all_delete,
             "kontakt":     all_read,
             "veileder":    all_write,
             "admin":       {"stprog": cf_permission.ROLE_CHANGE,
@@ -1414,7 +1423,7 @@ def output_viewcontacts(target, permission_holders, printer):
 def process_viewcontacts_permissions(cf_group, local_permissions,
                                      inherited_permissions, printer):
     """Generate XML for represeting viewContacts permissions related to
-    cf_group. 
+    cf_group.
 
     This is where it gets hairy.
     """
