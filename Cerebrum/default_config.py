@@ -172,10 +172,6 @@ MODULE_CLIENTAPI = ['Cerebrum.client.BofhModel']
 # URL to bofh server
 BOFH_URL = 'http://127.0.0.1:8000'
 
-# Toggle debugging various parts of the code.
-# Comparing two Entity (or subclass) instances:
-DEBUG_COMPARE = False
-
 # GroupUioMixin limits max # of groupmemberships in groups with
 # these spreads
 NIS_SPREADS = ()

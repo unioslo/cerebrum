@@ -959,10 +959,6 @@ class EntityAddress(Entity):
     def add_entity_address(self, source, type, address_text=None,
                            p_o_box=None, postal_number=None, city=None,
                            country=None):
-        if cereconf.DEBUG_COMPARE:
-            print "adding entity_address: %s, %s, %s, %s, %s, %s, %s, %s, " % (
-                self.entity_id, int(source), int(type), address_text,
-                p_o_box, postal_number, city, country)
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=entity_address]
           (entity_id, source_system, address_type,
