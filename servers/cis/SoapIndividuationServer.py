@@ -178,6 +178,17 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         """
         return ctx.udc['individuation'].validate_password(password)
 
+    @rpc(String, String, _returns=Boolean)
+    def validate_password_for_account(ctx, account_name, password):
+        """Check if a given password is good enough for a given account.
+
+        Returns True if the password meets the instance' password criterias.
+        If the password does not meet all the criterias, an exception is thrown
+        with an explanation of what is wrong with the password.
+        """
+        return ctx.udc['individuation'].validate_password_for_account(
+            account_name, password)
+
 # Add the session events:
 IndividuationServer.event_manager.add_listener('method_call',
                                             SoapListener.on_method_call_session)
