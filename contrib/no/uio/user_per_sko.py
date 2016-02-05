@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2004 University of Oslo, Norway
 #
@@ -41,19 +41,17 @@ at the UiO. The script provides statistics at various granularity levels
 
 """
 
-import sys
-import getopt
+import argparse
 import copy
 import types
 
 import cerebrum_path
-import cereconf
 
 from Cerebrum.extlib.sets import Set
 from Cerebrum.Utils import Factory
 
-
-
+del cerebrum_path
+logger = None
 
 
 def make_ou_to_stedkode_map(db):
@@ -64,17 +62,14 @@ def make_ou_to_stedkode_map(db):
 
     ou = Factory.get("OU")(db)
     result = dict()
-    
+
     for row in ou.get_stedkoder():
         result[int(row["ou_id"])] = (int(row["fakultet"]),
                                      int(row["institutt"]),
                                      int(row["avdeling"]))
-    # od
 
     logger.debug("%d ou -> stedkode mappings", len(result))
     return result
-# end make_ou_map
-
 
 
 def make_ou_to_parent_map(perspective, db):
@@ -91,19 +86,16 @@ def make_ou_to_parent_map(perspective, db):
             parent_id = int(item["parent_id"])
         else:
             parent_id = None
-        # fi
-            
         result[int(item["ou_id"])] = parent_id
-    # od
 
     logger.debug("%d ou -> parent mappings", len(result))
     return result
-# end make_ou_to_parent_map
 
 
 #
 # sko for all OUs that we cannot classify.
 __undef_ou = "andre"
+
 
 def locate_ou(ou_id, ou2parent, ou2stedkode, level):
     """
@@ -123,7 +115,8 @@ def locate_ou(ou_id, ou2parent, ou2stedkode, level):
     ou_id = int(ou_id)
 
     # If level == oneself, just return the ou_id
-    if level == 0: return ou2stedkode[ ou_id ]
+    if level == 0:
+        return ou2stedkode[ou_id]
 
     tmp = ou_id
     while 1:
@@ -132,24 +125,18 @@ def locate_ou(ou_id, ou2parent, ou2stedkode, level):
             # suitable
             logger.debug("ou_id %d has no proper parent", ou_id)
             return __undef_ou
-        # fi
 
         if tmp not in ou2stedkode:
             logger.warn("Cannot locate sko for ou_id %s. Assuming undef", tmp)
             return __undef_ou
-        # fi
 
-        tmp_sko = ou2stedkode[ tmp ]
+        tmp_sko = ou2stedkode[tmp]
         # extract the right part of the sko
         if tmp_sko[3-level:] == (0,)*level:
             return tmp_sko
-        # fi
-        
-        # ... or continue with parent
-        tmp = ou2parent.get( tmp )
-    # od
-# end locate_ou
 
+        # ... or continue with parent
+        tmp = ou2parent.get(tmp)
 
 
 def display_statistics(statistics):
@@ -171,7 +158,6 @@ def display_statistics(statistics):
     # Order the faculty output by sko
     faculty_keys.sort()
 
-    # 
     # Yes, the code is ugly, but people do not like
     # pprint.print(dictionary)
     fak_width = 11
@@ -181,29 +167,26 @@ def display_statistics(statistics):
     fak_format = "%%%ds" % fak_width
     field_format = "%%%ds" % field_width
 
-    values = ("navn",) + tuple([str(x)[0:field_width] for x in keys]) 
+    values = ("navn",) + tuple([str(x)[0:field_width] for x in keys])
     print (((fak_format + "|") % "fak") +
            ((field_format + "|") * len(values)) % values)
     print "%s%s" % (fak_underline, field_underline * len(values))
 
     for faculty in faculty_keys:
         value = statistics[faculty]
-        if type(faculty) is types.TupleType:
+        if isinstance(faculty, types.TupleType):
             faculty_text = "%02d%02d%02d" % faculty
         else:
             faculty_text = str(faculty)
-        # fi
 
         message = ((fak_format % str(faculty_text)) +
                    ("|" + field_format) % str(value["name"])[0:field_width])
-        
+
         for key in keys:
             message += "|" + field_format % value[key]
             total[key] += value[key]
-        # od
-        
+
         print message
-    # od
 
     print "%s%s" % (fak_underline, field_underline * len(values))
 
@@ -212,11 +195,8 @@ def display_statistics(statistics):
     for key in keys:
         message += (field_format + "|") % total[key]
         sum += total[key]
-    # od
 
     print message, field_format % sum
-# end display_statistics
-
 
 
 def make_empty_statistics(level, db):
@@ -228,18 +208,20 @@ def make_empty_statistics(level, db):
     """
 
     fakultet, institutt, avdeling = None, None, None
-    if level > 0: avdeling = 0
+    if level > 0:
+        avdeling = 0
 
-    if level > 1: institutt = 0
+    if level > 1:
+        institutt = 0
 
     ou = Factory.get("OU")(db)
-    sko = ou.get_stedkoder(fakultet = fakultet, institutt = institutt,
-                           avdeling = avdeling)
+    sko = ou.get_stedkoder(fakultet=fakultet, institutt=institutt,
+                           avdeling=avdeling)
     const = Factory.get("Constants")()
 
     statistics = dict()
     # "Unspecified" stats.
-    statistics[ __undef_ou ] = { "name" : "undef" }
+    statistics[__undef_ou] = {"name": "undef"}
 
     for row in sko:
         ou_sko = (int(row["fakultet"]),
@@ -248,39 +230,33 @@ def make_empty_statistics(level, db):
         ou.clear()
         ou.find(row["ou_id"])
 
-        acronyms = ou.search_name_with_language(entity_id=ou.entity_id,
-                                           name_variant=const.ou_name_acronym)
+        acronyms = ou.search_name_with_language(
+            entity_id=ou.entity_id, name_variant=const.ou_name_acronym)
         if acronyms:
             ou_name = acronyms[0]["name"]
         else:
             names = ou.search_name_with_language(entity_id=ou.entity_id,
-                                            name_variant=const.ou_name)
+                                                 name_variant=const.ou_name)
             if names:
                 ou_name = names[0]["name"]
             else:
                 ou_name = "N/A"
-            # fi
-        # fi
 
-        statistics[ou_sko] = { "name" : ou_name }
-    # od
+        statistics[ou_sko] = {"name": ou_name}
 
     for key in statistics.keys():
-        value = { "ansatt"     : 0,
-                  "a&s"        : 0,
-                  "student"    : 0,
-                  "tilknyttet" : 0,
-                  "manuell"    : 0,
-                  "upersonlig" : 0,
-                  None         : 0,
-                }
+        value = {"ansatt": 0,
+                 "a&s": 0,
+                 "student": 0,
+                 "tilknyttet": 0,
+                 "manuell": 0,
+                 "upersonlig": 0,
+                 None: 0,
+                 }
         statistics[key].update(value)
-    # od
 
     logger.debug("Generating stats for %d top-level OUs" % len(statistics))
     return statistics
-# end make_empty_statistics
-
 
 
 def make_affiliation_priorities(const):
@@ -313,50 +289,48 @@ def make_affiliation_priorities(const):
     and relative sort order.
     """
 
-    return { int(const.affiliation_ansatt) :
-               { "name"  : "ansatt",
-                 "value" : 0,
-                 int(const.affiliation_status_ansatt_vit) : 0,
-                 int(const.affiliation_status_ansatt_tekadm) : 1,
-                 int(const.affiliation_status_ansatt_bil) : 2,
-                 int(const.affiliation_status_ansatt_perm) : 3
-               },
-             int(const.affiliation_student) :
-               { "name"  : "student",
-                 "value" : 1,
-                 int(const.affiliation_status_student_aktiv) : 0,
-                 int(const.affiliation_status_student_evu) : 1,
-                 int(const.affiliation_status_student_alumni) : 2,
-                 int(const.affiliation_status_student_perm) : 3,
-                 int(const.affiliation_status_student_opptak) : 4,
-                 int(const.affiliation_status_student_tilbud) : 5,
-                 int(const.affiliation_status_student_soker) : 6,
-                 int(const.affiliation_status_student_privatist) : 7,
-               },
-             int(const.affiliation_tilknyttet) :
-               { "name" : "tilknyttet",
-                 "value" : 2,
-                 int(const.affiliation_tilknyttet_emeritus) : 0,
-                 int(const.affiliation_tilknyttet_ekst_forsker) : 1,
-                 int(const.affiliation_tilknyttet_ekst_stip) : 2,
-                 int(const.affiliation_tilknyttet_fagperson) : 3,
-                 int(const.affiliation_tilknyttet_bilag) : 4,
-                 int(const.affiliation_tilknyttet_gjesteforsker) : 5,
-                 int(const.affiliation_tilknyttet_sivilarbeider) : 6,
-                 int(const.affiliation_tilknyttet_diverse) : 7,
-               },
-             int(const.affiliation_manuell) :
-               { "name" : "manuell",
-                 "value" : 3,
-               },
-             int(const.affiliation_upersonlig) :
-               { "name" : "upersonlig",
-                 "value" : 4,
-               },
-             }
-    return status_values
-# end make_affiliation_priorities
-
+    return {
+        int(const.affiliation_ansatt): {
+            "name": "ansatt",
+            "value": 0,
+            int(const.affiliation_status_ansatt_vit): 0,
+            int(const.affiliation_status_ansatt_tekadm): 1,
+            int(const.affiliation_status_ansatt_bil): 2,
+            int(const.affiliation_status_ansatt_perm): 3
+        },
+        int(const.affiliation_student): {
+            "name": "student",
+            "value": 1,
+            int(const.affiliation_status_student_aktiv): 0,
+            int(const.affiliation_status_student_evu): 1,
+            int(const.affiliation_status_student_alumni): 2,
+            int(const.affiliation_status_student_perm): 3,
+            int(const.affiliation_status_student_opptak): 4,
+            int(const.affiliation_status_student_tilbud): 5,
+            int(const.affiliation_status_student_soker): 6,
+            int(const.affiliation_status_student_privatist): 7,
+        },
+        int(const.affiliation_tilknyttet): {
+            "name": "tilknyttet",
+            "value": 2,
+            int(const.affiliation_tilknyttet_emeritus): 0,
+            int(const.affiliation_tilknyttet_ekst_forsker): 1,
+            int(const.affiliation_tilknyttet_ekst_stip): 2,
+            int(const.affiliation_tilknyttet_fagperson): 3,
+            int(const.affiliation_tilknyttet_bilag): 4,
+            int(const.affiliation_tilknyttet_gjesteforsker): 5,
+            int(const.affiliation_tilknyttet_sivilarbeider): 6,
+            int(const.affiliation_tilknyttet_diverse): 7,
+        },
+        int(const.affiliation_manuell): {
+            "name": "manuell",
+            "value": 3,
+        },
+        int(const.affiliation_upersonlig): {
+            "name": "upersonlig",
+            "value": 4,
+        },
+    }
 
 
 def generate_people_statistics(perspective, empty_statistics, level, db):
@@ -397,43 +371,38 @@ def generate_people_statistics(perspective, empty_statistics, level, db):
     # Sort order for affiliations/stati
     order = make_affiliation_priorities(const)
 
-    for row in person.list_affiliations(fetchall = False):
+    for row in person.list_affiliations(fetchall=False):
         id = int(row["person_id"])
         if id in processed:
             continue
         else:
             processed.add(id)
-        # fi
 
-        affiliations = person.list_affiliations(person_id = id)
+        affiliations = person.list_affiliations(person_id=id)
         # If there are no affiliations, this person contributes nothing to
         # the statistics.
         if not affiliations:
             continue
-        # fi
-        
-        affiliations.sort(lambda x, y: cmp(order[x["affiliation"]],
-                                           order[y["affiliation"]])
-                                    or cmp(order.get(x["status"], 0),
-                                           order.get(y["status"], 0)))
+
+        affiliations.sort(lambda x, y:
+                          cmp(order[x["affiliation"]],
+                              order[y["affiliation"]])
+                          or cmp(order.get(x["status"], 0),
+                                 order.get(y["status"], 0)))
         aff = affiliations[0]
         ou_result = locate_ou(aff["ou_id"], ou2parent, ou2stedkode, level)
 
         # a&s (ansatt og student) has a special rule
-        affs = [ x["affiliation"] for x in affiliations ]
+        affs = [x["affiliation"] for x in affiliations]
         if (const.affiliation_student in affs and
-            const.affiliation_ansatt in affs):
+                const.affiliation_ansatt in affs):
             affiliation_name = "a&s"
         else:
             affiliation_name = order[aff["affiliation"]]["name"]
-        # fi
 
         statistics[ou_result][affiliation_name] += 1
-    # od
 
     return statistics
-# end generate_statistics
-        
 
 
 def generate_account_statistics(perspective, empty_statistics, level, db):
@@ -472,9 +441,10 @@ def generate_account_statistics(perspective, empty_statistics, level, db):
             processed.add(int(row["account_id"]))
         # fi
 
-        affiliations = account.list_accounts_by_type(account_id=row["account_id"],
-                                                     filter_expired = True,
-                                                     fetchall = True)
+        affiliations = account.list_accounts_by_type(
+            account_id=row["account_id"],
+            filter_expired=True,
+            fetchall=True)
         # Affiliations have already been ordered according to priority. Just
         # pick the first one.
         if not affiliations:
@@ -484,28 +454,22 @@ def generate_account_statistics(perspective, empty_statistics, level, db):
         aff = affiliations[0]
         ou_result = locate_ou(aff["ou_id"], ou2parent, ou2stedkode, level)
 
-        affs = [ x["affiliation"] for x in affiliations ]
+        affs = [x["affiliation"] for x in affiliations]
         if (const.affiliation_student in affs and
-            const.affiliation_ansatt in affs):
+                const.affiliation_ansatt in affs):
             affiliation_name = "a&s"
         else:
             affiliation_name = order[aff["affiliation"]]["name"]
-        # fi
 
         try:
             statistics[ou_result][affiliation_name] += 1
-            
+
         except:
             logger.error("ou_result = %s (%s; %s);",
-                         ou_result, statistics.has_key(ou_result),
-                         str(aff.ou_id))
+                         ou_result, ou_result in statistics, str(aff.ou_id))
             raise
-        # yrt
-    # od
 
     return statistics
-# end account_statistics
-
 
 
 def main():
@@ -514,54 +478,43 @@ def main():
     logger = Factory.get_logger("cronjob")
     logger.info("Statistics for OUs at UiO")
 
-    options, rest = getopt.getopt(sys.argv[1:],
-                                  "l:upe:",
-                                  ["level=",
-                                   "users",
-                                   "perspective=",
-                                   "people",])
-    process_people = False
-    process_users = False
-    
+    ap = argparse.ArgumentParser()
+    ap.add_argument('-p', '--people', action='store_true',
+                    help='Get people statistics')
+    ap.add_argument('-u', '--users', action='store_true',
+                    help='Get user statistics')
+    ap.add_argument('-l', '--level', action='store',
+                    choices=('fakultet', 'institutt', 'gruppe'),
+                    required=True,
+                    help='The granularity of the report')
+    ap.add_argument('-e', '--perspective', action='store',
+                    choices=('FS', 'SAP', 'LT'),
+                    required=True,
+                    help='OU perspective to use')
+    args = ap.parse_args()
+
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
 
-    for option, value in options:
-        if option in ("-p", "--people"):
-            process_people = True
-        elif option in ("-u", "--users"):
-            process_users = True
-        elif option in ("-l", "--level"):
-            assert value in ( "fakultet", "institutt", "gruppe" ), \
-                   "Level must be one of 'fakultet', 'institutt', 'gruppe'"
-            level = { "fakultet" : 2, "institutt" : 1, "gruppe" : 0 }[ value ]
-        elif option in ("-e", "--perspective"):
-            assert value in ( "FS", "SAP" ), \
-                   "Perspective must be one of 'FS', 'LT'"
-            perspective = { "FS" : const.perspective_fs,
-                            "SAP" : const.perspective_sap,
-                            "LT" : const.perspective_lt }[ value ]
-        # fi
-    # od
+    level = {"fakultet": 2, "institutt": 1, "gruppe": 0}[args.level]
+    perspective = {
+        "FS": const.perspective_fs,
+        "SAP": const.perspective_sap,
+        "LT": const.perspective_lt
+    }[args.perspective]
 
-    if process_people:
-        people_result = generate_people_statistics(perspective,
-                            make_empty_statistics(level, db), level, db)
+    if args.people:
+        people_result = generate_people_statistics(
+            perspective,
+            make_empty_statistics(level, db), level, db)
         display_statistics(people_result)
-    # fi
 
-    if process_users:
-        users_result = generate_account_statistics(perspective,
-                           make_empty_statistics(level, db), level, db)
+    if args.users:
+        users_result = generate_account_statistics(
+            perspective,
+            make_empty_statistics(level, db), level, db)
         display_statistics(users_result)
-    # fi
-# end main
-
-
-
 
 
 if __name__ == '__main__':
     main()
-# fi
-
