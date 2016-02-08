@@ -5,7 +5,7 @@ import pytest
 
 
 @pytest.fixture
-def EntityContactInfo(entity_module):
+def Entity(entity_module):
     return getattr(entity_module, 'EntityContactInfo')
 
 
@@ -29,8 +29,8 @@ def contact_bar(InfoType):
 
 
 @pytest.fixture
-def entity_obj(database, EntityContactInfo):
-    return EntityContactInfo(database)
+def entity_obj(database, Entity):
+    return Entity(database)
 
 
 @pytest.fixture

@@ -11,7 +11,7 @@ similar_date = lambda a, b: (a.day == b.day
 
 
 @pytest.fixture
-def EntityQuarantine(entity_module):
+def Entity(entity_module):
     return getattr(entity_module, 'EntityQuarantine')
 
 
@@ -35,8 +35,8 @@ def quar_y(Quarantine):
 
 
 @pytest.fixture
-def entity_obj(EntityQuarantine, database):
-    return EntityQuarantine(database)
+def entity_obj(Entity, database):
+    return Entity(database)
 
 
 @pytest.fixture

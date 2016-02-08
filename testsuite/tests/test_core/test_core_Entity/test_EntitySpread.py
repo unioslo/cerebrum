@@ -23,15 +23,15 @@ def entity_spread_alt(Spread, entity_type):
 
 
 @pytest.fixture
-def EntitySpread(entity_module):
+def Entity(entity_module):
     u""" Branch and test each subtype of Entity. """
     return getattr(entity_module, 'EntitySpread')
 
 
 @pytest.fixture
-def entity_obj(database, EntitySpread):
-    u""" An instance of EntitySpread, with database. """
-    return EntitySpread(database)
+def entity_obj(database, Entity):
+    u""" An instance of Entity, with database. """
+    return Entity(database)
 
 
 @pytest.fixture

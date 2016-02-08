@@ -5,7 +5,7 @@ import pytest
 
 
 @pytest.fixture
-def EntityNameWithLanguage(entity_module):
+def Entity(entity_module):
     return getattr(entity_module, 'EntityNameWithLanguage')
 
 
@@ -29,8 +29,8 @@ def name_bar(NameType):
 
 
 @pytest.fixture
-def entity_obj(database, EntityNameWithLanguage):
-    return EntityNameWithLanguage(database)
+def entity_obj(database, Entity):
+    return Entity(database)
 
 
 @pytest.fixture

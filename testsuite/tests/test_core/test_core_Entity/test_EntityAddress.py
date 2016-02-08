@@ -5,7 +5,7 @@ import pytest
 
 
 @pytest.fixture
-def EntityAddress(entity_module):
+def Entity(entity_module):
     return getattr(entity_module, 'EntityAddress')
 
 
@@ -42,8 +42,8 @@ def addr_home(AddrType):
 
 
 @pytest.fixture
-def entity_obj(database, EntityAddress):
-    return EntityAddress(database)
+def entity_obj(database, Entity):
+    return Entity(database)
 
 
 @pytest.fixture

@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Basic tests for Cerebrum.Entity.EntityContactInfo. """
+""" Basic tests for Cerebrum.Entity.EntityExternalId. """
 import pytest
 
 
 @pytest.fixture
-def EntityExternalId(entity_module):
+def Entity(entity_module):
     return getattr(entity_module, 'EntityExternalId')
 
 
@@ -33,8 +33,8 @@ def id_str(IdType, entity_type):
 
 
 @pytest.fixture
-def entity_obj(database, EntityExternalId):
-    return EntityExternalId(database)
+def entity_obj(database, Entity):
+    return Entity(database)
 
 
 @pytest.fixture
@@ -46,11 +46,11 @@ def entity(entity_obj, entity_type):
 
 @pytest.fixture
 def entities(
-        EntityExternalId, database, entity_type, system_a, system_b, id_str,
+        Entity, database, entity_type, system_a, system_b, id_str,
         id_num):
     data = {}
     i = 0
-    entity = EntityExternalId(database)
+    entity = Entity(database)
 
     for n in range(3):
         entity.populate(entity_type)

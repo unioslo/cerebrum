@@ -5,7 +5,7 @@ import pytest
 
 
 @pytest.fixture
-def EntityName(entity_module):
+def Entity(entity_module):
     return getattr(entity_module, 'EntityName')
 
 
@@ -43,8 +43,8 @@ def entity_spread(Spread, entity_type):
 
 
 @pytest.fixture
-def entity(database, EntityName, entity_type):
-    ent = EntityName(database)
+def entity(database, Entity, entity_type):
+    ent = Entity(database)
     ent.populate(entity_type)
     ent.write_db()
     return ent
@@ -62,11 +62,11 @@ def test_add_name_only_one_domain(entity, domain_foo):
         entity.add_entity_name(domain_foo, 'foo')
 
 
-def test_add_name_unique(database, EntityName, entity_type, domain_foo):
+def test_add_name_unique(database, Entity, entity_type, domain_foo):
     from Cerebrum.Database import DatabaseError
     obj = list()
     for n in range(2):
-        o = EntityName(database)
+        o = Entity(database)
         o.populate(entity_type)
         o.write_db()
         obj.append(o)
@@ -131,11 +131,11 @@ def test_find_by_name_missing(entity, domain_foo, domain_bar):
         entity.find_by_name('foo', domain_bar)
 
 
-def test_list_names(database, EntityName, EntitySpread, domain_foo, domain_bar, entity_spread):
-    class Ent(EntityName, EntitySpread):
+def test_list_names(database, Entity, EntitySpread, domain_foo, domain_bar, entity_spread):
+    class Ent(Entity, EntitySpread):
         u""" TODO: This is a hack.
 
-        EntityName should not depend on EntitySpread.
+        Entity should not depend on EntitySpread.
         """
         pass
     first = Ent(database)
