@@ -654,7 +654,7 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
         bdate = (DateTime.Parser.DateFromString(bdate, formats=('ymd1', ))
                  if bdate and not isinstance(bdate, DateTime.DateTimeType)
                  else bdate)
-        aff, status = self.get_affiliation(affiliation)
+        aff, status = self.const.get_affiliation(affiliation)
 
         # TODO: Should this not be in Account.illegal_name?
         if username != username.lower():
