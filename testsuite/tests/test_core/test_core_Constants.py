@@ -201,7 +201,7 @@ def test_pickle(simple_const):
 
 
 def test_typed_constant(typed_const, EntityType):
-    intval = typed_const.entity_type
+    intval = int(typed_const.entity_type)
     code = EntityType(intval)
     assert code.description == 'thing'
 
