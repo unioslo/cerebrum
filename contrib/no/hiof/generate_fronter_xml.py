@@ -1693,6 +1693,9 @@ def build_multisemester_mapping(undenh_file, undakt_file):
 
 def main():
 
+    global logger
+    logger = Factory.get_logger("cronjob")
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-x', '--xml-file', dest='xml_file',
                         help='XML-file to be generated',
@@ -1710,9 +1713,6 @@ def main():
 
     # Upper/lowercasing of Norwegian letters.
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
-
-    global logger
-    logger = Factory.get_logger("cronjob")
 
     global uname_suffix
     uname_suffix = args.uname_suffix
