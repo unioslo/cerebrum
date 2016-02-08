@@ -1706,16 +1706,13 @@ def main():
     parser.add_argument('-u', '--uname-suffix', dest='uname_suffix',
                         help='Username suffix to be added (default: None)',
                         default='')
-    parser.add_argument('-l', '--logger-name', dest='logger',
-                        help='Name of logger instance (default: cronjob)',
-                        default='cronjob')
     args = parser.parse_args()
 
     # Upper/lowercasing of Norwegian letters.
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
     global logger
-    logger = Factory.get_logger(args.logger)
+    logger = Factory.get_logger("cronjob")
 
     global uname_suffix
     uname_suffix = args.uname_suffix
