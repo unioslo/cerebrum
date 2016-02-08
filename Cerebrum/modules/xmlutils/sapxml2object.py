@@ -587,20 +587,31 @@ class XMLPerson2Object(XMLEntity2Object):
         proper SAPPerson object), an exception is raised.
 
         """
+        def to_latin1(string):
+            import codecs
+            import unicodedata
+            try:
+                return codecs.encode(string, 'latin1')
+            except UnicodeEncodeError:
+                return codecs.encode(
+                    unicodedata.normalize('NFKD', string),
+                    'latin1',
+                    'ignore')
+
         result = SAPPerson()
 
         # Per baardj's request, we consider middle names as first names.
         middle = ""
         middle = element.find("Person/Mellomnavn")
         if middle is not None and middle.text:
-            middle = middle.text.encode("latin1").strip()
+            middle = to_latin1(middle.text).strip()
 
         main = None
         # Iterate over *all* subelements, 'fill up' the result object
         for sub in element.getiterator():
             value = None
             if sub.text:
-                value = sub.text.strip().encode("latin1")
+                value = to_latin1(sub.text.strip())
 
             if sub.tag == "Fornavn":
                 if middle:
