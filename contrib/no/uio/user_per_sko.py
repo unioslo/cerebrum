@@ -150,7 +150,8 @@ def display_statistics(statistics):
     logger.debug("Statistics:")
 
     # The keys we are interested in
-    keys = ('ansatt', 'student', 'a&s', 'tilknyttet', 'manuell', 'upersonlig',)
+    keys = ('ansatt', 'student', 'a&s', 'tilknyttet', 'manuell', 'kun manuell',
+            'alle manuell', 'upersonlig',)
     # Dictionary for totalling up numbers per affiliation
     total = dict([(key, 0) for key in keys])
 
@@ -160,8 +161,8 @@ def display_statistics(statistics):
 
     # Yes, the code is ugly, but people do not like
     # pprint.print(dictionary)
-    fak_width = 11
-    field_width = 7
+    fak_width = 14
+    field_width = 10
     fak_underline = "-" * fak_width + "+"
     field_underline = "-" * field_width + "+"
     fak_format = "%%%ds" % fak_width
@@ -172,8 +173,7 @@ def display_statistics(statistics):
            ((field_format + "|") * len(values)) % values)
     print "%s%s" % (fak_underline, field_underline * len(values))
 
-    for faculty in faculty_keys:
-        value = statistics[faculty]
+    def output_fak(faculty, value):
         if isinstance(faculty, types.TupleType):
             faculty_text = "%02d%02d%02d" % faculty
         else:
@@ -188,18 +188,29 @@ def display_statistics(statistics):
 
         print message
 
+    for faculty in faculty_keys:
+        value = statistics[faculty]
+        output_fak(faculty, value)
+        if 'cum' in value:
+            value['cum']['name'] = 'totalsum'
+            if isinstance(faculty, types.TupleType):
+                text = '%02d****' % faculty[0]
+            else:
+                text = faculty + ' *'
+            output_fak(text, value['cum'])
+
     print "%s%s" % (fak_underline, field_underline * len(values))
 
     message = (fak_format + "|") % "Total" + (field_format + "|") % "--"
-    sum = 0
+    summa = 0
     for key in keys:
         message += (field_format + "|") % total[key]
-        sum += total[key]
+        summa += total[key]
 
-    print message, field_format % sum
+    print message, field_format % summa
 
 
-def make_empty_statistics(level, db):
+def make_empty_statistics(level, db, extra_fak_sum=False):
     """
     Return an empty dictionary suitable for statistics collection.
 
@@ -221,7 +232,7 @@ def make_empty_statistics(level, db):
 
     statistics = dict()
     # "Unspecified" stats.
-    statistics[__undef_ou] = {"name": "undef"}
+    statistics[__undef_ou] = {"name": "undef", 'cum': dict()}
 
     for row in sko:
         ou_sko = (int(row["fakultet"]),
@@ -243,6 +254,8 @@ def make_empty_statistics(level, db):
                 ou_name = "N/A"
 
         statistics[ou_sko] = {"name": ou_name}
+        if extra_fak_sum and ou_sko[1] == ou_sko[2] == 0:
+            statistics[ou_sko]['cum'] = dict()
 
     for key in statistics.keys():
         value = {"ansatt": 0,
@@ -250,10 +263,14 @@ def make_empty_statistics(level, db):
                  "student": 0,
                  "tilknyttet": 0,
                  "manuell": 0,
+                 "kun manuell": 0,
+                 "alle manuell": 0,
                  "upersonlig": 0,
                  None: 0,
                  }
         statistics[key].update(value)
+        if 'cum' in statistics[key]:
+            statistics[key]['cum'].update(value)
 
     logger.debug("Generating stats for %d top-level OUs" % len(statistics))
     return statistics
@@ -333,7 +350,8 @@ def make_affiliation_priorities(const):
     }
 
 
-def generate_people_statistics(perspective, empty_statistics, level, db):
+def generate_people_statistics(perspective, empty_statistics, level, db,
+                               fak_cum=False):
     """
     Collect statistics about people.
 
@@ -391,6 +409,8 @@ def generate_people_statistics(perspective, empty_statistics, level, db):
                                  order.get(y["status"], 0)))
         aff = affiliations[0]
         ou_result = locate_ou(aff["ou_id"], ou2parent, ou2stedkode, level)
+        if fak_cum:
+            ou_cum = locate_ou(aff["ou_id"], ou2parent, ou2stedkode, 2)
 
         # a&s (ansatt og student) has a special rule
         affs = [x["affiliation"] for x in affiliations]
@@ -401,11 +421,14 @@ def generate_people_statistics(perspective, empty_statistics, level, db):
             affiliation_name = order[aff["affiliation"]]["name"]
 
         statistics[ou_result][affiliation_name] += 1
+        if fak_cum:
+            statistics[ou_cum]['cum'][affiliation_name] += 1
 
     return statistics
 
 
-def generate_account_statistics(perspective, empty_statistics, level, db):
+def generate_account_statistics(perspective, empty_statistics, level, db,
+                                extra_cum=False):
     """
     Collect statistics about accounts.
 
@@ -439,7 +462,6 @@ def generate_account_statistics(perspective, empty_statistics, level, db):
             continue
         else:
             processed.add(int(row["account_id"]))
-        # fi
 
         affiliations = account.list_accounts_by_type(
             account_id=row["account_id"],
@@ -449,10 +471,22 @@ def generate_account_statistics(perspective, empty_statistics, level, db):
         # pick the first one.
         if not affiliations:
             continue
-        # fi
 
-        aff = affiliations[0]
+        manual_only = all((x['affiliation'] == const.affiliation_manuell
+                           for x in affiliations))
+        manual = [x for x in affiliations
+                  if x['affiliation'] == const.affiliation_manuell]
+
+        if manual and not manual_only:
+            for a in affiliations:
+                if a['affiliation'] != const.affiliation_manuell:
+                    aff = a
+                    break
+        else:
+            aff = affiliations[0]
         ou_result = locate_ou(aff["ou_id"], ou2parent, ou2stedkode, level)
+        if extra_cum:
+            ou_cum = locate_ou(aff["ou_id"], ou2parent, ou2stedkode, 2)
 
         affs = [x["affiliation"] for x in affiliations]
         if (const.affiliation_student in affs and
@@ -463,11 +497,29 @@ def generate_account_statistics(perspective, empty_statistics, level, db):
 
         try:
             statistics[ou_result][affiliation_name] += 1
-
+            if extra_cum:
+                statistics[ou_cum]['cum'][affiliation_name] += 1
+            if manual_only:
+                statistics[ou_result]['kun manuell'] += 1
+                if extra_cum:
+                    statistics[ou_cum]['cum']['kun manuell'] += 1
         except:
             logger.error("ou_result = %s (%s; %s);",
                          ou_result, ou_result in statistics, str(aff.ou_id))
             raise
+
+        for aff in manual:
+            ou_result = locate_ou(aff['ou_id'], ou2parent, ou2stedkode, level)
+            try:
+                statistics[ou_result]['alle manuell'] += 1
+                if extra_cum:
+                    statistics[locate_ou(aff['ou_id'],
+                                         ou2parent,
+                                         ou2stedkode,
+                                         2)]['cum']['alle manuell'] += 1
+            except:
+                logger.error('ou_result = %s (%s; %s); (for manual)',
+                             ou_result, ou_result in statistics, str(aff.ou_id))
 
     return statistics
 
@@ -487,6 +539,8 @@ def main():
                     choices=('fakultet', 'institutt', 'gruppe'),
                     required=True,
                     help='The granularity of the report')
+    ap.add_argument('-c', '--cumulate', action='store_true',
+                    help='Add cumulated results to faculty')
     ap.add_argument('-e', '--perspective', action='store',
                     choices=('FS', 'SAP', 'LT'),
                     required=True,
@@ -503,16 +557,18 @@ def main():
         "LT": const.perspective_lt
     }[args.perspective]
 
+    cum = args.cumulate
+
     if args.people:
         people_result = generate_people_statistics(
             perspective,
-            make_empty_statistics(level, db), level, db)
+            make_empty_statistics(level, db, cum), level, db, cum)
         display_statistics(people_result)
 
     if args.users:
         users_result = generate_account_statistics(
             perspective,
-            make_empty_statistics(level, db), level, db)
+            make_empty_statistics(level, db, cum), level, db, cum)
         display_statistics(users_result)
 
 
