@@ -46,11 +46,12 @@ class AuthPGPAccountMixin(Account.Account):
     def _pgp_auth(self, system):
         return self.const.Authentication("PGP-" + system)
 
-    def encrypt_password(self, method, plaintext, salt=None):
+    def encrypt_password(self, method, plaintext, salt=None, binary=False):
         for system, pgpkey in cereconf.AUTH_PGP.items():
             if method == self._pgp_auth(system):
                 return pgp_encrypt(plaintext, pgpkey)
-        return self.__super.encrypt_password(method, plaintext, salt=salt)
+        return self.__super.encrypt_password(method, plaintext, salt=salt,
+                                             binary=binary)
 
     def decrypt_password(self, method, cryptstring):
         for system, pgpkey in cereconf.AUTH_PGP.items():
