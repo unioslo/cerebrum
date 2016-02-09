@@ -20,6 +20,13 @@
   set_fact:
       pip_extra_args: "{{ pip_extra_args|default('') }} --proxy='{{ pip_proxy }}'"
 
+- name: decide to set http_proxy and https_proxy environment variables
+  when: pip_proxy is defined
+  set_fact:
+      proxy_env: 
+        http_proxy: "{{ pip_proxy }}"
+        https_proxy: "{{ pip_proxy }}"
+
 - name: decide on pip download cache
   when: pip_cache is defined
   set_fact:
@@ -42,6 +49,7 @@
       extra_args: "{{ pip_extra_args|default(None) }}"
   when: skip_oracle is undefined or not (skip_oracle and 'cx_Oracle' in item)
   with_items: crb_packages
+  environment: "{{ proxy_env }}"
 
 #   - name: set up python environment
 #     pip:

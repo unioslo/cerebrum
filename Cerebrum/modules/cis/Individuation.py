@@ -404,6 +404,14 @@ class Individuation:
     def validate_password(self, password):
         return self._check_password(password)
 
+    def validate_password_for_account(self, account_name, password):
+        try:
+            account = Factory.get('Account')(self.db)
+            account.find_by_name(account_name)
+        except Errors.NotFoundError:
+            raise Errors.CerebrumRPCException('unknown_error')
+        return self._check_password(password, account=account)
+
     def _check_password(self, password, account=None):
         if account is None:
             account = Factory.get('Account')(self.db)

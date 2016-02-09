@@ -1436,7 +1436,10 @@ class ADclient(PowershellClient):
         # Encrypted passwords will be handled differently (decrypted) on the
         # AD-side (Windows server - side).
         password_is_encrypted = '-----BEGIN PGP MESSAGE-----' in password
-        password = base64.b64encode(password)
+        try:
+            password = base64.b64encode(password)
+        except UnicodeEncodeError:
+            password = base64.b64encode(password.encode('UTF-8'))
         if password_is_encrypted:
             cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s));
             $decrypted_text = $b | gpg -q --batch --decrypt;

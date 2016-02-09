@@ -2712,9 +2712,11 @@ class UserSync(BaseSync):
                 self.logger.warn("Account %s missing plaintext password",
                                  row['subject_entity'])
                 return False
-            # TODO: do we need to unicodify it here, or do we handle it in the
-            # ADclient instead?
-            #pwUnicode = unicode(pw, 'iso-8859-1')
+            if not isinstance(pw, unicode):
+                try:
+                    pw = unicode(pw, 'UTF-8')
+                except UnicodeDecodeError:
+                    pw = unicode(pw, 'ISO-8859-1')
             return self.server.set_password(name, pw)
 
         elif row['change_type_id'] in (self.co.quarantine_add,

@@ -125,8 +125,9 @@ CLASS_GROUP = ['Cerebrum.Group/Group']
 CLASS_HOST = ['Cerebrum.Disk/Host']
 CLASS_DISK = ['Cerebrum.Disk/Disk']
 CLASS_CONSTANTS = [
-    'Cerebrum.Constants/Constants',
-    'Cerebrum.Constants/ExampleConstants']
+    'Cerebrum.Constants/ExampleConstants',
+    'Cerebrum.modules.CLConstants/CLConstants',
+    'Cerebrum.Constants/Constants']
 
 CLASS_CL_CONSTANTS = ['Cerebrum.modules.CLConstants/CLConstants']
 

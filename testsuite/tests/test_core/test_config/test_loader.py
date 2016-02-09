@@ -80,6 +80,7 @@ def test_is_readable_dir_file(loader):
 
 
 def test_read_config_json(loader, config_dir):
+    pytest.importorskip("json")
     data = loader.read_config(os.path.join(config_dir, 'sms.json'))
     assert data['user'] == 'sms-user'
     assert data['system'] == 'sms-system'
@@ -87,6 +88,7 @@ def test_read_config_json(loader, config_dir):
 
 
 def test_read_config_yaml(loader, config_dir):
+    pytest.importorskip("yaml")
     data = loader.read_config(os.path.join(config_dir, 'root.yml'))
     assert 'job_runner' in data
     assert 'socket' in data['job_runner']
@@ -96,6 +98,8 @@ def test_read_config_yaml(loader, config_dir):
 
 
 def test_read(loader, config_cls):
+    pytest.importorskip("json")
+    pytest.importorskip("yaml")
     config = config_cls()
     # Default value
     assert config.job_runner.max_jobs == 3

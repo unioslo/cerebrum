@@ -37,34 +37,7 @@ Functionality
 
 """
 import pytest
-import types
 from Cerebrum.Errors import NotFoundError
-
-
-@pytest.yield_fixture
-def database():
-    u""" Database connection with automatic rollback for each test. """
-    factory = getattr(pytest.importorskip('Cerebrum.Utils'), 'Factory')
-    database = factory.get('Database')()
-    print 'db init', database, database._cursor
-    yield database
-    print 'db rollback', database, database._cursor
-    database.rollback()
-
-
-@pytest.fixture
-def constant_module(database):
-    u""" Patched Constants module. """
-    module = pytest.importorskip("Cerebrum.Constants")
-    # Patch the `sql` property to always return a known db-object
-    module._CerebrumCode.sql = property(lambda *args: database)
-    # Clear the constants cache of each _CerebrumCode class, to avoid caching
-    # intvals that doesn't exist in the database.
-    for item in vars(module).itervalues():
-        if (isinstance(item, (type, types.ClassType))
-                and issubclass(item, module._CerebrumCode)):
-            item._cache = dict()
-    return module
 
 
 # @pytest.fixtures(params=['_ChangeTypeCode'])
@@ -228,7 +201,7 @@ def test_pickle(simple_const):
 
 
 def test_typed_constant(typed_const, EntityType):
-    intval = typed_const.entity_type
+    intval = int(typed_const.entity_type)
     code = EntityType(intval)
     assert code.description == 'thing'
 
