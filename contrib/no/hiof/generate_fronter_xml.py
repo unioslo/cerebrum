@@ -37,7 +37,7 @@ The script works like this:
     entities -- build_multisemester_mapping.
   - Build a tree, in memory, representing the fronter tree
     (build_cf_tree). The tree is built by successively inserting a node for a
-    cerebrum group (cf_member_group) into the tree
+    cerebrum group (CfMemberGroup) into the tree
     (create_associated_structures). Permissions are registered as well.
   - Once the tree is complete, it's output to an XML file. We output (in
     order): all the people (output_people), all the groups (structure- and
@@ -75,7 +75,7 @@ STATUS_UPDATE = "2"
 STATUS_DELETE = "3"
 
 
-class cf_permission(object):
+class CfPermission(object):
     """Permission handling.
 
     Objects of this class capture the fact that a group has a certain
@@ -84,7 +84,7 @@ class cf_permission(object):
 
     ROLE_READ = '01'
     ROLE_WRITE = '02'
-    ROLE_DELETE = '03'
+    ROLE_DELETE = '06'
     ROLE_CHANGE = '07'
 
     access2symbol = {
@@ -128,9 +128,9 @@ class cf_permission(object):
 # end cf_permission
 
 
-class cf_tree(object):
-
-    """Representation of the data structure to be pushed to the XML file.
+class CfTree(object):
+    """
+    Representation of the data structure to be pushed to the XML file.
     """
 
     def __init__(self, db):
@@ -145,24 +145,24 @@ class cf_tree(object):
     def _build_static_nodes(self):
         """Build the static part of OA/hiof's CF tree"""
 
-        self._root = cf_structure_group("Oslofjordalliansen", "root", None)
+        self._root = CfStructureGroup("Oslofjordalliansen", "root", None)
         self.register_structure_group(self._root)
 
-        hiof = cf_structure_group("HiØ", "STRUCTURE:hiof.no", self._root)
+        hiof = CfStructureGroup("HiØ", "STRUCTURE:hiof.no", self._root)
         self.register_structure_group(hiof)
 
-        tmp = cf_structure_group("Automatisk",
-                                 "STRUCTURE:hiof.no:automatisk", hiof)
+        tmp = CfStructureGroup("Automatisk",
+                               "STRUCTURE:hiof.no:automatisk", hiof)
         self.register_structure_group(tmp)
-        tmp = cf_structure_group("Manuell",
-                                 "STRUCTURE:hiof.no:manuell", hiof)
+        tmp = CfStructureGroup("Manuell",
+                               "STRUCTURE:hiof.no:manuell", hiof)
         self.register_structure_group(tmp)
 
         # It knows about root, but not the other way
         # around. _person_group_holder is somewhat special -- it's a fake
         # node: it does not have any members, really, it is only a container
         # for all groups with members in them.
-        self._person_group_holder = cf_structure_group(
+        self._person_group_holder = CfStructureGroup(
             "Samlenode for persongruppene",
             "STRUCTURE:hiof.no:persongruppene",
             None)
@@ -174,12 +174,12 @@ class cf_tree(object):
     # end get_cf_group
 
     def register_member_group(self, cfmg):
-        assert isinstance(cfmg, cf_member_group)
+        assert isinstance(cfmg, CfMemberGroup)
         cf_group_id = cfmg.cf_id()
         self._cf_id2node[cf_group_id] = cfmg
 
     def register_structure_group(self, cfsg):
-        assert isinstance(cfsg, cf_structure_group)
+        assert isinstance(cfsg, CfStructureGroup)
         cf_group_id = cfsg.cf_id()
         self._cf_id2node[cf_group_id] = cfsg
     # end register_structure_group
@@ -196,7 +196,7 @@ class cf_tree(object):
 
             parent = self.get_cf_group(cf_group.cf_parent_id())
             assert parent is not None
-            nn = cf_structure_group(s_name, s_id, parent)
+            nn = CfStructureGroup(s_name, s_id, parent)
             self.register_structure_group(nn)
             parent.add_child(nn)
             logger.debug("Created sibling %s from %s under parent %s",
@@ -207,12 +207,12 @@ class cf_tree(object):
         """Given a cf_member/structure_group, create *ALL* the necessary
         associated groups upwards in the structure tree.
 
-        cf_group may be either a cf_structure_group or a cf_member_group.
+        cf_group may be either a cf_structure_group or a CfMemberGroup.
 
         For cf_structure_group we figure out which group is the parent. If it
         does not exist, it's created (recursively).
 
-        For cf_member_group we figure out which structure group it corresponds
+        For CfMemberGroup we figure out which structure group it corresponds
         to. If it does not exist, it's created (recursively).
 
         @return:
@@ -239,11 +239,11 @@ class cf_tree(object):
         # Regardless of cf_group's type, we create cf_structure_groups only.
         logger.debug("Creating new node id=%s (parent for %s)",
                      structure_id, cf_group.cf_id())
-        new_node = cf_structure_group(cf_group.cf_parent_title(),
-                                      structure_id,
-                                      # None, since we don't know what the
-                                      # parent is at this point.
-                                      None)
+        new_node = CfStructureGroup(cf_group.cf_parent_title(),
+                                    structure_id,
+                                    # None, since we don't know what the
+                                    # parent is at this point.
+                                    None)
         self.register_structure_group(new_node)
         new_node.add_child(cf_group)
         self.create_associated_siblings(cf_group)
@@ -256,7 +256,6 @@ class cf_tree(object):
         grandparent_node.add_child(new_node)
         return new_node
     # end create_associated_structures
-
 
     def iterate_groups(self, group_type=None):
         """Create an iterator for the specific group type in the CF-tree.
@@ -287,9 +286,9 @@ class cf_tree(object):
             if group_type is None or isinstance(current, group_type):
                 yield current
 
-            # Enqueue all the children (cf_member_group does not have
+            # Enqueue all the children (CfMemberGroup does not have
             # structural children, which are of interest here)
-            if not isinstance(current, cf_structure_group):
+            if not isinstance(current, CfStructureGroup):
                 continue
 
             for child_group in current.iterate_children(group_type):
@@ -302,7 +301,7 @@ class cf_tree(object):
 # end cf_tree
 
 
-class cf_group_interface(object):
+class CfGroupInterface(object):
     """An interface capturing the common functionality of person- and structure
     groups.
     """
@@ -326,7 +325,7 @@ class cf_group_interface(object):
             ou.find(row["entity_id"])
             key = "%02d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
             result[key] = row["name"]
-        cf_group_interface._acronym2avdeling = result
+        CfGroupInterface._acronym2avdeling = result
     # end load_acronyms
 
     def __eq__(self, other):
@@ -353,8 +352,8 @@ class cf_group_interface(object):
     def cf_template(self):
         raise NotImplementedError("N/A")
 
-
-    def kull_room_title(self, stprog, semester, year):
+    @staticmethod
+    def kull_room_title(stprog, semester, year):
         return "Rom for kull %s %s %s" % (stprog, semester, year)
     # end kull_room_title
 
@@ -427,7 +426,7 @@ class cf_group_interface(object):
         """Return sibling node information to create alongside self.
 
         This may come in handy when a creation of one node (be it
-        cf_member_group or cf_structure_group) necessarily entails creating
+        CfMemberGroup or cf_structure_group) necessarily entails creating
         additional nodes at the same level.
 
         By default, no action is performed. This method returns a generator.
@@ -437,12 +436,12 @@ class cf_group_interface(object):
 # end cf_node_interface
 
 
-class cf_structure_group(cf_group_interface):
+class CfStructureGroup(CfGroupInterface):
     """A group representing a structure (a room or a corridor) in CF.
 
     This class deals with intergroup relations in CF (permissions,
     parent-child relations, etc.). Some cf_structure_groups would have
-    cf_member_group(s) associated with them (typically student / FS role
+    CfMemberGroup(s) associated with them (typically student / FS role
     holder groups). That association is used to grant access permissions in
     CF.
     """
@@ -450,7 +449,7 @@ class cf_structure_group(cf_group_interface):
     valid_types = ("STRUCTURE", "ROOM")
 
     def __init__(self, description, cf_id, parent):
-        super(cf_structure_group, self).__init__()
+        super(CfStructureGroup, self).__init__()
         self._cf_id = cf_id
         self._title = description
         self._parent = parent
@@ -527,7 +526,7 @@ class cf_structure_group(cf_group_interface):
         # need to check this)
         holders = set()
         fellesrom = None
-        for child in self.iterate_children(cf_structure_group):
+        for child in self.iterate_children(CfStructureGroup):
 
             for permission in child.iterate_permissions():
                 if not permission.holder().cf_is_student_group():
@@ -581,7 +580,6 @@ class cf_structure_group(cf_group_interface):
 
         # Now, which structure node is this?
         components = self.cf_id().split(":")
-        result = None
         if self.cf_group_type() == "ROOM":
             # kullklasse
             if "klasse" in components:
@@ -644,8 +642,7 @@ class cf_structure_group(cf_group_interface):
 
     def iterate_children(self, child_type=None):
         for child in self._structure_children.itervalues():
-            if (child_type is None or
-                isinstance(child, child_type)):
+            if child_type is None or isinstance(child, child_type):
                 yield child
     # end iterate_children
 
@@ -654,7 +651,7 @@ class cf_structure_group(cf_group_interface):
     # end iterate_permissions
 
     def register_permissions(self, cf_group):
-        assert isinstance(cf_group, cf_member_group)
+        assert isinstance(cf_group, CfMemberGroup)
         permission = cf_group.get_cf_permission(self)
         if permission is not None:
             self._permissions[cf_group.cf_id()] = permission
@@ -672,7 +669,7 @@ class cf_structure_group(cf_group_interface):
 # end cf_structure_group
 
 
-class cf_member_group(cf_group_interface):
+class CfMemberGroup(CfGroupInterface):
     """A group holding members of a Cerebrum group for CF.
 
     All cf_member_groups are 'associated' with a cf_structure_group and
@@ -682,7 +679,7 @@ class cf_member_group(cf_group_interface):
     This class deals with member management and storing member attributes to
     export to CF (unames, e-mails, etc)
     """
-                   # FS role groups
+    # FS role groups
     valid_types = ("stprog", "kull", "kullklasse", "undenh", "undakt",
                    "avdeling",
                    # FS student groups
@@ -690,7 +687,7 @@ class cf_member_group(cf_group_interface):
                    "student-kull", "student-kullklasse",)
 
     def __init__(self, group):
-        super(cf_member_group, self).__init__()
+        super(CfMemberGroup, self).__init__()
         self._cf_id = group.group_name
         self._title = group.description
         self._account_ids = [x["member_id"]
@@ -698,9 +695,9 @@ class cf_member_group(cf_group_interface):
         self._group_type = self._calculate_group_type()
         self._parent = None
         assert self._group_type in self.valid_types, \
-               "Cannot deduce type for group id=%s/name=%s: type=%s" % (group.entity_id,
-                                                                        group.group_name,
-                                                                        self._group_type)
+            "Cannot deduce type for group id=%s/name=%s: type=%s" % (group.entity_id,
+                                                                     group.group_name,
+                                                                     self._group_type)
     # end __init__
 
     def cf_typevalue(self):
@@ -714,7 +711,7 @@ class cf_member_group(cf_group_interface):
           4 - room.
         """
 
-        # cf_member_group objects represent 'group' typevalues. Always.
+        # CfMemberGroup objects represent 'group' typevalues. Always.
         return "2"
     # end cf_typevalue
 
@@ -766,8 +763,6 @@ class cf_member_group(cf_group_interface):
         else:
             assert False, "This cannot happen: cf_member id=%s/type=%s" % (
                 self.cf_id(), member_group_type)
-
-        assert False, "NOTREACHED"
     # end parent_cf_structure_id
 
     def cf_yield_siblings(self):
@@ -800,7 +795,7 @@ class cf_member_group(cf_group_interface):
                 return marker
 
         assert False, \
-               "Impossible: unknown role code for cd id=%s" % self.cf_id()
+            "Impossible: unknown role code for cd id=%s" % self.cf_id()
     # end _role_code
 
     def get_cf_permission(self, structure_group):
@@ -811,55 +806,65 @@ class cf_member_group(cf_group_interface):
         """
 
         all_read = {
-            "stprog": cf_permission.ROLE_READ,
-            "kull": cf_permission.ROLE_READ,
-            "kullklasse": cf_permission.ROLE_READ,
-            "undenh": cf_permission.ROLE_READ,
-            "undakt": cf_permission.ROLE_READ,
-            "avdeling": cf_permission.ROLE_READ,
+            "stprog": CfPermission.ROLE_READ,
+            "kull": CfPermission.ROLE_READ,
+            "kullklasse": CfPermission.ROLE_READ,
+            "undenh": CfPermission.ROLE_READ,
+            "undakt": CfPermission.ROLE_READ,
+            "avdeling": CfPermission.ROLE_READ,
         }
 
         all_write = {
-            "stprog": cf_permission.ROLE_WRITE,
-            "kull": cf_permission.ROLE_WRITE,
-            "kullklasse": cf_permission.ROLE_WRITE,
-            "undenh": cf_permission.ROLE_WRITE,
-            "undakt": cf_permission.ROLE_WRITE,
-            "avdeling": cf_permission.ROLE_WRITE,
+            "stprog": CfPermission.ROLE_WRITE,
+            "kull": CfPermission.ROLE_WRITE,
+            "kullklasse": CfPermission.ROLE_WRITE,
+            "undenh": CfPermission.ROLE_WRITE,
+            "undakt": CfPermission.ROLE_WRITE,
+            "avdeling": CfPermission.ROLE_WRITE,
+        }
+
+        all_delete = {
+            "stprog": CfPermission.ROLE_DELETE,
+            "kull": CfPermission.ROLE_DELETE,
+            "kullklasse": CfPermission.ROLE_DELETE,
+            "undenh": CfPermission.ROLE_DELETE,
+            "undakt": CfPermission.ROLE_DELETE,
+            "avdeling": CfPermission.ROLE_DELETE,
         }
 
         all_change = {
-            "stprog": cf_permission.ROLE_CHANGE,
-            "kull": cf_permission.ROLE_CHANGE,
-            "kullklasse": cf_permission.ROLE_CHANGE,
-            "undenh": cf_permission.ROLE_CHANGE,
-            "undakt": cf_permission.ROLE_CHANGE,
-            "avdeling": cf_permission.ROLE_CHANGE,
+            "stprog": CfPermission.ROLE_CHANGE,
+            "kull": CfPermission.ROLE_CHANGE,
+            "kullklasse": CfPermission.ROLE_CHANGE,
+            "undenh": CfPermission.ROLE_CHANGE,
+            "undakt": CfPermission.ROLE_CHANGE,
+            "avdeling": CfPermission.ROLE_CHANGE,
         }
 
         role_code2permission = {
             "assistent":   all_read,
             "hovedlærer":  all_change,
             "kursansv":    all_write,
-            "lærer":       all_write,
+            "lærer":       all_delete,
             "kontakt":     all_read,
             "veileder":    all_write,
-            "admin":       {"stprog": cf_permission.ROLE_CHANGE,
-                            "kull": cf_permission.ROLE_CHANGE,
-                            "kullklasse": cf_permission.ROLE_CHANGE,
-                            "undenh": cf_permission.ROLE_WRITE,
-                            "undakt": cf_permission.ROLE_WRITE,
-                            "avdeling": cf_permission.ROLE_CHANGE, },
+            "admin":       {
+                            "stprog": CfPermission.ROLE_CHANGE,
+                            "kull": CfPermission.ROLE_CHANGE,
+                            "kullklasse": CfPermission.ROLE_CHANGE,
+                            "undenh": CfPermission.ROLE_WRITE,
+                            "undakt": CfPermission.ROLE_WRITE,
+                            "avdeling": CfPermission.ROLE_CHANGE,
+                           },
         }
 
-        access_type = None
         recursive = False
         if self.cf_group_type() in ("stprog", "kull", "avdeling"):
             recursive = True
 
         if self.cf_group_type() in ("student-undenh", "student-undakt",
                                     "student-kullklasse", "student-kull",):
-            access_type = cf_permission.ROLE_WRITE
+            access_type = CfPermission.ROLE_WRITE
         elif self.cf_group_type() in ("undenh", "undakt", "kullklasse",
                                       "kull", "stprog", "avdeling",):
             # These are the perms stemming from FS roles. We have to look at
@@ -870,9 +875,9 @@ class cf_member_group(cf_group_interface):
             logger.debug("Weird group type for %s", str(self))
             assert False, "This cannot happen"
 
-        perm_object = cf_permission(access_type, recursive,
-                                    holder=self,
-                                    target=structure_group)
+        perm_object = CfPermission(access_type, recursive,
+                                   holder=self,
+                                   target=structure_group)
         return perm_object
     # end get_cf_permission
 
@@ -915,10 +920,10 @@ class cf_member_group(cf_group_interface):
     def iterate_members(self):
         return iter(self._account_ids)
     # end iterate_members
-# end cf_member_group
+# end CfMemberGroup
 
 
-class cf_members(object):
+class CfMembers(object):
     """A class to keep track of person information in CF.
 
     Technically, this class is superfluous. However, we can cache a lot of
@@ -1068,7 +1073,7 @@ class cf_members(object):
         logger.debug("Collected a total of %d user records", len(result))
         return result
     # end member_info
-# end cf_members
+# end CfMembers
 
 
 def collect_cf_groups(db):
@@ -1105,11 +1110,11 @@ def build_cf_tree(db, db_groups, multisemester_map):
       population.
     """
 
-    cf_group_interface.load_acronyms(db)
-    tree = cf_tree(db)
+    CfGroupInterface.load_acronyms(db)
+    tree = CfTree(db)
     for group_id in db_groups:
         db_group = locate_db_group(db, group_id)
-        cf_member = cf_member_group(db_group)
+        cf_member = CfMemberGroup(db_group)
         tree.register_member_group(cf_member)
         logger.debug("Created CF group %s", str(cf_member))
 
@@ -1127,7 +1132,7 @@ def build_cf_tree(db, db_groups, multisemester_map):
 
     # fixup additional permissions between the siblings of each node, since
     # the permission assignment up to this point has been top-down.
-    for group in tree.iterate_groups(cf_structure_group):
+    for group in tree.iterate_groups(CfStructureGroup):
         group.fixup_sibling_permissions()
 
     logger.debug("Built a CF tree")
@@ -1278,9 +1283,9 @@ def output_people(db, tree, printer):
     """
 
     logger.debug("Outputting all people registered in the CF-tree (in-memory)")
-    member_info = cf_members(db).member_info()
+    member_info = CfMembers(db).member_info()
     processed = set()
-    for group in tree.iterate_groups(cf_member_group):
+    for group in tree.iterate_groups(CfMemberGroup):
         processed.update(group.iterate_members())
 
     # We want to output the users sorted by id for the ease of by-human
@@ -1314,7 +1319,7 @@ def output_group_element(cf_group, printer, member_group_owner):
     printer.endElement("description")
 
     printer.startElement("relationship", {"relation": "1"})
-    if isinstance(cf_group, cf_member_group):
+    if isinstance(cf_group, CfMemberGroup):
         output_id(member_group_owner, printer)
     else:
         output_id(cf_group.cf_parent_id(), printer)
@@ -1352,7 +1357,7 @@ def output_user_membership(group, members, printer):
                                       # cf_permission, since a specific user
                                       # within a group may have a different
                                       # permission.
-                                      "roletype": cf_permission.ROLE_WRITE})
+                                      "roletype": CfPermission.ROLE_WRITE})
         # 0 = inactive member, 1 = active member
         printer.dataElement("status", "1")
         # FIXME: What does this junk mean? Alle person members seem to have
@@ -1371,8 +1376,8 @@ def output_user_membership(group, members, printer):
 def output_user_memberships(db, tree, printer):
     """Output all user membership information."""
 
-    account2uname = cf_members(db).account2uname()
-    for group in tree.iterate_groups(cf_member_group):
+    account2uname = CfMembers(db).account2uname()
+    for group in tree.iterate_groups(CfMemberGroup):
         members = [account2uname[x] for x in group.iterate_members()]
         if not members:
             continue
@@ -1404,7 +1409,6 @@ def output_viewcontacts(target, permission_holders, printer):
 # end output_viewcontacts
 
 
-
 def process_viewcontacts_permissions(cf_group, local_permissions,
                                      inherited_permissions, printer):
     """Generate XML for represeting viewContacts permissions related to
@@ -1413,24 +1417,24 @@ def process_viewcontacts_permissions(cf_group, local_permissions,
     This is where it gets hairy.
     """
 
-    assert isinstance(cf_group, cf_structure_group)
+    assert isinstance(cf_group, CfStructureGroup)
     # This methods is called with cf_group == cf_structure_group. Always
     #
     # So, for each such cf_structure_group we need to locate the corresponding
     # cf_member_groups. Some of them are direct children of cf_group. Other
     # are permission holders in local_ or inherited_permissions. NB!
-    # isinstance(x.holder(), cf_member_group) for x in permissions MUST BE
+    # isinstance(x.holder(), CfMemberGroup) for x in permissions MUST BE
     # True.
     #
-    local_member_groups = set(cf_group.iterate_children(cf_member_group))
+    local_member_groups = set(cf_group.iterate_children(CfMemberGroup))
     local_nonstudents = set(x for x in local_member_groups
                             if not x.cf_is_student_group())
     local_permission_holders = set(x.holder() for x in
                                    local_permissions
-                                   if isinstance(x.holder(), cf_member_group))
+                                   if isinstance(x.holder(), CfMemberGroup))
     inherited_permission_holders = set(
         x.holder() for x in inherited_permissions if
-        isinstance(x.holder(), cf_member_group))
+        isinstance(x.holder(), CfMemberGroup))
     all_at_this_level = set().union(
         local_member_groups).union(
             local_permission_holders).union(
@@ -1550,7 +1554,7 @@ def process_node_permissions(node, inherited_permissions, printer):
     # There is a bit of tuple copying here; hopefully this won't be a
     # performance issue.
     #
-    children = node.iterate_children(cf_structure_group)
+    children = node.iterate_children(CfStructureGroup)
     local_permissions = tuple(node.iterate_permissions())
     output_node_permissions(node, local_permissions, inherited_permissions,
                             printer)
