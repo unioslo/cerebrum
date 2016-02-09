@@ -497,6 +497,9 @@ def populate_work_titles():
 
 
 def main():
+    global logger
+    logger = Factory.get_logger('cronjob')
+
     parser = argparse.ArgumentParser(description=__doc__)
     required_args = parser.add_argument_group('required arguments')
     required_args.add_argument('-e', '--employment-file',
@@ -519,19 +522,12 @@ def main():
     parser.set_defaults(sync_employment=False)
     parser.add_argument('-c', '--commit', dest='commit', action='store_true',
                         help='Write changes to DB.')
-    parser.add_argument('-l', '--logger-name', dest='logname',
-                        default='cronjob',
-                        help='Specify logger (default: cronjob)')
-
     args = parser.parse_args()
 
     assert (args.person_file is not None and
             os.access(args.person_file, os.F_OK))
     assert (args.employment_file is not None and
             os.access(args.employment_file, os.F_OK))
-
-    global logger
-    logger = Factory.get_logger(args.logname)
 
     global database
     database = Factory.get("Database")()

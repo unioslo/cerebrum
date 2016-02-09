@@ -525,6 +525,9 @@ def process_people(filename, use_fok, use_mgmu=False):
 
 
 def main():
+    global logger
+    logger = Factory.get_logger('cronjob')
+
     parser = argparse.ArgumentParser(description=__doc__)
     required_args = parser.add_argument_group('required arguments')
     required_args.add_argument('-p', '--person-file', dest='person_file',
@@ -540,18 +543,11 @@ def main():
     parser.set_defaults(use_mgmu=False)
     parser.add_argument('-c', '--commit', dest='commit', action='store_true',
                         help='Write changes to DB.')
-    parser.add_argument('-l', '--logger-name', dest='logname',
-                        default='cronjob',
-                        help='Specify logger (default: cronjob)')
-
     args = parser.parse_args()
 
     # Creating this locally costs about 20 seconds out of a 3 minute run.
     global const
     const = Factory.get("Constants")()
-
-    global logger
-    logger = Factory.get_logger(args.logname)
 
     global database
     database = Factory.get("Database")()
