@@ -739,11 +739,38 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         if notimplemented:
             raise Errors.NotImplementedAuthTypeError("\n".join(notimplemented))
 
-    def encrypt_password(self, method, plaintext, salt=None):
-        """Returns the plaintext encrypted according to the specified
+    def encrypt_password(self, method, plaintext, salt=None, binary=False):
+        """Returns the plaintext hashed according to the specified
         method.  A mixin for a new method should not call super for
         the method it handles.
+
+        This should be fixed for python3
+
+        :type method: Constants.AccountAuthentication
+        :param method: Some auth_type_x constant
+
+        :type plaintext: String (str or unicode)
+        :param plaintext: The plaintext to hash
+
+        :type salt: String
+        :param salt: Salt for hashing
+
+        :type binary: bool
+        :param binary: Treat plaintext as binary data
         """
+        # TODO: Temporary (and ugly) fix for CRB-162
+        # Strings should be represented as unicode objects everywhere
+        # in the entire system
+        unicode_plaintext = plaintext
+        if not isinstance(unicode_plaintext, unicode):
+            try:
+                unicode_plaintext = unicode(plaintext, 'UTF-8')
+            except:
+                unicode_plaintext = unicode(plaintext, 'ISO-8859-1')
+        if binary:
+            utf8_plaintext = plaintext  # a small lie
+        else:
+            utf8_plaintext = unicode_plaintext.encode('UTF-8')
         if method in (self.const.auth_type_md5_crypt,
                       self.const.auth_type_crypt3_des,
                       self.const.auth_type_sha256_crypt,
@@ -764,23 +791,19 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 # the string, and OpenLDAP won't accept that.
                 # b64encode does not, but it requires Python 2.4
                 return base64.encodestring(
-                    hashlib.sha1(plaintext + salt).digest() + salt).strip()
-            return crypt.crypt(plaintext, salt)
+                    hashlib.sha1(utf8_plaintext + salt).digest() + salt).strip()
+            return crypt.crypt(plaintext if method ==
+                               self.const.auth_type_crypt3_des
+                               else utf8_plaintext, salt)
         elif method == self.const.auth_type_md4_nt:
             # Do the import locally to avoid adding a dependency for
             # those who don't want to support this method.
             import smbpasswd
-            # TODO: Temporary (and ugly) fix for CRB-162
-            # Strings should be represented as unicode objects everywhere
-            # in the entire system
-            unicode_plaintext = plaintext
-            if isinstance(plaintext, str):  # will fail in Python 3
-                unicode_plaintext = plaintext.decode('ISO-8859-1')
             return smbpasswd.nthash(unicode_plaintext)
         elif method == self.const.auth_type_plaintext:
             return plaintext
         elif method == self.const.auth_type_md5_unsalt:
-            return hashlib.md5(plaintext).hexdigest()
+            return hashlib.md5(utf8_plaintext).hexdigest()
         elif method == self.const.auth_type_ha1_md5:
             s = ":".join(
                 [self.account_name,
@@ -824,6 +847,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             if method == self.const.auth_type_ssha:
                 salt = base64.decodestring(cryptstring)[20:]
             return (self.encrypt_password(method, plaintext, salt=salt) ==
+                    cryptstring or self.encrypt_password(method, plaintext,
+                                                         salt=salt,
+                                                         binary=True) ==
                     cryptstring)
         raise ValueError("Unknown method %r" % method)
 
