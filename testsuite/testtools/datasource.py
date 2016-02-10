@@ -387,9 +387,6 @@ class BasicGroupSource(BaseDataSource, NameMixin, DescriptionMixin,
     desc_attr = 'description'
     desc_prefix = '5gzklxdsabrucz8r Test group '
 
-#ds = BasicGroupSource()
 
-#for g in ds(limit=5):
-    #print g
-
-
+class BasicOUSource(BaseDataSource, EntityMixin):
+    pass
