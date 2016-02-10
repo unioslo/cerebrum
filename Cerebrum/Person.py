@@ -22,6 +22,7 @@
 """
 
 import collections
+import numbers
 
 import cereconf
 from Cerebrum.Entity import \
@@ -716,7 +717,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             return self.__calculate_affiliation_precedence(affiliation,
                                                            source, status,
                                                            precedence, old)
-        if isinstance(precedence, int):
+        if isinstance(precedence, numbers.Integral):
             return precedence
         if isinstance(precedence, basestring):
             precedence = self.__get_affiliation_precedence_rule(source,
