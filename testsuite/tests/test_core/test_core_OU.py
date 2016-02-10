@@ -208,14 +208,23 @@ def test_search(ou_object, ous_with_spreads, ous_with_quarantines, basic_ous,
         ==
         set(map(lambda x: x.get('entity_id'), ous_with_spreads)))
     assert (
-        len(ou_object.search(filter_quarantined=True))
-        ==
-        len(ous_with_spreads + basic_ous))
-    assert (
-        set(map(lambda x: x.get('ou_id'), ou_object.search()))
-        ==
+        (len(ou_object.search(filter_quarantined=True))
+         >=
+         len(ous_with_spreads + basic_ous))
+        and
         set(map(lambda x: x.get('entity_id'),
+                ous_with_spreads + basic_ous)).issubset(
+                    set(map(lambda x: x.get('ou_id'),
+                            ou_object.search(filter_quarantined=True)))))
+    assert (
+        len(map(lambda x: x.get('ou_id'), ou_object.search()))
+        >=
+        len(map(lambda x: x.get('entity_id'),
                 ous_with_quarantines + ous_with_spreads + basic_ous)))
+    assert (
+        set(map(lambda x: x.get('entity_id'),
+                ous_with_quarantines + ous_with_spreads + basic_ous)).issubset(
+                    set(map(lambda x: x.get('ou_id'), ou_object.search()))))
 
 
 def test_unset_parent(ou_object, ou_tree, perspective):
