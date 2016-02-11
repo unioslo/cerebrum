@@ -86,6 +86,11 @@ class CIMPhoneMappingConfig(Configuration):
 
 class CIMDataSourceConfig(Configuration):
     u"""Configuration for the CIM data source."""
+    spread = ConfigDescriptor(
+        String,
+        default=u"CIM_person",
+        doc=u'Person must have this spread to be exported to CIM.')
+
     authoritative_system = ConfigDescriptor(
         String,
         default=u"SAP",

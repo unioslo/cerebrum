@@ -31,3 +31,7 @@ class ConstantsMixin(Constants.Constants):
     target_system_cim = TargetSystemConstants._TargetSystemCode(
         'CIM',
         'CIM as a destination system')
+
+    spread_cim_person = Constants._SpreadCode(
+        'CIM_person', Constants.Constants.entity_person,
+        'Person exported to CIM')

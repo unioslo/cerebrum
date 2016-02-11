@@ -43,6 +43,7 @@ class CIMDataSource(object):
             str(self.config.authoritative_system))
         self.ou_perspective = self.co.OUPerspective(
             str(self.config.ou_perspective))
+        self.spread = self.co.Spread(str(self.config.spread))
 
     def is_eligible(self, person_id):
         """Decide whether a person should be exported to CIM.
@@ -50,10 +51,7 @@ class CIMDataSource(object):
         :return: Export?
         :rtype: bool
         """
-        return bool(self.pe.list_affiliations(
-            person_id=person_id,
-            source_system=self.authoritative_system,
-            affiliation=self.co.affiliation_ansatt))
+        return bool(self.pe.search(entity_id=person_id, spread=self.spread))
 
     def get_person_data(self, person_id):
         """
@@ -68,7 +66,10 @@ class CIMDataSource(object):
         self.pe.clear()
         self.ac.clear()
         self.pe.find(person_id)
-        self.ac.find(self.pe.get_primary_account())
+        primary_account = self.pe.get_primary_account()
+        if not primary_account:
+            return None
+        self.ac.find(primary_account)
 
         person = {}
         person['username'] = self.ac.get_account_name()
