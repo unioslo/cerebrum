@@ -44,6 +44,7 @@ at the UiO. The script provides statistics at various granularity levels
 import argparse
 import copy
 import types
+import locale
 
 import cerebrum_path
 
@@ -150,8 +151,9 @@ def display_statistics(statistics):
     logger.debug("Statistics:")
 
     # The keys we are interested in
-    keys = ('ansatt', 'student', 'a&s', 'tilknyttet', 'manuell', 'kun manuell',
-            'alle manuell', 'upersonlig',)
+    keys = ('ansatt', 'student', 'a&s', 'tilknyttet', 'manuell', 'alle manuell',
+            'upersonlig',)
+    nosum = ('alle manuell', 'upersonlig')
     # Dictionary for totalling up numbers per affiliation
     total = dict([(key, 0) for key in keys])
 
@@ -163,51 +165,79 @@ def display_statistics(statistics):
     # pprint.print(dictionary)
     fak_width = 14
     field_width = 10
-    fak_underline = "-" * fak_width + "+"
-    field_underline = "-" * field_width + "+"
-    fak_format = "%%%ds" % fak_width
-    field_format = "%%%ds" % field_width
+    fak_underline = u"-" * fak_width + u"+"
+    field_underline = u"-" * field_width + u"+"
+    fak_format = u"%%%ds" % fak_width
+    field_format = u"%%%ds" % field_width
 
-    values = ("navn",) + tuple([str(x)[0:field_width] for x in keys])
-    print (((fak_format + "|") % "fak") +
-           ((field_format + "|") * len(values)) % values)
-    print "%s%s" % (fak_underline, field_underline * len(values))
+    values = (u"navn",) + tuple([unicode(x, 'UTF-8')[0:field_width] for x in
+                                 keys])
+    enc = locale.getpreferredencoding()
+    print (((fak_format + u"|") % u"fak") +
+           ((field_format + u"|") * len(values)) % values).encode(enc)
+    print (u"%s%s" % (fak_underline, field_underline * len(values))).encode(enc)
 
     def output_fak(faculty, value):
         if isinstance(faculty, types.TupleType):
-            faculty_text = "%02d%02d%02d" % faculty
+            faculty_text = u"%02d%02d%02d" % faculty
         else:
-            faculty_text = str(faculty)
+            faculty_text = faculty
 
-        message = ((fak_format % str(faculty_text)) +
-                   ("|" + field_format) % str(value["name"])[0:field_width])
+        message = ((fak_format % faculty_text) +
+                   (u"|" + field_format) % value["name"][0:field_width])
 
         for key in keys:
             message += "|" + field_format % value[key]
-            total[key] += value[key]
 
-        print message
+        print message.encode(enc)
 
     for faculty in faculty_keys:
         value = statistics[faculty]
-        output_fak(faculty, value)
         if 'cum' in value:
-            value['cum']['name'] = 'totalsum'
+            value['cum']['name'] = u'totalsum'
             if isinstance(faculty, types.TupleType):
-                text = '%02d****' % faculty[0]
+                text = u'%02d****' % faculty[0]
             else:
-                text = faculty + ' *'
+                text = faculty + u' *'
+            # print (u"%s%s" % (fak_underline,
+            #                  field_underline * len(values))).encode(enc)
             output_fak(text, value['cum'])
+        output_fak(faculty, value)
+        for key in keys:
+            total[key] += value[key]
 
-    print "%s%s" % (fak_underline, field_underline * len(values))
+    print ("%s%s" % (fak_underline, field_underline * len(values))).encode(enc)
 
-    message = (fak_format + "|") % "Total" + (field_format + "|") % "--"
+    message = (fak_format + u"|") % u"Total" + (field_format + u"|") % u"--"
     summa = 0
+    nosumma = 0
     for key in keys:
-        message += (field_format + "|") % total[key]
-        summa += total[key]
+        message += (field_format + u"|") % total[key]
+        if key not in nosum:
+            summa += total[key]
+        else:
+            nosumma += total[key]
 
-    print message, field_format % summa
+    print message.encode(enc), (field_format % '{} (+{})'.format(summa, nosumma)
+                                .encode(enc))
+
+
+def purge_0rows(statistics):
+    for key in statistics.keys():
+        val = statistics[key]
+        cum = val.get('cum')
+        empty = not any((val[k] for k in val.keys() if k not in ('cum',
+                                                                 'name')))
+        if cum and empty and any((cum[k] for k in cum.keys() if k != 'name')):
+            cum['name'] = u'totalsum'
+            if isinstance(key, types.TupleType):
+                name = u'%02d****' % key[0]
+            else:
+                name = u'%s *' % key
+            statistics[name] = cum
+        if empty:
+            del statistics[key]
+    return statistics
 
 
 def make_empty_statistics(level, db, extra_fak_sum=False):
@@ -232,7 +262,7 @@ def make_empty_statistics(level, db, extra_fak_sum=False):
 
     statistics = dict()
     # "Unspecified" stats.
-    statistics[__undef_ou] = {"name": "undef", 'cum': dict()}
+    statistics[__undef_ou] = {"name": u"undef", 'cum': dict()}
 
     for row in sko:
         ou_sko = (int(row["fakultet"]),
@@ -244,14 +274,14 @@ def make_empty_statistics(level, db, extra_fak_sum=False):
         acronyms = ou.search_name_with_language(
             entity_id=ou.entity_id, name_variant=const.ou_name_acronym)
         if acronyms:
-            ou_name = acronyms[0]["name"]
+            ou_name = unicode(acronyms[0]["name"], 'ISO-8859-1')
         else:
             names = ou.search_name_with_language(entity_id=ou.entity_id,
                                                  name_variant=const.ou_name)
             if names:
-                ou_name = names[0]["name"]
+                ou_name = unicode(names[0]["name"], 'ISO-8859-1')
             else:
-                ou_name = "N/A"
+                ou_name = u"N/A"
 
         statistics[ou_sko] = {"name": ou_name}
         if extra_fak_sum and ou_sko[1] == ou_sko[2] == 0:
@@ -545,6 +575,8 @@ def main():
                     choices=('FS', 'SAP', 'LT'),
                     required=True,
                     help='OU perspective to use')
+    ap.add_argument('-k', '--keep', action='store_true',
+                    help='Keep all zero rows')
     args = ap.parse_args()
 
     db = Factory.get("Database")()
@@ -563,12 +595,16 @@ def main():
         people_result = generate_people_statistics(
             perspective,
             make_empty_statistics(level, db, cum), level, db, cum)
+        if not args.keep:
+            purge_0rows(people_result)
         display_statistics(people_result)
 
     if args.users:
         users_result = generate_account_statistics(
             perspective,
             make_empty_statistics(level, db, cum), level, db, cum)
+        if not args.keep:
+            purge_0rows(users_result)
         display_statistics(users_result)
 
 
