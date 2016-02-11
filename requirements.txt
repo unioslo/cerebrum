@@ -12,9 +12,12 @@ pyOpenSSL
 python-ldap
 cx_Oracle
 pygpgme
+pyyaml
 flanker
 pika
 phonenumbers
 requests
 jsonschema
 functools32
+nose
+pytest
