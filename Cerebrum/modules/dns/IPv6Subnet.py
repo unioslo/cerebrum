@@ -388,15 +388,16 @@ class IPv6Subnet(Entity):
             binds['ip'] = IPv6Calc.ip_to_long(identifier)
 
         try:
-            (self.entity_id, self.subnet_ip, self.ip_min, self.ip_max,
+            (eid, self.subnet_ip, self.ip_min, self.ip_max,
              self.description, self.dns_delegated, self.name_prefix,
-             self.vlan_number, self.no_of_reserved_adr,
-             self.entity_type) = self.query_1(
+             self.vlan_number, self.no_of_reserved_adr) = self.query_1(
                  """ SELECT entity_id, subnet_ip, ip_min, ip_max, description,
                             dns_delegated, name_prefix, vlan_number,
-                            no_of_reserved_adr, entity_type
+                            no_of_reserved_adr
                      FROM [:table schema=cerebrum name=dns_ipv6_subnet]
                      WHERE %s""" % where_param, binds)
+
+            self.__super.find(eid)
 
             self.subnet_mask = IPv6Subnet.calculate_subnet_mask(self.ip_min,
                                                                 self.ip_max)
