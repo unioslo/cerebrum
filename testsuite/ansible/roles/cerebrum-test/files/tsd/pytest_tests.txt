@@ -3,6 +3,5 @@ test_core/test_core_Group.py
 test_core/test_core_Account.py
 test_core/test_core_GnuPG.py
 test_core/test_core_Utils.py
-test_extended/test_utils_memoize.py
 test_tsd/test_tsd_Account.py
 test_tsd/test_tsd_OU.py
