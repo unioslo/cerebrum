@@ -19,6 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 u""" This module contains a consumer for Cerebrum events. """
+import pickle
+
 from Cerebrum.modules.event.EventExceptions import EntityTypeError
 from Cerebrum.modules.event.EventExceptions import UnrelatedEvent
 from Cerebrum.modules.event.EventExceptions import EventExecutionException
@@ -86,6 +88,15 @@ class Listener(evhandlers.EventConsumer):
             "Fetching data and updating user for person_id:{}".format(
                 event['event_id'], key, person_id))
         userdata = self.datasource.get_person_data(person_id)
+        if userdata is None:
+            self.logger.warning(
+                "eid:{}: {}: "
+                "Attempted to add/update person_id:{}, "
+                "but no primary account found".format(
+                    event['event_id'],
+                    key,
+                    person_id))
+            raise EventExecutionException
         if not self.client.update_user(userdata):
             self.logger.error(
                 "eid:{}: {}: "
@@ -109,10 +120,12 @@ class Listener(evhandlers.EventConsumer):
             raise EventExecutionException
         return True
 
-    def delete_users_for_person(self, key, event, person_id, ac,
+    def delete_users_for_person(self, key, event, person_id,
                                 except_account_id):
+        ac = Factory.get('Account')(self.db)
         all_accounts = [x['account_id'] for x in
-                        ac.search(owner_id=person_id)]
+                        ac.search(owner_id=person_id,
+                                  expire_start=None)]
         to_delete = [a for a in all_accounts if a != except_account_id]
         for account_id in to_delete:
             ac.clear()
@@ -165,10 +178,6 @@ class Listener(evhandlers.EventConsumer):
         self.delete_users_for_person(key, event, pe.entity_id, ac,
                                      except_account_id=new_primary)
 
-    @event_map('e_account:delete', 'e_account:destroy')
-    def account_delete(self, key, event):
-        self.logger.info(u'Account delete (can this happen?): {!r}', event)
-
     @event_map(
         'person:create',
         'person:update')
@@ -208,6 +217,31 @@ class Listener(evhandlers.EventConsumer):
         self.update_user(key, event, pe.entity_id)
 
     @event_map(
+        'spread:add',
+        'spread:delete')
+    def spread_change(self, key, event):
+        u""" Spread change. """
+        change_params = pickle.loads(event['change_params'])
+        if change_params.get('spread', 0) != int(self.datasource.spread):
+            raise UnrelatedEvent
+
+        pe = Factory.get('Person')(self.db)
+        try:
+            pe.find(event['subject_entity'])
+        except NotFoundError:
+            raise UnrelatedEvent
+
+        if self.datasource.is_eligible(pe.entity_id):
+            primary = pe.get_primary_account()
+            # Make sure the current primary account exists
+            if primary:
+                self.update_user(key, event, pe.entity_id)
+
+        # Delete all other accounts
+        self.delete_users_for_person(key, event, pe.entity_id,
+                                     except_account_id=primary)
+
+    @event_map(
         'person:aff_add',
         'person:aff_mod',
         'person:aff_del',
@@ -217,7 +251,6 @@ class Listener(evhandlers.EventConsumer):
     def person_aff_change(self, key, event):
         u""" Person aff change - update CIM. """
         pe = Factory.get('Person')(self.db)
-        ac = Factory.get('Account')(self.db)
 
         pe.find(event['subject_entity'])
         new_primary = None
@@ -229,5 +262,5 @@ class Listener(evhandlers.EventConsumer):
                 self.update_user(key, event, pe.entity_id)
 
         # Delete all other accounts
-        self.delete_users_for_person(key, event, pe.entity_id, ac,
+        self.delete_users_for_person(key, event, pe.entity_id,
                                      except_account_id=new_primary)
