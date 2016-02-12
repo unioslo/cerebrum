@@ -118,7 +118,8 @@ class Listener(evhandlers.EventConsumer):
                                 except_account_id):
         ac = Factory.get('Account')(self.db)
         all_accounts = [x['account_id'] for x in
-                        ac.search(owner_id=person_id)]
+                        ac.search(owner_id=person_id,
+                                  expire_start=None)]
         to_delete = [a for a in all_accounts if a != except_account_id]
         for account_id in to_delete:
             ac.clear()
@@ -214,14 +215,14 @@ class Listener(evhandlers.EventConsumer):
         'spread:delete')
     def spread_change(self, key, event):
         u""" Spread change. """
+        change_params = pickle.loads(event['change_params'])
+        if change_params.get('spread', 0) != int(self.datasource.spread):
+            raise UnrelatedEvent
+
         pe = Factory.get('Person')(self.db)
         try:
             pe.find(event['subject_entity'])
         except NotFoundError:
-            raise UnrelatedEvent
-
-        change_params = pickle.loads(event['change_params'])
-        if change_params.get('spread', 0) != int(self.datasource.spread):
             raise UnrelatedEvent
 
         if self.datasource.is_eligible(pe.entity_id):
