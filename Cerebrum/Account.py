@@ -887,6 +887,13 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             if hasattr(self, 'logger'):
                 self.logger.warn('Cred mismatch for %s, success: %s, fail: %s',
                                  self.account_name, success, failed)
+
+        if not success and not failed:
+            if hasattr(self, 'logger'):
+                self.logger.warn('Nothing to authenticate agaist for %s',
+                                 self.account_name)
+            return False
+
         return success and not failed
 
     def add_student_to_server_group(self):
