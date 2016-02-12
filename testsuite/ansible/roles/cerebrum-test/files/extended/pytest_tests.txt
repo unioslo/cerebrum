@@ -3,4 +3,3 @@ test_extended/test_bofhd_session.py
 test_extended/test_dns_IPUtils.py
 test_extended/test_dns_IPv6Utils.py
 test_extended/test_dns_Subnet.py
-test_extended/test_utils_memoize.py
