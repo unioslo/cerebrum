@@ -89,8 +89,14 @@ class Listener(evhandlers.EventConsumer):
                 event['event_id'], key, person_id))
         userdata = self.datasource.get_person_data(person_id)
         if userdata is None:
-            # No primary account
-            raise UnrelatedEvent
+            self.logger.warning(
+                "eid:{}: {}: "
+                "Attempted to add/update person_id:{}, "
+                "but no primary account found".format(
+                    event['event_id'],
+                    key,
+                    person_id))
+            raise EventExecutionException
         if not self.client.update_user(userdata):
             self.logger.error(
                 "eid:{}: {}: "
