@@ -86,7 +86,6 @@ To support access control, add the following to your Cerebrum class:
             ...
 
 """
-import crypt
 from mx import DateTime
 
 from twisted.python import log
@@ -94,7 +93,6 @@ from twisted.python import log
 from rpclib.model.primitive import String
 from rpclib.decorator import rpc
 
-import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import PermissionDenied
@@ -285,43 +283,12 @@ class PasswordAuthenticationService(AuthenticationService):
             db.close()
             raise AuthenticationError(ctx.service_class.error_msg)
         # User exists here, check password 
-        # Check password
-        enc_passwords = []
-        for auth in (constant.auth_type_md5_crypt,
-                     constant.auth_type_crypt3_des):
-            try:
-                enc_pass = account.get_account_authentication(auth)
-                if enc_pass:            # Ignore empty password hashes
-                    enc_passwords.append(enc_pass)
-            except Errors.NotFoundError:
-                pass
-        # Close the database-connection
-        db.close()
-        if not enc_passwords:
-            log.msg("INFO: Missing password for %s from %s" % (username,
-                        ":".join([str(x) for x in self.client_address])))
-            raise AuthenticationError(ctx.service_class.error_msg)
         if isinstance(password, unicode):  # crypt.crypt don't like unicode
             # TODO: ideally we should not hardcode charset here.
             password = password.encode('iso8859-1')
-        # TODO: Add API for credential verification to Account.py.
-        mismatch = map(lambda e: e != crypt.crypt(password, e), enc_passwords)
-        if filter(None, mismatch):
-            # Use same error message as above; un-authenticated
-            # parties should not be told that this in fact is a valid
-            # username.
-            if filter(lambda m: not m, mismatch):
-                mismatch = zip(mismatch, enc_passwords)
-                match    = [p[1] for p in mismatch if not p[0]]
-                mismatch = [p[1] for p in mismatch if p[0]]
-                if filter(lambda c: c < '!' or c > '~', password):
-                    chars = 'chars, including [^!-~]'
-                else:
-                    chars = 'good chars'
-                log.msg("INFO: Password (%d %s) for user %s matches"
-                            " auth_data '%s' but not '%s'"
-                            % (len(password), chars, username,
-                               "', '".join(match), "', '".join(mismatch)))
+        if not account.verify_auth(password):
+            # Close the database-connection
+            db.close()
             log.msg("INFO: Failed login for %s." % username)
             raise AuthenticationError(ctx.service_class.error_msg)
         ses = ctx.service_class._authenticate(ctx, account.entity_id)
