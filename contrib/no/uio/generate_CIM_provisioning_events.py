@@ -66,7 +66,31 @@ def generate_events(db, collector=collect_candidates):
     for person_id in collector(db):
         logger.info('Creating faux spread:add for person_id:%d', person_id)
         db.log_change(subject_entity=person_id,
-                      change_type_id=co.person_aff_add,
+                      change_type_id=co.spread_add,
+                      change_params={'spread': int(co.spread_cim_person)},
+                      destination_entity=None, skip_change=True)
+
+
+def kill_with_fire(db):
+    """Generate events that should result in de-provisioning of users
+    who are missing the spread, but have previously been provisioned by this
+    script.
+
+    :param Cerebrum.Database db: The database connection
+    """
+    co = Factory.get('Constants')(db)
+    pe = Factory.get('Person')(db)
+    candidates = set([x['person_id'] for x in pe.list_affiliations(
+        source_system=co.system_sap, affiliation=co.affiliation_ansatt)])
+    eligible = set([x['person_id'] for x in pe.search(
+        spread=co.spread_cim_person)])
+    killable = candidates - eligible
+
+    for person_id in killable:
+        logger.info('Creating faux spread:delete for person_id:%d', person_id)
+        db.log_change(subject_entity=person_id,
+                      change_type_id=co.spread_del,
+                      change_params={'spread': int(co.spread_cim_person)},
                       destination_entity=None, skip_change=True)
 
 
@@ -87,6 +111,11 @@ def main(args=None):
                         metavar='<username>',
                         help='Force provisioning of person related to '
                              '<username>')
+    parser.add_argument('--kill-users-missing-spread',
+                        default=False,
+                        action='store_true',
+                        dest='killusers',
+                        help='Force de-provisioning of persons missing spread')
     args = parser.parse_args(args)
 
     logger.info("START %s with args: %s", parser.prog, args.__dict__)
@@ -94,19 +123,22 @@ def main(args=None):
     db = Factory.get('Database')()
     db.cl_init(change_program=parser.prog.split('.')[0])
 
-    collector = tuple()
-    if args.username:
-        import functools
-        collector = (
-            functools.partial(
-                uname2pid, **{'username': args.username}),)
+    if args.killusers:
+        kill_with_fire(db)
+    else:
+        collector = tuple()
+        if args.username:
+            import functools
+            collector = (
+                functools.partial(
+                    uname2pid, **{'username': args.username}),)
 
-    try:
-        generate_events(db, *collector)
-    except Exception:
-        logger.error("Unexpected exception", exc_info=1)
-        db.rollback()
-        raise
+        try:
+            generate_events(db, *collector)
+        except Exception:
+            logger.error("Unexpected exception", exc_info=1)
+            db.rollback()
+            raise
 
     if args.commit:
         logger.info("Commiting changes")
