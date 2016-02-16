@@ -175,7 +175,7 @@ class Listener(evhandlers.EventConsumer):
                 self.update_user(key, event, pe.entity_id)
 
         # Delete all other accounts
-        self.delete_users_for_person(key, event, pe.entity_id, ac,
+        self.delete_users_for_person(key, event, pe.entity_id,
                                      except_account_id=new_primary)
 
     @event_map(
