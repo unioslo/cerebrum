@@ -231,6 +231,7 @@ class Listener(evhandlers.EventConsumer):
         except NotFoundError:
             raise UnrelatedEvent
 
+        primary = None
         if self.datasource.is_eligible(pe.entity_id):
             primary = pe.get_primary_account()
             # Make sure the current primary account exists
