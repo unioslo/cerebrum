@@ -121,6 +121,9 @@ def main():
     added, removed = update_spreads(eligible, spread)
     logger.info('Added %s persons', len(added))
     logger.info('Removed %s persons', len(removed))
+    logger.info('Total with spread %s: %s',
+                str(spread),
+                len(set([x['person_id'] for x in pe.search(spread=spread)])))
 
     if args.commit:
         logger.info('Committing changes...')
