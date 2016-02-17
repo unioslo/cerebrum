@@ -903,7 +903,7 @@ class OUTSDMixin(TsdDefaultEntityMixin,
         """Setup the hosts initially needed for the given project."""
         projectid = self.get_project_id()
         host = dns.HostInfo.HostInfo(self._db)
-
+        dns_owner = dns.DnsOwner.DnsOwner(self._db)
         vm_trait = self.get_trait(self.const.trait_project_vm_type)
 
         if vm_trait:
@@ -912,58 +912,65 @@ class OUTSDMixin(TsdDefaultEntityMixin,
             vm_type = 'win_vm'
 
         if vm_type in ('win_vm', 'win_and_linux_vm'):
-            # Create a Windows host for the whole project
+            # Create a Windows host for the whole project if it doesn't exist
             hostname = '%s-win01.tsd.usit.no.' % projectid
             hinfo = 'IBM-PC\tWINDOWS'
-            dnsowner = self._populate_dnsowner(hostname)
+            host_dns_owner = None
             try:
-                host.find_by_dns_owner_id(dnsowner.entity_id)
+                host.find_by_name(hostname)
             except Errors.NotFoundError:
-                host.populate(dnsowner.entity_id, hinfo)
+                host_dns_owner = self._populate_dnsowner(hostname)
+                try:
+                    host.find_by_dns_owner_id(host_dns_owner.entity_id)
+                except Errors.NotFoundError:
+                    host.populate(host_dns_owner.entity_id, hinfo)
+
+            if host_dns_owner is None:
+                dns_owner.find_by_name(hostname)
+                host_dns_owner = dns_owner
+
             host.hinfo = hinfo
             host.write_db()
+
             for comp in getattr(cereconf, 'TSD_HOSTPOLICIES_WIN', ()):
                 TSDUtils.add_host_to_policy_component(self._db,
-                                                      dnsowner.entity_id, comp)
-
-        host.clear()
+                                                      host_dns_owner.entity_id,
+                                                      comp)
 
         if vm_type in ('linux_vm', 'win_and_linux_vm'):
-            # Create a Linux host for the whole project
-            hostname = '%s-tl-01-l.tsd.usit.no.' % projectid
+            host.clear()
+            # Create a Linux host for the whole project if it doesn' exist
+            hostname = '%s-tl01-l.tsd.usit.no.' % projectid
             hinfo = 'IBM-PC\tLINUX'
-            host_dns_owner = self._populate_dnsowner(hostname)
+            host_dns_owner = None
             try:
-                host.find_by_dns_owner_id(host_dns_owner.entity_id)
+                host.find_by_name(hostname)
             except Errors.NotFoundError:
-                host.populate(host_dns_owner.entity_id, hinfo)
+                host_dns_owner = self._populate_dnsowner(hostname)
+                try:
+                    host.find_by_dns_owner_id(host_dns_owner.entity_id)
+                except Errors.NotFoundError:
+                    host.populate(host_dns_owner.entity_id, hinfo)
+
+            if host_dns_owner is None:
+                dns_owner.clear()
+                dns_owner.find_by_name(hostname)
+                host_dns_owner = dns_owner
+
             host.hinfo = hinfo
             host.write_db()
+
             for comp in getattr(cereconf, 'TSD_HOSTPOLICIES_LINUX', ()):
                 TSDUtils.add_host_to_policy_component(self._db,
                                                       host_dns_owner.entity_id,
                                                       comp)
 
-            # Add CNAME-record for connecting by thinlinc
-            # TODO: verify proxyname
-            cname_record_name = '%s-tl-proxy01.tsd.usit.no.' % projectid
-            cname_dns_owner = dns.DnsOwner.DnsOwner(self._db)
-
-            try:
-                cname_dns_owner.find_by_name(cname_record_name)
-            except Errors.NotFoundError:
-                cname_dns_owner.populate(self.const.DnsZone(
-                    cereconf.DNS_DEFAULT_ZONE),
-                    cname_record_name)
-            cname_dns_owner.write_db()
-            cname = dns.CNameRecord.CNameRecord(self._db)
-
-            try:
-                cname.find(cname_dns_owner.entity_id)
-            except Errors.NotFoundError:
-                cname.populate(cname_dns_owner.entity_id,
-                               host_dns_owner.entity_id)
-            cname.write_db()
+            # Add CNAME-record for connecting via thinlinc-proxy
+            cname_record_name = '%s-tl01-l.tl.tsd.usit.no.' % projectid
+            TSDUtils.add_cname_record(self._db,
+                                      cname_record_name,
+                                      cereconf.TSD_THINLINC_PROXY,
+                                      fail_on_exists=False)
 
     def _setup_project_posix(self, creator_id):
         u""" Upgrade non-posix entities.
