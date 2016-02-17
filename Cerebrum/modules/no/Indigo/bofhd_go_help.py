@@ -19,3 +19,5 @@
 from Cerebrum.modules.bofhd.bofhd_core_help import group_help
 from Cerebrum.modules.bofhd.bofhd_core_help import command_help
 from Cerebrum.modules.bofhd.bofhd_core_help import arg_help
+
+command_help['group']['group_user'] = 'List all groups an account is a member of'

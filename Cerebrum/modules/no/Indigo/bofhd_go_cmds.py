@@ -76,7 +76,7 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
     copy_commands = (
         '_get_account', '_get_disk',
         '_parse_date', '_get_entity',
-        'group_user', 'person_list_user_priorities',
+        'person_list_user_priorities',
         'group_memberships', 'group_search',
         '_entity_info', 'num2str', 'group_list',
         '_fetch_member_names', 'misc_list_passwords',
@@ -246,6 +246,13 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
                                  if int(x["member_type"]) == entity_type])
         ret.append(tmp)
         return ret
+
+    all_commands['group_user'] = Command(
+        ('group', 'user'), AccountName(),
+        fs=FormatSuggestion(
+        "%-9s %-18s", ("memberop", "group")))
+    def group_user(self, operator, accountname):
+        return self.group_memberships(operator, 'account', accountname)
 
     all_commands['get_auth_level'] = None
     def get_auth_level(self, operator):

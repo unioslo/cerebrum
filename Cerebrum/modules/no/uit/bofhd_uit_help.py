@@ -155,7 +155,6 @@ command_help = {
     'group_search': 'Search for a group using various criteria',
     'group_set_expire': 'Set expire date for a group',
     'group_set_visibility': 'Set visibility for a group',
-    'group_user': 'List all groups an account is a member of',
     },
     "misc": {
     "misc_affiliations":

@@ -6108,17 +6108,6 @@ Addresses and settings:
         ret.sort(lambda a,b: cmp(a['group'], b['group']))
         return ret
 
-    # group user
-    all_commands['group_user'] = Command(
-        ('group', 'user'), AccountName(),
-        fs=FormatSuggestion(
-        "%-9s %-18s", ("memberop", "group"),
-        hdr=("WARNING: This command is deprecated and will be removed.  "
-             "Please use 'group memberships'\n%-9s %-18s ") % (
-        "Operation", "Group")))
-    def group_user(self, operator, accountname):
-        return self.group_memberships(operator, 'account', accountname)
-
     #
     # misc commands
     #

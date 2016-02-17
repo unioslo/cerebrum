@@ -270,7 +270,6 @@ command_help = {
             'Set displayname with nb as varian for an Exchange-group/room list',
         'group_set_expire': 'Set expire date for a group',
         'group_set_visibility': 'Set visibility for a group',
-        'group_user': 'List all groups an account is a member of',
     },
     'host': {
         'host_info': "Show information about a host",

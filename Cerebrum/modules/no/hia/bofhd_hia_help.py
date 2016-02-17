@@ -218,7 +218,6 @@ def _arg_help_modifications():
 #    'group_remove': 'Remove member accounts from a given group',
 #    'group_set_expire': 'Set expire date for a group',
 #    'group_set_visibility': 'Set visibility for a group',
-#    'group_user': 'List all groups an account is a member of',
 #    },
 #    'misc': {
 #    'misc_affiliations':
