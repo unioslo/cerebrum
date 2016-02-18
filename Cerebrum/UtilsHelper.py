@@ -37,16 +37,15 @@ class Latin1:
             '[^\x1f-\x7e\xff]').sub  # Should be [^\x20-\x7e].
         self.lat1_646_cache = {}
 
-        # U-umlaut is treated specially and is therefore defined in
-        # latin1_specials to be transcribed to 'ue' instead of the single
-        # character 'u'. The reason for this is a wish for email addresses to
-        # reflect the common transcribation choice for this
-        # character. O-umlaut and a-umlaut are not getting such special
-        # treatment.
+        # Some characters are treated specially and is therefore defined in
+        # latin1_specials to be transcribed to multiple characters, instead of
+        # the single character without diacritical mark. The reason for this is
+        # a wish for email addresses to reflect the common transcribation
+        # choice for this character.
         self.latin1_specials = {'Ð': 'Dh', 'ð': 'dh',
                                 'Þ': 'Th', 'þ': 'th',
-                                'ß': 'ss', 'Ü': 'Ue',
-                                'ü': 'ue'}
+                                'ß': 'ss', 'Ü': 'U',
+                                'ü': 'u'}
         self.latin1_wash_cache = {}
 
     def to_iso646_60(self, s, substitute=''):
@@ -88,7 +87,7 @@ class Latin1:
                          '"--\'')
                 if expand_chars:
                     xlate.update({'Æ': 'Ae', 'æ': 'ae', 'Å': 'Aa', 'å': 'aa',
-                                  'Ü': 'Ue', 'ü': 'ue'})
+                                  'Ü': 'U', 'ü': 'u'})
                 xlate_re = r'[^a-zA-Z0-9 -]'
             else:
                 raise ValueError(
