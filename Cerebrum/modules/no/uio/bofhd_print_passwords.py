@@ -1,5 +1,5 @@
-#!/usr/bin/env python2
-# encoding: utf-8
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
 # Copyright 2015 University of Oslo, Norway
 #
@@ -20,7 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains a password print command for UiO. """
 
-import cerebrum_path
 import cereconf
 
 import Cerebrum.modules.printutils.bofhd_misc_print_passwords as base

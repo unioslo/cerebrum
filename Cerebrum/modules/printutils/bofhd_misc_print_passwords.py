@@ -278,11 +278,11 @@ class BofhdExtension(BofhdCommonMethods):
             output_file = prepare_tex(output_file)
         return output_file
 
-    def _confirm_msg(self, account, destination, tpl):
+    def _confirm_msg(self, account, destination, tpl, print_user):
         u""" Make a confirmation message for the user. """
-        return "OK: %s/%s.%s spooled @ %s for %s" % (
+        return "OK: %s/%s.%s for %s spooled @ %s for %s" % (
             tpl.get('lang'), tpl.get('type'), tpl.get('fmt'),
-            destination, account.account_name)
+            account.account_name, destination, print_user.account_name)
 
     def get_help_strings(self):
         u""" Help strings for this bofhd extension. """
@@ -304,7 +304,10 @@ class BofhdExtension(BofhdCommonMethods):
             'print_select_range':
                 ['range', 'Select range',
                  ("Select entries by entering a space-separated list of "
-                  "numbers. Ranges can be written as '3-15'.")], }
+                  "numbers. Ranges can be written as '3-15'.")],
+            'print_enter_print_user':
+                ['print_user', 'Enter username',
+                 ("Enter the username to spool the print job for.")], }
 
         return (group_help, command_help, arg_help)
 
@@ -352,12 +355,22 @@ class BofhdExtension(BofhdCommonMethods):
             if n == 1:
                 raise CerebrumError(u"No new passwords in session")
             return {'prompt': 'Choose user(s)',
-                    'last_arg': True,
                     'map': mapping,
                     'raw': True,
                     'help_ref': 'print_select_range',
                     'default': str(n-1)}
         all_args.pop(0)
+
+        # Ask for print user
+        if not self._get_printer(session, tpl):
+            if not all_args:
+                operator = self._get_account(session.get_entity_id(),
+                                             idtype='id')
+                return {'prompt': 'Queue print job as user',
+                        'default': operator.account_name,
+                        'help_ref': 'print_enter_print_user',
+                        'last_arg': True}
+            all_args.pop(0)
 
         # Done
         if len(all_args) == 0:
@@ -365,7 +378,7 @@ class BofhdExtension(BofhdCommonMethods):
         raise CerebrumError("Too many arguments: %r" % all_args)
 
     #
-    # misc print_passwords [template [printer] [range]]
+    # misc print_passwords [template [printer] [range] [print_user]]
     #
     # TODO: Should the access to this command be restricted?
     #
@@ -391,7 +404,11 @@ class BofhdExtension(BofhdCommonMethods):
 
         passwds = self.__select_cached_passwords(operator, args.pop(0))
 
-        print_user = self._get_account(operator.get_entity_id(), idtype='id')
+        if not args:
+            print_user = self._get_account(operator.get_entity_id(), idtype='id')
+        else:
+            print_user = self._get_account(args.pop(0), idtype="name")
+
         printer = LinePrinter(
             destination,
             uname=print_user.account_name)
@@ -408,7 +425,7 @@ class BofhdExtension(BofhdCommonMethods):
                     template))
             ret.append(
                 self._confirm_msg(
-                    account, destination, template))
+                    account, destination, template, print_user))
         printer.spool(*documents)
 
         return "\n".join(ret)
