@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2015 University of Oslo, Norway
+# Copyright 2011-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1441,12 +1441,12 @@ class ADclient(PowershellClient):
         except UnicodeEncodeError:
             password = base64.b64encode(password.encode('UTF-8'))
         if password_is_encrypted:
-            cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s));
-            $env:GNUPGHOME = \"C:\gnupg\";
-            $decrypted_text = $b | gpg -q --batch --decrypt;
+            cmd = '''[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s)) | Set-Content c:\gnupg\%(ad_id)s_encrypted_password.asc;
+            $decrypted_text = gpg2 -q --textmode --batch --decrypt c:\gnupg\%(ad_id)s_encrypted_password.txt;
             $pwd = ConvertTo-SecureString -AsPlainText -Force $decrypted_text;
             %(cmd)s -NewPassword $pwd;
             ''' % {'pwd': self.escape_to_string(password),
+                   'ad_id': ad_id, 
                    'cmd': self._generate_ad_command('Set-ADAccountPassword',
                                                     {'Identity': ad_id},
                                                     ['Reset'])}
