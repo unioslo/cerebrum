@@ -108,8 +108,6 @@ class Disk(EntitySpread, Entity_class):
             return False
         identical = ((other.path == self.path) and
                      (other.description == self.description))
-        if cereconf.DEBUG_COMPARE:
-            print "Disk.__eq__ = %s" % identical
         return identical
 
     def find(self, disk_id):
@@ -321,8 +319,6 @@ class Host(EntityName, EntitySpread, Entity_class):
             return False
         identical = ((other.name == self.name) and
                      (other.description == self.description))
-        if cereconf.DEBUG_COMPARE:
-            print "Host.__eq__ = %s" % identical
         return identical
 
     def find(self, host_id):

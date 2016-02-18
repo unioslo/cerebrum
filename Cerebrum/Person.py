@@ -107,12 +107,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         assert isinstance(other, Person)
         identical = self.__super.__eq__(other)
         if not identical:
-            if cereconf.DEBUG_COMPARE:
-                print "Person.super.__eq__ = %s" % identical
             return False
 
-        if cereconf.DEBUG_COMPARE:
-            print "PersonAffiliation.__eq__ = %s" % identical
         if not identical:
             return False
 
@@ -123,8 +119,6 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 if my_name != other_name:
                     identical = False
                     break
-        if cereconf.DEBUG_COMPARE:
-            print "PersonName.__eq__ = %s" % identical
         if not identical:
             return False
 
@@ -132,8 +126,6 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                      (other.gender == int(self.gender)) and
                      (other.description == self.description) and
                      (other.deceased_date == self.deceased_date))
-        if cereconf.DEBUG_COMPARE:
-            print "Person.__eq__ = %s" % identical
         return identical
 
     def write_db(self):
