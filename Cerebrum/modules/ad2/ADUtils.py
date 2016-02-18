@@ -1442,7 +1442,7 @@ class ADclient(PowershellClient):
             password = base64.b64encode(password.encode('UTF-8'))
         if password_is_encrypted:
             cmd = '''[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s)) | Set-Content c:\gnupg\%(ad_id)s_encrypted_password.asc;
-            $decrypted_text = gpg2 -q --textmode --batch --decrypt c:\gnupg\%(ad_id)s_encrypted_password.txt;
+            $decrypted_text = gpg2 -q --textmode --batch --decrypt c:\gnupg\%(ad_id)s_encrypted_password.asc;
             $pwd = ConvertTo-SecureString -AsPlainText -Force $decrypted_text;
             %(cmd)s -NewPassword $pwd;
             ''' % {'pwd': self.escape_to_string(password),
