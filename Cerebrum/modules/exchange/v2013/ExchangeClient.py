@@ -27,9 +27,9 @@ This module can be used by exports or an event daemon for creating,
 deleting and updating mailboxes and distribution groups in Exchange 2013."""
 
 import re
+import string
 
 from urllib2 import URLError
-from string import Template
 
 import cerebrum_path
 getattr(cerebrum_path, "linter", "must be supressed!")
@@ -499,7 +499,7 @@ class ExchangeClient(PowershellClient):
         """
         assert(isinstance(self.exchange_commands, dict) and
                'execute_on_new_mailbox' in self.exchange_commands)
-        cmd_template = Template(
+        cmd_template = string.Template(
             self.exchange_commands['execute_on_new_mailbox'])
         cmd = self._generate_exchange_command(
             cmd_template.safe_substitute(
@@ -676,7 +676,7 @@ class ExchangeClient(PowershellClient):
         """
         assert(isinstance(self.exchange_commands, dict) and
                'execute_on_remove_mailbox' in self.exchange_commands)
-        cmd_template = Template(
+        cmd_template = string.Template(
             self.exchange_commands['execute_on_remove_mailbox'])
         cmd = self._generate_exchange_command(
             cmd_template.safe_substitute(uname=self.escape_to_string(uname)))
@@ -750,7 +750,7 @@ class ExchangeClient(PowershellClient):
         :raises ExchangeException: If the command fails to run."""
         assert(isinstance(self.exchange_commands, dict) and
                'execute_on_set_spam_settings' in self.exchange_commands)
-        cmd_template = Template(
+        cmd_template = string.Template(
             self.exchange_commands['execute_on_set_spam_settings'])
         args = {'uname': self.escape_to_string(uname),
                 'level': self.escape_to_string(level),
