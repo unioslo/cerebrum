@@ -588,7 +588,7 @@ AUTH_HA1_REALM = ""
 # PASSWORD_GNUPGHOME = '~/.cerebrum_gnupg'
 
 # The path (str) where encrypted passwords are temporary stored on the
-# AD (Windows) server. 'C:\gnupg' will be used if this attribute is not set
+# AD (Windows) server. 'C:\passwords' will be used if this attribute is not set
 # (or if it evaluates to False).
 # N.B. The Windows user responsible for setting the AD password(s) must have
 # the permissions to read, create and delete files in this directory.
