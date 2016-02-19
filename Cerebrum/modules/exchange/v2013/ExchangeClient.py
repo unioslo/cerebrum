@@ -474,8 +474,8 @@ class ExchangeClient(PowershellClient):
                     ou=None):
         """Create a new mailbox in Exchange.
 
-        :type username: string
-        :param username: The users username.
+        :type uname: string
+        :param uname: The users username.
 
         :type display_name: string
         :param display_name: The users full name.
@@ -502,7 +502,9 @@ class ExchangeClient(PowershellClient):
         cmd_template = Template(
             self.exchange_commands['execute_on_new_mailbox'])
         cmd = self._generate_exchange_command(
-            cmd_template.safe_substitute(uname=self.escape_to_string(uname)))
+            cmd_template.safe_substitute(
+                uname=self.escape_to_string(uname),
+                display_name=self.escape_to_string(display_name)))
         try:
             out = self.run(cmd)
         except PowershellException:
