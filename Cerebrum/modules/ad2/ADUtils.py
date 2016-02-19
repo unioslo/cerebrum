@@ -1441,23 +1441,41 @@ class ADclient(PowershellClient):
         except UnicodeEncodeError:
             password = base64.b64encode(password.encode('UTF-8'))
         if password_is_encrypted:
-            cmd = '''[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s)) | Set-Content c:\gnupg\%(ad_id)s_encrypted_password.asc;
-            $decrypted_text = gpg2 -q --textmode --batch --decrypt c:\gnupg\%(ad_id)s_encrypted_password.asc;
-            $pwd = ConvertTo-SecureString -AsPlainText -Force $decrypted_text;
-            %(cmd)s -NewPassword $pwd;
-            ''' % {'pwd': self.escape_to_string(password),
-                   'ad_id': ad_id, 
-                   'cmd': self._generate_ad_command('Set-ADAccountPassword',
-                                                    {'Identity': ad_id},
-                                                    ['Reset'])}
+            enc_passwd_dir = """C:\passwords"""  # paranoia
+            if (
+                    hasattr(cereconf, 'PASSWORD_TMP_STORE_DIR') and
+                    cereconf.PASSWORD_TMP_STORE_DIR):
+                enc_passwd_dir = cereconf.PASSWORD_TMP_STORE_DIR
+            tmp_enc_passwd_file = """{edir}\{ad_id}_encrypted_password.asc""".format(
+                edir=enc_passwd_dir,
+                ad_id=ad_id).replace('\\\\', '\\')
+            cmd = '''
+            try {
+                [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String({pwd})) | Set-Content {tmp_enc_passwd_file};
+                $decrypted_text = gpg2 -q --textmode --batch --decrypt {tmp_enc_passwd_file};
+                $pwd = ConvertTo-SecureString -AsPlainText -Force $decrypted_text;
+                {cmd} -NewPassword $pwd;
+            } catch {
+                write-host {error};
+                exit 1;
+            } finally {
+                Remove-Item {tmp_enc_passwd_file};
+            }
+            '''.format(
+                pwd=self.escape_to_string(password),
+                tmp_enc_passwd_file=tmp_enc_passwd_file,
+                error='Unable to decrypt the password for: {0}'.format(ad_id)
+                cmd=self._generate_ad_command('Set-ADAccountPassword',
+                                              {'Identity': ad_id},
+                                              ['Reset']))
         else:
-            cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(%(pwd)s));
+            cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String({pwd}));
             $pwd = ConvertTo-SecureString -AsPlainText -Force $b;
-            %(cmd)s -NewPassword $pwd;
-            ''' % {'pwd': self.escape_to_string(password),
-                   'cmd': self._generate_ad_command('Set-ADAccountPassword',
-                                                    {'Identity': ad_id},
-                                                    ['Reset'])}
+            {cmd} -NewPassword $pwd;
+            '''.format(pwd=self.escape_to_string(password),
+                       cmd=self._generate_ad_command('Set-ADAccountPassword',
+                                                     {'Identity': ad_id},
+                                                     ['Reset']))
         #Set-ADAccountPassword -Identity %(_ad_id)s -Credential $cred -Reset -NewPassword $pwd
         if self.dryrun:
             return True
