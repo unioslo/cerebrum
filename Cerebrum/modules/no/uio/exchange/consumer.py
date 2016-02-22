@@ -21,14 +21,10 @@
 """Event-handler for Exchange events."""
 
 import cereconf
-import cerebrum_path
-getattr(cereconf, "linter", "should not nag")
-getattr(cerebrum_path, "linter", "should not nag")
 
 import multiprocessing
 import os
 import pickle
-import time
 import traceback
 
 from urllib2 import URLError
@@ -84,13 +80,13 @@ class ExchangeEventHandler(multiprocessing.Process):
         self.event_queue = event_queue
         self.run_state = run_state
         self.config = config
-        # TODO: This is a hack. Fix it
+
         self.logger_queue = logger_queue
         self.logger = Logger(self.logger_queue)
         self.mock = mock
 
         super(ExchangeEventHandler, self).__init__()
-        self.logger.debug2("Hello from event handler class: %s" % self.__class__)
+        self.logger.debug2("Started event handler class: %s" % self.__class__)
 
     def _post_fork_init(self):
         r"""Post-fork init method.
@@ -170,20 +166,20 @@ class ExchangeEventHandler(multiprocessing.Process):
             from Cerebrum.modules.exchange.v2013.ExchangeClient import (
                 ExchangeClient as excclass, )
         return excclass(
-                    auth_user=self.config['auth_user'],
-                    domain_admin=self.config['domain_admin'],
-                    ex_domain_admin=self.config['ex_domain_admin'],
-                    management_server=self.config['management_server'],
-                    exchange_commands=self.config.get('exchange_commands'),
-                    session_key=self._gen_key(),
-                    logger=self.logger,
-                    host=self.config['server'],
-                    port=self.config['port'],
-                    ca=self.config.get('ca'),
-                    client_key=self.config.get('client_key'),
-                    client_cert=self.config.get('client_cert'),
-                    check_name=self.config.get('check_name', True),
-                    encrypted=self.config['encrypted'])
+            auth_user=self.config['auth_user'],
+            domain_admin=self.config['domain_admin'],
+            ex_domain_admin=self.config['ex_domain_admin'],
+            management_server=self.config['management_server'],
+            exchange_commands=self.config.get('exchange_commands'),
+            session_key=self._gen_key(),
+            logger=self.logger,
+            host=self.config['server'],
+            port=self.config['port'],
+            ca=self.config.get('ca'),
+            client_key=self.config.get('client_key'),
+            client_cert=self.config.get('client_cert'),
+            check_name=self.config.get('check_name', True),
+            encrypted=self.config['encrypted'])
 
     def _gen_key(self):
         """Return a unique key for the current process
@@ -275,11 +271,6 @@ class ExchangeEventHandler(multiprocessing.Process):
                 # sit around for a loooong time...
                 self.db.remove_event(ev['event_id'])
                 self.db.commit()
-#            except (EntityTypeError, UnrelatedEvent):
-#                # When this gets raised, the owner type of the object
-#                # is probably wrong. We silently discard the event
-#                self.db.remove_event(ev['event_id'])
-#                self.db.commit()
             except Exception as e:
                 # If we wind up here, we have found a "state" that the
                 # programmer failed to imagine. We log it, so we can process
@@ -297,13 +288,6 @@ class ExchangeEventHandler(multiprocessing.Process):
                 self.logger.error(
                     'Oops! Didn\'t see that one coming! :)\n%s\n%s' %
                     (str(ev), tb))
-#                # We unlock the event, so it can be retried
-#                try:
-#                    self.db.release_event(ev['event_id'])
-#                except Errors.NotFoundError:
-#                    self.db.rollback()
-#                else:
-#                    self.db.commit()
 
         # When the run-state has been set to 0, we kill the pssession
         # We check for existance, before tearing down the connection, in the
@@ -357,7 +341,6 @@ class ExchangeEventHandler(multiprocessing.Process):
         :type event: Cerebrum.extlib.db_row.row
         :param event: The event returned from Change- or EventLog."""
         # TODO: Handle exceptions!
-        # TODO: What if the mailbox allready exists?
         added_spread_code = self.ut.unpickle_event_params(event)['spread']
         # An Exchange-spread has been added! Let's make a mailbox!
         # TODO: Check for subject entity type? It is supposed to be an account
@@ -841,7 +824,6 @@ class ExchangeEventHandler(multiprocessing.Process):
             # just define this event as unrelated.
             raise UnrelatedEvent
 
-        # params = self.ut.unpickle_event_params(event)
         name = self.ut.get_account_name(tid)
         if self.mb_spread not in self.ut.get_account_spreads(tid):
             # If we wind up here, the user is not supposed to be in Exchange :S
@@ -849,8 +831,6 @@ class ExchangeEventHandler(multiprocessing.Process):
         try:
             # Unordered events facilitates the need to use the values from
             # storage.
-            # hard = params['hard']
-            # soft = (params['hard'] * params['soft']) / 100
             soft = (hq * sq) / 100
             hard = hq
 
@@ -950,7 +930,7 @@ class ExchangeEventHandler(multiprocessing.Process):
                     {'enabled': params['enabled']})}
         self.ut.log_event_receipt(rcpt, 'exchange:local_delivery')
 
-# TODO: Are these so "generic"?
+
 ####
 # Generic functions
 ####
@@ -1128,15 +1108,18 @@ class ExchangeEventHandler(multiprocessing.Process):
             # If we can't handle the object type, silently discard it
             raise EntityTypeError
 
-    @EventDecorator.RegisterHandler(['email_sfilter:add_sfilter', 'email_sfilter:mod_sfilter'])
+    @EventDecorator.RegisterHandler(['email_sfilter:add_sfilter',
+                                     'email_sfilter:mod_sfilter'])
     def set_spam_settings(self, event):
         """Set spam settings for a user.
 
         :type event: Cerebrum.extlib.db_row.row
         :param event: The event returned from Change- or EventLog.
 
-        :raises EventExecutionException: If the spam settings could not be updated.
-        :raises EntityTypeError: If the email target entity type is unsupported.
+        :raises EventExecutionException: If the spam settings could not be
+            updated.
+        :raises EntityTypeError: If the email target entity type is
+            unsupported.
         :raises UnrelatedEvent: If the email target disappeared.
         """
         try:
@@ -1153,12 +1136,16 @@ class ExchangeEventHandler(multiprocessing.Process):
             action = str(self.co.EmailSpamAction(params['action']))
 
             try:
-                self.ec.set_spam_settings(uname=uname, level=level, action=action)
-                self.logger.info('eid:%d: Changing spam settings for %s to (%s, %s)',
-                                 event['event_id'], uname, level, action)
+                self.ec.set_spam_settings(uname=uname, level=level,
+                                          action=action)
+                self.logger.info(
+                    'eid:%d: Changing spam settings for %s to (%s, %s)',
+                    event['event_id'], uname, level, action)
             except (ExchangeException, ServerUnavailableException), e:
-                self.logger.warn('eid:%d: Could not change spam settings for %s to (%s, %s): %s',
-                                 event['event_id'], uname, level, action, e)
+                self.logger.warn(
+                    'eid:%d: Could not change spam settings for '
+                    '%s to (%s, %s): %s',
+                    event['event_id'], uname, level, action, e)
                 raise EventExecutionException
         else:
             # If we can't handle the object type, silently discard it
@@ -1352,7 +1339,7 @@ class ExchangeEventHandler(multiprocessing.Process):
             self.logger.debug2('eid:%d: UnrelatedEvent' % event['event_id'])
             raise UnrelatedEvent
 
-# TODO: SPlit this out in its own function depending on spread:add
+        # TODO: SPlit this out in its own function depending on spread:add
         # Put group members inside the group
         # As of now we do this by generating an event for each member that
         # should be added. This is the quick and relatively painless solution,
@@ -1576,13 +1563,6 @@ class ExchangeEventHandler(multiprocessing.Process):
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn('eid:%d: Can\'t remove %s from %s: %s' %
                                  (event['event_id'], uname, gname, e))
-#                # Log an event so this will happen sometime (hopefully)
-#                ev_mod = event.copy()
-#                ev_mod['dest_entity'] = self.ut.get_group_id(group)
-#                self.logger.debug1(
-#                    'eid:%d: Creating event: Removing %s from %s' %
-#                    (event['event_id'], uname, group))
-#                self.ut.log_event(ev_mod, 'e_group:rem')
 
     @EventDecorator.RegisterHandler(['dlgroup:modhidden'])
     def set_group_visibility(self, event):
@@ -1627,7 +1607,6 @@ class ExchangeEventHandler(multiprocessing.Process):
         # TODO: More type chacking?
         gname, description = self.ut.get_group_information(
             event['subject_entity'])
-        params = self.ut.unpickle_event_params(event)
         mngdby_address = cereconf.DISTGROUP_DEFAULT_ADMIN
         try:
             self.ec.set_distgroup_manager(gname, mngdby_address)
