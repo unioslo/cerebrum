@@ -479,16 +479,11 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         self.acc_name = acc_name = {}
         self.acc_passwd = {}
         self.acc_locked_quarantines = self.acc_quarantines = acc_quarantines = defaultdict(list)
-        fill_passwd = {
-            int(self.const.auth_type_md5_crypt): self.acc_passwd.__setitem__,
-            int(self.const.auth_type_crypt3_des): self.acc_passwd.setdefault}
         for row in self.account.list_account_authentication(
-                auth_type=fill_passwd.keys()):
+                auth_type=int(self.const.auth_type_md5_crypt)):
             account_id = int(row['account_id'])
             acc_name[account_id] = row['entity_name']
-            method = row['method']
-            if method:
-                fill_passwd[int(method)](account_id, row['auth_data'])
+            self.acc_passwd[account_id] = row['auth_data']
 
         timer2("...account quarantines...")
         nonlock_quarantines = [
