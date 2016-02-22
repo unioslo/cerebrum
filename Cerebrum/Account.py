@@ -994,7 +994,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         try:
             password_str = self.__plaintext_password
             if hasattr(cereconf, 'PASSWORD_GPG_RECIPIENT_ID'):
-                password_str = gpgme_encrypt(self.__plaintext_password)
+                password_str = 'GPG:{encrypted_password}'.format(
+                    encrypted_password=base64.b64encode(
+                        gpgme_encrypt(self.__plaintext_password)))
         except AttributeError:
             # TODO: this is meant to catch that self.__plaintext_password is
             # unset

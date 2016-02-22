@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2014 University of Oslo, Norway
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -586,6 +586,14 @@ AUTH_HA1_REALM = ""
 # The default GNUPGHOME will be used if this attribute is not set
 # (or if it evaluates to False).
 # PASSWORD_GNUPGHOME = '~/.cerebrum_gnupg'
+
+# The path (str) where encrypted passwords are temporary stored on the
+# AD (Windows) server. 'C:\passwords' will be used if this attribute is not set
+# (or if it evaluates to False).
+# N.B. The Windows user responsible for setting the AD password(s) must have
+# the permissions to read, create and delete files in this directory.
+PASSWORD_TMP_STORE_DIR = """C:\passwords"""
+
 
 #
 # LDAP stuff

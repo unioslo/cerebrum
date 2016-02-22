@@ -465,7 +465,7 @@ def pgp_decrypt(message, keyid, passphrase):
     return filtercmd(cmd, message)
 
 
-def gpgme_encrypt(message, recipient_key_id=None):
+def gpgme_encrypt(message, recipient_key_id=None, ascii_armor=False):
     """
     Encrypts a message using GnuPG (pygpgme).
 
@@ -474,8 +474,12 @@ def gpgme_encrypt(message, recipient_key_id=None):
     :type message: str or unicode
     :param recipient_key_id: the private key id
     :type recipient_key_id: str or unicode
+    :param ascii_armor: use ascii armor
+    :type ascii_armor: bool
 
-    :returns: the armor-encrypted message (ciphertext)
+    :returns: the encrypted message (ciphertext).
+              If ascii_armor is defined True, ASCII armor will be returned,
+              otherwise a regular byte string will be returned
     :rtype: str
 
     May throw a gpgme.GpgmeError. Should be handled by the caller.
@@ -496,7 +500,8 @@ def gpgme_encrypt(message, recipient_key_id=None):
         # use alternative GNUPGHOME
         os.environ['GNUPGHOME'] = cereconf.PASSWORD_GNUPGHOME
     context = gpgme.Context()
-    context.armor = True
+    context.armor = ascii_armor
+    context.textmode = ascii_armor
     recipient_key = context.get_key(recipient_key_id)
     plaintext = BytesIO(unicode2str(message))
     ciphertext = BytesIO()
