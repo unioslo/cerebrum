@@ -1461,7 +1461,7 @@ class ADclient(PowershellClient):
             '''.format(
                 pwd=self.escape_to_string(password),
                 tmp_enc_passwd_file=tmp_enc_passwd_file,
-                error='Unable to decrypt the password for: {0}'.format(ad_id)
+                error='Unable to decrypt the password for: {0}'.format(ad_id),
                 cmd=self._generate_ad_command('Set-ADAccountPassword',
                                               {'Identity': ad_id},
                                               ['Reset']))
