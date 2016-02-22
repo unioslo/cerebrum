@@ -22,41 +22,39 @@
 
 import cereconf
 
-import multiprocessing
 import os
 import pickle
 import traceback
 
 from urllib2 import URLError
 
-from Queue import Empty
-
 from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
                                                   ServerUnavailableException,
                                                   AlreadyPerformedException)
 from Cerebrum.modules.event.EventExceptions import (EventExecutionException,
-                                                    EventHandlerNotImplemented,
                                                     EntityTypeError,
                                                     UnrelatedEvent)
-from Cerebrum.modules.event.EventDecorator import EventDecorator
-from Cerebrum.modules.event.HackedLogger import Logger
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+from Cerebrum.utils.funcwrap import memoize
 
 
-class ExchangeEventHandler(multiprocessing.Process):
+from Cerebrum.modules.event.mapping import EventMap
+from Cerebrum.modules.event import evhandlers
+
+
+class ExchangeEventHandler(evhandlers.EventConsumer):
     """Event handler for Exchange.
 
     This event handler is started by the event daemon.
     It implements functions that are called based on wich ChangeTypes they are
-    associated with, trough the EventDecorator.RegisterHandler decorator.
+    associated with, trough the event_map decorator.
     """
 
-    # Event to method lookup table. Populated by decorators.
-    _lut_type2meth = {}
+    event_map = EventMap()
 
-    def __init__(self, config, event_queue, logger_queue, run_state, mock):
+    def __init__(self, config, mock=False, **kwargs):
         """ExchangeEventHandler initialization routine.
 
         :type config: dict
@@ -77,82 +75,58 @@ class ExchangeEventHandler(multiprocessing.Process):
         :type mock: bool
         :param mock: Wether to run in mock-mode or not
         """
-        self.event_queue = event_queue
-        self.run_state = run_state
         self.config = config
 
-        self.logger_queue = logger_queue
-        self.logger = Logger(self.logger_queue)
         self.mock = mock
 
-        super(ExchangeEventHandler, self).__init__()
+        # Group lookup patterns
+        self.group_name_translation = \
+            dict(self.config.selection_criterias.group_name_translations)
+        # Group defining that rendzone users should be shown in address book
+        self.randzone_unreserve_group = \
+            self.config.selection_criterias.randzone_publishment_group
+
+        super(ExchangeEventHandler, self).__init__(**kwargs)
         self.logger.debug2("Started event handler class: %s" % self.__class__)
 
-    def _post_fork_init(self):
-        r"""Post-fork init method.
+    @property
+    @memoize
+    def co(self):
+        return Factory.get('Constants')(self.db)
 
-        We need to initialize the database-connection after we fork,
-        or else we will get random errors since all the threads share
-        the same sockets.. This is somewhat documented here:
-        http://www.postgresql.org/docs/current/static/libpq-connect.html \
-                #LIBPQ-CONNECT
+    @property
+    @memoize
+    def mb_spread(self):
+        return self.co.Spread(
+            self.config.selection_criterias.mailbox_spread)
 
-        We also initialize the ExchangeClient here.. We can start faster
-        when we do it in paralell.
-        """
-        # Try to connect to Exchange.
-        # We do this in a loop, since if we connect while the springboard is
-        # down, we need to re-try connecting. Also, the while depens on the run
-        # state, so we will shut down if we are signaled to do so.
-        self.ec = None
-        self.logger.debug2("EventHandler post fork")
-        i = 0
-        while self.run_state.value:
-            i = i + 1
-            self.logger.debug2("Trying to connect to springboard (%d)" % i)
-            try:
-                self.ec = self._get_exchange_client()
-            except URLError:
-                # Here, we handle the rare circumstance that the springboard is
-                # down when we connect to it. We log an error so someone can
-                # act upon this if it is appropriate.
-                self.logger.error(
-                    "Can't connect to springboard! Please notify postmaster!")
-                # If we shut down, we don't want to wait X minutes :)
-                if self.run_state.value:
-                    time.sleep(3*60)
-            except Exception:
-                # Get the traceback, put some tabs in front, and log it.
-                tb = traceback.format_exc()
-                self.logger.error("ExchangeClient failed setup:\n%s" % str(tb))
-                if self.run_state.value:
-                    time.sleep(3*60)
-            else:
-                break
-        self.logger.debug("Connected to springboard")
+    @property
+    @memoize
+    def group_spread(self):
+        return self.co.Spread(
+            self.config.selection_criterias.group_spread)
 
-        # Initialize the Database and Constants object
-        self.db = Factory.get('Database')(client_encoding='UTF-8')
-        self.co = Factory.get('Constants')(self.db)
+    @property
+    @memoize
+    def ad_spread(self):
+        return self.co.Spread(
+            self.config.selection_criterias.ad_spread)
 
-        # Spreads to use!
-        self.mb_spread = self.co.Spread(self.config['mailbox_spread'])
-        self.group_spread = self.co.Spread(self.config['group_spread'])
-        self.ad_spread = self.co.Spread(self.config['ad_spread'])
+    @property
+    @memoize
+    def ut(self):
+        return CerebrumUtils()
 
-        # Group lookup patterns
-        self.group_name_translation = self.config['group_name_translation']
-        # Group defining that rendzone users should be shown in address book
-        self.randzone_unreserve_group = self.config['randzone_unreserve_group']
+    def cleanup(self):
+        super(ExchangeEventHandler, self).cleanup()
+        # Kill existing PS-Session before shutting down
+        self.ec.kill_session()
+        self.ec.close()
+        self.logger.info('ExchangeEventHandler stopped')
 
-        # Throw away our implicit transaction after fetching spreads
-        self.db.rollback()
-
-        # Initialise the Utils. This contains functions to pull data from
-        # Cerebrum
-        self.ut = CerebrumUtils()
-
-    def _get_exchange_client(self):
+    @property
+    @memoize
+    def ec(self):
         """Get an instantiated Exchange Client to use for communicating
 
         :rtype Cerebrum.modules.exchange.v2013.ExchangeClient.ExchangeClient
@@ -165,21 +139,47 @@ class ExchangeEventHandler(multiprocessing.Process):
         else:
             from Cerebrum.modules.exchange.v2013.ExchangeClient import (
                 ExchangeClient as excclass, )
-        return excclass(
-            auth_user=self.config['auth_user'],
-            domain_admin=self.config['domain_admin'],
-            ex_domain_admin=self.config['ex_domain_admin'],
-            management_server=self.config['management_server'],
-            exchange_commands=self.config.get('exchange_commands'),
-            session_key=self._gen_key(),
-            logger=self.logger,
-            host=self.config['server'],
-            port=self.config['port'],
-            ca=self.config.get('ca'),
-            client_key=self.config.get('client_key'),
-            client_cert=self.config.get('client_cert'),
-            check_name=self.config.get('check_name', True),
-            encrypted=self.config['encrypted'])
+
+        def j(*l):
+            return '\\'.join(l)
+        auth_user = (j(self.config.client.auth_user_domain,
+                       self.config.client.auth_user) if
+                     self.config.client.auth_user_domain else
+                     self.config.client.auth_user)
+
+        exchange_commands = dict(self.config.client.exchange_commands)
+
+        try:
+            return excclass(
+                auth_user=auth_user,
+                domain_admin=j(self.config.client.domain_reader_domain,
+                               self.config.client.domain_reader),
+                ex_domain_admin=j(
+                    self.config.client.exchange_admin_domain,
+                    self.config.client.exchange_admin),
+                management_server=self.config.client.management_host,
+                exchange_commands=exchange_commands,
+                session_key=self._gen_key(),
+                logger=self.logger,
+                host=self.config.client.jumphost,
+                port=self.config.client.jumphost_port,
+                ca=self.config.client.ca,
+                client_key=self.config.client.client_key,
+                client_cert=self.config.client.client_cert,
+                check_name=self.config.client.hostname_verification,
+                encrypted=self.config.client.enabled_encryption)
+        except URLError:
+            # Here, we handle the rare circumstance that the springboard is
+            # down when we connect to it. We log an error so someone can
+            # act upon this if it is appropriate.
+            self.logger.error(
+                "Can't connect to springboard! Please notify postmaster!")
+        except Exception:
+            # Get the traceback, put some tabs in front, and log it.
+            tb = traceback.format_exc()
+            self.logger.error("ExchangeClient failed setup:\n%s" % str(tb))
+        finally:
+            raise
 
     def _gen_key(self):
         """Return a unique key for the current process
@@ -189,144 +189,23 @@ class ExchangeEventHandler(multiprocessing.Process):
         """
         return 'CB%s' % hex(os.getpid())[2:].upper()
 
-    def run(self):
-        """Main event-multiprocessing loop.
-
-        Spawned by multiprocessing.Process.__init__
-        """
-        # When we execute code here, we have forked. We can now initialize
-        # the database (and more)
-        self._post_fork_init()
-
-        # It is a bit ugly to directly access a multiprocessing.Value object
-        # like this, but it is simple and it works. Doing something like
-        # this with more "pythonic" types adds a lot of complexity.
-        self.logger.info('Listening for events')
-        while self.run_state.value:
-            # Collect a new event.
-            try:
-                raw_ev = self.event_queue.get(block=True, timeout=5)
-                ev = raw_ev['event']
-            except Empty:
-                # We continue here, since the queue will be empty
-                # at times.
-                continue
-            self.logger.debug3('Got a new event: %s' % str(ev))
-
-            # Try to lock the event
-            try:
-                self.db.lock_event(ev['event_id'])
-                # We must commit to lock the event.
-                self.db.commit()
-            except Errors.NotFoundError:
-                # We should normally not end up here.
-                # We _might_ end up here, when the
-                # DelayedNotificationCollector is running.
-                # We'll just move along silently...
-                self.logger.debug3('Event already processed: %s' % str(ev))
-                self.db.rollback()
-                continue
-
-            # We try to handle the event
-            try:
-                self.handle_event(ev)
-                # When the command(s) have run sucessfully, we remove the
-                # the triggering event.
-                self.logger.debug2("Event completely processed: %s",
-                                   ev['event_id'])
-                try:
-                    self.db.remove_event(ev['event_id'])
-                except Errors.NotFoundError:
-                    self.logger.debug3(
-                        'Event deleted while multiprocessing: %s' %
-                        str(ev))
-                    self.db.commit()
-                    continue
-
-                # TODO: Store the receipt in ChangeLog! We need to handle
-                # EntityTypeError and UnrelatedEvent in a appropriate manner
-                # for this to work. Now we always store the reciept in the
-                # functions called. That is a tad innapropriate, but also
-                # correct. Hard choices.
-                self.db.commit()
-            # If an event fails, we just release it, and let the
-            # DelayedNotificationCollector enqueue it when appropriate
-            except EventExecutionException, e:
-                self.logger.debug('Failed to process event %d: %s' %
-                                  (ev['event_id'], str(e)))
-                try:
-                    self.db.release_event(ev['event_id'])
-                except Errors.NotFoundError:
-                    # In this case, the event has been deleted while running,
-                    # therefore, we cannot release it.
-                    # TODO: Implement something that will lock events for
-                    # deletion while they are beeing processed. If that is
-                    # implemented, this could be removed.
-                    self.db.rollback()
-                else:
-                    self.db.commit()
-            except EventHandlerNotImplemented:
-                self.logger.debug3('Event Handler Not Implemented!')
-                # We remove the event for now.. Or else it will just
-                # sit around for a loooong time...
-                self.db.remove_event(ev['event_id'])
-                self.db.commit()
-            except Exception as e:
-                # If we wind up here, we have found a "state" that the
-                # programmer failed to imagine. We log it, so we can process
-                # further events, and shut down the event dæmon gracefully
-                # (some systems don't like hard kills, like WinRM / Powershell,
-                # which has natzi rules on connection counts and so forth)
-                #
-                # We don't release the "lock" on the event, since the event
-                # will probably fail the next time around. Manual intervention
-                # IS therefore REQUIRED!
-                #
-                # Get the traceback, put some tabs in front, and log it.
-                tb = traceback.format_exc()
-                tb = '\t' + tb.replace('\n', '\t\n')
-                self.logger.error(
-                    'Oops! Didn\'t see that one coming! :)\n%s\n%s' %
-                    (str(ev), tb))
-
-        # When the run-state has been set to 0, we kill the pssession
-        # We check for existance, before tearing down the connection, in the
-        # rare case that we shut down without having established a connection,
-        # we'll get a crash if we don't do this.
-        if self.ec:
-            self.ec.kill_session()
-            self.ec.close()
-        self.logger.info('ExchangeEventHandler stopped')
-
     def handle_event(self, event):
-        """Call the appropriate handlers."""
-        # TODO: try/except this?
-        key = str(self.co.ChangeType(event['event_type']))
-        self.logger.debug3('Got event key: %s' % key)
-        try:
-            cmds = self.__class__._lut_type2meth[key]
-        except KeyError:
-            raise EventHandlerNotImplemented
-        # Call the appropriate handler(s)
-        # TODO: Think about what happens if one of the commands fail,
-        # if that happens, the event will be requeued, and the next
-        # time it runs, it will crash again since (for example) a
-        # mailbox already exists when it tries to create a new one.
-        # We might escape this ugly state by defining EventTypes,
-        # just like we define ChangeTypes. Needs some thought.
-        for cmd in cmds:
-            try:
-                cmd(self, event)
-            except (EntityTypeError, UnrelatedEvent):
-                pass
+        u""" Call the appropriate handlers.
 
-#######################
-# Event handler methods
-#######################
-# Event handler methods are decorated with a decorator, which takes change
-# types as arguments. The decorator populates a LUT upon class definition,
-# which is consulted in order to find out which change types trigger which
-# methods. Please remember to decorate your methods in a sane manner! ;)
+        :param event:
+            The event to process.
+        """
+        key = str(self.get_event_code(event))
+        self.logger.debug3(u'Got event key {!r}', str(key))
+
+        for callback in self.event_map.get_callbacks(str(key)):
+            try:
+                callback(self, event)
+            except (EntityTypeError, UnrelatedEvent) as e:
+                self.logger.debug3(
+                    u'Callback {!r} failed for event {!r} ({!r}): {!s}',
+                    callback, key, event, e)
+
 
 ######
 # Mailbox related commands
@@ -334,7 +213,7 @@ class ExchangeEventHandler(multiprocessing.Process):
 # TODO: What about name changes?
 
     # We register spread:add as the event which should trigger this function
-    @EventDecorator.RegisterHandler('spread:add')
+    @event_map('spread:add')
     def create_mailbox(self, event):
         """ Handle mailbox creation upon spread addition.
 
@@ -381,12 +260,9 @@ class ExchangeEventHandler(multiprocessing.Process):
             try:
                 self.ec.new_mailbox(uname, fullname,
                                     firstname, lastname, primary_addr,
-                                    ou=self.config['mailbox_path'])
+                                    ou=self.config.client.mailbox_path)
                 self.logger.info('eid:%d: Created new mailbox for %s' %
                                  (event['event_id'], uname))
-                # TODO: Should we log a receipt for hiding the mbox in the
-                # address book? We don't really need to, since everyone is
-                # hidden by default.
                 self.ut.log_event_receipt(event, 'exchange:acc_mbox_create')
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn('eid:%d: Failed creating mailbox for %s: %s' %
@@ -400,7 +276,6 @@ class ExchangeEventHandler(multiprocessing.Process):
                     self.logger.info(
                         'eid:%d: Publishing %s in address book...' %
                         (event['event_id'], uname))
-                    # TODO: Mangle the event som it represents this correctly??
                     self.ut.log_event_receipt(event, 'exchange:per_e_reserv')
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn(
@@ -476,7 +351,6 @@ class ExchangeEventHandler(multiprocessing.Process):
                     self.logger.info('eid:%d: Set forward for %s to %s' %
                                      (event['event_id'], uname,
                                       fwds[0]))
-                    # TODO: Log reciept
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn(
                         'eid:%d: Can\'t set forward for %s to %s: %s' %
@@ -538,7 +412,7 @@ class ExchangeEventHandler(multiprocessing.Process):
         else:
             raise UnrelatedEvent
 
-    @EventDecorator.RegisterHandler(['spread:delete'])
+    @event_map('spread:delete')
     def remove_mailbox(self, event):
         """Event handler for removal of mailbox when an account looses its
         spread.
@@ -556,7 +430,6 @@ class ExchangeEventHandler(multiprocessing.Process):
                         uname=uname))
                 # Log a reciept that represents completion of the operation in
                 # ChangeLog.
-                # TODO: Move this to the caller sometime
                 self.ut.log_event_receipt(event, 'exchange:acc_mbox_delete')
             except (ExchangeException, ServerUnavailableException) as e:
                 self.logger.warn(
@@ -566,8 +439,7 @@ class ExchangeEventHandler(multiprocessing.Process):
                                       error=e))
                 raise EventExecutionException
 
-    @EventDecorator.RegisterHandler(['person:name_add', 'person:name_del',
-                                     'person:name_mod'])
+    @event_map('person:name_add', 'person:name_del', 'person:name_mod')
     def set_names(self, event):
         """Event handler method used for updating a persons accounts with
         the persons new name.
@@ -628,8 +500,8 @@ class ExchangeEventHandler(multiprocessing.Process):
                               e))
             return False
 
-    @EventDecorator.RegisterHandler(['trait:add', 'trait:mod', 'trait:del',
-                                     'e_group:add', 'e_group:rem'])
+    @event_map('trait:add', 'trait:mod', 'trait:del', 'e_group:add',
+               'e_group:rem')
     def set_address_book_visibility(self, event):
         """Set the visibility of a persons accounts in the address book.
 
@@ -738,9 +610,7 @@ class ExchangeEventHandler(multiprocessing.Process):
                                       not hidden_from_address_book)})}
             self.ut.log_event_receipt(recpt, 'exchange:per_e_reserv')
 
-    @EventDecorator.RegisterHandler(['ac_type:add',
-                                     'ac_type:mod',
-                                     'ac_type:del'])
+    @event_map('ac_type:add', 'ac_type:mod', 'ac_type:del')
     def set_address_book_visibility_for_primary_account_change(self, event):
         """Update address book visibility when primary account changes.
 
@@ -801,9 +671,8 @@ class ExchangeEventHandler(multiprocessing.Process):
                                      not is_reserved)})}
             self.ut.log_event_receipt(rcpt, 'exchange:per_e_reserv')
 
-    @EventDecorator.RegisterHandler(['email_quota:add_quota',
-                                     'email_quota:mod_quota',
-                                     'email_quota:rem_quota'])
+    @event_map('email_quota:add_quota', 'email_quota:mod_quota',
+               'email_quota:rem_quota')
     def set_mailbox_quota(self, event):
         """Set quota on a mailbox.
 
@@ -813,8 +682,6 @@ class ExchangeEventHandler(multiprocessing.Process):
             Exchange related error.
         :raises EventExecutionException: If the event could not be processed
             properly."""
-        # TODO: Should we error check the reutrn from this method? Typewise
-        # that is
         try:
             et_eid, tid, tet, hq, sq = self.ut.get_email_target_info(
                 target_id=event['subject_entity'])
@@ -844,10 +711,8 @@ class ExchangeEventHandler(multiprocessing.Process):
                 (event['event_id'], hard, soft, name, e))
             raise EventExecutionException
 
-    @EventDecorator.RegisterHandler(['email_forward:add_forward',
-                                     'email_forward:rem_forward',
-                                     'email_forward:enable_forward',
-                                     'email_forward:disable_forward'])
+    @event_map('email_forward:add_forward', 'email_forward:rem_forward',
+               'email_forward:enable_forward', 'email_forward:disable_forward')
     def set_mailbox_forward_addr(self, event):
         """Event handler method used for handling setting of forward adresses.
 
@@ -888,7 +753,7 @@ class ExchangeEventHandler(multiprocessing.Process):
                 (event['event_id'], uname, str(address), e))
             raise EventExecutionException
 
-    @EventDecorator.RegisterHandler(['email_forward:local_delivery'])
+    @event_map('email_forward:local_delivery')
     def set_local_delivery(self, event):
         """Event handler method that sets the DeliverToMailboxAndForward option.
 
@@ -934,7 +799,7 @@ class ExchangeEventHandler(multiprocessing.Process):
 ####
 # Generic functions
 ####
-    @EventDecorator.RegisterHandler(['email_address:add_address'])
+    @event_map('email_address:add_address')
     def add_address(self, event):
         """Event handler method used for adding e-mail addresses to
         accounts and distribution groups.
@@ -979,7 +844,6 @@ class ExchangeEventHandler(multiprocessing.Process):
 
         elif eit == self.co.entity_group:
             group_spreads = self.ut.get_group_spreads(eid)
-            # TODO: Do we need this? Could this happen?
             if self.group_spread in group_spreads:
                 gname, desc = self.ut.get_group_information(eid)
                 try:
@@ -987,9 +851,6 @@ class ExchangeEventHandler(multiprocessing.Process):
                     self.logger.info(
                         'eid:%d: Added %s to %s' %
                         (event['event_id'], address, gname))
-                    # Log a reciept that represents completion of the operation
-                    # in ChangeLog.
-                    # TODO: Move this to the caller sometime
                     self.ut.log_event_receipt(event, 'dlgroup:addaddr')
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn('eid:%d: Can\'t add %s to %s: %s' %
@@ -999,7 +860,7 @@ class ExchangeEventHandler(multiprocessing.Process):
             # If we can't handle the object type, silently discard it
             raise EntityTypeError
 
-    @EventDecorator.RegisterHandler(['email_address:rem_address'])
+    @event_map('email_address:rem_address')
     def remove_address(self, event):
         """Event handler method used for removing e-mail addresses to
         accounts and distribution groups.
@@ -1032,9 +893,6 @@ class ExchangeEventHandler(multiprocessing.Process):
                                                  [address])
                 self.logger.info('eid:%d: Removed %s from %s' %
                                  (event['event_id'], address, uname))
-                # Log a reciept that represents completion of the operation in
-                # ChangeLog.
-                # TODO: Move this to the caller sometime
                 self.ut.log_event_receipt(event, 'exchange:acc_addr_rem')
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn('eid:%d: Can\'t remove %s from %s: %s' %
@@ -1043,16 +901,12 @@ class ExchangeEventHandler(multiprocessing.Process):
 
         elif eit == self.co.entity_group:
             group_spreads = self.ut.get_group_spreads(eid)
-            # TODO: Do we need this? Could this happen?
             if self.group_spread in group_spreads:
                 gname, desc = self.ut.get_group_information(eid)
                 try:
                     self.ec.remove_distgroup_addresses(gname, [address])
                     self.logger.info('eid:%d: Removed %s from %s' %
                                      (event['event_id'], address, gname))
-                    # Log a reciept that represents completion of the operation
-                    # in ChangeLog.
-                    # TODO: Move this to the caller sometime
                     self.ut.log_event_receipt(event, 'dlgroup:remaddr')
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn('eid:%d: Can\'t remove %s from %s: %s' %
@@ -1062,9 +916,9 @@ class ExchangeEventHandler(multiprocessing.Process):
             # If we can't handle the object type, silently discard it
             raise EntityTypeError
 
-    @EventDecorator.RegisterHandler(['email_primary_address:add_primary',
-                                     'email_primary_address:mod_primary',
-                                     'email_primary_address:rem_primary'])
+    @event_map('email_primary_address:add_primary',
+               'email_primary_address:mod_primary',
+               'email_primary_address:rem_primary')
     def set_primary_address(self, event):
         """Event handler method used for setting the primary
         e-mail addresses of accounts and distribution groups.
@@ -1094,9 +948,6 @@ class ExchangeEventHandler(multiprocessing.Process):
                 self.logger.info(
                     'eid:%d: Changing primary address of %s to %s' %
                     (event['event_id'], uname, addr))
-                # Log a reciept that represents completion of the operation
-                # in ChangeLog.
-                # TODO: Move this to the caller sometime
                 self.ut.log_event_receipt(event, 'exchange:acc_primaddr')
 
             except (ExchangeException, ServerUnavailableException), e:
@@ -1108,8 +959,7 @@ class ExchangeEventHandler(multiprocessing.Process):
             # If we can't handle the object type, silently discard it
             raise EntityTypeError
 
-    @EventDecorator.RegisterHandler(['email_sfilter:add_sfilter',
-                                     'email_sfilter:mod_sfilter'])
+    @event_map('email_sfilter:add_sfilter', 'email_sfilter:mod_sfilter')
     def set_spam_settings(self, event):
         """Set spam settings for a user.
 
@@ -1155,7 +1005,7 @@ class ExchangeEventHandler(multiprocessing.Process):
 # Group related commands
 #####
 
-    @EventDecorator.RegisterHandler(['spread:add'])
+    @event_map('spread:add')
     def create_group(self, event):
         """Event handler for creating roups upon addition of
         spread.
@@ -1181,7 +1031,7 @@ class ExchangeEventHandler(multiprocessing.Process):
             # mailenabling?
             if data['roomlist'] == 'F':
                 try:
-                    self.ec.new_group(gname, self.config['group_ou'])
+                    self.ec.new_group(gname, self.config.client.group_ou)
                     self.logger.info('eid:%d: Created Exchange group %s' %
                                      (event['event_id'], gname))
                     self.ut.log_event_receipt(event, 'dlgroup:create')
@@ -1191,7 +1041,7 @@ class ExchangeEventHandler(multiprocessing.Process):
                     raise EventExecutionException
             else:
                 try:
-                    self.ec.new_roomlist(gname, self.config['group_ou'])
+                    self.ec.new_roomlist(gname, self.config.client.group_ou)
                     self.logger.info('eid:%d: Created roomlist %s' %
                                      (event['event_id'], gname))
                     self.ut.log_event_receipt(event, 'dlgroup:roomcreate')
@@ -1357,7 +1207,7 @@ class ExchangeEventHandler(multiprocessing.Process):
                 (event['event_id'], memb['name'], gname))
             self.ut.log_event(ev_mod, 'e_group:add')
 
-    @EventDecorator.RegisterHandler(['dlgroup:remove'])
+    @event_map('dlgroup:remove')
     def remove_group(self, event):
         """Removal of group when spread is removed.
 
@@ -1387,7 +1237,7 @@ class ExchangeEventHandler(multiprocessing.Process):
                                  (event['event_id'], data['name'], e))
                 raise EventExecutionException
 
-    @EventDecorator.RegisterHandler(['e_group:add'])
+    @event_map('e_group:add')
     def add_group_member(self, event):
         """Addition of member to group.
 
@@ -1487,7 +1337,7 @@ class ExchangeEventHandler(multiprocessing.Process):
                                                         True})
                 self.ut.log_event_receipt(mod_ev, 'dlgroup:add')
 
-    @EventDecorator.RegisterHandler(['e_group:rem'])
+    @event_map('e_group:rem')
     def remove_group_member(self, event):
         """Removal of member from group.
 
@@ -1564,7 +1414,7 @@ class ExchangeEventHandler(multiprocessing.Process):
                 self.logger.warn('eid:%d: Can\'t remove %s from %s: %s' %
                                  (event['event_id'], uname, gname, e))
 
-    @EventDecorator.RegisterHandler(['dlgroup:modhidden'])
+    @event_map('dlgroup:modhidden')
     def set_group_visibility(self, event):
         """Set the visibility of a group.
 
@@ -1585,9 +1435,6 @@ class ExchangeEventHandler(multiprocessing.Process):
                     'eid:%d: Group visibility set to %s for %s' %
                     (event['event_id'], show, gname))
 
-                # Log a reciept that represents completion of the operation
-                # in ChangeLog.
-                # TODO: Move this to the caller sometime
                 self.ut.log_event_receipt(event, 'dlgroup:modhidden')
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn(
@@ -1595,41 +1442,34 @@ class ExchangeEventHandler(multiprocessing.Process):
                     (event['event_id'], show, gname, e))
                 raise EventExecutionException
         else:
-            # TODO: Will we ever arrive here? Log this?
             raise UnrelatedEvent
 
-    @EventDecorator.RegisterHandler(['dlgroup:modmanby'])
+    @event_map('dlgroup:modmanby')
     def set_distgroup_manager(self, event):
         """Set a distribution groups manager.
 
         :type event: Cerebrum.extlib.db_row.row
         :param event: The event returned from Change- or EventLog."""
-        # TODO: More type chacking?
         gname, description = self.ut.get_group_information(
             event['subject_entity'])
         mngdby_address = cereconf.DISTGROUP_DEFAULT_ADMIN
         try:
             self.ec.set_distgroup_manager(gname, mngdby_address)
-            # TODO: Better logging
             self.logger.info('eid:%d: Setting manager %s for %s' %
                              (event['event_id'], mngdby_address, gname))
 
-            # Log a reciept that represents completion of the operation
-            # in ChangeLog.
-            # TODO: Move this to the caller sometime
             self.ut.log_event_receipt(event, 'dlgroup:modmanby')
         except (ExchangeException, ServerUnavailableException), e:
             self.logger.warn('eid:%d: Failed to set manager %s for %s: %s' %
                              (event['event_id'], mngdby_address, gname, e))
             raise EventExecutionException
 
-    @EventDecorator.RegisterHandler(['dlgroup:moddepres', 'dlgroup:modjoinre'])
+    @event_map('dlgroup:moddepres', 'dlgroup:modjoinre')
     def set_distgroup_restriction(self, event):
         """Set depart and join restrictions on a distribution group.
 
         :type event: Cerebrum.extlib.db_row.row
         :param event: The event returned from Change- or EventLog."""
-        # TODO: More type checking?
         gname, description = self.ut.get_group_information(
             event['subject_entity'])
         params = self.ut.unpickle_event_params(event)
@@ -1637,11 +1477,6 @@ class ExchangeEventHandler(multiprocessing.Process):
         join = params.get('joinrestr', None)
         try:
             self.ec.set_distgroup_member_restrictions(gname, join, part)
-            # TODO: Clarify this
-
-            # Log a reciept that represents completion of the operation
-            # in ChangeLog.
-            # TODO: Move this to the caller sometime
             if join:
                 self.ut.log_event_receipt(event, 'dlgroup:modjoinre')
                 self.logger.info('eid:%d: Set join restriction to %s for %s' %
@@ -1658,8 +1493,7 @@ class ExchangeEventHandler(multiprocessing.Process):
 
     # TODO: Is add and del relevant?
     # TODO: This works for description?
-    @EventDecorator.RegisterHandler(['entity_name:add', 'entity_name:mod',
-                                     'entity_name:del'])
+    @event_map('entity_name:add', 'entity_name:mod', 'entity_name:del')
     def set_group_description_and_name(self, event):
         """Update displayname / description on a group.
 
