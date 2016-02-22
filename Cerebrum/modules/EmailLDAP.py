@@ -315,15 +315,6 @@ class EmailLDAP(DatabaseAccessor):
         for row in self.acc.list_account_authentication():
             a_id = int(row['account_id'])
             self.e_id2passwd[a_id] = quarantines.get(a_id) or row['auth_data']
-        for row in self.acc.list_account_authentication(
-                self.const.auth_type_crypt3_des):
-            # *sigh* Special-cases do exist. If a user is created when the
-            # above for-loop runs, this loop gets a row more. Before I ignored
-            # this, and the whole thing went BOOM on me.
-            a_id = int(row['account_id'])
-            if not self.e_id2passwd.get(a_id, 0):
-                self.e_id2passwd[a_id] = (quarantines.get(a_id) or
-                                          row['auth_data'])
 
     def read_misc_target(self):
         # Dummy method for Mixin-classes. By default it generates a hash with
