@@ -1435,24 +1435,21 @@ class ADclient(PowershellClient):
         # an old-style plaintext password before converting it to base64.
         # Encrypted passwords will be handled differently (decrypted) on the
         # AD-side (Windows server - side).
-        password_is_encrypted = '-----BEGIN PGP MESSAGE-----' in password
-        try:
-            password = base64.b64encode(password)
-        except UnicodeEncodeError:
-            password = base64.b64encode(password.encode('UTF-8'))
-        if password_is_encrypted:
+        # Encrypted passwords will be of the format: 'GPG:<base64 encoded bytes>'
+        if password.startswith('GPG:'):
+            password = password[4:]
             enc_passwd_dir = """C:\passwords"""  # paranoia
             if (
                     hasattr(cereconf, 'PASSWORD_TMP_STORE_DIR') and
                     cereconf.PASSWORD_TMP_STORE_DIR):
                 enc_passwd_dir = cereconf.PASSWORD_TMP_STORE_DIR
-            tmp_enc_passwd_file = """{edir}\{ad_id}_encrypted_password.asc""".format(
+            tmp_enc_passwd_file = """{edir}\{ad_id}_encrypted_password.gpg""".format(
                 edir=enc_passwd_dir,
                 ad_id=ad_id).replace('\\\\', '\\')
             cmd = '''
             try {
-                [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String({pwd})) | Set-Content {tmp_enc_passwd_file};
-                $decrypted_text = gpg2 -q --textmode --batch --decrypt {tmp_enc_passwd_file};
+                [System.Convert]::FromBase64String({pwd}) | Set-Content {tmp_enc_passwd_file} -encoding byte;
+                $decrypted_text = gpg2 -q --batch --decrypt {tmp_enc_passwd_file};
                 $pwd = ConvertTo-SecureString -AsPlainText -Force $decrypted_text;
                 {cmd} -NewPassword $pwd;
             } catch {
@@ -1469,6 +1466,10 @@ class ADclient(PowershellClient):
                                               {'Identity': ad_id},
                                               ['Reset']))
         else:
+            try:
+                password = base64.b64encode(password)
+            except UnicodeEncodeError:
+                password = base64.b64encode(password.encode('UTF-8'))
             cmd = '''$b = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String({pwd}));
             $pwd = ConvertTo-SecureString -AsPlainText -Force $b;
             {cmd} -NewPassword $pwd;
