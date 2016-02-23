@@ -470,8 +470,8 @@ class ExchangeClient(PowershellClient):
     # Mailbox-specific operations
     ######
 
-    def new_mailbox(self, uname, display_name, first_name, last_name, db=None,
-                    ou=None):
+    def new_mailbox(self, uname, display_name, first_name, last_name,
+                    primary_address, db=None, ou=None):
         """Create a new mailbox in Exchange.
 
         :type uname: string
@@ -485,6 +485,9 @@ class ExchangeClient(PowershellClient):
 
         :type last_name: string
         :param last_name: The users family name.
+
+        :type primary_address: string
+        :param primary_address: The users primary email address.
 
         :type db: string
         :param db: The DB the user should reside on.
@@ -504,7 +507,10 @@ class ExchangeClient(PowershellClient):
         cmd = self._generate_exchange_command(
             cmd_template.safe_substitute(
                 uname=self.escape_to_string(uname),
-                display_name=self.escape_to_string(display_name)))
+                primary_address=self.escape_to_string(primary_address),
+                display_name=self.escape_to_string(display_name),
+                first_name=self.escape_to_string(first_name),
+                last_name=self.escape_to_string(last_name)))
         try:
             out = self.run(cmd)
         except PowershellException:
