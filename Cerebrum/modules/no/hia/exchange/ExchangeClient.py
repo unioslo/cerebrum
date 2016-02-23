@@ -25,7 +25,7 @@ This module can be used by exports or an event daemon for creating,
 deleting and updating mailboxes and distribution groups in Exchange 2013."""
 
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
-from Cerebrum.modules.exchange.v2013.ExchangeClient import ExchangeClient
+from Cerebrum.modules.no.uio.exchange.ExchangeClient import ExchangeClient
 
 
 class UiAExchangeClient(ExchangeClient):

@@ -27,7 +27,7 @@ from Cerebrum.modules.event.EventExceptions import (EventExecutionException,
                                                     EntityTypeError,
                                                     UnrelatedEvent)
 from Cerebrum.modules.event.EventDecorator import EventDecorator
-from Cerebrum.modules.exchange.ExchangeEventHandler import (
+from Cerebrum.modules.no.uio.exchange.ExchangeEventHandler import (
     ExchangeEventHandler as UIOExchangeEventHandler,)
 from Cerebrum import Errors
 
