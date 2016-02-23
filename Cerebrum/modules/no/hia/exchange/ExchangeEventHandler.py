@@ -21,15 +21,18 @@
 """Event-handler for Exchange events."""
 
 import pickle
+import traceback
+from urllib2 import URLError
 
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
 from Cerebrum.modules.event.EventExceptions import (EventExecutionException,
                                                     EntityTypeError,
                                                     UnrelatedEvent)
-from Cerebrum.modules.event.EventDecorator import EventDecorator
+from Cerebrum.modules.event.mapping import EventMap
 from Cerebrum.modules.no.uio.exchange.ExchangeEventHandler import (
     ExchangeEventHandler as UIOExchangeEventHandler,)
 from Cerebrum import Errors
+from Cerebrum.utils.funcwrap import memoize
 
 
 class ExchangeEventHandler(UIOExchangeEventHandler):
@@ -40,10 +43,11 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
     ExchangeEventHandler
     """
 
-    # Event to method lookup table. Populated by decorators.
-    _lut_type2meth = {}
+    event_map = EventMap()
 
-    def _get_exchange_client(self):
+    @property
+    @memoize
+    def ec(self):
         """Get an instantiated Exchange Client to use for communicating
 
         :rtype ExchangeClient.ExchangeClient
@@ -56,24 +60,47 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
         else:
             from Cerebrum.modules.no.hia.ExchangeClient import (
                 UiAExchangeClient as excclass, )
-        return excclass(
-            auth_user=self.config['auth_user'],
-            domain_admin=self.config['domain_admin'],
-            ex_domain_admin=self.config['ex_domain_admin'],
-            management_server=self.config['management_server'],
-            exchange_server=self.config['exchange_server'],
-            session_key=self._gen_key(),
-            logger=self.logger,
-            host=self.config['server'],
-            port=self.config['port'],
-            ca=self.config.get('ca'),
-            client_key=self.config.get('client_key'),
-            client_cert=self.config.get('client_cert'),
-            check_name=self.config.get('check_name', True),
-            encrypted=self.config['encrypted'])
+
+        def j(*l):
+            return '\\'.join(l)
+        auth_user = (j(self.config.client.auth_user_domain,
+                       self.config.client.auth_user) if
+                     self.config.client.auth_user_domain else
+                     self.config.client.auth_user)
+        try:
+            return excclass(
+                auth_user=auth_user,
+                domain_admin=j(self.config.client.domain_reader_domain,
+                               self.config.client.domain_reader),
+                ex_domain_admin=j(
+                    self.config.client.exchange_admin_domain,
+                    self.config.client.exchange_admin),
+                management_server=self.config.client.management_host,
+                exchange_server=self.config.client.secondary_management_host,
+                session_key=self._gen_key(),
+                logger=self.logger,
+                host=self.config.client.jumphost,
+                port=self.config.client.jumphost_port,
+                ca=self.config.client.ca,
+                client_key=self.config.client.client_key,
+                client_cert=self.config.client.client_cert,
+                check_name=self.config.client.hostname_verification,
+                encrypted=self.config.client.enabled_encryption)
+        except URLError:
+            # Here, we handle the rare circumstance that the springboard is
+            # down when we connect to it. We log an error so someone can
+            # act upon this if it is appropriate.
+            self.logger.error(
+                "Can't connect to springboard! Please notify postmaster!")
+        except Exception:
+            # Get the traceback, put some tabs in front, and log it.
+            tb = traceback.format_exc()
+            self.logger.error("ExchangeClient failed setup:\n%s" % str(tb))
+        finally:
+            raise
 
     # We register spread:add as the event which should trigger this function
-    @EventDecorator.RegisterHandler('spread:add')
+    @event_map('spread:add')
     def create_mailbox(self, event):
         """ Handle mailbox creation upon spread addition.
 
@@ -292,8 +319,8 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
         else:
             raise UnrelatedEvent
 
-    @EventDecorator.RegisterHandler(['trait:add', 'trait:mod', 'trait:del',
-                                     'e_group:add', 'e_group:rem'])
+    @event_map('trait:add', 'trait:mod', 'trait:del', 'e_group:add',
+               'e_group:rem')
     def set_address_book_visibility(self, event):
         """Set the visibility of a persons accounts in the address book.
 
@@ -419,7 +446,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
         # Log a reciept for this change.
         self.ut.log_event_receipt(event, 'exchange:per_e_reserv')
 
-    @EventDecorator.RegisterHandler(['exchange:set_ea_policy'])
+    @event_map('exchange:set_ea_policy')
     def set_address_policy(self, event):
         """Disable the address policy on mailboxes or groups.
 

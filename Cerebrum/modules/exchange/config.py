@@ -74,6 +74,11 @@ class ExchangeClientConfig(Configuration):
         default=None,
         doc=u"The hostname which management operations can be run on")
 
+    secondary_management_host = ConfigDescriptor(
+        String,
+        default=None,
+        doc=u"The hostname which Connect-ExchangeServer connects to")
+
     jumphost = ConfigDescriptor(
         String,
         default=None,
