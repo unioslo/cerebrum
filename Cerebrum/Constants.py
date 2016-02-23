@@ -175,7 +175,7 @@ class _CerebrumCode(DatabaseAccessor):
         # If the key is composite and only one argument is given, it
         # _should_ be the code value as an integer of some sort, and
         # enter the else branch.
-        if isinstance(args[0], (str, _CerebrumCode)):
+        if isinstance(args[0], (basestring, _CerebrumCode)):
             if cls._key_size > 1 and len(args) > 1:
                 code = ()
                 for i in range(cls._key_size):
