@@ -233,12 +233,15 @@ class PowershellException(ExitCodeException):
 
         # Search for, and attempt to extract error-information from PowerShell
         # error-messages.
-        m = re.search("(?P<first_error>[\w\s\-'.]+)[+\s]+CategoryInfo[\s:]+"
-                      "(?P<second_error>\w+):\s+\("
-                      "(?P<args>[\w\-:]+)\)\s+\["
-                      "(?P<command>[\w\s-]+)\].*",
-                      stderr,
-                      re.MULTILINE)
+        if stderr:
+            m = re.search("(?P<first_error>[\w\s\-'.]+)[+\s]+CategoryInfo[\s:]+"
+                          "(?P<second_error>\w+):\s+\("
+                          "(?P<args>[\w\-:]+)\)\s+\["
+                          "(?P<command>[\w\s-]+)\].*",
+                          stderr,
+                          re.MULTILINE)
+        else:
+            m = None
         if msg is not None:
             r_msg = msg
         elif m:
