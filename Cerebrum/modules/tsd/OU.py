@@ -508,7 +508,7 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
         spreads = [s if isinstance(s, self.const.Spread)
                    else self.const.Spread(s)
                    for s in (spreads or [])]
-        gr = Factory.get('Group')(self._db)
+        gr = Factory.get('PosixGroup')(self._db)
         try:
             gr.find_by_name(name)
             if gr.description != description:
