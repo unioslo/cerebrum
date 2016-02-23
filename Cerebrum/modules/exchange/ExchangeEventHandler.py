@@ -393,9 +393,11 @@ class ExchangeEventHandler(multiprocessing.Process):
                 raise EntityTypeError
 
             # Create the mailbox
+            primary_addr = self.ut.get_account_primary_email(
+                event['subject_entity'])
             try:
                 self.ec.new_mailbox(uname, fullname,
-                                    firstname, lastname,
+                                    firstname, lastname, primary_addr,
                                     ou=self.config['mailbox_path'])
                 self.logger.info('eid:%d: Created new mailbox for %s' %
                                  (event['event_id'], uname))
@@ -448,26 +450,6 @@ class ExchangeEventHandler(multiprocessing.Process):
                         target_entity=event['subject_entity'])
                     mod_ev['subject_entity'] = etid
                     self.ut.log_event(mod_ev, 'email_address:add_address')
-
-            # Set the primary mailaddress
-            pri_addr = self.ut.get_account_primary_email(
-                event['subject_entity'])
-            try:
-                self.ec.set_primary_mailbox_address(uname,
-                                                    pri_addr)
-                self.logger.info('eid:%d: Defined primary address for %s' %
-                                 (event['event_id'], uname))
-                self.ut.log_event_receipt(event, 'exchange:acc_primaddr')
-
-            except (ExchangeException, ServerUnavailableException), e:
-                self.logger.warn('eid:%d: Could not set primary address on %s'
-                                 % (event['event_id'], uname))
-                # Creating a new event in case this fails
-                ev_mod = event.copy()
-                etid, tra, sh, hq, sq = self.ut.get_email_target_info(
-                    target_entity=event['subject_entity'])
-                ev_mod['subject_entity'] = etid
-                self.ut.log_event(ev_mod, 'email_primary_address:add_primary')
 
             # Set the initial quota
             aid = self.ut.get_account_id(uname)

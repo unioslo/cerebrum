@@ -27,9 +27,9 @@ This module can be used by exports or an event daemon for creating,
 deleting and updating mailboxes and distribution groups in Exchange 2013."""
 
 import re
+import string
 
 from urllib2 import URLError
-from string import Template
 
 import cerebrum_path
 getattr(cerebrum_path, "linter", "must be supressed!")
@@ -470,12 +470,12 @@ class ExchangeClient(PowershellClient):
     # Mailbox-specific operations
     ######
 
-    def new_mailbox(self, uname, display_name, first_name, last_name, db=None,
-                    ou=None):
+    def new_mailbox(self, uname, display_name, first_name, last_name,
+                    primary_address, db=None, ou=None):
         """Create a new mailbox in Exchange.
 
-        :type username: string
-        :param username: The users username.
+        :type uname: string
+        :param uname: The users username.
 
         :type display_name: string
         :param display_name: The users full name.
@@ -485,6 +485,9 @@ class ExchangeClient(PowershellClient):
 
         :type last_name: string
         :param last_name: The users family name.
+
+        :type primary_address: string
+        :param primary_address: The users primary email address.
 
         :type db: string
         :param db: The DB the user should reside on.
@@ -499,10 +502,15 @@ class ExchangeClient(PowershellClient):
         """
         assert(isinstance(self.exchange_commands, dict) and
                'execute_on_new_mailbox' in self.exchange_commands)
-        cmd_template = Template(
+        cmd_template = string.Template(
             self.exchange_commands['execute_on_new_mailbox'])
         cmd = self._generate_exchange_command(
-            cmd_template.safe_substitute(uname=self.escape_to_string(uname)))
+            cmd_template.safe_substitute(
+                uname=self.escape_to_string(uname),
+                primary_address=self.escape_to_string(primary_address),
+                display_name=self.escape_to_string(display_name),
+                first_name=self.escape_to_string(first_name),
+                last_name=self.escape_to_string(last_name)))
         try:
             out = self.run(cmd)
         except PowershellException:
@@ -674,7 +682,7 @@ class ExchangeClient(PowershellClient):
         """
         assert(isinstance(self.exchange_commands, dict) and
                'execute_on_remove_mailbox' in self.exchange_commands)
-        cmd_template = Template(
+        cmd_template = string.Template(
             self.exchange_commands['execute_on_remove_mailbox'])
         cmd = self._generate_exchange_command(
             cmd_template.safe_substitute(uname=self.escape_to_string(uname)))
@@ -748,7 +756,7 @@ class ExchangeClient(PowershellClient):
         :raises ExchangeException: If the command fails to run."""
         assert(isinstance(self.exchange_commands, dict) and
                'execute_on_set_spam_settings' in self.exchange_commands)
-        cmd_template = Template(
+        cmd_template = string.Template(
             self.exchange_commands['execute_on_set_spam_settings'])
         args = {'uname': self.escape_to_string(uname),
                 'level': self.escape_to_string(level),
