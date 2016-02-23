@@ -56,7 +56,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
     def _get_exchange_client(self):
         """Get an instantiated Exchange Client to use for communicating
 
-        :rtype Cerebrum.modules.exchange.v2013.ExchangeClient.ExchangeClient
+        :rtype ExchangeClient.ExchangeClient
 
         """
         if self.mock:

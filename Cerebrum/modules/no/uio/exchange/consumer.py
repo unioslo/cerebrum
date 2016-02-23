@@ -129,15 +129,15 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
     def ec(self):
         """Get an instantiated Exchange Client to use for communicating
 
-        :rtype Cerebrum.modules.exchange.v2013.ExchangeClient.ExchangeClient
+        :rtype Cerebrum.modules.no.uio.exchange.ExchangeClient.ExchangeClient
 
         """
         if self.mock:
             self.logger.info('Running in mock-mode')
-            from Cerebrum.modules.exchange.v2013.ExchangeClient import (
+            from Cerebrum.modules.no.uio.exchange.ExchangeClient import (
                 ClientMock as excclass, )
         else:
-            from Cerebrum.modules.exchange.v2013.ExchangeClient import (
+            from Cerebrum.modules.no.uio.exchange.ExchangeClient import (
                 ExchangeClient as excclass, )
 
         def j(*l):

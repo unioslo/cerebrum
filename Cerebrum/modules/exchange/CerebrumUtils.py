@@ -26,7 +26,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.Email import EmailDomain
 from Cerebrum.modules.Email import EmailQuota
 from Cerebrum.modules.Email import EmailForward
-from Cerebrum.modules.exchange.v2013.ExchangeGroups import DistributionGroup
+from Cerebrum.modules.exchange.ExchangeGroups import DistributionGroup
 from Cerebrum import Errors
 
 import pickle
