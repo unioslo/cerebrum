@@ -1447,17 +1447,17 @@ class ADclient(PowershellClient):
                 edir=enc_passwd_dir,
                 ad_id=ad_id).replace('\\\\', '\\')
             cmd = '''
-            try {
+            try {{
                 [System.Convert]::FromBase64String({pwd}) | Set-Content {tmp_enc_passwd_file} -encoding byte;
                 $decrypted_text = gpg2 -q --batch --decrypt {tmp_enc_passwd_file};
                 $pwd = ConvertTo-SecureString -AsPlainText -Force $decrypted_text;
                 {cmd} -NewPassword $pwd;
-            } catch {
+            }} catch {{
                 write-host {error};
                 exit 1;
-            } finally {
+            }} finally {{
                 Remove-Item {tmp_enc_passwd_file};
-            }
+            }}
             '''.format(
                 pwd=self.escape_to_string(password),
                 tmp_enc_passwd_file=tmp_enc_passwd_file,

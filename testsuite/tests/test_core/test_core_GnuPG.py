@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -57,15 +57,6 @@ class GnuPGPasswordTest(unittest.TestCase):
         ciphertext_for_unicode2 = gpgme_encrypt(self.rnd_password_unicode)
         # test for bytestring input
         ciphertext_for_str = gpgme_encrypt(self.rnd_password_str)
-        self.assertIn('-----BEGIN PGP MESSAGE-----',
-                      ciphertext_for_unicode,
-                      'Could not generate ciphertext for unicode')
-        self.assertIn('-----BEGIN PGP MESSAGE-----',
-                      ciphertext_for_unicode2,
-                      'Could not generate ciphertext for unicode')
-        self.assertIn('-----BEGIN PGP MESSAGE-----',
-                      ciphertext_for_str,
-                      'Could not generate ciphertext for bytestring')
         # test for decrypt of unicode
         self.assertEqual(self.rnd_password_unicode,
                          gpgme_decrypt(ciphertext_for_unicode).decode('utf-8'),

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014-2015 University of Oslo, Norway
+# Copyright 2014-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,6 +26,7 @@ behaviour of creating, moving and removing AD objects, and the generic
 configuration of attributes.
 
 """
+import base64
 import pickle
 import random
 import string
@@ -295,12 +296,11 @@ class UserAD2SyncTest(BaseAD2SyncTest):
             stored_password = change_params['password']
             if hasattr(cereconf, 'PASSWORD_GPG_RECIPIENT_ID'):
                 # tests when encryption should be performed
-                self.assertIn('-----BEGIN PGP MESSAGE-----',
-                              stored_password,
-                              'Password not encrypted')
+                self.assertTrue(stored_password.startswith('GPG:'),
+                                'Password not encrypted')
                 # test decryption
                 self.assertEqual(
-                    gpgme_decrypt(stored_password),
+                    gpgme_decrypt(base64.b64decode(stored_password[4:])),
                     self.rnd_password_str,
                     'Unable to decrypt password "{0}" != "{1}"'.format(
                         gpgme_decrypt(stored_password),
