@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2015 University of Oslo, Norway
+# Copyright 2013-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,19 +24,8 @@
 This module can be used by exports or an event daemon for creating,
 deleting and updating mailboxes and distribution groups in Exchange 2013."""
 
-import re
-
-from urllib2 import URLError
-
-import cerebrum_path
-getattr(cerebrum_path, "linter", "must be supressed!")
-
-from Cerebrum.Utils import read_password
-from Cerebrum.modules.ad2.winrm import WinRMServerException
-from Cerebrum.modules.exchange.Exceptions import (ServerUnavailableException,
-                                                  ExchangeException)
-from Cerebrum.modules.exchange.v2013.ExchangeClient import (ClientMock,
-                                                            ExchangeClient)
+from Cerebrum.modules.exchange.Exceptions import ExchangeException
+from Cerebrum.modules.exchange.v2013.ExchangeClient import ExchangeClient
 
 
 class UiAExchangeClient(ExchangeClient):
@@ -77,8 +66,8 @@ class UiAExchangeClient(ExchangeClient):
         This is a override, as UiA has a bit different setup than UiO. Mostly,
         it does the same as its superclass, except from 1) making use of a
         session configuration on the AD side, and 2) specifying an Exchange
-        server to talk with instead of using a custom Powershell module, written
-        for Cerebrum to talk with Exchange.
+        server to talk with instead of using a custom Powershell module,
+        written for Cerebrum to talk with Exchange.
 
         """
         return u"""
@@ -107,8 +96,8 @@ class UiAExchangeClient(ExchangeClient):
                 -AsPlainText %(ex_pasw)s } -Session $ses;
 
                 Invoke-Command { $cred = New-Object `
-                System.Management.Automation.PSCredential(%(ex_user)s, $pass) } `
-                -Session $ses;
+                System.Management.Automation.PSCredential(%(ex_user)s, $pass)`
+                } -Session $ses;
 
                 Invoke-Command { $ad_pass = ConvertTo-SecureString -Force `
                 -AsPlainText %(ad_pasw)s } -Session $ses;
@@ -119,7 +108,7 @@ class UiAExchangeClient(ExchangeClient):
 
                 Invoke-Command { Import-Module ActiveDirectory } -Session $ses;
 
-                Invoke-Command { function get-credential () { return $cred;} } `
+                Invoke-Command { function get-credential () { return $cred;} }`
                 -Session $ses;
 
                 Invoke-Command { Connect-ExchangeServer `
@@ -127,30 +116,19 @@ class UiAExchangeClient(ExchangeClient):
                 -Session $ses;
             }
             write-output EOB;""" % {
-                'session_key': self.session_key,
-                'ad_domain_user': self.escape_to_string(
-                    '%s\\%s' % (self.ad_domain, self.ad_user)),
-                'ad_user': self.escape_to_string(self.ad_user),
-                'ad_pasw': self.escape_to_string(self.ad_user_password),
-                'ex_domain_user': self.escape_to_string(
-                    '%s\\%s' % (self.ex_domain, self.ex_user)),
-                'ex_user': self.escape_to_string(self.ex_user),
-                'ex_pasw': self.escape_to_string(self.ex_user_password),
-                'management_server': self.escape_to_string(
-                    self.management_server),
-                'exchange_server': self.escape_to_string(
-                    self.exchange_server)
-                }
-
-#    # TODO THIS IS ONLY FOR TESTING THE DELAYED NOTIFICATION COLLECTOR
-#    def run(self, *args, **kwargs):
-#        # Fail one out of three times. Seems like a good number for test?
-#        if self.deliberate_failure == 4:
-#            self.deliberate_failure = 0
-#            raise ExchangeException
-#        else:
-#            self.deliberate_failure += 1
-#        return super(ExchangeClient, self).run(*args, **kwargs)
+            'session_key': self.session_key,
+            'ad_domain_user': self.escape_to_string(
+                '%s\\%s' % (self.ad_domain, self.ad_user)),
+            'ad_user': self.escape_to_string(self.ad_user),
+            'ad_pasw': self.escape_to_string(self.ad_user_password),
+            'ex_domain_user': self.escape_to_string(
+                '%s\\%s' % (self.ex_domain, self.ex_user)),
+            'ex_user': self.escape_to_string(self.ex_user),
+            'ex_pasw': self.escape_to_string(self.ex_user_password),
+            'management_server': self.escape_to_string(
+                self.management_server),
+            'exchange_server': self.escape_to_string(
+                self.exchange_server)}
 
     ######
     # Mailbox-specific operations
@@ -248,7 +226,6 @@ class UiAExchangeClient(ExchangeClient):
             'Remove-Mailbox',
             {'Identity': uname},
             ('Confirm:$false',))
-        # TODO: Verify how this is to be done
         out = self.run(cmd)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])

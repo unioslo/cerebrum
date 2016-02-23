@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2015 University of Oslo, Norway
+# Copyright 2013-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,25 +20,15 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Event-handler for Exchange events."""
 
-import cereconf
-import cerebrum_path
-
-import os
 import pickle
-import time
-
-from urllib2 import URLError
 
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
-from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 from Cerebrum.modules.event.EventExceptions import (EventExecutionException,
                                                     EntityTypeError,
                                                     UnrelatedEvent)
 from Cerebrum.modules.event.EventDecorator import EventDecorator
-from Cerebrum.modules.event.HackedLogger import Logger
 from Cerebrum.modules.exchange.ExchangeEventHandler import (
     ExchangeEventHandler as UIOExchangeEventHandler,)
-from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
 
@@ -67,20 +57,20 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             from Cerebrum.modules.no.hia.ExchangeClient import (
                 UiAExchangeClient as excclass, )
         return excclass(
-                    auth_user=self.config['auth_user'],
-                    domain_admin=self.config['domain_admin'],
-                    ex_domain_admin=self.config['ex_domain_admin'],
-                    management_server=self.config['management_server'],
-                    exchange_server=self.config['exchange_server'],
-                    session_key=self._gen_key(),
-                    logger=self.logger,
-                    host=self.config['server'],
-                    port=self.config['port'],
-                    ca=self.config.get('ca'),
-                    client_key=self.config.get('client_key'),
-                    client_cert=self.config.get('client_cert'),
-                    check_name=self.config.get('check_name', True),
-                    encrypted=self.config['encrypted'])
+            auth_user=self.config['auth_user'],
+            domain_admin=self.config['domain_admin'],
+            ex_domain_admin=self.config['ex_domain_admin'],
+            management_server=self.config['management_server'],
+            exchange_server=self.config['exchange_server'],
+            session_key=self._gen_key(),
+            logger=self.logger,
+            host=self.config['server'],
+            port=self.config['port'],
+            ca=self.config.get('ca'),
+            client_key=self.config.get('client_key'),
+            client_cert=self.config.get('client_cert'),
+            check_name=self.config.get('check_name', True),
+            encrypted=self.config['encrypted'])
 
     # We register spread:add as the event which should trigger this function
     @EventDecorator.RegisterHandler('spread:add')
@@ -89,12 +79,8 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
 
         :type event: Cerebrum.extlib.db_row.row
         :param event: The event returned from Change- or EventLog."""
-        # TODO: Handle exceptions!
-        # TODO: What if the mailbox allready exists?
         added_spread_code = self.ut.unpickle_event_params(event)['spread']
         # An Exchange-spread has been added! Let's make a mailbox!
-        # TODO: Check for subject entity type? It is supposed to be an account
-        #           Explicit instead of implicit
         if added_spread_code == self.mb_spread:
             et, eid = self.ut.get_account_owner_info(event['subject_entity'])
             uname = self.ut.get_account_name(event['subject_entity'])
@@ -111,11 +97,8 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
 
             # Then for accounts owned by groups
             elif et == self.co.entity_group:
-                first_name = last_name = ''
                 gname, desc = self.ut.get_group_information(eid)
-                full_name = '%s (owner: %s)' % (uname, gname)
 
-                # TODO: Is this ok?
                 hide_from_address_book = False
             else:
                 # An exchange-spread has been given to an account not owned
@@ -130,9 +113,6 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                 self.ec.new_mailbox(uname)
                 self.logger.info('eid:%d: Created new mailbox for %s' %
                                  (event['event_id'], uname))
-                # TODO: Should we log a receipt for hiding the mbox in the
-                # address book? We don't really need to, since everyone is
-                # hidden by default.
                 self.ut.log_event_receipt(event, 'exchange:acc_mbox_create')
             except ExchangeException, e:
                 self.logger.warn('eid:%d: Failed creating mailbox for %s: %s' %
@@ -148,8 +128,6 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                     'eid:%d: Failed disabling address policy for %s',
                     event['event_id'], uname)
                 self.ut.log_event(event, 'exchange:set_ea_policy')
-                # TODO: Should we do this here? Should we rather do it in the
-                # address policy handler?
                 ev_mod = event.copy()
                 etid, tra, sh, hq, sq = self.ut.get_email_target_info(
                     target_entity=event['subject_entity'])
@@ -260,7 +238,6 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                     self.logger.info('eid:%d: Set forward for %s to %s' %
                                      (event['event_id'], uname,
                                       remote_fwds[0]))
-                    # TODO: Log reciept
                 except ExchangeException, e:
                     self.logger.warn(
                         'eid:%d: Can\'t set forward for %s to %s: %s' %
@@ -283,7 +260,6 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             if local_delivery:
                 try:
                     self.ec.set_local_delivery(uname, True)
-                    # TODO: RECIEPT?
                     self.logger.info(
                         '%s local delivery for %s' % (
                             'Enabled' if local_delivery else 'Disabled',
