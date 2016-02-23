@@ -182,6 +182,19 @@ class ExchangeEventCollectorConfig(Configuration):
              'processesed be before we enqueue it'))
 
 
+class ExchangeHandlerConfig(Configuration):
+    u"""Configuration for the event handler."""
+    handler_class = ConfigDescriptor(
+        String,
+        default=u"ExchangeEventHandler",
+        doc=u"Handler class used for processing events")
+
+    handler_mod = ConfigDescriptor(
+        String,
+        default=u"Cerebrum.modules.no.uio.exchange.consumer",
+        doc=u"Handler module used for processing events")
+
+
 class ExchangeConfig(Configuration):
     u"""Configuration for the Exchange integration."""
     client = ConfigDescriptor(
@@ -195,6 +208,10 @@ class ExchangeConfig(Configuration):
     eventcollector = ConfigDescriptor(
         Namespace,
         config=ExchangeEventCollectorConfig)
+
+    handler = ConfigDescriptor(
+        Namespace,
+        config=ExchangeHandlerConfig)
 
 
 def load_config(filepath=None):

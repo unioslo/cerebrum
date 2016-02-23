@@ -61,9 +61,12 @@ def serve(logger, config, num_workers, enable_listener,
 
     event_queue = exchanged.mgr.queue()
 
+    Handler = getattr(Utils.dyn_import(config.handler.handler_mod),
+                      config.handler.handler_class)
+
     for i in range(0, num_workers):
         exchanged.add_process(
-            ExchangeEventHandler,
+            Handler,
             queue=event_queue,
             log_queue=exchanged.log_queue,
             running=exchanged.run_trigger,
