@@ -91,12 +91,11 @@ class Listener(evhandlers.EventConsumer):
         if userdata is None:
             self.logger.warning(
                 "eid:{}: {}: "
-                "Attempted to add/update person_id:{}, "
-                "but no primary account found".format(
+                "Failed to gather data for person_id:{}, skipping".format(
                     event['event_id'],
                     key,
                     person_id))
-            raise EventExecutionException
+            raise UnrelatedEvent
         if not self.client.update_user(userdata):
             self.logger.error(
                 "eid:{}: {}: "
