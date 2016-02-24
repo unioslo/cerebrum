@@ -26,7 +26,6 @@ with the CIM-WS schema, based on data from a Cerebrum person object.
 import phonenumbers
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import NotFoundError
-from Cerebrum.utils.funcwrap import memoize
 
 
 class CIMDataSource(object):
@@ -101,6 +100,8 @@ class CIMDataSource(object):
             'source_system',
             self.authoritative_system,
             self.pe.get_affiliations())
+        if not affs:
+            return None
         primary_aff_ou_id = affs[0]['ou_id']
         person.update(self._get_org_structure(primary_aff_ou_id))
 
