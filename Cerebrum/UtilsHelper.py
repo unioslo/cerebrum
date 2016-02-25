@@ -31,22 +31,20 @@ class Latin1:
 
     def __init__(self):
         self.lat1_646_tr = maketrans(
-            'ÆØÅæø¦¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛİàáâãäçèéêëìíîïñòóôõöùúûıÿ¨­¯´',
-            '[\\]{|||}AAAAACEEEEIIIINOOOOOUUUYaaaaaceeeeiiiinooooouuuyy"--\'')
+            'ÆØÅæø¦¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüıÿ¨­¯´',
+            '[\\]{|||}AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy"--\'')
         self.lat1_646_subst = re.compile(
             '[^\x1f-\x7e\xff]').sub  # Should be [^\x20-\x7e].
         self.lat1_646_cache = {}
 
-        # U-umlaut is treated specially and is therefore defined in
-        # latin1_specials to be transcribed to 'ue' instead of the single
-        # character 'u'. The reason for this is a wish for email addresses to
-        # reflect the common transcribation choice for this
-        # character. O-umlaut and a-umlaut are not getting such special
-        # treatment.
+        # Some characters are treated specially and is therefore defined in
+        # latin1_specials to be transcribed to multiple characters, instead of
+        # the single character without diacritical mark. The reason for this is
+        # a wish for email addresses to reflect the common transcribation
+        # choice for this character.
         self.latin1_specials = {'Ğ': 'Dh', 'ğ': 'dh',
                                 'Ş': 'Th', 'ş': 'th',
-                                'ß': 'ss', 'Ü': 'Ue',
-                                'ü': 'ue'}
+                                'ß': 'ss'}
         self.latin1_wash_cache = {}
 
     def to_iso646_60(self, s, substitute=''):
@@ -74,21 +72,20 @@ class Latin1:
             (tr, xlate_subst, xlate_match) = self.latin1_wash_cache[key]
         except KeyError:
             tr_from = ('ÆØÅæøå[\\]{|}¦¿'
-                       'ÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛİàáâãäçèéêëìíîïñòóôõöùúûıÿ'
+                       'ÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüıÿ'
                        '¨­¯´')
             xlate = self.latin1_specials.copy()
             if target_charset == 'iso646-60':
                 tr_to = ('[\\]{|}[\\]{|}||'
-                         'AAAAACEEEEIIIINOOOOOUUUYaaaaaceeeeiiiinooooouuuyy'
+                         'AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
                          '"--\'')
                 xlate_re = '[^\x1f-\x7e\xff]'  # Should be [^\x20-\x7e].
             elif target_charset == 'POSIXname':
                 tr_to = ('AOAaoaAOAaoaoo'
-                         'AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuyy'
+                         'AAAAACEEEEIIIINOOOOOUUUUUYaaaaaceeeeiiiinooooouuuuyy'
                          '"--\'')
                 if expand_chars:
-                    xlate.update({'Æ': 'Ae', 'æ': 'ae', 'Å': 'Aa', 'å': 'aa',
-                                  'Ü': 'Ue', 'ü': 'ue'})
+                    xlate.update({'Æ': 'Ae', 'æ': 'ae', 'Å': 'Aa', 'å': 'aa'})
                 xlate_re = r'[^a-zA-Z0-9 -]'
             else:
                 raise ValueError(
