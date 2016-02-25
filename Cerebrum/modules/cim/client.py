@@ -113,7 +113,7 @@ class CIMClient(object):
                     e.message))
             return False
         finally:
-            self.logger.debug("CIMClient: Got {} {} after {} seconds".format(
+            self.logger.info("CIMClient: Got {} {} after {} seconds".format(
                 response.status_code,
                 response.reason,
                 response.elapsed.total_seconds()))
@@ -145,7 +145,7 @@ class CIMClient(object):
         data = [userdata]
         self.validate(data)
         payload = self._make_payload(data)
-        self.logger.debug("CIMClient: Calling {} for {!r}".format(
+        self.logger.info("CIMClient: Calling {} for {!r}".format(
             endpoint, userdata.get('username')))
         response = requests.post(self.config.api_url + endpoint,
                                  data=payload,
@@ -163,7 +163,7 @@ class CIMClient(object):
         endpoint = 'delete.json.php'
         data = [username]
         payload = self._make_payload(data)
-        self.logger.debug("CIMClient: Calling {} for {!r}".format(
+        self.logger.info("CIMClient: Calling {} for {!r}".format(
             endpoint, username))
         response = requests.post(self.config.api_url + endpoint,
                                  data=payload,
