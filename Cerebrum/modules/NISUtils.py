@@ -159,9 +159,9 @@ class Passwd(object):
         # NOCRYPT is not a registered auth_method, it is used to generate pwd-map
         # with no pwd-crypt. This is not the best way to ensure that no crypt is used
         # and should be amended in the new version of gen_nismaps.py (as should the usage
-        # of list_extended_posis_users-method). Jazz, 2010-05-31
+        # of list_extended_posix_users-method). Jazz, 2010-05-31
         if self.auth_method == 'NOCRYPT':
-            # use default value for auth_method (crypt3_des), the crypt will be
+            # use default value for auth_method (md5_crypt), the crypt will be
             # removed at write
             user_iter = posix_user.list_extended_posix_users(
                 spread=self.spread, include_quarantines=True)

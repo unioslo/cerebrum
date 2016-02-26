@@ -181,7 +181,7 @@ class PosixLDIF(object):
     def auth_methods(self, auth_meth=None):
         """Which authentication methods to fetch. Mixin-support.
         If all only one entry, it will prefect any in auth_table.
-        If None, it will use default API authentication (crypt3des).
+        If None, it will use default API authentication (md5_crypt).
         """
         self.auth_format = {}
         auth_meth_l = []
@@ -358,8 +358,8 @@ class PosixLDIF(object):
 
         self.init_filegroup()
         timer2 = make_timer(self.logger, 'Caching filegroups...')
-        for row in self.posgrp.search(spread=self.spread_d['filegroup'],
-                                      filter_expired=False):
+        for row in self.grp.search(spread=self.spread_d['filegroup'],
+                                   filter_expired=False):
             group_id = row['group_id']
             self.create_group_object(group_id, row['name'],
                                      row['description'])
