@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Base functionality for Exchange objects.
 
-The exchange.v2013.mixins module contains mixins that should go into the base
+The exchange.mixins module contains mixins that should go into the base
 Group classes to support detection, deletion and cleanup of exchange data.
 
 """

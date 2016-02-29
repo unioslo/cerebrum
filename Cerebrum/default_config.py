@@ -138,7 +138,7 @@ CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
 # define and enable Factory for DistributionGroup-objects,
 # override localy if needed.
 CLASS_DISTRIBUTION_GROUP = [
-    'Cerebrum.modules.exchange.v2013.ExchangeGroups/DistributionGroup', ]
+    'Cerebrum.modules.exchange.ExchangeGroups/DistributionGroup', ]
 
 # To enable logging, use this:
 # CLASS_CHANGELOG = ['Cerebrum.modules.ChangeLog/ChangeLog']

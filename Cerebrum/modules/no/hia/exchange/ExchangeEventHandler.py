@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2015 University of Oslo, Norway
+# Copyright 2013-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,26 +20,19 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Event-handler for Exchange events."""
 
-import cereconf
-import cerebrum_path
-
-import os
 import pickle
-import time
-
+import traceback
 from urllib2 import URLError
 
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
-from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 from Cerebrum.modules.event.EventExceptions import (EventExecutionException,
                                                     EntityTypeError,
                                                     UnrelatedEvent)
-from Cerebrum.modules.event.EventDecorator import EventDecorator
-from Cerebrum.modules.event.HackedLogger import Logger
-from Cerebrum.modules.exchange.ExchangeEventHandler import (
+from Cerebrum.modules.event.mapping import EventMap
+from Cerebrum.modules.no.uio.exchange.ExchangeEventHandler import (
     ExchangeEventHandler as UIOExchangeEventHandler,)
-from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+from Cerebrum.utils.funcwrap import memoize
 
 
 class ExchangeEventHandler(UIOExchangeEventHandler):
@@ -50,51 +43,71 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
     ExchangeEventHandler
     """
 
-    # Event to method lookup table. Populated by decorators.
-    _lut_type2meth = {}
+    event_map = EventMap()
 
-    def _get_exchange_client(self):
+    @property
+    @memoize
+    def ec(self):
         """Get an instantiated Exchange Client to use for communicating
 
-        :rtype Cerebrum.modules.exchange.v2013.ExchangeClient.ExchangeClient
+        :rtype ExchangeClient.ExchangeClient
 
         """
         if self.mock:
             self.logger.info('Running in mock-mode')
-            from Cerebrum.modules.no.hia.ExchangeClient import (
+            from Cerebrum.modules.no.uio.exchange.ExchangeClient import (
                 ClientMock as excclass, )
         else:
             from Cerebrum.modules.no.hia.ExchangeClient import (
                 UiAExchangeClient as excclass, )
-        return excclass(
-                    auth_user=self.config['auth_user'],
-                    domain_admin=self.config['domain_admin'],
-                    ex_domain_admin=self.config['ex_domain_admin'],
-                    management_server=self.config['management_server'],
-                    exchange_server=self.config['exchange_server'],
-                    session_key=self._gen_key(),
-                    logger=self.logger,
-                    host=self.config['server'],
-                    port=self.config['port'],
-                    ca=self.config.get('ca'),
-                    client_key=self.config.get('client_key'),
-                    client_cert=self.config.get('client_cert'),
-                    check_name=self.config.get('check_name', True),
-                    encrypted=self.config['encrypted'])
+
+        def j(*l):
+            return '\\'.join(l)
+        auth_user = (j(self.config.client.auth_user_domain,
+                       self.config.client.auth_user) if
+                     self.config.client.auth_user_domain else
+                     self.config.client.auth_user)
+        try:
+            return excclass(
+                auth_user=auth_user,
+                domain_admin=j(self.config.client.domain_reader_domain,
+                               self.config.client.domain_reader),
+                ex_domain_admin=j(
+                    self.config.client.exchange_admin_domain,
+                    self.config.client.exchange_admin),
+                management_server=self.config.client.management_host,
+                exchange_server=self.config.client.secondary_management_host,
+                session_key=self._gen_key(),
+                logger=self.logger,
+                host=self.config.client.jumphost,
+                port=self.config.client.jumphost_port,
+                ca=self.config.client.ca,
+                client_key=self.config.client.client_key,
+                client_cert=self.config.client.client_cert,
+                check_name=self.config.client.hostname_verification,
+                encrypted=self.config.client.enabled_encryption)
+        except URLError:
+            # Here, we handle the rare circumstance that the springboard is
+            # down when we connect to it. We log an error so someone can
+            # act upon this if it is appropriate.
+            self.logger.error(
+                "Can't connect to springboard! Please notify postmaster!")
+        except Exception:
+            # Get the traceback, put some tabs in front, and log it.
+            tb = traceback.format_exc()
+            self.logger.error("ExchangeClient failed setup:\n%s" % str(tb))
+        finally:
+            raise
 
     # We register spread:add as the event which should trigger this function
-    @EventDecorator.RegisterHandler('spread:add')
+    @event_map('spread:add')
     def create_mailbox(self, event):
         """ Handle mailbox creation upon spread addition.
 
         :type event: Cerebrum.extlib.db_row.row
         :param event: The event returned from Change- or EventLog."""
-        # TODO: Handle exceptions!
-        # TODO: What if the mailbox allready exists?
         added_spread_code = self.ut.unpickle_event_params(event)['spread']
         # An Exchange-spread has been added! Let's make a mailbox!
-        # TODO: Check for subject entity type? It is supposed to be an account
-        #           Explicit instead of implicit
         if added_spread_code == self.mb_spread:
             et, eid = self.ut.get_account_owner_info(event['subject_entity'])
             uname = self.ut.get_account_name(event['subject_entity'])
@@ -111,11 +124,8 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
 
             # Then for accounts owned by groups
             elif et == self.co.entity_group:
-                first_name = last_name = ''
                 gname, desc = self.ut.get_group_information(eid)
-                full_name = '%s (owner: %s)' % (uname, gname)
 
-                # TODO: Is this ok?
                 hide_from_address_book = False
             else:
                 # An exchange-spread has been given to an account not owned
@@ -130,9 +140,6 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                 self.ec.new_mailbox(uname)
                 self.logger.info('eid:%d: Created new mailbox for %s' %
                                  (event['event_id'], uname))
-                # TODO: Should we log a receipt for hiding the mbox in the
-                # address book? We don't really need to, since everyone is
-                # hidden by default.
                 self.ut.log_event_receipt(event, 'exchange:acc_mbox_create')
             except ExchangeException, e:
                 self.logger.warn('eid:%d: Failed creating mailbox for %s: %s' %
@@ -148,8 +155,6 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                     'eid:%d: Failed disabling address policy for %s',
                     event['event_id'], uname)
                 self.ut.log_event(event, 'exchange:set_ea_policy')
-                # TODO: Should we do this here? Should we rather do it in the
-                # address policy handler?
                 ev_mod = event.copy()
                 etid, tra, sh, hq, sq = self.ut.get_email_target_info(
                     target_entity=event['subject_entity'])
@@ -260,7 +265,6 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                     self.logger.info('eid:%d: Set forward for %s to %s' %
                                      (event['event_id'], uname,
                                       remote_fwds[0]))
-                    # TODO: Log reciept
                 except ExchangeException, e:
                     self.logger.warn(
                         'eid:%d: Can\'t set forward for %s to %s: %s' %
@@ -283,7 +287,6 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             if local_delivery:
                 try:
                     self.ec.set_local_delivery(uname, True)
-                    # TODO: RECIEPT?
                     self.logger.info(
                         '%s local delivery for %s' % (
                             'Enabled' if local_delivery else 'Disabled',
@@ -316,8 +319,8 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
         else:
             raise UnrelatedEvent
 
-    @EventDecorator.RegisterHandler(['trait:add', 'trait:mod', 'trait:del',
-                                     'e_group:add', 'e_group:rem'])
+    @event_map('trait:add', 'trait:mod', 'trait:del', 'e_group:add',
+               'e_group:rem')
     def set_address_book_visibility(self, event):
         """Set the visibility of a persons accounts in the address book.
 
@@ -443,7 +446,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
         # Log a reciept for this change.
         self.ut.log_event_receipt(event, 'exchange:per_e_reserv')
 
-    @EventDecorator.RegisterHandler(['exchange:set_ea_policy'])
+    @event_map('exchange:set_ea_policy')
     def set_address_policy(self, event):
         """Disable the address policy on mailboxes or groups.
 

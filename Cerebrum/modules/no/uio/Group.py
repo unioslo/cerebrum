@@ -63,7 +63,7 @@ class GroupUiOMixin(Group.Group):
             return "Names cannot start with period or space (%s)" % name 
         # Avoid circular import dependency
         from Cerebrum.modules import PosixGroup
-        from Cerebrum.modules.exchange.v2013 import ExchangeGroups
+        from Cerebrum.modules.exchange import ExchangeGroups
 
         # TODO: Why? Should this not be implemented as a illegal_name on
         # PosixGroup?

@@ -68,11 +68,15 @@ class QueueLogger(object):
         if self.queue is None:
             # TODO: Raise error? Handle better?
             return
-        try:
-            msg = fmt.format(*args, **kwargs)
-        except Exception as e:
-            msg = (u'Unable to format record (msg={!r}, args={!r},'
-                   u' kwargs={!r}, reason={!s})'.format(fmt, args, kwargs, e))
+        if args or kwargs:
+            try:
+                msg = fmt.format(*args, **kwargs)
+            except Exception as e:
+                msg = (u'Unable to format record (msg={!r}, args={!r},'
+                       u' kwargs={!r}, reason={!s})'.format(fmt, args,
+                                                            kwargs, e))
+        else:
+            msg = fmt
         self.queue.put(LogQueueRecord(self.source, level, msg))
 
     def __getattribute__(self, attr):

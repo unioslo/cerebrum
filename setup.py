@@ -255,7 +255,7 @@ sbin_files = [
 
 if (install_servers):
     sbin_files.append(('servers/bofhd/bofhd.py', 0755))
-    sbin_files.append(('servers/event/event_daemon.py', 0755))
+    sbin_files.append(('servers/event/exchange_daemon.py', 0755))
     sbin_files.append(('servers/event/cim_daemon.py', 0755))
     sbin_files.append(('servers/cis/SoapIndividuationServer.py', 0755))
     sbin_files.append(('servers/cis/SoapPostmasterServer.py', 0755))
@@ -430,7 +430,6 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
                   'Cerebrum/modules/dns',
                   'Cerebrum/modules/event',
                   'Cerebrum/modules/exchange',
-                  'Cerebrum/modules/exchange/v2013',
                   'Cerebrum/modules/hostpolicy',
                   'Cerebrum/modules/bofhd',
                   'Cerebrum/modules/guest',
@@ -441,6 +440,7 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
                   'Cerebrum/modules/no/uio/printer_quota',
                   'Cerebrum/modules/no/uio/voip',
                   'Cerebrum/modules/no/uio/AutoStud',
+                  'Cerebrum/modules/no/uio/exchange',
                   'Cerebrum/modules/no/hia',
                   'Cerebrum/modules/no/hih',
                   'Cerebrum/modules/no/hiof',
