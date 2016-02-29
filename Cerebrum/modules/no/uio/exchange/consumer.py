@@ -168,18 +168,18 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
                 client_cert=self.config.client.client_cert,
                 check_name=self.config.client.hostname_verification,
                 encrypted=self.config.client.enabled_encryption)
-        except URLError:
+        except URLError, e:
             # Here, we handle the rare circumstance that the springboard is
             # down when we connect to it. We log an error so someone can
             # act upon this if it is appropriate.
             self.logger.error(
                 "Can't connect to springboard! Please notify postmaster!")
-            raise
-        except Exception:
+            raise ServerUnavailableException(str(e))
+        except Exception, e:
             # Get the traceback, put some tabs in front, and log it.
             tb = traceback.format_exc()
             self.logger.error("ExchangeClient failed setup:\n%s" % str(tb))
-            raise
+            raise ServerUnavailableException(str(e))
 
     def _gen_key(self):
         """Return a unique key for the current process
