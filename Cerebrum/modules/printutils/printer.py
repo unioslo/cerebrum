@@ -1,7 +1,7 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python2
+# encoding: utf-8
 #
-# Copyright 2015-2016 University of Oslo, Norway
+# Copyright 2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -64,9 +64,12 @@ PRINT_LPR_CMD
 
 """
 
+from __future__ import with_statement
+
 import os
 import string
 
+import cerebrum_path
 import cereconf
 
 from Cerebrum import Utils
@@ -192,3 +195,7 @@ class LinePrinter(object):
         if rc != 0:
             raise IOError("Error spooling job, see %r for details (tail: %s)" %
                           (logfile, "".join(_tail_print_log(num=1)).rstrip()))
+
+
+if __name__ == '__main__':
+    del cerebrum_path
