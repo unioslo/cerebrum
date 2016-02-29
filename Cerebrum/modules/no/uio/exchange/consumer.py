@@ -174,11 +174,11 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
             # act upon this if it is appropriate.
             self.logger.error(
                 "Can't connect to springboard! Please notify postmaster!")
+            raise
         except Exception:
             # Get the traceback, put some tabs in front, and log it.
             tb = traceback.format_exc()
             self.logger.error("ExchangeClient failed setup:\n%s" % str(tb))
-        finally:
             raise
 
     def _gen_key(self):
