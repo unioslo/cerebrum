@@ -1,5 +1,5 @@
-#!/usr/bin/env python2
-# encoding: utf-8
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
 # Copyright 2003-2015 University of Oslo, Norway
 #
@@ -58,13 +58,30 @@ import hashlib
 import base64
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 
-from .common import PasswordNotGoodEnough, PasswordChecker
+from .checker import pwchecker, PasswordChecker
 
 __version__ = "1.0"
 
 
-class ClearPasswordHistoryMixin(DatabaseAccessor):
+@pwchecker('history')
+class CheckPasswordHistory(PasswordChecker):
+    """ Match the password against PasswordHistory. """
 
+    _requirement = "Must not be too similar to an old password."
+
+    def check_password(self, password, account=None):
+        if not account:
+            return
+        if not hasattr(account, '_check_password_history'):
+            return
+        if account._check_password_history(password):
+            return ["Password too similar to an old password."]
+        # TODO: wtf?
+        # if not skip_rigid_password_tests:
+        #     account._check_password_history(password[0:8])
+
+
+class ClearPasswordHistoryMixin(DatabaseAccessor):
     """ A mixin that will delete password history. """
 
     def delete(self):
@@ -74,18 +91,8 @@ class ClearPasswordHistoryMixin(DatabaseAccessor):
         super(ClearPasswordHistoryMixin, self).delete()
 
 
-class PasswordHistoryMixin(ClearPasswordHistoryMixin, PasswordChecker):
-
+class PasswordHistoryMixin(ClearPasswordHistoryMixin):
     """ A mixin for use with entities that should have password history. """
-
-    def password_good_enough(self, password, skip_rigid_password_tests=False,
-                             **kw):
-        """ Match the password against PasswordHistory. """
-        super(PasswordHistoryMixin, self).password_good_enough(
-            password, skip_rigid_password_tests=skip_rigid_password_tests, **kw)
-        self._check_password_history(password)
-        if not skip_rigid_password_tests:
-            self._check_password_history(password[0:8])
 
     def set_password(self, plaintext):
         # We need our own copy of __plaintext_password, because the
@@ -114,7 +121,7 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin, PasswordChecker):
         super(PasswordHistoryMixin, self).clear()
 
     def _check_password_history(self, password):
-        """ Check if entity had this passwordearlier.
+        """ Check if entity had this password earlier.
 
         :param str password: The plaintext password.
 
@@ -156,12 +163,10 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin, PasswordChecker):
                 variants.append(tmp)
         for r in ph.get_history(entity_id):
             if r['md5base64'] in variants:
-                raise PasswordNotGoodEnough(
-                    "Password too similar to an old password.")
+                return True
 
 
 class PasswordHistory(DatabaseAccessor):
-
     """PasswordHistory contains an API for accessing password history. """
 
     def encode_for_history(self, name, password):

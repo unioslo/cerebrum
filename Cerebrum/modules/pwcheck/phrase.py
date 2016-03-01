@@ -1,5 +1,5 @@
-#!/usr/bin/env python2
-# encoding: utf-8
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
 # Copyright 2003-2015 University of Oslo, Norway
 #
@@ -20,84 +20,72 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains simple password phrase checks. """
 
-from .common import PasswordNotGoodEnough, PasswordChecker
+from .common import pwchecker, PasswordChecker
 
 
-class CheckPhraseLengthMixin(PasswordChecker):
-
+@pwchecker('phrase_length')
+class CheckPhraseLength(PasswordChecker):
     """ Check passphrase length. """
 
     # Minimum length and error message
-    _passphrase_min_length_error_fmt = ("Password must be at least %d"
-                                        " characters.")
+    _min_length_error = ("Password must be at least %d characters.")
 
     # Maximum length and error message
-    _passphrase_max_length_error_fmt = ("Password must be at most %d"
-                                        " characters.")
+    _max_length_error = ("Password must be at most %d characters.")
 
-    def password_good_enough(self, passphrase,
-                             skip_rigid_password_tests=False,
-                             passphrase_min_length=12,
-                             passphrase_max_length=None,
-                             **kw):
+    def __init__(self, min_length=12, max_length=None):
+        self.min_length = min_length
+        self.max_length = max_length
+        if not max_length:
+            self._requirement = "Must be at least %d and at most %d characters." % (min_length, max_length)
+        else:
+            self._requirement = "Must be at least %d characters." % min_length
+
+    def check_password(self, passphrase, account=None):
         """ Check that passphrase length is within bounds. """
-        super(CheckPhraseLengthMixin, self).password_good_enough(
-            passphrase,
-            skip_rigid_password_tests=skip_rigid_password_tests, **kw)
+        if (self.min_length is not None and
+                self.min_length > len(passphrase)):
+            return [self._min_length_error % self.min_length]
 
-        if skip_rigid_password_tests:
-            if (passphrase_min_length is not None and
-                    passphrase_min_length > len(passphrase)):
-                raise PasswordNotGoodEnough(
-                    self._passphrase_min_length_error_fmt %
-                    passphrase_min_length)
-
-            if (passphrase_max_length is not None and
-                    passphrase_max_length > len(passphrase)):
-                raise PasswordNotGoodEnough(
-                    self._passphrase_max_length_error_fmt %
-                    passphrase_max_length)
+        if (self.max_length is not None and
+                self.max_length > len(passphrase)):
+            return [self._max_length_error % self.max_length]
 
 
-class CheckPhraseWordsMixin(PasswordChecker):
-
+@pwchecker('phrase_num_words')
+class CheckPhraseWords(PasswordChecker):
     """ Check number of words in passphrase. """
 
-    # Minimum word count, length and error message
-    _passphrase_min_words_error_fmt = ("Password must have at least %d words"
-                                       " of length %d")
-    _passphrase_avg_error_fmt = ("Password words must be in average at least"
-                                 " %s characters long")
+    def __init__(self, min_words=None, min_word_length=None):
+        self.min_words = min_words
+        self.min_word_length = min_word_length
+        if not min_word_length:
+            self._requirement = "Must contain at least %d words." % min_words
+        else:
+            self._requirement = "Must contain at least %d words of length %d." % (min_words, min_word_length)
 
-    def password_good_enough(self, passphrase,
-                             passphrase_min_words=None,
-                             passphrase_min_word_length=None,
-                             passphrase_avg_length=None,
-                             skip_rigid_password_tests=False,
-                             **kw):
-        """ Check that passphrase contains enough long words.
-
-        Passphrase will require at least `_passphrase_min_words' of length
-        `_passphrase_min_word_length'.
-
-        """
-        super(CheckPhraseWordsMixin, self).password_good_enough(
-            passphrase,
-            skip_rigid_password_tests=skip_rigid_password_tests,
-            **kw)
-        if not skip_rigid_password_tests:
-            return
-        wl = passphrase_min_word_length or 0
-        wds = passphrase_min_words or 0
-        avg = passphrase_avg_length
+    def check_password(self, passphrase, account=None):
+        """ Check that passphrase contains enough long words. """
+        wl = self.min_word_length or 0
+        wds = self.min_words or 0
         spl = passphrase.split(" ")
         if len([x for x in spl if len(x) >= wl]) < wds:
-            raise PasswordNotGoodEnough(
-                self._passphrase_min_words_error_fmt % (wds, wl))
-        if avg and float(sum(map(len, spl)))/len(spl) < avg:
-            raise PasswordNotGoodEnough(
-                self._passphrase_avg_error_fmt % (avg,))
+            return ("Password must have at least %d words"
+                    " of length %d") % (wds, wl)
 
 
-class CheckPassphraseMixin(CheckPhraseWordsMixin, CheckPhraseLengthMixin):
-    pass
+@pwchecker('phrase_avg_word_length')
+class CheckPhraseAverageWordLength(PasswordChecker):
+    """ Check number of words in passphrase. """
+
+    def __init__(self, avg_length=0):
+        self.avg_length = avg_length
+        self._requirement = "Words must be in average at least %d characters long." % avg_length
+
+    def check_password(self, passphrase, account=None):
+        """ Check that passphrase contains enough long words in average. """
+        avg = self.avg_length
+        spl = passphrase.split(" ")
+        if avg and float(sum(map(len, spl))) / len(spl) < avg:
+            return ("Password words must be in average at least"
+                    " %s characters long") % (avg,)
