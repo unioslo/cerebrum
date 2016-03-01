@@ -29,7 +29,7 @@ from Cerebrum.modules.event.EventExceptions import (EventExecutionException,
                                                     EntityTypeError,
                                                     UnrelatedEvent)
 from Cerebrum.modules.event.mapping import EventMap
-from Cerebrum.modules.no.uio.exchange.ExchangeEventHandler import (
+from Cerebrum.modules.no.uio.exchange.consumer import (
     ExchangeEventHandler as UIOExchangeEventHandler,)
 from Cerebrum import Errors
 from Cerebrum.utils.funcwrap import memoize
