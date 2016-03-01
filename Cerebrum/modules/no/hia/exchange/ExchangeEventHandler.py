@@ -58,7 +58,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             from Cerebrum.modules.no.uio.exchange.ExchangeClient import (
                 ClientMock as excclass, )
         else:
-            from Cerebrum.modules.no.hia.ExchangeClient import (
+            from Cerebrum.modules.no.hia.exchange.ExchangeClient import (
                 UiAExchangeClient as excclass, )
 
         def j(*l):
