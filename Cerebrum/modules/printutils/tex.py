@@ -1,7 +1,7 @@
-#!/usr/bin/env python2
-# encoding: utf-8
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -56,7 +56,6 @@ PRINT_DVIPDF_CMD
 """
 import os
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Utils
@@ -145,7 +144,3 @@ def prepare_tex(filename):
         os.chdir(oldpwd)
 
     return output
-
-
-if __name__ == '__main__':
-    del cerebrum_path
