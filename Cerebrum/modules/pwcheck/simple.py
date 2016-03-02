@@ -50,8 +50,8 @@ class CheckSpaceOrNull(PasswordChecker):
     _requirement = "Must not contain a space or the special null character."
 
     _password_illegal_chars = {
-        '\0': "Password cannot contain the null character.",
-        ' ': "Password cannot contain space.", }
+        '\0': _('Password cannot contain the null character.'),
+        ' ': _('Password cannot contain space.'), }
 
     def check_password(self, password, account=None):
         """ Check that only valid characters are allowed. """
@@ -69,12 +69,12 @@ class CheckSpaceOrNull(PasswordChecker):
 class CheckEightBitChars(PasswordChecker):
     """ Check for 8-bit characters in password string. """
 
-    _requirement = "Must not contain 8-bit characters (e.g. æøå)."
+    _requirement = _('Must not contain 8-bit characters (e.g. æøå).')
 
     def check_password(self, password, account=None):
         """ Check that only valid characters are allowed. """
         if re.search(r'[\200-\376]', password):
-            return ["Password cannot contain 8-bit characters (e.g. æøå)."]
+            return [_('Password cannot contain 8-bit characters (e.g. æøå).')]
 
 
 @pwchecker('length')
@@ -179,7 +179,8 @@ class CheckMultipleCharacterSets(PasswordChecker):
 class CheckCharacterSequence(PasswordChecker):
     """ Check for sequences of related chars. """
 
-    _requirement = "Must not contain sequences of closely related characters."
+    _requirement = _(
+        'Must not contain sequences of closely related characters.')
 
     def __init__(self, char_seq_length=3):
         self.char_seq_length = char_seq_length
@@ -209,7 +210,8 @@ class CheckCharacterSequence(PasswordChecker):
         for diff, num in find_adjacent_runs(
                 map(operator.sub, ordpw[1:], ordpw[:-1])):
             if diff in (-1, 1) and num >= self.char_seq_length:
-                errors.append("Password cannot contain characters in alpabetical or numerical order")
+                errors.append(_('Password cannot contain characters in '
+                                'alpabetical or numerical order'))
                 break
 
         # TODO: 'kbd' should probably try a number of typical layouts.
@@ -236,9 +238,9 @@ class CheckCharacterSequence(PasswordChecker):
             runs = find_adjacent_runs(map(operator.sub, pw[1:], pw[:-1]))
             for diff, num in runs:
                 if diff in (-1, 1) and num >= self.char_seq_length:
-                    errors.append("Password cannot contain neighbouring keyboard keys")
+                    errors.append(_(
+                        'Password cannot contain neighbouring keyboard keys'))
                     break
-
         return errors
 
 
@@ -246,14 +248,15 @@ class CheckCharacterSequence(PasswordChecker):
 class CheckRepeatedPattern(PasswordChecker):
     """ Check for repeated patterns in password. """
 
-    _requirement = "Must not contain repeated sequences of characters."
+    _requirement = _('Must not contain repeated sequences of characters.')
 
     def check_password(self, password, account=None):
         """ Check for repeated sequences in the first eight chars. """
 
         # TODO: Clean up this check, and get rid of the trunc
         first_eight = password[0:8]
-        repeat_err = ["Password cannot contain repeated sequences of characters."]
+        repeat_err = [
+            _('Password cannot contain repeated sequences of characters.')]
 
         # Repeated patterns: ababab, abcabc, abcdabcd
         if (re.search(r'^(..)\1\1', first_eight) or
@@ -271,7 +274,7 @@ class CheckRepeatedPattern(PasswordChecker):
 class CheckUsername(PasswordChecker):
     """ Check for use of the username in the password. """
 
-    _requirement = "Must not contain your username, even in reverse."
+    _requirement = _('Must not contain your username, even in reverse.')
 
     def check_password(self, password, account=None):
         """ Does the password contain the username? """
@@ -284,11 +287,11 @@ class CheckUsername(PasswordChecker):
 
         # password cannot contain the username
         if uname.lower() in password.lower():
-            return ["Password cannot contain your username"]
+            return [_('Password cannot contain your username')]
 
         # password cannot contain the username reversed
         if uname[::-1].lower() in password.lower():
-            return ["Password cannot contain your username in reverse"]
+            return [_('Password cannot contain your username in reverse')]
 
 
 @pwchecker('owner_name')
@@ -297,7 +300,7 @@ class CheckOwnerNameMixin(PasswordChecker):
 
     def __init__(self, name_seq_len=5):
         self.name_seq_len = name_seq_len
-        self._requirement = "Must not contain %d or more characters from your name." % name_seq_len
+        self._requirement = _('Must not contain {name_seq_len} or more characters from your name.').format(name_seq_len=name_seq_len)
 
     def check_password(self, password, account=None):
         if account is None:
@@ -371,7 +374,7 @@ class CheckOwnerNameMixin(PasswordChecker):
         # password is, in fact, a match => the password is a copy of the name.
         if (make_match(name_chunks, pwd_chunks) >= seqlen or
                 make_match(name_chunks, pwd_l33t_chunks) >= seqlen):
-            return ["Password cannot contain your name."]
+            return [_('Password cannot contain your name.')]
 
         # Join all possible sequences of length
         def all_chunks(x):
@@ -385,4 +388,5 @@ class CheckOwnerNameMixin(PasswordChecker):
         all_pw_chunks = set(all_chunks(password.split()))
         for name in all_chunks(name_chunks):
             if name in all_pw_chunks:
-                return ["Password cannot contain %d characters from your name" % seqlen]
+                return [_('Password cannot contain {seqlen} characters from '
+                          'your name').format(seqlen=seqlen)]

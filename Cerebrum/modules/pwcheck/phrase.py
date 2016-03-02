@@ -28,18 +28,23 @@ class CheckPhraseLength(PasswordChecker):
     """ Check passphrase length. """
 
     # Minimum length and error message
-    _min_length_error = ("Password must be at least %d characters.")
+    _min_length_error = _('Password must be at least {min_length} characters.')
 
     # Maximum length and error message
-    _max_length_error = ("Password must be at most %d characters.")
+    _max_length_error = _('Password must be at most {max_length} characters.')
 
     def __init__(self, min_length=12, max_length=None):
         self.min_length = min_length
         self.max_length = max_length
         if not max_length:
-            self._requirement = "Must be at least %d and at most %d characters." % (min_length, max_length)
+            self._requirement = _('Must be at least {min_length} and at most '
+                                  '{max_length} characters.').format(
+                                      min_length=min_length,
+                                      max_length=max_length)
         else:
-            self._requirement = "Must be at least %d characters." % min_length
+            self._requirement = _(
+                'Must be at least {min_length} characters.').format(
+                    min_length=min_length)
 
     def check_password(self, passphrase, account=None):
         """ Check that passphrase length is within bounds. """
@@ -60,9 +65,14 @@ class CheckPhraseWords(PasswordChecker):
         self.min_words = min_words
         self.min_word_length = min_word_length
         if not min_word_length:
-            self._requirement = "Must contain at least %d words." % min_words
+            self._requirement = _(
+                'Must contain at least {min_words} words.').format(
+                    min_words=min_words)
         else:
-            self._requirement = "Must contain at least %d words of length %d." % (min_words, min_word_length)
+            self._requirement = _('Must contain at least {min_words} words of '
+                                  'length {min_word_length}.').format(
+                                      min_words=min_words,
+                                      min_word_length=min_word_length)
 
     def check_password(self, passphrase, account=None):
         """ Check that passphrase contains enough long words. """
@@ -70,8 +80,9 @@ class CheckPhraseWords(PasswordChecker):
         wds = self.min_words or 0
         spl = passphrase.split(" ")
         if len([x for x in spl if len(x) >= wl]) < wds:
-            return ("Password must have at least %d words"
-                    " of length %d") % (wds, wl)
+            return _('Password must have at least {wds} words'
+                     ' of length {word_length}').format(wds=wds,
+                                                        word_length=wl)
 
 
 @pwchecker('phrase_avg_word_length')
@@ -80,12 +91,13 @@ class CheckPhraseAverageWordLength(PasswordChecker):
 
     def __init__(self, avg_length=0):
         self.avg_length = avg_length
-        self._requirement = "Words must be in average at least %d characters long." % avg_length
+        self._requirement = _('Words must be in average at least {avg_length} '
+                              'characters long.').format(avg_length=avg_length)
 
     def check_password(self, passphrase, account=None):
         """ Check that passphrase contains enough long words in average. """
         avg = self.avg_length
         spl = passphrase.split(" ")
         if avg and float(sum(map(len, spl))) / len(spl) < avg:
-            return ("Password words must be in average at least"
-                    " %s characters long") % (avg,)
+            return _('Password words must be in average at least '
+                     '{avg} characters long').format(avg=avg)
