@@ -1278,3 +1278,18 @@ GID_RESERVED_RANGE = tuple()
 
 # A list of warning filters, as accepted by `python -W'
 PYTHONWARNINGS = ['always']
+
+
+# For more information about the gettext module i Python visit:
+# https://docs.python.org/2.7/library/gettext.html#module-gettext
+
+# The gettext domain
+GETTEXT_DOMAIN = 'cerebrum'
+
+# The directory where gettext will look for translation files (.mo) for the
+# given domain using the path: localedir/language/LC_MESSAGES/domain.mo
+# If GETTEXT_LOCALEDIR is not defined: ~/locale will be used
+# GETTEXT_LOCALEDIR = ''
+
+# The available languages for this Cerebrum instance
+GETTEXT_LANGUAGE_IDS = ('en', 'no')

@@ -86,9 +86,14 @@ class CheckLengthMixin(PasswordChecker):
         self.max_length = max_length
 
         if not max_length:
-            self._requirement = "Must be at least %d characters." % min_length
+            self._requirement = _(
+                'Must be at least {min_length} characters.').format(
+                    min_length=min_length)
         else:
-            self._requirement = "Must be at least %d and at most %d characters." % (min_length, max_length)
+            self._requirement = _(
+                'Must be at least {min_length} and at most '
+                '{max_length} characters.').format(min_length=min_length,
+                                                   max_length=max_length)
 
     def check_password(self, password, account=None):
         """Check the length of the password.
@@ -99,11 +104,15 @@ class CheckLengthMixin(PasswordChecker):
         """
         if (self.min_length is not None and
                 len(password.strip()) < self.min_length):
-            return ["Password must be at least %d characters long." % self.min_length]
+            return [
+                _('Password must be at least {min_length} '
+                  'characters long.').format(min_length=self.min_length)]
 
         if (self.max_length is not None and
                 len(password) > self.max_length):
-            return ["Password must be at most %d characters long." % self.max_length]
+            return [
+                _('Password must be at most {max_length} characters '
+                  'long.').format(max_length=self.max_length)]
 
 
 @pwchecker('multiple_character_sets')
@@ -154,18 +163,16 @@ class CheckMultipleCharacterSets(PasswordChecker):
         if variation < 3:
             if good_try:
                 return [
-                    "A password that only contains one uppercase letter,"
-                    " must not have this as the first character."
-                    " If the first 8 characters only contains one number or"
-                    " special character, this must not be in position 8."]
+                    _("A password that only contains one uppercase letter,"
+                      " must not have this as the first character."
+                      " If the first 8 characters only contains one number or"
+                      " special character, this must not be in position 8.")]
             else:
                 return [
-                    "The first eight characters of the password must contain"
-                    " characters from at least three of the four following"
-                    " character groups: Uppercase letters, lowercase letters,"
-                    " numbers and special characters."]
-
-
+                    _("The first eight characters of the password must contain"
+                      " characters from at least three of the four following"
+                      " character groups: Uppercase letters, lowercase"
+                      " letters, numbers and special characters.")]
 
 
 @pwchecker('character_sequence')
