@@ -863,6 +863,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             if cur_status != int(status) or cur_precedence != new_prec:
                 self._db.log_change(self.entity_id,
                                     self.const.person_aff_src_mod, None)
+                return 'mod', cur_status, cur_precedence
         except Errors.NotFoundError:
             pr = binds['precedence'] = self.__calculate_affiliation_precedence(
                 affiliation, source, status, precedence, None)
@@ -876,6 +877,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                          binds)
             self._db.log_change(self.entity_id,
                                 self.const.person_aff_src_add, None)
+            return 'add', status, precedence
+        return False, status, precedence
 
     def delete_affiliation(self, ou_id, affiliation, source):
         binds = {'ou_id': int(ou_id),
