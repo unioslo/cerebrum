@@ -36,7 +36,7 @@ class CheckPhraseLength(PasswordChecker):
     def __init__(self, min_length=12, max_length=None):
         self.min_length = min_length
         self.max_length = max_length
-        if not max_length:
+        if max_length:
             self._requirement = "Must be at least %d and at most %d characters." % (min_length, max_length)
         else:
             self._requirement = "Must be at least %d characters." % min_length
@@ -56,7 +56,7 @@ class CheckPhraseLength(PasswordChecker):
 class CheckPhraseWords(PasswordChecker):
     """ Check number of words in passphrase. """
 
-    def __init__(self, min_words=None, min_word_length=None):
+    def __init__(self, min_words=4, min_word_length=None):
         self.min_words = min_words
         self.min_word_length = min_word_length
         if not min_word_length:
