@@ -249,8 +249,11 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
             else:
                 # An exchange-spread has been given to an account not owned
                 # by a person or a group
-                self.logger.warn('eid:%d: Account %s is not owned by a person '
-                                 'or group. Skip.', event['event_id'], uname)
+                self.logger.warn(
+                    'eid:{event_id}: Account {uname} is not owned by a person '
+                    'or group. Skip.'.format(
+                        event_id=event['event_id'],
+                        uname=uname))
                 # Raise exception, this should result in silent discard
                 raise EntityTypeError
 
@@ -989,13 +992,21 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
                 self.ec.set_spam_settings(uname=uname, level=level,
                                           action=action)
                 self.logger.info(
-                    'eid:%d: Changing spam settings for %s to (%s, %s)',
-                    event['event_id'], uname, level, action)
+                    'eid:{event_id}: Changing spam settings for '
+                    '{uname} to ({level}, {action})'.format(
+                        event_id=event['event_id'],
+                        uname=uname,
+                        level=level,
+                        action=action))
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn(
-                    'eid:%d: Could not change spam settings for '
-                    '%s to (%s, %s): %s',
-                    event['event_id'], uname, level, action, e)
+                    'eid:{event_id}: Could not change spam settings for '
+                    '{uname} to ({level}, {action}): {exception}'.format(
+                        event_id=event['event_id'],
+                        uname=uname,
+                        level=level,
+                        action=action,
+                        exception=e))
                 raise EventExecutionException
         else:
             # If we can't handle the object type, silently discard it
