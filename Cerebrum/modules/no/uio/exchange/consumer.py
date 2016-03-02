@@ -1196,17 +1196,21 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
         # As of now we do this by generating an event for each member that
         # should be added. This is the quick and relatively painless solution,
         # altough performance will suffer greatly.
-        members = [uname for uname in self.ut.get_group_members(
-            event['subject_entity'],
-            spread=self.mb_spread,
-            filter_spread=self.ad_spread)]
-        for memb in members:
+        member = group_flattener.get_entity(self.db, event['subject_entity'])
+        (_, candidates) = group_flattener.add_operations(
+            self.db, self.co,
+            member, None,
+            self.group_spread, self.mb_spread)
+        for (entity_id, entity_name) in candidates:
             ev_mod = event.copy()
             ev_mod['dest_entity'] = ev_mod['subject_entity']
-            ev_mod['subject_entity'] = memb['account_id']
+            ev_mod['subject_entity'] = entity_id
             self.logger.debug1(
-                'eid:%d: Creating event: Adding %s to %s' %
-                (event['event_id'], memb['name'], gname))
+                'eid:{event_id}: Creating event: Adding {entity_name} to '
+                '{group_name}'.format(
+                    event_id=event['event_id'],
+                    entity_name=entity_name,
+                    group_name=gname))
             self.ut.log_event(ev_mod, 'e_group:add')
 
     @event_map('dlgroup:remove')
