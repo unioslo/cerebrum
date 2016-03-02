@@ -25,6 +25,8 @@ would probably turn out to be a bad idea if one tried to use groups in
 that fashion.  Hence, this module **requires** the caller to supply a
 name when constructing a Group object."""
 
+from types import MethodType
+
 import mx
 
 import cereconf
@@ -38,15 +40,79 @@ from Cerebrum.Utils import argument_to_sql, prepare_string
 Entity_class = Utils.Factory.get("Entity")
 
 
-class Group(EntityQuarantine, EntityExternalId, EntityName,
-            EntitySpread, EntityNameWithLanguage, Entity_class):
+def populator(*types):
+    """Create a method get_populator matching types.
+    :param types: Matched against to return this method.
+    """
+    def fn(meth):
+        def make_populator(cls):
+            def populate(self, group_type='group', **kw):
+                if group_type in types:
+                    return getattr(self, meth.__name__)(**kw)
+                return super(cls, self).populate(group_type=group_type, **kw)
+            return MethodType(populate, None, cls)
+        meth.make_populator = make_populator
+        return meth
+    return fn
+
+
+class GroupPopulatorInjector(Utils.mark_update):
+    """Metaclass for installing a proper get_populator into class"""
+    def __new__(cls, name, parents, dct):
+        """Find populators and populate dct['get_populator']"""
+        ret = super(GroupPopulatorInjector, cls).__new__(cls, name, parents,
+                                                         dct)
+        found = False
+        for member in dct.values():
+            if hasattr(member, 'make_populator'):
+                assert not found
+                ret.populate = member.make_populator(ret)
+                found = True
+        return ret
+
+
+class BasicGroup(EntityQuarantine, EntityExternalId, EntityName,
+                 EntitySpread, EntityNameWithLanguage, Entity_class):
+    """Super class of all group types"""
+    __metaclass__ = GroupPopulatorInjector
+    __read_attr__ = ('group_type',)
+
+    def populate(self, group_type='group', **kw):
+        """Populate group instance's attributes without database access."""
+        super(BasicGroup, self).populate(**kw)
+
+    def clear(self):
+        super(BasicGroup, self).clear()
+        self.clear_class(BasicGroup)
+
+    def find(self, entity_id):
+        super(BasicGroup, self).find(entity_id)
+        if self.entity_type not in self.group_types():
+            raise RuntimeError("id:{} is not a group".format(entity_id))
+
+    def new(self, *rest, **kw):
+        """Insert a new group into the database."""
+        self.populate(*rest, **kw)
+        self.write_db()
+
+    def search(self, *rest, **kw):
+        pass
+
+    def search_members(self, *rest, **kw):
+        pass
+
+    def group_types(self):
+        return set()
+
+
+class Group(BasicGroup):
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('description', 'visibility', 'creator_id',
                       'create_date', 'expire_date', 'group_name')
 
     def clear(self):
-        self.__super.clear()
+        super(Group, self).clear()
         self.clear_class(Group)
         self.__updated = []
 
