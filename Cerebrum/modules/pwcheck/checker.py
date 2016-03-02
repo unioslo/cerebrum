@@ -22,8 +22,16 @@
 
 import cereconf
 
-import string
 import collections
+import gettext
+import os
+import string
+
+
+locale_dir = getattr(cereconf,
+                     'GETTEXT_LOCALEDIR',
+                     os.path.expanduser('~/locale'))
+gettext.install(cereconf.GETTEXT_DOMAIN, locale_dir, unicode=1)
 
 
 class PasswordNotGoodEnough(Exception):
@@ -75,12 +83,24 @@ def check_password(password, account=None, structured=False):
             print 'Skipping', name, ', not in PASSWORD_CHECKS'
             continue
         checker_args = {}
-        check = cls(**checker_args)
-        err = check.check_password(password, account=account)
-        if not structured and err:
-            raise PasswordNotGoodEnough(err[0])
-        errors[name] = err or None
-        requirements[name] = check.requirement
+        #check = cls(**checker_args)
+        errors[name] = {}
+        requirements[name] = {}
+        for act_language in getattr(cereconf, 'GETTEXT_LANGUAGE_IDS', ('en',)):
+            # load the language
+            lang_obj = gettext.translation(cereconf.GETTEXT_DOMAIN,
+                                           localedir=locale_dir,
+                                           languages=[act_language])
+            lang_obj.install()
+            check = cls(**checker_args)
+            err = check.check_password(password, account=account)
+            if not structured and err:
+                raise PasswordNotGoodEnough(err[0])
+            if err:
+                errors[name][act_language] = err
+            else:
+                errors[name] = None
+            requirements[name][act_language] = check.requirement
 
     if not structured:
         return True
@@ -120,7 +140,7 @@ def check_password(password, account=None, structured=False):
         checks[name] = {
             'passed': not error,
             'requirement': requirements[name],
-            'messages': error,
+            'errors': error,
         }
 
     data = {
@@ -151,7 +171,7 @@ def pwchecker(name):
         # else:
         #     print 'Checker', name, 'is not enabled'
         _checkers[name] = cls
-        print 'Registered', name, '=', cls
+        # print 'Registered', name, '=', cls
         return cls
     return fn
 
@@ -159,7 +179,7 @@ def pwchecker(name):
 class PasswordChecker(object):
     """Base class for password checkers."""
 
-    _requirement = 'Something'
+    _requirement = _('Something')
 
     @property
     def requirement(self):
