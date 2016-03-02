@@ -116,16 +116,18 @@ class Group(BasicGroup):
         self.clear_class(Group)
         self.__updated = []
 
-    def populate(self, creator_id, visibility, name,
-                 description=None, create_date=None, expire_date=None,
-                 parent=None):
+    @populator('group')
+    def populate_group(self, creator_id=None, visibility=None, name=None,
+                       description=None, create_date=None, expire_date=None,
+                       parent=None):
         """Populate group instance's attributes without database access."""
         # TBD: Should this method call self.clear(), or should that be
         # the caller's responsibility?
         if parent is not None:
             self.__xerox__(parent)
         else:
-            Entity_class.populate(self, self.const.entity_group)
+            super(Group, self).populate(group_type=None,
+                                        entity_type=self.const.entity_group)
         # If __in_db is present, it must be True; calling populate on
         # an object where __in_db is present and False is very likely
         # a programming error.
@@ -181,7 +183,13 @@ class Group(BasicGroup):
         this object.
 
         """
-        self.__super.write_db()
+        super(Group, self).write_db()
+        try:
+            is_new = not self.__in_db
+        except AttributeError:
+            return
+        if self.entity_type != self.const.entity_group:
+            return
         if not self.__updated:
             return
         if 'group_name' in self.__updated:
@@ -189,7 +197,6 @@ class Group(BasicGroup):
             if tmp:
                 raise self._db.IntegrityError, "Illegal groupname: %s" % tmp
 
-        is_new = not self.__in_db
         if is_new:
             cols = [('entity_type', ':e_type'),
                     ('group_id', ':g_id'),
@@ -302,6 +309,7 @@ class Group(BasicGroup):
     def __eq__(self, other):
         assert isinstance(other, Group)
         if (self.creator_id == other.creator_id
+            and self.entity_type == other.entity_type
             and self.visibility == other.visibility
             and self.group_name == other.group_name
             and self.description == other.description
@@ -317,16 +325,11 @@ class Group(BasicGroup):
             return self.__super.__eq__(other)
         return False
 
-    def new(self, creator, visibility, name,
-            description=None, create_date=None, expire_date=None):
-        """Insert a new group into the database."""
-        self.populate(creator, visibility, name, description,
-                      create_date, expire_date)
-        self.write_db()
-
     def find(self, group_id):
         """Connect object to group with ``group_id`` in database."""
         self.__super.find(group_id)
+        if self.entity_type != self.const.entity_group:
+            return
         (self.description, self.visibility, self.creator_id,
          self.create_date, self.expire_date, self.group_name) = \
             self.query_1("""
@@ -348,7 +351,11 @@ class Group(BasicGroup):
             pass
         self.__in_db = True
         self.__updated = []
-    # end find
+
+    def group_types(self):
+        ret = super(Group, self).group_types()
+        ret.add(self.const.entity_group)
+        return ret
 
     def find_by_name(self, name, domain=None):
         """Connect object to group having ``name`` in ``domain``."""
@@ -664,7 +671,8 @@ class Group(BasicGroup):
         #
         # expired_only filter
         if expired_only:
-            where.append("(gi.expire_date IS NOT NULL AND gi.expire_date < [:now])")
+            where.append("(gi.expire_date IS NOT NULL AND gi.expire_date < "
+                         "[:now])")
 
         where_str = ""
         if where:
