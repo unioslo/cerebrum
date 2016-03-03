@@ -248,7 +248,8 @@ def check_two_word_combinations(dictionaries, word):
 class CheckPasswordDictionary(PasswordChecker):
     """ Check if password contains dictionary words. """
 
-    _requirement = _('Must not contain dictionary words.')
+    def __init__(self):
+        self._requirement = _('Must not contain dictionary words.')
 
     @property
     def password_dictionaries(self):

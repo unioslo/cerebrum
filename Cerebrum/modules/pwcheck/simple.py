@@ -47,11 +47,12 @@ from .checker import pwchecker, PasswordChecker, l33t_speak
 class CheckSpaceOrNull(PasswordChecker):
     """ Check for space or null in password string. """
 
-    _requirement = "Must not contain a space or the special null character."
-
-    _password_illegal_chars = {
-        '\0': _('Password cannot contain the null character.'),
-        ' ': _('Password cannot contain space.'), }
+    def __init__(self):
+        self._requirement = _(
+            'Must not contain a space or the special null character.')
+        self._password_illegal_chars = {
+            '\0': _('Password cannot contain the null character.'),
+            ' ': _('Password cannot contain space.'), }
 
     def check_password(self, password, account=None):
         """ Check that only valid characters are allowed. """
@@ -69,12 +70,13 @@ class CheckSpaceOrNull(PasswordChecker):
 class CheckEightBitChars(PasswordChecker):
     """ Check for 8-bit characters in password string. """
 
-    _requirement = _('Must not contain 8-bit characters (e.g. æøå).')
+    def __init__(self):
+        self._requirement = _(u'Must not contain 8-bit characters (e.g. æøå).')
 
     def check_password(self, password, account=None):
         """ Check that only valid characters are allowed. """
         if re.search(r'[\200-\376]', password):
-            return [_('Password cannot contain 8-bit characters (e.g. æøå).')]
+            return [_(u'Password cannot contain 8-bit characters (e.g. æøå).')]
 
 
 @pwchecker('length')
@@ -117,8 +119,10 @@ class CheckLengthMixin(PasswordChecker):
 
 @pwchecker('multiple_character_sets')
 class CheckMultipleCharacterSets(PasswordChecker):
-
     """ Adds a entropy check to password checker. """
+
+    def __init__(self):
+        self._requirement = _('Something')
 
     def check_password(self, password, account=None):
         """ Check that a password use multiple character sets.
@@ -179,10 +183,9 @@ class CheckMultipleCharacterSets(PasswordChecker):
 class CheckCharacterSequence(PasswordChecker):
     """ Check for sequences of related chars. """
 
-    _requirement = _(
-        'Must not contain sequences of closely related characters.')
-
     def __init__(self, char_seq_length=3):
+        self._requirement = _(
+            'Must not contain sequences of closely related characters.')
         self.char_seq_length = char_seq_length
 
     def check_password(self, password, account=None):
@@ -248,7 +251,9 @@ class CheckCharacterSequence(PasswordChecker):
 class CheckRepeatedPattern(PasswordChecker):
     """ Check for repeated patterns in password. """
 
-    _requirement = _('Must not contain repeated sequences of characters.')
+    def __init__(self):
+        self._requirement = _(
+            'Must not contain repeated sequences of characters.')
 
     def check_password(self, password, account=None):
         """ Check for repeated sequences in the first eight chars. """
@@ -274,7 +279,9 @@ class CheckRepeatedPattern(PasswordChecker):
 class CheckUsername(PasswordChecker):
     """ Check for use of the username in the password. """
 
-    _requirement = _('Must not contain your username, even in reverse.')
+    def __init__(self):
+        self._requirement = _(
+            'Must not contain your username, even in reverse.')
 
     def check_password(self, password, account=None):
         """ Does the password contain the username? """

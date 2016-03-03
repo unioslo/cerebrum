@@ -20,18 +20,12 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains simple password phrase checks. """
 
-from .common import pwchecker, PasswordChecker
+from .checker import pwchecker, PasswordChecker
 
 
 @pwchecker('phrase_length')
 class CheckPhraseLength(PasswordChecker):
     """ Check passphrase length. """
-
-    # Minimum length and error message
-    _min_length_error = _('Password must be at least {min_length} characters.')
-
-    # Maximum length and error message
-    _max_length_error = _('Password must be at most {max_length} characters.')
 
     def __init__(self, min_length=12, max_length=None):
         self.min_length = min_length
@@ -50,11 +44,12 @@ class CheckPhraseLength(PasswordChecker):
         """ Check that passphrase length is within bounds. """
         if (self.min_length is not None and
                 self.min_length > len(passphrase)):
-            return [self._min_length_error % self.min_length]
-
+            return [_('Password must be at least {min_length} '
+                      'characters.').format(min_length=self.min_length)]
         if (self.max_length is not None and
                 self.max_length > len(passphrase)):
-            return [self._max_length_error % self.max_length]
+            return [_('Password must be at most {max_length} '
+                      'characters.').format(max_length=self.max_length)]
 
 
 @pwchecker('phrase_num_words')

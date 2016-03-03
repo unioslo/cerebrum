@@ -67,7 +67,9 @@ __version__ = "1.0"
 class CheckPasswordHistory(PasswordChecker):
     """ Match the password against PasswordHistory. """
 
-    _requirement = _('Must not be too similar to an old password.')
+    def __init__(self):
+        self._requirement = _(
+            'Must not be too similar to an old password.')
 
     def check_password(self, password, account=None):
         if not account:
