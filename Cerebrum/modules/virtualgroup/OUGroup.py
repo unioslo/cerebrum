@@ -296,7 +296,11 @@ class OUGroup(VirtualGroup):
         self.__updated = []
 
     def has_member(self, member_id):
-        return list(self.list_members(self.entity_id, member_id=member_id))
+        if self.entity_type == self.const.entity_virtual_group and \
+                self.virtual_group_type == self.const.virtual_group_ou:
+            return list(self.list_members(self.entity_id,
+                                          filter_members=member_id))
+        return super(OUGroup, self).has_member(member_id)
 
     def search(self,
                group_id=None,
@@ -377,7 +381,7 @@ class OUGroup(VirtualGroup):
                                 affiliation=row['affiliation'],
                                 status=row['status'],
                                 ou_id=row['ou_id'],
-                                member_type=mtype,
+                                member_types=mtype,
                                 source=row['source_system'],
                                 indirect=indirect_members)))
 
@@ -391,7 +395,7 @@ class OUGroup(VirtualGroup):
                             self.list_ou_groups_for(
                                 affiliation=row['affiliation'],
                                 ou_id=row['ou_id'],
-                                member_type=self.const.
+                                member_types=self.const.
                                 virtual_group_ou_accounts,
                                 indirect=indirect_members)))
                 try:
@@ -413,7 +417,7 @@ class OUGroup(VirtualGroup):
                             affiliation=gr.affiliation,
                             status=gr.affiliation_status,
                             ou_id=gr.ou_id,
-                            member_type=gr.member_type,
+                            member_types=gr.member_type,
                             source=gr.affiliation_source)
                             if x['ou_perspective'] == gr.ou_perspective])
             dp = {
@@ -444,7 +448,7 @@ class OUGroup(VirtualGroup):
                     expired_only=expired_only))
             if not affected_groups:
                 return ret
-            wheres.append(argument_to_sql(filter_groups, 'group_id', binds,
+            wheres.append(argument_to_sql(affected_groups, 'group_id', binds,
                                           int))
         if spread:
             tables.append("[:table schema=cerebrum name=entity_spread] es")
@@ -487,7 +491,7 @@ class OUGroup(VirtualGroup):
                                    gi.creator_id AS creator_id,
                                    gi.create_date AS create_date,
                                    gi.expire_date AS expire_date
-                FROM [:table schema=cerebrum name=virtual_group_info] gi,
+                FROM [:table schema=cerebrum name=virtual_group_info] gi
                 LEFT OUTER JOIN
                      [:table schema=cerebrum name=entity_name] en
                 ON
@@ -604,7 +608,7 @@ class OUGroup(VirtualGroup):
                     member_type
             FROM [:table schema=cerebrum name=virtual_group_ou] vgo
             LEFT JOIN [:table schema=cerebrum name=entity_name] gn
-                      ON vgo.group_id = gnentity_id
+                      ON vgo.group_id = gn.entity_id
             LEFT JOIN virtual_group_info vgi
                       ON vgo.group_id = vgi.group_id
             WHERE vgo.group_id = :id""", {'id': group_id})
@@ -647,12 +651,16 @@ class OUGroup(VirtualGroup):
                     ous = """
                 UNION SELECT op.ou_id, op.perspective, op.parent_id,
                              vgo.group_id
-                FROM ous, ou_structure op, virtual_group_ou vgo {spread}
+                      FROM ous, [:table schema=cerebrum name=ou_structure] op,
+                      [:table schema=cerebrum name=virtual_group_ou] vgo
+                      {spread}
                 WHERE
                      op.parent_id = ous.ou_id
                      AND op.perspective = :perspective
                      AND ous.perspective = vgo.ou_perspective
                      AND op.ou_id = vgo.ou_id
+                     AND vgo.member_type = :memtype
+                     AND vgo.recursion = :recursion
                      AND {{ous_where}}
                 """.format(spread=s)
                 recursive = 'RECURSIVE'
@@ -691,9 +699,11 @@ class OUGroup(VirtualGroup):
                 ous.perspective"""
 
         tables = ['ous',
-                  'virtual_group_ou vg']
+                  '[:table schema=cerebrum name=virtual_group_ou] vg '
+                  'LEFT JOIN [:table schema=cerebrum name=entity_name] vgn '
+                  'ON vg.group_id = vgn.entity_id']
         fields = ['ous.group_id as group_id',
-                  ':group_name as group_name',
+                  'vgn.entity_name as group_name',
                   ':description as description',
                   ':member_type as member_type',
                   ':expire_date as expire2',
@@ -713,7 +723,8 @@ class OUGroup(VirtualGroup):
                 extra_where.append('vgo.affiliation IS NULL')
             if grow['affiliation_status']:
                 wheres.append('pas.affiliation_status = :affiliation_status')
-                extra_where.append('vgo.affiliation = :affiliation')
+                extra_where.append('vgo.affiliation_status = '
+                                   ':affiliation_status')
             else:
                 extra_where.append('vgo.affiliation_status IS NULL')
             wheres.extend(['pas.source_system = :affsource',
@@ -793,31 +804,49 @@ class OUGroup(VirtualGroup):
                        member_spread=None,
                        member_filter_expired=True,
                        include_member_entity_name=False):
-        for entry in super(OUGroup, self).search_members(
-                group_id=group_id,
-                spread=spread,
-                member_id=member_id,
-                member_type=member_type,
-                indirect_members=indirect_members,
-                member_spread=member_spread,
-                member_filter_expired=member_filter_expired,
-                include_member_entity_name=include_member_entity_name):
-            # Py3 yield from ftw!
-            yield entry
-
-        # TODO: Don't ignore member type. Since ou groups only have one
-        # member type, I have ignored it, but it should be filtered?
-        # Member filter expired checks account info for ordinary groups.
-        # Always on.
 
         def get_entity_type(entity_id):
             ent = Entity(self._db)
             ent.find(entity_id)
             return ent.entity_type
 
+        sgroups = None
+        dosuper = True
+        if group_id:
+            if isinstance(group_id, collections.Iterable):
+                sgroups = filter(lambda x: get_entity_type(x) !=
+                                 self.const.entity_virtual_group, group_id)
+                group_id = set(group_id)
+                group_id.difference_update(sgroups)
+                dosuper = sgroups
+            else:
+                if get_entity_type(group_id) != self.const.entity_virtual_group:
+                    sgroups = group_id
+                    group_id = ()
+                else:
+                    dosuper = False
+                    sgroups = ()
+        if dosuper:
+            for entry in super(OUGroup, self).search_members(
+                    group_id=sgroups,
+                    spread=spread,
+                    member_id=member_id,
+                    member_type=member_type,
+                    indirect_members=indirect_members,
+                    member_spread=member_spread,
+                    member_filter_expired=member_filter_expired,
+                    include_member_entity_name=include_member_entity_name):
+                # Py3 yield from ftw!
+                yield entry
+
+        # TODO: Don't ignore member type. Since ou groups only have one
+        # member type, I have ignored it, but it should be filtered?
+        # Member filter expired checks account info for ordinary groups.
+        # Always on.
+
         if indirect_members:
-            if group_id:
-                if not isinstance(group_id, collections.Sequence):
+            if group_id is not None:
+                if not isinstance(group_id, collections.Iterable):
                     group_id = (group_id, )
                 for gid in group_id:
                     for entry in self.list_members(
@@ -829,7 +858,7 @@ class OUGroup(VirtualGroup):
                 return
             else:  # member_id
                 # find all groups affected and add as member id
-                if not isinstance(member_id, collections.Sequence):
+                if not isinstance(member_id, collections.Iterable):
                     member_id = (member_id, )
                 objs = {}
                 affected_groups = set()
@@ -853,7 +882,7 @@ class OUGroup(VirtualGroup):
                                     affiliation=row['affiliation'],
                                     status=row['status'],
                                     ou_id=row['ou_id'],
-                                    member_type=mtype,
+                                    member_types=mtype,
                                     source=row['source_system'],
                                     indirect=indirect_members)))
 
@@ -867,7 +896,7 @@ class OUGroup(VirtualGroup):
                                 self.list_ou_groups_for(
                                     affiliation=row['affiliation'],
                                     ou_id=row['ou_id'],
-                                    member_type=self.const.
+                                    member_types=self.const.
                                     virtual_group_ou_accounts,
                                     indirect=indirect_members)))
                     try:
@@ -891,7 +920,7 @@ class OUGroup(VirtualGroup):
                                 affiliation=gr.affiliation,
                                 status=gr.affiliation_status,
                                 ou_id=gr.ou_id,
-                                member_type=gr.member_type,
+                                member_types=gr.member_type,
                                 source=gr.affiliation_source)
                                 if x['ou_perspective'] == gr.ou_perspective])
                 dp = {
@@ -917,7 +946,7 @@ class OUGroup(VirtualGroup):
                 group_id = affected_groups
         if group_id is not None:
             # list direct members of group
-            if not isinstance(group_id, collections.Sequence):
+            if not isinstance(group_id, collections.Iterable):
                 group_id = (group_id, )
             for gid in group_id:
                 for entry in self.list_members(
