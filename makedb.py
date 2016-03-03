@@ -320,6 +320,7 @@ def check_schema_versions(db, strict=False):
         'consent': 'Cerebrum.modules.consent.Consent',
         'employment': 'Cerebrum.modules.no.PersonEmployment',
         'virtual_group': 'Cerebrum.modules.virtualgroup',
+        'virtual_group_ou': 'Cerebrum.modules.virtualgroup.OUGroup',
     }
     meta = Metainfo.Metainfo(db)
     for name, value in meta.list():
