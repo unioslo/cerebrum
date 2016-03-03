@@ -118,43 +118,7 @@ class AccountTSDMixin(Account.Account):
                 if row['ou_id'] != ou_id:
                     raise Errors.CerebrumError('Account already part of other '
                                                'project OUs')
-        self.setup_for_project()
         return self.__super.set_account_type(ou_id, affiliation, priority)
-
-    def setup_for_project(self):
-        """Set up different config and attributes for a project account. 
-
-        The account, and its project, must be approved for a project before
-        anything is set up. Projects and accounts should not be visible in any
-        other system before they are approved.
-
-        When a user is added to a project, we should also give the account extra
-        functionality related to the project, like a linux machine if the
-        project is set to use that.
-
-        """
-        if not self.is_approved():
-            return
-        ou = Factory.get('OU')(self._db)
-        ou.find(self.get_tsd_project_id())
-        # If the given project is set up so that every project member should
-        # have their own virtual linux machine, we need to create this host for
-        # the account:
-        vmtrait = ou.get_trait(self.const.trait_project_vm_type)
-        if vmtrait and vmtrait['strval'] in ('linux_vm', 'win_and_linux_vm'):
-            hostname = '%s-l.tsd.usit.no.' % self.account_name
-            dnsowner = ou._populate_dnsowner(hostname)
-            host = dns.HostInfo.HostInfo(self._db)
-            hinfo = 'IBM-PC\tLINUX'
-            try:
-                host.find_by_dns_owner_id(dnsowner.entity_id)
-            except Errors.NotFoundError:
-                host.populate(dnsowner.entity_id, hinfo)
-            host.hinfo = hinfo
-            host.write_db()
-            for comp in getattr(cereconf, 'TSD_HOSTPOLICIES_LINUX', ()):
-                TSDUtils.add_host_to_policy_component(self._db,
-                                                      dnsowner.entity_id, comp)
 
     def get_tsd_project_id(self):
         """Helper method for getting the ou_id for the account's project.
@@ -208,11 +172,6 @@ class AccountTSDMixin(Account.Account):
         if '-' not in username:
             raise Exception("User is not a project account: %s" % username)
         return username[4:]
-
-    def delete_entity_quarantine(self, *args, **kwargs):
-        """Override to also setup the project account."""
-        self.__super.delete_entity_quarantine(*args, **kwargs)
-        self.setup_for_project()
 
     def _generate_otpkey(self, length=192):
         """Return a randomly generated OTP key of the given length.
