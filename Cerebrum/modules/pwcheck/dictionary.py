@@ -44,7 +44,9 @@ from .checker import pwchecker, PasswordChecker, l33t_speak
 
 
 def additional_words():
-    """Strings that should not exist in the first 8 characters of any password."""
+    """
+    Strings that should not exist in the first 8 characters of any password.
+    """
     for w in ('ibm', 'dec', 'sun', 'at&t', 'nasa', 'jan', 'feb', 'mar', 'apr',
               'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'):
         yield w

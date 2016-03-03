@@ -307,20 +307,20 @@ class CheckOwnerNameMixin(PasswordChecker):
 
     def __init__(self, name_seq_len=5):
         self.name_seq_len = name_seq_len
-        self._requirement = _('Must not contain {name_seq_len} or more characters from your name.').format(name_seq_len=name_seq_len)
+        self._requirement = _('Must not contain {name_seq_len} or more '
+                              'characters from your name.').format(
+                                  name_seq_len=name_seq_len)
 
     def check_password(self, password, account=None):
         if account is None:
             return
         if not hasattr(self, 'owner_id'):
             return
-
         if isinstance(password, str):
             try:
                 password = unicode(password, 'UTF-8')
             except:
                 password = unicode(password, 'ISO-8859-1')
-
         self._check_human_owner(account.owner_id, password, self.name_seq_len)
 
     def _check_human_owner(self, owner_id, password, seqlen):
