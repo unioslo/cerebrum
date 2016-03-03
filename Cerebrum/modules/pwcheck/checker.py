@@ -46,25 +46,28 @@ bytestring for `string.translate' """
 
 # TODO: Remove me!
 cereconf.PASSWORD_CHECKS = {
-    'rigid': {
-        'space_or_null': {},
-        '8bit_characters': {},
-        'length': {'min_length': 8},
-        'multiple_character_sets': {},
-        'character_sequence': {'char_seq_length': 3},
-        'repeated_pattern': {},
-        'username': {},
-        'owner_name': {'name_seq_len': 5},
-        'history': {},
-        'dictionary': {},
+    'rigid': (
+        ('space_or_null', {}),
+        ('8bit_characters', {}),
+        ('length', {'min_length': 8}),
+        ('multiple_character_sets', {}),
+        ('character_sequence', {'char_seq_length': 3}),
+        ('repeated_pattern', {}),
+        ('username', {}),
+        ('owner_name', {'name_seq_len': 5}),
+        ('history', {}),
+        ('dictionary', {}),
 
-    },
-    'phrase': {
-    }
+    ),
+    'phrase': (
+        ('phrase_length', {}),
+        ('phrase_num_words', {}),
+        ('phrase_avg_word_length', {}),
+    )
 }
 
 
-_checkers = collections.defaultdict(lambda: collections.defaultdict(dict))
+_checkers = {}
 
 
 def check_password(password, account=None, structured=False):
@@ -75,83 +78,54 @@ def check_password(password, account=None, structured=False):
         assert account and hasattr(account, 'is_passphrase')
         pwstyle = 'phrase' if account.is_passphrase(password) else 'rigid'
 
+    def tree():
+        return collections.defaultdict(lambda: collections.defaultdict(dict))
+    errors = tree()
+    requirements = tree()
 
-    errors = {}
-    requirements = {}
-    for name, cls in _checkers.items():
-        if name not in cereconf.PASSWORD_CHECKS.get(pwstyle).keys():
-            print 'Skipping', name, ', not in PASSWORD_CHECKS'
-            continue
-        checker_args = {}
-        #check = cls(**checker_args)
-        errors[name] = {}
-        requirements[name] = {}
-        for act_language in getattr(cereconf, 'GETTEXT_LANGUAGE_IDS', ('en',)):
-            # load the language
-            lang_obj = gettext.translation(cereconf.GETTEXT_DOMAIN,
-                                           localedir=locale_dir,
-                                           languages=[act_language])
-            lang_obj.install()
-            check = cls(**checker_args)
-            err = check.check_password(password, account=account)
-            if not structured and err:
-                raise PasswordNotGoodEnough(err[0])
-            if err:
-                errors[name][act_language] = err
-            else:
-                errors[name] = None
-            requirements[name][act_language] = check.requirement
+    for style, checks in cereconf.PASSWORD_CHECKS.items():
+        for check_name, check_args in checks:
+            if check_name not in _checkers:
+                print 'Invalid password check', repr(check_name)
+
+            for language in getattr(
+                    cereconf, 'GETTEXT_LANGUAGE_IDS', ('en',)):
+                # load the language
+                gettext.translation(cereconf.GETTEXT_DOMAIN,
+                                    localedir=locale_dir,
+                                    languages=[language]).install()
+                # instantiate password checker
+                check = _checkers[check_name](**check_args)
+                err = check.check_password(password, account=account)
+                # bail fast if we're not returning a structure
+                if not structured and err and pwstyle == style:
+                    raise PasswordNotGoodEnough(err[0])
+                if err:
+                    errors[(style, check_name)][language] = err
+                else:
+                    errors[(style, check_name)] = None
+                requirements[(style, check_name)][language] = check.requirement
 
     if not structured:
         return True
 
-    # print 'Errors encountered'
-    # for name, error in errors.items():
-    #     print name, "\t", error
-
-    # {
-    #     "passed": false,
-    #     "style": "phrase",
-    #     "checks": {
-    #         "passphrase_min_words": {
-    #             "passed": true,
-    #             "requirement": {
-    #                 "no": "Må bestå av minst 4 ord på minst 2 bokstaver",
-    #                 "en": "Must have at least 4 words of length 2"
-    #             },
-    #             "messages": null,
-    #         },
-    #         "passphrase_avg_word_len": {
-    #             "passed": false,
-    #             "requirement": {
-    #                 "no": "Lengden på ordene må i gjennomsnitt være minst 4 tegn",
-    #                 "en": "Password words must be in average at least 4 characters long"
-    #             },
-    #             "messages": null,
-    #         },
-    #     },
-    # }
-
-    passed = not any(errors.values())
-    checks = {}
-
-    for name, error in errors.items():
-        # TODO: Add translations
-        checks[name] = {
+    checks = tree()
+    for check, error in errors.items():
+        style, name = check
+        checks[style][name] = {
             'passed': not error,
-            'requirement': requirements[name],
+            'requirement': requirements[check],
             'errors': error,
         }
 
     data = {
-        'passed': passed,
+        'passed': all([x['passed'] for x in checks[pwstyle].values()]),
         'style': pwstyle,
         'checks': checks,
     }
 
-    import pprint
-    pp = pprint.PrettyPrinter(indent=2)
-    pp.pprint(data)
+    import json
+    print json.dumps(data, indent=4)
 
     # return data
 
@@ -191,3 +165,4 @@ class PasswordChecker(object):
 from .simple import *
 from .dictionary import CheckPasswordDictionary
 from .history import CheckPasswordHistory
+from .phrase import *

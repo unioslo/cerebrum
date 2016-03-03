@@ -61,7 +61,7 @@ class CheckPhraseLength(PasswordChecker):
 class CheckPhraseWords(PasswordChecker):
     """ Check number of words in passphrase. """
 
-    def __init__(self, min_words=None, min_word_length=None):
+    def __init__(self, min_words=4, min_word_length=None):
         self.min_words = min_words
         self.min_word_length = min_word_length
         if not min_word_length:
