@@ -67,7 +67,9 @@ __version__ = "1.0"
 class CheckPasswordHistory(PasswordChecker):
     """ Match the password against PasswordHistory. """
 
-    _requirement = "Must not be too similar to an old password."
+    def __init__(self):
+        self._requirement = _(
+            'Must not be too similar to an old password.')
 
     def check_password(self, password, account=None):
         if not account:
@@ -75,7 +77,7 @@ class CheckPasswordHistory(PasswordChecker):
         if not hasattr(account, '_check_password_history'):
             return
         if account._check_password_history(password):
-            return ["Password too similar to an old password."]
+            return [_('Password too similar to an old password.')]
         # TODO: wtf?
         # if not skip_rigid_password_tests:
         #     account._check_password_history(password[0:8])

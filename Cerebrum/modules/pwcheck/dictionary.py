@@ -44,7 +44,9 @@ from .checker import pwchecker, PasswordChecker, l33t_speak
 
 
 def additional_words():
-    """Strings that should not exist in the first 8 characters of any password."""
+    """
+    Strings that should not exist in the first 8 characters of any password.
+    """
     for w in ('ibm', 'dec', 'sun', 'at&t', 'nasa', 'jan', 'feb', 'mar', 'apr',
               'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'):
         yield w
@@ -248,7 +250,8 @@ def check_two_word_combinations(dictionaries, word):
 class CheckPasswordDictionary(PasswordChecker):
     """ Check if password contains dictionary words. """
 
-    _requirement = "Must not contain dictionary words."
+    def __init__(self):
+        self._requirement = _('Must not contain dictionary words.')
 
     @property
     def password_dictionaries(self):
@@ -258,13 +261,15 @@ class CheckPasswordDictionary(PasswordChecker):
     def check_password(self, password, account=None):
         """ Check password against a dictionary. """
         if check_dict(self.password_dictionaries, password[0:8]):
-            return ["Password cannot contain dictionary words."]
+            return [_('Password cannot contain dictionary words.')]
 
         err = check_two_word_combinations(self.password_dictionaries,
                                           password[0:8])
         if err and len(err) == 2:
-            return ["You should not combine two words like %s and %s" % err]
+            return [
+                _('You should not combine two words like {word1} and '
+                  '{word2}').format(word1=err[0], word2=err[1])]
 
         for tmp in additional_words():
             if tmp in password[0:8].lower():
-                return ["Password cannot contain dictionary words."]
+                return [_('Password cannot contain dictionary words.')]
