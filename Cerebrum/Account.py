@@ -25,11 +25,9 @@ Usernames are stored in the table entity_name.  The domain that the
 default username is stored in is yet to be determined.
 """
 
-import os
 import crypt
 import random
 import string
-import time
 import re
 import mx
 import hashlib
@@ -117,7 +115,7 @@ class AccountType(object):
         if priority is None:
             priority = max_pri + 5
         if orig_pri is None:
-            if all_pris.has_key(priority):
+            if priority in all_pris:
                 self._set_account_type_priority(
                     all_pris, priority, priority + 1)
             cols = {'person_id': int(self.owner_id),
@@ -128,21 +126,24 @@ class AccountType(object):
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=account_type] (%(tcols)s)
             VALUES (%(binds)s)""" % {'tcols': ", ".join(cols.keys()),
-                                     'binds': ", ".join([":%s" % t for t in cols.keys()])},
+                                     'binds': ", ".join(
+                                         [":%s" % t for t in cols.keys()])},
                          cols)
             self._db.log_change(self.entity_id, self.const.account_type_add,
                                 None, change_params={'ou_id': int(ou_id),
                                                      'affiliation':
                                                      int(affiliation),
                                                      'priority': int(priority)})
+            return 'add', priority
         else:
             if orig_pri != priority:
                 self._set_account_type_priority(all_pris, orig_pri, priority)
+                return 'mod', priority
 
     def _set_account_type_priority(self, all_pris, orig_pri, new_pri):
         """Recursively insert the new priority, increasing parent
         priority with one if there is a conflict"""
-        if all_pris.has_key(new_pri):
+        if new_pri in all_pris:
             self._set_account_type_priority(all_pris, new_pri, new_pri + 1)
         orig_pri = int(orig_pri)
         cols = {'person_id': all_pris[orig_pri]['person_id'],
@@ -154,7 +155,8 @@ class AccountType(object):
         UPDATE [:table schema=cerebrum name=account_type]
         SET priority=:priority
         WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
-                                   for x in cols.keys() if x != "priority"]), cols)
+                                    for x in cols.keys() if x != "priority"]),
+                     cols)
         self._db.log_change(self.entity_id, self.const.account_type_mod,
                             None, change_params={'new_pri': int(new_pri),
                                                  'old_pri': int(orig_pri)})
@@ -169,8 +171,9 @@ class AccountType(object):
         WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
                                    for x in cols.keys()]), cols)
         self._db.log_change(self.entity_id, self.const.account_type_del,
-                            None, change_params={'ou_id': int(ou_id),
-                                                 'affiliation': int(affiliation)})
+                            None,
+                            change_params={'ou_id': int(ou_id),
+                                           'affiliation': int(affiliation)})
 
     def delete_ac_types(self):
         """Delete all the AccountTypes for the account."""
