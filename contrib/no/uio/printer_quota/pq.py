@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-
+# -*- coding: utf-8 -*-
 # Copyright 2003, 2005, 2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -19,12 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# This is a python port of the PRISS pq daemon.
-#
-#   This daemon is the backend for the PRISS Quota system. It listens
-#   to port 'prissquota' (8106) on the ureg2000 machine and resolves
-#   incoming requests. The requests are resolved against the UREG2000
-#   Oracle database running on this host.
+"""This is a python port of the PRISS pq daemon.
+
+This daemon is the backend for the PRISS Quota system. It listens
+to port 'prissquota' (8106) on the ureg2000 machine and resolves
+incoming requests. The requests are resolved against the UREG2000
+Oracle database running on this host."""
 
 # TODO:  If the database is down, return ok for all commands
 
