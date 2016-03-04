@@ -32,8 +32,6 @@ import SocketServer
 import socket
 import signal
 import os
-import re
-import nis
 from time import gmtime, strftime, time, localtime
 import pwd
 import getopt
@@ -325,26 +323,34 @@ class RequestHandler(SocketServer.StreamRequestHandler):
             s = s[:-1]
         return s
 
-def expand_netgroup(name, idx=0):  # should perhaps be in Utils.py
-    ret = []
-    r = re.compile(r'\((.*),(.*),(.*)\)')
-    for entry in nis.match(name, 'netgroup').split():
-        m = r.match(entry)
-        if m is not None:
-            ret.append(m.group(idx+1))
-        else:
-            ret.extend(expand_netgroup(entry))
-    return ret
 
 def get_authorized_hosts(machine_list):
-    x = {}
-    for s in machine_list:
-        if s[0] == '@':
-            for s2 in expand_netgroup(s[1:]):
-                x[socket.gethostbyname(s2)] = True
-        else:
-            x[socket.gethostbyname(s)] = True
-    return x.keys()
+    db = Factory.get('Database')()
+    gr = Factory.get('Group')(db)
+    co = Factory.get('Constants')(db)
+
+    def lookup_gids(groups):
+        l = []
+        for group in groups:
+            gr.clear()
+            try:
+                gr.find_by_name(group[1:])
+            except Errors.NotFoundError:
+                continue
+            l.append(gr.entity_id)
+        return l
+
+    groups = filter(lambda x: x.startswith('@'), machine_list)
+    machines = set(machine_list) - set(groups)
+
+    machines.update(map(lambda x: x['member_name'],
+                        gr.search_members(group_id=lookup_gids(groups),
+                                          indirect_members=True,
+                                          member_type=co.entity_dns_owner,
+                                          include_member_entity_name=True)))
+
+    return map(lambda x: socket.gethostbyname(x), machines)
+
 
 def usage(exitcode=0):
     print """Usage: pq.py [options]
