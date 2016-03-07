@@ -707,6 +707,10 @@ Example:
         host = self._get_host(dns_owner_id)
         policy = self._get_component(comp_id)
 
+        # Do not allow atoms directly on hosts
+        if policy.entity_type == self.const.entity_hostpolicy_atom:
+            raise CerebrumError('Atoms can not be assigned directly to hosts')
+
         # check if host already has the policy as direct relation
         for row in policy.search_hostpolicies(policy_id=policy.entity_id,
                                             dns_owner_id=host.entity_id):
