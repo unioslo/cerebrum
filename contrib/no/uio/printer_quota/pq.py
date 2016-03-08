@@ -1,7 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2003, 2005 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2003, 2005, 2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,12 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# This is a python port of the PRISS pq daemon.
-#
-#   This daemon is the backend for the PRISS Quota system. It listens
-#   to port 'prissquota' (8106) on the ureg2000 machine and resolves
-#   incoming requests. The requests are resolved against the UREG2000
-#   Oracle database running on this host.
+"""This is a python port of the PRISS pq daemon.
+
+This daemon is the backend for the PRISS Quota system. It listens
+to port 'prissquota' (8106) on the ureg2000 machine and resolves
+incoming requests. The requests are resolved against the UREG2000
+Oracle database running on this host."""
 
 # TODO:  If the database is down, return ok for all commands
 
@@ -32,16 +31,12 @@ import SocketServer
 import socket
 import signal
 import os
-import re
-import nis
-from time import gmtime, strftime, time, localtime
-import pwd
+from time import strftime, time, localtime
 import getopt
 import sys
 import traceback
 import cStringIO
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
@@ -53,24 +48,23 @@ rev = '$Revision$'
 rev = rev[rev.find(" ")+1:]
 rev = rev[:rev.find(" ")]
 # 2NN answers, meaning last command was a success.
-helo    = "220 PRISS Quota Daemon V%s ready" % rev
+helo = "220 PRISS Quota Daemon V%s ready" % rev
 firstok = "250 Nice to meet you,"
-ok      = "250 OK"
-no      = "251 NO"
+ok = "250 OK"
+no = "251 NO"
 no_insuficcient = "252 NO, Insufficient quota"
 no_blocked = "253 NO, Quota blocked"
-bye     = "280 Bye"
+bye = "280 Bye"
 #
 # 5NN answers, meaning last command caused problems
-edbdown  = "511 Database down"
+edbdown = "511 Database down"
 ebadpage = "512 Invalid pagecount"
-enouser  = "513 No such user"
-ecmd     = "514 Unknown command"
-eerror   = "515 Unknown error"
+enouser = "513 No such user"
+ecmd = "514 Unknown command"
+eerror = "515 Unknown error"
 unknownkey = "516 Unknown key"
 eperm = "517 Permission denied"
 
-# pqdlog = "/u2/log/priss/prissquotad"
 pqdlog = "/cerebrum/var/log/cerebrum/prissquotad"
 my_pid = os.getpid()
 
@@ -79,10 +73,12 @@ log_unknown_accounts = True
 last_refresh = 0
 
 ok_has_quota = {}
+
+
 def _assert_has_quota(person_id, db, ppq):
     # Assert that person has a paid_quota_status entry so that we can
     # track total_pages
-    if ok_has_quota.has_key(person_id):
+    if person_id in ok_has_quota:
         return
     ok_has_quota[person_id] = True
     if person_id is not None:
@@ -92,12 +88,14 @@ def _assert_has_quota(person_id, db, ppq):
             ppq.new_quota(person_id)
             db.commit()
 
+
 def refresh_has_quota_hash(db):
     global last_refresh
     last_refresh = time()
     ppq = PaidPrinterQuotas.PaidPrinterQuotas(db)
     for row in ppq.list():
         ok_has_quota[long(row['person_id'])] = True
+
 
 class MyServer(SocketServer.ForkingTCPServer):
     # We use a forking server to attemt to work-around client-timeouts
@@ -107,13 +105,15 @@ class MyServer(SocketServer.ForkingTCPServer):
     # cash of known quota victims.  This hash must now be regularly
     # re-created in the parent.
 
-    SocketServer.TCPServer.allow_reuse_address = 1    # Seems to make sense in testing environment
+    # Following line seems to make sense in testing environment
+    SocketServer.TCPServer.allow_reuse_address = 1
+
     def close_request(self, request):
         SocketServer.ForkingTCPServer.close_request(self, request)
         if last_refresh < time() - 3600:
             refresh_has_quota_hash(Factory.get('Database')())
 
-# class RequestHandler(SocketServer.BaseRequestHandler):
+
 class RequestHandler(SocketServer.StreamRequestHandler):
     def set_vars(self):
         assert os.getpid() != my_pid  # Should only be done in child
@@ -124,19 +124,19 @@ class RequestHandler(SocketServer.StreamRequestHandler):
     def process_commands(self):
         self.set_vars()
         if not self.client_address[0].startswith(
-            cereconf.PQ_IP_CONNECT_PREFIX):
+                cereconf.PQ_IP_CONNECT_PREFIX):
             self.send(eperm)
             return
-        
+
         self.send(helo)
         cmd = self.get()
 
         # Our first input line must be of the type
         #    HELO username hostname
         #
-        if not (len(cmd) == 3 and cmd[0] == "HELO") :
-            self.log('ERROR', "HELO expected %s received" % cmd);
-            self.send("%s %s" % (ecmd, str(cmd)));
+        if not (len(cmd) == 3 and cmd[0] == "HELO"):
+            self.log('ERROR', "HELO expected %s received" % cmd)
+            self.send("%s %s" % (ecmd, str(cmd)))
             return
         else:
             self.log('INFO', "HELO %s %s from %s" % (
@@ -165,15 +165,16 @@ class RequestHandler(SocketServer.StreamRequestHandler):
                         self.person_id = account.owner_id
                         self.pq_data = self.ppq.find(account.owner_id)
                 except Errors.NotFoundError:
-                    self.log('TRACE', "%s / %i / %i has no quota" % (cmd[1],  account.entity_id, self.person_id))
+                    self.log('TRACE', "%s / %i / %i has no quota" %
+                             (cmd[1], account.entity_id, self.person_id))
                     pass
                 self.send("%s %s." % (firstok, cmd[1]))
-            
+
             done = 0
             job_data = {}
             while not done:
                 cmd = self.get()
-    
+
                 if len(cmd) == 0 or (not cmd[0]):
                     self.log('ERROR', "Connection down? !")
                     self.send(eerror)
@@ -184,8 +185,8 @@ class RequestHandler(SocketServer.StreamRequestHandler):
                 elif cmd[0] == 'SET' and len(cmd) >= 3:
                     # We loose whitspace, but that is probably OK
                     if cmd[1] not in (
-                        'STEDKODE', 'JOBNAME', 'SPOOL_TRACE',
-                        'PRISS_QUEUE_ID', 'PAPERTYPE', 'PAGES'):
+                            'STEDKODE', 'JOBNAME', 'SPOOL_TRACE',
+                            'PRISS_QUEUE_ID', 'PAPERTYPE', 'PAGES'):
                         self.send(unknownkey)
                     else:
                         job_data[cmd[1]] = " ".join(cmd[2:])
@@ -198,13 +199,13 @@ class RequestHandler(SocketServer.StreamRequestHandler):
                     self.send(self.subtract_quota(cmd[1], cmd[2], job_data))
                     job_data = {}
                 else:
-                    self.log('ERROR', "Unknown command %s" %  str(cmd))
+                    self.log('ERROR', "Unknown command %s" % str(cmd))
                     self.send(ecmd)
                     done = 1
 
     def alarm_handler(self, signum, frame):
-        raise IOError, "Timout"
-        
+        raise IOError("Timout")
+
     def handle(self):
         signal.alarm(30)
         signal.signal(signal.SIGALRM, self.alarm_handler)
@@ -217,12 +218,12 @@ class RequestHandler(SocketServer.StreamRequestHandler):
             self.log('ERROR', "ValueError: %s" % msg)
             self.send(ebadpage)
         except:
-            self.log('CRITICAL', 'Unexpected exception: %s' % \
+            self.log('CRITICAL', 'Unexpected exception: %s' %
                      self.formatException(sys.exc_info()))
         self.log('DEBUG', 'Total execution time: %s' % (time() - start))
         signal.alarm(0)
         self.db.close()
-            
+
     def check_quota(self, printer, pageunits):
         # check_quota() - Given a username (username from HELO), and a positive
         #                 number of pageunits, it will use SQL to check that
@@ -235,7 +236,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         self.log('TRACE', 'check_quota: %s@%s %s / %i' % (
             pageunits, printer, self.username, self.person_id or 0))
         if (self.pq_data is None or
-            self.pq_data['has_quota'] == 'F'):
+                self.pq_data['has_quota'] == 'F'):
             return ok
         if self.pq_data['has_blocked_quota'] == 'T':
             self.log('INFO', 'check_quota: %s is blocked' % self.username)
@@ -243,8 +244,8 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         pageunits = float(pageunits)
         if pageunits <= 0:
             return ebadpage
-        quota = self.pq_data['free_quota'] + self.pq_data['accum_quota'] + \
-                (1/printer_quota.PAGE_COST)*self.pq_data['kroner']
+        quota = (self.pq_data['free_quota'] + self.pq_data['accum_quota'] +
+                 (1/printer_quota.PAGE_COST)*self.pq_data['kroner'])
         if quota >= pageunits:
             return ok+", quota=%f" % (quota)
         self.log('INFO', 'check_quota: %s insufficient quota: %d' %
@@ -254,7 +255,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
     def subtract_quota(self, printer, pageunits, job_data):
         if not self.client_address[0] in authorized_hosts:
             return eperm
-        
+
         self.log('TRACE', "subtract_quota: %s for %s / %i, data=%s" % (
             pageunits, self.username, self.person_id or 0, repr(job_data)))
         pageunits = float(pageunits)
@@ -276,10 +277,10 @@ class RequestHandler(SocketServer.StreamRequestHandler):
             pages=job_data.get('PAGES', None),
             update_quota=update_quota)
         if self.person_id is None and self.account_id is None:
-            self.log("INFO", "Job %i by unknown account: %s" % (job_id, str(self._helo)))
+            self.log("INFO", "Job %i by unknown account: %s" %
+                     (job_id, str(self._helo)))
         self.db.commit()
-        return ok        
-
+        return ok
 
     def send_history(self, person_id):
         """Returns up to 7 days of history, but max 7 entries"""
@@ -288,11 +289,11 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         if not person_id:
             self.send(enouser)
             return
-        when = self.db.Date(*( localtime(time()-3600*24*7)[:3]))
+        when = self.db.Date(*(localtime(time()-3600*24*7)[:3]))
         rows = self.ppq.get_history(person_id=person_id, tstamp=when)
-        ok_data = ok[:3] +'-'
+        ok_data = ok[:3] + '-'
         for r in rows[-7:]:
-            if  r['transaction_type'] == int(self.co.pqtt_printout):
+            if r['transaction_type'] == int(self.co.pqtt_printout):
                 self.send(ok_data+":".join(["%s" % x for x in (
                     r['job_id'], r['tstamp'].ticks(), r['printer_queue'],
                     r['pageunits_total'])]))
@@ -325,26 +326,34 @@ class RequestHandler(SocketServer.StreamRequestHandler):
             s = s[:-1]
         return s
 
-def expand_netgroup(name, idx=0):  # should perhaps be in Utils.py
-    ret = []
-    r = re.compile(r'\((.*),(.*),(.*)\)')
-    for entry in nis.match(name, 'netgroup').split():
-        m = r.match(entry)
-        if m is not None:
-            ret.append(m.group(idx+1))
-        else:
-            ret.extend(expand_netgroup(entry))
-    return ret
 
 def get_authorized_hosts(machine_list):
-    x = {}
-    for s in machine_list:
-        if s[0] == '@':
-            for s2 in expand_netgroup(s[1:]):
-                x[socket.gethostbyname(s2)] = True
-        else:
-            x[socket.gethostbyname(s)] = True
-    return x.keys()
+    db = Factory.get('Database')()
+    gr = Factory.get('Group')(db)
+    co = Factory.get('Constants')(db)
+
+    def lookup_gids(groups):
+        l = []
+        for group in groups:
+            gr.clear()
+            try:
+                gr.find_by_name(group[1:])
+            except Errors.NotFoundError:
+                continue
+            l.append(gr.entity_id)
+        return l
+
+    groups = filter(lambda x: x.startswith('@'), machine_list)
+    machines = set(machine_list) - set(groups)
+
+    machines.update(map(lambda x: x['member_name'],
+                        gr.search_members(group_id=lookup_gids(groups),
+                                          indirect_members=True,
+                                          member_type=co.entity_dns_owner,
+                                          include_member_entity_name=True)))
+
+    return map(lambda x: socket.gethostbyname(x), machines)
+
 
 def usage(exitcode=0):
     print """Usage: pq.py [options]
@@ -365,7 +374,9 @@ SUBP foo 12
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], '', ['help', 'port=', 'bind='])
+        opts, args = getopt.getopt(sys.argv[1:],
+                                   '',
+                                   ['help', 'port=', 'bind='])
     except getopt.GetoptError:
         usage(1)
 
@@ -384,4 +395,3 @@ if __name__ == '__main__':
     authorized_hosts = get_authorized_hosts(cereconf.PQ_IP_SUBP)
     server = MyServer((bind, port), RequestHandler)
     server.serve_forever()
-
