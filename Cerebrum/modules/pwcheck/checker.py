@@ -26,12 +26,14 @@ import collections
 import gettext
 import os
 import string
+import sys
 
 
 locale_dir = getattr(cereconf,
                      'GETTEXT_LOCALEDIR',
-                     os.path.expanduser('~/locale'))
-gettext.install(cereconf.GETTEXT_DOMAIN, locale_dir, unicode=1)
+                     os.path.join(sys.prefix, 'share', 'locale'))
+gettext_domain = getattr(cereconf, 'GETTEXT_DOMAIN', 'cerebrum')
+gettext.install(gettext_domain, locale_dir, unicode=1)
 
 
 class PasswordNotGoodEnough(Exception):
@@ -91,9 +93,9 @@ def check_password(password, account=None, structured=False):
             for language in getattr(
                     cereconf, 'GETTEXT_LANGUAGE_IDS', ('en',)):
                 # load the language
-                gettext.translation(cereconf.GETTEXT_DOMAIN,
+                gettext.translation(gettext_domain,
                                     localedir=locale_dir,
-                                    languages=[language]).install()
+                                    languages=[language, 'en']).install()
                 # instantiate password checker
                 check = _checkers[check_name](**check_args)
                 err = check.check_password(password, account=account)
@@ -162,7 +164,16 @@ class PasswordChecker(object):
     def check_password(self, password):
         pass
 
-from .simple import *
+from .simple import (CheckSpaceOrNull,
+                     CheckEightBitChars,
+                     CheckLengthMixin,
+                     CheckMultipleCharacterSets,
+                     CheckCharacterSequence,
+                     CheckRepeatedPattern,
+                     CheckUsername,
+                     CheckOwnerNameMixin)
 from .dictionary import CheckPasswordDictionary
 from .history import CheckPasswordHistory
-from .phrase import *
+from .phrase import (CheckPhraseLength,
+                     CheckPhraseWords,
+                     CheckPhraseAverageWordLength)

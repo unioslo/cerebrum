@@ -1284,12 +1284,15 @@ PYTHONWARNINGS = ['always']
 # https://docs.python.org/2.7/library/gettext.html#module-gettext
 
 # The gettext domain
-GETTEXT_DOMAIN = 'cerebrum'
+# If GETTEXT_DOMAIN is not defined: 'cerebrum' will be used
+# GETTEXT_DOMAIN = 'cerebrum'
 
 # The directory where gettext will look for translation files (.mo) for the
 # given domain using the path: localedir/language/LC_MESSAGES/domain.mo
-# If GETTEXT_LOCALEDIR is not defined: ~/locale will be used
+# If GETTEXT_LOCALEDIR is not defined: sys.prefix/share/locale will be used as
+# described in: https://docs.python.org/2.7/library/gettext.html#id6
 # GETTEXT_LOCALEDIR = ''
 
 # The available languages for this Cerebrum instance
-GETTEXT_LANGUAGE_IDS = ('en', 'no')
+# If GETTEXT_LANGUAGE_IDS is not defined: ('en', ) will be used
+GETTEXT_LANGUAGE_IDS = ('en', 'nb')
