@@ -47,6 +47,7 @@ bytestring for `string.translate' """
 
 
 # TODO: Remove me!
+cereconf.PASSWORD_STYLE = 'mixed'
 cereconf.PASSWORD_CHECKS = {
     'rigid': (
         ('space_or_null', {}),
@@ -59,12 +60,15 @@ cereconf.PASSWORD_CHECKS = {
         ('owner_name', {'name_seq_len': 5}),
         ('history', {}),
         ('dictionary', {}),
-
+        # ('letters_and_spaces_only', {'extra_chars': 'æøåÆØÅ'}),
+        # ('number_of_digits', {'digits': 3}),
+        # ('number_of_letters', {'letters': 3}),
+        # ('mixed_casing', {}),
     ),
     'phrase': (
-        ('phrase_length', {}),
-        ('phrase_num_words', {}),
-        ('phrase_avg_word_length', {}),
+        ('length', {'min_length': 12, 'max_length': None}),
+        ('num_words', {'min_words': 4, 'min_word_length': 2}),
+        ('avg_word_length', {'avg_length': 4}),
     )
 }
 
@@ -140,21 +144,8 @@ def check_password(password, account=None, structured=False):
 
 
 def pwchecker(name):
-    import inspect
-
     def fn(cls):
-        module = inspect.getmodule(cls)
-        if module is None:
-            module = '__main__'
-        else:
-            module = module.__name__
-        # if name in _enabled:
-        #     _checkers[name] = cls
-        #     print 'Registered checker', name, '=', cls
-        # else:
-        #     print 'Checker', name, 'is not enabled'
         _checkers[name] = cls
-        # print 'Registered', name, '=', cls
         return cls
     return fn
 
@@ -178,9 +169,12 @@ from .simple import (CheckSpaceOrNull,
                      CheckCharacterSequence,
                      CheckRepeatedPattern,
                      CheckUsername,
-                     CheckOwnerNameMixin)
+                     CheckOwnerNameMixin,
+                     CheckLettersSpacesOnly,
+                     CheckNumberOfDigits,
+                     CheckNumberOfLetters,
+                     CheckMixedCasing)
 from .dictionary import CheckPasswordDictionary
 from .history import CheckPasswordHistory
-from .phrase import (CheckPhraseLength,
-                     CheckPhraseWords,
+from .phrase import (CheckPhraseWords,
                      CheckPhraseAverageWordLength)

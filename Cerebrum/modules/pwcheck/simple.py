@@ -35,11 +35,21 @@ structure of the dictionary checks, please see:
 
 import re
 import operator
+import string
 
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 
 from .checker import pwchecker, PasswordChecker, l33t_speak
+
+
+def unicodify(password):
+    if isinstance(password, str):
+        try:
+            password = unicode(password, 'UTF-8')
+        except UnicodeDecodeError:
+            password = unicode(password, 'ISO-8859-1')
+    return password
 
 
 # TODO: Should we really disallow characters from passwords?
@@ -191,12 +201,7 @@ class CheckCharacterSequence(PasswordChecker):
     def check_password(self, password, account=None):
         """ Check for sequences of closely related characters. """
         errors = []
-
-        if isinstance(password, str):
-            try:
-                password = unicode(password, 'UTF-8')
-            except UnicodeDecodeError:
-                password = unicode(password, 'ISO-8859-1')
+        password = unicodify(password)
         passwd = password.lower()
         ordpw = map(ord, passwd)
 
@@ -397,3 +402,76 @@ class CheckOwnerNameMixin(PasswordChecker):
             if name in all_pw_chunks:
                 return [_('Password cannot contain {seqlen} characters from '
                           'your name').format(seqlen=seqlen)]
+
+
+@pwchecker('letters_and_spaces_only')
+class CheckLettersSpacesOnly(PasswordChecker):
+    """ Only allow letters and spaces in the password. """
+
+    extra_chars = []
+
+    def __init__(self, extra_chars=None):
+        self._requirement = _('Must only contain letters and spaces.')
+        if extra_chars:
+            self.extra_chars = list(unicodify(extra_chars))
+
+    def check_password(self, password, account=None):
+        """ Does the password contain characters and spaces only? """
+        password = unicodify(password)
+
+        for char in password:
+            if char in string.ascii_letters:
+                continue
+            if char == ' ':
+                continue
+            if char in self.extra_chars:
+                continue
+            return [_('Password can only contain letters and spaces.')]
+
+
+@pwchecker('number_of_digits')
+class CheckNumberOfDigits(PasswordChecker):
+    """ Require a minimum number of digits in the password. """
+
+    def __init__(self, digits=1):
+        self._requirement = _(
+            "Must contain at least {digits} digits.").format(digits=digits)
+        self.digits = digits
+
+    def check_password(self, password, account=None):
+        """ Does the password contain enough digits? """
+        if sum(c.isdigit() for c in password) < self.digits:
+            return [_('Password must contain at least {digits} digits').format(
+                digits=self.digits)]
+
+
+@pwchecker('number_of_letters')
+class CheckNumberOfLetters(PasswordChecker):
+    """ Require a minimum number of letters in the password. """
+
+    def __init__(self, letters=1):
+        self._requirement = _(
+            "Must contain at least {letters} letters.").format(letters=letters)
+        self.letters = letters
+
+    def check_password(self, password, account=None):
+        """ Does the password contain enough letters? """
+        if sum(c in string.ascii_letters for c in password) < self.letters:
+            return [_(
+                'Password must contain at least {letters} letters').format(
+                    letters=self.letters)]
+
+
+@pwchecker('mixed_casing')
+class CheckMixedCasing(PasswordChecker):
+    """ Require a mixed casing of letters in the password. """
+
+    def __init__(self):
+        self._requirement = _("Must contain upper and lowercase letters")
+
+    def check_password(self, password, account=None):
+        """ Does the password contain enough letters? """
+        lowercase = sum(c in string.ascii_lowercase for c in password)
+        uppercase = sum(c in string.ascii_uppercase for c in password)
+        if not (lowercase and uppercase):
+            return [_('Password must contain upper and lowercase letters')]
