@@ -23,36 +23,7 @@
 from .checker import pwchecker, PasswordChecker
 
 
-@pwchecker('phrase_length')
-class CheckPhraseLength(PasswordChecker):
-    """ Check passphrase length. """
-
-    def __init__(self, min_length=12, max_length=None):
-        self.min_length = min_length
-        self.max_length = max_length
-        if not max_length:
-            self._requirement = _('Must be at least {min_length} and at most '
-                                  '{max_length} characters.').format(
-                                      min_length=min_length,
-                                      max_length=max_length)
-        else:
-            self._requirement = _(
-                'Must be at least {min_length} characters.').format(
-                    min_length=min_length)
-
-    def check_password(self, passphrase, account=None):
-        """ Check that passphrase length is within bounds. """
-        if (self.min_length is not None and
-                self.min_length > len(passphrase)):
-            return [_('Password must be at least {min_length} '
-                      'characters.').format(min_length=self.min_length)]
-        if (self.max_length is not None and
-                self.max_length > len(passphrase)):
-            return [_('Password must be at most {max_length} '
-                      'characters.').format(max_length=self.max_length)]
-
-
-@pwchecker('phrase_num_words')
+@pwchecker('num_words')
 class CheckPhraseWords(PasswordChecker):
     """ Check number of words in passphrase. """
 
@@ -80,7 +51,7 @@ class CheckPhraseWords(PasswordChecker):
                                                         word_length=wl)
 
 
-@pwchecker('phrase_avg_word_length')
+@pwchecker('avg_word_length')
 class CheckPhraseAverageWordLength(PasswordChecker):
     """ Check number of words in passphrase. """
 
