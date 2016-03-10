@@ -76,11 +76,9 @@ class CheckPasswordHistory(PasswordChecker):
             return
         if not hasattr(account, '_check_password_history'):
             return
-        if account._check_password_history(password):
+        if (account._check_password_history(password) or
+                account._check_password_history(password[0:8])):
             return [_('Password too similar to an old password.')]
-        # TODO: wtf?
-        # if not skip_rigid_password_tests:
-        #     account._check_password_history(password[0:8])
 
 
 class ClearPasswordHistoryMixin(DatabaseAccessor):
