@@ -73,7 +73,16 @@ _checkers = {}
 
 
 def check_password(password, account=None, structured=False):
-    """Check password against all enabled password checks."""
+    """
+    Check password against all enabled password checks.
+
+    :param password: the password to be validated
+    :type password: str
+    :param account: the account to be used or None
+    :type account: Cerebrum.Account
+    :param structured: send a strctured (json) output or raise an exception
+    :type structured: bool
+    """
 
     pwstyle = cereconf.PASSWORD_STYLE
     if pwstyle == 'mixed':
@@ -125,11 +134,9 @@ def check_password(password, account=None, structured=False):
         'style': pwstyle,
         'checks': checks,
     }
-
-    import json
-    print json.dumps(data, indent=4)
-
-    # return data
+    # import json
+    # print json.dumps(data, indent=4)
+    return data
 
 
 def pwchecker(name):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # 
-# Copyright 2010, 2011, 2012 University of Oslo, Norway
+# Copyright 2010-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -33,8 +33,10 @@ instance not be blocked.
 
 """
 
-import sys, socket, traceback
 import getopt
+import socket
+import sys
+import traceback
 
 from twisted.python import log
 
@@ -51,12 +53,14 @@ from Cerebrum.Utils import Messages, dyn_import
 from Cerebrum import Errors
 from Cerebrum.modules.cis import SoapListener, faults
 
+
 class Account(ComplexModel):
     # FIXME: define namespace properly 
     __namespace__ = 'account'
     uname = String
     priority = Integer
     status = String
+
 
 class IndividuationServer(SoapListener.BasicSoapServer):
     """Defining the SOAP actions that should be available to clients. All
@@ -168,26 +172,29 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         return ctx.udc['individuation'].set_password(username, new_password,
                                                      token, browser_token)
 
-    @rpc(String, _returns=Boolean)
-    def validate_password(ctx, password):
-        """Check if a given password is good enough. Returns True if the
-        password meets the instance' password criterias. If the password does
-        not meet all the criterias, an exception is thrown with an explanation
-        of what is wrong with the password.
-
+    @rpc(String, String, Boolean, _returns=String)
+    def validate_password(ctx, password, account_name, structured):
         """
-        return ctx.udc['individuation'].validate_password(password)
+        Check if a given password is good enough.
 
-    @rpc(String, String, _returns=Boolean)
-    def validate_password_for_account(ctx, account_name, password):
-        """Check if a given password is good enough for a given account.
+        :param password: the password to be validated
+        :type password: str
+        :param account_name: the account name to be used or ''
+        :type account_name: str
+        :param structured: whether to ask for a strctured (json) output
+        :type structured: bool        
 
-        Returns True if the password meets the instance' password criterias.
-        If the password does not meet all the criterias, an exception is thrown
-        with an explanation of what is wrong with the password.
+        When `structured` is True:
+        Returns a json structure describing the requirements for each
+        performed check as well as error messages on failure.
+
+        When `structured` is False:
+        Returns 'OK' on success and throws exception on failure.
         """
-        return ctx.udc['individuation'].validate_password_for_account(
-            account_name, password)
+        return ctx.udc['individuation'].validate_password(password,
+                                                          account_name,
+                                                          structured)
+
 
 # Add the session events:
 IndividuationServer.event_manager.add_listener('method_call',
