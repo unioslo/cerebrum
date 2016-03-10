@@ -1693,8 +1693,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             posix_user.add_spread(self.const.Spread(spread))
         operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
                                                     'password': passwd})
-        # Set up TSD specific functionality, if not already set
-        posix_user.setup_for_project()
         return "Ok, created %s, UID: %s" % (posix_user.account_name, uid)
 
     # user generate_otpkey
