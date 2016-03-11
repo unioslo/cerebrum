@@ -36,6 +36,7 @@ pe = Factory.get('Person')(db)
 
 def is_eligible(person):
     return filter(lambda x: (x.is_active() and
+                             x.kind in (x.HOVEDSTILLING, x.BISTILLING) and
                              x.mg not in (8, 9) and
                              x.mug not in (4, 5, 22, 50)),
                   person.iteremployment())
