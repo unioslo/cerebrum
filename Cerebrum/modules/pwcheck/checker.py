@@ -41,6 +41,17 @@ class PasswordNotGoodEnough(Exception):
     pass
 
 
+# Style specific exceptions
+class RigidPasswordNotGoodEnough(PasswordNotGoodEnough):
+    """Exception raised for insufficiently strong passwords."""
+    pass
+
+
+class PhrasePasswordNotGoodEnough(PasswordNotGoodEnough):
+    """Exception raised for insufficiently strong passwords."""
+    pass
+
+
 l33t_speak = string.maketrans('4831!05$72', 'abeiiosstz')
 """ Translate strings from 'leet speak'. The value is a translation table
 bytestring for `string.translate' """
@@ -95,6 +106,9 @@ def check_password(password, account=None, structured=False):
     def tree():
         return collections.defaultdict(lambda: collections.defaultdict(dict))
 
+    # define custom exception for each password class
+    exception_classes = {'rigid': RigidPasswordNotGoodEnough,
+                         'phrase': PhrasePasswordNotGoodEnough}
     errors = tree()
     requirements = tree()
 
@@ -114,7 +128,9 @@ def check_password(password, account=None, structured=False):
                 err = check.check_password(password, account=account)
                 # bail fast if we're not returning a structure
                 if not structured and err and pwstyle == style:
-                    raise PasswordNotGoodEnough(err[0])
+                    ex_class = exception_classes.get(style,
+                                                     PasswordNotGoodEnough)
+                    raise ex_class(err[0])
                 if err:
                     errors[(style, check_name)][language] = err
                 else:
@@ -125,7 +141,7 @@ def check_password(password, account=None, structured=False):
         return True
 
     checks_structure = collections.defaultdict(list)
-    total_passed = collections.defaultdict(lambda: True)  # Did all the tests pass
+    total_passed = collections.defaultdict(lambda: True)
     for style, checks in cereconf.PASSWORD_CHECKS.items():
         # we want to preserve the cereconf checks order in checks_structure
         for check in checks:
@@ -138,7 +154,6 @@ def check_password(password, account=None, structured=False):
                 'requirement': requirements[(style, name)],
                 'errors': error,
             }})
-                
     data = {
         'passed': total_passed[pwstyle],
         'style': pwstyle,
@@ -181,6 +196,6 @@ from .simple import (CheckSpaceOrNull,
                      CheckNumberOfLetters,
                      CheckMixedCasing)
 from .dictionary import CheckPasswordDictionary
-from .history import CheckPasswordHistory
+from .history_checks import CheckPasswordHistory
 from .phrase import (CheckPhraseWords,
                      CheckPhraseAverageWordLength)

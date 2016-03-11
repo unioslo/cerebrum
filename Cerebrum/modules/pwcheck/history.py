@@ -58,27 +58,7 @@ import hashlib
 import base64
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 
-from .checker import pwchecker, PasswordChecker
-
 __version__ = "1.0"
-
-
-@pwchecker('history')
-class CheckPasswordHistory(PasswordChecker):
-    """ Match the password against PasswordHistory. """
-
-    def __init__(self):
-        self._requirement = _(
-            'Must not be too similar to an old password.')
-
-    def check_password(self, password, account=None):
-        if not account:
-            return
-        if not hasattr(account, '_check_password_history'):
-            return
-        if (account._check_password_history(password) or
-                account._check_password_history(password[0:8])):
-            return [_('Password too similar to an old password.')]
 
 
 class ClearPasswordHistoryMixin(DatabaseAccessor):

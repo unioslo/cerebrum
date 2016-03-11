@@ -35,7 +35,9 @@ import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, SMSSender, sendmail
 from Cerebrum.modules.pwcheck.checker import (check_password,
-                                              PasswordNotGoodEnough)
+                                              PasswordNotGoodEnough,
+                                              RigidPasswordNotGoodEnough,
+                                              PhrasePasswordNotGoodEnough)
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from cisconf import individuation as cisconf
 
@@ -428,6 +430,13 @@ class Individuation:
                 raise Errors.CerebrumRPCException('unknown_error')
         try:
             result = check_password(password, account, structured)
+        except PhrasePasswordNotGoodEnough as e:
+            # assume that structured is False
+            try:
+                m = unicode(str(e), 'utf-8', errors='strict')
+            except UnicodeDecodeError:
+                m = unicode(str(e), 'latin-1', errors='replace')
+            raise Errors.CerebrumRPCException('passphrase_invalid', m)
         except PasswordNotGoodEnough as e:
             # assume that structured is False
             try:

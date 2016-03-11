@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- encoding: iso-8859-1 -*-
+# -*- coding: iso-8859-1 -*-
 #
-# Copyright 2009 University of Oslo, Norway
+# Copyright 2009-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -58,9 +58,10 @@ from Cerebrum.modules.virthome.bofhd_auth import BofhdVirtHomeAuth
 from Cerebrum.modules.virthome.bofhd_virthome_help import arg_help
 from Cerebrum.modules.virthome.VirtAccount import VirtAccount
 from Cerebrum.modules.virthome.VirtAccount import FEDAccount
-
-from Cerebrum.modules.virthome.PasswordChecker import VirthomePasswordChecker
-from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
+from Cerebrum.modules.pwcheck.checker import (check_password,
+                                              PasswordNotGoodEnough,
+                                              RigidPasswordNotGoodEnough,
+                                              PhrasePasswordNotGoodEnough)
 
 
 # TODO: Ideally, all the utility methods and 'workflows' from this file needs
@@ -522,12 +523,17 @@ class BofhdVirthomeCommands(BofhdCommandBase):
           new account (L{account} does not exist, but we need the username for
           password checks)
         """
-
         try:
-            pwd_checker = VirthomePasswordChecker(self.db)
-            pwd_checker.password_good_enough(password)
-        except PasswordNotGoodEnough, m:
-            raise CerebrumError("Password too weak: %s" % str(m))
+            check_password(password, account, structured=False)
+        except RigidPasswordNotGoodEnough as e:
+            raise CerebrumError('Password too weak: {err_msg}'.format(
+                err_msg=e))
+        except PhrasePasswordNotGoodEnough as e:
+            raise CerebrumError('Passphrase too weak: {err_msg}'.format(
+                err_msg=e))
+        except PasswordNotGoodEnough as e:
+            raise CerebrumError('Password too weak: {err_msg}'.format(
+                err_msg=e))
 
     all_commands["user_confirm_request"] = Command(
         ("user", "confirm_request"),

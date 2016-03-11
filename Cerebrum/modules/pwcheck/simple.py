@@ -71,7 +71,6 @@ class CheckSpaceOrNull(PasswordChecker):
         for char, err in self._password_illegal_chars.iteritems():
             if char in password:
                 errors.append(err)
-
         return errors
 
 
