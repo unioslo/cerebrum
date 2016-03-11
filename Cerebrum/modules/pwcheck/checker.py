@@ -87,7 +87,6 @@ def check_password(password, account=None, structured=False):
     :param structured: send a strctured (json) output or raise an exception
     :type structured: bool
     """
-
     pwstyle = cereconf.PASSWORD_STYLE
     if pwstyle == 'mixed':
         assert account and hasattr(account, 'is_passphrase')
@@ -95,13 +94,14 @@ def check_password(password, account=None, structured=False):
 
     def tree():
         return collections.defaultdict(lambda: collections.defaultdict(dict))
+
     errors = tree()
     requirements = tree()
 
     for style, checks in cereconf.PASSWORD_CHECKS.items():
         for check_name, check_args in checks:
             if check_name not in _checkers:
-                print 'Invalid password check', repr(check_name)
+                print('Invalid password check', repr(check_name))
 
             for language in getattr(
                     cereconf, 'GETTEXT_LANGUAGE_IDS', ('en',)):
@@ -124,19 +124,25 @@ def check_password(password, account=None, structured=False):
     if not structured:
         return True
 
-    checks = tree()
-    for check, error in errors.items():
-        style, name = check
-        checks[style][name] = {
-            'passed': not error,
-            'requirement': requirements[check],
-            'errors': error,
-        }
-
+    checks_structure = collections.defaultdict(list)
+    total_passed = collections.defaultdict(lambda: True)  # Did all the tests pass
+    for style, checks in cereconf.PASSWORD_CHECKS.items():
+        # we want to preserve the cereconf checks order in checks_structure
+        for check in checks:
+            name = check[0]
+            error = errors[(style, name)]
+            if error:
+                total_passed[style] = False
+            checks_structure[style].append({name: {
+                'passed': not error,
+                'requirement': requirements[(style, name)],
+                'errors': error,
+            }})
+                
     data = {
-        'passed': all([x['passed'] for x in checks[pwstyle].values()]),
+        'passed': total_passed[pwstyle],
         'style': pwstyle,
-        'checks': checks,
+        'checks': checks_structure,
     }
     # import json
     # print json.dumps(data, indent=4)
