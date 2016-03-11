@@ -46,9 +46,9 @@ class CheckPhraseWords(PasswordChecker):
         wds = self.min_words or 0
         spl = passphrase.split(" ")
         if len([x for x in spl if len(x) >= wl]) < wds:
-            return _('Password must have at least {wds} words'
-                     ' of length {word_length}').format(wds=wds,
-                                                        word_length=wl)
+            return [_('Password must have at least {wds} words'
+                      ' of length {word_length}').format(wds=wds,
+                                                         word_length=wl)]
 
 
 @pwchecker('avg_word_length')
@@ -65,5 +65,5 @@ class CheckPhraseAverageWordLength(PasswordChecker):
         avg = self.avg_length
         spl = passphrase.split(" ")
         if avg and float(sum(map(len, spl))) / len(spl) < avg:
-            return _('Password words must be in average at least '
-                     '{avg} characters long').format(avg=avg)
+            return [_('Password words must be in average at least '
+                      '{avg} characters long').format(avg=avg)]
