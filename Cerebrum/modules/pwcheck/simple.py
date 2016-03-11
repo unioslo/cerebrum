@@ -318,25 +318,21 @@ class CheckOwnerNameMixin(PasswordChecker):
     def check_password(self, password, account=None):
         if account is None:
             return
-        if not hasattr(self, 'owner_id'):
+        if not hasattr(account, 'owner_id'):
             return
-        if isinstance(password, str):
-            try:
-                password = unicode(password, 'UTF-8')
-            except:
-                password = unicode(password, 'ISO-8859-1')
-        self._check_human_owner(account.owner_id, password, self.name_seq_len)
+        password = unicodify(password)
+        return self._check_human_owner(account, password, self.name_seq_len)
 
-    def _check_human_owner(self, owner_id, password, seqlen):
+    def _check_human_owner(self, account, password, seqlen):
         """Check if password is a variation of the owner's name."""
         # TODO: Should we not check the name of other owner types as well?
         #       E.g.: owner=group:foobarbaz, password=fooBARbaz
 
         # First, do we have a human owner at all?
-        person = Factory.get("Person")(self._db)
-        const = Factory.get("Constants")(self._db)
+        person = Factory.get("Person")(account._db)
+        const = Factory.get("Constants")(account._db)
         try:
-            person.find(owner_id)
+            person.find(account.owner_id)
         except NotFoundError:
             return
         # Which name to use? Let's grab the first full name we find
@@ -348,7 +344,7 @@ class CheckOwnerNameMixin(PasswordChecker):
                 break
         else:
             return
-        self._match_password_to_name(name, password, seqlen)
+        return self._match_password_to_name(name, password, seqlen)
 
     def _match_password_to_name(self, name, password, seqlen):
         """Check whether password 'matches' (in a sense) name."""
