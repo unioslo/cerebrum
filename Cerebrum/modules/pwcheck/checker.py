@@ -61,6 +61,7 @@ bytestring for `string.translate' """
 cereconf.PASSWORD_STYLE = 'mixed'
 cereconf.PASSWORD_CHECKS = {
     'rigid': (
+        ('simple_character_groups', {'min_groups': 3}),
         ('space_or_null', {}),
         ('8bit_characters', {}),
         ('length', {'min_length': 8}),
