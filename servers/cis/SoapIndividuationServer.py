@@ -172,8 +172,40 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         return ctx.udc['individuation'].set_password(username, new_password,
                                                      token, browser_token)
 
+    @rpc(String, _returns=Boolean)
+    def validate_password(ctx, password):
+        """
+        Check if a given password is good enough.
+
+        Returns True of the password meets the instance' password criteria.
+        An exception is thrown otherwise.
+
+        :param password: the password to be validated
+        :type password: str
+        """
+        return bool(ctx.udc['individuation'].validate_password(password,
+                                                          '',
+                                                          False))
+    
+    @rpc(String, String, _returns=Boolean)
+    def validate_password_for_account(ctx, account_name, password):
+        """
+        Check if a given password is good enough.
+
+        Returns True of the password meets the instance' password criteria.
+        An exception is thrown otherwise.
+
+        :param account_name: the account name to be used or ''
+        :type account_name: str
+        :param password: the password to be validated
+        :type password: str
+        """
+        return bool(ctx.udc['individuation'].validate_password(password,
+                                                          account_name,
+                                                          False))
+
     @rpc(String, String, Boolean, _returns=String)
-    def validate_password(ctx, password, account_name, structured):
+    def structured_password_validation(ctx, password, account_name, structured):
         """
         Check if a given password is good enough.
 
