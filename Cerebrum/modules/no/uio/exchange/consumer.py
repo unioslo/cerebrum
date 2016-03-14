@@ -1292,6 +1292,48 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
                     mod_ev['subject_entity'] = entity_id
                     self.ut.log_event(mod_ev, 'e_group:add')
 
+    @event_map('e_group:rem')
+    def remove_group_member(self, event):
+        """Removal of member from group.
+
+        :type event: Cerebrum.extlib.db_row.row
+        :param event: The event returned from Change- or EventLog.
+
+        :raise UnrelatedEvent: Raised if the event is not to be handled."""
+        if self.group_spread not in self.ut.get_group_spreads(
+                event['dest_entity']):
+            raise UnrelatedEvent
+
+        destination = group_flattener.get_entity(self.db, event['dest_entity'])
+        member = group_flattener.get_entity(self.db, event['subject_entity'])
+        removals = group_flattener.remove_operations(self.db, self.co,
+                                                     member, destination,
+                                                     self.group_spread,
+                                                     self.mb_spread)
+        for (group_id, group_name) in removals.keys():
+            for (cand_id, cand_name) in removals.get((group_id, group_name)):
+                try:
+                    self.ec.remove_distgroup_member(group_name, cand_name)
+                    self.logger.info(
+                        'eid:{event_id}: Removed {cand_name} from '
+                        '{group_name}'.format(event_id=event['event_id'],
+                                              cand_name=cand_name,
+                                              group_name=group_name))
+                    # Copy & mangle the event, so we can log it reciept
+                    # correctly
+                    mod_ev = event.copy()
+                    mod_ev['dest_entity'] = group_id
+                    mod_ev['subject_entity'] = cand_id
+                    self.ut.log_event_receipt(mod_ev, 'dlgroup:rem')
+                except AlreadyPerformedException:
+                    pass
+                except (ExchangeException, ServerUnavailableException), e:
+                    self.logger.warn(
+                        'eid:{event_id}: Can\'t remove {cand_name} from '
+                        '{group_name}: {error}'.format(
+                            event_id=event['event_id'], cand_name=cand_name,
+                            group_name=group_name, error=e))
+
     @event_map('dlgroup:modhidden')
     def set_group_visibility(self, event):
         """Set the visibility of a group.

@@ -28,6 +28,7 @@ from functools import partial
 
 
 def remove_operations(db, co, member, dest, group_spread, account_spread):
+    """Generate a map of removal operations."""
     # Search downwards, locate candidates for removal
     if member.entity_type == co.entity_person:
         primary_account = get_primary_account(db, member)
@@ -59,6 +60,7 @@ def remove_operations(db, co, member, dest, group_spread, account_spread):
 
 
 def add_operations(db, co, member, dest, group_spread, account_spread):
+    """Generate a map of add operations."""
     destination_groups = get_destination_groups(dest, group_spread)
     if member.entity_type == co.entity_group:
         to_add = get_children(db, member)
@@ -80,6 +82,7 @@ def add_operations(db, co, member, dest, group_spread, account_spread):
 
 
 def get_destination_groups(gr, group_spread=None):
+    """Collect parent groups."""
     return (map(lambda x: (x['group_id'], x['name']),
                 gr.search(member_id=gr.entity_id,
                           indirect_members=True,
@@ -88,6 +91,9 @@ def get_destination_groups(gr, group_spread=None):
 
 
 def get_children(db, ent):
+    """Collect children of groups.
+
+    Converts persons to primary accounts."""
     def convert(x):
         if x['member_type'] == ent.const.entity_person:
             primary_account = get_primary_account(get_entity(db,
@@ -101,10 +107,12 @@ def get_children(db, ent):
 
 
 def get_primary_account(person):
+    """Collect a persons primary account object."""
     return get_entity(person._db, person.get_primary_account())
 
 
 def get_entity(db, entity_id):
+    """Get an instantiated object from entity id."""
     entity = Factory.get('Entity')(db)
     try:
         return entity.get_subclassed_object(id=entity_id)
@@ -113,6 +121,7 @@ def get_entity(db, entity_id):
 
 
 def get_entity_name(db, entity_id):
+    """Fetch the entity name associated with an id."""
     try:
         ent = get_entity(db, entity_id)
         from cereconf import ENTITY_TYPE_NAMESPACE
@@ -125,6 +134,7 @@ def get_entity_name(db, entity_id):
 
 
 def for_exchange(db, x, group_spread=None, account_spread=None):
+    """Selector-function for exchange."""
     e = get_entity(db, x[0])
     if e.entity_type == e.const.entity_group:
         return e.has_spread(group_spread)
@@ -135,4 +145,5 @@ def for_exchange(db, x, group_spread=None, account_spread=None):
 
 
 def criteria_sieve(l, criteria):
+    """Filter l with criteria."""
     return filter(lambda x: criteria(x), l)
