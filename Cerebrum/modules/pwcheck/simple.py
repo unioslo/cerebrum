@@ -88,6 +88,43 @@ class CheckEightBitChars(PasswordChecker):
             return [_(u'Password cannot contain 8-bit characters (e.g. æøå).')]
 
 
+@pwchecker('simple_character_groups')
+class CheckCharacterGroups(PasswordChecker):
+    """Check for character groups."""
+
+    def __init__(self, min_groups=3):
+        """
+        A password should contain characters from at least `min_groups`
+        of the defined groups 'lowercase letters', 'uppercase letters',
+        'digits' and string.punctuation characters.
+        """
+        self.min_groups = min_groups
+        self.character_groups = (string.ascii_lowercase,
+                                 string.ascii_uppercase,
+                                 string.digits,
+                                 string.punctuation)
+        self._requirement = _(
+            'Must contain characters from at least {min_groups} of the '
+            'following character groups: Uppercase letters, lowercase '
+            'letters, numbers and special characters').format(
+                min_groups=min_groups)
+
+    def check_password(self, password, account=None):
+        """
+        Make sure that the password contains characters from different groups.
+        """
+        character_groups_detected = 0
+        for group in self.character_groups:
+            if any(map(lambda x: x in group, password)):
+                character_groups_detected += 1
+        if character_groups_detected < self.min_groups:
+            return [_(
+                'Password must contain characters from at least {min_groups} '
+                'of the following character groups: Uppercase letters, '
+                'lowercase letters, numbers and special characters.').format(
+                    min_groups=self.min_groups)]
+
+
 @pwchecker('length')
 class CheckLengthMixin(PasswordChecker):
     """ Check for minimum and maximum password length. """
@@ -111,7 +148,6 @@ class CheckLengthMixin(PasswordChecker):
 
         The password must be at least _password_min_length long and at most
         _password_max_length long.
-
         """
         if (self.min_length is not None and
                 len(password.strip()) < self.min_length):
