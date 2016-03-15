@@ -52,38 +52,9 @@ class PhrasePasswordNotGoodEnough(PasswordNotGoodEnough):
     pass
 
 
+# Translate strings from 'leet speak'. The value is a translation table
+# bytestring for `string.translate'
 l33t_speak = string.maketrans('4831!05$72', 'abeiiosstz')
-""" Translate strings from 'leet speak'. The value is a translation table
-bytestring for `string.translate' """
-
-
-# TODO: Remove me!
-cereconf.PASSWORD_STYLE = 'mixed'
-cereconf.PASSWORD_CHECKS = {
-    'rigid': (
-        ('simple_character_groups', {'min_groups': 3}),
-        ('space_or_null', {}),
-        ('8bit_characters', {}),
-        ('length', {'min_length': 8}),
-        ('multiple_character_sets', {}),
-        ('character_sequence', {'char_seq_length': 3}),
-        ('repeated_pattern', {}),
-        ('username', {}),
-        ('owner_name', {'name_seq_len': 5}),
-        ('history', {}),
-        ('dictionary', {}),
-        # ('letters_and_spaces_only', {'extra_chars': 'æøåÆØÅ'}),
-        # ('number_of_digits', {'digits': 3}),
-        # ('number_of_letters', {'letters': 3}),
-        # ('mixed_casing', {}),
-    ),
-    'phrase': (
-        ('length', {'min_length': 12, 'max_length': None}),
-        ('num_words', {'min_words': 4, 'min_word_length': 2}),
-        ('avg_word_length', {'avg_length': 4}),
-    )
-}
-
 
 _checkers = {}
 
@@ -101,8 +72,10 @@ def check_password(password, account=None, structured=False):
     """
     pwstyle = cereconf.PASSWORD_STYLE
     if pwstyle == 'mixed':
-        assert account and hasattr(account, 'is_passphrase')
-        pwstyle = 'phrase' if account.is_passphrase(password) else 'rigid'
+        # mark as 'phrase' if the password contains space, 'rigid' otherwise
+        pwstyle = 'rigid'
+        if ' ' in password:  # the same as uio.Account.is_passphrase
+            pwstyle = 'phrase'
 
     def tree():
         return collections.defaultdict(lambda: collections.defaultdict(dict))
