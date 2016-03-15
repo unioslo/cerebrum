@@ -23,7 +23,7 @@
 # This file reads ou data from a text file. Compares the stedkode
 # code with what already exists in a ou data file form FS and inserts
 # right ou information from that file. For stedkoder who doesnt
-# exist in the FS file, default data is inserted
+# exist in the FS file, default data is inserted..
 #
 from pprint import pprint
 import getopt
