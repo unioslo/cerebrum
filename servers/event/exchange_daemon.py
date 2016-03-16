@@ -70,7 +70,8 @@ def serve(logger, config, num_workers, enable_listener,
             queue=event_queue,
             log_queue=exchanged.log_queue,
             running=exchanged.run_trigger,
-            config=config)
+            config=config,
+            mock=config.client.mock)
 
     if enable_listener:
         exchanged.add_process(

@@ -43,6 +43,8 @@ from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.event.mapping import EventMap
 from Cerebrum.modules.event import evhandlers
 
+from . import group_flattener
+
 
 class ExchangeEventHandler(evhandlers.EventConsumer):
     """Event handler for Exchange.
@@ -1205,17 +1207,21 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
         # As of now we do this by generating an event for each member that
         # should be added. This is the quick and relatively painless solution,
         # altough performance will suffer greatly.
-        members = [uname for uname in self.ut.get_group_members(
-            event['subject_entity'],
-            spread=self.mb_spread,
-            filter_spread=self.ad_spread)]
-        for memb in members:
+        member = group_flattener.get_entity(self.db, event['subject_entity'])
+        (_, candidates) = group_flattener.add_operations(
+            self.db, self.co,
+            member, None,
+            self.group_spread, self.mb_spread)
+        for (entity_id, entity_name) in candidates:
             ev_mod = event.copy()
             ev_mod['dest_entity'] = ev_mod['subject_entity']
-            ev_mod['subject_entity'] = memb['account_id']
+            ev_mod['subject_entity'] = entity_id
             self.logger.debug1(
-                'eid:%d: Creating event: Adding %s to %s' %
-                (event['event_id'], memb['name'], gname))
+                'eid:{event_id}: Creating event: Adding {entity_name} to '
+                '{group_name}'.format(
+                    event_id=event['event_id'],
+                    entity_name=entity_name,
+                    group_name=gname))
             self.ut.log_event(ev_mod, 'e_group:add')
 
     @event_map('dlgroup:remove')
@@ -1249,7 +1255,7 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
                 raise EventExecutionException
 
     @event_map('e_group:add')
-    def add_group_member(self, event):
+    def add_group_members(self, event):
         """Addition of member to group.
 
         :type event: Cerebrum.extlib.db_row.row
@@ -1257,96 +1263,45 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
 
         :raise UnrelatedEvent: If this event is unrelated to this handler.
         :raise EventExecutionException: If the event fails to execute."""
-        # Look up group information (eid and spreads)
-        # Look up member for removal
-        # Remove from group type according to spread
-
-        # Collect information about the group, and see if we should handle it
-        group_spreads = self.ut.get_group_spreads(event['dest_entity'])
-
-        if self.group_spread not in group_spreads:
-            self.logger.debug2('eid:%d: Unsupported group type for gid=%s!' %
-                               (event['event_id'], event['dest_entity']))
-            # Silently discard it
+        if self.group_spread not in self.ut.get_group_spreads(
+                event['dest_entity']):
             raise UnrelatedEvent
 
-        gname, description = self.ut.get_group_information(
-            event['dest_entity'])
-
-        add_to_groups = [gname]
-
-        # Check to see if we should do something with this member, and fetch
-        # some information about the member
-        et = self.ut.get_entity_type(event['subject_entity'])
-        if et == self.co.entity_account:
-            uname = self.ut.get_account_name(event['subject_entity'])
-            aid = event['subject_entity']
-        elif et == self.co.entity_person:
-            aid = self.ut.get_primary_account(event['subject_entity'])
-            uname = self.ut.get_account_name(aid)
-
-            # Look for derived groups (like meta-ansatt-something), that we
-            # should add the user to
-            for gnt in self.group_name_translation:
-                if gname.startswith(gnt):
-                    add_to_groups.extend(self.ut.get_parent_groups(
-                                         event['dest_entity'],
-                                         self.group_spread,
-                                         self.group_name_translation[gnt]))
-        else:
-            # Can't handle this memeber type
-            raise EntityTypeError
-
-        # If the users does not have an AD- or an Exchange-spread, it should
-        # never end up in a group! So we fetch the spreads and check..
-        member_spreads = self.ut.get_account_spreads(aid)
-
-        if self.mb_spread not in member_spreads:
-            raise UnrelatedEvent
-        if self.ad_spread not in member_spreads:
-            raise EventExecutionException('No AD-spread on user :S')
-
-        for group in add_to_groups:
-            try:
-                self.ec.add_distgroup_member(group, uname)
-                self.logger.info('eid:%d: Added %s to %s' %
-                                 (event['event_id'], uname, group))
-                # Copy & mangle the event, so we can log it correctly
-                # TBD: Should we also log the parent group id in change params?
-                mod_ev = event.copy()
-                # TODO: Cache group ids instead of looking it up like this.
-                mod_ev['dest_entity'] = self.ut.get_group_id(group)
-                self.ut.log_event_receipt(mod_ev, 'dlgroup:add')
-            except (ExchangeException, ServerUnavailableException), e:
-                self.logger.warn('eid:%d: Can\'t add %s to %s: %s' %
-                                 (event['event_id'], uname, gname, e))
-                # Create a faux-event if the event fails, and the entity added
-                # is a person. Do not create a faux-event if the entity added
-                # is a user.
-                if et == self.co.entity_person:
-                    ev_mod = event.copy()
-                    ev_mod['dest_entity'] = self.ut.get_group_id(group)
-                    self.logger.debug1(
-                        'eid:%d: Creating event: Adding %s to %s' %
-                        (event['event_id'], uname, gname))
-                    self.ut.log_event(ev_mod, 'e_group:add')
-                else:
-                    raise EventExecutionException
-            except AlreadyPerformedException:
-                # If we wind up here, the user was allready added. We might, in
-                # some circumstances, want to discard the event completely, but
-                # for now, we just pass along.
-                self.logger.debug1(
-                    'eid:%d: Discarding e_group:add (%s into %s)' %
-                    (event['event_id'], uname, gname))
-                # Copy & mangle the event, so we can log it correctly
-                # TBD: Should we also log the parent group id in change params?
-                mod_ev = event.copy()
-                # TODO: Cache group ids instead of looking it up like this.
-                mod_ev['dest_entity'] = self.ut.get_group_id(group)
-                mod_ev['change_params'] = pickle.dumps({'AlreadyPerformed':
-                                                        True})
-                self.ut.log_event_receipt(mod_ev, 'dlgroup:add')
+        destination = group_flattener.get_entity(self.db, event['dest_entity'])
+        member = group_flattener.get_entity(self.db, event['subject_entity'])
+        (destinations, candidates) = group_flattener.add_operations(
+            self.db, self.co,
+            member, destination,
+            self.group_spread, self.mb_spread)
+        for (group_id, group_name) in destinations:
+            for (entity_id, entity_name) in candidates:
+                try:
+                    self.ec.add_distgroup_member(group_name, entity_name)
+                    self.logger.info(
+                        'eid:{event_id}: Added {entity_name} to '
+                        '{group_name}'.format(
+                            event_id=event['event_id'],
+                            entity_name=entity_name,
+                            group_name=group_name))
+                    # Copy & mangle the event, so we can log it correctly
+                    mod_ev = event.copy()
+                    mod_ev['dest_entity'] = group_id
+                    mod_ev['subject_entity'] = entity_id
+                    self.ut.log_event_receipt(mod_ev, 'dlgroup:add')
+                except AlreadyPerformedException:
+                    pass
+                except (ExchangeException, ServerUnavailableException), e:
+                    self.logger.warn(
+                        'eid:{event_id}: Can\'t add {entity_name} to '
+                        '{group_name}: {reason}'.format(
+                            event_id=event['event_id'],
+                            entity_name=entity_name,
+                            group_name=group_name,
+                            reason=e))
+                    mod_ev = event.copy()
+                    mod_ev['dest_entity'] = group_id
+                    mod_ev['subject_entity'] = entity_id
+                    self.ut.log_event(mod_ev, 'e_group:add')
 
     @event_map('e_group:rem')
     def remove_group_member(self, event):
@@ -1356,74 +1311,39 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
         :param event: The event returned from Change- or EventLog.
 
         :raise UnrelatedEvent: Raised if the event is not to be handled."""
-        # Look up group information (eid and spreads)
-        # Look up member for removal
-        # Remove from group type according to spread
-        group_spreads = self.ut.get_group_spreads(event['dest_entity'])
-
-        if self.group_spread not in group_spreads:
-            self.logger.debug2('eid:%d: Unsupported group type for gid=%s!' %
-                               (event['event_id'], event['subject_entity']))
-            # Silently discard it
+        if self.group_spread not in self.ut.get_group_spreads(
+                event['dest_entity']):
             raise UnrelatedEvent
 
-        gname, description = self.ut.get_group_information(
-            event['dest_entity'])
-
-        rem_from_groups = [gname]
-
-        # Check to see if we should do something with this member,
-        # and fetch some info.
-        et = self.ut.get_entity_type(event['subject_entity'])
-        if et == self.co.entity_account:
-            uname = self.ut.get_account_name(event['subject_entity'])
-            aid = event['subject_entity']
-        elif et == self.co.entity_person:
-            aid = self.ut.get_primary_account(event['subject_entity'])
-            uname = self.ut.get_account_name(aid)
-
-            # Look for derived groups (like meta-ansatt-something), that we
-            # should remove the user to
-            for gnt in self.group_name_translation:
-                if gname.startswith(gnt):
-                    rem_from_groups.extend(self.ut.get_parent_groups(
-                                           event['dest_entity'],
-                                           self.group_spread,
-                                           self.group_name_translation[gnt]))
-        else:
-            # Can't handle this memeber type
-            raise EntityTypeError
-
-        # If the users does not have an AD-spread, we can't remove em. Or can
-        # we?
-        # TODO: Figure this out. This is relevant for removal of persons from
-        # exchange.
-        member_spreads = self.ut.get_account_spreads(aid)
-
-        # Can't remove that user from the group ;)
-        if self.mb_spread not in member_spreads:
-            raise UnrelatedEvent
-        if self.ad_spread not in member_spreads:
-            # TODO: Return? That is NOT sane.
-            return
-
-        for group in rem_from_groups:
-            try:
-                # TODO: We should check if the user to remove exists first.. If
-                # it does not, it has allready been removed.. This would
-                # probably be smart to do, in order to reduce noise in da logs.
-                self.ec.remove_distgroup_member(group, uname)
-                self.logger.info('eid:%d: Removed %s from %s' %
-                                 (event['event_id'], uname, group))
-                # Copy & mangle the event, so we can log it reciept correctly
-                # TBD: Should we also log the parent group id in change params?
-                mod_ev = event.copy()
-                # TODO: Cache group ids instead of looking it up like this.
-                mod_ev['dest_entity'] = self.ut.get_group_id(group)
-                self.ut.log_event_receipt(mod_ev, 'dlgroup:rem')
-            except (ExchangeException, ServerUnavailableException), e:
-                self.logger.warn('eid:%d: Can\'t remove %s from %s: %s' %
-                                 (event['event_id'], uname, gname, e))
+        destination = group_flattener.get_entity(self.db, event['dest_entity'])
+        member = group_flattener.get_entity(self.db, event['subject_entity'])
+        removals = group_flattener.remove_operations(self.db, self.co,
+                                                     member, destination,
+                                                     self.group_spread,
+                                                     self.mb_spread)
+        for (group_id, group_name) in removals.keys():
+            for (cand_id, cand_name) in removals.get((group_id, group_name)):
+                try:
+                    self.ec.remove_distgroup_member(group_name, cand_name)
+                    self.logger.info(
+                        'eid:{event_id}: Removed {cand_name} from '
+                        '{group_name}'.format(event_id=event['event_id'],
+                                              cand_name=cand_name,
+                                              group_name=group_name))
+                    # Copy & mangle the event, so we can log it reciept
+                    # correctly
+                    mod_ev = event.copy()
+                    mod_ev['dest_entity'] = group_id
+                    mod_ev['subject_entity'] = cand_id
+                    self.ut.log_event_receipt(mod_ev, 'dlgroup:rem')
+                except AlreadyPerformedException:
+                    pass
+                except (ExchangeException, ServerUnavailableException), e:
+                    self.logger.warn(
+                        'eid:{event_id}: Can\'t remove {cand_name} from '
+                        '{group_name}: {error}'.format(
+                            event_id=event['event_id'], cand_name=cand_name,
+                            group_name=group_name, error=e))
 
     @event_map('dlgroup:modhidden')
     def set_group_visibility(self, event):
