@@ -46,13 +46,12 @@ from .checker import pwchecker, PasswordChecker, l33t_speak
 def unicodify(password):
     if isinstance(password, str):
         try:
-            password = unicode(password, 'UTF-8')
+            password = password.decode('UTF-8')
         except UnicodeDecodeError:
-            password = unicode(password, 'ISO-8859-1')
+            password = password.decode('ISO-8859-1')
     return password
 
 
-# TODO: Should we really disallow characters from passwords?
 @pwchecker('space_or_null')
 class CheckSpaceOrNull(PasswordChecker):
     """ Check for space or null in password string. """
@@ -74,7 +73,6 @@ class CheckSpaceOrNull(PasswordChecker):
         return errors
 
 
-# TODO: Should we really disallow characters from passwords?
 @pwchecker('8bit_characters')
 class CheckEightBitChars(PasswordChecker):
     """ Check for 8-bit characters in password string. """
@@ -88,8 +86,99 @@ class CheckEightBitChars(PasswordChecker):
             return [_(u'Password cannot contain 8-bit characters (e.g. æøå).')]
 
 
+@pwchecker('ascii_characters_only')
+class CheckASCIICharacters(PasswordChecker):
+    """
+    Check that the password does not contain non ASCII characters
+    """
+
+    def __init__(self):
+        self._requirement = _('Can contain only ASCII letters, '
+                              'digits and {special_characters}').format(
+                                  special_characters=string.punctuation)
+        self.allowed_chars = unicodify(string.ascii_letters +
+                                       string.digits +
+                                       string.punctuation + ' ')
+
+    def check_password(self, password, account=None):
+        """
+        Check that the password contains only ascii characters
+        using the string module:
+
+        ascii_characters =
+        string.ascii_letters, string.string.digits, string.punctuation, space
+        """
+        password = unicodify(password)
+        errors = []
+        for character in password:
+            if character not in self.allowed_chars:
+                errors.append(
+                    _(u'Password can not contain the character: '
+                      '{character}').format(character=character))
+        return errors
+
+
+@pwchecker('latin1_characters_only')
+class CheckLatinCharacters(PasswordChecker):
+    """
+    Check that the password contains only latin1 compatible characters only
+    """
+
+    def __init__(self):
+        self._requirement = _('Can contain only latin1 (ISO-8859-1) '
+                              'compatible characters').format(
+                                  special_characters=string.punctuation)
+
+    def check_password(self, password, account=None):
+        """
+        Check that the password contains only latin1 compatible characters only
+        """
+        password = unicodify(password)
+        try:
+            # attempt latin1 encoding
+            password.encode('ISO-8859-1')
+        except UnicodeEncodeError:
+            return [_('Password contains one or more characters that are not '
+                      'latin1 (ISO-8859-1) compatible')]
+
+
+@pwchecker('illegal_characters')
+class CheckIllegalCharacters(PasswordChecker):
+    """
+    Check that the password does not contain one or more of the specified
+    characters.
+    """
+
+    def __init__(self, illegal_characters=''):
+        """
+        Check that the password does not contain one or more of the
+        characters specified in `illegal_characters`
+
+        :param illegal_characters: defined illegal characters
+        :type password: str or unicode
+        """
+        self.illegal_characters = unicodify(illegal_characters)
+        self._requirement = _(u'Can not contain one or more of the following '
+                              'characters: {illegal_characters}').format(
+                                  illegal_characters=illegal_characters)
+
+    def check_password(self, password, account=None):
+        """
+        Check that the password does not contain one or more of the characters
+        defined as illegal
+        """
+        password = unicodify(password)
+        errors = []
+        for character in self.illegal_characters:
+            if character in password:
+                errors.append(
+                    _(u'Password can not contain the character: '
+                      '{character}').format(character=character))
+        return errors
+
+
 @pwchecker('simple_character_groups')
-class CheckCharacterGroups(PasswordChecker):
+class CheckSimpleCharacterGroups(PasswordChecker):
     """Check for character groups."""
 
     def __init__(self, min_groups=3):

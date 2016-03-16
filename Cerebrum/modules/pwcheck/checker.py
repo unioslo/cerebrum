@@ -159,6 +159,10 @@ class PasswordChecker(object):
 
 from .simple import (CheckSpaceOrNull,
                      CheckEightBitChars,
+                     CheckASCIICharacters,
+                     CheckLatinCharacters,
+                     CheckIllegalCharacters,
+                     CheckSimpleCharacterGroups,
                      CheckLengthMixin,
                      CheckMultipleCharacterSets,
                      CheckCharacterSequence,
