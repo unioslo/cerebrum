@@ -343,6 +343,9 @@ class Constants(Constants.Constants):
     spread_exchange_group = _SpreadCode(
         'exch_group@uio', Constants.Constants.entity_group,
         'A mail enabled security group for Exchange')
+    spread_exchange_shared_mbox = _SpreadCode(
+        'exch_shared_mbox', Constants.Constants.entity_group,
+        'Group exposed as a shared mailbox in Exchange')
 
     spread_uio_ldap_guest = _SpreadCode(
         'guest@ldap', Constants.Constants.entity_account,
