@@ -48,6 +48,13 @@ class GroupUiOMixin(Group.Group):
             if tmp:
                 raise self._db.IntegrityError(
                     "Illegal name for filegroup, {0}.".format(tmp))
+        # When adding a Shared mailbox spread, assert that the group is a
+        # distribution group.
+        if spread == self.const.spread_exchange_shared_mbox:
+            if not self.has_spread(self.const.spread_exchange_group):
+                raise Errors.CerebrumError(
+                    "Can't add shared mailbox spread to a "
+                    "non-distribution group")
         #
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)
