@@ -39,6 +39,13 @@ class CLConstants(CLConstants):
                                       'account mailbox added')
     acc_mbox_delete = _ChangeTypeCode('exchange', 'acc_mbox_delete',
                                       'account mailbox deleted')
+
+    # Account mailbox created/deleted
+    shared_mbox_create = _ChangeTypeCode('exchange', 'shared_mbox_create',
+                                         'shared mailbox added')
+    shared_mbox_delete = _ChangeTypeCode('exchange', 'shared_mbox_delete',
+                                         'shared mailbox deleted')
+
     # Account add/remove an address
     acc_addr_add = _ChangeTypeCode('exchange', 'acc_addr_add',
                                    'account address added')

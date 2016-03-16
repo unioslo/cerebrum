@@ -520,6 +520,58 @@ class ExchangeClient(PowershellClient):
         else:
             return True
 
+    def create_shared_mailbox(self, name):
+        """Create a new shared mailbox in Exchange.
+
+        :type name: string
+        :param name: The mailbox name.
+
+        :rtype: bool
+        :return: Return True if success.
+
+        :raise ExchangeException: If the command failed to run for some reason
+        """
+        assert(isinstance(self.exchange_commands, dict) and
+               'execute_on_create_shared_mailbox' in self.exchange_commands)
+        cmd_template = string.Template(
+            self.exchange_commands['execute_on_create_shared_mailbox'])
+        cmd = self._generate_exchange_command(
+            cmd_template.safe_substitute(
+                name=self.escape_to_string(name)))
+        try:
+            out = self.run(cmd)
+        except PowershellException:
+            raise ExchangeException(
+                'Could not create shared mailbox for {name}'.format(name=name))
+        if 'stderr' in out:
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
+
+    def delete_shared_mailbox(self, name):
+        """Remove a shared mailbox.
+
+        :type name: string
+        :param name: The mailbox name
+
+        :raises ExchangeException: If the command fails to run.
+        """
+        assert(isinstance(self.exchange_commands, dict) and
+               'execute_on_delete_shared_mailbox' in self.exchange_commands)
+        cmd_template = string.Template(
+            self.exchange_commands['execute_on_delete_shared_mailbox'])
+        cmd = self._generate_exchange_command(
+            cmd_template.safe_substitute(name=self.escape_to_string(name)))
+        try:
+            out = self.run(cmd)
+        except PowershellException:
+            raise ExchangeException(
+                'Could not remove shared mailbox for {name}'.format(name=name))
+        if 'stderr' in out:
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
+
     def set_primary_mailbox_address(self, uname, address):
         """Set primary email addresses from a mailbox.
 
