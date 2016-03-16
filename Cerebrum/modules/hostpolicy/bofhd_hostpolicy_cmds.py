@@ -19,10 +19,9 @@
 
 from mx import DateTime
 
-import cerebrum_path, cereconf
-from Cerebrum import Cache, Errors
-#from Cerebrum.Entity import Entity
-from Cerebrum.Utils import Factory, NotSet, argument_to_sql
+import cereconf
+from Cerebrum import Errors
+from Cerebrum.Utils import NotSet
 
 # Imports from the DNS module:
 from Cerebrum.modules.dns import DnsOwner, IP_NUMBER, DNS_OWNER
@@ -34,7 +33,7 @@ from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent, Role, A
 # Import for bofhd
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import *
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.dns.bofhd_dns_cmds import HostId, DnsBofhdAuth, format_day
 
 
@@ -51,34 +50,47 @@ class HostPolicyBofhdAuth(DnsBofhdAuth):
 # Define cmd_params for the HostPolicy module
 # The Parameters are used to make an explanation for each parameter at input in
 # jbofh.
+
+
 class AtomId(Parameter):
     _type = 'atom'
     _help_ref = 'atom_id'
+
+
 class AtomName(Parameter):
-    _type = 'name' # TODO: find out what _type means - are they used to anythin?
+    _type = 'name'  # TODO: find out what _type means - are they used to anythin?
     _help_ref = 'atom_name'
+
 
 class RoleId(Parameter):
     _type = 'role'
     _help_ref = 'role_id'
+
+
 class RoleName(Parameter):
     _type = 'name'
     _help_ref = 'role_name'
 
+
 class PolicyId(Parameter):
     _type = 'policy'
     _help_ref = 'policy_id'
+
+
 class PolicyName(Parameter):
     _type = 'name'
     _help_ref = 'policy_name'
+
 
 class FoundationDate(Parameter):
     _type = 'date'
     _help_ref = 'foundation_date'
 
+
 class Filter(Parameter):
     _type = 'filter'
     _help_ref = 'component_filter'
+
 
 class HostPolicyBofhdExtension(BofhdCommandBase):
     """Class to expand bofhd with commands for manipulating host
@@ -98,8 +110,8 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
     def get_help_strings(self):
         """Help strings are used by jbofh to give users explanations for groups
         of commands, commands and all command arguments (parameters). The
-        arg_help's keys are referencing to either Parameters' _help_ref (TODO: or its
-        _type in addition?)"""
+        arg_help's keys are referencing to either Parameters' _help_ref (TODO:
+        or its _type in addition?)"""
         group_help = {
             'policy': 'Commands for handling host policies',
             # don't know if the group 'host' is required here, but it's defined
@@ -694,6 +706,11 @@ Example:
         self.ba.assert_dns_superuser(operator.get_entity_id())
         host = self._get_host(dns_owner_id)
         policy = self._get_component(comp_id)
+
+        # Do not allow atoms directly on hosts
+        if policy.entity_type == self.const.entity_hostpolicy_atom:
+            raise CerebrumError('Atoms can not be assigned directly to hosts')
+
         # check if host already has the policy as direct relation
         for row in policy.search_hostpolicies(policy_id=policy.entity_id,
                                             dns_owner_id=host.entity_id):
