@@ -1263,10 +1263,6 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
 
         :raise UnrelatedEvent: If this event is unrelated to this handler.
         :raise EventExecutionException: If the event fails to execute."""
-        if self.group_spread not in self.ut.get_group_spreads(
-                event['dest_entity']):
-            raise UnrelatedEvent
-
         destination = group_flattener.get_entity(self.db, event['dest_entity'])
         member = group_flattener.get_entity(self.db, event['subject_entity'])
         (destinations, candidates) = group_flattener.add_operations(
@@ -1311,10 +1307,6 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
         :param event: The event returned from Change- or EventLog.
 
         :raise UnrelatedEvent: Raised if the event is not to be handled."""
-        if self.group_spread not in self.ut.get_group_spreads(
-                event['dest_entity']):
-            raise UnrelatedEvent
-
         destination = group_flattener.get_entity(self.db, event['dest_entity'])
         member = group_flattener.get_entity(self.db, event['subject_entity'])
         removals = group_flattener.remove_operations(self.db, self.co,
