@@ -141,6 +141,11 @@ class ExchangeSelectionCriterias(Configuration):
         default=u"exchange_group",
         doc=u"The spread to select target groups for Exchange by")
 
+    shared_mbox_spread = ConfigDescriptor(
+        String,
+        default=u"exch_shared_mbox",
+        doc=u"The spread to select target shared mailboxes for Exchange by")
+
     ad_spread = ConfigDescriptor(
         String,
         default=u"AD_account",
