@@ -54,7 +54,7 @@ def unicodify(password):
 
 @pwchecker('space_or_null')
 class CheckSpaceOrNull(PasswordChecker):
-    """ Check for space or null in password string. """
+    """Check for space or null in password string."""
 
     def __init__(self):
         self._requirement = _(
@@ -64,7 +64,7 @@ class CheckSpaceOrNull(PasswordChecker):
             ' ': _('Password cannot contain space.'), }
 
     def check_password(self, password, account=None):
-        """ Check that only valid characters are allowed. """
+        """Check that only valid characters are allowed."""
         errors = []
 
         for char, err in self._password_illegal_chars.iteritems():
@@ -75,7 +75,7 @@ class CheckSpaceOrNull(PasswordChecker):
 
 @pwchecker('8bit_characters')
 class CheckEightBitChars(PasswordChecker):
-    """ Check for 8-bit characters in password string. """
+    """Check for 8-bit characters in password string."""
 
     def __init__(self):
         self._requirement = _(u'Must not contain 8-bit characters (e.g. æøå).')
@@ -216,7 +216,7 @@ class CheckSimpleCharacterGroups(PasswordChecker):
 
 @pwchecker('length')
 class CheckLengthMixin(PasswordChecker):
-    """ Check for minimum and maximum password length. """
+    """Check for minimum and maximum password length."""
 
     def __init__(self, min_length=8, max_length=None):
         self.min_length = min_length
@@ -253,13 +253,13 @@ class CheckLengthMixin(PasswordChecker):
 
 @pwchecker('multiple_character_sets')
 class CheckMultipleCharacterSets(PasswordChecker):
-    """ Adds a entropy check to password checker. """
+    """Adds a entropy check to password checker."""
 
     def __init__(self):
         self._requirement = _('Something')
 
     def check_password(self, password, account=None):
-        """ Check that a password use multiple character sets.
+        """Check that a password use multiple character sets.
 
         The password must contain characters from at least three
         of the following sets:
@@ -268,7 +268,6 @@ class CheckMultipleCharacterSets(PasswordChecker):
           - uppercase
           - digit
           - special char
-
         """
 
         # TODO: Write proper regex, so that we don't have to truncate the
@@ -315,7 +314,7 @@ class CheckMultipleCharacterSets(PasswordChecker):
 
 @pwchecker('character_sequence')
 class CheckCharacterSequence(PasswordChecker):
-    """ Check for sequences of related chars. """
+    """Check for sequences of related chars."""
 
     def __init__(self, char_seq_length=3):
         self._requirement = _(
@@ -323,7 +322,7 @@ class CheckCharacterSequence(PasswordChecker):
         self.char_seq_length = char_seq_length
 
     def check_password(self, password, account=None):
-        """ Check for sequences of closely related characters. """
+        """Check for sequences of closely related characters."""
         errors = []
         password = unicodify(password)
         passwd = password.lower()
@@ -378,14 +377,14 @@ class CheckCharacterSequence(PasswordChecker):
 
 @pwchecker('repeated_pattern')
 class CheckRepeatedPattern(PasswordChecker):
-    """ Check for repeated patterns in password. """
+    """Check for repeated patterns in password."""
 
     def __init__(self):
         self._requirement = _(
             'Must not contain repeated sequences of characters.')
 
     def check_password(self, password, account=None):
-        """ Check for repeated sequences in the first eight chars. """
+        """Check for repeated sequences in the first eight chars."""
 
         # TODO: Clean up this check, and get rid of the trunc
         first_eight = password[0:8]
@@ -406,14 +405,14 @@ class CheckRepeatedPattern(PasswordChecker):
 
 @pwchecker('username')
 class CheckUsername(PasswordChecker):
-    """ Check for use of the username in the password. """
+    """Check for use of the username in the password."""
 
     def __init__(self):
         self._requirement = _(
             'Must not contain your username, even in reverse.')
 
     def check_password(self, password, account=None):
-        """ Does the password contain the username? """
+        """Does the password contain the username?"""
         if account is None:
             return
 
@@ -432,7 +431,7 @@ class CheckUsername(PasswordChecker):
 
 @pwchecker('owner_name')
 class CheckOwnerNameMixin(PasswordChecker):
-    """ Check for use of the account owners name in the password. """
+    """Check for use of the account owners name in the password."""
 
     def __init__(self, name_seq_len=5):
         self.name_seq_len = name_seq_len
@@ -526,7 +525,7 @@ class CheckOwnerNameMixin(PasswordChecker):
 
 @pwchecker('letters_and_spaces_only')
 class CheckLettersSpacesOnly(PasswordChecker):
-    """ Only allow letters and spaces in the password. """
+    """Only allow letters and spaces in the password."""
 
     extra_chars = []
 
@@ -536,7 +535,7 @@ class CheckLettersSpacesOnly(PasswordChecker):
             self.extra_chars = list(unicodify(extra_chars))
 
     def check_password(self, password, account=None):
-        """ Does the password contain characters and spaces only? """
+        """Does the password contain characters and spaces only?"""
         password = unicodify(password)
 
         for char in password:
@@ -551,7 +550,7 @@ class CheckLettersSpacesOnly(PasswordChecker):
 
 @pwchecker('number_of_digits')
 class CheckNumberOfDigits(PasswordChecker):
-    """ Require a minimum number of digits in the password. """
+    """Require a minimum number of digits in the password."""
 
     def __init__(self, digits=1):
         self._requirement = _(
@@ -567,7 +566,7 @@ class CheckNumberOfDigits(PasswordChecker):
 
 @pwchecker('number_of_letters')
 class CheckNumberOfLetters(PasswordChecker):
-    """ Require a minimum number of letters in the password. """
+    """Require a minimum number of letters in the password."""
 
     def __init__(self, letters=1):
         self._requirement = _(
@@ -584,13 +583,13 @@ class CheckNumberOfLetters(PasswordChecker):
 
 @pwchecker('mixed_casing')
 class CheckMixedCasing(PasswordChecker):
-    """ Require a mixed casing of letters in the password. """
+    """Require a mixed casing of letters in the password."""
 
     def __init__(self):
         self._requirement = _("Must contain upper and lowercase letters")
 
     def check_password(self, password, account=None):
-        """ Does the password contain enough letters? """
+        """Does the password contain enough letters?"""
         lowercase = sum(c in string.ascii_lowercase for c in password)
         uppercase = sum(c in string.ascii_uppercase for c in password)
         if not (lowercase and uppercase):

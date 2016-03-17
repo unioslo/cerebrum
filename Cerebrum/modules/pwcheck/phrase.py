@@ -25,7 +25,7 @@ from .checker import pwchecker, PasswordChecker
 
 @pwchecker('num_words')
 class CheckPhraseWords(PasswordChecker):
-    """ Check number of words in passphrase. """
+    """Check number of words in passphrase."""
 
     def __init__(self, min_words=4, min_word_length=None):
         self.min_words = min_words
@@ -41,7 +41,7 @@ class CheckPhraseWords(PasswordChecker):
                                       min_word_length=min_word_length)
 
     def check_password(self, passphrase, account=None):
-        """ Check that passphrase contains enough long words. """
+        """Check that passphrase contains enough long words."""
         wl = self.min_word_length or 0
         wds = self.min_words or 0
         spl = passphrase.split(" ")
@@ -53,7 +53,7 @@ class CheckPhraseWords(PasswordChecker):
 
 @pwchecker('avg_word_length')
 class CheckPhraseAverageWordLength(PasswordChecker):
-    """ Check number of words in passphrase. """
+    """Check number of words in passphrase."""
 
     def __init__(self, avg_length=0):
         self.avg_length = avg_length
@@ -61,7 +61,7 @@ class CheckPhraseAverageWordLength(PasswordChecker):
                               'characters long.').format(avg_length=avg_length)
 
     def check_password(self, passphrase, account=None):
-        """ Check that passphrase contains enough long words in average. """
+        """Check that passphrase contains enough long words in average."""
         avg = self.avg_length
         spl = passphrase.split(" ")
         if avg and float(sum(map(len, spl))) / len(spl) < avg:

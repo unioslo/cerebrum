@@ -51,9 +51,38 @@ PASSPHRASE_DICTIONARIES = ()
 # Set password style. Legal variants are:
 # rigid = rigid checks needed for short passwords
 # phrase = loose entropy checks, but longer passprases required
-# mixed = use is_passphrase to find right style
+# mixed = Cerebrum analyzes the passwd. string in order to determine the style
 # read by Cerebrum.modules.pwcheck.wordorphrase/PhraseWordCheckSplitter
 PASSWORD_STYLE = 'rigid'
+
+# Set the checks to be performed
+# The order will be kept during the check, hence it is a good idea to have
+# the faster and more general checks (like f.i. 'length') at the top of
+# the chain
+PASSWORD_CHECKS = {
+    'rigid': (
+        ('length', {'min_length': 10}),
+        ('ascii_characters_only', {}),
+        ('simple_character_groups', {'min_groups': 3}),
+        ('space_or_null', {}),
+        # ('illegal_characters', {'illegal_characters': 'Ab'}),
+        # ('multiple_character_sets', {}),
+        ('repeated_pattern', {}),
+        ('character_sequence', {'char_seq_length': 3}),
+        # ('username', {}),
+        # ('owner_name', {'name_seq_len': 5}),
+        # ('history', {}),
+        # ('dictionary', {}),
+        # ('letters_and_spaces_only', {'extra_chars': 'æøåÆØÅ'}),
+        # ('number_of_digits', {'digits': 3}),
+        # ('number_of_letters', {'letters': 3}),
+        # ('mixed_casing', {}),
+    ),
+    'phrase': (
+        ('length', {'min_length': 12, 'max_length': None}),
+        ('num_words', {'min_words': 4, 'min_word_length': 2}),
+        ('avg_word_length', {'avg_length': 4}),
+    )}
 
 # Arguments to test for password_good_enough. Inserted with
 # Cerebrum.modules.pwcheck.confargs/CereconfMixin

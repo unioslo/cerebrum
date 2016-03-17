@@ -130,6 +130,7 @@ def check_password(password, account=None, structured=False):
             }})
     data = {
         'passed': total_passed[pwstyle],
+        'allowed_style': cereconf.PASSWORD_STYLE,
         'style': pwstyle,
         'checks': checks_structure,
     }
