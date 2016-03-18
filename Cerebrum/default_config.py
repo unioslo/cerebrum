@@ -63,8 +63,8 @@ PASSWORD_CHECKS = {
     'rigid': (
         ('length', {'min_length': 10}),
         ('ascii_characters_only', {}),
-        ('simple_character_groups', {'min_groups': 3}),
         ('space_or_null', {}),
+        ('simple_character_groups', {'min_groups': 3}),
         # ('illegal_characters', {'illegal_characters': 'Ab'}),
         # ('multiple_character_sets', {}),
         ('repeated_pattern', {}),

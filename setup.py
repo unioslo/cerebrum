@@ -164,13 +164,17 @@ class CompileAndInstallLocales(Command):
             mo_file = os.path.join('locales', lang_dir, 'LC_MESSAGES', 'cerebrum.mo')
             if os.path.isfile(mo_file):
                 # .mo file exists for this language in the Cerebrum repo. Use it!
-                self.mkpath(lang_path)  # create the path first
+                if not os.path.exists(lang_path):
+                    # create the path if it doesn't exist
+                    os.makedirs(lang_path)
                 self.copy_file(mo_file, lang_path)
                 continue
             # no .mo file found. See is there is a .po file
             po_file = os.path.join('locales', lang_dir, 'LC_MESSAGES', 'cerebrum.po')
             if os.path.isfile(po_file):
-                self.mkpath(lang_path)  # create the path first
+                if not os.path.exists(lang_path):
+                    # create the path if it doesn't exist
+                    os.makedirs(lang_path)
                 # ... then compile the .po file into .mo file
                 self.execute(_execute_wrapper,
                              ('msgfmt',
