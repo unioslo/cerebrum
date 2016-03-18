@@ -110,6 +110,12 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
 
     @property
     @memoize
+    def shared_mbox_spread(self):
+        return self.co.Spread(
+            self.config.selection_criterias.shared_mbox_spread)
+
+    @property
+    @memoize
     def ad_spread(self):
         return self.co.Spread(
             self.config.selection_criterias.ad_spread)
@@ -416,6 +422,61 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
         # system
         else:
             raise UnrelatedEvent
+
+    def _is_shared_mailbox_op(self, event):
+        spread_code = self.ut.unpickle_event_params(event)['spread']
+        if spread_code == self.shared_mbox_spread:
+            return True
+        else:
+            return False
+
+    @event_map('spread:add')
+    def create_shared_mailbox(self, event):
+        """Event handler for creation of a shared mailbox.
+
+        :type event: Cerebrum.extlib.db_row.row
+        :param event: The event returned from Change- or EventLog."""
+        if self._is_shared_mailbox(event):
+            name, _ = self.ut.get_group_information(
+                event['subject_entity'])
+            try:
+                self.ec.create_shared_mailbox(name)
+                self.logger.info(
+                    'eid:{event_id}: Created shared mailbox {name}'.format(
+                        event_id=event['event_id'],
+                        name=name))
+                self.ut.log_event_receipt(event, 'exchange:shared_mbox_create')
+            except (ExchangeException, ServerUnavailableException) as e:
+                self.logger.warn(
+                    'eid:{event_id}: Couldn\'t create shared mailbox for '
+                    '{name}: {error}'.format(event_id=event['event_id'],
+                                             name=name,
+                                             error=e))
+                raise EventExecutionException
+
+    @event_map('spread:delete')
+    def remove_shared_mailbox(self, event):
+        """Event handler for removal of shared mailbox.
+
+        :type event: Cerebrum.extlib.db_row.row
+        :param event: The event returned from Change- or EventLog."""
+        if self._is_shared_mailbox(event):
+            name, _ = self.ut.get_group_information(
+                event['subject_entity'])
+            try:
+                self.ec.delete_shared_mailbox(name)
+                self.logger.info(
+                    'eid:{event_id}: Deleted shared mailbox {name}'.format(
+                        event_id=event['event_id'],
+                        name=name))
+                self.ut.log_event_receipt(event, 'exchange:shared_mbox_delete')
+            except (ExchangeException, ServerUnavailableException) as e:
+                self.logger.warn(
+                    'eid:{event_id}: Couldn\'t delete shared mailbox for '
+                    '{name}: {error}'.format(event_id=event['event_id'],
+                                             name=name,
+                                             error=e))
+                raise EventExecutionException
 
     @event_map('spread:delete')
     def remove_mailbox(self, event):

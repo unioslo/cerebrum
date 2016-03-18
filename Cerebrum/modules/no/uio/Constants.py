@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2002-2011 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -79,7 +79,8 @@ class Constants(Constants.Constants):
     affiliation_status_student_tilbud = _PersonAffStatusCode(
         affiliation_student, 'tilbud', 'Registrert tilbud om opptak i FS')
     affiliation_status_student_opptak = _PersonAffStatusCode(
-        affiliation_student, 'opptak', 'Registrert med gyldig studierett i FS ')
+        affiliation_student, 'opptak',
+        'Registrert med gyldig studierett i FS ')
     affiliation_status_student_aktiv = _PersonAffStatusCode(
         affiliation_student, 'aktiv', 'Registrert som aktiv student i FS')
     affiliation_status_student_emnestud = _PersonAffStatusCode(
@@ -343,6 +344,9 @@ class Constants(Constants.Constants):
     spread_exchange_group = _SpreadCode(
         'exch_group@uio', Constants.Constants.entity_group,
         'A mail enabled security group for Exchange')
+    spread_exchange_shared_mbox = _SpreadCode(
+        'exch_shared_mbox', Constants.Constants.entity_group,
+        'Group exposed as a shared mailbox in Exchange')
 
     spread_uio_ldap_guest = _SpreadCode(
         'guest@ldap', Constants.Constants.entity_account,
@@ -384,7 +388,8 @@ class Constants(Constants.Constants):
     # brukere.
 
     quarantine_generell = _QuarantineCode('generell', 'Generell splatt')
-    quarantine_teppe = _QuarantineCode('teppe', 'Kallt inn p� teppet til drift')
+    quarantine_teppe = _QuarantineCode('teppe',
+                                       'Kallt inn p� teppet til drift')
     quarantine_slutta = _QuarantineCode('slutta', 'Personen har slutta')
     quarantine_system = _QuarantineCode('system', 'Systembrukar som ikke'
                                         ' skal logge inn')
@@ -439,8 +444,6 @@ class Constants(Constants.Constants):
     quarantine_radius = _QuarantineCode(
         'radius', 'Bruker er sperret for RADIUS-innlogging.')
     quarantine_cert = _QuarantineCode('cert', 'Bruker er sperret av CERT.')
-##     quarantine_wlan = _QuarantineCode('wlan',
-##                                       'Brukeren er utestengt fra WLAN.')
     email_domain_category_uio_globals = _EmailDomainCategoryCode(
         'UIO_GLOBALS',
         "All local_parts defined in domain 'UIO_GLOBALS' are treated"
