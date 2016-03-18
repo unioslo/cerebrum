@@ -31,7 +31,7 @@ def remove_operations(db, co, member, dest, group_spread, account_spread):
     """Generate a map of removal operations."""
     # Search downwards, locate candidates for removal
     if member.entity_type == co.entity_person:
-        primary_account = get_primary_account(db, member)
+        primary_account = get_primary_account(member)
         to_rem = ([(primary_account.entity_id,
                     primary_account.account_name)] if
                   primary_account else [])
@@ -61,13 +61,16 @@ def remove_operations(db, co, member, dest, group_spread, account_spread):
 
 def add_operations(db, co, member, dest, group_spread, account_spread):
     """Generate a map of add operations."""
-    destination_groups = get_destination_groups(dest, group_spread)
+    if dest:
+        destination_groups = get_destination_groups(dest, group_spread)
+    else:
+        destination_groups = []
     if member.entity_type == co.entity_group:
         to_add = get_children(db, member)
         to_add.add((member.entity_id, member.group_name))
 
     elif member.entity_type == co.entity_person:
-        primary_account = get_primary_account(db, member)
+        primary_account = get_primary_account(member)
         to_add = ([(primary_account.entity_id,
                     primary_account.account_name)] if
                   primary_account else [])
@@ -96,8 +99,7 @@ def get_children(db, ent):
     Converts persons to primary accounts."""
     def convert(x):
         if x['member_type'] == ent.const.entity_person:
-            primary_account = get_primary_account(get_entity(db,
-                                                             x['member_id']))
+            primary_account = get_primary_account(get_entity(x['member_id']))
             return (primary_account.entity_id, primary_account.account_name)
         else:
             return (x['member_id'], get_entity_name(db, x['member_id']))
