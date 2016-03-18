@@ -1374,6 +1374,9 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
                                                      member, destination,
                                                      self.group_spread,
                                                      self.mb_spread)
+
+        if not removals:
+            return
         for (group_id, group_name) in removals.keys():
             for (cand_id, cand_name) in removals.get((group_id, group_name)):
                 try:

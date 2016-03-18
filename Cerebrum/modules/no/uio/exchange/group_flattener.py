@@ -29,6 +29,10 @@ from functools import partial
 
 def remove_operations(db, co, member, dest, group_spread, account_spread):
     """Generate a map of removal operations."""
+
+    crit = partial(for_exchange, db, group_spread=group_spread,
+                   account_spread=account_spread)
+
     # Search downwards, locate candidates for removal
     if member.entity_type == co.entity_person:
         primary_account = get_primary_account(member)
@@ -41,9 +45,6 @@ def remove_operations(db, co, member, dest, group_spread, account_spread):
         to_rem = get_children(db, member)
         to_rem.add((member.entity_id, member.group_name))
 
-        crit = partial(for_exchange, db, group_spread=group_spread,
-                       account_spread=account_spread)
-
         to_rem = criteria_sieve(to_rem, crit)
     else:
         return {}
@@ -54,9 +55,17 @@ def remove_operations(db, co, member, dest, group_spread, account_spread):
                                       db, get_entity(db, gid)),),
                               get_destination_groups(dest, group_spread)))
 
+    destination_groups = dict(map(lambda x: (x, destination_groups[x]),
+                                  criteria_sieve(destination_groups.keys(),
+                                                 crit)))
+
     # Calculate if members should be removed from group-candidates or not
-    return dict(map(lambda (k, v): (k, filter(lambda e: e not in v, to_rem)),
-                    destination_groups.items()))
+    if destination_groups:
+        return dict(map(lambda (k, v): (k, filter(lambda e: e not in v,
+                                                  to_rem)),
+                        destination_groups.items()))
+    else:
+        {}
 
 
 def add_operations(db, co, member, dest, group_spread, account_spread):
@@ -99,13 +108,19 @@ def get_children(db, ent):
     Converts persons to primary accounts."""
     def convert(x):
         if x['member_type'] == ent.const.entity_person:
-            primary_account = get_primary_account(get_entity(x['member_id']))
-            return (primary_account.entity_id, primary_account.account_name)
+            primary_account = get_primary_account(get_entity(db,
+                                                             x['member_id']))
+            if primary_account:
+                return (primary_account.entity_id,
+                        primary_account.account_name)
+            else:
+                return (None, None)
         else:
             return (x['member_id'], get_entity_name(db, x['member_id']))
-    return set(map(lambda x: convert(x),
-                   ent.search_members(group_id=ent.entity_id,
-                                      indirect_members=True)))
+    return set(filter(lambda (x, y): x and y,
+                      map(lambda x: convert(x),
+                          ent.search_members(group_id=ent.entity_id,
+                                             indirect_members=True))))
 
 
 def get_primary_account(person):
@@ -118,7 +133,7 @@ def get_entity(db, entity_id):
     entity = Factory.get('Entity')(db)
     try:
         return entity.get_subclassed_object(id=entity_id)
-    except Errors.NotFoundError:
+    except (Errors.NotFoundError, TypeError):
         return None
 
 
