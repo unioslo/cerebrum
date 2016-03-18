@@ -436,7 +436,7 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
 
         :type event: Cerebrum.extlib.db_row.row
         :param event: The event returned from Change- or EventLog."""
-        if self._is_shared_mailbox(event):
+        if self._is_shared_mailbox_op(event):
             name, _ = self.ut.get_group_information(
                 event['subject_entity'])
             try:
@@ -460,7 +460,7 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
 
         :type event: Cerebrum.extlib.db_row.row
         :param event: The event returned from Change- or EventLog."""
-        if self._is_shared_mailbox(event):
+        if self._is_shared_mailbox_op(event):
             name, _ = self.ut.get_group_information(
                 event['subject_entity'])
             try:
