@@ -205,6 +205,19 @@ class ExchangeHandlerConfig(Configuration):
         doc=u"Handler module used for processing events")
 
 
+class DeferedExchangeHandler(Configuration):
+    u"""Configuration for the defered event handler."""
+    handler_class = ConfigDescriptor(
+        String,
+        default=None,
+        doc=u"Defered handler class used for processing events")
+
+    handler_mod = ConfigDescriptor(
+        String,
+        default=None,
+        doc=u"Defered handler module used for processing events")
+
+
 class ExchangeConfig(Configuration):
     u"""Configuration for the Exchange integration."""
     client = ConfigDescriptor(
@@ -223,6 +236,9 @@ class ExchangeConfig(Configuration):
         Namespace,
         config=ExchangeHandlerConfig)
 
+    defered_handler = ConfigDescriptor(
+        Namespace,
+        config=DeferedExchangeHandlerConfig)
 
 def load_config(filepath=None):
     config_cls = ExchangeConfig()

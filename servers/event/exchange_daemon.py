@@ -73,6 +73,18 @@ def serve(logger, config, num_workers, enable_listener,
             config=config,
             mock=config.client.mock)
 
+    if (config.defered_handler.handler_mod and
+            config.defered_handler.handler_class):
+        hand = getattr(Utils.dyn_import(config.defered_handler.handler_mod),
+                       config.defered_handler.handler_class)
+        exchanged.add_process(
+            hand,
+            queue=event_queue,
+            log_queue=exchanged.log_queue,
+            running=exchanged.run_trigger,
+            config=config,
+            mock=config.client.mock)
+
     if enable_listener:
         exchanged.add_process(
             evhandlers.DBEventListener,
