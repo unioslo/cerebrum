@@ -94,7 +94,7 @@ class CheckASCIICharacters(PasswordChecker):
 
     def __init__(self):
         self._requirement = _('Can contain only ASCII letters, '
-                              'digits and {special_characters}').format(
+                              'digits and: {special_characters}').format(
                                   special_characters=string.punctuation)
         self.allowed_chars = unicodify(string.ascii_letters +
                                        string.digits +

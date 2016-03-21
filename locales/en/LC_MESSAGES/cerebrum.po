@@ -20,7 +20,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-03-16 13:49+0100\n"
+"POT-Creation-Date: 2016-03-21 13:52+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -64,7 +64,7 @@ msgid "Password cannot contain 8-bit characters (e.g. æøå)."
 msgstr ""
 
 #: Cerebrum/modules/pwcheck/simple.py:96
-msgid "Can contain only ASCII letters, digits and {special_characters}"
+msgid "Can contain only ASCII letters, digits and: {special_characters}"
 msgstr ""
 
 #: Cerebrum/modules/pwcheck/simple.py:116
@@ -118,97 +118,97 @@ msgid "Password must be at most {max_length} characters long."
 msgstr ""
 
 #: Cerebrum/modules/pwcheck/simple.py:259
-#: Cerebrum/modules/pwcheck/checker.py:151
+#: Cerebrum/modules/pwcheck/checker.py:152
 msgid "Something"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:304
+#: Cerebrum/modules/pwcheck/simple.py:303
 msgid ""
 "A password that only contains one uppercase letter, must not have this as "
 "the first character. If the first 8 characters only contains one number or "
 "special character, this must not be in position 8."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:310
+#: Cerebrum/modules/pwcheck/simple.py:309
 msgid ""
 "The first eight characters of the password must contain characters from at "
 "least three of the four following character groups: Uppercase letters, "
 "lowercase letters, numbers and special characters."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:322
+#: Cerebrum/modules/pwcheck/simple.py:321
 msgid "Must not contain sequences of closely related characters."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:345
+#: Cerebrum/modules/pwcheck/simple.py:344
 msgid "Password cannot contain characters in alpabetical or numerical order"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:374
+#: Cerebrum/modules/pwcheck/simple.py:373
 msgid "Password cannot contain neighbouring keyboard keys"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:385
+#: Cerebrum/modules/pwcheck/simple.py:384
 msgid "Must not contain repeated sequences of characters."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:393
+#: Cerebrum/modules/pwcheck/simple.py:392
 msgid "Password cannot contain repeated sequences of characters."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:413
+#: Cerebrum/modules/pwcheck/simple.py:412
 msgid "Must not contain your username, even in reverse."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:426
+#: Cerebrum/modules/pwcheck/simple.py:425
 msgid "Password cannot contain your username"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:430
+#: Cerebrum/modules/pwcheck/simple.py:429
 msgid "Password cannot contain your username in reverse"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:439
+#: Cerebrum/modules/pwcheck/simple.py:438
 msgid "Must not contain {name_seq_len} or more characters from your name."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:509
+#: Cerebrum/modules/pwcheck/simple.py:508
 msgid "Password cannot contain your name."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:523
+#: Cerebrum/modules/pwcheck/simple.py:522
 msgid "Password cannot contain {seqlen} characters from your name"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:534
+#: Cerebrum/modules/pwcheck/simple.py:533
 msgid "Must only contain letters and spaces."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:549
+#: Cerebrum/modules/pwcheck/simple.py:548
 msgid "Password can only contain letters and spaces."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:558
+#: Cerebrum/modules/pwcheck/simple.py:557
 msgid "Must contain at least {digits} digits."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:564
+#: Cerebrum/modules/pwcheck/simple.py:563
 msgid "Password must contain at least {digits} digits"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:574
+#: Cerebrum/modules/pwcheck/simple.py:573
 msgid "Must contain at least {letters} letters."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:581
+#: Cerebrum/modules/pwcheck/simple.py:580
 msgid "Password must contain at least {letters} letters"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:590
+#: Cerebrum/modules/pwcheck/simple.py:589
 msgid "Must contain upper and lowercase letters"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:597
+#: Cerebrum/modules/pwcheck/simple.py:596
 msgid "Password must contain upper and lowercase letters"
 msgstr ""
 
