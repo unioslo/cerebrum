@@ -509,25 +509,53 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
     person_contact_mail = True
 
     def init_account_mail(self, use_mail_module):
+        u""" Cache account mail addresses.
+
+        This method builds a dict cache that maps account_id -> primary email
+        address, and assigns the `dict.get` method to `self.account_mail`.
+
+        NOTE: The LDAP_PERSON['mail_target_types'] setting decides which email
+        target types are considered.
+
+        :param bool use_mail_module:
+            If True, Cerebrum.modules.Email will be used to populate this
+            cache; otherwise the `self.account_mail` method will be None (not
+            implemented).
+
+        """
         # Set self.account_mail = None if not use_mail_module, otherwise
         #                         function: account_id -> ('address' or None).
         if use_mail_module:
             timer = make_timer(self.logger, "Fetching account e-mail addresses...")
+
+            # Get target types from config
+            mail_target_types = []
+            for value in ldapconf('PERSON', 'mail_target_types', []):
+                code = self.const.human2constant(value, self.const.EmailTarget)
+                if code is None:
+                    self.logger.warn("Unknown EmailTarget %r in setting %s",
+                                     value, "LDAP_PERSON['mail_target_types']")
+                else:
+                    mail_target_types.append(code)
+
             # We don't want to import this if mod_email isn't present.
             from Cerebrum.modules.Email import EmailDomain, EmailTarget
-            etarget = EmailTarget(self.db)
+            targets = EmailTarget(self.db).list_email_target_primary_addresses
             rewrite = EmailDomain(self.db).rewrite_special_domains
+
+            # Look up target addrs. Note that the reversed order causes the
+            # lesser prioritized target types to be overwritten by targets with
+            # higher priority.
             mail = {}
-            for row in etarget.list_email_target_primary_addresses(
-                    target_type=self.const.email_target_account):
-                # TBD: Should we check for multiple values for primary
-                #      addresses?
-                try:
-                    mail[int(row['target_entity_id'])] = "@".join(
-                        (row['local_part'], rewrite(row['domain'])))
-                except TypeError:
-                    self.logger.warn("email_target %d got no user.",
-                                     int(row['target_id']))
+            for code in reversed(mail_target_types):
+                target_timer = make_timer(self.logger)
+                for row in targets(target_type=code):
+                    try:
+                        mail[int(row['target_entity_id'])] = "@".join(
+                            (row['local_part'], rewrite(row['domain'])))
+                    except TypeError:
+                        continue
+                target_timer("...target_type '{!s}' done".format(code))
             self.account_mail = mail.get
             timer("...account e-mail addresses done.")
         else:
