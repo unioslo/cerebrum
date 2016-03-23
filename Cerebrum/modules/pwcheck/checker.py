@@ -70,7 +70,15 @@ def check_password(password, account=None, structured=False):
     :param structured: send a strctured (json) output or raise an exception
     :type structured: bool
     """
-    pwstyle = cereconf.PASSWORD_STYLE
+    # Inspect the PASSWORD_CHECKS structure and decide
+    # on supported password styles
+    allowed_style = 'rigid'
+    if (cereconf.PASSWORD_CHECKS.get('rigid') and
+        cereconf.PASSWORD_CHECKS.get('phrase')):
+        allowed_style = 'mixed'
+    elif cereconf.PASSWORD_CHECKS.get('phrase'):
+        allowed_style = 'phrase'
+    pwstyle = allowed_style
     if pwstyle == 'mixed':
         # mark as 'phrase' if the password contains space, 'rigid' otherwise
         pwstyle = 'rigid'
@@ -130,7 +138,7 @@ def check_password(password, account=None, structured=False):
             }})
     data = {
         'passed': total_passed[pwstyle],
-        'allowed_style': cereconf.PASSWORD_STYLE,
+        'allowed_style': allowed_style,
         'style': pwstyle,
         'checks': checks_structure,
     }

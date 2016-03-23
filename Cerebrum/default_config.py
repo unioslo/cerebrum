@@ -48,13 +48,6 @@ PASSWORD_DICTIONARIES = ()
 # produce passphrases
 PASSPHRASE_DICTIONARIES = ()
 
-# Set password style. Legal variants are:
-# rigid = rigid checks needed for short passwords
-# phrase = loose entropy checks, but longer passprases required
-# mixed = Cerebrum analyzes the passwd. string in order to determine the style
-# read by Cerebrum.modules.pwcheck.wordorphrase/PhraseWordCheckSplitter
-PASSWORD_STYLE = 'rigid'
-
 # Set the checks to be performed
 # The order will be kept during the check, hence it is a good idea to have
 # the faster and more general checks (like f.i. 'length') at the top of

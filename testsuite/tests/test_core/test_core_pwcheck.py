@@ -41,7 +41,6 @@ def bad_phrase_password_strings(request):
 def test_all_default_rigid_checks(bad_rigid_password_strings):
     """
     """
-    cereconf.PASSWORD_STYLE = 'rigid'
     cereconf.PASSWORD_CHECKS = {
         'rigid': (
             ('length', {'min_length': 10}),
@@ -59,7 +58,6 @@ def test_all_default_rigid_checks(bad_rigid_password_strings):
 def test_all_default_phrase_checks(bad_phrase_password_strings):
     """
     """
-    cereconf.PASSWORD_STYLE = 'phrase'
     cereconf.PASSWORD_CHECKS = {
         'phrase': (
             ('length', {'min_length': 12, 'max_length': None}),
