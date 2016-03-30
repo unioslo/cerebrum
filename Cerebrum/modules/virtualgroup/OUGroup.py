@@ -70,6 +70,7 @@ from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Entity import Entity
 from Cerebrum.Person import Person
 from Cerebrum.Account import Account
+from Cerebrum.Errors import NotFoundError
 
 
 __version__ = "1.0"  # mod_virtualgroup_ou
@@ -338,9 +339,13 @@ class OUGroup(VirtualGroup):
             return ent.entity_type
 
         def get_group_type(entity_id):
-            return self.query_1("""SELECT virtual_group_type FROM
-                                [:table schema=cerebrum name=virtual_group_info]
-                                WHERE group_id = :gid""", {'gid': entity_id})
+            try:
+                return self.query_1(
+                    """SELECT virtual_group_type FROM
+                    [:table schema=cerebrum name=virtual_group_info]
+                    WHERE group_id = :gid""", {'gid': entity_id})
+            except NotFoundError:
+                return self.const.vg_normal_group
 
         binds = {
             'vdomain': self.const.group_namespace

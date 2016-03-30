@@ -23,6 +23,7 @@
 from types import MethodType
 from Cerebrum import Utils
 from Cerebrum.Group import Group
+from Cerebrum.Errors import NotFoundError
 
 
 def populator(*types):
@@ -104,21 +105,30 @@ class VirtualGroup(Group):
         this object.
 
         """
-        super(VirtualGroup, self).write_db()
+        is_new = super(VirtualGroup, self).write_db()
         try:
-            is_new = not self.__in_db
-        except AttributeError:
-            return
-        if not self.__updated:
-            return
-
-        if is_new:
-            self.execute("""
-                INSERT INTO [:table schema=cerebrum name=virtual_group_info]
-                         (g_id, virtual_group_type)
-                VALUES (:group_id, :group_type)""",
-                         {'g_id': self.entity_id,
+            gt = self.query_1(
+                """
+                SELECT virtual_group_type
+                FROM [:table schema=cerebrum name=virtual_group_info]
+                WHERE group_id = :gid)
+                """, {'gid': self.entity_id})
+            if gt != self.virtual_group_type:
+                self.execute(
+                    """
+                    UPDATE [:table schema=cerebrum name=virtual_group_info]
+                    SET group_type = :group_type
+                    WHERE group_id = :g_id
+                    """, {'g_id': self.entity_id,
                           'group_type': self.virtual_group_type})
+        except NotFoundError:
+            self.execute(
+                """
+                INSERT INTO [:table schema=cerebrum name=virtual_group_info]
+                (group_id, virtual_group_type)
+                VALUES (:g_id, :group_type)""",
+                {'g_id': self.entity_id,
+                 'group_type': self.virtual_group_type})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -137,10 +147,14 @@ class VirtualGroup(Group):
     def find(self, group_id):
         """Connect object to group with ``group_id`` in database."""
         self.__super.find(group_id)
-        self.virtual_group_type = self.query_1("""
-            SELECT virtual_group_type
-            FROM [:table schema=cerebrum name=virtual_group_info]
-            WHERE group_id = :g_id""", {'g_id': group_id})
+        try:
+            self.virtual_group_type = self.query_1(
+                """
+                SELECT virtual_group_type
+                FROM [:table schema=cerebrum name=virtual_group_info]
+                WHERE group_id = :g_id""", {'g_id': group_id})
+        except NotFoundError:
+            self.virtual_group_type = self.const.vg_normal_group
         try:
             del self.__in_db
         except AttributeError:
