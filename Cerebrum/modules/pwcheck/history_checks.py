@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# coding: utf-8
+# -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2003-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,20 +18,25 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
-Password check mixin to insert default args from cereconf.
-Important: add this to cereconf.CLASS_ACCOUNT before the other
-PasswordCheckers
 """
 
-from .common import PasswordChecker
-import cereconf
+from .checker import pwchecker, PasswordChecker
 
 
-class CereconfMixin(PasswordChecker):
-    def password_good_enough(self, password, **kw):
-        """Insert cereconf.PASSWORD_TEST_ARGUMENTS into keywords"""
-        dta = cereconf.PASSWORD_TEST_ARGUMENTS.copy()
-        dta.update(kw)
-        super(CereconfMixin, self).password_good_enough(password, **dta)
+@pwchecker('history')
+class CheckPasswordHistory(PasswordChecker):
+    """ Match the password against PasswordHistory. """
+
+    def __init__(self):
+        self._requirement = _(
+            'Must not be too similar to an old password.')
+
+    def check_password(self, password, account=None):
+        if not account:
+            return
+        if not hasattr(account, '_check_password_history'):
+            return
+        if (account._check_password_history(password) or
+                account._check_password_history(password[0:8])):
+            return [_('Password too similar to an old password.')]

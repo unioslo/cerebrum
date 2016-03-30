@@ -1,7 +1,7 @@
-#!/usr/bin/env python2
-# encoding: utf-8
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
-# Copyright 2003-2015 University of Oslo, Norway
+# Copyright 2003-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -33,118 +33,233 @@ structure of the dictionary checks, please see:
 
 """
 
-import cerebrum_path
-import cereconf
-
 import re
 import operator
+import string
 
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 
-from . import common
+from .checker import pwchecker, PasswordChecker, l33t_speak
 
 
-# TODO: Should we really disallow characters from passwords?
-class CheckInvalidCharsMixin(common.PasswordChecker):
+def unicodify(password):
+    if isinstance(password, str):
+        try:
+            password = password.decode('UTF-8')
+        except UnicodeDecodeError:
+            password = password.decode('ISO-8859-1')
+    return password
 
-    """ Check for illegal characters in password string. """
 
-    _password_illegal_chars = {
-        '\0': "Password cannot contain the null character.",
-        ' ': "Password cannot contain space.", }
+@pwchecker('space_or_null')
+class CheckSpaceOrNull(PasswordChecker):
+    """Check for space or null in password string."""
 
-    _password_illegal_regex = {
-        r'[\200-\376]':
-            "Password cannot contain 8-bit characters (e.g.  æøå).", }
+    def __init__(self):
+        self._requirement = _(
+            'Must not contain a space or the special null character.')
+        self._password_illegal_chars = {
+            '\0': _('Password cannot contain the null character.'),
+            ' ': _('Password cannot contain space.'), }
 
-    def password_good_enough(self, password, skip_rigid_password_tests=False,
-                             **kw):
-        """ Check that only valid characters are allowed. """
-        super(CheckInvalidCharsMixin, self).password_good_enough(
-            password, skip_rigid_password_tests=skip_rigid_password_tests, **kw)
+    def check_password(self, password, account=None):
+        """Check that only valid characters are allowed."""
+        errors = []
 
-        if skip_rigid_password_tests:
-            return
         for char, err in self._password_illegal_chars.iteritems():
             if char in password:
-                raise common.PasswordNotGoodEnough(err)
-
-        for regex, err in self._password_illegal_regex.iteritems():
-            if re.search(regex, password):
-                raise common.PasswordNotGoodEnough(err)
+                errors.append(err)
+        return errors
 
 
-class CheckLengthMixin(common.PasswordChecker):
+@pwchecker('8bit_characters')
+class CheckEightBitChars(PasswordChecker):
+    """Check for 8-bit characters in password string."""
 
-    """ Check for minimum and maximum password length. """
+    def __init__(self):
+        self._requirement = _(u'Must not contain 8-bit characters (e.g. æøå).')
 
-    def password_good_enough(self, password,
-                             password_min_length=8, password_max_length=None,
-                             **kw):
+    def check_password(self, password, account=None):
+        """ Check that only valid characters are allowed. """
+        if re.search(r'[\200-\376]', password):
+            return [_(u'Password cannot contain 8-bit characters (e.g. æøå).')]
+
+
+@pwchecker('ascii_characters_only')
+class CheckASCIICharacters(PasswordChecker):
+    """
+    Check that the password does not contain non ASCII characters
+    """
+
+    def __init__(self):
+        self._requirement = _('Can contain only ASCII letters, '
+                              'digits and: {special_characters}').format(
+                                  special_characters=string.punctuation)
+        self.allowed_chars = unicodify(string.ascii_letters +
+                                       string.digits +
+                                       string.punctuation + ' ')
+
+    def check_password(self, password, account=None):
+        """
+        Check that the password contains only ascii characters
+        using the string module:
+
+        ascii_characters =
+        string.ascii_letters, string.string.digits, string.punctuation, space
+        """
+        password = unicodify(password)
+        errors = []
+        for character in password:
+            if character not in self.allowed_chars:
+                errors.append(
+                    _(u'Password can not contain the character: '
+                      '{character}').format(character=character))
+        return errors
+
+
+@pwchecker('latin1_characters_only')
+class CheckLatinCharacters(PasswordChecker):
+    """
+    Check that the password contains only latin1 compatible characters only
+    """
+
+    def __init__(self):
+        self._requirement = _('Can contain only latin1 (ISO-8859-1) '
+                              'compatible characters').format(
+                                  special_characters=string.punctuation)
+
+    def check_password(self, password, account=None):
+        """
+        Check that the password contains only latin1 compatible characters only
+        """
+        password = unicodify(password)
+        try:
+            # attempt latin1 encoding
+            password.encode('ISO-8859-1')
+        except UnicodeEncodeError:
+            return [_('Password contains one or more characters that are not '
+                      'latin1 (ISO-8859-1) compatible')]
+
+
+@pwchecker('illegal_characters')
+class CheckIllegalCharacters(PasswordChecker):
+    """
+    Check that the password does not contain one or more of the specified
+    characters.
+    """
+
+    def __init__(self, illegal_characters=''):
+        """
+        Check that the password does not contain one or more of the
+        characters specified in `illegal_characters`
+
+        :param illegal_characters: defined illegal characters
+        :type password: str or unicode
+        """
+        self.illegal_characters = unicodify(illegal_characters)
+        self._requirement = _(u'Can not contain one or more of the following '
+                              'characters: {illegal_characters}').format(
+                                  illegal_characters=illegal_characters)
+
+    def check_password(self, password, account=None):
+        """
+        Check that the password does not contain one or more of the characters
+        defined as illegal
+        """
+        password = unicodify(password)
+        errors = []
+        for character in self.illegal_characters:
+            if character in password:
+                errors.append(
+                    _(u'Password can not contain the character: '
+                      '{character}').format(character=character))
+        return errors
+
+
+@pwchecker('simple_character_groups')
+class CheckSimpleCharacterGroups(PasswordChecker):
+    """Check for character groups."""
+
+    def __init__(self, min_groups=3):
+        """
+        A password should contain characters from at least `min_groups`
+        of the defined groups 'lowercase letters', 'uppercase letters',
+        'digits' and string.punctuation characters.
+        """
+        self.min_groups = min_groups
+        self.character_groups = (string.ascii_lowercase,
+                                 string.ascii_uppercase,
+                                 string.digits,
+                                 string.punctuation)
+        self._requirement = _(
+            'Must contain characters from at least {min_groups} of the '
+            'following character groups: Uppercase letters, lowercase '
+            'letters, numbers and special characters').format(
+                min_groups=min_groups)
+
+    def check_password(self, password, account=None):
+        """
+        Make sure that the password contains characters from different groups.
+        """
+        character_groups_detected = 0
+        for group in self.character_groups:
+            if any(map(lambda x: x in group, password)):
+                character_groups_detected += 1
+        if character_groups_detected < self.min_groups:
+            return [_(
+                'Password must contain characters from at least {min_groups} '
+                'of the following character groups: Uppercase letters, '
+                'lowercase letters, numbers and special characters.').format(
+                    min_groups=self.min_groups)]
+
+
+@pwchecker('length')
+class CheckLengthMixin(PasswordChecker):
+    """Check for minimum and maximum password length."""
+
+    def __init__(self, min_length=8, max_length=None):
+        self.min_length = min_length
+        self.max_length = max_length
+
+        if not max_length:
+            self._requirement = _(
+                'Must be at least {min_length} characters.').format(
+                    min_length=min_length)
+        else:
+            self._requirement = _(
+                'Must be at least {min_length} and at most '
+                '{max_length} characters.').format(min_length=min_length,
+                                                   max_length=max_length)
+
+    def check_password(self, password, account=None):
         """Check the length of the password.
 
         The password must be at least _password_min_length long and at most
         _password_max_length long.
-
         """
-        super(CheckLengthMixin, self).password_good_enough(password,
-                                                           **kw)
+        if (self.min_length is not None and
+                len(password.strip()) < self.min_length):
+            return [
+                _('Password must be at least {min_length} '
+                  'characters long.').format(min_length=self.min_length)]
 
-        if (password_min_length is not None
-                and len(password.strip()) < password_min_length):
-            raise common.PasswordNotGoodEnough(
-                "Password must be at least %d characters long." %
-                password_min_length)
-
-        if (password_max_length is not None
-                and len(password) > password_max_length):
-            raise common.PasswordNotGoodEnough(
-                "Password must be at most %d characters long." %
-                password_max_length)
+        if (self.max_length is not None and
+                len(password) > self.max_length):
+            return [
+                _('Password must be at most {max_length} characters '
+                  'long.').format(max_length=self.max_length)]
 
 
-# TODO: Can we get rid of this?
-class CheckConcatMixin(common.PasswordChecker):
+@pwchecker('multiple_character_sets')
+class CheckMultipleCharacterSets(PasswordChecker):
+    """Adds a entropy check to password checker."""
 
-    """We disallow passwords like 'Camel*Toe'.
+    def __init__(self):
+        self._requirement = _('Something')
 
-    (Passwords are pretty legit otherwise, except that they are
-    essentially 2 dictionary words combined).
-
-    TBD: Is this really a good idea? This check disallows passwords like
-    'Hsy#Klj7', which is clearly completely insane, but will still allow
-    'Camel**Toe' or 'CamelToe'.
-
-    """
-
-    def password_good_enough(self, password,
-                             skip_rigid_password_tests=False,
-                             **kw):
-        """ This is insane. """
-        super(CheckConcatMixin, self).password_good_enough(
-            password,
-            skip_rigid_password_tests=skip_rigid_password_tests,
-            **kw)
-
-        if not skip_rigid_password_tests:
-            first_eight = password[0:8]
-
-            if (re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$', first_eight)
-                    or re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$',
-                                 password)):
-                raise common.PasswordNotGoodEnough(
-                    "Password cannot contain two concatenated words.")
-
-
-class CheckEntropyMixin(common.PasswordChecker):
-
-    """ Adds a entropy check to password checker. """
-
-    def password_good_enough(self, password,
-                             skip_rigid_password_tests=False,
-                             **kw):
-        """ Check that a password use multiple character sets.
+    def check_password(self, password, account=None):
+        """Check that a password use multiple character sets.
 
         The password must contain characters from at least three
         of the following sets:
@@ -153,16 +268,8 @@ class CheckEntropyMixin(common.PasswordChecker):
           - uppercase
           - digit
           - special char
-
         """
 
-        super(CheckEntropyMixin, self).password_good_enough(
-            password,
-            skip_rigid_password_tests=skip_rigid_password_tests,
-            **kw)
-
-        if skip_rigid_password_tests:
-            return
         # TODO: Write proper regex, so that we don't have to truncate the
         # password
         first_eight = password[0:8]
@@ -192,32 +299,32 @@ class CheckEntropyMixin(common.PasswordChecker):
 
         if variation < 3:
             if good_try:
-                raise common.PasswordNotGoodEnough(
-                    "A password that only contains one uppercase letter,"
-                    " must not have this as the first character."
-                    " If the first 8 characters only contains one number or"
-                    " special character, this must not be in position 8.")
+                return [
+                    _("A password that only contains one uppercase letter,"
+                      " must not have this as the first character."
+                      " If the first 8 characters only contains one number or"
+                      " special character, this must not be in position 8.")]
             else:
-                raise common.PasswordNotGoodEnough(
-                    "The first eight characters of the password must contain"
-                    " characters from at least three of the four following"
-                    " character groups: Uppercase letters, lowercase letters,"
-                    " numbers and special characters.")
+                return [
+                    _("The first eight characters of the password must contain"
+                      " characters from at least three of the four following"
+                      " character groups: Uppercase letters, lowercase"
+                      " letters, numbers and special characters.")]
 
 
-class CheckCharSeqMixin(common.PasswordChecker):
+@pwchecker('character_sequence')
+class CheckCharacterSequence(PasswordChecker):
+    """Check for sequences of related chars."""
 
-    """ Check for sequences of related chars. """
+    def __init__(self, char_seq_length=3):
+        self._requirement = _(
+            'Must not contain sequences of closely related characters.')
+        self.char_seq_length = char_seq_length
 
-    def password_good_enough(self, password, char_seq_length=3, **kw):
-        """ Check for sequences of closely related characters. """
-        super(CheckCharSeqMixin, self).password_good_enough(password, **kw)
-
-        if isinstance(password, str):
-            try:
-                password = unicode(password, 'UTF-8')
-            except UnicodeDecodeError:
-                password = unicode(password, 'ISO-8859-1')
+    def check_password(self, password, account=None):
+        """Check for sequences of closely related characters."""
+        errors = []
+        password = unicodify(password)
         passwd = password.lower()
         ordpw = map(ord, passwd)
 
@@ -233,10 +340,10 @@ class CheckCharSeqMixin(common.PasswordChecker):
         # A sequence of closely related ASCII characters.
         for diff, num in find_adjacent_runs(
                 map(operator.sub, ordpw[1:], ordpw[:-1])):
-            if diff in (-1, 1) and num >= char_seq_length:
-                raise common.PasswordNotGoodEnough(
-                    "Password cannot contain characters in alpabetical or"
-                    " numerical order")
+            if diff in (-1, 1) and num >= self.char_seq_length:
+                errors.append(_('Password cannot contain characters in '
+                                'alpabetical or numerical order'))
+                break
 
         # TODO: 'kbd' should probably try a number of typical layouts.
         # Rows may be of different lengths, but the same symbol CANNOT occur
@@ -261,94 +368,95 @@ class CheckCharSeqMixin(common.PasswordChecker):
             pw = [mapper.get(x, -1) for x in passwd]
             runs = find_adjacent_runs(map(operator.sub, pw[1:], pw[:-1]))
             for diff, num in runs:
-                if diff in (-1, 1) and num >= char_seq_length:
-                    raise common.PasswordNotGoodEnough(
-                        "Password cannot contain neighbouring keyboard keys")
+                if diff in (-1, 1) and num >= self.char_seq_length:
+                    errors.append(_(
+                        'Password cannot contain neighbouring keyboard keys'))
+                    break
+        return errors
 
 
-class CheckRepeatedPatternMixin(common.PasswordChecker):
+@pwchecker('repeated_pattern')
+class CheckRepeatedPattern(PasswordChecker):
+    """Check for repeated patterns in password."""
 
-    """ Check for repeated patterns in password. """
+    def __init__(self):
+        self._requirement = _(
+            'Must not contain repeated sequences of characters.')
 
-    def password_good_enough(self, password, skip_rigid_password_tests=False,
-                             **kw):
-        """ Check for repeated sequences in the first eight chars. """
-        super(CheckRepeatedPatternMixin, self).password_good_enough(
-            password,
-            skip_rigid_password_tests=skip_rigid_password_tests,
-            **kw)
-
-        if skip_rigid_password_tests:
-            return
+    def check_password(self, password, account=None):
+        """Check for repeated sequences in the first eight chars."""
 
         # TODO: Clean up this check, and get rid of the trunc
         first_eight = password[0:8]
-        repeat_err = common.PasswordNotGoodEnough(
-            "Password cannot contain repeated sequences of characters.")
+        repeat_err = [
+            _('Password cannot contain repeated sequences of characters.')]
 
         # Repeated patterns: ababab, abcabc, abcdabcd
         if (re.search(r'^(..)\1\1', first_eight) or
                 re.search(r'^(...)\1', first_eight) or
                 re.search(r'^(....)\1', first_eight)):
-            raise repeat_err
+            return repeat_err
 
         # Reversed patterns: abccba abcddcba
         if (re.search(r'^(.)(.)(.)\3\2\1', first_eight) or
                 re.search(r'^(.)(.)(.)(.)\4\3\2\1', first_eight)):
-            raise repeat_err
+            return repeat_err
 
 
-class CheckUsernameMixin(common.PasswordChecker):
+@pwchecker('username')
+class CheckUsername(PasswordChecker):
+    """Check for use of the username in the password."""
 
-    """ Check for use of the username in the password. """
+    def __init__(self):
+        self._requirement = _(
+            'Must not contain your username, even in reverse.')
 
-    def password_good_enough(self, password, **kw):
-        """ Does the password contain the username? """
-        super(CheckUsernameMixin, self).password_good_enough(password, **kw)
-        name = getattr(self, 'account_name', None)
-        if name is not None:
-            self._check_uname_password(name, password)
-
-    def _check_uname_password(self, name, passwd):
-        # password cannot contain the username
-        if name.lower() in passwd.lower():
-            raise common.PasswordNotGoodEnough(
-                "Password cannot contain your username")
-
-        # password cannot contain the username reversed
-        if name[::-1].lower() in passwd.lower():
-            raise common.PasswordNotGoodEnough(
-                "Password cannot contain your username in reverse")
-
-
-class CheckOwnerNameMixin(common.PasswordChecker):
-
-    """ Check for use of the account owners name in the password. """
-
-    def password_good_enough(self, password, name_seq_len=5, **kw):
-        super(CheckOwnerNameMixin, self).password_good_enough(password, **kw)
-
-        if not hasattr(self, 'owner_id'):
+    def check_password(self, password, account=None):
+        """Does the password contain the username?"""
+        if account is None:
             return
 
-        if isinstance(password, str):
-            try:
-                password = unicode(password, 'UTF-8')
-            except:
-                password = unicode(password, 'ISO-8859-1')
+        uname = getattr(account, 'account_name', None)
+        if uname is None:
+            return
 
-        self._check_human_owner(self.owner_id, password, name_seq_len)
+        # password cannot contain the username
+        if uname.lower() in password.lower():
+            return [_('Password cannot contain your username')]
 
-    def _check_human_owner(self, owner_id, password, seqlen):
+        # password cannot contain the username reversed
+        if uname[::-1].lower() in password.lower():
+            return [_('Password cannot contain your username in reverse')]
+
+
+@pwchecker('owner_name')
+class CheckOwnerNameMixin(PasswordChecker):
+    """Check for use of the account owners name in the password."""
+
+    def __init__(self, name_seq_len=5):
+        self.name_seq_len = name_seq_len
+        self._requirement = _('Must not contain {name_seq_len} or more '
+                              'characters from your name.').format(
+                                  name_seq_len=name_seq_len)
+
+    def check_password(self, password, account=None):
+        if account is None:
+            return
+        if not hasattr(account, 'owner_id'):
+            return
+        password = unicodify(password)
+        return self._check_human_owner(account, password, self.name_seq_len)
+
+    def _check_human_owner(self, account, password, seqlen):
         """Check if password is a variation of the owner's name."""
         # TODO: Should we not check the name of other owner types as well?
         #       E.g.: owner=group:foobarbaz, password=fooBARbaz
 
         # First, do we have a human owner at all?
-        person = Factory.get("Person")(self._db)
-        const = Factory.get("Constants")(self._db)
+        person = Factory.get("Person")(account._db)
+        const = Factory.get("Constants")(account._db)
         try:
-            person.find(owner_id)
+            person.find(account.owner_id)
         except NotFoundError:
             return
         # Which name to use? Let's grab the first full name we find
@@ -360,7 +468,7 @@ class CheckOwnerNameMixin(common.PasswordChecker):
                 break
         else:
             return
-        self._match_password_to_name(name, password, seqlen)
+        return self._match_password_to_name(name, password, seqlen)
 
     def _match_password_to_name(self, name, password, seqlen):
         """Check whether password 'matches' (in a sense) name."""
@@ -389,7 +497,7 @@ class CheckOwnerNameMixin(common.PasswordChecker):
         pwd_chunks = [x for x in re.split(r"[^a-z]+", password) if len(x) > 0]
         pwd_l33t_chunks = [x for x in re.split(
             r"[^a-z]+",
-            password.translate(unicode(common.l33t_speak, 'ISO-8859-1')))
+            password.translate(unicode(l33t_speak, 'ISO-8859-1')))
             if len(x) > 0]
 
         # Now, matching_length counts the number of password alpha characters
@@ -397,8 +505,7 @@ class CheckOwnerNameMixin(common.PasswordChecker):
         # password is, in fact, a match => the password is a copy of the name.
         if (make_match(name_chunks, pwd_chunks) >= seqlen or
                 make_match(name_chunks, pwd_l33t_chunks) >= seqlen):
-            raise common.PasswordNotGoodEnough(
-                "Password cannot contain your name.")
+            return [_('Password cannot contain your name.')]
 
         # Join all possible sequences of length
         def all_chunks(x):
@@ -412,27 +519,78 @@ class CheckOwnerNameMixin(common.PasswordChecker):
         all_pw_chunks = set(all_chunks(password.split()))
         for name in all_chunks(name_chunks):
             if name in all_pw_chunks:
-                raise common.PasswordNotGoodEnough(
-                    "Password cannot contain %d characters from your name" %
-                    seqlen)
+                return [_('Password cannot contain {seqlen} characters from '
+                          'your name').format(seqlen=seqlen)]
 
 
-class CheckSimpleMixin(CheckInvalidCharsMixin,
-                       CheckLengthMixin,
-                       CheckConcatMixin,
-                       CheckEntropyMixin,
-                       CheckCharSeqMixin,
-                       CheckRepeatedPatternMixin,
-                       CheckUsernameMixin,
-                       CheckOwnerNameMixin):
-    """ Convenience class with all mixins. """
-    pass
+@pwchecker('letters_and_spaces_only')
+class CheckLettersSpacesOnly(PasswordChecker):
+    """Only allow letters and spaces in the password."""
+
+    extra_chars = []
+
+    def __init__(self, extra_chars=None):
+        self._requirement = _('Must only contain letters and spaces.')
+        if extra_chars:
+            self.extra_chars = list(unicodify(extra_chars))
+
+    def check_password(self, password, account=None):
+        """Does the password contain characters and spaces only?"""
+        password = unicodify(password)
+
+        for char in password:
+            if char in string.ascii_letters:
+                continue
+            if char == ' ':
+                continue
+            if char in self.extra_chars:
+                continue
+            return [_('Password can only contain letters and spaces.')]
 
 
-def tests():
-    pass
+@pwchecker('number_of_digits')
+class CheckNumberOfDigits(PasswordChecker):
+    """Require a minimum number of digits in the password."""
 
-if __name__ == '__main__':
-    del cereconf
-    del cerebrum_path
-    tests()
+    def __init__(self, digits=1):
+        self._requirement = _(
+            "Must contain at least {digits} digits.").format(digits=digits)
+        self.digits = digits
+
+    def check_password(self, password, account=None):
+        """ Does the password contain enough digits? """
+        if sum(c.isdigit() for c in password) < self.digits:
+            return [_('Password must contain at least {digits} digits').format(
+                digits=self.digits)]
+
+
+@pwchecker('number_of_letters')
+class CheckNumberOfLetters(PasswordChecker):
+    """Require a minimum number of letters in the password."""
+
+    def __init__(self, letters=1):
+        self._requirement = _(
+            "Must contain at least {letters} letters.").format(letters=letters)
+        self.letters = letters
+
+    def check_password(self, password, account=None):
+        """ Does the password contain enough letters? """
+        if sum(c in string.ascii_letters for c in password) < self.letters:
+            return [_(
+                'Password must contain at least {letters} letters').format(
+                    letters=self.letters)]
+
+
+@pwchecker('mixed_casing')
+class CheckMixedCasing(PasswordChecker):
+    """Require a mixed casing of letters in the password."""
+
+    def __init__(self):
+        self._requirement = _("Must contain upper and lowercase letters")
+
+    def check_password(self, password, account=None):
+        """Does the password contain enough letters?"""
+        lowercase = sum(c in string.ascii_lowercase for c in password)
+        uppercase = sum(c in string.ascii_uppercase for c in password)
+        if not (lowercase and uppercase):
+            return [_('Password must contain upper and lowercase letters')]

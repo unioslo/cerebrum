@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2006-2009 University of Oslo, Norway
+# Copyright 2006-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 
 
 import mx
@@ -41,7 +40,10 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hine import PasswordChecker
-from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
+from Cerebrum.modules.pwcheck.checker import (check_password,
+                                              PasswordNotGoodEnough,
+                                              RigidPasswordNotGoodEnough,
+                                              PhrasePasswordNotGoodEnough)
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
@@ -267,9 +269,13 @@ class BofhdExtension(BofhdCommonMethods):
     def misc_check_password(self, operator, password):
         ac = self.Account_class(self.db)
         try:
-            ac.password_good_enough(password)
-        except PasswordNotGoodEnough, m:
-            raise CerebrumError("Bad password: %s" % m)
+            check_password(password, ac, structured=False)
+        except RigidPasswordNotGoodEnough as e:
+            raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
+        except PhrasePasswordNotGoodEnough as e:
+            raise CerebrumError('Bad passphrase: {err_msg}'.format(err_msg=e))
+        except PasswordNotGoodEnough as e:
+            raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
         crypt = ac.encrypt_password(
             self.const.Authentication("crypt3-DES"), password)
         md5 = ac.encrypt_password(

@@ -1,7 +1,7 @@
-#!/usr/bin/env python2
-# encoding: utf-8
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
-# Copyright 2003-2015 University of Oslo, Norway
+# Copyright 2003-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -40,11 +40,13 @@ import os
 import re
 import string
 
-from . import common
+from .checker import pwchecker, PasswordChecker, l33t_speak
 
 
 def additional_words():
-    """Strings that should not exist in the first 8 characters of any password."""
+    """
+    Strings that should not exist in the first 8 characters of any password.
+    """
     for w in ('ibm', 'dec', 'sun', 'at&t', 'nasa', 'jan', 'feb', 'mar', 'apr',
               'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'):
         yield w
@@ -168,7 +170,7 @@ def check_dict(dictionaries, baseword):
         if is_word_in_dicts(dictionaries, [re.sub(r'^[^a-z]+', '', baseword)]):
             return True
 
-    nshort = string.translate(baseword, common.l33t_speak)
+    nshort = string.translate(baseword, l33t_speak)
     if is_word_in_dicts(dictionaries, [nshort]):
         return True
 
@@ -201,7 +203,7 @@ def check_two_word_combinations(dictionaries, word):
         oneup = ''
         if m:
             oneup = m.group(1)
-        npass = string.translate(cword, common.l33t_speak)
+        npass = string.translate(cword, l33t_speak)
 
         npass = re.sub('/[\?\!\.]$', '', npass)
         if re.search(r'.+[A-Z].*[A-Z]', word):
@@ -244,39 +246,30 @@ def check_two_word_combinations(dictionaries, word):
         return None
 
 
-class PasswordDictionaryMixin(common.PasswordChecker):
+@pwchecker('dictionary')
+class CheckPasswordDictionary(PasswordChecker):
     """ Check if password contains dictionary words. """
+
+    def __init__(self):
+        self._requirement = _('Must not contain dictionary words.')
 
     @property
     def password_dictionaries(self):
         """ The dictionary files to check. """
         return getattr(cereconf, 'PASSWORD_DICTIONARIES', [])
 
-    def password_good_enough(self, password, skip_rigid_password_tests=False,
-                             **kw):
+    def check_password(self, password, account=None):
         """ Check password against a dictionary. """
-        super(PasswordDictionaryMixin, self).password_good_enough(
-            password,
-            skip_rigid_password_tests=skip_rigid_password_tests,
-            **kw)
-        if skip_rigid_password_tests:
-            return
-
         if check_dict(self.password_dictionaries, password[0:8]):
-            raise common.PasswordNotGoodEnough(
-                "Password cannot contain dictionary words.")
+            return [_('Password cannot contain dictionary words.')]
 
         err = check_two_word_combinations(self.password_dictionaries,
                                           password[0:8])
         if err and len(err) == 2:
-            raise common.PasswordNotGoodEnough(
-                "You should not combine two words like %s and %s" % err)
+            return [
+                _('You should not combine two words like {word1} and '
+                  '{word2}').format(word1=err[0], word2=err[1])]
 
         for tmp in additional_words():
             if tmp in password[0:8].lower():
-                raise common.PasswordNotGoodEnough(
-                    "Password cannot contain dictionary words.")
-
-
-if __name__ == '__main__':
-    del cerebrum_path
+                return [_('Password cannot contain dictionary words.')]
