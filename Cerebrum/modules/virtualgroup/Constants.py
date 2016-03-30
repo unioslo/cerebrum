@@ -20,8 +20,7 @@
 
 """Constants for virtual group support"""
 
-from Cerebrum.Constants import _EntityTypeCode, CoreConstants, _CerebrumCode
-from Cerebrum.Utils import Factory
+from Cerebrum.Constants import CoreConstants, _CerebrumCode
 
 
 class _VirtualGroupType(_CerebrumCode):
@@ -30,9 +29,7 @@ class _VirtualGroupType(_CerebrumCode):
 
 
 class Constants(CoreConstants):
-    entity_virtual_group = _EntityTypeCode(
-        'virtualgroup',
-        'Virtual group - see table "cerebrum.virtual_group_info" and friends.')
-    VirtualGroupType = _VirtualGroupType
-
-Factory.type_component_map['virtualgroup'] = 'Group'
+    vg_normal_group = _VirtualGroupType(
+        'normal_group',
+        'Normal group - uses group_member table')
+    VirtualGroup = _VirtualGroupType

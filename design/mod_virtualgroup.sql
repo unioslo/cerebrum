@@ -28,6 +28,9 @@ version=1.0;
 category:drop;
 DROP TABLE virtual_group_info;
 
+category:drop;
+DROP TABLE virtual_group_type_code;
+
 category:code;
 CREATE TABLE virtual_group_type_code
 (
@@ -44,38 +47,9 @@ CREATE TABLE virtual_group_type_code
 category:main;
 CREATE TABLE virtual_group_info
 (
-  /* Dummy column, needed for type check against `entity_id'. */
-  entity_type	NUMERIC(6,0)
-		DEFAULT [:get_constant name=entity_virtual_group]
-		NOT NULL
-		CONSTRAINT virtual_group_info_entity_type_chk
-		  CHECK (entity_type = [:get_constant name=entity_virtual_group]),
   group_id	NUMERIC(12,0)
 		CONSTRAINT virtual_group_info_pk PRIMARY KEY,
-  virtual_group_type NUMERIC(6,0) NOT NULL REFERENCES virtual_group_type_code,
-  description	CHAR VARYING(512),
-  visibility	NUMERIC(6,0)
-		NOT NULL
-		CONSTRAINT virtual_group_info_visibility
-		  REFERENCES group_visibility_code(code),
-  creator_id	NUMERIC(12,0)
-		NOT NULL
-		CONSTRAINT virtual_group_info_creator_id
-		  REFERENCES account_info(account_id),
-  create_date	DATE
-		DEFAULT [:now]
-		NOT NULL,
-/* expire_date kan brukes for å slette grupper, f.eks. ved at gruppen
-   ikke lenger eksporteres etter at datoen er passert, men først
-   slettes fra tabellen N måneder senere.  Det innebærer at man ikke
-   får opprettet noen ny gruppe med samme navn før gruppa har vært
-   borte fra eksporten i N måneder (med mindre man endrer på
-   expire_date). */
-  expire_date	DATE
-		DEFAULT NULL,
-  CONSTRAINT virtual_group_info_entity_id
-    FOREIGN KEY (entity_type, group_id)
-    REFERENCES entity_info(entity_type, entity_id)
+  virtual_group_type NUMERIC(6,0) NOT NULL REFERENCES virtual_group_type_code
 );
 category:main/Oracle;
 GRANT SELECT ON virtual_group_info TO read_group;

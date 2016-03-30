@@ -27,6 +27,10 @@ version=1.0;
 
 category:drop;
 DROP TABLE virtual_group_ou;
+category:drop;
+DROP TABLE virtual_group_ou_recursion_code;
+category:drop;
+DROP TABLE virtual_group_ou_membership_type_code;
 
 /*
 */
@@ -81,7 +85,7 @@ CREATE TABLE virtual_group_ou
     ou_perspective      NUMERIC(6,0) NULL REFERENCES ou_perspective_code,
 
     /* membership types (person, primary account, accounts by account_type) */
-    member_type         NUMERIC(6,0) NOT NULL REFERENCES virtual_group_ou_membership_type_code,
+    member_type         NUMERIC(6,0) NOT NULL REFERENCES virtual_group_ou_membership_type_code
 );
 
 category:main;

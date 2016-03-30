@@ -1,5 +1,5 @@
-# coding: utf-8
-# Copyright 2015 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,7 +22,7 @@
 Virtual groups based on the OU structure
 =========================================
 
-Use: Add OUGroup to the CLASS_GROUP
+Use: Add OUGroup to the CLASS_GROUP and OUGroupConstants to CLASS_CLCONSTANTS
 
 General design
 ---------------
@@ -63,9 +63,8 @@ Person aff source
 """
 
 import collections
-from Cerebrum.Group import populator
 from Cerebrum.Utils import argument_to_sql, Factory, prepare_string
-from .Group import VirtualGroup
+from .Group import VirtualGroup, populator
 from .Constants import Constants, _VirtualGroupType
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Entity import Entity
@@ -90,7 +89,7 @@ class _VirtualGroupOUMembershipType(_CerebrumCode):
 
 class OUGroupConstants(Constants):
     """OU group contstants"""
-    virtual_group_ou = _VirtualGroupType(
+    vg_ougroup = _VirtualGroupType(
         'ougroup',
         'Virtual group based on OU structure, see '
         '"cerebrum.virtual_group_ou_info" and friends')
@@ -162,10 +161,10 @@ class OUGroup(VirtualGroup):
 
     def find(self, group_id):
         """Connect object to group with ``group_id`` in database."""
-        self.__super.find(group_id)
-        if self.entity_type != self.const.entity_virtual_group:
-            return
-        if self.virtual_group_type != self.const.virtual_group_ou:
+        super(OUGroup, self).find(group_id)
+        if self.virtual_group_type != self.const.vg_ougroup:
+            self.__in_db = False
+            self.__updated = []
             return
         (self.ou_id, self.affiliation, self.affiliation_source,
          self.affiliation_status, self.recursion, self.ou_perspective,
@@ -191,7 +190,7 @@ class OUGroup(VirtualGroup):
         self.__in_db = True
         self.__updated = []
 
-    @populator('virtual_ou_group', 'ougroup')
+    @populator('ougroup', 'virtual_ou_group')
     def populate_virtual_ou_group(self,
                                   ou_id=None,
                                   affiliation=None,
@@ -202,10 +201,6 @@ class OUGroup(VirtualGroup):
                                   member_type=None,
                                   *rest, **kw):
         """Populate this virtual group instance"""
-        super(OUGroup, self).populate(
-            group_type='virtual_group',
-            virtual_group_type=self.const.virtual_group_ou,
-            *rest, **kw)
         if ou_id is None:
             raise RuntimeError("OU group without ou_id")
         if not (affiliation or affiliation_source or affiliation_status):
@@ -239,10 +234,10 @@ class OUGroup(VirtualGroup):
     def __eq__(self, other):
         assert isinstance(other, VirtualGroup)
         if (getattr(self, 'virtual_group_type', None) !=
-                self.const.virtual_group_ou):
+                self.const.vg_ougroup):
             return super(OUGroup, self).__eq__(other)
         if (getattr(other, 'virtual_group_type', None) ==
-                self.const.virtual_group_ou
+                self.const.vg_ougroup
                 and self.ou_id == other.ou_id
                 and self.affiliation == other.affiliation
                 and self.affiliation_status == other.affiliation_status
@@ -255,12 +250,11 @@ class OUGroup(VirtualGroup):
 
     def write_db(self):
         super(OUGroup, self).write_db()
+        if self.virtual_group_type != self.const.vg_ougroup:
+            return
         try:
             is_new = not self.__in_db
         except AttributeError:
-            return
-        if (self.entity_type != self.const.entity_virtual_group and
-                self.virtual_group_type != self.const.virtual_group_ou):
             return
         if not self.__updated:
             return
@@ -281,6 +275,9 @@ class OUGroup(VirtualGroup):
                           'recursion': self.recursion,
                           'ou_perspective': self.ou_perspective,
                           'member_type': self.member_type})
+            for member in self.list_members(self.entity_id, indirect=False):
+                self._db.log_change(member['member_id'], self.clconst.group_add,
+                                    self.entity_id)
         else:
             args = dict(zip(self.__updated,
                             [getattr(self, x) for x in self.__updated]))
@@ -296,8 +293,7 @@ class OUGroup(VirtualGroup):
         self.__updated = []
 
     def has_member(self, member_id):
-        if self.entity_type == self.const.entity_virtual_group and \
-                self.virtual_group_type == self.const.virtual_group_ou:
+        if self.virtual_group_type == self.const.vg_ougroup:
             return list(self.list_members(self.entity_id,
                                           filter_members=member_id))
         return super(OUGroup, self).has_member(member_id)
@@ -330,6 +326,7 @@ class OUGroup(VirtualGroup):
             member_id=member_id,
             indirect_members=indirect_members,
             spread=spread,
+            name=name,
             description=description,
             filter_expired=filter_expired,
             creator_id=creator_id,
@@ -339,6 +336,11 @@ class OUGroup(VirtualGroup):
             ent = Entity(self._db)
             ent.find(entity_id)
             return ent.entity_type
+
+        def get_group_type(entity_id):
+            return self.query_1("""SELECT virtual_group_type FROM
+                                [:table schema=cerebrum name=virtual_group_info]
+                                WHERE group_id = :gid""", {'gid': entity_id})
 
         binds = {
             'vdomain': self.const.group_namespace
@@ -350,9 +352,9 @@ class OUGroup(VirtualGroup):
             filter_groups = []
             if isinstance(group_id, collections.Iterable):
                 for gid in group_id:
-                    if get_entity_type(gid) == self.const.entity_virtual_group:
+                    if get_group_type(gid) == self.const.vg_ougroup:
                         filter_groups.append(gid)
-            elif get_entity_type(gid) == self.const.entity_virtual_group:
+            elif get_group_type(gid) == self.const.vg_ougroup:
                 filter_groups.append(gid)
             if not filter_groups:
                 return ret
@@ -370,7 +372,7 @@ class OUGroup(VirtualGroup):
                     objs[name] = ret
                 return ret
 
-            def handle_person(mid, mtype=self.const.virtual_group_ou_person):
+            def handle_person(mid, mtype=self.const.vg_ougroup):
                 # nonlocal ftw!
                 pe = fget('Person')
                 for row in pe.list_affiliations(person_id=mid,
@@ -401,7 +403,8 @@ class OUGroup(VirtualGroup):
                 try:
                     pe.find(ac.owner_id)
                     if ac.entity_id == pe.get_primary_account():
-                        handle_person(mid, self.const.virtual_group_ou_primary)
+                        handle_person(mid,
+                                      self.const.virtual_group_ou_primary)
                 except:
                     pass
                 pe.clear()
@@ -410,7 +413,7 @@ class OUGroup(VirtualGroup):
             def handle_virtual_group(mid):
                 gr = fget('Group')
                 gr.find(mid)
-                if (gr.virtual_group_type == self.const.virtual_group_ou and
+                if (gr.virtual_group_type == self.const.vg_ougroup and
                         gr.recursion == self.const.virtual_group_ou_recursive):
                     affected_groups.update(
                         [x['group_id'] for x in self.list_ou_groups_for(
@@ -420,10 +423,11 @@ class OUGroup(VirtualGroup):
                             member_types=gr.member_type,
                             source=gr.affiliation_source)
                             if x['ou_perspective'] == gr.ou_perspective])
+                gr.clear()
             dp = {
                 self.const.entity_person: handle_person,
                 self.const.entity_account: handle_account,
-                self.const.entity_virtual_group: handle_virtual_group,
+                self.const.entity_group: handle_virtual_group,
             }
             if not isinstance(member_id, collections.Iterable):
                 member_id = [member_id]
@@ -491,7 +495,7 @@ class OUGroup(VirtualGroup):
                                    gi.creator_id AS creator_id,
                                    gi.create_date AS create_date,
                                    gi.expire_date AS expire_date
-                FROM [:table schema=cerebrum name=virtual_group_info] gi
+                FROM [:table schema=cerebrum name=group_info] gi
                 LEFT OUTER JOIN
                      [:table schema=cerebrum name=entity_name] en
                 ON
@@ -609,7 +613,7 @@ class OUGroup(VirtualGroup):
             FROM [:table schema=cerebrum name=virtual_group_ou] vgo
             LEFT JOIN [:table schema=cerebrum name=entity_name] gn
                       ON vgo.group_id = gn.entity_id
-            LEFT JOIN virtual_group_info vgi
+            LEFT JOIN group_info vgi
                       ON vgo.group_id = vgi.group_id
             WHERE vgo.group_id = :id""", {'id': group_id})
         rec = grow['recursion']
@@ -715,7 +719,8 @@ class OUGroup(VirtualGroup):
         mt = grow['member_type']
         if mt in (self.const.virtual_group_ou_person,
                   self.const.virtual_group_ou_primary):
-            tables.extend(['person_affiliation_source pas'])
+            tables.extend(['[:table schema=cerebrum '
+                           'name=person_affiliation_source] pas'])
             if grow['affiliation']:
                 wheres.append('pas.affiliation = :affiliation')
                 extra_where.append('vgo.affiliation = :affiliation')
@@ -810,19 +815,28 @@ class OUGroup(VirtualGroup):
             ent.find(entity_id)
             return ent.entity_type
 
+        def get_vgtype(entity_id):
+            try:
+                return self.query_1(
+                    """SELECT virtual_group_type FROM
+                    [:table schema=cerebrum name=virtual_group_info]
+                    WHERE group_id = :gid""", {'gid': entity_id})
+            except NotFoundError:
+                return self.const.vg_normal_group
+
         sgroups = None
         dosuper = True
         if group_id:
             if isinstance(group_id, collections.Iterable):
-                sgroups = filter(lambda x: get_entity_type(x) !=
+                sgroups = filter(lambda x: get_vgtype(x) !=
                                  self.const.entity_virtual_group, group_id)
                 group_id = set(group_id)
                 group_id.difference_update(sgroups)
                 dosuper = sgroups
             else:
-                if get_entity_type(group_id) != self.const.entity_virtual_group:
+                if get_vgtype(group_id) != self.const.entity_virtual_group:
                     sgroups = group_id
-                    group_id = ()
+                    group_id = set()
                 else:
                     dosuper = False
                     sgroups = ()
@@ -926,7 +940,7 @@ class OUGroup(VirtualGroup):
                 dp = {
                     self.const.entity_person: handle_person,
                     self.const.entity_account: handle_account,
-                    self.const.entity_virtual_group: handle_virtual_group,
+                    self.const.entity_group: handle_virtual_group,
                 }
                 for mid in member_id:
                     et = get_entity_type(mid)
