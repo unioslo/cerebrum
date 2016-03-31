@@ -256,7 +256,12 @@ class CheckMultipleCharacterSets(PasswordChecker):
     """Adds a entropy check to password checker."""
 
     def __init__(self):
-        self._requirement = _('Something')
+        """
+        """
+        self._requirement = _(
+            'Must contain characters from at least 3 of the '
+            'following character groups: Uppercase letters, lowercase '
+            'letters, numbers and special characters')
 
     def check_password(self, password, account=None):
         """Check that a password use multiple character sets.
