@@ -43,6 +43,7 @@ def populator(*types):
                                           description=description,
                                           create_date=create_date,
                                           expire_date=expire_date,
+                                          group_type=group_type,
                                           parent=parent)
                 if group_type in types:
                     return getattr(self, meth.__name__)(
@@ -111,7 +112,7 @@ class VirtualGroup(Group):
                 """
                 SELECT virtual_group_type
                 FROM [:table schema=cerebrum name=virtual_group_info]
-                WHERE group_id = :gid)
+                WHERE group_id = :gid
                 """, {'gid': self.entity_id})
             if gt != self.virtual_group_type:
                 self.execute(
@@ -129,7 +130,10 @@ class VirtualGroup(Group):
                 VALUES (:g_id, :group_type)""",
                 {'g_id': self.entity_id,
                  'group_type': self.virtual_group_type})
-        del self.__in_db
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
         self.__in_db = True
         self.__updated = []
         return is_new

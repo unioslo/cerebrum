@@ -697,7 +697,7 @@ class OUGroup(VirtualGroup):
                                 'vgo.ou_id as ou_id',
                                 'vgo.group_id as member_id',
                                 ]
-                qparams['group_member_type'] = self.const.entity_virtual_group
+                qparams['group_member_type'] = self.const.entity_group
         elif rec == self.const.virtual_group_ou_flattened:
             recursive = 'RECURSIVE'
             ous = """
@@ -732,7 +732,7 @@ class OUGroup(VirtualGroup):
             else:
                 extra_where.append('vgo.affiliation IS NULL')
             if grow['affiliation_status']:
-                wheres.append('pas.affiliation_status = :affiliation_status')
+                wheres.append('pas.status = :affiliation_status')
                 extra_where.append('vgo.affiliation_status = '
                                    ':affiliation_status')
             else:
@@ -746,12 +746,10 @@ class OUGroup(VirtualGroup):
             memid = 'pas.person_id'
         elif mt == self.const.virtual_group_ou_primary:
             memtype = self.const.entity_account
-            tables.append(
-                """(SELECT account_id as member_id FROM account_type at
-                WHERE at.person_id = pas.person_id
-                ORDER BY priority
-                LIMIT 1) as member""")
-            memid = 'member.person_id'
+            memid = """(SELECT account_id as member_id FROM account_type at
+            WHERE at.person_id = pas.person_id
+            ORDER BY priority LIMIT 1)"""
+            # memid = 'member.person_id'
         elif mt == self.const.virtual_group_ou_accounts:
             memtype = self.const.entity_account
             tables.extend(['account_type at'])
@@ -839,7 +837,7 @@ class OUGroup(VirtualGroup):
                 group_id.difference_update(sgroups)
                 dosuper = sgroups
             else:
-                if get_vgtype(group_id) != self.const.entity_virtual_group:
+                if get_vgtype(group_id) != self.const.vg_ougroup:
                     sgroups = group_id
                     group_id = set()
                 else:
