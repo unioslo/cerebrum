@@ -456,7 +456,7 @@ class Individuation:
         if not self.check_token(uname, token, browser_token):
             return False
         account = self.get_account(uname)
-        if not self._check_password(new_password, account):
+        if not check_password(new_password, account):
             return False
         # All data is good. Set password
         account.set_password(new_password)
