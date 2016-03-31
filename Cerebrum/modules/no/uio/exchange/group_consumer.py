@@ -31,6 +31,7 @@ from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
                                                   ServerUnavailableException,
                                                   AlreadyPerformedException)
 from Cerebrum.modules.event.EventExceptions import (EntityTypeError,
+                                                    EventHandlerNotImplemented,
                                                     UnrelatedEvent)
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 from Cerebrum.Utils import Factory
@@ -43,7 +44,7 @@ from Cerebrum.modules.event import evhandlers
 from . import group_flattener
 
 
-class ExchangeEventHandler(evhandlers.EventConsumer):
+class ExchangeGroupEventHandler(evhandlers.EventConsumer):
     """Event handler for Exchange.
 
     This event handler is started by the event daemon.
@@ -54,7 +55,7 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
     event_map = EventMap()
 
     def __init__(self, config, mock=False, **kwargs):
-        """ExchangeEventHandler initialization routine.
+        """ExchangeGroupEventHandler initialization routine.
 
         :type config: dict
         :param config: Dict containing the config for the ExchangeClient
@@ -80,12 +81,12 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
 
         # Group lookup patterns
         self.group_name_translation = \
-            dict(self.config.selection_criterias.group_name_translations)
+            dict(self.config.selection_criteria.group_name_translations)
         # Group defining that rendzone users should be shown in address book
         self.randzone_unreserve_group = \
-            self.config.selection_criterias.randzone_publishment_group
+            self.config.selection_criteria.randzone_publishment_group
 
-        super(ExchangeEventHandler, self).__init__(**kwargs)
+        super(ExchangeGroupEventHandler, self).__init__(**kwargs)
         self.logger.debug2("Started event handler class: %s" % self.__class__)
 
     @property
@@ -97,25 +98,25 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
     @memoize
     def mb_spread(self):
         return self.co.Spread(
-            self.config.selection_criterias.mailbox_spread)
+            self.config.selection_criteria.mailbox_spread)
 
     @property
     @memoize
     def group_spread(self):
         return self.co.Spread(
-            self.config.selection_criterias.group_spread)
+            self.config.selection_criteria.group_spread)
 
     @property
     @memoize
     def shared_mbox_spread(self):
         return self.co.Spread(
-            self.config.selection_criterias.shared_mbox_spread)
+            self.config.selection_criteria.shared_mbox_spread)
 
     @property
     @memoize
     def ad_spread(self):
         return self.co.Spread(
-            self.config.selection_criterias.ad_spread)
+            self.config.selection_criteria.ad_spread)
 
     @property
     @memoize
@@ -123,11 +124,11 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
         return CerebrumUtils()
 
     def cleanup(self):
-        super(ExchangeEventHandler, self).cleanup()
+        super(ExchangeGroupEventHandler, self).cleanup()
         # Kill existing PS-Session before shutting down
         self.ec.kill_session()
         self.ec.close()
-        self.logger.info('ExchangeEventHandler stopped')
+        self.logger.info('ExchangeGroupEventHandler stopped')
 
     @property
     @memoize
@@ -193,6 +194,15 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
 
         """
         return 'CB%s' % hex(os.getpid())[2:].upper()
+
+    def handle(self, item):
+        """Check if events are appropriate for this handler before handling."""
+        key = str(self.get_event_code(item.event))
+        try:
+            self.event_map.get_callbacks(key)
+            super(ExchangeGroupEventHandler, self).handle(item)
+        except EventHandlerNotImplemented:
+            return
 
     def handle_event(self, event):
         u""" Call the appropriate handlers.

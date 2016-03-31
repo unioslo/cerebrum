@@ -29,9 +29,9 @@ import traceback
 from urllib2 import URLError
 
 from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
-                                                  ServerUnavailableException,
-                                                  AlreadyPerformedException)
+                                                  ServerUnavailableException)
 from Cerebrum.modules.event.EventExceptions import (EventExecutionException,
+                                                    EventHandlerNotImplemented,
                                                     EntityTypeError,
                                                     UnrelatedEvent)
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
@@ -83,10 +83,10 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
 
         # Group lookup patterns
         self.group_name_translation = \
-            dict(self.config.selection_criterias.group_name_translations)
+            dict(self.config.selection_criteria.group_name_translations)
         # Group defining that rendzone users should be shown in address book
         self.randzone_unreserve_group = \
-            self.config.selection_criterias.randzone_publishment_group
+            self.config.selection_criteria.randzone_publishment_group
 
         super(ExchangeEventHandler, self).__init__(**kwargs)
         self.logger.debug2("Started event handler class: %s" % self.__class__)
@@ -100,25 +100,25 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
     @memoize
     def mb_spread(self):
         return self.co.Spread(
-            self.config.selection_criterias.mailbox_spread)
+            self.config.selection_criteria.mailbox_spread)
 
     @property
     @memoize
     def group_spread(self):
         return self.co.Spread(
-            self.config.selection_criterias.group_spread)
+            self.config.selection_criteria.group_spread)
 
     @property
     @memoize
     def shared_mbox_spread(self):
         return self.co.Spread(
-            self.config.selection_criterias.shared_mbox_spread)
+            self.config.selection_criteria.shared_mbox_spread)
 
     @property
     @memoize
     def ad_spread(self):
         return self.co.Spread(
-            self.config.selection_criterias.ad_spread)
+            self.config.selection_criteria.ad_spread)
 
     @property
     @memoize
@@ -196,6 +196,15 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
 
         """
         return 'CB%s' % hex(os.getpid())[2:].upper()
+
+    def handle(self, item):
+        """Check if events are appropriate for this handler before handling."""
+        key = str(self.get_event_code(item.event))
+        try:
+            self.event_map.get_callbacks(key)
+            super(ExchangeEventHandler, self).handle(item)
+        except EventHandlerNotImplemented:
+            return
 
     def handle_event(self, event):
         u""" Call the appropriate handlers.
@@ -688,7 +697,7 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
             properly."""
         # TODO: This should be re-written as an aggregate-enrich-split-agent,
         # and a much simpler handler.
-        # TODO: Add some criterias that filter out events that does not result
+        # TODO: Add some criteria that filter out events that does not result
         # in primary-user change?
 
         # Get information about the accounts owner
@@ -1320,10 +1329,10 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
         """Defer addition of member to group.
 
         :type event: cerebrum.extlib.db_row.row
-        :param event: the event returned from change- or eventlog.
-
-        :raise unrelatedevent: if this event is unrelated to this handler.
-        :raise eventexecutionexception: if the event fails to execute."""
+        :param event: the event returned from change- or eventlog."""
+        self.logger.debug4(
+            'Converting e_group:add to exchange:group_add for {}'.format(
+                event))
         self.ut.log_event(event, 'exchange:group_add')
 
     @event_map('e_group:rem')
@@ -1331,9 +1340,10 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
         """Defer removal of member from group.
 
         :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog.
-
-        :raise UnrelatedEvent: Raised if the event is not to be handled."""
+        :param event: The event returned from Change- or EventLog."""
+        self.logger.debug4(
+            'Converting e_group:rem to exchange:group_rem for {}'.format(
+                event))
         self.ut.log_event(event, 'exchange:group_rem')
 
     @event_map('dlgroup:modhidden')

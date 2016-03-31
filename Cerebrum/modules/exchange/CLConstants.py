@@ -127,9 +127,9 @@ class CLConstants(CLConstants):
                                     'group mod room stat for %(subject)s',
                                     ('roomlist:%(str:roomlist)'))
 
-    # Defered events
+    # deferred events
     exchange_group_add = _ChangeTypeCode('exchange', 'group_add',
-                                         'Defered addition of group member')
+                                         'deferred addition of group member')
 
     exchange_group_rem = _ChangeTypeCode('exchange', 'group_rem',
-                                         'Defered removal of group member')
+                                         'deferred removal of group member')
