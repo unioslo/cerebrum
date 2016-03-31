@@ -77,6 +77,9 @@ PASSWORD_CHECKS = {
         ('avg_word_length', {'avg_length': 4}),
     )}
 
+# The length of the password generated in Account.make_password
+MAKE_PASSWORD_LENGTH = 8
+
 # Arguments to test for password_good_enough. Inserted with
 # Cerebrum.modules.pwcheck.confargs/CereconfMixin
 PASSWORD_TEST_ARGUMENTS = {}
