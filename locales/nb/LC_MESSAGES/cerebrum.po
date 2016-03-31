@@ -20,7 +20,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-03-21 13:52+0100\n"
+"POT-Creation-Date: 2016-03-31 15:18+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -124,12 +124,15 @@ msgstr "Passordet må være minst {min_length} tegn langt."
 msgid "Password must be at most {max_length} characters long."
 msgstr "Passordet må være høyst {max_length} tegn langt."
 
-#: Cerebrum/modules/pwcheck/simple.py:259
-#: Cerebrum/modules/pwcheck/checker.py:152
-msgid "Something"
-msgstr "Noe"
+#: Cerebrum/modules/pwcheck/simple.py:262
+msgid ""
+"Must contain characters from at least 3 of the following character groups: "
+"Uppercase letters, lowercase letters, numbers and special characters"
+msgstr ""
+"Må bestå av tegn av minst 3 av de følgende tegngruppene: Store "
+"bokstaver, små bokstaver, tall, spesialtegn"
 
-#: Cerebrum/modules/pwcheck/simple.py:303
+#: Cerebrum/modules/pwcheck/simple.py:308
 msgid ""
 "A password that only contains one uppercase letter, must not have this as "
 "the first character. If the first 8 characters only contains one number or "
@@ -139,7 +142,7 @@ msgstr ""
 "første bokstav i passordet. Hvis de 8 første tegn inneholder bare ett tall "
 "eller spesialtegn, kan det ikke være i posisjon 8."
 
-#: Cerebrum/modules/pwcheck/simple.py:309
+#: Cerebrum/modules/pwcheck/simple.py:314
 msgid ""
 "The first eight characters of the password must contain characters from at "
 "least three of the four following character groups: Uppercase letters, "
@@ -148,82 +151,82 @@ msgstr ""
 "De første 8 tegn i passordet må bestå av tegn av minst tre av de fire "
 "tegngruppene: Store bokstaver, små bokstaver, tall, spesialtegn."
 
-#: Cerebrum/modules/pwcheck/simple.py:321
+#: Cerebrum/modules/pwcheck/simple.py:326
 msgid "Must not contain sequences of closely related characters."
 msgstr "Må ikke inneholde sekvenser av relaterte tegn."
 
-#: Cerebrum/modules/pwcheck/simple.py:344
+#: Cerebrum/modules/pwcheck/simple.py:349
 msgid "Password cannot contain characters in alpabetical or numerical order"
 msgstr ""
 "Passordet må ikke inneholde tegn i alfabetisk eller numerisk rekkefølge"
 
-#: Cerebrum/modules/pwcheck/simple.py:373
+#: Cerebrum/modules/pwcheck/simple.py:378
 msgid "Password cannot contain neighbouring keyboard keys"
 msgstr ""
 "Passordet må ikke inneholde sekvenser av tegn som er geometrisk relatert på "
 "tastaturet (f.eks. qwerty)"
 
-#: Cerebrum/modules/pwcheck/simple.py:384
+#: Cerebrum/modules/pwcheck/simple.py:389
 msgid "Must not contain repeated sequences of characters."
 msgstr "Må ikke inneholde gjentagende sekvenser."
 
-#: Cerebrum/modules/pwcheck/simple.py:392
+#: Cerebrum/modules/pwcheck/simple.py:397
 msgid "Password cannot contain repeated sequences of characters."
 msgstr "Passordet må ikke inneholde gjentagende sekvenser."
 
-#: Cerebrum/modules/pwcheck/simple.py:412
+#: Cerebrum/modules/pwcheck/simple.py:417
 msgid "Must not contain your username, even in reverse."
 msgstr "Må ikke inneholde brukernavnet ditt, ikke engang baklengs."
 
-#: Cerebrum/modules/pwcheck/simple.py:425
+#: Cerebrum/modules/pwcheck/simple.py:430
 msgid "Password cannot contain your username"
 msgstr "Passordet må ikke inneholde brukernavnet ditt"
 
-#: Cerebrum/modules/pwcheck/simple.py:429
+#: Cerebrum/modules/pwcheck/simple.py:434
 msgid "Password cannot contain your username in reverse"
 msgstr "Passordet må ikke inneholde brukernavnet ditt (baklengs)"
 
-#: Cerebrum/modules/pwcheck/simple.py:438
+#: Cerebrum/modules/pwcheck/simple.py:443
 msgid "Must not contain {name_seq_len} or more characters from your name."
 msgstr "Må ikke inneholde {name_seq_len} eller flere tegn fra navnet ditt."
 
-#: Cerebrum/modules/pwcheck/simple.py:508
+#: Cerebrum/modules/pwcheck/simple.py:513
 msgid "Password cannot contain your name."
 msgstr "Passordet må ikke inneholde navnet ditt."
 
-#: Cerebrum/modules/pwcheck/simple.py:522
+#: Cerebrum/modules/pwcheck/simple.py:527
 msgid "Password cannot contain {seqlen} characters from your name"
 msgstr "Passordet må ikke inneholde {seqlen} eller flere tegn fra ditt navn."
 
-#: Cerebrum/modules/pwcheck/simple.py:533
+#: Cerebrum/modules/pwcheck/simple.py:538
 msgid "Must only contain letters and spaces."
 msgstr "Kan bare inneholde bokstaver og mellomrom."
 
-#: Cerebrum/modules/pwcheck/simple.py:548
+#: Cerebrum/modules/pwcheck/simple.py:553
 msgid "Password can only contain letters and spaces."
 msgstr "Passordet kan kun inneholde bokstaver og mellomrom."
 
-#: Cerebrum/modules/pwcheck/simple.py:557
+#: Cerebrum/modules/pwcheck/simple.py:562
 msgid "Must contain at least {digits} digits."
 msgstr "Må inneholde minst {digits} siffer."
 
-#: Cerebrum/modules/pwcheck/simple.py:563
+#: Cerebrum/modules/pwcheck/simple.py:568
 msgid "Password must contain at least {digits} digits"
 msgstr "Passordet må inneholde minst {digits} siffer"
 
-#: Cerebrum/modules/pwcheck/simple.py:573
+#: Cerebrum/modules/pwcheck/simple.py:578
 msgid "Must contain at least {letters} letters."
 msgstr "Må inneholde minst {letters} bokstaver."
 
-#: Cerebrum/modules/pwcheck/simple.py:580
+#: Cerebrum/modules/pwcheck/simple.py:585
 msgid "Password must contain at least {letters} letters"
 msgstr "Passordet må inneholde minst {letters} bokstaver"
 
-#: Cerebrum/modules/pwcheck/simple.py:589
+#: Cerebrum/modules/pwcheck/simple.py:594
 msgid "Must contain upper and lowercase letters"
 msgstr "Må inneholde store og små bokstaver"
 
-#: Cerebrum/modules/pwcheck/simple.py:596
+#: Cerebrum/modules/pwcheck/simple.py:601
 msgid "Password must contain upper and lowercase letters"
 msgstr "Passordet må inneholde store og små bokstaver"
 
@@ -246,6 +249,10 @@ msgstr "Ord må ha gjennomsnittlig lengde av {avg_length} tegn."
 #: Cerebrum/modules/pwcheck/phrase.py:68
 msgid "Password words must be in average at least {avg} characters long"
 msgstr "Ord i passordfrasen ha gjennomsnittlig lendge av {avg} tegn"
+
+#: Cerebrum/modules/pwcheck/checker.py:160
+msgid "Something"
+msgstr "Noe"
 
 #: Cerebrum/modules/pwcheck/history_checks.py:33
 msgid "Must not be too similar to an old password."

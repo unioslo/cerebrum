@@ -433,16 +433,16 @@ class Individuation:
         except PhrasePasswordNotGoodEnough as e:
             # assume that structured is False
             try:
-                m = unicode(str(e), 'utf-8', errors='strict')
+                m = unicode(e.message, 'utf-8', errors='strict')
             except UnicodeDecodeError:
-                m = unicode(str(e), 'latin-1', errors='replace')
-            raise Errors.CerebrumRPCException('passphrase_invalid', m)
+                m = unicode(e.message, 'latin-1', errors='replace')
+            raise Errors.CerebrumRPCException('password_invalid', m)
         except PasswordNotGoodEnough as e:
             # assume that structured is False
             try:
-                m = unicode(str(e), 'utf-8', errors='strict')
+                m = unicode(e.message, 'utf-8', errors='strict')
             except UnicodeDecodeError:
-                m = unicode(str(e), 'latin-1', errors='replace')
+                m = unicode(e.message, 'latin-1', errors='replace')
             raise Errors.CerebrumRPCException('password_invalid', m)
         else:
             if structured:
@@ -456,8 +456,14 @@ class Individuation:
         if not self.check_token(uname, token, browser_token):
             return False
         account = self.get_account(uname)
-        if not check_password(new_password, account):
-            return False
+        try:
+            check_password(new_password, account)
+        except PasswordNotGoodEnough as e:
+            try:
+                m = unicode(e.message, 'utf-8', errors='strict')
+            except UnicodeDecodeError:
+                m = unicode(e.message, 'latin-1', errors='replace')
+            raise Errors.CerebrumRPCException('password_invalid', m)
         # All data is good. Set password
         account.set_password(new_password)
         try:
