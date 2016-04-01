@@ -20,7 +20,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-04-01 15:14+0200\n"
+"POT-Creation-Date: 2016-04-01 15:26+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -55,8 +55,9 @@ msgid "Password cannot contain 8-bit characters (e.g. æøå)."
 msgstr "Passordet må ikke inneholde 8-bit tegn (f.eks. æøå)."
 
 #: Cerebrum/modules/pwcheck/simple.py:96
-msgid "Can contain only ASCII letters, digits and: {special_characters}"
-msgstr "Kan inneholde kun ASCII-bokstaver, siffer og: {special_characters}"
+#, fuzzy
+msgid "Can contain only a-z, A-Z, digits, and: {special_characters}"
+msgstr "Kan inneholde kun a-z, A-Z, siffer og: {special_characters}"
 
 #: Cerebrum/modules/pwcheck/simple.py:116
 #: Cerebrum/modules/pwcheck/simple.py:175
@@ -126,8 +127,8 @@ msgid ""
 msgstr ""
 "Må bestå av tegn av minst 3 av de følgende tegngruppene: Store bokstaver, "
 "små bokstaver, tall, spesialtegn. Om passordet kun inneholder en stor "
-"bokstav, kan ikke denne være første tegn. Om passordet kun inneholder ett"
-"nummer eller ett spesialtegn, kan ikke dette være tegn nr 8 i passordet"
+"bokstav, kan ikke denne være første tegn. Om passordet kun inneholder "
+"ettnummer eller ett spesialtegn, kan ikke dette være tegn nr 8 i passordet"
 
 #: Cerebrum/modules/pwcheck/simple.py:311
 msgid ""
