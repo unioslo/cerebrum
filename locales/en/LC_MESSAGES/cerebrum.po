@@ -20,7 +20,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-04-01 16:06+0200\n"
+"POT-Creation-Date: 2016-04-01 16:28+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -212,18 +212,20 @@ msgid "Must contain at least {min_words} words."
 msgstr ""
 
 #: Cerebrum/modules/pwcheck/phrase.py:38
-msgid "Must contain at least {min_words} words of length {min_word_length}."
+msgid ""
+"Must contain at least {min_words} words with a minimum length of "
+"{min_word_length} characters each."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/phrase.py:49
+#: Cerebrum/modules/pwcheck/phrase.py:50
 msgid "Password must have at least {wds} words of length {word_length}"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/phrase.py:60
+#: Cerebrum/modules/pwcheck/phrase.py:61
 msgid "Words must be in average at least {avg_length} characters long."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/phrase.py:68
+#: Cerebrum/modules/pwcheck/phrase.py:69
 msgid "Password words must be in average at least {avg} characters long"
 msgstr ""
 

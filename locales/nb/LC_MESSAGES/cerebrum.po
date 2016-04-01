@@ -20,7 +20,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-04-01 16:06+0200\n"
+"POT-Creation-Date: 2016-04-01 16:28+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -101,7 +101,7 @@ msgstr ""
 
 #: Cerebrum/modules/pwcheck/simple.py:227
 msgid "Must be at least {min_length} characters."
-msgstr "Må være minst {min_length} tegn langt."
+msgstr "Må ha en lengde på minst {min_length} tegn."
 
 #: Cerebrum/modules/pwcheck/simple.py:231
 msgid "Must be at least {min_length} and at most {max_length} characters."
@@ -231,18 +231,22 @@ msgid "Must contain at least {min_words} words."
 msgstr "Må bestå av minst {min_words} ord."
 
 #: Cerebrum/modules/pwcheck/phrase.py:38
-msgid "Must contain at least {min_words} words of length {min_word_length}."
-msgstr "Må bestå av minst {min_words} ord av lengde {min_word_length}."
+msgid ""
+"Must contain at least {min_words} words with a minimum length of "
+"{min_word_length} characters each."
+msgstr "Må bestå av minst {min_words} ord med en lengde på minimum {min_word_length} tegn hver."
 
-#: Cerebrum/modules/pwcheck/phrase.py:49
+#: Cerebrum/modules/pwcheck/phrase.py:50
 msgid "Password must have at least {wds} words of length {word_length}"
 msgstr "Passordet må bestå av minst {wds} ord av lengde {word_length}"
 
-#: Cerebrum/modules/pwcheck/phrase.py:60
+#: Cerebrum/modules/pwcheck/phrase.py:61
 msgid "Words must be in average at least {avg_length} characters long."
-msgstr "Ordene i passordfrasen må tilsammen ha en gjennomsnittlig lengde på minimum {avg_length} tegn."
+msgstr ""
+"Ordene i passordfrasen må tilsammen ha en gjennomsnittlig lengde på minimum "
+"{avg_length} tegn."
 
-#: Cerebrum/modules/pwcheck/phrase.py:68
+#: Cerebrum/modules/pwcheck/phrase.py:69
 msgid "Password words must be in average at least {avg} characters long"
 msgstr "Ord i passordfrasen ha gjennomsnittlig lendge av {avg} tegn"
 

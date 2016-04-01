@@ -35,8 +35,9 @@ class CheckPhraseWords(PasswordChecker):
                 'Must contain at least {min_words} words.').format(
                     min_words=min_words)
         else:
-            self._requirement = _('Must contain at least {min_words} words of '
-                                  'length {min_word_length}.').format(
+            self._requirement = _('Must contain at least {min_words} words '
+                                  'with a minimum length of '
+                                  '{min_word_length} characters each.').format(
                                       min_words=min_words,
                                       min_word_length=min_word_length)
 
