@@ -232,6 +232,8 @@ class ExchangeGroupEventHandler(evhandlers.EventConsumer):
         :raise EventExecutionException: If the event fails to execute."""
         destination = group_flattener.get_entity(self.db, event['dest_entity'])
         member = group_flattener.get_entity(self.db, event['subject_entity'])
+        if not member:
+            return
         (destinations, candidates) = group_flattener.add_operations(
             self.db, self.co,
             member, destination,
@@ -276,6 +278,8 @@ class ExchangeGroupEventHandler(evhandlers.EventConsumer):
         :raise UnrelatedEvent: Raised if the event is not to be handled."""
         destination = group_flattener.get_entity(self.db, event['dest_entity'])
         member = group_flattener.get_entity(self.db, event['subject_entity'])
+        if not member:
+            return
         removals = group_flattener.remove_operations(self.db, self.co,
                                                      member, destination,
                                                      self.group_spread,
