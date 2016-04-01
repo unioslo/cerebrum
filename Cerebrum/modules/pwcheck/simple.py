@@ -261,7 +261,10 @@ class CheckMultipleCharacterSets(PasswordChecker):
         self._requirement = _(
             'Must contain characters from at least 3 of the '
             'following character groups: Uppercase letters, lowercase '
-            'letters, numbers and special characters')
+            'letters, numbers and special characters. If the password only '
+            'contains one uppercase letter, it cannot be the first character.'
+            ' If the password only contains one number or special character, '
+            'it cannot be in position 8')
 
     def check_password(self, password, account=None):
         """Check that a password use multiple character sets.

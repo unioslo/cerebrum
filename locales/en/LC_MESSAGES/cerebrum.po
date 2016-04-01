@@ -20,7 +20,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-03-31 15:18+0200\n"
+"POT-Creation-Date: 2016-04-01 15:14+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -30,17 +30,8 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: pygettext.py 1.5\n"
 
-#: Cerebrum/modules/pwcheck/dictionary.py:254
-msgid "Must not contain dictionary words."
-msgstr ""
-
-#: Cerebrum/modules/pwcheck/dictionary.py:264
-#: Cerebrum/modules/pwcheck/dictionary.py:275
-msgid "Password cannot contain dictionary words."
-msgstr ""
-
-#: Cerebrum/modules/pwcheck/dictionary.py:270
-msgid "You should not combine two words like {word1} and {word2}"
+#: Cerebrum/modules/pwcheck/checker.py:160
+msgid "Something"
 msgstr ""
 
 #: Cerebrum/modules/pwcheck/simple.py:61
@@ -120,96 +111,99 @@ msgstr ""
 #: Cerebrum/modules/pwcheck/simple.py:262
 msgid ""
 "Must contain characters from at least 3 of the following character groups: "
-"Uppercase letters, lowercase letters, numbers and special characters"
+"Uppercase letters, lowercase letters, numbers and special characters. If the "
+"password only contains one uppercase letter, it cannot be the first "
+"character. If the password only contains one number or special character, it "
+"cannot be in position 8"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:308
+#: Cerebrum/modules/pwcheck/simple.py:311
 msgid ""
 "A password that only contains one uppercase letter, must not have this as "
 "the first character. If the first 8 characters only contains one number or "
 "special character, this must not be in position 8."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:314
+#: Cerebrum/modules/pwcheck/simple.py:317
 msgid ""
 "The first eight characters of the password must contain characters from at "
 "least three of the four following character groups: Uppercase letters, "
 "lowercase letters, numbers and special characters."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:326
+#: Cerebrum/modules/pwcheck/simple.py:329
 msgid "Must not contain sequences of closely related characters."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:349
+#: Cerebrum/modules/pwcheck/simple.py:352
 msgid "Password cannot contain characters in alpabetical or numerical order"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:378
+#: Cerebrum/modules/pwcheck/simple.py:381
 msgid "Password cannot contain neighbouring keyboard keys"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:389
+#: Cerebrum/modules/pwcheck/simple.py:392
 msgid "Must not contain repeated sequences of characters."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:397
+#: Cerebrum/modules/pwcheck/simple.py:400
 msgid "Password cannot contain repeated sequences of characters."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:417
+#: Cerebrum/modules/pwcheck/simple.py:420
 msgid "Must not contain your username, even in reverse."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:430
+#: Cerebrum/modules/pwcheck/simple.py:433
 msgid "Password cannot contain your username"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:434
+#: Cerebrum/modules/pwcheck/simple.py:437
 msgid "Password cannot contain your username in reverse"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:443
+#: Cerebrum/modules/pwcheck/simple.py:446
 msgid "Must not contain {name_seq_len} or more characters from your name."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:513
+#: Cerebrum/modules/pwcheck/simple.py:516
 msgid "Password cannot contain your name."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:527
+#: Cerebrum/modules/pwcheck/simple.py:530
 msgid "Password cannot contain {seqlen} characters from your name"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:538
+#: Cerebrum/modules/pwcheck/simple.py:541
 msgid "Must only contain letters and spaces."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:553
+#: Cerebrum/modules/pwcheck/simple.py:556
 msgid "Password can only contain letters and spaces."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:562
+#: Cerebrum/modules/pwcheck/simple.py:565
 msgid "Must contain at least {digits} digits."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:568
+#: Cerebrum/modules/pwcheck/simple.py:571
 msgid "Password must contain at least {digits} digits"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:578
+#: Cerebrum/modules/pwcheck/simple.py:581
 msgid "Must contain at least {letters} letters."
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:585
+#: Cerebrum/modules/pwcheck/simple.py:588
 msgid "Password must contain at least {letters} letters"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:594
+#: Cerebrum/modules/pwcheck/simple.py:597
 msgid "Must contain upper and lowercase letters"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/simple.py:601
+#: Cerebrum/modules/pwcheck/simple.py:604
 msgid "Password must contain upper and lowercase letters"
 msgstr ""
 
@@ -233,8 +227,17 @@ msgstr ""
 msgid "Password words must be in average at least {avg} characters long"
 msgstr ""
 
-#: Cerebrum/modules/pwcheck/checker.py:160
-msgid "Something"
+#: Cerebrum/modules/pwcheck/dictionary.py:254
+msgid "Must not contain dictionary words."
+msgstr ""
+
+#: Cerebrum/modules/pwcheck/dictionary.py:264
+#: Cerebrum/modules/pwcheck/dictionary.py:275
+msgid "Password cannot contain dictionary words."
+msgstr ""
+
+#: Cerebrum/modules/pwcheck/dictionary.py:270
+msgid "You should not combine two words like {word1} and {word2}"
 msgstr ""
 
 #: Cerebrum/modules/pwcheck/history_checks.py:33
@@ -243,4 +246,152 @@ msgstr ""
 
 #: Cerebrum/modules/pwcheck/history_checks.py:42
 msgid "Password too similar to an old password."
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:313
+msgid "usage: "
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:821
+msgid ".__call__() not defined"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1105
+#, python-format
+msgid "unknown parser %r (choices: %s)"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1146
+#, python-format
+msgid "argument \"-\" with mode %r"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1349
+#, python-format
+msgid "cannot merge actions - two groups are named %r"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1387
+msgid "'required' is an invalid argument for positionals"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1407
+#, python-format
+msgid "invalid option string %r: must start with a character %r"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1428
+#, python-format
+msgid "dest= is required for options like %r"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1445
+#, python-format
+msgid "invalid conflict_resolution value: %r"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1463
+#, python-format
+msgid "conflicting option string(s): %s"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1526
+msgid "mutually exclusive arguments must be optional"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1596
+msgid "positional arguments"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1597
+msgid "optional arguments"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1615
+msgid "show this help message and exit"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1621
+msgid "show program's version number and exit"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1653
+msgid "cannot have multiple subparser arguments"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1705
+#, python-format
+msgid "unrecognized arguments: %s"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1802
+#, python-format
+msgid "not allowed with argument %s"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1848
+#: build/lib/Cerebrum/extlib/argparse.py:1862
+#, python-format
+msgid "ignored explicit argument %r"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1952
+msgid "too few arguments"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1959
+#, python-format
+msgid "argument %s is required"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:1973
+#, python-format
+msgid "one of the arguments %s is required"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:2019
+msgid "expected one argument"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:2020
+msgid "expected at most one argument"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:2021
+msgid "expected at least one argument"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:2023
+#, python-format
+msgid "expected %s argument(s)"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:2080
+#, python-format
+msgid "ambiguous option: %s could match %s"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:2142
+#, python-format
+msgid "unexpected option string: %s"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:2243
+#, python-format
+msgid "%r is not callable"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:2259
+#, python-format
+msgid "invalid %s value: %r"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:2269
+#, python-format
+msgid "invalid choice: %r (choose from %s)"
+msgstr ""
+
+#: build/lib/Cerebrum/extlib/argparse.py:2362
+#, python-format
+msgid "%s: error: %s\n"
 msgstr ""
