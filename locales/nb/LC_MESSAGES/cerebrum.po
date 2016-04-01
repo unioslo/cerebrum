@@ -240,7 +240,7 @@ msgstr "Passordet må bestå av minst {wds} ord av lengde {word_length}"
 
 #: Cerebrum/modules/pwcheck/phrase.py:60
 msgid "Words must be in average at least {avg_length} characters long."
-msgstr "Ord må ha gjennomsnittlig lengde av {avg_length} tegn."
+msgstr "Ordene i passordfrasen må tilsammen ha en gjennomsnittlig lengde på minimum {avg_length} tegn."
 
 #: Cerebrum/modules/pwcheck/phrase.py:68
 msgid "Password words must be in average at least {avg} characters long"
