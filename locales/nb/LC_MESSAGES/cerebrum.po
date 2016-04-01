@@ -20,7 +20,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-04-01 15:26+0200\n"
+"POT-Creation-Date: 2016-04-01 16:06+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -125,8 +125,8 @@ msgid ""
 msgstr ""
 "Må bestå av tegn fra minst 3 av de følgende tegngruppene: Store bokstaver, "
 "små bokstaver, tall, spesialtegn. Om passordet kun inneholder en stor "
-"bokstav, kan ikke denne være første tegn. Om passordet kun inneholder "
-"ett nummer eller ett spesialtegn, kan ikke dette være tegn nr 8 i passordet"
+"bokstav, kan ikke denne være første tegn. Om passordet kun inneholder ett "
+"nummer eller ett spesialtegn, kan ikke dette være tegn nr 8 i passordet"
 
 #: Cerebrum/modules/pwcheck/simple.py:311
 msgid ""
@@ -266,154 +266,6 @@ msgstr "Må ikke ligne på et gammelt passord."
 #: Cerebrum/modules/pwcheck/history_checks.py:42
 msgid "Password too similar to an old password."
 msgstr "Passordet ligner mye på et gammelt passord."
-
-#: build/lib/Cerebrum/extlib/argparse.py:313
-msgid "usage: "
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:821
-msgid ".__call__() not defined"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1105
-#, python-format
-msgid "unknown parser %r (choices: %s)"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1146
-#, python-format
-msgid "argument \"-\" with mode %r"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1349
-#, python-format
-msgid "cannot merge actions - two groups are named %r"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1387
-msgid "'required' is an invalid argument for positionals"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1407
-#, python-format
-msgid "invalid option string %r: must start with a character %r"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1428
-#, python-format
-msgid "dest= is required for options like %r"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1445
-#, python-format
-msgid "invalid conflict_resolution value: %r"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1463
-#, python-format
-msgid "conflicting option string(s): %s"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1526
-msgid "mutually exclusive arguments must be optional"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1596
-msgid "positional arguments"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1597
-msgid "optional arguments"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1615
-msgid "show this help message and exit"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1621
-msgid "show program's version number and exit"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1653
-msgid "cannot have multiple subparser arguments"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1705
-#, python-format
-msgid "unrecognized arguments: %s"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1802
-#, python-format
-msgid "not allowed with argument %s"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1848
-#: build/lib/Cerebrum/extlib/argparse.py:1862
-#, python-format
-msgid "ignored explicit argument %r"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1952
-msgid "too few arguments"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1959
-#, python-format
-msgid "argument %s is required"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:1973
-#, python-format
-msgid "one of the arguments %s is required"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:2019
-msgid "expected one argument"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:2020
-msgid "expected at most one argument"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:2021
-msgid "expected at least one argument"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:2023
-#, python-format
-msgid "expected %s argument(s)"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:2080
-#, python-format
-msgid "ambiguous option: %s could match %s"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:2142
-#, python-format
-msgid "unexpected option string: %s"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:2243
-#, python-format
-msgid "%r is not callable"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:2259
-#, python-format
-msgid "invalid %s value: %r"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:2269
-#, python-format
-msgid "invalid choice: %r (choose from %s)"
-msgstr ""
-
-#: build/lib/Cerebrum/extlib/argparse.py:2362
-#, python-format
-msgid "%s: error: %s\n"
-msgstr ""
 
 #~ msgid "Password must be at most {max_length} characters."
 #~ msgstr "Passordet må være maks {max_length} tegn langt."
