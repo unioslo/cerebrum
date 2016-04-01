@@ -30,7 +30,7 @@ class CheckPasswordHistory(PasswordChecker):
 
     def __init__(self):
         self._requirement = _(
-            'Must not be too similar to an old password.')
+            'Must not be too similar to an old password')
 
     def check_password(self, password, account=None):
         if not account:
@@ -39,4 +39,4 @@ class CheckPasswordHistory(PasswordChecker):
             return
         if (account._check_password_history(password) or
                 account._check_password_history(password[0:8])):
-            return [_('Password too similar to an old password.')]
+            return [_('Password too similar to an old password')]
