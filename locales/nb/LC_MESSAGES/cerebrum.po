@@ -55,7 +55,6 @@ msgid "Password cannot contain 8-bit characters (e.g. æøå)."
 msgstr "Passordet må ikke inneholde 8-bit tegn (f.eks. æøå)."
 
 #: Cerebrum/modules/pwcheck/simple.py:96
-#, fuzzy
 msgid "Can contain only a-z, A-Z, digits, and: {special_characters}"
 msgstr "Kan inneholde kun a-z, A-Z, siffer og: {special_characters}"
 
@@ -117,7 +116,6 @@ msgid "Password must be at most {max_length} characters long."
 msgstr "Passordet må være høyst {max_length} tegn langt."
 
 #: Cerebrum/modules/pwcheck/simple.py:262
-#, fuzzy
 msgid ""
 "Must contain characters from at least 3 of the following character groups: "
 "Uppercase letters, lowercase letters, numbers and special characters. If the "
@@ -128,7 +126,7 @@ msgstr ""
 "Må bestå av tegn av minst 3 av de følgende tegngruppene: Store bokstaver, "
 "små bokstaver, tall, spesialtegn. Om passordet kun inneholder en stor "
 "bokstav, kan ikke denne være første tegn. Om passordet kun inneholder "
-"ettnummer eller ett spesialtegn, kan ikke dette være tegn nr 8 i passordet"
+"ett nummer eller ett spesialtegn, kan ikke dette være tegn nr 8 i passordet"
 
 #: Cerebrum/modules/pwcheck/simple.py:311
 msgid ""
