@@ -349,9 +349,13 @@ class TSDBofhdExtension(BofhdCommonMethods):
         try:
             check_password(password, account, structured=False)
         except RigidPasswordNotGoodEnough, e:
-            raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
+            err_msg = unicode(e).encode('utf-8', errors='ignore')
+            raise CerebrumError('Bad password: {err_msg}'.format(
+                err_msg=err_msg))
         except PhrasePasswordNotGoodEnough, e:
-            raise CerebrumError('Bad passphrase: {err_msg}'.format(err_msg=e))
+            err_msg = unicode(e).encode('utf-8', errors='ignore')
+            raise CerebrumError('Bad passphrase: {err_msg}'.format(
+                err_msg=err_msg))
         except PasswordNotGoodEnough, e:
             raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
         ret_msg = 'Password altered'
