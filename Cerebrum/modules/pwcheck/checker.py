@@ -73,8 +73,9 @@ def check_password(password, account=None, structured=False):
     # Inspect the PASSWORD_CHECKS structure and decide
     # on supported password styles
     allowed_style = 'rigid'
-    if (cereconf.PASSWORD_CHECKS.get('rigid') and
-        cereconf.PASSWORD_CHECKS.get('phrase')):
+    if (
+            cereconf.PASSWORD_CHECKS.get('rigid') and
+            cereconf.PASSWORD_CHECKS.get('phrase')):
         allowed_style = 'mixed'
     elif cereconf.PASSWORD_CHECKS.get('phrase'):
         allowed_style = 'phrase'
@@ -112,7 +113,23 @@ def check_password(password, account=None, structured=False):
                 if not structured and err and pwstyle == style:
                     ex_class = exception_classes.get(style,
                                                      PasswordNotGoodEnough)
-                    raise ex_class(err[0])
+                    # only the first error message it sent when exceptions
+                    # are raised
+                    err_msg = err[0]
+                    if isinstance(err_msg, str):
+                        # convert to unicode first in order to achieve
+                        # uniform input
+                        try:
+                            err_msg = err_msg.decode('utf-8')
+                        except UnicodeDecodeError:
+                            # can occur as a result of some weird clint input
+                            # just to be safe...
+                            err_msg = err_msg.decode('latin-1',
+                                                     errors='replace')
+                    # err. messages are always UTF-8 for
+                    # RigidPasswordNotGoodEnough and
+                    # PhrasePasswordNotGoodEnough
+                    raise ex_class(err_msg.encode('utf-8'))
                 if err:
                     errors[(style, check_name)][language] = err
                 else:

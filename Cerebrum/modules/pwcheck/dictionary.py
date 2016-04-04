@@ -251,7 +251,7 @@ class CheckPasswordDictionary(PasswordChecker):
     """ Check if password contains dictionary words. """
 
     def __init__(self):
-        self._requirement = _('Must not contain dictionary words.')
+        self._requirement = _('Must not contain dictionary words')
 
     @property
     def password_dictionaries(self):
@@ -261,7 +261,7 @@ class CheckPasswordDictionary(PasswordChecker):
     def check_password(self, password, account=None):
         """ Check password against a dictionary. """
         if check_dict(self.password_dictionaries, password[0:8]):
-            return [_('Password cannot contain dictionary words.')]
+            return [_('Password cannot contain dictionary words')]
 
         err = check_two_word_combinations(self.password_dictionaries,
                                           password[0:8])
@@ -272,4 +272,4 @@ class CheckPasswordDictionary(PasswordChecker):
 
         for tmp in additional_words():
             if tmp in password[0:8].lower():
-                return [_('Password cannot contain dictionary words.')]
+                return [_('Password cannot contain dictionary words')]

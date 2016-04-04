@@ -22,5 +22,4 @@
 
 Each module in this sub-package provides mixins that can be used to check if a
 password is strong enough to be accepted for use.
-
 """
