@@ -187,5 +187,5 @@ class VirtualGroup(Group):
         """
         if self.virtual_group_type == self.const.entity_virtual_group:
             return super(VirtualGroup, self).remove_member(member_id)
-        raise RuntimeError("Group {} is a virtual group; can't add members"
+        raise RuntimeError("Group {} is a virtual group; can't remove members"
                            .format(self.group_name))
