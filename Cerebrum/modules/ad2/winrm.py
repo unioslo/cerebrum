@@ -452,7 +452,9 @@ class WinRMProtocol(object):
             xml = etree.tostring(xml, encoding='utf-8')
         # Add the XML header definition
         xml = '<?xml version="1.0" encoding="UTF-8" ?>\n%s' % xml
-        req = urllib2.Request(self._http_url(address), xml, self._http_headers)
+        req = urllib2.Request(self._http_url(address).encode('utf-8'),
+                              xml,
+                              self._http_headers)
         try:
             ret = self._opener.open(req)
         except urllib2.HTTPError, e:

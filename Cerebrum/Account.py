@@ -1299,7 +1299,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             pot = pot.replace(i, '')
         while True:
             r = ''
-            while len(r) < 8:
+            while len(r) < cereconf.MAKE_PASSWORD_LENGTH:
                 r += pot[random.randint(0, len(pot) - 1)]
             try:
                 self.password_good_enough(r)

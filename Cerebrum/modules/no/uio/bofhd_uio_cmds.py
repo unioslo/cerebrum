@@ -22,7 +22,8 @@ import sys
 import time
 import os
 import re
-import email.Generator, email.Message
+import email.Generator
+import email.Message
 import imaplib
 import ssl
 import pickle
@@ -43,8 +44,11 @@ from Cerebrum.Constants import _CerebrumCode, _SpreadCode, _LanguageCode
 from Cerebrum import Utils
 from Cerebrum.modules import Email
 from Cerebrum.modules.Email import _EmailDomainCategoryCode
+from Cerebrum.modules.pwcheck.checker import (check_password,
+                                              PasswordNotGoodEnough,
+                                              RigidPasswordNotGoodEnough,
+                                              PhrasePasswordNotGoodEnough)
 from Cerebrum.modules.pwcheck.history import PasswordHistory
-from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
@@ -6174,9 +6178,19 @@ Addresses and settings:
     def misc_check_password(self, operator, password):
         ac = self.Account_class(self.db)
         try:
-            ac.password_good_enough(password)
-        except PasswordNotGoodEnough, m:
-            raise CerebrumError("Bad password: %s" % m)
+            check_password(password, ac, structured=False)
+        except RigidPasswordNotGoodEnough as e:
+            # tragically converting utf-8 -> unicode -> latin1
+            # since bofh still speaks latin1
+            raise CerebrumError('Bad password: {err_msg}'.format(
+                err_msg=str(e).decode('utf-8').encode('latin-1')))
+        except PhrasePasswordNotGoodEnough as e:
+            raise CerebrumError('Bad passphrase: {err_msg}'.format(
+                err_msg=str(e).decode('utf-8').encode('latin-1')))
+        except PasswordNotGoodEnough as e:
+            # should be used for a default (no style) message
+            # used for backward compatibility paranoia reasons here
+            raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
         crypt = ac.encrypt_password(self.const.Authentication("crypt3-DES"),
                                     password)
         md5 = ac.encrypt_password(self.const.Authentication("MD5-crypt"),
@@ -9375,9 +9389,15 @@ Addresses and settings:
                 raise CerebrumError(
                     "Cannot specify password for another user.")
         try:
-            account.password_good_enough(password)
-        except PasswordNotGoodEnough, m:
-            raise CerebrumError("Bad password: %s" % m)
+            check_password(password, account, structured=False)
+        except RigidPasswordNotGoodEnough as e:
+            raise CerebrumError('Bad password: {err_msg}'.format(
+                err_msg=str(e).decode('utf-8').encode('latin-1')))
+        except PhrasePasswordNotGoodEnough as e:
+            raise CerebrumError('Bad passphrase: {err_msg}'.format(
+                err_msg=str(e).decode('utf-8').encode('latin-1')))
+        except PasswordNotGoodEnough as e:
+            raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
         account.set_password(password)
         account.write_db()
         operator.store_state("user_passwd",

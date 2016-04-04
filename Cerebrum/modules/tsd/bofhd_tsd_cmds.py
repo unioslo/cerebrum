@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2015 University of Oslo, Norway
+# Copyright 2013-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -37,8 +37,6 @@ NOTE:
 Using the @superuser decorator instead of calling self.ba.is_superuser(userid)
 is only used in this file so far, so if you are an experienced bofhd developer,
 ba.is_superuser is not missing, it's still here, but in a different form.
-
-
 """
 
 from mx import DateTime
@@ -58,7 +56,10 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules import dns
 from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns import IPv6Subnet
-from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
+from Cerebrum.modules.pwcheck.checker import (check_password,
+                                              PasswordNotGoodEnough,
+                                              RigidPasswordNotGoodEnough,
+                                              PhrasePasswordNotGoodEnough)
 from Cerebrum.Constants import _CerebrumCode
 
 from Cerebrum.modules.tsd.bofhd_auth import TSDBofhdAuth
@@ -346,9 +347,15 @@ class TSDBofhdExtension(BofhdCommonMethods):
             elif operator.get_entity_id() != account.entity_id:
                 raise CerebrumError("Cannot specify password for another user.")
         try:
-            account.password_good_enough(password)
-        except PasswordNotGoodEnough, m:
-            raise CerebrumError("Bad password: %s" % m)
+            check_password(password, account, structured=False)
+        except RigidPasswordNotGoodEnough, e:
+            raise CerebrumError('Bad password: {err_msg}'.format(
+                err_msg=str(e).decode('utf-8').encode('latin-1')))
+        except PhrasePasswordNotGoodEnough, e:
+            raise CerebrumError('Bad passphrase: {err_msg}'.format(
+                err_msg=str(e).decode('utf-8').encode('latin-1')))
+        except PasswordNotGoodEnough, e:
+            raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
         ret_msg = 'Password altered'
         # Set password for all person's accounts:
         ac = Factory.get('Account')(self.db)
@@ -1693,8 +1700,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             posix_user.add_spread(self.const.Spread(spread))
         operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
                                                     'password': passwd})
-        # Set up TSD specific functionality, if not already set
-        posix_user.setup_for_project()
         return "Ok, created %s, UID: %s" % (posix_user.account_name, uid)
 
     # user generate_otpkey

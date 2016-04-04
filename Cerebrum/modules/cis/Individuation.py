@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2010-2012 University of Oslo, Norway
+# Copyright 2010-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,17 +22,25 @@
 
 """
 
-import random, hashlib
-import string, pickle
+import hashlib
+import json
+import random
+import pickle
+import string
 from mx.DateTime import RelativeDateTime, now
 
 import cereconf
 import cerebrum_path
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, SMSSender, sendmail
-from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
+from Cerebrum.modules.pwcheck.checker import (check_password,
+                                              PasswordNotGoodEnough,
+                                              RigidPasswordNotGoodEnough,
+                                              PhrasePasswordNotGoodEnough)
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from cisconf import individuation as cisconf
+
 
 class SimpleLogger(object):
     """Very simple logger that just writes to stdout. Main reason for this
@@ -59,6 +67,7 @@ class SimpleLogger(object):
 
 ## Globals
 log = SimpleLogger()
+
 
 class Individuation:
     """The general functionality for the Individuation project that is talking
@@ -401,37 +410,55 @@ class Individuation:
             log.error("Couldn't delete password token trait for %s. %s" % (uname, m))
         return True
 
-    def validate_password(self, password):
-        return self._check_password(password)
+    def validate_password(self, password, account_name, structured):
+        """
+        Validate any password
 
-    def validate_password_for_account(self, account_name, password):
-        try:
-            account = Factory.get('Account')(self.db)
-            account.find_by_name(account_name)
-        except Errors.NotFoundError:
-            raise Errors.CerebrumRPCException('unknown_error')
-        return self._check_password(password, account=account)
-
-    def _check_password(self, password, account=None):
-        if account is None:
-            account = Factory.get('Account')(self.db)
-        try:
-            account.password_good_enough(password)
-        except PasswordNotGoodEnough, m:
+        :param password: the password to be validated
+        :type password: str
+        :param account_name: the account name to be used or ''
+        :type account_name: str
+        :param structured: whether to ask for a strctured (json) output
+        :type structured: bool
+        """
+        account = None
+        if account_name:
             try:
-                m = unicode(str(m), 'utf-8', errors='strict')
-            except UnicodeDecodeError:
-                m = unicode(str(m), 'latin-1', errors='replace')
+                account = Factory.get('Account')(self.db)
+                account.find_by_name(account_name)
+            except Errors.NotFoundError:
+                raise Errors.CerebrumRPCException('unknown_error')
+        try:
+            result = check_password(password, account, structured)
+            # exceptions are obsolete and used only for backward
+            # compatibility here (f.i. old brukerinfo clients)
+        except PhrasePasswordNotGoodEnough as e:
+            # assume that structured is False
+            m = str(e).decode('utf-8')
+            # separate exception for phrases on the client??
+            # no point of having separate except block otherwise
+            raise Errors.CerebrumRPCException('password_invalid', m)
+        except PasswordNotGoodEnough as e:
+            # assume that structured is False
+            m = str(e).decode('utf-8')
             raise Errors.CerebrumRPCException('password_invalid', m)
         else:
-            return True
+            if structured:
+                # success or error data sent to the caller
+                return json.dumps(result, indent=4)
+            else:
+                # no PasswordNotGoodEnough exception thrown
+                return 'OK'
 
     def set_password(self, uname, new_password, token, browser_token):
         if not self.check_token(uname, token, browser_token):
             return False
         account = self.get_account(uname)
-        if not self._check_password(new_password, account):
-            return False
+        try:
+            check_password(new_password, account)
+        except PasswordNotGoodEnough as e:
+            m = str(e).decode('utf-8')
+            raise Errors.CerebrumRPCException('password_invalid', m)
         # All data is good. Set password
         account.set_password(new_password)
         try:

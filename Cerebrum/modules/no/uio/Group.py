@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2003 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2003-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,12 +19,11 @@
 
 
 import re
-import cereconf
 
 from Cerebrum import Group
-from Cerebrum import Utils
 from Cerebrum.Database import Errors
 from Cerebrum.modules import Email
+
 
 class GroupUiOMixin(Group.Group):
     """Group mixin class providing functionality specific to UiO.
@@ -48,9 +47,16 @@ class GroupUiOMixin(Group.Group):
             if tmp:
                 raise self._db.IntegrityError(
                     "Illegal name for filegroup, {0}.".format(tmp))
+        # When adding a Shared mailbox spread, assert that the group is a
+        # distribution group.
+        if spread == self.const.spread_exchange_shared_mbox:
+            if not self.has_spread(self.const.spread_exchange_group):
+                raise Errors.CerebrumError(
+                    "Can't add shared mailbox spread to a "
+                    "non-distribution group")
         #
         # (Try to) perform the actual spread addition.
-        ret = self.__super.add_spread(spread)
+        self.__super.add_spread(spread)
 
     # exchange-relatert-jazz
     # add som name checks that are related to group name requirements
@@ -60,7 +66,7 @@ class GroupUiOMixin(Group.Group):
             return "Must specify group name"
         # no group names should start with a period or a space!
         if re.search("^\.|^\s", name):
-            return "Names cannot start with period or space (%s)" % name 
+            return "Names cannot start with period or space (%s)" % name
         # Avoid circular import dependency
         from Cerebrum.modules import PosixGroup
         from Cerebrum.modules.exchange import ExchangeGroups
@@ -69,7 +75,9 @@ class GroupUiOMixin(Group.Group):
         # PosixGroup?
         if isinstance(self, PosixGroup.PosixGroup):
             if len(name) > max_length:
-                return "name too long (%s characters; %d is max)" % (len(name), max_length)
+                return ("name too long ({name_length} characters; "
+                        "{max_length} is max)".format(
+                            name_length=len(name), max_length=max_length))
             if re.search("^[^a-z]", name):
                 return "name must start with a character (%s)" % name
             if re.search("[^a-z0-9\-_]", name):

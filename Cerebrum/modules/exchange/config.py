@@ -130,7 +130,7 @@ class ExchangeClientConfig(Configuration):
         doc=u"OU groups should reside in")
 
 
-class ExchangeSelectionCriterias(Configuration):
+class ExchangeSelectionCriteria(Configuration):
     mailbox_spread = ConfigDescriptor(
         String,
         default=u"exchange_account",
@@ -140,6 +140,11 @@ class ExchangeSelectionCriterias(Configuration):
         String,
         default=u"exchange_group",
         doc=u"The spread to select target groups for Exchange by")
+
+    shared_mbox_spread = ConfigDescriptor(
+        String,
+        default=u"exch_shared_mbox",
+        doc=u"The spread to select target shared mailboxes for Exchange by")
 
     ad_spread = ConfigDescriptor(
         String,
@@ -200,15 +205,28 @@ class ExchangeHandlerConfig(Configuration):
         doc=u"Handler module used for processing events")
 
 
+class DeferredExchangeHandlerConfig(Configuration):
+    u"""Configuration for the defered event handler."""
+    handler_class = ConfigDescriptor(
+        String,
+        default=None,
+        doc=u"Deferred handler class used for processing events")
+
+    handler_mod = ConfigDescriptor(
+        String,
+        default=None,
+        doc=u"Deferred handler module used for processing events")
+
+
 class ExchangeConfig(Configuration):
     u"""Configuration for the Exchange integration."""
     client = ConfigDescriptor(
         Namespace,
         config=ExchangeClientConfig)
 
-    selection_criterias = ConfigDescriptor(
+    selection_criteria = ConfigDescriptor(
         Namespace,
-        config=ExchangeSelectionCriterias)
+        config=ExchangeSelectionCriteria)
 
     eventcollector = ConfigDescriptor(
         Namespace,
@@ -217,6 +235,10 @@ class ExchangeConfig(Configuration):
     handler = ConfigDescriptor(
         Namespace,
         config=ExchangeHandlerConfig)
+
+    deferred_handler = ConfigDescriptor(
+        Namespace,
+        config=DeferredExchangeHandlerConfig)
 
 
 def load_config(filepath=None):

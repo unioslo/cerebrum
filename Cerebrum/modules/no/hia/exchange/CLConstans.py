@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-# coding: utf-8
-#
-# Copyright 2015 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,19 +17,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""
-Password check mixin to insert default args from cereconf.
-Important: add this to cereconf.CLASS_ACCOUNT before the other
-PasswordCheckers
-"""
+"""ChangeLog constants for Exchange at UiA."""
 
-from .common import PasswordChecker
-import cereconf
+from Cerebrum.modules.CLConstants import CLConstants
+from Cerebrum.modules.CLConstants import _ChangeTypeCode
 
 
-class CereconfMixin(PasswordChecker):
-    def password_good_enough(self, password, **kw):
-        """Insert cereconf.PASSWORD_TEST_ARGUMENTS into keywords"""
-        dta = cereconf.PASSWORD_TEST_ARGUMENTS.copy()
-        dta.update(kw)
-        super(CereconfMixin, self).password_good_enough(password, **dta)
+class CLConstants(CLConstants):
+    ea_policy = _ChangeTypeCode('exchange', 'set_ea_policy',
+                                'Address book policy changed')
