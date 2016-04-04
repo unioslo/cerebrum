@@ -746,9 +746,15 @@ class OUGroup(VirtualGroup):
             memid = 'pas.person_id'
         elif mt == self.const.virtual_group_ou_primary:
             memtype = self.const.entity_account
-            memid = """(SELECT account_id as member_id FROM account_type at
-            WHERE at.person_id = pas.person_id
-            ORDER BY priority LIMIT 1)"""
+            memid = """
+            (SELECT ai.account_id as member_id
+            FROM [:table schema=cerebrum name=account_type] at
+            LEFT JOIN [:table schema=cerebrum name=account_info] ai
+                      USING (account_id)
+            WHERE at.person_id = pas.person_id AND
+                  (ai.expire_date IS NULL OR
+                   ai.expire_date > [:now])
+            ORDER BY at.priority LIMIT 1)"""
             # memid = 'member.person_id'
         elif mt == self.const.virtual_group_ou_accounts:
             memtype = self.const.entity_account
