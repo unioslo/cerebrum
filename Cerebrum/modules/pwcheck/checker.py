@@ -117,6 +117,8 @@ def check_password(password, account=None, structured=False):
                     # are raised
                     err_msg = err[0]
                     if isinstance(err_msg, str):
+                        # convert to unicode first in order to achieve
+                        # uniform input
                         try:
                             err_msg = err_msg.decode('utf-8')
                         except UnicodeDecodeError:
@@ -124,10 +126,10 @@ def check_password(password, account=None, structured=False):
                             # just to be safe...
                             err_msg = err_msg.decode('latin-1',
                                                      errors='replace')
-                    # err. messages are always unicode for
+                    # err. messages are always UTF-8 for
                     # RigidPasswordNotGoodEnough and
                     # PhrasePasswordNotGoodEnough
-                    raise ex_class(err_msg)
+                    raise ex_class(err_msg.encode('utf-8'))
                 if err:
                     errors[(style, check_name)][language] = err
                 else:

@@ -270,13 +270,11 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             check_password(password, ac, structured=False)
         except RigidPasswordNotGoodEnough as e:
-            err_msg = unicode(e).encode('utf-8', errors='ignore')
             raise CerebrumError('Bad password: {err_msg}'.format(
-                err_msg=err_msg))
+                err_msg=str(e).decode('utf-8').encode('latin-1')))
         except PhrasePasswordNotGoodEnough as e:
-            err_msg = unicode(e).encode('utf-8', errors='ignore')
             raise CerebrumError('Bad passphrase: {err_msg}'.format(
-                err_msg=err_msg))
+                err_msg=str(e).decode('utf-8').encode('latin-1')))
         except PasswordNotGoodEnough as e:
             raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
         crypt = ac.encrypt_password(

@@ -434,13 +434,13 @@ class Individuation:
             # compatibility here (f.i. old brukerinfo clients)
         except PhrasePasswordNotGoodEnough as e:
             # assume that structured is False
-            m = unicode(e)
+            m = str(e).decode('utf-8')
             # separate exception for phrases on the client??
             # no point of having separate except block otherwise
             raise Errors.CerebrumRPCException('password_invalid', m)
         except PasswordNotGoodEnough as e:
             # assume that structured is False
-            m = unicode(e)
+            m = str(e).decode('utf-8')
             raise Errors.CerebrumRPCException('password_invalid', m)
         else:
             if structured:
@@ -457,7 +457,7 @@ class Individuation:
         try:
             check_password(new_password, account)
         except PasswordNotGoodEnough as e:
-            m = unicode(e)
+            m = str(e).decode('utf-8')
             raise Errors.CerebrumRPCException('password_invalid', m)
         # All data is good. Set password
         account.set_password(new_password)

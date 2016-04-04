@@ -6180,12 +6180,13 @@ Addresses and settings:
         try:
             check_password(password, ac, structured=False)
         except RigidPasswordNotGoodEnough as e:
-            err_msg = unicode(e).encode('utf-8', errors='ignore')
+            # tragically converting utf-8 -> unicode -> latin1
+            # since bofh still speaks latin1
             raise CerebrumError('Bad password: {err_msg}'.format(
-                err_msg=err_msg))
+                err_msg=str(e).decode('utf-8').encode('latin-1')))
         except PhrasePasswordNotGoodEnough as e:
-            err_msg = unicode(e).encode('utf-8', errors='ignore')
-            raise CerebrumError('Bad passphrase: {err_msg}'.format(err_msg=err_msg))
+            raise CerebrumError('Bad passphrase: {err_msg}'.format(
+                err_msg=str(e).decode('utf-8').encode('latin-1')))
         except PasswordNotGoodEnough as e:
             # should be used for a default (no style) message
             # used for backward compatibility paranoia reasons here
@@ -9390,13 +9391,11 @@ Addresses and settings:
         try:
             check_password(password, account, structured=False)
         except RigidPasswordNotGoodEnough as e:
-            err_msg = unicode(e).encode('utf-8', errors='ignore')
             raise CerebrumError('Bad password: {err_msg}'.format(
-                err_msg=err_msg))
+                err_msg=str(e).decode('utf-8').encode('latin-1')))
         except PhrasePasswordNotGoodEnough as e:
-            err_msg = unicode(e).encode('utf-8', errors='ignore')
             raise CerebrumError('Bad passphrase: {err_msg}'.format(
-                err_msg=err_msg))
+                err_msg=str(e).decode('utf-8').encode('latin-1')))
         except PasswordNotGoodEnough as e:
             raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
         account.set_password(password)
