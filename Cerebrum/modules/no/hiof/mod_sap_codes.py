@@ -267,7 +267,7 @@ class SAPConstants(Constants.Constants):
 
     sap_1199_universitetsbibliote = SAPLonnsTittelKode(
         "20001199",
-        "1199 Universitetsbibliote",
+        "1199 Universitetsbibliotekar",
         "VIT"
     )
 

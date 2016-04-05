@@ -870,7 +870,7 @@ class SAPConstants(Constants.Constants):
 
     sap_1199_universitetsbibliote = SAPLonnsTittelKode(
         "20001199",
-        "1199 Universitetsbibliote",
+        "1199 Universitetsbibliotekar",
         "VIT"
     )
 
@@ -1260,7 +1260,7 @@ class SAPConstants(Constants.Constants):
 
     sap_0000_ekstern_stillingskode = SAPLonnsTittelKode(
         "00000000",
-        "0000 Ekstern tilsatt, ikke lønnet av HiA",
+        "0000 Ekstern tilsatt",
         "ØVR"
     )
 
