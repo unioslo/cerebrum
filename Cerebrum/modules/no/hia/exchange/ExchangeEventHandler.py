@@ -24,7 +24,8 @@ import pickle
 import traceback
 from urllib2 import URLError
 
-from Cerebrum.modules.exchange.Exceptions import ExchangeException
+from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
+                                                  ServerUnavailableException)
 from Cerebrum.modules.event.EventExceptions import (EventExecutionException,
                                                     EntityTypeError,
                                                     UnrelatedEvent)
@@ -92,12 +93,12 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             # act upon this if it is appropriate.
             self.logger.error(
                 "Can't connect to springboard! Please notify postmaster!")
+            raise ServerUnavailableException(str(e))
         except Exception:
             # Get the traceback, put some tabs in front, and log it.
             tb = traceback.format_exc()
             self.logger.error("ExchangeClient failed setup:\n%s" % str(tb))
-        finally:
-            raise
+            raise ServerUnavailableException(str(e))
 
     # We register spread:add as the event which should trigger this function
     @event_map('spread:add')
