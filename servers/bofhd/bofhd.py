@@ -39,10 +39,6 @@ DB_AUTH_DIR
     TODO: Server certificate
     TODO: Database connection -- general file, but also needed by bofhd
 
-CEREBRUM_DATABASE_NAME
-    General cerebrum setting, only used for logging the database that bofh
-    connects to.
-
 """
 import cereconf
 
@@ -53,8 +49,9 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import https
 
-
 import Cerebrum.modules.bofhd.server as bofhd_server
+import Cerebrum.modules.bofhd.session as bofhd_session
+import Cerebrum.modules.bofhd.config as bofhd_config
 
 # An installation *may* have many instances of bofhd running in parallel. If
 # this is the case, make sure that all of the instances get their own
@@ -62,6 +59,7 @@ import Cerebrum.modules.bofhd.server as bofhd_server
 # representing the log (typically a file) may not cope with multiple processes
 # writing to it simultaneously.
 logger = Utils.Factory.get_logger("bofhd")  # The import modules use the "import" logger
+
 
 thread_name = lambda: threading.currentThread().getName()
 """ Get thread name. """
@@ -121,12 +119,13 @@ def test_help(config, target):
     Note: For this to work, Cerebrum must be set up with a
     cereconf.BOFHD_SUPERUSER_GROUP with at least one member.
 
-    :param string config: The path of the bofhd configuration file.
+    :param BofhdConfig config: The bofhd configuration.
     :param string target: The help texts test
 
     """
     db = Utils.Factory.get('Database')()
-    server = bofhd_server.BofhdServerImplementation(database=db, config_fname=config)
+    server = bofhd_server.BofhdServerImplementation(logger=logger,
+                                                    bofhd_config=config)
     error = lambda reason: SystemExit("Cannot list help texts: %s" % reason)
 
     # Fetch superuser
@@ -158,14 +157,13 @@ def test_help(config, target):
 
     # Action
     if target == '' or target == 'all' or target == 'general':
-        print server.help.get_general_help(commands)
+        print server.cmdhelp.get_general_help(commands)
     elif target == 'check':
         server.help.check_consistency(commands)
     elif target.find(":") >= 0:
-        print server.help.get_cmd_help(commands, *target.split(":"))
+        print server.cmdhelp.get_cmd_help(commands, *target.split(":"))
     else:
-        print server.help.get_group_help(commands, target)
-    raise SystemExit()
+        print server.cmdhelp.get_group_help(commands, target)
 
 
 if __name__ == '__main__':
@@ -230,24 +228,22 @@ if __name__ == '__main__':
 
     args = argp.parse_args()
 
+    # Read early to fail early
+    config = bofhd_config.BofhdConfig(args.conffile)
+
     if args.test_help is not None:
-        test_help(args.conffile, args.test_help)
-        # Will exit
+        test_help(config, args.test_help)
+        raise SystemExit()
 
-    logger.info("Server (%s) connected to DB '%s' starting at port: %d",
+    logger.info("Server (%s) starting at %s:%d",
                 "multi-threaded" if args.multi_threaded else "single-threaded",
-                cereconf.CEREBRUM_DATABASE_NAME, args.port)
-
-    if args.multi_threaded:
-        db = ProxyDBConnection(Utils.Factory.get('Database'))
-    else:
-        db = Utils.Factory.get('Database')()
+                args.host, args.port)
 
     # All BofhdServerImplementations share these arguments
     server_args = {
         'server_address': (args.host, args.port),
-        'database': db,
-        'config_fname': args.conffile
+        'bofhd_config': config,
+        'logger': logger,
     }
 
     if args.use_encryption:
@@ -269,5 +265,22 @@ if __name__ == '__main__':
             cls = bofhd_server.ThreadingBofhdServer
         else:
             cls = bofhd_server.BofhdServer
+
+    # Check and cache constants
+    # Note: This will cause a single persistent connection to the database,
+    #       which is caused by the caching of constants in
+    #       Cerebrum.Constants._CerebrumCode. The persisten connection will be
+    #       set up sooner or later anyway.
+    #       This *should* be OK, but we need to re-consider the design of this
+    #       cache
+    logger.debug("Caching constants...")
+    constants = Utils.Factory.get('Constants')()
+    constants.cache_constants()
+    del constants
+    logger.debug("Done caching constants")
+
+    # Log short timeout values
+    bofhd_session.BofhdSession._log_short_timeouts(logger)
+
     server = cls(**server_args)
     server.serve_forever()

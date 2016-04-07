@@ -30,10 +30,8 @@ although the help strings won't be particularily useful.
 from mx.DateTime import now, DateTimeDelta
 from mx.DateTime import strptime
 import pickle
-import sys
 import re
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
@@ -57,14 +55,11 @@ from Cerebrum.modules.bofhd.cmd_param import Spread
 from Cerebrum.modules.bofhd.cmd_param import QuarantineType
 
 from Cerebrum.modules.virthome.bofhd_auth import BofhdVirtHomeAuth
-from Cerebrum.modules.virthome.VirtAccount import VirtAccount 
+from Cerebrum.modules.virthome.VirtAccount import VirtAccount
 from Cerebrum.modules.virthome.VirtAccount import FEDAccount
 
 from Cerebrum.modules.virthome.PasswordChecker import VirthomePasswordChecker
 from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
-
-
-
 
 from Cerebrum.modules.virthome.bofhd_virthome_help import arg_help
 
@@ -84,35 +79,40 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     """Commands pertinent to user handling in VH."""
 
     all_commands = dict()
+    authz = BofhdVirtHomeAuth
 
-    # FIXME: Anytime *SOMETHING* from no/uio/bofhd_uio_cmds.py:BofhdExtension
-    # is used here, pull that something into a separate BofhdCommon class and
-    # stuff that into Cerebrum/modules/bofhd. Make
-    # no/uio/bofhd_uio_cmds.py:BofhdExtension inherit that common
-    # class. Refactoring, hell yeah!
-    def __init__(self, server):
-        super(BofhdVirthomeCommands, self).__init__(server)
-
-        self.ba = BofhdVirtHomeAuth(self.db)
+    def __init__(self, *args, **kwargs):
+        super(BofhdVirthomeCommands, self).__init__(*args, **kwargs)
         self.virtaccount_class = VirtAccount
         self.fedaccount_class = FEDAccount
 
-        self.virthome = VirthomeBase(self.db)
-        self.vhutils = VirthomeUtils(self.db)
-    # end __init__
+    @property
+    def virthome(self):
+        u""" Virthome command implementations. """
+        try:
+            return self.__virthome
+        except AttributeError:
+            self.__virthome = VirthomeBase(self.db)
+            return self.__virthome
 
+    @property
+    def vhutils(self):
+        u""" Virthome command helpers. """
+        try:
+            return self.__vhutils
+        except AttributeError:
+            self.__vhutils = VirthomeUtils(self.db)
+            return self.__vhutils
 
-    def get_help_strings(self):
+    @classmethod
+    def get_help_strings(cls):
         """Return a tuple of help strings for virthome bofhd.
 
         The help strings drive dumb clients' (such as jbofh) interface. The
         tuple values are dictionaries for (respectively) groups of commands,
         commands and arguments.
         """
-        
         return ({}, {}, arg_help)
-    # end get_help_strings
-
 
     def _get_account(self, identification, idtype=None):
         """Return the most specific account type for 'identification'.
@@ -134,8 +134,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         return result
     # end _get_account
-
-
 
     def _get_owner_name(self, account, name_type):
         """Fetch human owner's name, if account is of the proper type.

@@ -55,7 +55,6 @@ import cereconf
 
 import sys
 import socket
-import threading
 import xmlrpclib
 from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
 from xml.parsers.expat import ExpatError
@@ -63,6 +62,7 @@ from xml.parsers.expat import ExpatError
 from Cerebrum import https
 from Cerebrum import Errors
 from Cerebrum import QuarantineHandler
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.xmlutils import xmlrpc_to_native, native_to_xmlrpc
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.errors import SessionExpiredError
@@ -70,23 +70,11 @@ from Cerebrum.modules.bofhd.errors import ServerRestartedError
 from Cerebrum.modules.bofhd.errors import UnknownError
 from Cerebrum.modules.bofhd.session import BofhdSession
 
-# TODO: Fix me
-from Cerebrum.Utils import Factory
-logger = Factory.get_logger("bofhd")
-
-
-thread_name = lambda: threading.currentThread().getName()
-""" Get thread name. """
 
 format_addr = lambda addr: ':'.join([str(x) for x in addr or ['err', 'err']])
 """ Get ip:port formatted string from address tuple. """
 
 
-# TODO: We need to figure out where the db connection is *really* needed. We
-#       need to either:
-#         1. Fix the DBProxyConnection
-#         2. Move all DB access out of the ServerImplementation and into the
-#            RequestHandler.
 class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
 
     """Class defining all XML-RPC-callable methods.
@@ -95,6 +83,41 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
     the server is running on.  Care must be taken to validate input.
 
     """
+    def db_get(self):
+        u""" A transactional database connection. """
+        try:
+            return self.__db
+        except AttributeError:
+            self.__db = Factory.get('Database')()
+            return self.__db
+
+    def db_close(self):
+        u""" Closes database connection in `self.db`. """
+        try:
+            self.__db.close()
+            del self.__db
+        except AttributeError:
+            pass
+
+    def db_rollback(self):
+        u""" Rolls back database transaction in `self.db`. """
+        try:
+            return self.__db.rollback()
+        except AttributeError:
+            return None
+
+    def db_commit(self):
+        u""" Commits database transaction in `self.db`. """
+        try:
+            return self.__db.commit()
+        except AttributeError:
+            return None
+
+    db = property(fget=db_get, fdel=db_close, doc=db_get.__doc__)
+
+    @property
+    def logger(self):
+        return self.server.logger
 
     def setup(self):
         """ Setup the request.
@@ -125,7 +148,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
 
         try:
             ret = apply(func, xmlrpc_to_native(params))
-        except CerebrumError, e:
+        except CerebrumError as e:
             # Exceptions with unicode characters in the message
             # produce a UnicodeError when cast to str().  Fix by
             # encoding as utf-8
@@ -143,58 +166,52 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                 #   org.xml.sax.SAXParseException: character not allowed
                 ret = ret.decode('iso8859-1').encode('utf-8')
                 raise exc_type(ret)
-        except NotImplementedError, e:
-            logger.warn("Not-implemented: ", exc_info=1)
-            raise CerebrumError("Not Implemented: %s" % str(e))
-        except TypeError, e:
+        except NotImplementedError as e:
+            self.logger.warn(u'Not-implemented: ', exc_info=1)
+            raise CerebrumError(u'Not Implemented: {!s}'.format(str(e)))
+        except TypeError as e:
             if (str(e).find("takes exactly") != -1
                     or str(e).find("takes at least") != -1
                     or str(e).find("takes at most") != -1):
                 raise CerebrumError(str(e))
-            logger.warn("Unexpected exception", exc_info=1)
+            self.logger.warn(u'Unexpected exception', exc_info=1)
             raise UnknownError(sys.exc_info()[0],
                                sys.exc_info()[1],
-                               msg="A server error has been logged.")
-        except Exception, e:
-            logger.warn("Unexpected exception", exc_info=1)
+                               msg=u'A server error has been logged.')
+        except Exception as e:
+            self.logger.warn(u'Unexpected exception', exc_info=1)
             raise UnknownError(sys.exc_info()[0],
                                sys.exc_info()[1],
-                               msg="A server error has been logged.")
-
-        # TODO: Dispatch should maybe handle rollback for all methods?
+                               msg=u'A server error has been logged.')
+        finally:
+            self.db_close()
 
         return native_to_xmlrpc(ret)
 
     def handle(self):
         """ Handle request and timeout. """
-        # TODO: Do we need to do db.rollback here? It should probably be moved
-        #       elsewhere.
         try:
             super(BofhdRequestHandler, self).handle()
         except socket.timeout, e:
             # Timeouts are not 'normal' operation.
-            logger.info("[%s] timeout: %s from %s",
-                        thread_name(), e, format_addr(self.client_address))
+            self.logger.info(u'timeout: %s from %s',
+                             e, format_addr(self.client_address))
             self.close_connection = 1
-            self.server.db.rollback()
         except https.SSLError, e:
             # SSLError could be a timeout, or it could be some other form of
             # error
-            logger.info("[%s] SSLError: %s from %s",
-                        thread_name(), e, format_addr(self.client_address))
+            self.logger.info(u'SSLError: %s from %s',
+                             e, format_addr(self.client_address))
             self.close_connection = 1
-            self.server.db.rollback()
-        except:
-            self.server.db.rollback()
-            raise
 
-    # This method is pretty identical to the one shipped with Python,
-    # except that we don't silently eat exceptions
     def do_POST(self):
         """Handles the HTTP POST request.
 
         Attempts to interpret all HTTP POST requests as XML-RPC calls,
         which are forwarded to the _dispatch method for handling.
+
+        Will also encode known and unknown exceptions as XMLRPC Faults to the
+        client.
         """
         # Whenever unexpected exception occurs, we'd like to include
         # as much debugging info as possible.  To avoid raising
@@ -207,7 +224,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             params, method = xmlrpclib.loads(data)
             # generate response
             try:
-                logger.debug2("[%s] dispatch %s", thread_name(), method)
+                self.logger.debug2(u'dispatch %s', method)
 
                 response = self._dispatch(method, params)
                 # wrap response in a singleton tuple
@@ -228,8 +245,8 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                                                      error_class.__name__,
                                                      sys.exc_value)))
             except:
-                logger.warn(
-                    "Unexpected exception 1 (client=%r, params=%r, method=%r)",
+                self.logger.warn(
+                    u'Unexpected exception 1 (client=%r, params=%r, method=%r)',
                     self.client_address, params, method,
                     exc_info=True)
                 # report exception back to server
@@ -240,17 +257,19 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                 response = xmlrpclib.dumps(response, methodresponse=1)
         except ExpatError as e:
             # a malformed XMLRPC request should end up here.
-            logger.warn('ExpatError ({code}) - malformed XML content detected '
-                        '(client {client}, data={data})'.format(
-                            code=e.code,
-                            client=self.client_address,
-                            data=data))
+            self.logger.warn(
+                u'ExpatError ({code}) - malformed XML content detected '
+                u'(client {client}, data={data})'.format(
+                    code=e.code,
+                    client=self.client_address,
+                    data=data))
             self.send_response(500)
             self.end_headers()
         except:
-            logger.warn("Unexpected exception 2 (client %r, data=%r)",
-                        self.client_address, data,
-                        exc_info=True)
+            self.logger.warn(
+                u'Unexpected exception 2 (client %r, data=%r)',
+                self.client_address, data,
+                exc_info=True)
             # internal error, report as HTTP server error
             self.send_response(500)
             self.end_headers()
@@ -262,7 +281,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             self.end_headers()
             self.wfile.write(response)
             self.wfile.flush()
-        logger.debug2("[%s] thread done", thread_name())
+        self.logger.debug2(u'thread done')
 
     def _get_quarantines(self, account):
         """ Fetch a list of active lockout quarantines for account.
@@ -273,7 +292,8 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             A list of strings representing each active, lockout quarantines
             that affects the account.
         """
-        Quarantine = self.server.const.Quarantine
+        const = Factory.get('Constants')(self.db)
+        Quarantine = const.Quarantine
         nonlock = getattr(cereconf, 'BOFHD_NONLOCK_QUARANTINES', [])
         active = []
 
@@ -290,7 +310,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             # routines don't support a more appopriate solution yet
             if not (str(Quarantine(qrow['quarantine_type'])) in nonlock):
                 active.append(qrow['quarantine_type'])
-        qh = QuarantineHandler.QuarantineHandler(self.server.db, active)
+        qh = QuarantineHandler.QuarantineHandler(self.db, active)
         if qh.should_skip() or qh.is_locked():
             return [Quarantine(q).description for q in active]
         return []
@@ -309,79 +329,89 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         :raise CerebrumError: If the user is not allowed to log in.
 
         """
-        account = Factory.get('Account')(self.server.db)
+        account = Factory.get('Account')(self.db)
         try:
             account.find_by_name(uname)
         except Errors.NotFoundError:
             if isinstance(uname, unicode):
                 uname = uname.encode('utf-8')
-            logger.info("Failed login for %s from %s: unknown username",
-                        uname, format_addr(self.client_address))
+            self.logger.info(
+                u'Failed login for %s from %s: unknown username',
+                uname, format_addr(self.client_address))
             raise CerebrumError("Unknown username or password")
 
         if isinstance(password, unicode):  # crypt.crypt don't like unicode
             # TODO: ideally we should not hardcode charset here.
             password = password.encode('iso8859-1')
         if not account.verify_auth(password):
-            logger.info("Failed login for %s from %s: password mismatch",
-                        uname, format_addr(self.client_address))
+            self.logger.info(
+                u'Failed login for %s from %s: password mismatch',
+                uname, format_addr(self.client_address))
             raise CerebrumError("Unknown username or password")
 
         # Check quarantines
         quarantines = self._get_quarantines(account)
         if quarantines:
-            logger.info('Failed login for %s from %s: quarantines %s',
-                        uname, format_addr(self.client_address),
-                        ', '.join(quarantines))
+            self.logger.info(
+                'Failed login for %s from %s: quarantines %s',
+                uname, format_addr(self.client_address),
+                ', '.join(quarantines))
             raise CerebrumError(
                 'User has active quarantines, login denied: %s' %
                 ', '.join(quarantines))
 
         # Check expire_date
         if account.is_expired():
-            logger.info('Failed login for %s from %s: account expired',
-                        uname, format_addr(self.client_address))
+            self.logger.info(u'Failed login for %s from %s: account expired',
+                             uname, format_addr(self.client_address))
             raise CerebrumError('User is expired, login denied')
 
         try:
-            logger.info("Successful login for %s from %s",
-                        uname, format_addr(self.client_address))
-            session = BofhdSession(self.server.db, logger)
+            self.logger.info(u'Successful login for %s from %s',
+                             uname, format_addr(self.client_address))
+            session = BofhdSession(self.db, self.logger)
             session_id = session.set_authenticated_entity(
                 account.entity_id, self.client_address[0])
-            self.server.db.commit()
-            self.server.known_sessions[session_id] = 1
+            self.db_commit()
+            self.server.sessions[session_id] = str(account.entity_id)
             return session_id
         except Exception:
-            self.server.db.rollback()
+            self.db_rollback()
             raise
 
     def bofhd_logout(self, session_id):
         """ The bofhd logout function. """
-        session = BofhdSession(self.server.db, logger, session_id)
+        session = BofhdSession(self.db, self.logger, session_id)
         try:
-            session.clear_state()
-            if session_id in self.server.known_sessions:
-                del(self.server.known_sessions[session_id])
-            self.server.db.commit()
+            session.clear_session()
+            if session_id in self.server.sessions:
+                del(self.server.sessions[session_id])
+            self.db_commit()
         except Exception:
-            self.server.db.rollback()
+            self.db_rollback()
             raise
         return "OK"
 
-    def bofhd_get_commands(self, session_id):
-        """Build a dict of the commands available to the client."""
-        session = BofhdSession(self.server.db, logger, session_id)
-        entity_id = session.get_entity_id()
-        # session.get_entity_id() will potentially change the contents of
-        # bofhd_session hence lock rows creating a logout problem described in
-        # CRB-1226. We should commit here in order to prevent row locking.
-        self.server.db.commit()
-        commands = {}
-        for inst in self.server.cmd_instances:
-            newcmd = inst.get_commands(entity_id)
-            for k in newcmd.keys():
-                if inst is not self.server.cmd2instance[k]:
+    def __cache_commands(self, ident):
+        def fmt_class(cls):
+            return u'{!s}/{!s}'.format(
+                cls.__module__.lstrip('Cerebrum.modules.'),
+                cls.__name__)
+        # TODO: Does this belong in the server?
+        if ident not in self.server.commands:
+            self.server.commands[ident] = dict()
+        for cls in self.server.extensions:
+            inst = cls(self.db, self.logger)
+            commands = inst.get_commands(ident)
+            for key, cmd in commands.iteritems():
+                if not key:
+                    self.logger.warn(u'Skipping: Unnamed command %r', cmd)
+                    continue
+                if key not in self.server.classmap:
+                    self.logger.warn(u'Skipping: No command %r in class map',
+                                     key)
+                    continue
+                if cls is not self.server.classmap[key]:
                     # If module B is imported after module A, and both
                     # implement 'command', only the implementation in
                     # the latter module will actually be callable.
@@ -396,20 +426,37 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                     # verify that the module in
                     # self.command2module[command] matches the module
                     # whose .get_commands() we're processing.
-                    logger.info("Skipping: %s" % k)
+                    self.logger.info(
+                        u'Skipping: Duplicate command %r (in=%s, using=%s)',
+                        key,
+                        fmt_class(cls),
+                        fmt_class(self.server.classmap[key]))
                     continue
-                commands[k] = newcmd[k]
-        return commands
+                self.server.commands[ident][key] = cmd.get_struct(
+                    self.server.cmdhelp)
+        try:
+            return self.server.commands[ident]
+        except KeyError:
+            return {}
+
+    def bofhd_get_commands(self, session_id):
+        """Build a dict of the commands available to the client."""
+        session = BofhdSession(self.db, self.logger, session_id)
+        ident = int(session.get_entity_id())
+        if not ident:
+            return {}
+        try:
+            return self.server.commands[ident]
+        except KeyError:
+            return self.__cache_commands(ident)
 
     def bofhd_get_format_suggestion(self, cmd):
-        suggestion = self.server.cmd2instance[cmd].get_format_suggestion(cmd)
+        suggestion = self.server.classmap[cmd].get_format_suggestion(cmd)
         if suggestion is not None:
             # suggestion['str'] = unicode(suggestion['str'], 'iso8859-1')
-            pass
-        else:
-            # TODO:  Would be better to allow xmlrpc-wrapper to handle None
-            return ''
-        return suggestion
+            return suggestion
+        # TODO:  Would be better to allow xmlrpc-wrapper to handle None
+        return ''
 
     def bofhd_get_motd(self, client_id=None, client_version=None):
         ret = ""
@@ -423,16 +470,15 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         return ret[:-1]
 
     def bofhd_help(self, session_id, *group):
-        logger.debug("Help: %s" % str(group))
         commands = self.bofhd_get_commands(session_id)
         if len(group) == 0:
-            ret = self.server.help.get_general_help(commands)
+            ret = self.server.cmdhelp.get_general_help(commands)
         elif group[0] == 'arg_help':
-            ret = self.server.help.get_arg_help(group[1])
+            ret = self.server.cmdhelp.get_arg_help(group[1])
         elif len(group) == 1:
-            ret = self.server.help.get_group_help(commands, *group)
+            ret = self.server.cmdhelp.get_group_help(commands, *group)
         elif len(group) == 2:
-            ret = self.server.help.get_cmd_help(commands, *group)
+            ret = self.server.cmdhelp.get_cmd_help(commands, *group)
         else:
             raise CerebrumError("Unexpected help request")
         return ret
@@ -467,9 +513,8 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         if session.remote_address is None:
             session.remote_address = self.client_address
 
-        if session_id not in self.server.known_sessions:
-            self.server.known_sessions[session_id] = 1
-            self.server.db.rollback()  # avoids bofhd_session lock-condition
+        if session_id not in self.server.sessions:
+            self.server.sessions[session_id] = str(entity_id)
             raise ServerRestartedError()
         return entity_id
 
@@ -483,20 +528,22 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         # First, drop the short-lived sessions FIXME: if this is too
         # CPU-intensive, introduce a timestamp in this class, and drop the
         # short-lived sessions ONLY if more than BofhdSession._short_timeout
-        session = BofhdSession(self.server.db, logger)
+        session = BofhdSession(self.db, self.logger)
         session.remove_short_timeout_sessions()
-        # No obvious lock-conditions, but there is no obvious reason not to commit
-        # either... #paranoia
-        # self.server.db.commit()  # CRB-1226
-        session = BofhdSession(self.server.db, logger, session_id,
+        self.db_commit()
+
+        # Set up session object
+        session = BofhdSession(self.db, self.logger, session_id,
                                self.client_address)
         entity_id = self.check_session_validity(session)
-        self.server.db.cl_init(change_by=entity_id)
-        logger.debug("Run command: %s (%s) by %i" % (cmd, args, entity_id))
-        if cmd not in self.server.cmd2instance:
-            self.server.db.rollback()  # avoids bofhd_session lock-condition
-            raise CerebrumError("Illegal command '%s'" % cmd)
-        func = getattr(self.server.cmd2instance[cmd], cmd)
+        self.db.cl_init(change_by=entity_id)
+
+        self.logger.debug(u'Run command: %s (%s) by %i', cmd, args, entity_id)
+        if cmd not in self.server.classmap:
+            raise CerebrumError(u"Illegal command '{!s}'".format(cmd))
+
+        implementation = self.server.classmap[cmd](self.db, self.logger)
+        func = getattr(implementation, cmd)
 
         try:
             has_tuples = False
@@ -508,12 +555,12 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             self._run_command_with_tuples(func, session, args, ret)
             if not has_tuples:
                 ret = ret[0]
-            self.server.db.commit()
+            self.db_commit()
             # TBD: What should be returned if `args' contains tuple,
             # indicating that `func` should be called multiple times?
-            return self.server.db.pythonify_data(ret)
+            return self.db.pythonify_data(ret)
         except Exception:
-            self.server.db.rollback()
+            self.db_rollback()
             raise
 
     def bofhd_call_prompt_func(self, session_id, cmd, *args):
@@ -530,12 +577,13 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
           (("%5s %s", 'foo', 'bar'), return-value).  The first row is
           used as header
         - raw : don't use map after all"""
-        session = BofhdSession(self.server.db, logger, session_id,
+        session = BofhdSession(self.db, self.logger, session_id,
                                self.client_address)
-        instance, cmdObj = self.server.get_cmd_info(cmd)
+        cls, cmdObj = self.server.get_cmd_info(cmd)
         self.check_session_validity(session)
         if cmdObj._prompt_func is not None:
-            logger.debug("prompt_func: %s" % str(args))
+            self.logger.debug(u'prompt_func: %r', args)
+            instance = cls(self.db, self.logger)
             return getattr(instance,
                            cmdObj._prompt_func.__name__)(session, *args)
         raise CerebrumError("Command %s has no prompt func" % (cmd,))
@@ -550,8 +598,8 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         corresponding parameter object.
 
         """
-        session = BofhdSession(self.server.db, logger, session_id)
-        instance, cmdObj = self.server.get_cmd_info(cmd)
+        session = BofhdSession(self.db, self.logger, session_id)
+        cls, cmdObj = self.server.get_cmd_info(cmd)
 
         # If the client calls this method when no default function is defined,
         # it is a bug in the client.
@@ -561,4 +609,5 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             func = cmdObj._params[len(args)]._default
             if func is None:
                 return ""
+        instance = cls(self.db, self.logger)
         return getattr(instance, func.__name__)(session, *args)

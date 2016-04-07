@@ -41,22 +41,16 @@ moved to a separate module after:
 import sys
 import time
 import socket
-import threading
 import SocketServer
 
 from Cerebrum import Utils
+from Cerebrum import Cache
 from Cerebrum import https
-from Cerebrum.modules.bofhd.config import BofhdConfig
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.bofhd.handler import BofhdRequestHandler
-from Cerebrum.modules.bofhd.utils import BofhdUtils
 from Cerebrum.modules.bofhd.help import Help
 
-# TODO: Fix me
-from Cerebrum.Utils import Factory
-logger = Factory.get_logger("bofhd")
-
-thread_name = lambda: threading.currentThread().getName()
-""" Get thread name. """
 
 format_addr = lambda addr: ':'.join([str(x) for x in addr or ['err', 'err']])
 """ Get ip:port formatted string from address tuple. """
@@ -65,22 +59,70 @@ format_addr = lambda addr: ':'.join([str(x) for x in addr or ['err', 'err']])
 class BofhdServerImplementation(object):
     """ Common Server implementation. """
 
-    def __init__(self, database=None, config_fname=None, logRequests=False, **kws):
+    def __init__(
+            self, bofhd_config=None, logRequests=False, logger=None, **kws):
         """ Set up a new bofhd server.
 
-        :param Cerebrum.Database database:
-            A Cerebrum database connection
-        :param string config_fname:
-            Filename of the bofhd config file.
+        :param BofhdConfig bofhd_config:
+            A bofhd extension configuration.
 
         """
+        self.__logger = logger
+        self.__config = bofhd_config
         super(BofhdServerImplementation, self).__init__(**kws)
-        self.known_sessions = {}
+        # TODO: logRequests is not really used anywhere?
+        #       At least not here nor in SocketServer
         self.logRequests = logRequests
-        self.db = database
-        self.util = BofhdUtils(database)
-        self.config = BofhdConfig(config_fname)
         self.load_extensions()
+        # TODO: Not really used either
+        self.server_start_time = time.time()
+
+    @property
+    def logger(self):
+        u""" Server logger. """
+        if not self.__logger:
+            self.__logger = Factory.get_logger()
+        return self.__logger
+
+    @property
+    @memoize
+    def classmap(self):
+        u""" Map of command_names and implementation classes.
+
+        Each key is an implemented and callable command, and the value is its
+        implementation class.
+        """
+        return Cache.Cache()
+
+    @property
+    def cmdhelp(self):
+        u""" Combined Help structure for all extensions. """
+        try:
+            return self.__help
+        except AttributeError:
+            self.__help = Help(self.extensions, logger=self.logger)
+            return self.__help
+
+    @property
+    @memoize
+    def commands(self):
+        u""" Cache of commands that a user has access to.
+
+        It should contain info on every accessible command for every
+        authenticated user:
+            commands[entity_id][command_name] = Command.get_struct()
+        """
+        return Cache.Cache(
+            mixins=[Cache.cache_mru, Cache.cache_slots, Cache.cache_timeout],
+            size=500,
+            timeout=60 * 60)
+
+    @property
+    @memoize
+    def sessions(self):
+        u""" A cache that maps session id to entity id. """
+        # Needed? Only used to throw ServerRestartedError...
+        return Cache.Cache()
 
     def load_extensions(self):
         """ Load BofhdExtensions (commands and help texts).
@@ -89,56 +131,62 @@ class BofhdServerImplementation(object):
         configuration.
 
         """
-        self.const = Utils.Factory.get('Constants')(self.db)
-        self.cmd2instance = {}
-        self.server_start_time = time.time()
-        if hasattr(self, 'cmd_instances'):
-            for i in self.cmd_instances:
-                reload(sys.modules[i.__module__])
-        self.cmd_instances = []
-        self.logger = logger
+        self.extensions = getattr(self, 'extensions', set())
+        for cls in self.extensions:
+            # Reload existing modules
+            reload(sys.modules[cls.__module__])
+        self.extensions = set()
 
-        for modfile, class_name in self.config.extensions():
-            mod = Utils.dyn_import(modfile)
+        self.classmap.clear()
+        self.commands.clear()
+
+        for module_name, class_name in self.__config.extensions():
+            mod = Utils.dyn_import(module_name)
             cls = getattr(mod, class_name)
-            instance = cls(self)
-            self.cmd_instances.append(instance)
+            self.extensions.add(cls)
 
             # Map commands to BofhdExtensions
             # NOTE: Any duplicate command will be overloaded by later
             #       BofhdExtensions.
-            for k in instance.all_commands.keys():
-                self.cmd2instance[k] = instance
-            if hasattr(instance, "hidden_commands"):
-                for k in instance.hidden_commands.keys():
-                    self.cmd2instance[k] = instance
-        t = self.cmd2instance.keys()
-        t.sort()
-        for k in t:
-            if not hasattr(self.cmd2instance[k], k):
-                logger.warn("Warning, function '%s' is not implemented" % k)
-        self.help = Help(self.cmd_instances, logger=logger)
+            for rpc in cls.list_commands('all_commands').keys():
+                self.classmap[rpc] = cls
+            for rpc in cls.list_commands('hidden_commands').keys():
+                self.classmap[rpc] = cls
+
+        # Check that all calls are implemented
+        for rpc in sorted(self.classmap.keys()):
+            if not hasattr(self.classmap[rpc], rpc):
+                self.logger.warn("Warning, command '%s' is not implemented",
+                                 rpc)
+        self.__help = Help(self.extensions, logger=self.logger)
 
         # Check that the help text is okay
         # Reformat the command definitions to be suitable for the help.
         cmds_for_help = dict()
-        for inst in self.cmd_instances:
+        for cls in self.extensions:
             cmds_for_help.update(
-                dict((k, cmd.get_struct(inst)) for k, cmd
-                     in inst.all_commands.iteritems()
-                     if cmd and self.cmd2instance[k] == inst))
-        self.help.check_consistency(cmds_for_help)
+                dict((cmdname, command.get_struct(self.cmdhelp))
+                     for cmdname, command
+                     in cls.list_commands('all_commands').iteritems()
+                     if command and self.classmap[cmdname] == cls))
 
-    def get_cmd_info(self, cmd):
+        self.__help.check_consistency(cmds_for_help)
+
+    def get_cmd_info(self, rpc_name):
         """Return BofhdExtension and Command object for this cmd
         """
-        inst = self.cmd2instance[cmd]
-        return (inst, inst.all_commands[cmd])
+        cls = self.classmap[rpc_name]
+        return (cls, cls.all_commands[rpc_name])
 
     # Override SocketServer.TCPServer (or subclass).
     def server_bind(self):
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         super(BofhdServerImplementation, self).server_bind()
+        if hasattr(self, 'server_address'):
+            self.logger.info("Ready to accept connections on %r",
+                             format_addr(self.server_address))
+        else:
+            self.logger.info("Ready to accept connections")
 
     def get_request(self):
         """ Get request socket and client address.
@@ -152,8 +200,7 @@ class BofhdServerImplementation(object):
 
         """
         sock, addr = super(BofhdServerImplementation, self).get_request()
-        logger.debug("[%s] new connection from %s, %r",
-                     thread_name(), format_addr(addr), sock)
+        self.logger.debug2("new connection from %s", format_addr(addr))
         return sock, addr
 
     def close_request(self, request):
@@ -170,18 +217,7 @@ class BofhdServerImplementation(object):
 
         """
         super(BofhdServerImplementation, self).close_request(request)
-        logger.debug("[%s] closed connection %r", thread_name(), request)
-        # Check that the database is alive and well by creating a new
-        # cursor.
-        #
-        # As close_request() is called without any except: in
-        # SocketServer.BaseServer.handle_request(), any exception here
-        # will actually cause bofhd to die.  This is probably what we
-        # want to happen when a database connection unexpextedly goes
-        # down; anything resembling automatic reconnection magic could
-        # alter the crashed state of the database, making debugging
-        # more difficult.
-        self.db.ping()
+        self.logger.debug2("closed connection %r", request)
 
 
 class _TCPServer(SocketServer.TCPServer, object):
@@ -210,8 +246,7 @@ class BofhdServer(BofhdServerImplementation, _TCPServer):
       server_address        -- (ipAddr, portNumber) tuple
       RequestHandlerClass   -- class for handling XML-RPC requests
       logRequests           -- boolean
-      database              -- Cerebrum Database object
-      config_fname          -- name of Bofhd config file
+      bofhd_config          -- BofhdConfig object
 
     """
     pass
@@ -228,8 +263,7 @@ class ThreadingBofhdServer(BofhdServerImplementation,
       server_address        -- (ipAddr, portNumber) tuple
       RequestHandlerClass   -- class for handling XML-RPC requests
       logRequests           -- boolean
-      database              -- Cerebrum Database object
-      config_fname          -- name of Bofhd config file
+      bofhd_config          -- BofhdConfig object
 
     """
     pass
@@ -277,8 +311,7 @@ class SSLBofhdServer(BofhdServerImplementation, SSLServer):
       server_address        -- (ipAddr, portNumber) tuple
       RequestHandlerClass   -- class for handling XML-RPC requests
       logRequests           -- boolean
-      database              -- Cerebrum Database object
-      config_fname          -- name of Bofhd config file
+      bofhd_config          -- BofhdConfig object
       ssl_context           -- SSL.Context object
 
     """
@@ -295,8 +328,7 @@ class ThreadingSSLBofhdServer(BofhdServerImplementation,
       server_address        -- (ipAddr, portNumber) tuple
       RequestHandlerClass   -- class for handling XML-RPC requests
       logRequests           -- boolean
-      database              -- Cerebrum Database object
-      config_fname          -- name of Bofhd config file
+      bofhd_config          -- BofhdConfig object
       ssl_context           -- SSL.Context object
 
     """

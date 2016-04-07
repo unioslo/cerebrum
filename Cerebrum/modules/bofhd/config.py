@@ -66,3 +66,9 @@ class BofhdConfig(object):
         """ All extensions from config. """
         for mod, cls in self._exts:
             yield mod, cls
+
+    @staticmethod
+    def format_class(cls):
+        u""" Format a line for the config. """
+        assert isinstance(cls, type)
+        return u'{!s}/{!s}'.format(cls.__module__, cls.__name__)

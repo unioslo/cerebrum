@@ -63,7 +63,7 @@ class BofhdExtension(BofhdCommonMethods):
     __DEFAULT_PRINTER_STATE = 'default_printer'
 
     all_commands = {}
-    u""" All exposed commands in this extension. """
+    parent_commands = False
 
     def __list_password_print_options(self):
         u""" Enumerated list of password print selections. """
@@ -284,7 +284,8 @@ class BofhdExtension(BofhdCommonMethods):
             tpl.get('lang'), tpl.get('type'), tpl.get('fmt'),
             account.account_name, destination, print_user.account_name)
 
-    def get_help_strings(self):
+    @classmethod
+    def get_help_strings(cls):
         u""" Help strings for this bofhd extension. """
         group_help = {
             'misc': 'Misc commands', }
@@ -405,7 +406,8 @@ class BofhdExtension(BofhdCommonMethods):
         passwds = self.__select_cached_passwords(operator, args.pop(0))
 
         if not args:
-            print_user = self._get_account(operator.get_entity_id(), idtype='id')
+            print_user = self._get_account(
+                operator.get_entity_id(), idtype='id')
         else:
             print_user = self._get_account(args.pop(0), idtype="name")
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014-2015 University of Oslo, Norway
+# Copyright 2014-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -53,12 +53,11 @@ class BofhdExtension(BofhdCommandBase):
     """Commands used for managing and inspecting events."""
 
     all_commands = {}
+    parent_commands = False
+    authz = BofhdAuth
 
-    def __init__(self, server):
-        super(BofhdExtension, self).__init__(server)
-        self.ba = BofhdAuth(self.db)
-
-    def get_help_strings(self):
+    @classmethod
+    def get_help_strings(cls):
         """Definition of the help text for event-related commands."""
         group_help = {
             'event': "Event related commands",

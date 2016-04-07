@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2015 University of Oslo, Norway
+# Copyright 2013-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -42,15 +42,13 @@ ba.is_superuser is not missing, it's still here, but in a different form.
 """
 
 from mx import DateTime
+from functools import wraps
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum import Constants
+from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum import Utils
-from Cerebrum import Cache
 from Cerebrum import Errors
 from Cerebrum.modules import EntityTrait
 from Cerebrum.modules.bofhd import cmd_param as cmd
@@ -58,15 +56,15 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules import dns
 from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns import IPv6Subnet
+from Cerebrum.modules.dns.bofhd_dns_cmds import HostId
 from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
-from Cerebrum.Constants import _CerebrumCode
 
 from Cerebrum.modules.tsd.bofhd_auth import TSDBofhdAuth
 from Cerebrum.modules.tsd import bofhd_help
 from Cerebrum.modules.tsd import Gateway
 
-import inspect
-from functools import wraps
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
 
 
 def format_day(field):
@@ -153,6 +151,7 @@ class VLANParam(cmd.Parameter):
     _type = 'vlan'
     _help_ref = 'vlan'
 
+
 class VMType(cmd.Parameter):
     """Bofhd Parameter for specifying projects' VM-type."""
     _type = 'vmType'
@@ -162,44 +161,30 @@ class VMType(cmd.Parameter):
 class TSDBofhdExtension(BofhdCommonMethods):
     """Superclass for common functionality for TSD's bofhd servers."""
 
-    # Commands that should be publicised for an operator, e.g. in jbofh:
     all_commands = {}
-
-    # Commands that are available, but not publicised, as they are normally
-    # called through other systems, e.g. Brukerinfo. It should NOT be used as a
-    # security feature - thus you have security by obscurity.
     hidden_commands = {}
+    parent_commands = True
+    authz = TSDBofhdAuth
 
-    def __init__(self, server):
-        super(TSDBofhdExtension, self).__init__(server)
-        self.ba = TSDBofhdAuth(self.db)
-        # From uio
-        self.num2const = {}
-        self.str2const = {}
+    def __init__(self, *args, **kwargs):
+        super(TSDBofhdExtension, self).__init__(*args, **kwargs)
         self.external_id_mappings = {}
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
-        for c in dir(self.const):
-            tmp = getattr(self.const, c)
-            if isinstance(tmp, _CerebrumCode):
-                self.num2const[int(tmp)] = tmp
-                self.str2const[str(tmp)] = tmp
-        self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
-                                                           Cache.cache_slots,
-                                                           Cache.cache_timeout],
-                                                   size=500,
-                                                   timeout=60 * 60)
-        # Copy in all defined commands from the superclass that are not defined
-        # in this class.
-        for key, command in super(TSDBofhdExtension, self).all_commands.iteritems():
-            if not key in self.all_commands:
-                self.all_commands[key] = command
-        self.util = server.util
-        # The client talking with the TSD gateway
-        self.gateway = Gateway.GatewayClient(logger=self.logger)  # TODO: dryrun?
 
-    def get_help_strings(self):
+        # The client talking with the TSD gateway
+        self.__gateway = None
+
+    @property
+    def gateway(self):
+        if self.__gateway is None:
+            self.__gateway = Gateway.GatewayClient(logger=self.logger)
+        return self.__gateway
+
+    @classmethod
+    def get_help_strings(cls):
         """Return all help messages for TSD."""
-        return (bofhd_help.group_help, bofhd_help.command_help,
+        return (bofhd_help.group_help,
+                bofhd_help.command_help,
                 bofhd_help.arg_help)
 
     def _get_entity(self, entity_type=None, ident=None):
@@ -548,18 +533,23 @@ class TSDBofhdExtension(BofhdCommonMethods):
             raise CerebrumError("Database error: %s" % m)
         return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
 
+
 def superuser(fn):
     """Decorator for checking that methods are being executed as operator.
-    The first argument of the decorated function must be "self" and the second must be "operator".
-    If operator is not superuser a CerebrumError will be raised.
+
+    The first argument of the decorated function must be "self" and the second
+    must be "operator".  If operator is not superuser a CerebrumError will be
+    raised.
     """
-    # The functools.wraps decorator ensures that the docstring and function name of the wrapped
-    # function is not lost, but passed on.
+    if fn.func_dict.get('assert_superuser_wrapper'):
+        return fn
+
     @wraps(fn)
     def wrapper(*args, **kwargs):
         if len(args) < 2:
-            raise CerebrumError('Decorated functions must have self and operator as the first '
-                                'arguments')
+            raise CerebrumError(
+                'Decorated functions must have self and operator as the first'
+                ' arguments')
         self = args[0]
         operator = args[1]
         userid = operator.get_entity_id()
@@ -568,6 +558,7 @@ def superuser(fn):
         else:
             self.logger.debug2("OK, current user is superuser.")
             return fn(*args, **kwargs)
+    wrapper.func_dict['assert_superuser_wrapper'] = True
     return wrapper
 
 
@@ -723,6 +714,145 @@ class _Projects:
         return [project.as_dict(keynames) for project in self.projects.values()]
 
 
+admin_uio_helpers = [
+    '_convert_ticks_to_timestamp',
+    '_entity_info',
+    '_fetch_member_names',
+    '_find_persons',
+    '_format_changelog_entry',
+    '_format_from_cl',
+    '_get_access_id',
+    '_get_access_id_group',
+    '_get_affiliation_statusid',
+    '_get_affiliationid',
+    '_get_auth_op_target',
+    '_get_cached_passwords',
+    '_get_constant',
+    '_get_disk',
+    '_get_opset',
+    '_get_shell',
+    '_grant_auth',
+    '_is_yes',
+    '_list_access',
+    '_manipulate_access',
+    '_parse_date',
+    '_parse_date_from_to',
+    '_person_create_externalid_helper',
+    '_remove_auth_role',
+    '_remove_auth_target',
+    '_revoke_auth',
+    '_today',
+    '_user_create_set_account_type',
+    '_validate_access',
+    '_validate_access_group',
+    'user_set_owner_prompt_func',
+]
+
+
+admin_copy_uio = [
+    'access_grant',
+    'access_group',
+    'access_list',
+    'access_list_opsets',
+    'access_revoke',
+    'access_show_opset',
+    'entity_history',
+    'group_delete',
+    'group_demote_posix',
+    'group_info',
+    'group_list',
+    'group_list_expanded',
+    'group_memberships',
+    'group_promote_posix',
+    'group_search',
+    'group_set_description',
+    'group_set_expire',
+    'misc_affiliations',
+    'misc_clear_passwords',
+    'misc_list_passwords',
+    'misc_verify_password',
+    'ou_info',
+    'ou_search',
+    'ou_tree',
+    'person_accounts',
+    'person_affiliation_add',
+    'person_affiliation_remove',
+    'person_create',
+    'person_find',
+    'person_info',
+    'person_set_bdate',
+    'person_set_id',
+    'person_set_name',
+    'quarantine_disable',
+    'quarantine_list',
+    'quarantine_remove',
+    'quarantine_set',
+    'quarantine_show',
+    'spread_add',
+    'spread_list',
+    'spread_remove',
+    'trait_info',
+    'trait_list',
+    'trait_remove',
+    'trait_set',
+    'trait_types',
+    'user_affiliation_add',
+    'user_affiliation_remove',
+    'user_demote_posix',
+    'user_find',
+    'user_history',
+    'user_info',
+    'user_set_expire',
+    'user_set_owner',
+]
+
+
+def _apply_superuser(commands, replace=True):
+    u""" Require superuser for commands.
+
+    Class wrapper that wraps the functions for the given commands with the
+    `superuser` wrapper, and tries to set the `perm_filter` to 'is_superuser'
+    for that command.
+    """
+    # This is a hack that is needed because TSD-bofh *is* a giant hack
+    # It is needed to:
+    #   wrap commands from uio
+    #   wrap commands inherited from BofhdCommonMethods, that *aren't*
+    #       overridden in AdminBofhdExtension
+    def wrapper(cls):
+        for command in commands:
+            if command in getattr(cls, 'all_commands') and not replace:
+                # Already defined directly in class, so don't alter
+                continue
+            if getattr(cls, command):
+                # Function exists, wrap function
+                setattr(cls, command, superuser(getattr(cls, command)))
+                # Find Command and set perm_filter
+                for base in cls.mro():
+                    desc = getattr(base, 'all_commands', {})
+                    if command in desc:
+                        if desc[command] is not None:
+                            desc[command].perm_filter = 'is_superuser'
+                        break
+        return cls
+    return wrapper
+
+
+@_apply_superuser(
+    [fn_name for cls in TSDBofhdExtension.mro()
+     for fn_name in getattr(cls, 'all_commands', {}).keys()
+     if fn_name not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS],
+    replace=False)
+@_apply_superuser(
+    [fn_name for fn_name in admin_copy_uio
+     if fn_name not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS])
+@copy_command(
+    UiOBofhdExtension,
+    'all_commands', 'all_commands',
+    commands=admin_copy_uio)
+@copy_func(
+    UiOBofhdExtension,
+    methods=admin_uio_helpers + admin_copy_uio)
 class AdministrationBofhdExtension(TSDBofhdExtension):
     """The bofhd commands for the TSD project's system administrators.
 
@@ -735,104 +865,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     # called through other systems, e.g. Brukerinfo. It should NOT be used as a
     # security feature - thus you have security by obscurity.
     hidden_commands = {}
-
-    # Commands that should be copied from UiO's BofhdExtension. We don't want to
-    # copy all of the commands for TSD, but tweak them a bit first.
-    copy_commands = (
-        # Person
-        'person_create', 'person_find', 'person_info', 'person_accounts',
-        'person_set_name', 'person_set_bdate', 'person_set_id',
-        'person_affiliation_add', 'person_affiliation_remove',
-        # User
-        'user_history', 'user_info', 'user_find', 'user_set_expire',
-        '_user_create_set_account_type', 'user_set_owner',
-        'user_set_owner_prompt_func', 'user_affiliation_add',
-        'user_affiliation_remove', 'user_demote_posix',
-        # Group
-        'group_info', 'group_list', 'group_list_expanded', 'group_memberships',
-        'group_delete', 'group_set_description', 'group_set_expire',
-        'group_search', 'group_promote_posix',  'group_demote_posix',
-        # Quarantine
-        'quarantine_disable', 'quarantine_list', 'quarantine_remove',
-        'quarantine_set', 'quarantine_show',
-        # OU
-        'ou_search', 'ou_info', 'ou_tree',
-        # Access
-        'access_grant', 'access_revoke', 'access_list',
-        '_manipulate_access', '_get_access_id', '_validate_access',
-        '_list_access', '_grant_auth', '_revoke_auth',
-        '_get_opset', '_get_auth_op_target',
-        'access_group', '_get_access_id_group', '_validate_access_group',
-        'access_list_opsets', 'access_show_opset',
-        #'access_global_group', '_get_access_id_global_group',
-        #'_validate_access_global_group', '_validate_access_global_ou',
-        #'access_global_ou', '_get_access_id_global_ou',
-        #'access_disk', '_get_access_id_disk', '_validate_access_disk',
-        #'access_ou', '_get_access_id_ou', '_validate_access_ou',
-        #'access_user',
-        # Misc
-        'misc_affiliations', 'misc_clear_passwords', 'misc_verify_password',
-        'misc_list_passwords',
-        # Trait
-        'trait_info', 'trait_list', 'trait_remove', 'trait_set', 'trait_types',
-        # Spread
-        'spread_list', 'spread_add', 'spread_remove',
-        # Entity
-        'entity_history',
-        # Helper functions
-        '_find_persons', '_get_disk', '_get_shell',
-        '_entity_info', 'num2str', '_get_affiliationid',
-        '_get_affiliation_statusid', '_parse_date', '_today',
-        '_format_changelog_entry', '_format_from_cl',
-        '_get_constant', '_is_yes', '_remove_auth_target', '_remove_auth_role',
-        '_get_cached_passwords', '_parse_date_from_to',
-        '_convert_ticks_to_timestamp', '_fetch_member_names',
-        '_person_create_externalid_helper',
-    )
-
-    def __new__(cls, *arg, **karg):
-        """Hackish override to copy in methods from UiO's bofhd.
-
-        A better fix would be to split bofhd_uio_cmds.py into separate classes.
-
-        """
-        # Copy in UiO's commands defined in copy_commands:
-        from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
-            UiOBofhdExtension
-        non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
-        for func in cls.copy_commands:
-            method_ref = UiOBofhdExtension.__dict__.get(func)
-            # decorate all functions (methods) with @superuser unless they:
-            # - start with '_' (helper functions)
-            # - are listed in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS
-            if (
-                    not func.startswith('_') and
-                    inspect.isroutine(method_ref) and
-                    func not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS
-            ):
-                # superuser access enforced for the following function (method)
-                method_ref = superuser(UiOBofhdExtension.__dict__.get(func))
-            setattr(cls, func, method_ref)
-            if not func.startswith('_') and func not in non_all_cmds:
-                cls.all_commands[func] = UiOBofhdExtension.all_commands[func]
-        x = object.__new__(cls)
-        return x
-
-    def __init__(self, server):
-        super(AdministrationBofhdExtension, self).__init__(server)
-
-        # Copy in all defined commands from the superclass that are not defined
-        # in this class.
-        for key, command in super(AdministrationBofhdExtension, self).all_commands.iteritems():
-            if not key in self.all_commands:
-                self.all_commands[key] = command
-
-        # CRB-792: We want to set is_superuser filter to all cmds apart from:
-        # user_password, group_add_member and group_remove_member
-        # Instad of this hack, a redesign should be considered in the future.
-        for key in self.all_commands.keys():
-            if key not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS:
-                self.all_commands[key].perm_filter = 'is_superuser'
 
     # Project commands
     all_commands['project_create'] = cmd.Command(
@@ -1910,7 +1942,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     # Host commands
 
     all_commands['host_list_projects'] = cmd.Command(
-        ('host', 'list_projects'), dns.bofhd_dns_cmds.HostId(),
+        ('host', 'list_projects'),
+        HostId(),
         fs=cmd.FormatSuggestion([(
             '%-30s %-10s %-12s', ('name', 'project_id', 'project_name'),)],
             hdr='%-30s %-10s %-12s' % ('Name', 'Project ID', 'Project name')),
@@ -2062,74 +2095,64 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         pass
 
 
+uio_helpers = [
+    '_entity_info',
+    '_fetch_member_names',
+    '_group_add',
+    '_group_remove',
+]
+
+copy_hidden = filter(
+    lambda x: x in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS,
+    [
+        'access_list_alterable',
+        'get_constant_description',
+    ]
+)
+
+copy_uio = filter(
+    lambda x: x in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS,
+    [
+        'group_info',
+        'group_list',
+        'group_memberships',
+        'group_set_description',
+        'misc_affiliations',
+        'misc_check_password',
+        'misc_verify_password',
+        'spread_list',
+        'user_info',
+    ]
+)
+
+
+@copy_command(
+    UiOBofhdExtension,
+    'hidden_commands', 'hidden_commands',
+    commands=copy_hidden)
+@copy_command(
+    UiOBofhdExtension,
+    'all_commands', 'all_commands',
+    commands=copy_uio)
+@copy_func(
+    UiOBofhdExtension,
+    methods=uio_helpers + copy_uio + copy_hidden)
 class EnduserBofhdExtension(TSDBofhdExtension):
     """The bofhd commands for the end users of TSD.
 
     End users are Project Administrators (PA), which should have full control of
     their project, and Project Members (PM) which have limited privileges."""
 
-    # Commands that should be publicised for an operator, e.g. in jbofh:
     all_commands = {}
-
-    # Commands that are available, but not publicised, as they are normally
-    # called through other systems, e.g. Brukerinfo. It should NOT be used as a
-    # security feature - thus you have security by obscurity.
     hidden_commands = {}
+    parent_commands = True
 
-    # Commands that should be copied from UiO's BofhdExtension.
-    copy_commands = (
-        # Helpers
-        '_fetch_member_names', '_entity_info',
-        # Group
-        '_group_add', '_group_remove', 'group_info', 'group_list',
-        'group_memberships', 'group_set_description',
-        # Person
-        'person_list_user_priorities',
-        # Spread
-        'spread_list',
-        # Access
-        'access_list_alterable',  # hidden
-        # User
-        'user_info',
-        #'user_password' is inherited from TSDBofhdExtension
-        # Misc
-        'misc_affiliations', 'misc_check_password', 'misc_verify_password',
-        'get_constant_description',  # hidden
-    )
-
-    def __new__(cls, *arg, **karg):
-        """Hackish override to copy in methods from UiO's bofhd."""
-        from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
-            UiOBofhdExtension
-        non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
-        for func in cls.copy_commands:
-            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
-            if func[0] != '_' and func not in non_all_cmds:
-                if func in UiOBofhdExtension.all_commands:
-                    cls.all_commands[func] = UiOBofhdExtension.all_commands[func]
-                elif func in UiOBofhdExtension.hidden_commands:
-                    cls.hidden_commands[func] = UiOBofhdExtension.hidden_commands[func]
-        x = object.__new__(cls)
-        return x
-
-    def __init__(self, server):
-        super(EnduserBofhdExtension, self).__init__(server)
-
-        # Copy in all defined commands from the superclass that are not defined
-        # in this class.
-        for key, command in super(
-                EnduserBofhdExtension, self).all_commands.iteritems():
-            if not key in self.all_commands:
-                self.all_commands[key] = command
-
-        # Only keep commands that are explicitly allowed in the configuration
-        for key in self.all_commands.keys():
-            if key not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS:
-                del self.all_commands[key]
-
-        # Same for hidden commands
-        for key in self.hidden_commands.keys():
-            if key not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS:
-                del self.hidden_commands[key]
-
-
+    @classmethod
+    def list_commands(cls, attr):
+        commands = super(EnduserBofhdExtension, cls).list_commands(attr)
+        # Filter out all commands that are not explicitly allowed (needed
+        # because superclasses may define additional commands)
+        filtered = dict(
+            (name, cmd) for name, cmd in commands.iteritems()
+            if name in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS)
+        return filtered

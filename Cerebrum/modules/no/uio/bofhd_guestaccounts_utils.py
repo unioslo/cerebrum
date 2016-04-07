@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2005-2011 University of Oslo, Norway
+# Copyright 2005-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """ Module for guests and other temporary users in Cerebrum
 
 The module contains functionality for handling guests and other
@@ -34,18 +33,18 @@ from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 
+
 class GuestAccountException(Exception):
     """General exception for GuestAccount"""
     pass
 
 
-class BofhdUtils(object):
-    def __init__(self, server):
-        self.server = server
-        self.db = server.db
-        self.co = Factory.get('Constants')(self.db)
-        self.logger = server.logger
+class GuestUtils(object):
 
+    def __init__(self, db, logger):
+        self.db = db
+        self.co = Factory.get('Constants')(db)
+        self.logger = logger
 
     def request_guest_users(self, num, end_date, comment, owner_id, operator_id):
         """Reserve num guest users until they're manually released or
@@ -59,7 +58,7 @@ class BofhdUtils(object):
         @type end_date: str
 
         @param comment: Information about the use of the account
-        @type comment: str 
+        @type comment: str
 
         @param owner_id: entity id of owner group
         @type owner_id: int
@@ -71,9 +70,9 @@ class BofhdUtils(object):
         password) for each guest user requested.
         """
         if num > self.num_available_accounts():
-            raise GuestAccountException, ("Not enough available guest users.\n"
-                                          "Use 'user guests_status' to find "
-                                          "the number of available guests.")
+            raise GuestAccountException("Not enough available guest users.\n"
+                                        "Use 'user guests_status' to find "
+                                        "the number of available guests.")
         # Try to alloc guests with same prefix
         prefix2num = {}
         for p in cereconf.GUESTS_PREFIX:
@@ -94,7 +93,6 @@ class BofhdUtils(object):
                 ret.append((guest, comment, e_id, passwd))
         return ret
 
-
     def release_guest(self, guest, operator_id):
         """Release a guest account from temporary owner.
 
@@ -104,8 +102,8 @@ class BofhdUtils(object):
         when the quarantine period is due.
 
         @param guest: uname of guest account
-        @type guest: str 
-        
+        @type guest: str
+
         @param operator_id: entity id of operator
         @type operator_id: int
         """
@@ -137,7 +135,6 @@ class BofhdUtils(object):
                        self.co.bofh_archive_user, ac.entity_id, None,
                        state_data=int(self.co.spread_uio_nis_user))
         self.logger.debug("Added archive_user request for %s" % guest)
-        
 
     def get_owner(self, guestname):
         """
@@ -149,7 +146,7 @@ class BofhdUtils(object):
         @rtype: int
         @return: entity_id of owner
         """
-        ac = Factory.get('Account')(self.db)    
+        ac = Factory.get('Account')(self.db)
         ac.find_by_name(guestname)
         owner = ac.get_trait(self.co.trait_uio_guest_owner)
         if not owner:
@@ -157,7 +154,6 @@ class BofhdUtils(object):
         if not owner['target_id']:
             raise GuestAccountException("Already available.")
         return int(owner['target_id'])
-
 
     def list_guest_users(self, owner_id=NotSet, include_comment=False,
                          include_date=False, prefix=None):
@@ -173,13 +169,13 @@ class BofhdUtils(object):
 
         @param include_comment: Return guest comment?
         @type owner_id: bool
-        
+
         @param include_date: Return end date?
         @type owner_id: bool
-        
+
         @param prefix: list guests users with given prefix. If prefix
         is None, list users with any prefix.
-        
+
         @return: A list of lists to suit the method _pretty_print.
         Each inner list has three elements containing guest uname, end
         date or None, comment or None.
@@ -194,7 +190,7 @@ class BofhdUtils(object):
             # If prefix is given, only return guests with this prefix
             if prefix and prefix != row['name'].rstrip("0123456789"):
                 continue
-            # Must check if guest is available. 
+            # Must check if guest is available.
             if owner_id is None and row['entity_id'] in quarantined_guests:
                 continue
             tmp = [row['name'], None, None]
@@ -204,7 +200,6 @@ class BofhdUtils(object):
                 tmp[2] = row['strval'] or ""
             ret.append(tmp)
         return ret
-
 
     def list_guests_info(self):
         """Find status of all guest accounts. Status can be either
@@ -222,13 +217,13 @@ class BofhdUtils(object):
 
         quarantined_guests = {}
         for row in ac.list_entity_quarantines(
-            quarantine_types=self.co.quarantine_guest_release):
+                quarantine_types=self.co.quarantine_guest_release):
             quarantined_guests[int(row['entity_id'])] = row['start_date']
-        
+
         active_quarantines = set([int(q['entity_id']) for q in ac.list_entity_quarantines(
             quarantine_types=self.co.quarantine_guest_release, only_active=True)])
         pending_quarantines = set(quarantined_guests.keys()) - active_quarantines
-        
+
         for row in ac.list_traits(self.co.trait_uio_guest_owner, return_name=True):
             e_id = int(row['entity_id'])
             owner_id = row['target_id'] and int(row['target_id']) or None
@@ -240,9 +235,12 @@ class BofhdUtils(object):
             elif e_id in pending_quarantines:
                 # guest is allocated. Find owner
                 if not ownerid2name.has_key(owner_id):
-                    group.clear()
-                    group.find(owner_id)
-                    ownerid2name[owner_id] = group.group_name
+                    try:
+                        group.clear()
+                        group.find(owner_id)
+                        ownerid2name[owner_id] = group.group_name
+                    except Errors.NotFoundError:
+                        ownerid2name[owner_id] = "id:{!s}".format(owner_id)
                 tmp = [uname, None, "allocated by %s until %s" % (
                     ownerid2name[owner_id], quarantined_guests[e_id].date)]
             else:
@@ -251,11 +249,9 @@ class BofhdUtils(object):
             ret.append(tmp)
         return ret
 
-
     def num_available_accounts(self, prefix=None):
         """Find num of available guest accounts."""
         return len(self.list_guest_users(owner_id=None, prefix=prefix))
-
 
     def find_new_guestusernames(self, num_new_guests, prefix="guest"):
         """Find next free guest user names for user_create_guest."""
@@ -286,17 +282,17 @@ class BofhdUtils(object):
             tot_runs += 1
         # If less than num guest account names was found, it's an error
         if num_found < num_new_guests:
-            raise CerebrumError, ("Couldn't find more than %d guest account "
-                                  "names in %sXXX namespace" %
-                                  (num_found, prefix))
-        return ret            
+            raise CerebrumError("Couldn't find more than %d guest account "
+                                "names in %sXXX namespace" %
+                                (num_found, prefix))
+        return ret
 
     def _get_end_date(self, e_id):
         "Return end date of request period for guest user"
         ac = Factory.get('Account')(self.db)
         ac.find(e_id)
         for q in ac.get_entity_quarantine(self.co.quarantine_guest_release):
-            if q.has_key('start_date'):
+            if 'start_date' in q:
                 return q['start_date'].date
         return None
 
@@ -308,7 +304,7 @@ class BofhdUtils(object):
         owner trait.
 
         """
-        ac = Factory.get('Account')(self.db)    
+        ac = Factory.get('Account')(self.db)
         self.logger.debug("Try to alloc %s" % guest)
         ac.clear()
         ac.find_by_name(guest)
@@ -321,7 +317,7 @@ class BofhdUtils(object):
             ac.delete_entity_quarantine(self.co.quarantine_guest_release)
         # OK, add a quarantine which kicks in at end_date
         ac.add_entity_quarantine(self.co.quarantine_guest_release, operator_id,
-                                 "Guest user request expired", start=end_date) 
+                                 "Guest user request expired", start=end_date)
         # Set owner trait
         self.logger.debug("Set owner_id in owner_trait for %s" % guest)
         if comment == '':
@@ -334,7 +330,6 @@ class BofhdUtils(object):
         cryptstring = ac.get_account_authentication(pgpauth)
         passwd = ac.decrypt_password(pgpauth, cryptstring)
         return ac.entity_id, passwd
-
 
     def update_group_memberships(self, account_id):
         """Make sure that the account is a member of exactly the
@@ -377,7 +372,7 @@ class BofhdUtils(object):
             except ValueError:
                 self.logger.warn("%s is not a proper guestuser name." % uname)
                 continue
-        # Find best subset match 
+        # Find best subset match
         for start, end in self._find_subsets(num_requested,
                                              num2guestname.keys()):
             for i in range(start, end + 1):
@@ -403,7 +398,7 @@ class BofhdUtils(object):
             last = i
         # Get last subset
         length = last - first + 1
-        tmp[(first, last)] = length                   
+        tmp[(first, last)] = length
 
         # Sort the subsets, the shortest first
         keys = _sort_by_value(tmp)
@@ -411,14 +406,13 @@ class BofhdUtils(object):
             ret.append((tmp[k], k[0], k[1]))
         return ret
 
-
     def _find_num_of_subsets(self, las, n):
         """ Returns the number of subsets necessary to allocate n spots. """
         i = -1
         x = las[i][0]   # length of longest available subset
         while x < n:
             i -= 1
-            if len(las) < abs(i):  # Enough available subsets? 
+            if len(las) < abs(i):  # Enough available subsets?
                 break
             x += las[i][0]
         return abs(i)
@@ -433,7 +427,7 @@ class BofhdUtils(object):
         #      pick next subset in las and check with that
 
         # get length, start- and end-position of shortest subset in las
-        slen, start, end = las.pop(0) 
+        slen, start, end = las.pop(0)
         if num_subsets == 1 and num_requested <= slen:
             return start, start+num_requested-1
 
@@ -441,7 +435,7 @@ class BofhdUtils(object):
         i = 1
         use_shortest = False
         while num_subsets > i:
-            l += las[-i][0]   
+            l += las[-i][0]
             if l >= num_requested:
                 use_shortest = True
                 break
@@ -453,7 +447,6 @@ class BofhdUtils(object):
                                                             num_subsets-1)
         # Try again, this time without the shortest interval
         return self._find_best_subset_fit(las, num_requested, num_subsets)
-
 
     def _find_subsets(self, num_requested, available_guests):
         """ Find subset(s) with total length num_requested.
@@ -467,24 +460,24 @@ class BofhdUtils(object):
 
 def _sort_by_value(d):
     """ Returns the keys of dictionary d sorted by their values """
-    items=d.items()
-    backitems=[ [v[1],v[0]] for v in items]
+    items = d.items()
+    backitems = [[v[1], v[0]] for v in items]
     backitems.sort()
-    return [ backitems[i][1] for i in range(0,len(backitems))]
+    return [backitems[i][1] for i in range(0, len(backitems))]
 
 
 def _flatten(tup):
     """ Flatten tuple tree to one tuple of (int, int) tuples. """
     res = []
     # If only one (a,b) tuple, just return
-    if type(tup) is tuple and len(tup) == 2 and \
-           type(tup[0]) is type(tup[1]) is int:
-        res.append(tup)    
+    if (type(tup) is tuple and len(tup) == 2
+            and type(tup[0]) is type(tup[1]) is int):
+        res.append(tup)
     else:
         # Nested, must go through elements
         for item in tup:
-            if type(item) is tuple and len(item) == 2 and \
-                   type(item[0]) is type(item[1]) is int:
+            if (type(item) is tuple and len(item) == 2
+                    and type(item[0]) is type(item[1]) is int):
                 res.append(item)
             else:
                 res.extend(_flatten(item))

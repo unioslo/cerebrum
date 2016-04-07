@@ -17,17 +17,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import os, traceback
-import cerebrum_path
+import traceback
 import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum import Constants
-from Cerebrum import Utils
-from Cerebrum import Cache
 from Cerebrum import Errors
-#from Cerebrum.modules import Host
 from Cerebrum.modules.bofhd.cmd_param import Parameter,Command,FormatSuggestion,GroupName,YesNo
 from Cerebrum.modules.dns.bofhd_dns_utils import DnsBofhdUtils
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
@@ -42,13 +38,14 @@ from Cerebrum.modules.dns import Subnet, IPv6Subnet
 from Cerebrum.modules.dns.Errors import SubnetError
 from Cerebrum.modules.dns.IPUtils import IPCalc, IPUtils
 from Cerebrum.modules.dns.IPv6Utils import IPv6Calc, IPv6Utils
-from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import Utils
 from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent
-from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules import dns
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
 
 
 class Constants(Constants.Constants):
@@ -222,8 +219,18 @@ def int_or_none_as_str(val):
         return str(int(val))
     return None
 
+
+@copy_func(
+    UiOBofhdExtension,
+    methods=[
+        '_format_changelog_entry',
+        '_format_from_cl',
+    ]
+)
 class BofhdExtension(BofhdCommandBase):
     all_commands = {}
+    parent_commands = False
+    authz = DnsBofhdAuth
 
     legal_hinfo = (
         ("win", "IBM-PC\tWINDOWS"),
@@ -235,183 +242,177 @@ class BofhdExtension(BofhdCommandBase):
         ("other", "OTHER\tOTHER"),
         ("dhcp", "DHCP\tDHCP"),
         ("netapp", "NETAPP\tONTAP")
-        )
+    )
 
-    def __new__(cls, *arg, **karg):
-        # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
-        # into seperate classes.
-        from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
-             UiOBofhdExtension
-
-        for func in ('_format_changelog_entry', '_format_from_cl'):
-            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
-        x = object.__new__(cls)
-        return x
-
-    def __init__(self, server, default_zone='uio'):
-        super(BofhdExtension, self).__init__(server)
-
+    def __init__(self, *args, **kwargs):
+        default_zone = kwargs.pop('default_zone', 'uio')
+        super(BofhdExtension, self).__init__(*args, **kwargs)
         self.default_zone = self.const.DnsZone(
-                getattr(cereconf, 'DNS_DEFAULT_ZONE', default_zone))
-        self.mb_utils = DnsBofhdUtils(server, self.default_zone)
-        self.dns_parser = Utils.DnsParser(server.db, self.default_zone)
-        self._find = Utils.Find(server.db, self.default_zone)
-        self.ba = DnsBofhdAuth(self.db)
+            getattr(cereconf, 'DNS_DEFAULT_ZONE', default_zone))
 
+    @property
+    def _find(self):
+        try:
+            return self.__find_util
+        except AttributeError:
+            self.__find_util = Utils.Find(self.db, self.default_zone)
+            return self.__find_util
 
-    def get_help_strings(self):
+    @property
+    def dns_parser(self):
+        try:
+            return self.__dns_parser
+        except AttributeError:
+            self.__dns_parser = Utils.DnsParser(self.db, self.default_zone)
+            return self.__dns_parser
+
+    @property
+    def mb_utils(self):
+        try:
+            return self.__mb_utils
+        except AttributeError:
+            self.__mb_utils = DnsBofhdUtils(
+                self.db, self.logger, self.default_zone)
+            return self.__mb_utils
+
+    @classmethod
+    def get_help_strings(cls):
         group_help = {
             'host': "Commands for administrating IP numbers",
             'group': "Group commands",
             'dhcp': 'Commands for handling MAC-IP associations'
-            }
+        }
 
         # The texts in command_help are automatically line-wrapped, and should
         # not contain \n
         command_help = {
             'host': {
-            'host_a_add': 'Add an A record',
-            'host_a_remove': 'Remove an A record',
-            'host_add': 'Add a new host with IP address',
-            'host_cname_add': 'Add a CNAME',
-            'host_cname_remove': 'Remove a CNAME',
-            'host_comment': 'Set comment for a host',
-            'host_contact': 'Set contact for a host',
-            'host_find': 'List hosts matching search criteria',
-            'host_remove': 'Remove data for specified host or IP',
-            'host_hinfo_list': 'List acceptable HINFO values',
-            'host_hinfo_set': 'Set HINFO',
-            'host_history': 'Show history for a host',
-            'host_info': 'List data for given host, IP-address or CNAME',
-            'host_unused_list': 'List unused IP addresses',
-            'host_used_list': 'List used IP addresses',
-            'host_mx_set': 'Set MX for host to specified MX definition',
-            'host_mx_unset': 'Remove MX from host',
-            'host_mxdef_add': 'Add host to MX definition',
-            'host_mxdef_remove': 'Remove host from MX definition',
-            'host_mxdef_show': ('List all MX definitions, or show hosts in '
-                                'one MX definition'),
-            'host_rename': 'Rename an IP address or hostname',
-            'host_ptr_add': 'Add override for IP reverse map',
-            'host_ptr_remove': 'Remove override for IP reverse map',
-            'host_srv_add': 'Add a SRV record',
-            'host_srv_remove': 'Remove a SRV record',
-            'host_ttl_set': 'Set TTL for a host',
-            'host_ttl_unset': 'Revert TTL for a host back to default',
-            'host_ttl_show': 'Display TTL for a host',
-            'host_txt_set': 'Set TXT for a host',
+                'host_a_add': 'Add an A record',
+                'host_a_remove': 'Remove an A record',
+                'host_add': 'Add a new host with IP address',
+                'host_cname_add': 'Add a CNAME',
+                'host_cname_remove': 'Remove a CNAME',
+                'host_comment': 'Set comment for a host',
+                'host_contact': 'Set contact for a host',
+                'host_find': 'List hosts matching search criteria',
+                'host_remove': 'Remove data for specified host or IP',
+                'host_hinfo_list': 'List acceptable HINFO values',
+                'host_hinfo_set': 'Set HINFO',
+                'host_history': 'Show history for a host',
+                'host_info': 'List data for given host, IP-address or CNAME',
+                'host_unused_list': 'List unused IP addresses',
+                'host_used_list': 'List used IP addresses',
+                'host_mx_set': 'Set MX for host to specified MX definition',
+                'host_mx_unset': 'Remove MX from host',
+                'host_mxdef_add': 'Add host to MX definition',
+                'host_mxdef_remove': 'Remove host from MX definition',
+                'host_mxdef_show': (
+                    'List all MX definitions, or show hosts in '
+                    'one MX definition'),
+                'host_rename': 'Rename an IP address or hostname',
+                'host_ptr_add': 'Add override for IP reverse map',
+                'host_ptr_remove': 'Remove override for IP reverse map',
+                'host_srv_add': 'Add a SRV record',
+                'host_srv_remove': 'Remove a SRV record',
+                'host_ttl_set': 'Set TTL for a host',
+                'host_ttl_unset': 'Revert TTL for a host back to default',
+                'host_ttl_show': 'Display TTL for a host',
+                'host_txt_set': 'Set TXT for a host',
             },
             'group': {
-            'group_hadd': 'Add machine to a netgroup',
-            'group_host': 'List groups where host is a member',
-            'group_hrem': 'Remove machine from a netgroup'
+                'group_hadd': 'Add machine to a netgroup',
+                'group_host': 'List groups where host is a member',
+                'group_hrem': 'Remove machine from a netgroup'
             },
             'dhcp': {
-            'dhcp_assoc': 'Associate a MAC-address with an IP-address',
-            'dhcp_disassoc': ('Remove associattion between a '
-                           'MAC-address and an IP-address'),
+                'dhcp_assoc': 'Associate a MAC-address with an IP-address',
+                'dhcp_disassoc': (
+                    'Remove associattion between a '
+                    'MAC-address and an IP-address'),
             }
-            }
+        }
 
         arg_help = {
-            'group_name_dest':
-            ['gname', 'Enter the destination group'],
-            'group_operation':
-            ['op', 'Enter group operation',
-             """Three values are legal: union, intersection and difference.
-             Normally only union is used."""],
-            'ip_number':
-            ['ip', 'Enter IP number',
-             'Enter the IP number for this operation'],
-            'host_id':
-            ['host_id', 'Enter host_id',
-             'Enter a unique host_id for this machine, typicaly the DNS name or IP'],
-            'new_host_id_or_clear':
-            ['new_host_id', 'Enter new host_id/leave blank',
-             'Enter a new host_id, or leave blank to clear'],
-            'host_name':
-            ['host_name', 'Enter host name',
-             'Enter the host name for this operation'],
-            'host_name_exist':
-            ['existing_host', 'Enter existing host name',
-             'Enter the host name for this operation'],
-            'host_name_alias':
-            ['alias_name', 'Enter new alias',
-             'Enter the alias name for this operation'],
-            'host_name_repeat':
-            ['host_name_repeat', 'Enter host name(s)',
-             'To specify 20 names starting at pcusitN+1, where N is '
-             'the highest currently existing number, use pcusit#20.  To '
-             'get the names pcusit20 to pcusit30 use pcusit#20-30.'],
-            'host_search_pattern':
-            ['pattern', 'Enter pattern',
-             "Use ? and * as wildcard characters.  If there are no wildcards, "
-             "it will be a substring search.  If there are no capital letters, "
-             "the search will be case-insensitive."],
-            'host_search_type':
-            ['search_type', 'Enter search type',
-             'You can search by "name", "comment" or "contact".'],
-            'service_name':
-            ['service_name', 'Enter service name',
-             'Enter the service name for this operation'],
-            'subnet_or_ip':
-            ['subnet_or_ip', 'Enter subnet or ip',
-             'Enter subnet or ip for this operation.  129.240.x.y = IP. '
-             '129.240.x or 129.240.x.y/ indicates a subnet.'],
-            'number_or_range':
-            ['number_or_range', 'Enter a number or range',
-             'Enter a number (ex. 5) or a range (ex. 5-10).'],
-            'hinfo':
-            ['hinfo', 'Enter HINFO code',
-             'Legal values are: \n%s' % "\n".join(
-            [" - %-8s -> %s" % (t[0], t[1]) for t in BofhdExtension.legal_hinfo])],
-            'mx_set':
-            ['mxdef', 'Enter name of mxdef',
-             'Use "host mxdef_show" to get a list of legal values'],
-            'contact':
-            ['contact', 'Enter contact',
-             'Typically an e-mail address'],
-            'comment':
-            ['comment', 'Enter comment',
-             'Typically location'],
-            'txt':
-            ['txt', 'Enter TXT value'],
-            'pri':
-            ['pri', 'Enter priority value'],
-            'weight':
-            ['weight', 'Enter weight value'],
-            'port':
-            ['port', 'Enter port value'],
-            'ttl':
-            ['ttl', 'Enter TTL value'],
-            'mac_adr':
-            ['mac_adr', 'Enter MAC-address'],
-            'force':
-            ['force', 'Force the operation',
-             'Enter y to force the operation'],
-            'show_policy':
-            ['policy', 'Show policies? (policy)',
-             'If argument is "policy", all hostpolicies related to the given '
-             'host will be listed'],
-            }
-        return (group_help, command_help,
+            'group_name_dest': [
+                'gname', 'Enter the destination group'],
+            'group_operation': [
+                'op', 'Enter group operation',
+                'Three values are legal: union, intersection and difference.'
+                ' Normally only union is used.', ],
+            'ip_number': [
+                'ip', 'Enter IP number',
+                'Enter the IP number for this operation'],
+            'host_id': [
+                'host_id', 'Enter host_id',
+                'Enter a unique host_id for this machine,'
+                ' typicaly the DNS name or IP', ],
+            'new_host_id_or_clear': [
+                'new_host_id', 'Enter new host_id/leave blank',
+                'Enter a new host_id, or leave blank to clear'],
+            'host_name': [
+                'host_name', 'Enter host name',
+                'Enter the host name for this operation'],
+            'host_name_exist': [
+                'existing_host', 'Enter existing host name',
+                'Enter the host name for this operation'],
+            'host_name_alias': [
+                'alias_name', 'Enter new alias',
+                'Enter the alias name for this operation'],
+            'host_name_repeat': [
+                'host_name_repeat', 'Enter host name(s)',
+                'To specify 20 names starting at pcusitN+1, where N is '
+                'the highest currently existing number, use pcusit#20.  To '
+                'get the names pcusit20 to pcusit30 use pcusit#20-30.'],
+            'host_search_pattern': [
+                'pattern', 'Enter pattern',
+                'Use ? and * as wildcard characters. If there are no'
+                ' wildcards, it will be a substring search. If there are no'
+                ' capital letters, the search will be case-insensitive.'],
+            'host_search_type': [
+                'search_type', 'Enter search type',
+                'You can search by "name", "comment" or "contact".'],
+            'service_name': [
+                'service_name', 'Enter service name',
+                'Enter the service name for this operation'],
+            'subnet_or_ip': [
+                'subnet_or_ip', 'Enter subnet or ip',
+                'Enter subnet or ip for this operation.  129.240.x.y = IP. '
+                '129.240.x or 129.240.x.y/ indicates a subnet.'],
+            'number_or_range': [
+                'number_or_range', 'Enter a number or range',
+                'Enter a number (ex. 5) or a range (ex. 5-10).'],
+            'hinfo': [
+                'hinfo', 'Enter HINFO code',
+                'Legal values are: \n'
+                '%s' % "\n".join(
+                    [" - %-8s -> %s" % (t[0], t[1])
+                     for t in cls.legal_hinfo])],
+            'mx_set': [
+                'mxdef', 'Enter name of mxdef',
+                'Use "host mxdef_show" to get a list of legal values'],
+            'contact': [
+                'contact', 'Enter contact',
+                'Typically an e-mail address'],
+            'comment': [
+                'comment', 'Enter comment',
+                'Typically location'],
+            'txt': ['txt', 'Enter TXT value'],
+            'pri': ['pri', 'Enter priority value'],
+            'weight': ['weight', 'Enter weight value'],
+            'port': ['port', 'Enter port value'],
+            'ttl': ['ttl', 'Enter TTL value'],
+            'mac_adr': ['mac_adr', 'Enter MAC-address'],
+            'force': [
+                'force', 'Force the operation',
+                'Enter y to force the operation'],
+            'show_policy': [
+                'policy', 'Show policies? (policy)',
+                'If argument is "policy", all hostpolicies related to the'
+                ' given host will be listed'],
+        }
+        return (group_help,
+                command_help,
                 arg_help)
-
-    def get_commands(self, account_id):
-        try:
-            return self._cached_client_commands[int(account_id)]
-        except KeyError:
-            pass
-        commands = {}
-        for k in self.all_commands.keys():
-            tmp = self.all_commands[k]
-            if tmp is not None:
-                if tmp.perm_filter:
-                    if not getattr(self.ba, tmp.perm_filter)(account_id, query_run_any=True):
-                        continue
-                commands[k] = tmp.get_struct(self)
-        self._cached_client_commands[int(account_id)] = commands
-        return commands
 
     def _is_yes(self, val):
         if isinstance(val, str) and val.lower() in ('y', 'yes', 'ja', 'j'):
@@ -1597,9 +1598,6 @@ class BofhdExtension(BofhdCommandBase):
         return ("MAC-adr '%s' " % "','".join(old_macs) +
                 "no longer associated with %s" % host_id)
 
-
-    def get_format_suggestion(self, cmd):
-        return self.all_commands[cmd].get_fs()
 
 if __name__ == '__main__':
     pass

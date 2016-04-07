@@ -46,14 +46,14 @@ class Parameter(object):
             else:
                 setattr(self, attr, v)
 
-    def get_struct(self, bofhd_ref):
+    def get_struct(self, help_ref):
         ret = {}
         for k in ('_optional', '_repeat', '_type', '_help_ref'
                   # '_prompt',
                   ):
             if getattr(self, k) is not None and getattr(self, k) != 0:
                 ret[k[1:]] = getattr(self, k)
-        ret['prompt'] = self.getPrompt(bofhd_ref)
+        ret['prompt'] = self.getPrompt(help_ref)
         if self._default is not None:
             if isinstance(self._default, str):
                 ret['default'] = self._default
@@ -61,10 +61,11 @@ class Parameter(object):
                 ret['default'] = 1  # = call get_default_param
         return ret
 
-    def getPrompt(self, bofhd_ref):
-        arg_help = bofhd_ref.server.help.arg_help
+    def getPrompt(self, help_ref):
+        arg_help = help_ref.arg_help
         if self._help_ref not in arg_help:
-            bofhd_ref.logger.warn("Missing arg_help item <%s>", self._help_ref)
+            # TODO: Fix
+            # bofhd_ref.logger.warn("Missing arg_help item <%s>", self._help_ref)
             return ""
 
         return arg_help[self._help_ref][1]
@@ -94,7 +95,7 @@ class AffiliationStatus(Parameter):
 class SourceSystem(Parameter):
     _type = 'sourceSystem'
     _help_ref = 'source_system'
-    
+
 class Date(Parameter):
     _type = 'date'
     _help_ref = 'date'
@@ -237,9 +238,9 @@ class Command(object):
         else:
             return None
 
-    def get_struct(self, bofhd_ref):
+    def get_struct(self, help_ref):
         if self._params is not None:
-            return (self._cmd, [k.get_struct(bofhd_ref) for k in self._params])
+            return (self._cmd, [k.get_struct(help_ref) for k in self._params])
         if self._prompt_func is not None:
             return (self._cmd, 'prompt_func')  # Flags that command has prompt_func
         return (self._cmd,)

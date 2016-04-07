@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2003 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2003-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,7 +27,8 @@
 # group_help contains the general help text, as well as help for the
 # main commands (group, user, misc etc.)
 
-_group_help = {'general': """BOFH help:
+_group_help = {
+    'general': """BOFH help:
 
 BOFH is a command-line based application for user administration. More
 information about BOFH be viewed at
@@ -41,7 +42,7 @@ Additional help is available in form of the commands
 <<help glossary>>, <<help intro>> and <<help basics>>. 
 Available main command groups are:
 """,
-               'glossary': """Glossary of common terms in Cerebrum:
+    'glossary': """Glossary of common terms in Cerebrum:
 - account: a user account (POSIX or generic user) in Cerebrum
 - account authentication: data needed to authenticate a particular 
   user throughout the system
@@ -80,11 +81,11 @@ Available main command groups are:
 - spread: decides in which parts of the system within the organization an
   entity should be recognized
 - quarantine: limitations imposed on entitis in Cerebrum
-- quota: the resources available to a user in terms of storage 
-  (home directory or email) or printing (sheets of paper available 
+- quota: the resources available to a user in terms of storage
+  (home directory or email) or printing (sheets of paper available
   per week)
-               """,
-               'intro': """
+""",
+    'intro': """
 Although Cerebrum encourages use of automatic processing, a need for 
 manually done modifications of the contents of the database is usually
 present in any large organization. BOFH is a command-line based client 
@@ -102,8 +103,8 @@ user typically executes various commands and some of these (and their
 consequences) are temporarily stored in a way that allows the user to
 retrace his or hers steps.
 Online help is also available throughout the session.  
-               """,
-               'basics': """
+""",
+    'basics': """
 Register a new employee and create an account for them:
 Preprocessing:
 
@@ -217,9 +218,9 @@ basic command for this is user move. user move accepts following options:
    Enter disk >/usit/saruman/gt-u1
    Why? >Vil ha.
    OK, request registered
- 
-               """
-              }
+
+"""
+}
 
 # Help for all commands.  Format:
 # ch = {<cmd_group_name>: {<callable_func>: short-help-string} }
@@ -228,8 +229,7 @@ basic command for this is user move. user move accepts following options:
 
 # TBD: We may want to make the hash value = [<short-help-string>,
 # <optional-long-help>]
-_command_help = {
-      }
+_command_help = {}
 
 # Define prompt and help text for each command-argument.  Format:
 # <key>: [<arg-text>, <prompt>, <help-text>]
@@ -266,7 +266,7 @@ For OU's, it is an affiliation ('STUDENT')."""],
     'string':
         ['string', 'Enter value'],
     'group_search_type':
-        ['search_type', 'Enter group search type', 
+        ['search_type', 'Enter group search type',
          'This should be a hash, so just forget it'],
     'opset':
         ['operation_set', 'Enter name of operation set',
@@ -277,43 +277,58 @@ For OU's, it is an affiliation ('STUDENT')."""],
   - 'name'
   - 'date' of birth, on format YYYY-MM-DD
   - 'person_id'"""]
-      }
+}
 
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
+
+class PrintLog(object):
+    """ Dummy stdout logger. """
+
+    def warn(self, msg):
+        print "WARN: %s" % (msg,)
+
+    def info(self, msg):
+        print "INFO: %s" % (msg,)
+
+    def error(self, msg):
+        print "ERROR: %s" % (msg,)
+
+    def debug(self, msg):
+        print "DEBUG: %s" % (msg,)
+
+
 class Help(object):
+
     def __init__(self, cmd_instances, logger=None):
         self.group_help = _group_help
         self.command_help = _command_help
         self.arg_help = _arg_help
-        for c in cmd_instances:
-            gh, ch, ah = getattr(c, "get_help_strings")()
-            for k in gh.keys():
-                if k in self.group_help:
-                    # Don't overwrite existing group help
-                    continue
-                self.group_help[k] = gh[k]
-            for k in ch.keys():
-                self.command_help.setdefault(k, {}).update(ch[k])
-            for k in ah.keys():
-                self.arg_help[k] = ah[k]
+        for cls in cmd_instances:
+            self.update_from_extension(cls)
 
         self.logger = logger
         if not self.logger:
-            class PrintLog(object):
-                """Simple logger that simulates the Cerebrum logger, but is just
-                printing to stdout.
-                """
-                def warn(self, msg):
-                    print "WARN: %s" % (msg,)
-                def info(self, msg):
-                    print "INFO: %s" % (msg,)
-                def error(self, msg):
-                    print "ERROR: %s" % (msg,)
-                def debug(self, msg):
-                    print "DEBUG: %s" % (msg,)
             self.logger = PrintLog()
+
+    def update_from_extension(self, extension_cls):
+        u""" Update help data from a BofhdExtension. """
+        # TODO: Assert exension_cls type?
+        (group_help,
+         cmd_help,
+         arg_help) = getattr(extension_cls, "get_help_strings",
+                             lambda *args: ({}, {}, {}))()
+        for grp_name in group_help:
+            if grp_name in self.group_help:
+                # Don't overwrite existing group help
+                continue
+            self.group_help[grp_name] = group_help[grp_name]
+        for cmd_name in cmd_help:
+            self.command_help.setdefault(
+                cmd_name, {}).update(cmd_help[cmd_name])
+        for arg_ref in arg_help:
+            self.arg_help[arg_ref] = arg_help[arg_ref]
 
     def _map_all_commands(self, all_commands):
         """Return a mapping {'maingroup': {'call_func': data}}. 'data'
@@ -331,23 +346,25 @@ class Help(object):
         ret = self.group_help['general']+"\n"
         keys.remove('general')
         for k in keys:
-            if no_filter or known_commands.has_key(k):
+            if no_filter or k in known_commands:
                 ret += "   %-10s - %s\n" % (k, self.group_help[k])
         return ret
 
     def _cmd_help(self, cmd_struct, call_func):
         args = []
         if (len(cmd_struct) > 1
-            and isinstance(cmd_struct[1], (tuple, list))):
+                and isinstance(cmd_struct[1], (tuple, list))):
             for a in cmd_struct[1]:
                 tmp = self.arg_help[a['help_ref']][0]
-                if a.has_key('repeat') and a['repeat']:
+                if 'repeat' in a and a['repeat']:
                     tmp += "+"
-                if a.has_key('optional') and a['optional']:
+                if 'optional' in a and a['optional']:
                     tmp = "[%s]" % tmp
                 args.append(tmp)
-        return cmd_struct[0][1], args, self.command_help[cmd_struct[0][0]][call_func]
-        
+        return (cmd_struct[0][1],
+                args,
+                self.command_help[cmd_struct[0][0]][call_func], )
+
     def _wrap_cmd_help(self, dta):
         """Try to wrap the help text in a way that looks good.  This
         is not easy to accomplish for long commands... """
@@ -370,7 +387,7 @@ class Help(object):
                 rest_space = 80 - len(line)
             else:
                 rest_space = 80 - maxlen[0] - 7
-                line += "\n"+ " " * (80 - rest_space - 2) + "- "
+                line += "\n" + " " * (80 - rest_space - 2) + "- "
             while rest_space < len(help):
                 idx = help.rfind(" ", 0, rest_space)
                 if idx == -1:
@@ -381,7 +398,7 @@ class Help(object):
             line += help
             ret.append(line)
         return "\n".join(ret)
-        
+
     # TODO: Need a better way to warn about inconsistency between
     # command-defs and help data
     def get_group_help(self, all_commands, group, no_filter=0):
@@ -401,7 +418,7 @@ class Help(object):
             if no_filter or known_commands.get(group, {}).get(call_func, None) != None:
                 lines.append(self._cmd_help(all_commands[call_func], call_func))
         return ret + self._wrap_cmd_help(lines)
-        
+
     def get_cmd_help(self, all_commands, maingrp, subgrp, filter=1):
         for call_func in all_commands.keys():
             if all_commands[call_func][0] == (maingrp, subgrp):
@@ -419,7 +436,7 @@ class Help(object):
             if len(self.arg_help[tmp]) == 3:
                 return self.arg_help[tmp][2]
         return self.arg_help[help_ref][1]
-    
+
     def check_consistency(self, all_commands):
         """Simple consistency check for the help text.  Checks that:
         - all commands have a help text
@@ -484,5 +501,3 @@ if __name__ == '__main__':
                     print "%s - %s" % (c, command_help[g][c][0])
                     for argtype in command_help[g][c][2:]:
                         print "   at=%s" % argtype
-
-

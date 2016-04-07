@@ -825,13 +825,14 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
             if ttype == self.const.email_target_account:
                 ret.append({'def_addr': "<none>"})
             # No else?
-        
+
         if ttype not in (self.const.email_target_Mailman,
                          self.const.email_target_Sympa):
             # We want to split the valid addresses into multiple
             # parts for MLs, so there is special code for that.
             addrs = self._get_valid_email_addrs(et, special=True, sort=True)
-            if not addrs: addrs = ["<none>"]
+            if not addrs:
+                addrs = ["<none>"]
             ret.append({'valid_addr_1': addrs[0]})
             for addr in addrs[1:]:
                 ret.append({"valid_addr": addr})
@@ -864,7 +865,7 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
 
         # Only the account owner and postmaster can see account settings, and
         # that is handled properly in _email_info_account.
-        if not ttype in (self.const.email_target_account,
+        if ttype not in (self.const.email_target_account,
                          self.const.email_target_deleted):
             ret += self._email_info_spam(et)
             ret += self._email_info_filters(et)
