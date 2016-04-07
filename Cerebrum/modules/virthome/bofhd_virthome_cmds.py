@@ -1054,6 +1054,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         ("user", "recover_password"),
         AccountName(),
         EmailAddress())
+
     def user_recover_password(self, operator, uname, email):
         """Start the magic for auto-issuing a new password.
 
@@ -1739,6 +1740,7 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         EntityType(default='group'),
         Id(),
         Spread())
+
     def spread_remove(self, operator, entity_type, identification, spread):
         """Remove a spread from an entity."""
         entity = self._get_entity(entity_type, identification)
@@ -1955,6 +1957,7 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         EntityType(default="account"),
         Id(),
         SimpleString())
+
     def trait_remove(self, operator, entity_type, entity_id, trait):
         """Remove a trait from entity."""
         entity = self._get_entity(entity_type, entity_id)

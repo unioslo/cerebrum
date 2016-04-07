@@ -264,7 +264,6 @@ class BofhdExtension(BofhdCommonMethods):
                 err_msg=str(e).decode('utf-8').encode('latin-1')))
         except PasswordNotGoodEnough as e:
             raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
-            ac.password_good_enough(password)
         crypt = ac.encrypt_password(
             self.const.Authentication("crypt3-DES"), password)
         md5 = ac.encrypt_password(
