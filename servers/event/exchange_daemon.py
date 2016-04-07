@@ -38,7 +38,6 @@ from multiprocessing import Queue
 from Cerebrum import Utils
 from Cerebrum.modules.event import utils
 from Cerebrum.modules.event import evhandlers
-from Cerebrum.modules.no.uio.exchange.consumer import ExchangeEventHandler
 from Cerebrum.modules.exchange.config import load_config
 
 
@@ -60,6 +59,7 @@ def serve(logger, config, num_workers, enable_listener,
     exchanged = utils.ProcessHandler(logger=logger, manager=Manager)
 
     event_queue = exchanged.mgr.queue()
+    queues = []
 
     Handler = getattr(Utils.dyn_import(config.handler.handler_mod),
                       config.handler.handler_class)
@@ -73,10 +73,25 @@ def serve(logger, config, num_workers, enable_listener,
             config=config,
             mock=config.client.mock)
 
+    if (config.deferred_handler.handler_mod and
+            config.deferred_handler.handler_class):
+        group_event_queue = exchanged.mgr.queue()
+        hand = getattr(Utils.dyn_import(config.deferred_handler.handler_mod),
+                       config.deferred_handler.handler_class)
+        exchanged.add_process(
+            hand,
+            queue=group_event_queue,
+            log_queue=exchanged.log_queue,
+            running=exchanged.run_trigger,
+            config=config,
+            mock=config.client.mock)
+        queues.append(group_event_queue)
+
     if enable_listener:
         exchanged.add_process(
             evhandlers.DBEventListener,
             queue=event_queue,
+            fan_out_queues=queues,
             log_queue=exchanged.log_queue,
             running=exchanged.run_trigger,
             channels=channels)
@@ -86,12 +101,27 @@ def serve(logger, config, num_workers, enable_listener,
             exchanged.add_process(
                 evhandlers.DBEventCollector,
                 queue=event_queue,
+                fan_out_queues=queues,
                 log_queue=exchanged.log_queue,
                 running=exchanged.run_trigger,
                 channel=chan,
                 config=config.eventcollector)
 
     exchanged.serve()
+
+
+def update_mappings(progname, config):
+    events = getattr(Utils.dyn_import(config.handler.handler_mod),
+                     config.handler.handler_class).event_map.events
+
+    if (config.deferred_handler.handler_mod and
+            config.deferred_handler.handler_class):
+        events.extend(getattr(Utils.dyn_import(
+            config.deferred_handler.handler_mod),
+            config.deferred_handler.handler_class).event_map.events)
+
+    utils.update_system_mappings(
+        progname, TARGET_SYSTEM, events)
 
 
 def main(args=None):
@@ -123,13 +153,10 @@ def main(args=None):
                         default=True,
                         help='Disable event collectors')
 
-    # TODO: Make option for this?
-    # Update `event_to_target` mapping tables
-    utils.update_system_mappings(
-        parser.prog, TARGET_SYSTEM, ExchangeEventHandler.event_map.events)
-
     args = parser.parse_args(args)
     config = load_config(filepath=args.configfile)
+
+    update_mappings(parser.prog, config)
 
     # Run event processes
     serve(

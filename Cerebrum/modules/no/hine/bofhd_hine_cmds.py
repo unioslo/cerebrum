@@ -28,7 +28,10 @@ from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
+from Cerebrum.modules.pwcheck.checker import (check_password,
+                                              PasswordNotGoodEnough,
+                                              RigidPasswordNotGoodEnough,
+                                              PhrasePasswordNotGoodEnough)
 
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
@@ -252,9 +255,16 @@ class BofhdExtension(BofhdCommonMethods):
     def misc_check_password(self, operator, password):
         ac = self.Account_class(self.db)
         try:
+            check_password(password, ac, structured=False)
+        except RigidPasswordNotGoodEnough as e:
+            raise CerebrumError('Bad password: {err_msg}'.format(
+                err_msg=str(e).decode('utf-8').encode('latin-1')))
+        except PhrasePasswordNotGoodEnough as e:
+            raise CerebrumError('Bad passphrase: {err_msg}'.format(
+                err_msg=str(e).decode('utf-8').encode('latin-1')))
+        except PasswordNotGoodEnough as e:
+            raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
             ac.password_good_enough(password)
-        except PasswordNotGoodEnough, m:
-            raise CerebrumError("Bad password: %s" % m)
         crypt = ac.encrypt_password(
             self.const.Authentication("crypt3-DES"), password)
         md5 = ac.encrypt_password(

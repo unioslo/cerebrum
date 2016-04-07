@@ -29,9 +29,9 @@ import traceback
 from urllib2 import URLError
 
 from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
-                                                  ServerUnavailableException,
-                                                  AlreadyPerformedException)
+                                                  ServerUnavailableException)
 from Cerebrum.modules.event.EventExceptions import (EventExecutionException,
+                                                    EventHandlerNotImplemented,
                                                     EntityTypeError,
                                                     UnrelatedEvent)
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
@@ -83,10 +83,10 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
 
         # Group lookup patterns
         self.group_name_translation = \
-            dict(self.config.selection_criterias.group_name_translations)
+            dict(self.config.selection_criteria.group_name_translations)
         # Group defining that rendzone users should be shown in address book
         self.randzone_unreserve_group = \
-            self.config.selection_criterias.randzone_publishment_group
+            self.config.selection_criteria.randzone_publishment_group
 
         super(ExchangeEventHandler, self).__init__(**kwargs)
         self.logger.debug2("Started event handler class: %s" % self.__class__)
@@ -100,25 +100,25 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
     @memoize
     def mb_spread(self):
         return self.co.Spread(
-            self.config.selection_criterias.mailbox_spread)
+            self.config.selection_criteria.mailbox_spread)
 
     @property
     @memoize
     def group_spread(self):
         return self.co.Spread(
-            self.config.selection_criterias.group_spread)
+            self.config.selection_criteria.group_spread)
 
     @property
     @memoize
     def shared_mbox_spread(self):
         return self.co.Spread(
-            self.config.selection_criterias.shared_mbox_spread)
+            self.config.selection_criteria.shared_mbox_spread)
 
     @property
     @memoize
     def ad_spread(self):
         return self.co.Spread(
-            self.config.selection_criterias.ad_spread)
+            self.config.selection_criteria.ad_spread)
 
     @property
     @memoize
@@ -196,6 +196,15 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
 
         """
         return 'CB%s' % hex(os.getpid())[2:].upper()
+
+    def handle(self, item):
+        """Check if events are appropriate for this handler before handling."""
+        key = str(self.get_event_code(item.event))
+        try:
+            self.event_map.get_callbacks(key)
+            super(ExchangeEventHandler, self).handle(item)
+        except EventHandlerNotImplemented:
+            return
 
     def handle_event(self, event):
         u""" Call the appropriate handlers.
@@ -688,7 +697,7 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
             properly."""
         # TODO: This should be re-written as an aggregate-enrich-split-agent,
         # and a much simpler handler.
-        # TODO: Add some criterias that filter out events that does not result
+        # TODO: Add some criteria that filter out events that does not result
         # in primary-user change?
 
         # Get information about the accounts owner
@@ -1317,89 +1326,25 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
 
     @event_map('e_group:add')
     def add_group_members(self, event):
-        """Addition of member to group.
+        """Defer addition of member to group.
 
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog.
-
-        :raise UnrelatedEvent: If this event is unrelated to this handler.
-        :raise EventExecutionException: If the event fails to execute."""
-        destination = group_flattener.get_entity(self.db, event['dest_entity'])
-        member = group_flattener.get_entity(self.db, event['subject_entity'])
-        (destinations, candidates) = group_flattener.add_operations(
-            self.db, self.co,
-            member, destination,
-            self.group_spread, self.mb_spread)
-        for (group_id, group_name) in destinations:
-            for (entity_id, entity_name) in candidates:
-                try:
-                    self.ec.add_distgroup_member(group_name, entity_name)
-                    self.logger.info(
-                        'eid:{event_id}: Added {entity_name} to '
-                        '{group_name}'.format(
-                            event_id=event['event_id'],
-                            entity_name=entity_name,
-                            group_name=group_name))
-                    # Copy & mangle the event, so we can log it correctly
-                    mod_ev = event.copy()
-                    mod_ev['dest_entity'] = group_id
-                    mod_ev['subject_entity'] = entity_id
-                    self.ut.log_event_receipt(mod_ev, 'dlgroup:add')
-                except AlreadyPerformedException:
-                    pass
-                except (ExchangeException, ServerUnavailableException), e:
-                    self.logger.warn(
-                        'eid:{event_id}: Can\'t add {entity_name} to '
-                        '{group_name}: {reason}'.format(
-                            event_id=event['event_id'],
-                            entity_name=entity_name,
-                            group_name=group_name,
-                            reason=e))
-                    mod_ev = event.copy()
-                    mod_ev['dest_entity'] = group_id
-                    mod_ev['subject_entity'] = entity_id
-                    self.ut.log_event(mod_ev, 'e_group:add')
+        :type event: cerebrum.extlib.db_row.row
+        :param event: the event returned from change- or eventlog."""
+        self.logger.debug4(
+            'Converting e_group:add to exchange:group_add for {}'.format(
+                event))
+        self.ut.log_event(event, 'exchange:group_add')
 
     @event_map('e_group:rem')
     def remove_group_member(self, event):
-        """Removal of member from group.
+        """Defer removal of member from group.
 
         :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog.
-
-        :raise UnrelatedEvent: Raised if the event is not to be handled."""
-        destination = group_flattener.get_entity(self.db, event['dest_entity'])
-        member = group_flattener.get_entity(self.db, event['subject_entity'])
-        removals = group_flattener.remove_operations(self.db, self.co,
-                                                     member, destination,
-                                                     self.group_spread,
-                                                     self.mb_spread)
-
-        if not removals:
-            return
-        for (group_id, group_name) in removals.keys():
-            for (cand_id, cand_name) in removals.get((group_id, group_name)):
-                try:
-                    self.ec.remove_distgroup_member(group_name, cand_name)
-                    self.logger.info(
-                        'eid:{event_id}: Removed {cand_name} from '
-                        '{group_name}'.format(event_id=event['event_id'],
-                                              cand_name=cand_name,
-                                              group_name=group_name))
-                    # Copy & mangle the event, so we can log it reciept
-                    # correctly
-                    mod_ev = event.copy()
-                    mod_ev['dest_entity'] = group_id
-                    mod_ev['subject_entity'] = cand_id
-                    self.ut.log_event_receipt(mod_ev, 'dlgroup:rem')
-                except AlreadyPerformedException:
-                    pass
-                except (ExchangeException, ServerUnavailableException), e:
-                    self.logger.warn(
-                        'eid:{event_id}: Can\'t remove {cand_name} from '
-                        '{group_name}: {error}'.format(
-                            event_id=event['event_id'], cand_name=cand_name,
-                            group_name=group_name, error=e))
+        :param event: The event returned from Change- or EventLog."""
+        self.logger.debug4(
+            'Converting e_group:rem to exchange:group_rem for {}'.format(
+                event))
+        self.ut.log_event(event, 'exchange:group_rem')
 
     @event_map('dlgroup:modhidden')
     def set_group_visibility(self, event):

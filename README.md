@@ -48,7 +48,7 @@ Cerebrum is licensed using GNU Public License version 2 and later.
 Fetching the source
 -------------------
 
-The latest source is available from (Stash)[https://utv.uio.no/stash/projects/CRB/repos/cerebrum/browse].
+The latest source is available from [Stash](https://bitbucket.usit.uio.no/projects/CRB/repos/cerebrum/).
 
 Documentation
 -------------
@@ -58,7 +58,7 @@ This is a brief summary of the currently existing documentation for Cerebrum:
 * README.md - this document
 * INSTALL.md - describes the installation procedure
 * design/adminprotocol.html - describes communication between the administration server and its clients
-* design/cerebrum-core.dia - diagram showing the core databasetables in cerebrum. Can be displayed with (Dia)[http://www.lysator.liu.se/~alla/dia/]
+* design/cerebrum-core.dia - diagram showing the core databasetables in cerebrum. Can be displayed with [Dia](https://wiki.gnome.org/Apps/Dia/)
 * design/entity_usage.txt - describes how to modify data in the database
 
 The documentation for the core api can be read using pydoc.

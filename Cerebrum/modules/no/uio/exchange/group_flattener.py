@@ -133,7 +133,7 @@ def get_entity(db, entity_id):
     entity = Factory.get('Entity')(db)
     try:
         return entity.get_subclassed_object(id=entity_id)
-    except (Errors.NotFoundError, TypeError):
+    except (Errors.NotFoundError, TypeError, ValueError):
         return None
 
 

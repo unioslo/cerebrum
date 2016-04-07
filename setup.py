@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2015 University of Oslo, Norway
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -97,13 +97,14 @@ To build dist file:
 
 """
 import os
+import subprocess
 import sys
 import pwd
 from glob import glob
 
 from distutils import sysconfig
 from distutils.command import install_data
-from distutils.core import setup
+from distutils.core import setup, Command
 from distutils.util import change_root, convert_path
 import Cerebrum
 
@@ -126,6 +127,7 @@ sbindir = prefix + 'sbin'
 bindir = prefix + 'bin'
 sysconfdir = prefix + os.path.join('etc', 'cerebrum')
 logdir = prefix + os.path.join('var', 'log', 'cerebrum')
+locale_dir = os.path.join(sys.prefix, 'share', 'locale')
 
 #
 # Files that never should overwite installed versions.
@@ -136,8 +138,52 @@ do_not_replace = ('design/cereconf.py',
                   'design/logging.ini', )
 
 
-class my_install_data(install_data.install_data, object):
+def _execute_wrapper(*args):
+    subprocess.call(args)
 
+
+class CompileAndInstallLocales(Command):
+    """
+    """
+    description = 'Compile and install Cerebrum locales'
+    user_options = []
+
+    def initialize_options(self):
+        self.cwd = None
+
+    def finalize_options(self):
+        self.cwd = os.getcwd()
+
+    def run(self):
+        """
+        """
+        # go through all top dirs in 'locales/'
+        for lang_dir in os.listdir('locales/'):
+            # the abs. path for this specific language
+            lang_path = os.path.join(locale_dir, lang_dir, 'LC_MESSAGES')
+            mo_file = os.path.join('locales', lang_dir, 'LC_MESSAGES', 'cerebrum.mo')
+            if os.path.isfile(mo_file):
+                # .mo file exists for this language in the Cerebrum repo. Use it!
+                if not os.path.exists(lang_path):
+                    # create the path if it doesn't exist
+                    os.makedirs(lang_path)
+                self.copy_file(mo_file, lang_path)
+                continue
+            # no .mo file found. See is there is a .po file
+            po_file = os.path.join('locales', lang_dir, 'LC_MESSAGES', 'cerebrum.po')
+            if os.path.isfile(po_file):
+                if not os.path.exists(lang_path):
+                    # create the path if it doesn't exist
+                    os.makedirs(lang_path)
+                # ... then compile the .po file into .mo file
+                self.execute(_execute_wrapper,
+                             ('msgfmt',
+                              '-o',
+                              os.path.join(lang_path, 'cerebrum.mo'),
+                              po_file))
+        
+
+class my_install_data(install_data.install_data, object):
     """ Custom install_data class. """
 
     def finalize_options(self):
@@ -243,7 +289,7 @@ class my_install_data(install_data.install_data, object):
                     os.chmod(out, mode)
                     if(os.geteuid() == 0):
                         os.chown(out, uid, gid)
-
+            self.run_command('install_locales')
 
 #
 # Files to install
@@ -253,7 +299,7 @@ sbin_files = [
     ('makedb.py', 0755)
 ]
 
-if (install_servers):
+if install_servers:
     sbin_files.append(('servers/bofhd/bofhd.py', 0755))
     sbin_files.append(('servers/event/exchange_daemon.py', 0755))
     sbin_files.append(('servers/event/cim_daemon.py', 0755))
@@ -477,8 +523,9 @@ setup(name="Cerebrum", version=Cerebrum.__version__,
       data_files = data_files,
 
       # Overridden command classes
-      cmdclass={'install_data': my_install_data, },
-      )
+      cmdclass={'install_data': my_install_data,
+                'install_locales': CompileAndInstallLocales}
+)
 
 setup(name='SoapAPI', packages=['SoapAPI'])
 setup(name='ClientAPI', packages=['ClientAPI'])
