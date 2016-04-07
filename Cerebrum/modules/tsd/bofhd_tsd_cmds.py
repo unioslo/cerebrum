@@ -31,14 +31,11 @@ i.e. the superusers in TSD, and one is for the end users. End users are
 communicating with bofhd through a web site, so that bofhd should only be
 reachable from the web host.
 
-
 NOTE:
 
 Using the @superuser decorator instead of calling self.ba.is_superuser(userid)
 is only used in this file so far, so if you are an experienced bofhd developer,
 ba.is_superuser is not missing, it's still here, but in a different form.
-
-
 """
 
 from mx import DateTime
