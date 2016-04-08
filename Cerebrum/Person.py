@@ -836,8 +836,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             self._db.log_change(self.entity_id,
                                 self.const.person_aff_add, None)
         try:
-            cur_status, cur_precedence = map(int, self.query_1("""
-            SELECT status, precedence
+            cur_status, cur_precedence, cur_del = map(int, self.query_1("""
+            SELECT status, precedence, deleted_date
             FROM [:table schema=cerebrum name=person_affiliation_source]
             WHERE
               person_id=:p_id AND
@@ -860,9 +860,14 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
               ou_id=:ou_id AND
               affiliation=:affiliation AND
               source_system=:source""".format(updprec), binds)
+            if cur_del:
+                self._db.log_change(self.entity_id,
+                                    self.const.person_aff_src_add, None)
+                return 'add', status, precedence
             if cur_status != int(status) or cur_precedence != new_prec:
                 self._db.log_change(self.entity_id,
                                     self.const.person_aff_src_mod, None)
+                return 'mod', cur_status, cur_precedence
         except Errors.NotFoundError:
             pr = binds['precedence'] = self.__calculate_affiliation_precedence(
                 affiliation, source, status, precedence, None)
@@ -876,6 +881,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                          binds)
             self._db.log_change(self.entity_id,
                                 self.const.person_aff_src_add, None)
+            return 'add', status, precedence
+        return False, status, precedence
 
     def delete_affiliation(self, ou_id, affiliation, source):
         binds = {'ou_id': int(ou_id),

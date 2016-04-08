@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2008 University of Oslo, Norway
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,6 +25,7 @@ would probably turn out to be a bad idea if one tried to use groups in
 that fashion.  Hence, this module **requires** the caller to supply a
 name when constructing a Group object."""
 
+
 import mx
 
 import cereconf
@@ -46,11 +47,11 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                       'create_date', 'expire_date', 'group_name')
 
     def clear(self):
-        self.__super.clear()
+        super(Group, self).clear()
         self.clear_class(Group)
         self.__updated = []
 
-    def populate(self, creator_id, visibility, name,
+    def populate(self, creator_id=None, visibility=None, name=None,
                  description=None, create_date=None, expire_date=None,
                  parent=None):
         """Populate group instance's attributes without database access."""
@@ -59,7 +60,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if parent is not None:
             self.__xerox__(parent)
         else:
-            Entity_class.populate(self, self.const.entity_group)
+            super(Group, self).populate(entity_type=self.const.entity_group)
         # If __in_db is present, it must be True; calling populate on
         # an object where __in_db is present and False is very likely
         # a programming error.
@@ -85,6 +86,11 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         # the attribute should probably have a more generic name than
         # "group_name".
         self.group_name = name
+
+    def new(self, *rest, **kw):
+        """Insert a new group into the database."""
+        self.populate(*rest, **kw)
+        self.write_db()
 
     def is_expired(self):
         now = mx.DateTime.now()
@@ -115,7 +121,11 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         this object.
 
         """
-        self.__super.write_db()
+        super(Group, self).write_db()
+        try:
+            is_new = not self.__in_db
+        except AttributeError:
+            return
         if not self.__updated:
             return
         if 'group_name' in self.__updated:
@@ -123,7 +133,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             if tmp:
                 raise self._db.IntegrityError, "Illegal groupname: %s" % tmp
 
-        is_new = not self.__in_db
         if is_new:
             cols = [('entity_type', ':e_type'),
                     ('group_id', ':g_id'),
@@ -236,6 +245,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
     def __eq__(self, other):
         assert isinstance(other, Group)
         if (self.creator_id == other.creator_id
+            and self.entity_type == other.entity_type
             and self.visibility == other.visibility
             and self.group_name == other.group_name
             and self.description == other.description
@@ -250,13 +260,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             # TBD: Should this compare member sets as well?
             return self.__super.__eq__(other)
         return False
-
-    def new(self, creator, visibility, name,
-            description=None, create_date=None, expire_date=None):
-        """Insert a new group into the database."""
-        self.populate(creator, visibility, name, description,
-                      create_date, expire_date)
-        self.write_db()
 
     def find(self, group_id):
         """Connect object to group with ``group_id`` in database."""
@@ -282,7 +285,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             pass
         self.__in_db = True
         self.__updated = []
-    # end find
 
     def find_by_name(self, name, domain=None):
         """Connect object to group having ``name`` in ``domain``."""
@@ -408,16 +410,16 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         this method without any arguments will return all non-expired groups
         registered in group_info.
 
-        @type group_id: int or sequence thereof or None.
-        @param group_id:
+        :type group_id: int or sequence thereof or None.
+        :param group_id:
           Group ids to look for. This is the most specific filter that can be
           given. With this filter, only the groups matching the specified
           id(s) will be returned.
 
           This filter cannot be combined with L{member_id}.
 
-        @type member_id: int or sequence thereof or None.
-        @param member_id:
+        :type member_id: int or sequence thereof or None.
+        :param member_id:
           The resulting group list will be filtered by membership - only
           groups that have members specified by member_id will be returned. If
           member_id is a sequence, then a group g1 is returned if any of the
@@ -425,8 +427,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
 
           This filter cannot be combined with L{group_id}.
 
-        @type indirect_members: bool
-        @param indirect_members:
+        :type indirect_members: bool
+        :param indirect_members:
           This parameter controls how the L{member_id} filter is applied. When
           False, only groups where L{member_id} is a/are direct member(s) will
           be returned. When True, the membership of L{member_id} does not have
@@ -437,42 +439,42 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
 
           This filter makes sense only when L{member_id} is set.
 
-        @type spread: int or SpreadCode or sequence thereof or None.
-        @param spread:
+        :type spread: int or SpreadCode or sequence thereof or None.
+        :param spread:
           Filter the resulting group list by spread. I.e. only groups with
           specified spread(s) will be returned.
 
-        @type name: basestring
-        @param name:
+        :type name: basestring
+        :param name:
           Filter the resulting group list by name. The name may contain SQL
           wildcard characters.
 
-        @type description: basestring
-        @param description:
+        :type description: basestring
+        :param description:
           Filter the resulting group list by group description. The
           description may contain SQL wildcard characters.
 
-        @type filter_expired: bool
-        @param filter_expired:
+        :type filter_expired: bool
+        :param filter_expired:
           Filter the resulting group list by expiration date. If set, do NOT
           return groups that have expired (i.e. have group_info.expire_date in
           the past relative to the call time).
 
-        @rtype: iterable (yielding db-rows with group information)
-        @return:
+        :type expired_only: bool
+        :param expired_only:
+          Filter the resulting group list by expiration date.
+          If set, return ONLY groups
+          that have expired_date set and expired (relative to the call time).
+          N.B. filter_expired and filter_expired are mutually exclusive
+
+        :rtype: iterable (yielding db-rows with group information)
+        :return:
           An iterable (sequence or a generator) that yields successive db-rows
           matching all of the specified filters. Regardless of the filters,
           any given group_id is guaranteed to occur at most once in the
           result. The keys available in db_rows are the content of the
           group_info table and group's name (if it does not exist, None is
           assigned to the 'name' key).
-
-        @type expired_only: bool
-        @param expired_only:
-          Filter the resulting group list by expiration date.
-          If set, return ONLY groups 
-          that have expired_date set and expired (relative to the call time).
-          N.B. filter_expired and filter_expired are mutually exclusive
         """
         # Sanity check: if indirect members is specified, then at least we
         # need one id to go on.
@@ -487,13 +489,13 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         def search_transitive_closure(member_id):
             """Return all groups where member_id is/are indirect member(s).
 
-            @type member_id: int or sequence thereof.
-            @param member_id:
+            :type member_id: int or sequence thereof.
+            :param member_id:
               We are looking for groups where L{member_id} is/are indirect
               member(s).
 
-            @rtype: set (of group_ids (ints))
-            @result:
+            :rtype: set (of group_ids (ints))
+            :result:
               Set of group_ids where member_id is/are indirect members.
             """
 
@@ -598,7 +600,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         #
         # expired_only filter
         if expired_only:
-            where.append("(gi.expire_date IS NOT NULL AND gi.expire_date < [:now])")
+            where.append("(gi.expire_date IS NOT NULL AND gi.expire_date < "
+                         "[:now])")
 
         where_str = ""
         if where:
@@ -638,35 +641,35 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         keys: group_id, group_name, member_type, member_id. There may be other
         keys as well.
 
-        @type group_id: int or a sequence thereof or None.
-        @param group_id:
+        :type group_id: int or a sequence thereof or None.
+        :param group_id:
           Group ids to look for. Given a group_id, only memberships in the
           specified groups will be returned. This is useful for answering
           questions like 'give a list of all members of group <bla>'. See also
           L{indirect_members}.
 
-        @type spread: int or SpreadCode or sequence thereof or None.
-        @param spread:
+        :type spread: int or SpreadCode or sequence thereof or None.
+        :param spread:
           Filter the resulting group list by spread. I.e. only groups with
           specified spread(s) will be returned.
 
-        @type member_id: int or a sequence thereof or None.
-        @param member_id:
+        :type member_id: int or a sequence thereof or None.
+        :param member_id:
           The result membership list will be filtered by member_ids - only the
           specified member_ids will be listed. This is useful for answering
           questions like 'give a list of memberships held by <entity_id>'. See
           also L{indirect_members}.
 
-        @type member_type:
+        :type member_type:
           int or an EntityType constant or a sequence thereof or None.
-        @param member_type:
+        :param member_type:
           The resulting membership list be filtered by member type - only the
           member entities of the specified type will be returned. This is
           useful for answering questions like 'give me a list of *group*
           members of group <bla>'.
 
-        @type indirect_members: bool
-        @param indirect_members:
+        :type indirect_members: bool
+        :param indirect_members:
           This parameter controls how 'deep' a search is performed. If True,
           we recursively expand *all* group_ids matching the rest of the
           filters.
@@ -684,26 +687,26 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
 
           When False, only direct memberships are considered for all filters.
 
-        @type member_spread: int or SpreadCode or sequence thereof or None.
-        @param member_spread:
+        :type member_spread: int or SpreadCode or sequence thereof or None.
+        :param member_spread:
           Filter the resulting membership list by spread. I.e. only members
           with specified spread(s) will be returned.
 
-        @type member_filter_expired: bool
-        @param member_filter_expired:
+        :type member_filter_expired: bool
+        :param member_filter_expired:
           Filter the resulting membership list by expiration date. If set, do
           NOT return any rows where members have expired (i.e. have
           expire_date in the past relative to the call time).
 
-        @type include_member_entity_name: bool or dict
-        @param include_member_entity_name:
+        :type include_member_entity_name: bool or dict
+        :param include_member_entity_name:
           If the members' entity_name should be included in output or not. If
           the value is a dict, it is used as a mapping of what entity_types' of
           namespaces to get the names from, otherwise it uses
           cereconf.ENTITY_TYPE_NAMESPACE.
 
-        @rtype: generator (yielding db-rows with membership information)
-        @return:
+        :rtype: generator (yielding db-rows with membership information)
+        :return:
           A generator that yields successive db-rows (from group_member)
           matching all of the specified filters. These keys are available in
           each of the db_rows:
@@ -911,9 +914,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             elif entry["expire2"] is not None:
                 entry["expire_date"] = entry["expire2"]
             yield entry
-    # end search_members
-
-# end class Group
 
 
 class GroupAPI(object):

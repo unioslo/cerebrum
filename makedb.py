@@ -64,6 +64,8 @@ from Cerebrum import Metainfo
 import Cerebrum
 
 all_ok = True
+meta = None
+del cerebrum_path
 
 
 def usage(exitcode=0):
@@ -317,6 +319,8 @@ def check_schema_versions(db, strict=False):
         'stedkode': 'Cerebrum.modules.no.Stedkode',
         'consent': 'Cerebrum.modules.consent.Consent',
         'employment': 'Cerebrum.modules.no.PersonEmployment',
+        'virtual_group': 'Cerebrum.modules.virtualgroup',
+        'virtual_group_ou': 'Cerebrum.modules.virtualgroup.OUGroup',
     }
     meta = Metainfo.Metainfo(db)
     for name, value in meta.list():

@@ -79,5 +79,5 @@ class PersonHiHMixin(Person.Person):
                         return
                     bew_id = '01221' + studentnr + '0'
             self.write_db()
-        self.__super.add_affiliation(ou_id, affiliation, source, status,
-                                     precedence)
+        return self.__super.add_affiliation(ou_id, affiliation, source, status,
+                                            precedence)

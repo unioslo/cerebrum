@@ -5868,9 +5868,9 @@ Addresses and settings:
             member_id = member["member_id"]
             result.append({"member_id": member_id,
                            "member_type": type2str(member_type),
-                           "member_name": self._get_entity_name(member_id,
+                           "member_name": self._get_entity_name(int(member_id),
                                                                 member_type),
-                           "group_name": self._get_entity_name(member["group_id"],
+                           "group_name": self._get_entity_name(int(member["group_id"]),
                                                                self.const.entity_group),
                            })
         return result

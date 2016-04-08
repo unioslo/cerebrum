@@ -38,6 +38,7 @@ import urllib2
 import urllib
 import urlparse
 import random
+import collections
 from io import BytesIO
 from string import maketrans, ascii_lowercase, digits, rstrip
 from subprocess import Popen, PIPE
@@ -1533,9 +1534,9 @@ def argument_to_sql(argument, sql_attr_name, binds,
     # the safe SQL string from this function with the values from L{binds}.
     binds_name = sql_attr_name.replace('.', '_')
 
-    if isinstance(argument, (tuple, set, list)):
+    if isinstance(argument, (collections.Sized, collections.Iterable)):
         assert len(argument) > 0, "List can not be empty."
-        if len(argument) == 1 and isinstance(argument, (tuple, list)):
+        if len(argument) == 1 and isinstance(argument, collections.Sequence):
             # Sequence with only one scalar, let's unpack and treat as scalar.
             # Has no real effect, but the SQL looks prettier.
             argument = argument[0]
