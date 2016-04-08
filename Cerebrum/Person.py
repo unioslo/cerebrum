@@ -819,6 +819,21 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                  'p_id': self.entity_id,
                  }
         updprec = ", precedence=:precedence"
+        if not isinstance(affiliation, self.const.PersonAffiliation):
+            affiliation = self.const.PersonAffiliation(affiliation)
+        if not isinstance(status, self.const.PersonAffStatus):
+            status = self.const.PersonAffStatus(status)
+        if not isinstance(source, self.const.AuthoritativeSystem):
+            source = self.const.AuthoritativeSystem(source)
+        change_params = {
+            'ou_id': int(ou_id),
+            'affiliation': int(affiliation),
+            'affiliationstr': str(affiliation),
+            'source': int(source),
+            'sourcestr': str(source),
+            'status': int(status),
+            'statusstr': str(status)
+        }
         # If needed, add to table 'person_affiliation'.
         try:
             self.query_1("""
@@ -834,16 +849,22 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
               (person_id, ou_id, affiliation)
             VALUES (:p_id, :ou_id, :affiliation)""", binds)
             self._db.log_change(self.entity_id,
-                                self.const.person_aff_add, None)
+                                self.const.person_aff_add, None,
+                                change_params={
+                                    'ou_id': int(ou_id),
+                                    'affiliation': int(affiliation),
+                                    'affiliationstr': str(affiliation)
+                                })
         try:
-            cur_status, cur_precedence, cur_del = map(int, self.query_1("""
+            cur_status, cur_precedence, cur_del = self.query_1("""
             SELECT status, precedence, deleted_date
             FROM [:table schema=cerebrum name=person_affiliation_source]
             WHERE
               person_id=:p_id AND
               ou_id=:ou_id AND
               affiliation=:affiliation AND
-              source_system=:source""", binds))
+              source_system=:source""", binds)
+            cur_status, cur_precedence = int(cur_status), int(cur_precedence)
 
             new_prec = self.__calculate_affiliation_precedence(affiliation,
                                                                source, status,
@@ -862,11 +883,16 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
               source_system=:source""".format(updprec), binds)
             if cur_del:
                 self._db.log_change(self.entity_id,
-                                    self.const.person_aff_src_add, None)
+                                    self.const.person_aff_src_add, None,
+                                    change_params=change_params)
                 return 'add', status, precedence
             if cur_status != int(status) or cur_precedence != new_prec:
+                cur_status = self.const.PersonAffStatus(cur_status)
+                change_params['oldstatus'] = int(cur_status)
+                change_params['oldstatusstr'] = str(cur_status)
                 self._db.log_change(self.entity_id,
-                                    self.const.person_aff_src_mod, None)
+                                    self.const.person_aff_src_mod, None,
+                                    change_params=change_params)
                 return 'mod', cur_status, cur_precedence
         except Errors.NotFoundError:
             pr = binds['precedence'] = self.__calculate_affiliation_precedence(
@@ -880,7 +906,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             """,
                          binds)
             self._db.log_change(self.entity_id,
-                                self.const.person_aff_src_add, None)
+                                self.const.person_aff_src_add, None,
+                                change_params=change_params)
             return 'add', status, precedence
         return False, status, precedence
 
@@ -890,6 +917,28 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                  'source': int(source),
                  'p_id': self.entity_id,
                  }
+        if not isinstance(affiliation, self.const.PersonAffiliation):
+            affiliation = self.const.PersonAffiliation(affiliation)
+        if not isinstance(source, self.const.AuthoritativeSystem):
+            source = self.const.AuthoritativeSystem(source)
+
+        status = self.query_1(
+            """
+            SELECT status
+            FROM [:table schema=cerebrum name=person_affiliation_source]
+            WHERE person_id=:p_id AND
+                  ou_id=:ou_id AND
+                  affiliation=:affiliation AND
+                  source_system=:source""", binds)
+        change_params = {
+            'ou_id': int(ou_id),
+            'affiliation': int(affiliation),
+            'affiliationstr': str(affiliation),
+            'source': int(source),
+            'sourcestr': str(source),
+            'status': int(status),
+            'statusstr': str(self.const.PersonAffStatus(status))
+        }
         self.execute("""
         UPDATE [:table schema=cerebrum name=person_affiliation_source]
         SET deleted_date=[:now]
@@ -899,7 +948,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
           affiliation=:affiliation AND
           source_system=:source""", binds)
         self._db.log_change(self.entity_id,
-                            self.const.person_aff_src_del, None)
+                            self.const.person_aff_src_del, None,
+                            change_params=change_params)
         # This method doesn't touch table 'person_affiliation', nor
         # does it try to do any actual deletion of rows from table
         # 'person_affiliation_source'; these tasks are in the domain
@@ -916,8 +966,24 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
           ou_id=:ou_id AND
           affiliation=:affiliation AND
           source_system=:source""", locals())
+        if not isinstance(affiliation, self.const.PersonAffiliation):
+            affiliation = self.const.PersonAffiliation(affiliation)
+        if not isinstance(status, self.const.PersonAffStatus):
+            status = self.const.PersonAffStatus(status)
+        if not isinstance(source, self.const.AuthoritativeSystem):
+            source = self.const.AuthoritativeSystem(source)
+        change_params = {
+            'ou_id': int(ou_id),
+            'affiliation': int(affiliation),
+            'affiliationstr': str(affiliation),
+            'source': int(source),
+            'sourcestr': str(source),
+            'status': int(status),
+            'statusstr': str(status)
+        }
         self._db.log_change(self.entity_id,
-                            self.const.person_aff_src_del, None)
+                            self.const.person_aff_src_del, None,
+                            change_params=change_params)
         remaining_affiliations = self.query("""
         SELECT 'yes' AS yes
         FROM [:table schema=cerebrum name=person_affiliation_source]
@@ -933,7 +999,12 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
               ou_id=:ou_id AND
               affiliation=:affiliation""", locals())
             self._db.log_change(self.entity_id,
-                                self.const.person_aff_del, None)
+                                self.const.person_aff_del, None,
+                                change_params={
+                                    'ou_id': int(ou_id),
+                                    'affiliation': int(affiliation),
+                                    'affiliationstr': str(affiliation)
+                                })
 
     # Will remove all entries in person_affiliation_source for a given
     # source system. Typically to clean up authorative sources no longer
@@ -942,6 +1013,14 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=person_affiliation_source]
         WHERE source_system=%s""" % source_system)
+        if not isinstance(source_system, self.const.AuthoritativeSystem):
+            source_system = self.const.AuthoritativeSystem(source_system)
+        self._db.log_change(self.entity_id,
+                            self.const.person_aff_src_del, None,
+                            change_params={
+                                'source': int(source_system),
+                                'sourcestr': str(source_system)
+                            })
 
     def get_accounts(self, filter_expired=True):
         acc = Utils.Factory.get('Account')(self._db)

@@ -1072,7 +1072,7 @@ class PersonOuGroup(Person):
             FROM [:table schema=cerebrum name=person_affiliation_source]
             WHERE person_id = :pid AND ou_id = :ou AND affiliation = :aff
                   AND source_system = :src""",
-            {'pid': self.entity_id, 'ou': self.ou, 'aff': affiliation,
+            {'pid': self.entity_id, 'ou': ou_id, 'aff': affiliation,
              'src': source})
         super(PersonOuGroup, self).delete_affiliation(ou_id, affiliation,
                                                       source)
