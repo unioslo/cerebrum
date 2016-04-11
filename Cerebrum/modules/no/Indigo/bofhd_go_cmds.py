@@ -428,7 +428,7 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         if not self.ba.is_schoolit(operator.get_entity_id(), True):
             raise PermissionDenied("Limited to school IT and superusers")
 
-        results = self.__uio.person_find(operator, search_type, value, filter)
+        results = self.__uio_impl.person_find(operator, search_type, value, filter)
         return self._filter_resultset_by_operator(operator, results, "id")
 
     #
