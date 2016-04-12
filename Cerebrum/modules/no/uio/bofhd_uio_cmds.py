@@ -49,6 +49,7 @@ from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
                                          AuthConstants,
                                          BofhdAuthOpTarget,
                                          BofhdAuthRole)
+from Cerebrum.modules.bofhd.help import Help
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
@@ -9161,57 +9162,89 @@ Addresses and settings:
         ret.sort(lambda x, y: cmp(x['username'], y['username']))
         return ret
 
-    # user move
+    # user move prompt
     def user_move_prompt_func(self, session, *args):
+        u""" user move prompt helper
+
+        Base command:
+          user move <move-type> <account-name>
+        Variants
+          user move immediate   <account-name> <disk-id> <reason>
+          user move batch       <account-name> <disk-id> <reason>
+          user move nofile      <account-name> <disk-id> <reason>
+          user move hard_nofile <account-name> <disk-id> <reason>
+          user move request     <account-name> <disk-id> <reason>
+          user move give        <account-name> <group-name> <reason>
+
+        """
+        help_struct = Help([self, ], logger=self.logger)
         all_args = list(args[:])
         if not all_args:
-            mt = MoveType()
-            return mt.get_struct(self)
-        mtype = all_args.pop(0)
+            return MoveType().get_struct(help_struct)
+        move_type = all_args.pop(0)
         if not all_args:
-            an = AccountName()
-            return an.get_struct(self)
-        ac_name = all_args.pop(0)
-        if mtype in ("immediate", "batch", "nofile", "hard_nofile"):
+            return AccountName().get_struct(help_struct)
+        # pop account name
+        all_args.pop(0)
+        if move_type in (
+                "immediate", "batch", "nofile", "hard_nofile"):
+            # move_type needs disk-id
             if not all_args:
-                di = DiskId()
-                r = di.get_struct(self)
+                r = DiskId().get_struct(help_struct)
                 r['last_arg'] = True
                 return r
             return {'last_arg': True}
-        elif mtype in ("student", "student_immediate", "confirm", "cancel"):
+        elif move_type in (
+                "student", "student_immediate", "confirm", "cancel"):
+            # move_type doesnt need more args
             return {'last_arg': True}
-        elif mtype in ("request",):
+        elif move_type in ("request",):
+            # move_type needs disk-id and reason
             if not all_args:
-                di = DiskId()
-                return di.get_struct(self)
-            disk = all_args.pop(0)
+                return DiskId().get_struct(help_struct)
+            # pop disk id
+            all_args.pop(0)
             if not all_args:
-                ss = SimpleString(help_ref="string_why")
-                r = ss.get_struct(self)
+                r = SimpleString(help_ref="string_why").get_struct(help_struct)
                 r['last_arg'] = True
                 return r
             return {'last_arg': True}
-        elif mtype in ("give",):
+        elif move_type in ("give",):
+            # move_type needs group-name and reason
             if not all_args:
-                who = GroupName()
-                return who.get_struct(self)
-            who = all_args.pop(0)
+                return GroupName().get_struct(help_struct)
+            # pop group-name
+            all_args.pop(0)
             if not all_args:
-                ss = SimpleString(help_ref="string_why")
-                r = ss.get_struct(self)
+                r = SimpleString(help_ref="string_why").get_struct(help_struct)
                 r['last_arg'] = True
                 return r
             return {'last_arg': True}
-        raise CerebrumError, "Bad user_move command (%s)" % mtype
+        raise CerebrumError("Bad user_move command ({!s})".format(move_type))
 
+    #
+    # user move <move-type> <account-name> [opts]
+    #
     all_commands['user_move'] = Command(
-        ("user", "move"), prompt_func=user_move_prompt_func,
+        ("user", "move"),
+        prompt_func=user_move_prompt_func,
         perm_filter='can_move_user')
+
     def user_move(self, operator, move_type, accountname, *args):
         account = self._get_account(accountname)
+        account_error = lambda reason: "Cannot move {!r}, {!s}".format(
+            account.account_name, reason)
+
+        REQUEST_REASON_MAX_LEN = 80
+
+        def _check_reason(reason):
+            if len(reason) > REQUEST_REASON_MAX_LEN:
+                raise CerebrumError(
+                    "Too long explanation, "
+                    "maximum length is {:d}".format(REQUEST_REASON_MAX_LEN))
+
         if account.is_expired():
-            raise CerebrumError, "Account %s has expired" % account.account_name
+            raise CerebrumError(account_error("account is expired"))
         br = BofhdRequests(self.db, self.const)
         spread = int(self.const.spread_uio_nis_user)
         if move_type in ("immediate", "batch", "student", "student_immediate",
@@ -9219,17 +9252,17 @@ Addresses and settings:
             try:
                 ah = account.get_home(spread)
             except Errors.NotFoundError:
-                raise CerebrumError, "Cannot move %s, account has no home" % (account.account_name)
+                raise CerebrumError(account_error("account has no home"))
         if move_type in ("immediate", "batch", "nofile"):
             message = ""
             disk, disk_id = self._get_disk(args[0])[:2]
             if disk_id is None:
-                raise CerebrumError, "Bad destination disk"
+                raise CerebrumError(account_error("bad destination disk"))
             self.ba.can_move_user(operator.get_entity_id(), account, disk_id)
 
             for r in account.get_spread():
-                if (r['spread'] == self.const.spread_ifi_nis_user and
-                    not re.match(r'^/ifi/', args[0])):
+                if (r['spread'] == self.const.spread_ifi_nis_user
+                        and not re.match(r'^/ifi/', args[0])):
                     message += ("WARNING: moving user with %s-spread to "
                                 "a non-Ifi disk.\n" %
                                 self.const.spread_ifi_nis_user)
@@ -9244,8 +9277,7 @@ Addresses and settings:
             try:
                 ah = account.get_home(spread)
             except Errors.NotFoundError:
-                raise CerebrumError, "Cannot move %s, account has no home" % (
-                    account.account_name)
+                raise CerebrumError(account_error("account has no home"))
             try:
                 dq_row = dq.get_quota(ah['homedir_id'])
             except Errors.NotFoundError:
@@ -9284,11 +9316,12 @@ Addresses and settings:
                 # mail user about the awaiting move operation
                 new_homedir = disk.path + '/' + account.account_name
                 try:
-                    Utils.mail_template(account.get_primary_mailaddress(),
-                                        cereconf.USER_BATCH_MOVE_WARNING,
-                                        substitute={'USER': account.account_name,
-                                                    'TO_DISK': new_homedir})
-                except Exception, e:
+                    Utils.mail_template(
+                        account.get_primary_mailaddress(),
+                        cereconf.USER_BATCH_MOVE_WARNING,
+                        substitute={'USER': account.account_name,
+                                    'TO_DISK': new_homedir})
+                except Exception as e:
                     self.logger.info("Sending mail failed: %s", e)
             elif move_type == "nofile":
                 ah = account.get_home(spread)
@@ -9303,7 +9336,8 @@ Addresses and settings:
             ah = account.get_home(spread)
             account.set_homedir(current_id=ah['homedir_id'], home=args[0])
             return "OK, user moved to hardcoded homedir"
-        elif move_type in ("student", "student_immediate", "confirm", "cancel"):
+        elif move_type in (
+                "student", "student_immediate", "confirm", "cancel"):
             self.ba.can_give_user(operator.get_entity_id(), account)
             if move_type == "student":
                 br.add_request(operator.get_entity_id(), br.batch_time,
@@ -9320,7 +9354,7 @@ Addresses and settings:
                 r = br.get_requests(entity_id=account.entity_id,
                                     operation=self.const.bofh_move_request)
                 if not r:
-                    raise CerebrumError, "No matching request found"
+                    raise CerebrumError("No matching request found")
                 br.delete_request(account.entity_id,
                                   operation=self.const.bofh_move_request)
                 # Flag as authenticated
@@ -9335,30 +9369,31 @@ Addresses and settings:
                 count = 0
                 for tmp in br.get_requests(entity_id=account.entity_id):
                     if tmp['operation'] in (
-                        self.const.bofh_move_student, self.const.bofh_move_user,
-                        self.const.bofh_move_give, self.const.bofh_move_request,
-                        self.const.bofh_move_user_now):
+                            self.const.bofh_move_student,
+                            self.const.bofh_move_user,
+                            self.const.bofh_move_give,
+                            self.const.bofh_move_request,
+                            self.const.bofh_move_user_now):
                         count += 1
                         br.delete_request(request_id=tmp['request_id'])
                 return "OK, %i bofhd requests deleted" % count
         elif move_type in ("request",):
-            disk, why = args[0], args[1]
+            disk = args[0]
+            why = args[1]
             disk_id = self._get_disk(disk)[1]
-            if len(why) > 80:
-                raise CerebrumError, \
-                      "Too long explanation, maximum length is 80"
-            self.ba.can_receive_user(operator.get_entity_id(), account, disk_id)
+            _check_reason(why)
+            self.ba.can_receive_user(
+                operator.get_entity_id(), account, disk_id)
             br.add_request(operator.get_entity_id(), br.now,
                            self.const.bofh_move_request,
                            account.entity_id, disk_id, why)
             return "OK, request registered"
         elif move_type in ("give",):
             self.ba.can_give_user(operator.get_entity_id(), account)
-            group, why = args[0], args[1]
+            group = args[0]
+            why = args[1]
             group = self._get_group(group)
-            if len(why) > 80:
-                raise CerebrumError, \
-                      "Too long explanation, maximum length is 80"
+            _check_reason(why)
             br.add_request(operator.get_entity_id(), br.now,
                            self.const.bofh_move_give,
                            account.entity_id, group.entity_id, why)
