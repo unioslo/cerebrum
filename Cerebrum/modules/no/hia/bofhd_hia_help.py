@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,7 +20,7 @@
 
 from Cerebrum.modules.bofhd.bofhd_core_help import *
 
-def get_help_strings(self):
+def get_help_strings():
     return (group_help, command_help, arg_help)
 
 def _group_help_modifications():

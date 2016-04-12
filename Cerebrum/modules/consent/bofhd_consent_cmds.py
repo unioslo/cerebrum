@@ -20,9 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 u""" This is a bofhd module for setting consent. """
 
-import cerebrum_path
-import cereconf
-
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import (Parameter,
                                               Command,
@@ -51,29 +48,30 @@ class BofhdExtension(BofhdCommonMethods):
 
     hidden_commands = {}  # Not accessible through bofh
     all_commands = {}
+    parent_commands = False
+    authz = ConsentAuth
 
-    def __init__(self, server):
+    def __init__(self, *args, **kwargs):
         """
         """
-        super(BofhdExtension, self).__init__(server)
-        self.ba = ConsentAuth(self.db)
-        self.util = server.util
+        super(BofhdExtension, self).__init__(*args, **kwargs)
         # POST:
         for attr in ('ConsentType', 'EntityConsent'):
             if not hasattr(self.const, attr):
                 raise RuntimeError('consent: Missing consent constant types')
 
-    def get_help_strings(self):
+    @classmethod
+    def get_help_strings(cls):
         u""" Help strings for consent commands. """
         group_help = {
             'consent': 'Commands for handling consents', }
 
         command_help = {
             'consent': {
-                'consent_set': self.consent_set.__doc__,
-                'consent_unset': self.consent_unset.__doc__,
-                'consent_info': self.consent_info.__doc__,
-                'consent_list': self.consent_list.__doc__, }, }
+                'consent_set': cls.consent_set.__doc__,
+                'consent_unset': cls.consent_unset.__doc__,
+                'consent_info': cls.consent_info.__doc__,
+                'consent_list': cls.consent_list.__doc__, }, }
 
         arg_help = {
             'consent_type': ['type', 'Enter consent type',
@@ -243,8 +241,3 @@ class BofhdExtension(BofhdCommonMethods):
         if not consents:
             raise CerebrumError("No consent types defined yet")
         return consents
-
-
-if __name__ == '__main__':
-    del cerebrum_path
-    del cereconf

@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 import cereconf
 
@@ -31,10 +31,9 @@ class DnsBofhdUtils(object):
     # goal, however, and it has not been determined how to approach
     # the problem.
 
-    def __init__(self, server, default_zone):
-        self.server = server
-        self.logger = server.logger
-        self.db = server.db
+    def __init__(self, db, logger, default_zone):
+        self.logger = logger
+        self.db = db
         self.const = Factory.get('Constants')(self.db)
         # TBD: This pre-allocating may interfere with multi-threaded bofhd
         self._arecord = ARecord.ARecord(self.db)
@@ -44,12 +43,12 @@ class DnsBofhdUtils(object):
         self._ip_number = IPNumber.IPNumber(self.db)
         self._ipv6_number = IPv6Number.IPv6Number(self.db)
         self._cname = CNameRecord.CNameRecord(self.db)
-        self._validator = IntegrityHelper.Validator(server.db, default_zone)
-        self._update_helper = IntegrityHelper.Updater(server.db)
+        self._validator = IntegrityHelper.Validator(self.db, default_zone)
+        self._update_helper = IntegrityHelper.Updater(self.db)
         self._mx_set = DnsOwner.MXSet(self.db)
         self.default_zone = default_zone
-        self._find = Utils.Find(server.db, default_zone)
-        self._parser = Utils.DnsParser(server.db, default_zone)
+        self._find = Utils.Find(self.db, default_zone)
+        self._parser = Utils.DnsParser(self.db, default_zone)
 
     def ip_rename(self, name_type, old_id, new_id):
         """Performs an ip-rename by directly updating dns_owner or

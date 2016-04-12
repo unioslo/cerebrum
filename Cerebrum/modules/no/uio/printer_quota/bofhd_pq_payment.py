@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,42 +26,57 @@ bofhd instance.
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
 
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 from Cerebrum.modules.no.uio.printer_quota import bofhd_pq_utils
 from Cerebrum.modules.no.uio.printer_quota import errors
 from Cerebrum.modules.no.uio.printer_quota.PPQUtil import PPQUtil
 
-class BofhdExtension(object):
+
+class BofhdExtension(BofhdCommandBase):
+
     all_commands = {}
 
-    def __init__(self, server):
-        self.db = server.db
-        self.bu = bofhd_pq_utils.BofhdUtils(server)
-        self.epay_user = int(
-            self.bu.get_account(cereconf.BOFHD_EPAY_USER).entity_id)
-        self.logger = bofhd_pq_utils.SimpleLogger('pq_bofhd.log')
+    @property
+    def logger(self):
+        try:
+            return self.__pq_logger
+        except AttributeError:
+            self.__pq_logger = bofhd_pq_utils.SimpleLogger('pq_bofhd.log')
+            return self.__pq_logger
 
-    def get_help_strings(self):
+    @property
+    def bu(self):
+        try:
+            return self.__pq_utils
+        except AttributeError:
+            self.__pq_utils = bofhd_pq_utils.BofhdUtils(self.db, self.const)
+            return self.__pq_utils
+
+    @property
+    def epay_user(self):
+        try:
+            return self.__epay_user
+        except AttributeError:
+            self.__epay_user = int(
+                self.bu.get_account(cereconf.BOFHD_EPAY_USER).entity_id)
+            return self.__epay_user
+
+    @classmethod
+    def get_help_strings(cls):
         # We don't provide help as we're only supposed to be used from scripts
         return ({}, {}, {})
-    
-    def get_commands(self, uname):
-        commands = {}
-        for k in self.all_commands.keys():
-            commands[k] = self.all_commands[k].get_struct(self)
-        return commands
 
     def _handle_epay(self, operator, data):
         if operator.remote_address[0] not in cereconf.BOFHD_EPAY_REMOTE_IP:
-            raise PermissionDenied, "Connection from unauthorized host"
+            raise PermissionDenied("Connection from unauthorized host")
         if operator.get_entity_id() != self.epay_user:
-            raise PermissionDenied, "Unauthorized user"
+            raise PermissionDenied("Unauthorized user")
         for k in ('fnr', 'kroner', 'intern-betaling-id',
                   'ekstern-betaling-id', 'betaling-datostempel'):
-            if not data.has_key(k):
+            if k not in data:
                 raise errors.MissingData("Missing data-field: %s" % k)
         if not data['kroner'] > 0:
             raise errors.InvalidPaymentData("kroner must be > 0")
@@ -92,7 +107,11 @@ class BofhdExtension(object):
         return "OK, data with intern-betaling-id=%s registered" % (
             data['intern-betaling-id'])
 
+    #
+    # new_data
+    #
     all_commands['new_data'] = None
+
     def new_data(self, operator, data_type, data):
         if data_type == PPQUtil.EPAY:
             return self._handle_epay(operator, data)
@@ -103,7 +122,12 @@ if __name__ == '__main__':  # For testing
     import xmlrpclib
     svr = xmlrpclib.Server("http://127.0.0.1:8001", encoding='iso8859-1')
     secret = svr.login("bofhdepay", "test")
-    data = {'ekstern-betaling-id': '12345', 'fnr': '12345678901', 'kroner': 123.45, 'intern-betaling-id': '12345', 'bruker-ip': '123.123.123.123', 'betaling-datostempel': '2004-05-05 14:32:00'}
+    data = {
+        'ekstern-betaling-id': '12345',
+        'fnr': '12345678901',
+        'kroner': 123.45,
+        'intern-betaling-id': '12345',
+        'bruker-ip': '123.123.123.123',
+        'betaling-datostempel': '2004-05-05 14:32:00',
+    }
     print svr.run_command(secret, 'new_data', PPQUtil.EPAY, data)
-    # select * from person_external_id where source_system=(select code from authoritative_system_code where code_str='FS');
-

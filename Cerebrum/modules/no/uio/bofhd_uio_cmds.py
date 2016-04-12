@@ -18,32 +18,24 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sys
 import time
-import os
 import re
-import email.Generator
-import email.Message
 import imaplib
 import ssl
 import pickle
 import socket
-import select
-import errno
 
 from mx import DateTime
 from flanker.addresslib import address as email_validator
 
 import cereconf
-from Cerebrum import Cache
 from Cerebrum import Database
 from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum import Metainfo
-from Cerebrum.Constants import _CerebrumCode, _SpreadCode, _LanguageCode
+from Cerebrum.Constants import _LanguageCode
 from Cerebrum import Utils
 from Cerebrum.modules import Email
-from Cerebrum.modules.Email import _EmailDomainCategoryCode
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,
@@ -62,9 +54,8 @@ from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
-# Utils are already being imported; need to "rename" these:
-from Cerebrum.modules.dns import Utils as DNSUtils
 from Cerebrum.modules.dns.Subnet import Subnet
+
 
 # TBD: It would probably be cleaner if our time formats were specified
 # in a non-Java-SimpleDateTime-specific way.
@@ -72,9 +63,11 @@ def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
 
+
 def format_time(field):
     fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
     return ':'.join((field, "date", fmt))
+
 
 def date_to_string(date):
     """Takes a DateTime-object and formats a standard ISO-datestring
@@ -94,12 +87,15 @@ def date_to_string(date):
 class TimeoutException(Exception):
     pass
 
+
 class ConnectException(Exception):
     pass
+
 
 class RTQueue(Parameter):
     _type = 'rtQueue'
     _help_ref = 'rt_queue'
+
 
 # TODO: move more UiO cruft from bofhd/auth.py in here
 class UiOAuth(BofhdAuth):
@@ -145,25 +141,11 @@ class BofhdExtension(BofhdCommonMethods):
     """All CallableFuncs take user as first arg, and are responsible
     for checking necessary permissions"""
 
-    # dict carrying all commands that are officially advertised to the
-    # client. Each value is a Command() instance (see for examples below),
-    # each key is a basestring that names the command (that name is used by
-    # client to make the call).
     all_commands = {}
-    #
-    # IVR 2008-08-20 Some commands, albeit callable, should not be advertised
-    # to some of the clients. These commands are available, but the client
-    # must know that they exist in order to call them; it won't be able to
-    # fetch the description/help like with all_commands. Commands placed here
-    # are meant to return information that is of no immediate use to the
-    # operator making the call, but rather serve to carry administrative
-    # information that can be used by the client software for some purpose.
-    #
-    # NB! This is *NOT* a security measure, just a convenience. These commands
-    # *must* validate all the parameters just like the commands in
-    # all_commands.
     hidden_commands = {}
+    parent_commands = False
 
+    authz = UiOAuth
     external_id_mappings = {}
 
     # This little class is used to store connections to the LDAP servers, and
@@ -196,14 +178,8 @@ class BofhdExtension(BofhdCommonMethods):
 
     _ldap_connect = LDAPStruct()
 
-    def __init__(self, server):
-        super(BofhdExtension, self).__init__(server)
-
-        self.util = server.util
-        person = Utils.Factory.get('Person')(self.db)
-        self.name_codes = {}
-        for t in person.list_person_name_codes():
-            self.name_codes[int(t['code'])] = t['description']
+    def __init__(self, *args, **kwargs):
+        super(BofhdExtension, self).__init__(*args, **kwargs)
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
         # exchange-relatert-jazz
         # currently valid language variants for UiO-Cerebrum
@@ -211,30 +187,49 @@ class BofhdExtension(BofhdCommonMethods):
         # they are not directly related to them. maybe these should be
         # put in a cereconf-variable somewhere in the future? (Jazz, 2013-12)
         self.language_codes = ['nb', 'nn', 'en']
-        self.ba = UiOAuth(self.db)
-        aos = BofhdAuthOpSet(self.db)
-        self.num2op_set_name = {}
-        for r in aos.list():
-            self.num2op_set_name[int(r['op_set_id'])] = r['name']
-        self.change_type2details = {}
-        for r in self.db.get_changetypes():
-            self.change_type2details[int(r['change_type_id'])] = [
-                r['category'], r['type'], r['msg_string']]
+
+        # TODO: Wait until needed / fix on import?
         self.fixup_imaplib()
 
-        # Copy in all defined commands from the superclass that is not defined
-        # in this class. TODO: This is not an optimal solution: If we are
-        # subclassing this class, we need to run another copy loop there too.
-        # How could we avoid this?
-        for key, cmd in super(BofhdExtension, self).all_commands.iteritems():
-            if not self.all_commands.has_key(key):
-                self.all_commands[key] = cmd
+    @property
+    def name_codes(self):
+        # TODO: Do we really need this cache?
+        try:
+            return self.__name_codes
+        except AttributeError:
+            self.__name_codes = dict()
+            person = Utils.Factory.get('Person')(self.db)
+            for t in person.list_person_name_codes():
+                self.__name_codes[int(t['code'])] = t['description']
+            return self.__name_codes
+
+    @property
+    def change_type2details(self):
+        # TODO: Do we really need this cache?
+        try:
+            return self.__ct2details
+        except AttributeError:
+            self.__ct2details = dict()
+            for r in self.db.get_changetypes():
+                self.__ct2details[int(r['change_type_id'])] = [
+                    r['category'], r['type'], r['msg_string']]
+            return self.__ct2details
+
+    @property
+    def num2op_set_name(self):
+        # TODO: Do we really need this cache?
+        try:
+            return self.__num2opset
+        except AttributeError:
+            self.__num2opset = dict()
+            aos = BofhdAuthOpSet(self.db)
+            for r in aos.list():
+                self.__num2opset[int(r['op_set_id'])] = r['name']
+            return self.__num2opset
 
     def fixup_imaplib(self):
         def nonblocking_open(self, host=None, port=None):
             import socket
-            import select
-            import errno
             # Perhaps using **kwargs is cleaner, but this works, too.
             if host is None:
                 if not hasattr(self, "host"):
@@ -267,10 +262,31 @@ class BofhdExtension(BofhdCommonMethods):
             raise ConnectException(errno.errorcode[err])
         setattr(imaplib.IMAP4, 'open', nonblocking_open)
 
-
-    def get_help_strings(self):
-        """Return the group_help, command_help and arg_help dictionaries."""
+    @classmethod
+    def get_help_strings(cls):
         return bofhd_core_help.get_help_strings()
+
+    @classmethod
+    def list_commands(cls, attr):
+        u""" Fetch all commands in all superclasses. """
+        commands = super(BofhdExtension, cls).list_commands(attr)
+        if attr == 'all_commands':
+            from Cerebrum.modules.dns.bofhd_dns_cmds import BofhdExtension as Dns
+            # FIXME: This hack is needed until we have a proper architecture
+            # for bofhd which allows mixins.
+            # We know that the format suggestion in dns has no hdr, so we only
+            # copy str_vars.
+            commands['host_info'] = Command(
+                ("host", "info"),
+                SimpleString(help_ref='string_host'),
+                YesNo(optional=True, help_ref='show_policy'),
+                fs=FormatSuggestion(Dns.all_commands['host_info'].get_fs()['str_vars'] +
+                                    [("Hostname:              %s\n"
+                                      "Description:           %s",
+                                      ("hostname", "desc")),
+                                     ("Default disk quota:    %d MiB",
+                                      ("def_disk_quota",))]))
+        return commands
 
     def _ldap_unbind(self):
         ld = self._ldap_connect.connection
@@ -6428,20 +6444,7 @@ Addresses and settings:
             raise CerebrumError, "Database error: %s" % m
         return "OK, %s deleted" % hostname
 
-    # FIXME: This hack is needed until we have a proper architecture
-    # for bofhd which allows mixins.
-    from Cerebrum.modules.dns.bofhd_dns_cmds import BofhdExtension as Dns
-    # We know that the format suggestion in dns has no hdr, so we only
-    # copy str_vars.
-    all_commands['host_info'] = Command(
-        ("host", "info"), SimpleString(help_ref='string_host'),
-        YesNo(optional=True, help_ref='show_policy'),
-        fs=FormatSuggestion(Dns.all_commands['host_info'].get_fs()['str_vars'] +
-                            [("Hostname:              %s\n"
-                              "Description:           %s",
-                              ("hostname", "desc")),
-                             ("Default disk quota:    %d MiB",
-                              ("def_disk_quota",))]))
+    # See hack in list_command
     def host_info(self, operator, hostname, policy=False):
         ret = []
         # More hacks follow.
@@ -6461,7 +6464,7 @@ Addresses and settings:
             # To support the API, we add some stuff to this object.
             # Ugh.  Better hope this doesn't stomp on anything.
             self._find = DnsUtils.Find(self.db, zone)
-            self.mb_utils = DnsBofhdUtils(self.server, zone)
+            self.mb_utils = DnsBofhdUtils(self.db, self.logger, zone)
             self.dns_parser = DnsUtils.DnsParser(self.db, zone)
             ret = host_info(self, operator, hostname, policy=policy)
         except CerebrumError, dns_err:

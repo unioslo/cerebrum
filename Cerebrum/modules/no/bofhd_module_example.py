@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2002, 2003, 2012 University of Oslo, Norway
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,60 +18,64 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Sample module that extends bofhd with a set of commands.
 
-"""Sample module that extends bofhd with a set of commands. Also see
-Cerebrum.modules.bofhd.bofhd_core for more details and the basic functionality
-common for all bofhd instances.
-
+Also see Cerebrum.modules.bofhd.bofhd_core for more details and the basic
+functionality common for all bofhd instances.
 """
 
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.errors import CerebrumError
-from Cerebrum import Utils
-from Cerebrum import Errors
-
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
-from Cerebrum.modules.bofhd.cmd_param import Command, AccountName, FormatSuggestion
+from Cerebrum.modules.bofhd.cmd_param import (Command,
+                                              AccountName,
+                                              FormatSuggestion)
+
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
 
+
 class BofhdExtension(BofhdCommandBase):
     all_commands = {}
 
-    def __init__(self, server):
-        super(BofhdExtension, self).__init__(server)
-
-    def get_help_strings(self):
+    @classmethod
+    def get_help_strings(cls):
         group_help = {
             'user': "User commands",
-            }
+        }
 
         # The texts in command_help are automatically line-wrapped, and should
         # not contain \n
         command_help = {
             'user': {
-            'user_info': 'Show information about a user',
+                'user_info': 'Show information about a user',
             },
-            }
-        
+        }
+
         arg_help = {
             'account_name':
             ['uname', 'Enter account name',
              'Enter the name of the account for this operation'],
-            }
-        return (group_help, command_help,
+        }
+        return (group_help,
+                command_help,
                 arg_help)
 
-    # user info
+    #
+    # user info <id>
+    #
     all_commands['user_info'] = Command(
-        ("user", "info"), AccountName(),
-        fs=FormatSuggestion([("Entity id:     %i\n"+
-                              "Expire:        %s",
-                              ("entity_id", format_day("expire"))),
-                             ("Quarantined:   %s",
-                              ("quarantined",))]))
+        ("user", "info"),
+        AccountName(),
+        fs=FormatSuggestion(
+            [
+                ("Entity id:     %i\n"
+                 "Expire:        %s",
+                 ("entity_id",
+                  format_day("expire"))),
+                ("Quarantined:   %s", ("quarantined",))
+            ]))
+
     def user_info(self, operator, accountname):
         account = self._get_account(accountname, idtype='name')
 
@@ -82,7 +86,8 @@ class BofhdExtension(BofhdCommandBase):
         return ret
 
 if __name__ == '__main__':
-    Cerebrum = Factory.get('Database')()
-    sm = BofhdExtension(Cerebrum)
+    from Cerebrum.Utils import Factory
+    db = Factory.get('Database')()
+    logger = Factory.get_logger('console')
+    sm = BofhdExtension(db, logger)
     print "Ret: %s" % sm.get_stedkode_info('user', '900547')
-

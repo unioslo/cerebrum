@@ -27,8 +27,6 @@ from Cerebrum import Account
 from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum import Person
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 from Cerebrum.modules.no.uio.printer_quota import errors
 
@@ -40,7 +38,7 @@ class SimpleLogger(object):
     def __init__(self, fname):
         self.stream = open(
             os.path.join(cereconf.AUTOADMIN_LOG_DIR, fname), 'a+')
-        
+
     def show_msg(self, lvl, msg, *args, **kwargs):
         self.stream.write("%s %s [%i] %s\n" % (
             time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
@@ -49,7 +47,7 @@ class SimpleLogger(object):
 
     def debug2(self, msg, *args, **kwargs):
         self.show_msg("DEBUG2", msg, *args, **kwargs)
-    
+
     def debug(self, msg, *args, **kwargs):
         self.show_msg("DEBUG", msg, *args, **kwargs)
 
@@ -67,13 +65,13 @@ class SimpleLogger(object):
 
     def warn(self, msg, *args, **kwargs):
         self.show_msg("WARN", msg, *args, **kwargs)
-        
+
 
 class BofhdUtils(object):
-    def __init__(self, server):
-        self.server = server
-        self.db = server.db
-        self.const = Factory.get('Constants')(self.db)
+
+    def __init__(self, db, const):
+        self.db = db
+        self.const = const
         self.uname_cache = {}
 
     def get_pquota_status(self, person_id):

@@ -56,6 +56,7 @@ class Constants(Constants.Constants):
     auth_pquota_update = _AuthRoleOpCode(
         'pq_update', 'Update printerquota')
 
+
 class PQBofhdAuth(auth.BofhdAuth):
 
     # TBD: the current practice of auth.py to send operator as
@@ -70,8 +71,7 @@ class PQBofhdAuth(auth.BofhdAuth):
             # with account_id as argument.
             operator = operator.get_entity_id()
         if (self.is_superuser(operator) or
-            self._has_operation_perm_somewhere(
-            operator, operation)):
+                self._has_operation_perm_somewhere(operator, operation)):
             return True
         if query_run_any:
             return False
@@ -94,7 +94,7 @@ class PQBofhdAuth(auth.BofhdAuth):
             operator, person, query_run_any, self.const.auth_pquota_list_history)
 
     def can_pquota_list_extended_history(
-        self, operator, person=None, query_run_any=False):
+            self, operator, person=None, query_run_any=False):
         return self._can_pquota_list_history(
             operator, person, query_run_any, self.const.auth_pquota_list_extended_history)
 
@@ -117,11 +117,11 @@ class PQBofhdAuth(auth.BofhdAuth):
             ppq = PaidPrinterQuotas.PaidPrinterQuotas(self._db)
             rows = ppq.get_history(job_id=job_id)
             if len(rows) == 0:
-                raise errors.NotFoundError, "Unknown target_job_id"
+                raise errors.NotFoundError("Unknown target_job_id")
             operator = operator.get_entity_id()
 
         if (self.is_superuser(operator) or
-            self._has_operation_perm_somewhere(operator, operation_anyage)):
+                self._has_operation_perm_somewhere(operator, operation_anyage)):
             return True
 
         if query_run_any:
@@ -131,8 +131,8 @@ class PQBofhdAuth(auth.BofhdAuth):
         if self._has_operation_perm_somewhere(operator, operation):
             if rows[0]['tstamp'].ticks() > time.time() - 3600*24*3:
                 return True
-            raise PermissionDenied, "Job is too old"
-        raise PermissionDenied, "access denied"
+            raise PermissionDenied("Job is too old")
+        raise PermissionDenied("access denied")
 
     def can_pquota_undo(self, operator, job_id=None, query_run_any=False):
         return self._check_job_access_by_age(
@@ -152,36 +152,56 @@ class PQBofhdAuth(auth.BofhdAuth):
                                              person,
                                              query_run_any)
 
+
 def format_time(field):
     fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
     return ':'.join((field, "date", fmt))
 
+
 class BofhdExtension(BofhdCommandBase):
+
     all_commands = {}
+    parent_commands = False
+    authz = PQBofhdAuth
 
-    def __init__(self, server):
-        super(BofhdExtension, self).__init__(server)
+    @property
+    def logger(self):
+        try:
+            return self.__logger
+        except AttributeError:
+            self.__logger = bofhd_pq_utils.SimpleLogger('pq_bofhd.log')
+            return self.__logger
 
-        self.logger = bofhd_pq_utils.SimpleLogger('pq_bofhd.log')
-        self.tt_mapping = {}
-        for c in self.const.fetch_constants(
-            self.const.PaidQuotaTransactionTypeCode):
-            self.tt_mapping[int(c)] = "%s" % c
-        self.bu = bofhd_pq_utils.BofhdUtils(server)
-        self.ba = PQBofhdAuth(self.db)
-    # end __init__
+    @property
+    def bu(self):
+        try:
+            return self.__pq_utils
+        except AttributeError:
+            self.__pq_utils = bofhd_pq_utils.BofhdUtils(self.db, self.const)
+            return self.__pq_utils
 
+    @property
+    def tt_mapping(self):
+        try:
+            return self.__ttcode_mapping
+        except AttributeError:
+            self.__ttcode_mapping = {}
+            for c in self.const.fetch_constants(
+                    self.const.PaidQuotaTransactionTypeCode):
+                self.__ttcode_mapping[int(c)] = str(c)
+            return self.__ttcode_mapping
 
-    def get_help_strings(self):
+    @classmethod
+    def get_help_strings(cls):
         group_help = {
             'pquota': "Commands for administrating printer quotas",
-            }
+        }
 
         # The texts in command_help are automatically line-wrapped, and should
         # not contain \n
         command_help = {
             'pquota': {
-                 'pquota_info':
+                'pquota_info':
                     'Returnerer info om skriverkvoten',
                 'pquota_status':
                     'Returnerer status for skriverkvoten',
@@ -197,8 +217,8 @@ class BofhdExtension(BofhdCommandBase):
                     'Show details about a job',
                 'pquota_find':
                     'Search for job'
-                },
-            }
+            },
+        }
 
         arg_help = {
             'person_id':
@@ -223,14 +243,17 @@ The currently defined id-types are:
                 ['when', 'Number of past days'],
             'pquota_find_terms':
                 ['terms', 'PRISS QID']
-            }
+        }
         return (group_help, command_help,
                 arg_help)
 
-
-    # pquota info
+    #
+    # pquota info <person-id>
+    #
     all_commands['pquota_info'] = Command(
-        ("pquota", "info"), PersonId())
+        ("pquota", "info"),
+        PersonId())
+
     def pquota_info(self, operator, person):
         person_id = self.bu.find_person(person)
         try:
@@ -298,14 +321,18 @@ The currently defined id-types are:
         else:
             return "%s: Printer quota is unlimited" % person
 
-    # pquota status
+    #
+    # pquota status <person-id>
+    #
     all_commands['pquota_status'] = Command(
-        ("pquota", "status"), PersonId(),
+        ("pquota", "status"),
+        PersonId(),
         fs=FormatSuggestion("Has quota Blocked   Paid(calc.)  Free AccFree Kroner Total\n"+
                             "%-9s %-9s %-6i       %-4i %-7i %-6.2f %-4i",
                             ('has_quota', 'has_blocked_quota',
-                            'paid_quota', 'free_quota',
+                             'paid_quota', 'free_quota',
                              'accum_quota', 'kroner', 'tot_available')))
+
     def pquota_status(self, operator, person_id):
         # Everyone can access quota-status for anyone
         ppq_info = self.bu.get_pquota_status(
@@ -360,13 +387,22 @@ The currently defined id-types are:
 
         return ret
 
+    #
+    # pquota_history?
+    #
     all_commands['pquota_history'] = None
+
     def pquota_history(self, operator, person, when=None):
         return self._pquota_history(
             operator, self.bu.find_person(person), when)
 
+    #
+    # pquota history <person-id> [when]
+    #
     all_commands['jbofh_pquota_history'] = Command(
-        ("pquota", "history"), PersonId(), Integer(help_ref="int_when", optional=True),
+        ("pquota", "history"),
+        PersonId(),
+        Integer(help_ref="int_when", optional=True),
         fs=FormatSuggestion("%8i %-7s %16s %-10s %-20s %5i %6i %5i %6.2f",
                             ('job_id', 'transaction_type',
                              format_time('tstamp'), 'update_by',
@@ -376,6 +412,7 @@ The currently defined id-types are:
                             ("JobId", "Type", "When", "By", "Data", "#Free",
                              "#Afree", "#Paid", "Kroner")),
         perm_filter='can_pquota_list_history')
+
     def jbofh_pquota_history(self, operator, person_id, when=None):
         ret = []
         if when is None:
@@ -425,8 +462,12 @@ The currently defined id-types are:
         ret.sort(lambda a, b: cmp(a['tstamp'], b['tstamp']))
         return ret
 
+    #
+    # pquota job_info <job-id>
+    #
     all_commands['pquota_job_info'] = Command(
-        ("pquota", "job_info"), Integer(help_ref='job_id'),
+        ("pquota", "job_info"),
+        Integer(help_ref='job_id'),
         fs=FormatSuggestion([
         ("Job id:          %i\n" +
          "Type:            %s\n" +
@@ -457,6 +498,7 @@ The currently defined id-types are:
          "Payment tstamp:  %s",
          ("target_job_id", "description", "bank_id", "kroner",
           format_time("payment_tstamp")))]))
+
     def pquota_job_info(self, operator, job_id):
         ppq = PaidPrinterQuotas.PaidPrinterQuotas(self.db)
         if not job_id.isdigit():
@@ -492,20 +534,25 @@ The currently defined id-types are:
         ret['transaction_type'] = self.tt_mapping[ret['transaction_type']]
         return ret
 
+    #
+    # pquota find <query>
+    #
     all_commands['pquota_find'] = Command(
-    ("pquota", "find"), SimpleString(help_ref='pquota_find_terms'),
-    perm_filter='can_pquota_list_history',
-    fs=FormatSuggestion("%8i %-7s %16s %-10s %-20s %5i %6i %5i %6.2f",
-                        ('job_id', 'transaction_type',
-                         format_time('tstamp'), 'update_by',
-                         'data', 'pageunits_free', 'pageunits_accum',
-                         'pageunits_paid', 'kroner'),
-                        hdr="%-8s %-7s %-16s %-10s %-20s %-5s %-6s %-5s %s" %
-                        ("JobId", "Type", "When", "By", "Data", "#Free",
-                         "#Afree", "#Paid", "Kroner")))
+        ("pquota", "find"),
+        SimpleString(help_ref='pquota_find_terms'),
+        perm_filter='can_pquota_list_history',
+        fs=FormatSuggestion("%8i %-7s %16s %-10s %-20s %5i %6i %5i %6.2f",
+                            ('job_id', 'transaction_type',
+                             format_time('tstamp'), 'update_by',
+                             'data', 'pageunits_free', 'pageunits_accum',
+                             'pageunits_paid', 'kroner'),
+                            hdr="%-8s %-7s %-16s %-10s %-20s %-5s %-6s %-5s %s" % (
+                                "JobId", "Type", "When", "By", "Data", "#Free",
+                                "#Afree", "#Paid", "Kroner")))
+
     def pquota_find(self, operator, *terms):
         """Look up in history"""
-        from mx.DateTime import DateTime, DateTimeDeltaFromSeconds, ISO
+        from mx.DateTime import DateTime, ISO
         if len(terms) == 0:
             raise CerebrumError("Please enter one or more search terms")
         # Case one: lookup a PRISS QID (priss_queue_id)
@@ -602,9 +649,14 @@ The currently defined id-types are:
             ret.append(tmp)
         return ret
 
+    #
+    # pquota off <person-id>
+    #
     all_commands['pquota_off'] = Command(
-        ("pquota", "off"), PersonId(),
+        ("pquota", "off"),
+        PersonId(),
         perm_filter='can_pquota_off')
+
     def pquota_off(self, operator, person_id):
         person_id = self.bu.find_person(person_id)
         self.ba.can_pquota_off(operator, person_id)
@@ -615,10 +667,16 @@ The currently defined id-types are:
             person_id, operator.get_entity_id()))
         return "OK, turned off quota for person_id=%i" % person_id
 
+    #
+    # pquota update <person-id> <quota> <why>
+    #
     all_commands['pquota_update'] = Command(
-        ("pquota", "update"), PersonId(), Integer(help_ref='int_new_quota'),
+        ("pquota", "update"),
+        PersonId(),
+        Integer(help_ref='int_new_quota'),
         SimpleString(help_ref='undo_why'),
         perm_filter='can_pquota_update')
+
     def pquota_update(self, operator, person_id, new_value, why):
         try:
             new_value = int(new_value)
@@ -635,10 +693,17 @@ The currently defined id-types are:
             person_id, new_value, operator.get_entity_id(), repr(why)))
         return "OK, set free quota for %i to %s" % (person_id, new_value)
 
+    #
+    # pquota undo <person-id> <job-id> <num-pages> <why>
+    #
     all_commands['pquota_undo'] = Command(
-        ("pquota", "undo"), PersonId(), Integer(help_ref='job_id'),
-        Integer(help_ref='subtr_pages'), SimpleString(help_ref='undo_why'),
+        ("pquota", "undo"),
+        PersonId(),
+        Integer(help_ref='job_id'),
+        Integer(help_ref='subtr_pages'),
+        SimpleString(help_ref='undo_why'),
         perm_filter='can_pquota_undo')
+
     def pquota_undo(self, operator, person_id, job_id, num_pages, why):
         person_id = self.bu.find_person(person_id)
         try:
@@ -661,9 +726,10 @@ The currently defined id-types are:
         # happened at least once. The logger does msg % arguments, which
         # fails, if message has a %-something directive, and arguments is an
         # empty tuple.
-        self.logger.info("pquota_undo for %i, job %s with %s pages by %i (%s)",
-                         person_id, job_id, num_pages, operator.get_entity_id(),
-                         repr(why))
+        self.logger.info(
+            "pquota_undo for %i, job %s with %s pages by %i (%s)",
+            person_id, job_id, num_pages, operator.get_entity_id(),
+            repr(why))
         return "OK"
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2009-2013 University of Oslo, Norway
+# Copyright 2009-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """Common bofh daemon functionality used across all institutions.
 
 This module contains class, functions, etc. that are common and useful in all
@@ -29,16 +28,15 @@ modules/no/<institution>/bofhd_<institution>_cmds.py.
 
 import re
 
-import cerebrum_path
 import cereconf
 
-from Cerebrum import Cache
 from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules import Email
+from Cerebrum.modules.bofhd.utils import BofhdUtils
 
 from Cerebrum.modules.bofhd import cmd_param as cmd
 
@@ -68,85 +66,148 @@ class BofhdCommandBase(object):
     # Each subclass defines its own class attribute containing the relevant
     # commands.
     all_commands = {}
+    u""" All available commands. """
 
-    def __init__(self, server):
-        self._cached_client_commands = Cache.Cache(
-            mixins=[Cache.cache_mru, Cache.cache_slots, Cache.cache_timeout],
-            size=500,
-            timeout=60 * 60)
-        # NB! A subclass needs to create its own authenticator.
-        self.ba = None
-        self.server = server
-        self.db = server.db
-        self.const = Factory.get("Constants")()
-        self.logger = server.logger
+    authz = None
+    u""" authz implementation. """
+
+    @classmethod
+    def get_format_suggestion(cls, command_name):
+        """Return a format string for a specific command.
+
+        :param str command_name:
+            The `all_commands` command name (key) to fetch the format from.
+
+        :return dict:
+            A dict describing the formatting for the specified command.
+
+        :see:
+            cmd_param.py:FormatSuggestion.get_format().
+        """
+        return cls.list_commands('all_commands')[command_name].get_fs()
+
+    @classmethod
+    def get_help_strings(cls):
+        """ Get help strings dicts.
+
+        :return tuple:
+            Returns a tuple with three dicts, containing help text for
+            command groups, commands, and arguments.
+        """
+        # Must be implemented in subclasses
+        return ({}, {}, {})
+
+    def __init__(self, db, logger):
+        self.__db = db
+        self.__logger = logger
+
+        # TODO: Really?
         self.OU_class = Factory.get("OU")
         self.Account_class = Factory.get("Account")
         self.Group_class = Factory.get("Group")
         self.Person_class = Factory.get("Person")
 
-    def get_commands(self, account_id):
-        """Fetch all available (public) commands for the specified client.
+    @property
+    def db(self):
+        u""" Database connection. """
+        # Needs to be read-only
+        return self.__db
 
-        bofhd distiguishes between two types of commands -- public (declared
-        in the ``all_commands`` dict) and hidden (available in the
-        ``hidden_commands`` dict). This methods fetches all the public
-        commands.
-
-        @type account_id: int
-        @param account_id:
-          All commands are specified on per-account basis (i.e. superusers get
-          a different command set than regular Joes, obviously). account_id
-          specifies which account we retrieve the commands for.
-
-        @rtype: dict of strings (command names) to tuples
-        @return:
-          Returns a dict mapping command names to tuples with information
-          about the command. See cmd_param.py:Command:get_struct()'s
-          documentation.
-        """
+    @property
+    def ba(self):
+        u""" BofhdAuth. """
         try:
-            return self._cached_client_commands[int(account_id)]
-        except KeyError:
-            pass
-        commands = {}
-        for key in self.all_commands:
-            cmd = self.all_commands[key]
-            if cmd is not None:
-                if cmd.perm_filter:
-                    if not getattr(self.ba,
-                                   cmd.perm_filter)(account_id,
-                                                    query_run_any=True):
-                        continue
-                commands[key] = cmd.get_struct(self)
+            return self.__ba
+        except AttributeError:
+            if self.authz is None:
+                return None
+            self.__ba = self.authz(self.db)
+            return self.__ba
 
-        self._cached_client_commands[int(account_id)] = commands
-        return commands
+    @property
+    def const(self):
+        u""" Constants. """
+        try:
+            return self.__const
+        except AttributeError:
+            self.__const = Factory.get("Constants")(self.db)
+            return self.__const
 
-    def get_help_strings(self):
-        """ Get help strings dicts. """
-        # Must be implemented in subclasses
-        return ({}, {}, {})
+    @property
+    def logger(self):
+        u""" Logger. """
+        return self.__logger
 
-    def get_format_suggestion(self, command):
-        """Return a format string for a specific command.
+    @classmethod
+    def list_commands(cls, attr):
+        u""" Fetch all commands in all superclasses stored in a given attribute.
 
-        As bofhd is line oriented and bofh clients are pretty dumb, bofhd
-        associates a format suggestion with each command. This method returns
-        the format string for the specified command.
+        Note:
+            If cls.parent_commands is True, this method will try to include
+            commands from super(cls) as well.
 
-        @type command: basestring
-        @param command:
-          Command name for which the format string is sought.
-
-        @rtype: dict
-        @return:
-          A dict describing the formatting for the specified command. See
-          cmd_param.py:FormatSuggestion.get_format().
+        :param sting attr:
+            The attribute that contains commands.
         """
-        return self.all_commands[command].get_fs()
+        gathered = dict()
 
-    def _get_boolean(self, onoff):
+        def merge(other_commands):
+            # Update my_commands with other_commands
+            for key, command in other_commands.iteritems():
+                if key not in gathered:
+                    gathered[key] = command
+
+        # Fetch commands from this class
+        merge(getattr(cls, attr, {}))
+
+        if getattr(cls, 'parent_commands', False):
+            try:
+                for cand in cls.__bases__:
+                    if hasattr(cand, 'list_commands'):
+                        cmds = cand.list_commands(attr)
+                        merge(cmds)
+            except IndexError:
+                pass
+        return gathered
+
+    def get_commands(self, account_id):
+        """ Fetch all commands for the specified user and client.
+
+        bofhd distiguishes between two types of commands -- public
+        (``all_commands``) and hidden (``hidden_commands``). This method
+        fetches all the public commands.
+
+        NOTE: Clients can call any command, regardless of what this function
+        returns – but clients can use this function to autodiscover commands.
+
+        :param int account_id:
+            All commands are specified on per-account basis (i.e. superusers
+            get a different command set than regular Joes, obviously).
+            account_id specifies which account we retrieve the commands for.
+
+        :return dict:
+            Returns a dict that maps command names to tuples with information
+            about the command.
+
+        :see:
+            cmd_param.py:Command:get_struct()'s documentation for more on
+            the command info tuples.
+        """
+        visible_commands = dict()
+        ident = int(account_id)
+
+        for key, command in self.list_commands('all_commands').iteritems():
+            if command is not None:
+                if command.perm_filter:
+                    if self.ba is not None and not getattr(
+                            self.ba, command.perm_filter)(
+                                ident, query_run_any=True):
+                        continue
+                visible_commands[key] = command
+        return visible_commands
+
+    @staticmethod
+    def _get_boolean(onoff):
         """ String to boolean conversion.
 
         Convert a human-friendly representation of boolean to the proper Python
@@ -160,7 +221,8 @@ class BofhdCommandBase(object):
             "Invalid value: '%s'; use one of: on true yes y off false no n" %
             str(onoff))
 
-    def _human_repr2id(self, human_repr):
+    @staticmethod
+    def _human_repr2id(human_repr):
         """ Convert a human representation of an id, to a suitable pair.
 
         We want to treat ids like these:
@@ -548,6 +610,7 @@ class BofhdCommandBase(object):
         @return:
           A pair, local part and domain extracted from the L{addr}.
         """
+        from Cerebrum.modules import Email
         if addr.count('@') == 0:
             raise CerebrumError(
                 "E-mail address (%s) must include domain" % addr)
@@ -566,40 +629,28 @@ class BofhdCommandBase(object):
 
 class BofhdCommonMethods(BofhdCommandBase):
     """Class with common methods that is used by most, 'normal' instances.
+
     Instances that requires some special care for some methods could subclass
     those in their own institution-specific class
     (modules.no.<inst>.bofhd_<inst>_cmds.py:BofhdExtension).
 
     The methods are using the BofhdAuth that is defined in the institution's
-    subclass - L{self.ba}.
+    subclass - L{BofhdExtension.authz}.
 
-    Since L{all_commands} is a class variable, subclasses won't reach this
-    directly. In addition, they have their own command definition dict. If such
-    a subclass wants to make use of superclass's' defined commands, they have
-    to import them in __init__::
-
-        for key, cmd in super(BofhdExtension, self).all_commands.iteritems():
-            if not self.all_commands.has_key(key):
-                self.all_commands[key] = cmd
-
-    This works in they way that the given class imports its direct
-    superclass(es)' all_commands, and the superclass's are responsible for
-    importing their own superclass's' all_commands. An instance doesn't
-    necessarily want to import all_commands - it could define all of them
-    itself if it wants to. Commands not defined in the instances' all_commands
-    will not be remotely executable.
-
-    TODO: More to describe here? Other requirements?
     """
 
-    def __init__(self, server):
-        self.util = server.util
-        super(BofhdCommonMethods, self).__init__(server)
+    @property
+    def util(self):
+        try:
+            return self.__util
+        except AttributeError:
+            self.__util = BofhdUtils(self.db)
+            return self.__util
 
     # Each subclass defines its own class attribute containing the relevant
-    # commands - the subclass therefore has to copy in the wanted method
-    # definitions from this class' all_commands dict. TODO: or find a smarter
-    # solution to this.
+    # commands.
+    # Any command defined in 'all_commands' or 'hidden_commands' are callable
+    # from clients.
     all_commands = {}
 
     ##

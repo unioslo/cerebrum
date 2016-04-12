@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013 University of Oslo, Norway
+#
+# Copyright 2013-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
@@ -33,22 +33,24 @@ from Cerebrum.modules.dns.IPv6Utils import IPv6Calc
 
 from Cerebrum.modules.dns.Errors import SubnetError
 
+
 class Force(Parameter):
     _type = 'force'
     _help_ref = 'force'
 
+
 class SubnetIdentifier(Parameter):
     """Represents subnet-parameters given to bofh"""
     _type = 'subnet_identifier'
-    _help_ref= 'subnet_identifier'
+    _help_ref = 'subnet_identifier'
 
 
 class DnsBofhdAuth(BofhdAuth):
     # TODO: Shouldn't need to repeat it here, but bofhd_dns_cmds is
     # cranky when you try to import it
     def assert_dns_superuser(self, operator, query_run_any=False):
-        if (not (self.is_dns_superuser(operator)) and
-            not (self.is_superuser(operator))):
+        if (not (self.is_dns_superuser(operator))
+                and not (self.is_superuser(operator))):
             raise PermissionDenied("Currently limited to dns_superusers")
 
     def is_dns_superuser(self, operator, query_run_any=False):
@@ -62,22 +64,29 @@ class BofhdExtension(BofhdCommandBase):
     """Class to expand bofhd with commands for manipulating subnets."""
 
     all_commands = {}
+    parent_commands = False
+    authz = DnsBofhdAuth
 
-    def __init__(self, server, default_zone='uio'):
-        super(BofhdExtension, self).__init__(server)
-        self.ba = DnsBofhdAuth(self.db)
+    def __init__(self, *args, **kwargs):
+        default_zone = kwargs.pop('default_zone', 'uio')
+        super(BofhdExtension, self).__init__(*args, **kwargs)
         self.default_zone = self.const.DnsZone(
-                getattr(cereconf, 'DNS_DEFAULT_ZONE', default_zone))
+            getattr(cereconf, 'DNS_DEFAULT_ZONE', default_zone))
 
-        # Circular dependencies are bad, m'kay
-        from Cerebrum.modules.dns import Utils
-        self._find = Utils.Find(server.db, self.default_zone)
+    @property
+    def _find(self):
+        try:
+            return self.__find_util
+        except AttributeError:
+            from Cerebrum.modules.dns import Utils
+            self.__find_util = Utils.find(self.db, self.default_zone)
+            return self.__find_util
 
-
-    def get_help_strings(self):
+    @classmethod
+    def get_help_strings(cls):
         group_help = {
             'subnet': "Commands for handling subnets",
-            }
+        }
 
         command_help = {
             'subnet': {
@@ -91,35 +100,34 @@ class BofhdExtension(BofhdCommandBase):
             'subnet_set_reserved': 'Set number of reserved addresses for a subnet',
             'subnet_unset_dns_delegated': 'Set subnet zone as not delegated to external DNS-server',
             }
-            }
-
+        }
 
         arg_help = {
             'subnet_description':
             ['desc', 'Subnet description',
              """Description of what the subnet is intended for."""],
-            
+
             'subnet_identifier':
             ['subnet', 'Subnet',
              """Subnet identifier, either on format
 - ddd.ddd.ddd.ddd/dd                                    OR
 - ddd.ddd.ddd.ddd    (for any IP in the subnet's range) OR
 - id:<entity-id>"""],
-            
             'subnet_name_prefix':
             ['name_prefix', 'Name prefix',
              """Name-prefix to be used for the given subnet """],
-            
             'subnet_reserved':
             ['#_reserved_adr', 'Number of reserved addresses',
              """Number of adresses to set as reserved at the beginning of the given subnet."""],
-            
-            'subnet_vlan':
-            ['vlan_id', 'VLAN ID number',
-             """ID of the VLAN the subnet uses/represents."""],
-            }
+            'subnet_vlan': [
+                'vlan_id',
+                'VLAN ID number',
+                """ID of the VLAN the subnet uses/represents."""
+            ],
+        }
 
-        return (group_help, command_help,
+        return (group_help,
+                command_help,
                 arg_help)
 
     all_commands['subnet_info'] = Command(
