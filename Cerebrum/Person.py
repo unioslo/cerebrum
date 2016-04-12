@@ -835,8 +835,9 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             VALUES (:p_id, :ou_id, :affiliation)""", binds)
             self._db.log_change(self.entity_id,
                                 self.const.person_aff_add, None)
+        int_or_none = lambda n: int(n) if n is not None else n
         try:
-            cur_status, cur_precedence, cur_del = map(int, self.query_1("""
+            cur_status, cur_precedence, cur_del = map(int_or_none, self.query_1("""
             SELECT status, precedence, deleted_date
             FROM [:table schema=cerebrum name=person_affiliation_source]
             WHERE
