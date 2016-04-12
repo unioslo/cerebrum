@@ -185,7 +185,7 @@ class VirtualGroup(Group):
         :type member_id: int
         :param member_id: Member (id) to remove from this group.
         """
-        if self.virtual_group_type == self.const.entity_virtual_group:
+        if self.virtual_group_type == self.const.vg_normal_group:
             return super(VirtualGroup, self).remove_member(member_id)
         raise RuntimeError("Group {} is a virtual group; can't remove members"
                            .format(self.group_name))

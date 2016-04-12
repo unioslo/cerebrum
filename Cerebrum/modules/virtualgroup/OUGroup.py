@@ -818,6 +818,7 @@ class OUGroup(VirtualGroup):
                        member_spread=None,
                        member_filter_expired=True,
                        include_member_entity_name=False):
+        """Group API search members. See Cerebrum.Group.Group.search_members"""
 
         def get_entity_type(entity_id):
             ent = Entity(self._db)
@@ -838,7 +839,7 @@ class OUGroup(VirtualGroup):
         if group_id:
             if isinstance(group_id, collections.Iterable):
                 sgroups = filter(lambda x: get_vgtype(x) !=
-                                 self.const.entity_virtual_group, group_id)
+                                 self.const.vg_ougroup, group_id)
                 group_id = set(group_id)
                 group_id.difference_update(sgroups)
                 dosuper = sgroups
