@@ -458,20 +458,26 @@ def main():
 
     events = clh.get_events(EVENT_KEY, types.keys())
     if args.skip_events:
+        logger.info('Skipping events')
         for event in events:
             clh.confirm_event(event)
+        logger.info('Done')
     else:
+        logger.info('Starting event traversing')
         for event in reversed(events):
             logger.debug('Handling event %s', event)
             types.get(int(event['change_type_id']), lambda x: None)(event)
             clh.confirm_event(event)
-
+        logger.info('Done event traversing, calculating changes')
         calculate_changes(db, data, co)
+        logger.info('Done')
 
     if args.commit:
+        logger.info('Committing')
         clh.commit_confirmations()
         db.commit()
     else:
+        logger.info('Doing rollback')
         db.rollback()
 
 if __name__ == '__main__':
