@@ -8522,116 +8522,6 @@ Addresses and settings:
         return "OK, removed %s@%s from %s" % (aff, self._format_ou_name(ou),
                                               accountname)
 
-    def _user_create_prompt_func_helper(self, ac_type, session, *args):
-        """A prompt_func on the command level should return
-        {'prompt': message_string, 'map': dict_mapping}
-        - prompt is simply shown.
-        - map (optional) maps the user-entered value to a value that
-          is returned to the server, typically when user selects from
-          a list."""
-        all_args = list(args[:])
-
-        if not all_args:
-            return {'prompt': "Person identification",
-                    'help_ref': "user_create_person_id"}
-        arg = all_args.pop(0)
-        if arg.startswith("group:"):
-            group_owner = True
-        else:
-            group_owner = False
-        if not all_args or group_owner:
-            if group_owner:
-                group = self._get_group(arg.split(":")[1])
-                if all_args:
-                    all_args.insert(0, group.entity_id)
-                else:
-                    all_args = [group.entity_id]
-            else:
-                c = self._find_persons(arg)
-                map = [(("%-8s %s", "Id", "Name"), None)]
-                for i in range(len(c)):
-                    person = self._get_person("entity_id", c[i]['person_id'])
-                    map.append((
-                        ("%8i %s", int(c[i]['person_id']),
-                         person.get_name(self.const.system_cached, self.const.name_full)),
-                        int(c[i]['person_id'])))
-                if not len(map) > 1:
-                    raise CerebrumError, "No persons matched"
-                return {'prompt': "Choose person from list",
-                        'map': map,
-                        'help_ref': 'user_create_select_person'}
-        owner_id = all_args.pop(0)
-        if not group_owner:
-            person = self._get_person("entity_id", owner_id)
-            existing_accounts = []
-            account = self.Account_class(self.db)
-            for r in account.list_accounts_by_owner_id(person.entity_id):
-                account = self._get_account(r['account_id'], idtype='id')
-                if account.expire_date:
-                    exp = account.expire_date.strftime('%Y-%m-%d')
-                else:
-                    exp = '<not set>'
-                existing_accounts.append("%-10s %s" % (account.account_name,
-                                                       exp))
-            if existing_accounts:
-                existing_accounts = "Existing accounts:\n%-10s %s\n%s\n" % (
-                    "uname", "expire", "\n".join(existing_accounts))
-            else:
-                existing_accounts = ''
-            if existing_accounts:
-                if not all_args:
-                    return {'prompt': "%sContinue? (y/n)" % existing_accounts}
-                yes_no = all_args.pop(0)
-                if not yes_no == 'y':
-                    raise CerebrumError, "Command aborted at user request"
-            if not all_args:
-                map = [(("%-8s %s", "Num", "Affiliation"), None)]
-                for aff in person.get_affiliations():
-                    ou = self._get_ou(ou_id=aff['ou_id'])
-                    name = "%s@%s" % (
-                        self.const.PersonAffStatus(aff['status']),
-                        self._format_ou_name(ou))
-                    map.append((("%s", name),
-                                {'ou_id': int(aff['ou_id']), 'aff': int(aff['affiliation'])}))
-                if not len(map) > 1:
-                    raise CerebrumError(
-                        "Person has no affiliations. Try person affiliation_add")
-                return {'prompt': "Choose affiliation from list", 'map': map}
-            affiliation = all_args.pop(0)
-        else:
-            if not all_args:
-                return {'prompt': "Enter np_type",
-                        'help_ref': 'string_np_type'}
-            np_type = all_args.pop(0)
-        if ac_type == 'PosixUser':
-            if not all_args:
-                return {'prompt': "Shell", 'default': 'bash'}
-            shell = all_args.pop(0)
-            if not all_args:
-                return {'prompt': "Disk", 'help_ref': 'disk'}
-            disk = all_args.pop(0)
-        if not all_args:
-            ret = {'prompt': "Username", 'last_arg': True}
-            posix_user = Utils.Factory.get('PosixUser')(self.db)
-            if not group_owner:
-                try:
-                    person = self._get_person("entity_id", owner_id)
-                    fname, lname = [
-                        person.get_name(self.const.system_cached, v)
-                        for v in (self.const.name_first, self.const.name_last) ]
-                    sugg = posix_user.suggest_unames(self.const.account_namespace, fname, lname)
-                    if sugg:
-                        ret['default'] = sugg[0]
-                except ValueError:
-                    pass    # Failed to generate a default username
-            return ret
-        if len(all_args) == 1:
-            return {'last_arg': True}
-        raise CerebrumError, "Too many arguments"
-
-    def user_create_prompt_func(self, session, *args):
-        return self._user_create_prompt_func_helper('PosixUser', session, *args)
-
     def _user_create_set_account_type(self, account,
                                       owner_id, ou_id, affiliation):
         person = self._get_person('entity_id', owner_id)
@@ -8649,36 +8539,167 @@ Addresses and settings:
                 "Owner did not have any affiliation %s" % affiliation
         account.set_account_type(ou_id, affiliation)
 
-    # user create
-    all_commands['user_create'] = Command(
-        ('user', 'create'), prompt_func=user_create_prompt_func,
+    all_commands['user_create_unpersonal'] = Command(
+        ('user', 'create_unpersonal'),
+        AccountName(), GroupName(), EmailAddress(),
+        SimpleString(help_ref="string_np_type"),
+        fs=FormatSuggestion("Created account_id=%i", ("account_id",)),
+        perm_filter='is_superuser')
+
+    def user_create_unpersonal(self, operator, account_name, group_name,
+                               contact_address, account_type):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Only superusers may reserve users")
+        account_type = self._get_constant(self.const.Account, account_type,
+                                          "account type")
+        account = self.Account_class(self.db)
+        account.clear()
+        account.populate(account_name,
+                         self.const.entity_group,
+                         self._get_group(group_name).entity_id,
+                         account_type,
+                         operator.get_entity_id(),
+                         None)
+        account.write_db()
+        passwd = account.make_passwd(account_name)
+        account.set_password(passwd)
+        try:
+            account.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError("Database error: %s" % m)
+
+        if hasattr(self, 'entity_contactinfo_add'):
+            self.entity_contactinfo_add(operator, account_name, 'EMAIL',
+                                        contact_address)
+        if hasattr(self, 'email_create_forward_target'):
+            self.email_create_forward_target(
+                operator,
+                '{}@{}'.format(
+                    account_name,
+                    cereconf.EMAIL_DEFAULT_DOMAIN),
+                contact_address)
+
+        operator.store_state("new_account_passwd",
+                             {'account_id': int(account.entity_id),
+                              'password': passwd})
+        return {'account_id': int(account.entity_id)}
+
+    def _user_create_prompt_func(self, session, *args):
+        """A prompt_func on the command level should return
+        {'prompt': message_string, 'map': dict_mapping}
+        - prompt is simply shown.
+        - map (optional) maps the user-entered value to a value that
+          is returned to the server, typically when user selects from
+          a list."""
+        all_args = list(args[:])
+
+        if not all_args:
+            return {'prompt': 'Person identification',
+                    'help_ref': 'user_create_person_id'}
+        arg = all_args.pop(0)
+        if not all_args:
+            c = self._find_persons(arg)
+            person_map = [(('%-8s %s', 'Id', 'Name'), None)]
+            for i in range(len(c)):
+                person = self._get_person('entity_id', c[i]['person_id'])
+                person_map.append((
+                    ('%8i %s', int(c[i]['person_id']),
+                     person.get_name(self.const.system_cached,
+                                     self.const.name_full)),
+                    int(c[i]['person_id'])))
+            if not len(person_map) > 1:
+                raise CerebrumError('No persons matched')
+            return {'prompt': 'Choose person from list',
+                    'map': person_map,
+                    'help_ref': 'user_create_select_person'}
+        owner_id = all_args.pop(0)
+        person = self._get_person('entity_id', owner_id)
+        existing_accounts = []
+        account = self.Account_class(self.db)
+        for r in account.list_accounts_by_owner_id(person.entity_id):
+            account = self._get_account(r['account_id'], idtype='id')
+            if account.expire_date:
+                exp = account.expire_date.strftime('%Y-%m-%d')
+            else:
+                exp = '<not set>'
+            existing_accounts.append('%-10s %s' % (account.account_name,
+                                                   exp))
+        if existing_accounts:
+            existing_accounts = 'Existing accounts:\n%-10s %s\n%s\n' % (
+                'uname', 'expire', '\n'.join(existing_accounts))
+        else:
+            existing_accounts = ''
+        if existing_accounts:
+            if not all_args:
+                return {'prompt': '%sContinue? (y/n)' % existing_accounts}
+            yes_no = all_args.pop(0)
+            if not yes_no == 'y':
+                raise CerebrumError('Command aborted at user request')
+        if not all_args:
+            aff_map = [(('%-8s %s', 'Num', 'Affiliation'), None)]
+            for aff in person.get_affiliations():
+                ou = self._get_ou(ou_id=aff['ou_id'])
+                name = '%s@%s' % (
+                    self.const.PersonAffStatus(aff['status']),
+                    self._format_ou_name(ou))
+                aff_map.append((('%s', name),
+                                {'ou_id': int(aff['ou_id']),
+                                 'aff': int(aff['affiliation'])}))
+            if not len(aff_map) > 1:
+                raise CerebrumError(
+                    'Person has no affiliations. '
+                    'Try person affiliation_add')
+            return {'prompt': 'Choose affiliation from list', 'map': aff_map}
+        all_args.pop(0)  # affiliation =
+        if not all_args:
+            return {'prompt': 'Shell', 'default': 'bash'}
+        all_args.pop(0)  # shell =
+        if not all_args:
+            return {'prompt': 'Disk', 'help_ref': 'disk'}
+        all_args.pop(0)  # disk =
+        if not all_args:
+            ret = {'prompt': 'Username', 'last_arg': True}
+            posix_user = Utils.Factory.get('PosixUser')(self.db)
+            try:
+                person = self._get_person('entity_id', owner_id)
+                fname, lname = [
+                    person.get_name(self.const.system_cached, v)
+                    for v in (self.const.name_first,
+                              self.const.name_last)]
+                sugg = posix_user.suggest_unames(
+                    self.const.account_namespace, fname, lname)
+                if sugg:
+                    ret['default'] = sugg[0]
+            except ValueError:
+                pass    # Failed to generate a default username
+            return ret
+        if len(all_args) == 1:
+            return {'last_arg': True}
+        raise CerebrumError('Too many arguments')
+
+    all_commands['user_create_personal'] = Command(
+        ('user', 'create_personal'), prompt_func=_user_create_prompt_func,
         fs=FormatSuggestion("Created uid=%i", ("uid",)),
         perm_filter='can_create_user')
-    def user_create(self, operator, *args):
-        if args[0].startswith('group:'):
-            group_id, np_type, shell, home, uname = args
-            owner_type = self.const.entity_group
-            owner_id = self._get_group(group_id.split(":")[1]).entity_id
-            np_type = self._get_constant(self.const.Account, np_type,
-                                         "account type")
+
+    def user_create_personal(self, operator, *args):
+        if len(args) == 6:
+            idtype, person_id, affiliation, shell, home, uname = args
         else:
-            if len(args) == 6:
-                idtype, person_id, affiliation, shell, home, uname = args
-            else:
-                idtype, person_id, yes_no, affiliation, shell, home, uname = args
-            owner_type = self.const.entity_person
-            owner_id = self._get_person("entity_id", person_id).entity_id
-            np_type = None
+            idtype, person_id, yes_no, affiliation, shell, home, uname = args
+        owner_type = self.const.entity_person
+        owner_id = self._get_person('entity_id', person_id).entity_id
+        np_type = None
 
         # Only superusers should be allowed to create users with
         # capital letters in their ids, and even then, just for system
         # users
         if uname != uname.lower():
-            if not self.ba.is_superuser(operator.get_entity_id()):
-                raise CerebrumError("Account names cannot contain capital letters")
-            else:
-                if owner_type != self.const.entity_group:
-                    raise CerebrumError("Personal account names cannot contain capital letters")
+            if (not self.ba.is_superuser(operator.get_entity_id()) and
+                    owner_type != self.const.entity_group):
+                    raise CerebrumError(
+                        'Personal account names cannot contain '
+                        'capital letters')
 
         posix_user = Utils.Factory.get('PosixUser')(self.db)
         uid = posix_user.get_free_uid()
@@ -8687,7 +8708,8 @@ Addresses and settings:
             disk_id, home = self._get_disk(home)[1:3]
         else:
             if not self.ba.is_superuser(operator.get_entity_id()):
-                raise PermissionDenied("only superusers may use hardcoded path")
+                raise PermissionDenied(
+                    'Only superusers may use hardcoded path')
             disk_id, home = None, home[1:]
         posix_user.clear()
         gecos = None
@@ -8721,10 +8743,44 @@ Addresses and settings:
                 self._user_create_set_account_type(posix_user, owner_id,
                                                    ou_id, affiliation)
         except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
-        operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
-                                                    'password': passwd})
+            raise CerebrumError('Database error: {}'.format(m))
+        operator.store_state('new_account_passwd',
+                             {'account_id': int(posix_user.entity_id),
+                              'password': passwd})
         return {'uid': uid}
+
+    all_commands['user_reserve_personal'] = Command(
+        ('user', 'reserve_personal'),
+        PersonId(), AccountName(),
+        fs=FormatSuggestion('Created account_id=%i', ('account_id',)),
+        perm_filter='is_superuser')
+
+    def user_reserve_personal(self, operator, *args):
+        person_id, uname = args
+
+        person = self._get_person(*self._map_person_id(person_id))
+
+        account = self.Account_class(self.db)
+        account.clear()
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied('Only superusers may reserve users')
+        account.populate(uname,
+                         self.const.entity_person,
+                         person.entity_id,
+                         None,
+                         operator.get_entity_id(),
+                         None)
+        account.write_db()
+        passwd = account.make_passwd(uname)
+        account.set_password(passwd)
+        try:
+            account.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError('Database error: {}'.format(m))
+        operator.store_state('new_account_passwd',
+                             {'account_id': int(account.entity_id),
+                              'password': passwd})
+        return {'account_id': int(account.entity_id)}
 
     all_commands['user_create_sysadm'] = Command(
         ("user", "create_sysadm"), AccountName(), OU(optional=True),
@@ -8787,8 +8843,11 @@ Addresses and settings:
         elif len(valid_aff) > 1:
             raise CerebrumError('More than than one %s affiliation, '
                                 'add stedkode as argument' % status_blob)
-        affiliation = {'aff': valid_aff[0]['affiliation'], 'ou_id': valid_aff[0]['ou_id']}
-        self.user_reserve(operator, 'person', person.entity_id, affiliation, accountname)
+        self.user_reserve_personal(operator, person.entity_id, accountname)
+        self._user_create_set_account_type(self._get_account(accountname),
+                                           person.entity_id,
+                                           valid_aff[0]['ou_id'],
+                                           valid_aff[0]['affiliation'])
         self.trait_set(operator, accountname, 'sysadm_account', 'strval=on')
         self.user_promote_posix(operator, accountname, shell='bash', home=':/')
         account = self._get_account(accountname)
@@ -9469,57 +9528,6 @@ Addresses and settings:
         user = self._get_account(accountname, actype="PosixUser")
         user.delete_posixuser()
         return "OK, %s was demoted" % accountname
-
-    def user_create_basic_prompt_func(self, session, *args):
-        return self._user_create_prompt_func_helper('Account', session, *args)
-
-    # user create
-    all_commands['user_reserve'] = Command(
-        ('user', 'create_reserve'), prompt_func=user_create_basic_prompt_func,
-        fs=FormatSuggestion("Created account_id=%i", ("account_id",)),
-        perm_filter='is_superuser')
-    def user_reserve(self, operator, *args):
-        if args[0].startswith('group:'):
-            group_id, np_type, uname = args
-            owner_type = self.const.entity_group
-            owner_id = self._get_group(group_id.split(":")[1]).entity_id
-            np_type = self._get_constant(self.const.Account, np_type,
-                                         "account type")
-            affiliation = None
-            owner_type = self.const.entity_group
-        else:
-            if len(args) == 4:
-                idtype, person_id, affiliation, uname = args
-            else:
-                idtype, person_id, yes_no, affiliation, uname = args
-            person = self._get_person("entity_id", person_id)
-            owner_type, owner_id = self.const.entity_person, person.entity_id
-            np_type = None
-        account = self.Account_class(self.db)
-        account.clear()
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("only superusers may reserve users")
-        account.populate(uname,
-                         owner_type,  # Owner type
-                         owner_id,
-                         np_type,                      # np_type
-                         operator.get_entity_id(),  # creator_id
-                         None)                      # expire_date
-        account.write_db()
-        passwd = account.make_passwd(uname)
-        account.set_password(passwd)
-        try:
-            account.write_db()
-            if affiliation is not None:
-                ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
-                self._user_create_set_account_type(
-                    account, person.entity_id, ou_id, affiliation)
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
-        operator.store_state("new_account_passwd", {'account_id': int(account.entity_id),
-                                                    'password': passwd})
-        return {'account_id': int(account.entity_id)}
-
 
     def user_restore_prompt_func(self, session, *args):
         '''Helper function for user_restore. Will display a prompt that
