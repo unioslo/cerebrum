@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# encoding: latin-1
+# encoding: utf-8
 #
-# Copyright 2006-2015 University of Oslo, Norway
+# Copyright 2006-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,38 +20,38 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Bofhd for UiA. """
 
-import time
-import os
 from mx import DateTime
 
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum import Utils
-from Cerebrum import Cache
 from Cerebrum import Errors
 from Cerebrum import Database
 
 from Cerebrum.modules import Email
 from Cerebrum.modules import Note
-from Cerebrum.modules.bofhd.cmd_param import *
+from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.no.hia import bofhd_hia_help
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailMixin
 from Cerebrum.modules.bofhd.bofhd_email_list import BofhdEmailMailmanMixin, \
     BofhdEmailSympaMixin
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, \
     BofhdAuthRole
 from Cerebrum.modules.no.hia.bofhd_uia_auth import BofhdAuth
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hia.access_FS import FS
-from Cerebrum.modules.templates.letters import TemplateHandler
+
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
+
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
+
 
 def date_to_string(date):
     """Takes a DateTime-object and formats a standard ISO-datestring
@@ -71,7 +71,7 @@ def date_to_string(date):
 # Parameter class for mobile phone number
 # FIXME: Refers help text in bofhd_core_help
 #        This should be under modules.bofhd.cmd_param
-class Mobile(Parameter):
+class Mobile(cmd_param.Parameter):
 
     """ Mobile phone Parameter. """
 
@@ -79,218 +79,241 @@ class Mobile(Parameter):
     _help_ref = 'mobile_phone'
 
 
-class BofhdExtension(BofhdCommonMethods,
-                     BofhdEmailMixin,
-                     BofhdEmailMailmanMixin,
-                     BofhdEmailSympaMixin):
+# Helper methods from bofhd_uio_cmd
+uio_helpers = [
+    '_convert_ticks_to_timestamp',
+    '_entity_info',
+    '_fetch_member_names',
+    '_find_persons',
+    '_format_changelog_entry',
+    '_format_from_cl',
+    '_format_ou_name',
+    '_get_access_id',
+    '_get_access_id_disk',
+    '_get_access_id_global_group',
+    '_get_access_id_global_ou',
+    '_get_access_id_group',
+    '_get_access_id_host',
+    '_get_access_id_ou',
+    '_get_affiliation_statusid',
+    '_get_affiliationid',
+    '_get_auth_op_target',
+    '_get_cached_passwords',
+    '_get_constant',
+    '_get_disk',
+    '_get_group_opcode',
+    '_get_host',
+    '_get_opset',
+    '_get_shell',
+    '_grant_auth',
+    '_group_add',
+    '_group_add_entity',
+    '_group_count_memberships',
+    '_group_remove',
+    '_group_remove_entity',
+    '_is_yes',
+    '_list_access',
+    '_lookup_old_uid',
+    '_manipulate_access',
+    '_parse_date',
+    '_person_affiliation_add_helper',
+    '_person_create_externalid_helper',
+    '_remove_auth_role',
+    '_remove_auth_target',
+    '_revoke_auth',
+    '_today',
+    '_user_create_set_account_type',
+    '_validate_access',
+    '_validate_access_disk',
+    '_validate_access_global_group',
+    '_validate_access_global_ou',
+    '_validate_access_group',
+    '_validate_access_ou',
+    'user_set_owner_prompt_func',
+]
 
+# Methods and commands from bofhd_uio_cmd
+copy_uio = [
+    'access_disk',
+    'access_global_group',
+    'access_global_ou',
+    'access_grant',
+    'access_group',
+    'access_list',
+    'access_list_opsets',
+    'access_ou',
+    'access_revoke',
+    'access_show_opset',
+    'access_user',
+    'entity_history',
+    'group_add',
+    'group_add_entity',
+    'group_def',
+    'group_delete',
+    'group_demote_posix',
+    'group_gadd',
+    'group_gremove',
+    'group_info',
+    'group_list',
+    'group_list_expanded',
+    'group_memberships',
+    'group_padd',
+    'group_personal',
+    'group_promote_posix',
+    'group_remove',
+    'group_remove_entity',
+    'group_search',
+    'group_set_description',
+    'group_set_expire',
+    'group_set_visibility',
+    'misc_affiliations',
+    'misc_cancel_request',
+    'misc_check_password',
+    'misc_clear_passwords',
+    'misc_list_passwords',
+    'misc_list_requests',
+    'misc_verify_password',
+    'ou_info',
+    'ou_search',
+    'ou_tree',
+    'person_accounts',
+    'person_affiliation_add',
+    'person_affiliation_remove',
+    'person_clear_id',
+    'person_clear_name',
+    'person_create',
+    'person_find',
+    'person_list_user_priorities',
+    'person_set_bdate',
+    'person_set_id',
+    'person_set_name',
+    'person_set_user_priority',
+    'quarantine_disable',
+    'quarantine_list',
+    'quarantine_remove',
+    'quarantine_set',
+    'quarantine_show',
+    'spread_add',
+    'spread_list',
+    'spread_remove',
+    'trait_info',
+    'trait_list',
+    'trait_remove',
+    'trait_set',
+    'user_affiliation_add',
+    'user_affiliation_remove',
+    'user_demote_posix',
+    'user_find',
+    'user_gecos',
+    'user_history',
+    'user_password',
+    'user_reserve',
+    'user_set_disk_status',
+    'user_set_expire',
+    'user_set_np_type',
+    'user_set_owner',
+    'user_shell',
+]
+
+copy_uio_hidden = [
+    'access_list_alterable',
+    'group_multi_add',
+    'person_name_suggestions',
+    'get_constant_description',
+]
+
+# Decide which email mixins to use
+email_mixin_commands = [
+    'email_add_address',
+    'email_add_domain_affiliation',
+    'email_add_filter',
+    'email_add_forward',
+    'email_add_tripnote',
+    'email_create_domain',
+    'email_create_forward',
+    'email_domain_configuration',
+    'email_domain_info',
+    'email_forward',
+    'email_info',
+    'email_list_tripnotes',
+    'email_local_delivery',
+    'email_mod_name',
+    'email_quota',
+    'email_reassign_address',
+    'email_remove_address',
+    'email_remove_domain_affiliation',
+    'email_remove_filter',
+    'email_remove_forward',
+    'email_remove_tripnote',
+    'email_set_primary_address',
+    'email_spam_action',
+    'email_spam_level',
+    'email_tripnote',
+    'email_update',
+]
+
+# Decide which mailman list commands to use
+email_mailman_mixin_commands = [
+    'mailman_create_list',
+    'mailman_create_list_alias',
+    'mailman_remove_list',
+    'mailman_remove_list_alias',
+]
+
+# Decide which sympa list commands to use
+email_sympa_mixin_commands = [
+    'sympa_create_list',
+    'sympa_create_list_alias',
+    'sympa_create_list_in_cerebrum',
+    'sympa_reassign_mailman_list',
+    'sympa_remove_list',
+    'sympa_remove_list_alias',
+]
+
+
+@copy_command(
+    BofhdEmailMixin,
+    'default_email_commands', 'all_commands',
+    commands=email_mixin_commands)
+@copy_command(
+    BofhdEmailMailmanMixin,
+    'default_mailman_commands', 'all_commands',
+    commands=email_mailman_mixin_commands)
+@copy_command(
+    BofhdEmailSympaMixin,
+    'default_sympa_commands', 'all_commands',
+    commands=email_sympa_mixin_commands)
+@copy_command(
+    UiOBofhdExtension,
+    'hidden_commands', 'hidden_commands',
+    commands=copy_uio_hidden)
+@copy_command(
+    UiOBofhdExtension,
+    'all_commands', 'all_commands',
+    commands=copy_uio)
+@copy_func(
+    UiOBofhdExtension,
+    methods=uio_helpers + copy_uio + copy_uio_hidden)
+class BofhdExtension(
+        BofhdCommonMethods,
+        BofhdEmailMixin,
+        BofhdEmailMailmanMixin,
+        BofhdEmailSympaMixin):
     """ The main UiA BofhdExtension. """
 
     external_id_mappings = {}
     all_commands = {}
     hidden_commands = {}
+    parent_commands = True
+    authz = BofhdAuth
 
-    copy_commands = (
-        #
-        # copy relevant access-cmds and util methods
-        #
-        'access_disk', 'access_group', 'access_ou', 'access_user',
-        'access_global_group', 'access_global_ou', '_list_access',
-        #       i.e. we hand off the args directly to _get_person.
-        'access_grant', 'access_revoke', '_manipulate_access',
-        '_get_access_id', '_validate_access', '_get_access_id_disk',
-        '_validate_access_disk', '_get_access_id_group',
-        '_validate_access_group', '_get_access_id_global_group',
-        '_validate_access_global_group', '_get_access_id_ou',
-        '_validate_access_ou', '_get_access_id_global_ou',
-        '_validate_access_global_ou', 'access_list_opsets',
-        'access_show_opset', 'access_list', '_get_auth_op_target',
-        '_grant_auth', '_revoke_auth', '_get_opset', '_get_access_id_host',
-        '_get_host',
-        #
-        # copy relevant email-cmds and util methods
-        #
-        'email_add_forward', '_get_email_target_and_address',
-        '_get_email_target_and_account',
-        #
-        # copy relevant group-cmds and util methods
-        #
-        'group_add', 'group_gadd', 'group_padd', '_group_add',
-        '_group_add_entity', '_group_count_memberships', 'group_add_entity',
-        'group_def', 'group_delete', 'group_remove', 'group_gremove',
-        '_group_remove', '_group_remove_entity', 'group_remove_entity',
-        'group_demote_posix', 'group_promote_posix', 'group_info',
-        'group_list', 'group_list_expanded', 'group_search',
-        'group_set_description', 'group_memberships', '_get_group_opcode',
-        'group_personal', 'group_set_expire', 'group_set_visibility',
-        '_fetch_member_names',
-        #
-        # copy relevant misc-cmds and util methods
-        #
-        'misc_affiliations', 'misc_check_password', 'misc_clear_passwords',
-        'misc_verify_password', 'misc_cancel_request',
-        'misc_list_requests', '_map_template', '_parse_range',
-        'misc_list_passwords',
-        #
-        # copy relevant ou-cmds and util methods
-        #
-        'ou_search', 'ou_info', 'ou_tree',
-        #
-        # copy relevant person-cmds and util methods
-        #
-        'person_accounts', 'person_affiliation_add',
-        '_person_affiliation_add_helper', '_person_create_externalid_helper',
-        'person_affiliation_remove', 'person_create',
-        'person_find', 'person_list_user_priorities',
-        'person_set_user_priority', 'person_set_name',
-        'person_clear_name', 'person_clear_id', 'person_set_bdate',
-        'person_set_id',
-        #
-        # copy relevant quarantine-cmds and util methods
-        #
-        'quarantine_disable', 'quarantine_list', 'quarantine_remove',
-        'quarantine_set', 'quarantine_show',
-        #
-        # copy relevant user-cmds and util methods
-        #
-        'user_affiliation_add', '_user_affiliation_add_helper',
-        'user_affiliation_remove', 'user_history',
-        'user_find', 'user_password', 'user_set_expire',
-        'user_reserve', 'user_gecos', 'user_demote_posix',
-        'user_set_np_type', 'user_shell', 'user_set_disk_status',
-        '_user_create_set_account_type', '_get_shell',
-        'user_set_owner', 'user_set_owner_prompt_func', '_lookup_old_uid',
-        #
-        # copy relevant spread-cmds and util methods
-        #
-        'spread_list', 'spread_add', 'spread_remove',
-        #
-        # copy trait-functions
-        #
-        'trait_info', 'trait_list', 'trait_remove', 'trait_set',
-        #
-        # UiA needs a local version of 'trait_set'
-        #
-        # copy entity-functions
-        'entity_history',
-        #
-        # copy relevant helper-functions
-        #
-        '_find_persons', '_get_account', '_format_ou_name',
-        '_get_disk', '_get_entity',
-        '_entity_info', 'num2str', '_get_affiliationid',
-        '_get_affiliation_statusid', '_parse_date', '_today',
-        '_format_changelog_entry', '_format_from_cl',
-        '_get_group_opcode',
-        '_get_constant', '_is_yes', '_remove_auth_target',
-        '_remove_auth_role', '_get_cached_passwords', '_parse_date_from_to',
-        '_convert_ticks_to_timestamp'
-        )
-
-    # Decide which email mixins to use?
-    email_mixin_commands = ('email_add_address', 'email_remove_address',
-                            'email_reassign_address',
-                            'email_set_primary_address',
-                            # Domain
-                            'email_create_domain', 'email_domain_info',
-                            'email_domain_configuration',
-                            'email_add_domain_affiliation',
-                            'email_remove_domain_affiliation',
-                            # Filter
-                            'email_add_filter', 'email_remove_filter',
-                            # Forward
-                            'email_create_forward',
-                            'email_remove_forward',
-                            # Spam
-                            'email_spam_action', 'email_spam_level',
-                            # Tripnote
-                            'email_tripnote', 'email_add_tripnote',
-                            'email_list_tripnotes', 'email_remove_tripnote',
-                            # Local delivery
-                            'email_local_delivery',
-                            # Generic
-                            'email_forward', 'email_info', 'email_move',
-                            'email_quota', 'email_update',
-                            # Mangle names
-                            'email_mod_name',)
-
-    # Decide which mailman list commands to use?
-    email_mailman_mixin_commands = ('mailman_create_list',
-                                    'mailman_remove_list',
-                                    'mailman_create_list_alias',
-                                    'mailman_remove_list_alias')
-
-    # Decide which sympa list commands to use?
-    email_sympa_mixin_commands = ('sympa_create_list',
-                                  'sympa_remove_list',
-                                  'sympa_create_list_alias',
-                                  'sympa_remove_list_alias',
-                                  'sympa_create_list_in_cerebrum',
-                                  'sympa_reassign_mailman_list')
-
-    def __new__(cls, *arg, **karg):
-        # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
-        # into seperate classes.
-        from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
-            UiOBofhdExtension
-
-        non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
-        for func in BofhdExtension.copy_commands:
-            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
-            if func[0] != '_' and func not in non_all_cmds:
-                BofhdExtension.all_commands[func] = UiOBofhdExtension.all_commands[func]
-
-        #
-        # Importing hidden_commands for Brukerinfo.
-        # TODO: This is quick, dirty, bad and ugly.
-        BofhdExtension.hidden_commands = UiOBofhdExtension.hidden_commands.copy()
-
-        for func in UiOBofhdExtension.hidden_commands:
-            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
-            BofhdExtension.hidden_commands[func] = UiOBofhdExtension.hidden_commands[func]
-
-        x = object.__new__(cls)
-        return x
-
-    def __init__(self, server, default_zone='uia'):
-        super(BofhdExtension, self).__init__(server)
-        self.util = server.util
-        self.ba = BofhdAuth(self.db)
+    def __init__(self, *args, **kwargs):
+        super(BofhdExtension, self).__init__(*args, **kwargs)
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
-        # From uio
-        self.num2const = {}
-        self.str2const = {}
-        for c in dir(self.const):
-            tmp = getattr(self.const, c)
-            if isinstance(tmp, _CerebrumCode):
-                self.num2const[int(tmp)] = tmp
-                self.str2const[str(tmp)] = tmp
-        self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
-                                                           Cache.cache_slots,
-                                                           Cache.cache_timeout],
-                                                   size=500,
-                                                   timeout=60*60)
 
-        # Copy in all defined commands from the superclass that is not defined
-        # in this class.
-        for key, cmd in super(BofhdExtension, self).all_commands.iteritems():
-            if not self.all_commands.has_key(key):
-                self.all_commands[key] = cmd
-
-        # ...and the desired email mixin commands
-        for key in self.email_mixin_commands:
-            self.all_commands[key] = self.default_email_commands[key]
-
-        # ...and the desired email list mixin commands
-        for key in self.email_mailman_mixin_commands:
-            self.all_commands[key] = self.default_mailman_commands[key]
-
-        # ...and the desired email list mixin commands
-        for key in self.email_sympa_mixin_commands:
-            self.all_commands[key] = self.default_sympa_commands[key]
-
-    def get_help_strings(self):
-        return bofhd_hia_help.get_help_strings(self)
+    @classmethod
+    def get_help_strings(cls):
+        return bofhd_hia_help.get_help_strings()
 
     # helpers needed for spread_add, cannot be copied in the usual way
     #
@@ -331,8 +354,8 @@ class BofhdExtension(BofhdCommonMethods,
         bar = BofhdAuthRole(self.db)
         is_moderator = False
         for auth in bar.list(op_target_id=targets[0]['op_target_id']):
-            if (auth['entity_id'] == account.entity_id and
-                auth['op_set_id'] == op_set.op_set_id):
+            if (auth['entity_id'] == account.entity_id
+                    and auth['op_set_id'] == op_set.op_set_id):
                 is_moderator = True
         if not is_moderator:
             return
@@ -348,7 +371,7 @@ class BofhdExtension(BofhdCommonMethods,
                 wanted.append(mapping[spread])
         for r in group.get_spread():
             spread = int(r['spread'])
-            if not spread in mapping.values():
+            if spread not in mapping.values():
                 pass
             elif spread in wanted:
                 wanted.remove(spread)
@@ -407,13 +430,15 @@ class BofhdExtension(BofhdCommonMethods,
         except:
             pass
 
+    #
     # email migrate
     # will be used for migretion of mail accounts from IMAP to Exchange
     #
-    all_commands['email_exchange_migrate'] = Command(
+    all_commands['email_exchange_migrate'] = cmd_param.Command(
         ("email", "exchange_migrate"),
-        AccountName(help_ref="account_name", repeat=True),
+        cmd_param.AccountName(help_ref="account_name", repeat=True),
         perm_filter='can_email_move')
+
     def email_exchange_migrate(self, operator, uname):
         acc = self._get_account(uname)
         self.ba.can_email_move(operator.get_entity_id(), acc)
@@ -442,13 +467,15 @@ class BofhdExtension(BofhdCommonMethods,
             acc.write_db()
         return "OK, migrating %s to Exchange" % (uname)
 
+    #
     # email move
     #
-    all_commands['email_move'] = Command(
+    all_commands['email_move'] = cmd_param.Command(
         ("email", "move"),
-        AccountName(help_ref="account_name", repeat=True),
-        SimpleString(help_ref='string_email_host'),
+        cmd_param.AccountName(help_ref="account_name", repeat=True),
+        cmd_param.SimpleString(help_ref='string_email_host'),
         perm_filter='can_email_move')
+
     def email_move(self, operator, uname, server):
         acc = self._get_account(uname)
         self.ba.can_email_move(operator.get_entity_id(), acc)
@@ -478,10 +505,13 @@ class BofhdExtension(BofhdCommonMethods,
     _mailman_pipe = "|/fake %(interface)s %(listname)s"
     _mailman_patt = r'\|/fake (\S+) (\S+)$'
 
-    # person info
-    all_commands['person_info'] = Command(
-        ("person", "info"), PersonId(help_ref="id:target:person"),
-        fs=FormatSuggestion([
+    #
+    # person info <persin-id>
+    #
+    all_commands['person_info'] = cmd_param.Command(
+        ("person", "info"),
+        cmd_param.PersonId(help_ref="id:target:person"),
+        fs=cmd_param.FormatSuggestion([
             ("Name:          %s\n" +
              "Entity-id:     %i\n" +
              "Birth:         %s\n" +
@@ -732,25 +762,28 @@ class BofhdExtension(BofhdCommonMethods,
             data.append({'prim_email': None})
         return data
 
-
+    #
     # person student_info
-    all_commands['person_student_info'] = Command(
-        ("person", "student_info"), PersonId(),
-        fs=FormatSuggestion([
-        ("Studieprogrammer: %s, %s, %s, tildelt=%s->%s privatist: %s",
-         ("studprogkode", "studierettstatkode", "status", format_day("dato_studierett_tildelt"),
-          format_day("dato_studierett_gyldig_til"), "privatist")),
-        ("Eksamensmeldinger: %s (%s), %s",
-         ("ekskode", "programmer", format_day("dato"))),
-        ("Utd. plan: %s, %s, %d, %s",
-         ("studieprogramkode", "terminkode_bekreft", "arstall_bekreft",
-          format_day("dato_bekreftet"))),
-        ("Semesterreg: %s, %s, betalt: %s, endret: %s",
-         ("regformkode", "betformkode", format_day("dato_betaling"),
-          format_day("dato_regform_endret"))),
-        ("Kull: %s, (%s)", ("kullkode", "status_aktiv"))
+    #
+    all_commands['person_student_info'] = cmd_param.Command(
+        ("person", "student_info"),
+        cmd_param.PersonId(),
+        fs=cmd_param.FormatSuggestion([
+            ("Studieprogrammer: %s, %s, %s, tildelt=%s->%s privatist: %s",
+             ("studprogkode", "studierettstatkode", "status", format_day("dato_studierett_tildelt"),
+              format_day("dato_studierett_gyldig_til"), "privatist")),
+            ("Eksamensmeldinger: %s (%s), %s",
+             ("ekskode", "programmer", format_day("dato"))),
+            ("Utd. plan: %s, %s, %d, %s",
+             ("studieprogramkode", "terminkode_bekreft", "arstall_bekreft",
+              format_day("dato_bekreftet"))),
+            ("Semesterreg: %s, %s, betalt: %s, endret: %s",
+             ("regformkode", "betformkode", format_day("dato_betaling"),
+              format_day("dato_regform_endret"))),
+            ("Kull: %s, (%s)", ("kullkode", "status_aktiv"))
         ]),
         perm_filter='can_get_student_info')
+
     def person_student_info(self, operator, person_id):
         person = self._get_person(*self._map_person_id(person_id))
         self.ba.can_get_student_info(operator.get_entity_id(), person)
@@ -802,11 +835,16 @@ class BofhdExtension(BofhdCommonMethods,
         db.close()
         return ret
 
+    #
     # person clear_address
-    all_commands['person_clear_address'] = Command(
-        ("person", "clear_address"), PersonId(),
-        SourceSystem(help_ref="source_system"), AddressType(),
+    #
+    all_commands['person_clear_address'] = cmd_param.Command(
+        ("person", "clear_address"),
+        cmd_param.PersonId(),
+        cmd_param.SourceSystem(help_ref="source_system"),
+        cmd_param.AddressType(),
         perm_filter='is_superuser')
+
     def person_clear_address(self, operator, person_id, source_system,
                              addresstype):
         """Deleting a person's address from a given source system. Useful in
@@ -842,11 +880,16 @@ class BofhdExtension(BofhdCommonMethods,
                                 (source_system, addresstype, person_id))
         return "Address deleted"
 
+    #
     # user home_create (set extra home per spread for a given account)
     #
-    all_commands['user_home_create'] = Command(
-        ("user", "home_create"), AccountName(), Spread(), DiskId(),
+    all_commands['user_home_create'] = cmd_param.Command(
+        ("user", "home_create"),
+        cmd_param.AccountName(),
+        cmd_param.Spread(),
+        cmd_param.DiskId(),
         perm_filter='can_create_user')
+
     def user_home_create(self, operator, accountname, spread, disk):
         account = self._get_account(accountname)
         disk_id, home = self._get_disk(disk)[1:3]
@@ -860,7 +903,7 @@ class BofhdExtension(BofhdCommonMethods,
             if home[0] == ':':
                 home = home[1:]
             else:
-                raise CerebrumError, "Invalid disk"
+                raise CerebrumError("Invalid disk")
         self.ba.can_create_user(operator.get_entity_id(), account)
         is_posix = False
         try:
@@ -871,7 +914,7 @@ class BofhdExtension(BofhdCommonMethods,
         if not is_posix:
             raise CerebrumError("This user is not a posix user. Please use 'user promote_posix' first.")
         if not home_spread:
-            raise CerebrumError, "Cannot assign home in a non-home spread!"
+            raise CerebrumError("Cannot assign home in a non-home spread!")
         if account.has_spread(int(self._get_constant(self.const.Spread, spread))):
             try:
                 if account.get_home(int(self._get_constant(self.const.Spread, spread))):
@@ -888,33 +931,38 @@ class BofhdExtension(BofhdCommonMethods,
         account.write_db()
         return "Home made for %s in spread %s" % (accountname, spread)
 
+    #
     # user info
     #
-    all_commands['user_info'] = Command(
-        ("user", "info"), AccountName(),
-        fs=FormatSuggestion([("Username:      %s\n"+
-                              "Spreads:       %s\n" +
-                              "Affiliations:  %s\n" +
-                              "Expire:        %s\n" +
-                              "Home:          %s\n" +
-                              "Entity id:     %i\n" +
-                              "Owner id:      %i (%s: %s)",
-                              ("username", "spread", "affiliations",
-                               format_day("expire"),
-                               "home", "entity_id", "owner_id",
-                               "owner_type", "owner_desc")),
-                             ("Contact:       %s: %s [from %s]",
-                              ("contact_type", "contact_value", "contact_src")),
-                             ("UID:           %i\n" +
-                              "Default fg:    %i=%s\n" +
-                              "Gecos:         %s\n" +
-                              "Shell:         %s",
-                              ('uid', 'dfg_posix_gid', 'dfg_name', 'gecos',
-                               'shell')),
-                             ("Quarantined:   %s",
-                              ("quarantined",)),
-                             ("Note:          (#%d) %s: %s",
-                              ('note_id', 'note_subject', 'note_description'))]))
+    all_commands['user_info'] = cmd_param.Command(
+        ("user", "info"),
+        cmd_param.AccountName(),
+        fs=cmd_param.FormatSuggestion([
+            ("Username:      %s\n"
+             "Spreads:       %s\n"
+             "Affiliations:  %s\n"
+             "Expire:        %s\n"
+             "Home:          %s\n"
+             "Entity id:     %i\n"
+             "Owner id:      %i (%s: %s)",
+             ("username", "spread", "affiliations",
+              format_day("expire"),
+              "home", "entity_id", "owner_id",
+              "owner_type", "owner_desc")),
+            ("Contact:       %s: %s [from %s]",
+             ("contact_type", "contact_value", "contact_src")),
+            ("UID:           %i\n" +
+             "Default fg:    %i=%s\n" +
+             "Gecos:         %s\n" +
+             "Shell:         %s",
+             ('uid', 'dfg_posix_gid', 'dfg_name', 'gecos',
+              'shell')),
+            ("Quarantined:   %s",
+             ("quarantined",)),
+            ("Note:          (#%d) %s: %s",
+             ('note_id', 'note_subject', 'note_description'))
+        ]))
+
     def user_info(self, operator, accountname):
         is_posix = False
         try:
@@ -943,21 +991,21 @@ class BofhdExtension(BofhdCommonMethods,
                 if tmp['disk_id'] or tmp['home']:
                     tmp_home = account.resolve_homedir(disk_id=tmp['disk_id'],
                                                        home=tmp['home'])
-                #home_status = str(self.const.AccountHomeStatus(tmp['status']))
+                # home_status = str(self.const.AccountHomeStatus(tmp['status']))
                 hm.append("%s (%s)" % (tmp_home, str(getattr(self.const, spread))))
             except Errors.NotFoundError:
                 pass
         home = ("\n" + (" " * 15)).join([x for x in hm])
         ret = [{'entity_id': account.entity_id,
-               'username': account.account_name,
-               'spread': ",".join([str(self.const.Spread(a['spread']))
-                                   for a in account.get_spread()]),
-               'affiliations': (",\n" + (" " * 15)).join(affiliations),
-               'expire': account.expire_date,
-               'home': home,
-               'owner_id': account.owner_id,
-               'owner_type': str(self.const.EntityType(account.owner_type))
-               }]
+                'username': account.account_name,
+                'spread': ",".join([str(self.const.Spread(a['spread']))
+                                    for a in account.get_spread()]),
+                'affiliations': (",\n" + (" " * 15)).join(affiliations),
+                'expire': account.expire_date,
+                'home': home,
+                'owner_id': account.owner_id,
+                'owner_type': str(self.const.EntityType(account.owner_type))
+                }]
         if account.owner_type == self.const.entity_person:
             person = self._get_person('entity_id', account.owner_id)
             try:
@@ -994,11 +1042,11 @@ class BofhdExtension(BofhdCommonMethods,
         now = DateTime.now()
         for q in account.get_entity_quarantine():
             if q['start_date'] <= now:
-                if (q['end_date'] is not None and
-                    q['end_date'] < now):
+                if (q['end_date'] is not None
+                        and q['end_date'] < now):
                     quarantined = 'expired'
-                elif (q['disable_until'] is not None and
-                    q['disable_until'] > now):
+                elif (q['disable_until'] is not None
+                        and q['disable_until'] > now):
                     quarantined = 'disabled'
                 else:
                     quarantined = 'active'
@@ -1013,11 +1061,17 @@ class BofhdExtension(BofhdCommonMethods,
 
         return ret
 
+    #
     # user promote_posix
-    all_commands['user_promote_posix'] = Command(
-        ('user', 'promote_posix'), AccountName(), GroupName(),
-        PosixShell(default="bash"), DiskId(),
+    #
+    all_commands['user_promote_posix'] = cmd_param.Command(
+        ('user', 'promote_posix'),
+        cmd_param.AccountName(),
+        cmd_param.GroupName(),
+        cmd_param.PosixShell(default="bash"),
+        cmd_param.DiskId(),
         perm_filter='can_create_user')
+
     def user_promote_posix(self, operator, accountname, dfg=None, shell=None,
                            home=None):
         is_posix = False
@@ -1070,16 +1124,20 @@ class BofhdExtension(BofhdCommonMethods,
             tmp = ', reused old uid=%i' % old_uid
         return "OK, promoted %s to posix user%s" % (accountname, tmp)
 
-    # user delete
     #
-    all_commands['user_delete'] = Command(
-        ("user", "delete"), AccountName(), perm_filter='can_delete_user')
+    # user delete <username>
+    #
+    all_commands['user_delete'] = cmd_param.Command(
+        ("user", "delete"),
+        cmd_param.AccountName(),
+        perm_filter='can_delete_user')
+
     def user_delete(self, operator, accountname):
         # TODO: How do we delete accounts?
         account = self._get_account(accountname)
         self.ba.can_delete_user(operator.get_entity_id(), account)
         if account.is_deleted():
-            raise CerebrumError, "User is already deleted"
+            raise CerebrumError("User is already deleted")
         br = BofhdRequests(self.db, self.const)
         br.add_request(operator.get_entity_id(), br.now,
                        self.const.bofh_delete_user,
@@ -1208,10 +1266,13 @@ class BofhdExtension(BofhdCommonMethods,
 
     #
     # user create
-    all_commands['user_create'] = Command(
-        ('user', 'create'), prompt_func=user_create_prompt_func,
-        fs=FormatSuggestion("Created uid=%i", ("uid",)),
+    #
+    all_commands['user_create'] = cmd_param.Command(
+        ('user', 'create'),
+        prompt_func=user_create_prompt_func,
+        fs=cmd_param.FormatSuggestion("Created uid=%i", ("uid",)),
         perm_filter='can_create_user')
+
     def user_create(self, operator, *args):
         if args[0].startswith('group:'):
             group_id, np_type, shell, email_spread, uname = args
@@ -1233,10 +1294,12 @@ class BofhdExtension(BofhdCommonMethods,
         # users
         if uname != uname.lower():
             if not self.ba.is_superuser(operator.get_entity_id()):
-                raise CerebrumError("Account names cannot contain capital letters")
+                raise CerebrumError(
+                    "Account names cannot contain capital letters")
             else:
                 if owner_type != self.const.entity_group:
-                    raise CerebrumError("Personal account names cannot contain capital letters")
+                    raise CerebrumError(
+                        "Personal account names cannot contain capital letters")
 
         filegroup = 'ansatt'
         group = self._get_group(filegroup, grtype="PosixGroup")
@@ -1269,17 +1332,18 @@ class BofhdExtension(BofhdCommonMethods,
             passwd = posix_user.make_passwd(uname)
             posix_user.set_password(passwd)
             if email_spread:
-                if not int(self.const.Spread(email_spread)) in \
-                                [int(self.const.spread_exchange_account),
-                                 int(self.const.spread_exchange_acc_old),
-                                 int(self.const.spread_uia_office_365),
-                                 int(self.const.spread_uia_forward),
-                                 int(self.const.spread_hia_email)]:
-                    raise CerebrumError, "Not an e-mail spread: %s!" % email_spread
+                if not int(self.const.Spread(email_spread)) in [
+                        int(self.const.spread_exchange_account),
+                        int(self.const.spread_exchange_acc_old),
+                        int(self.const.spread_uia_office_365),
+                        int(self.const.spread_uia_forward),
+                        int(self.const.spread_hia_email)]:
+                    raise CerebrumError(
+                        "Not an e-mail spread: {!r}!".format(email_spread))
             try:
                 posix_user.add_spread(self.const.Spread(email_spread))
             except Errors.NotFoundError:
-                raise CerebrumError, "No such spread %s" % spread
+                raise CerebrumError("No such spread {!r}".format(email_spread))
             # And, to write the new password to the database, we have
             # to .write_db() one more time...
             posix_user.write_db()
@@ -1288,9 +1352,10 @@ class BofhdExtension(BofhdCommonMethods,
                 self._user_create_set_account_type(posix_user, owner_id,
                                                    ou_id, affiliation)
         except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
-        operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
-                                                    'password': passwd})
+            raise CerebrumError("Database error: {!s}".format(m))
+        operator.store_state(
+            "new_account_passwd", {'account_id': int(posix_user.entity_id),
+                                   'password': passwd})
         self._meld_inn_i_server_gruppe(int(posix_user.entity_id), operator)
         self._add_radiusans_spread(int(posix_user.entity_id), operator)
 
@@ -1311,8 +1376,9 @@ class BofhdExtension(BofhdCommonMethods,
         acc = Utils.Factory.get('Account')(self.db)
         acc.clear()
         acc.find(acc_id)
-        if (acc.is_employee() or acc.is_affiliate() or
-              self._person_is_employee_or_affiliate(acc.owner_id, operator)):
+        if (acc.is_employee() or acc.is_affiliate()
+                or self._person_is_employee_or_affiliate(acc.owner_id,
+                                                         operator)):
             if not acc.has_spread(self.const.spread_ans_radius_user):
                 acc.add_spread(self.const.spread_ans_radius_user)
                 acc.write_db()
@@ -1327,21 +1393,28 @@ class BofhdExtension(BofhdCommonMethods,
             # non-personal accounts cannot be assigned radiusans spread
             return False
         for row in person.get_affiliations():
-            if int(row['affiliation']) in (int(self.const.affiliation_ansatt),
-                                       int(self.const.affiliation_tilknyttet)):
+            if int(row['affiliation']) in (
+                    int(self.const.affiliation_ansatt),
+                    int(self.const.affiliation_tilknyttet)):
                 return True
         return False
 
+    #
     # user move
     #
-    all_commands['user_move_nofile'] = Command(
-        ("user", "move_nofile"), AccountName(help_ref="account_name", repeat=False),
-        Spread(), DiskId(), perm_filter='is_superuser')
+    all_commands['user_move_nofile'] = cmd_param.Command(
+        ("user", "move_nofile"),
+        cmd_param.AccountName(help_ref="account_name", repeat=False),
+        cmd_param.Spread(),
+        cmd_param.DiskId(),
+        perm_filter='is_superuser')
+
     def user_move_nofile(self, operator, accountname, spread, path):
         account = self._get_account(accountname)
         move_ok = False
         if account.is_expired():
-            raise CerebrumError, "Account %s has expired" % account.account_name
+            raise CerebrumError(
+                "Account {!r} has expired".format(account.account_name))
         spread = int(self._get_constant(self.const.Spread, spread))
         tmp_s = []
         for r in account.get_spread():
@@ -1349,10 +1422,12 @@ class BofhdExtension(BofhdCommonMethods,
         if spread in tmp_s:
             move_ok = True
         if not move_ok:
-            raise CerebrumError, "You can not move a user that does not have homedir in the given spread. Use home_create."
+            raise CerebrumError(
+                "You can not move a user that does not have"
+                " homedir in the given spread. Use home_create.")
         disk_id = self._get_disk(path)[1]
         if disk_id is None:
-            raise CerebrumError, "Bad destination disk"
+            raise CerebrumError("Bad destination disk")
         ah = account.get_home(spread)
         account.set_homedir(current_id=ah['homedir_id'],
                             disk_id=disk_id)
@@ -1360,20 +1435,24 @@ class BofhdExtension(BofhdCommonMethods,
         account.write_db()
         return "Ok, user %s moved." % accountname
 
-
-    all_commands['user_migrate_exchange'] = Command(
+    #
+    # user migrate_exchange
+    #
+    all_commands['user_migrate_exchange'] = cmd_param.Command(
         ("user", "migrate_exchange"),
-        AccountName(help_ref="account_name", repeat=True),
-        SimpleString(help_ref='string_mdb'),
+        cmd_param.AccountName(help_ref="account_name", repeat=True),
+        cmd_param.SimpleString(help_ref='string_mdb'),
         perm_filter='is_superuser')
+
     def user_migrate_exchange(self, operator, uname, mdb):
         account = self._get_account(uname)
         if account.is_expired():
-            raise CerebrumError, "Account %s has expired" % account.account_name
+            raise CerebrumError(
+                "Account {!s} has expired".format(account.account_name))
         # Check given mdb
         mdb = mdb.strip()
-        if not mdb in cereconf.EXCHANGE_HOMEMDB_VALID:
-            raise CerebrumError, "Unvalid mdb"
+        if mdb not in cereconf.EXCHANGE_HOMEMDB_VALID:
+            raise CerebrumError("Unvalid mdb")
         # Set new mdb value
         account.populate_trait(self.const.trait_exchange_mdb, strval=mdb)
         # Mark that account is being migrated
@@ -1381,15 +1460,19 @@ class BofhdExtension(BofhdCommonMethods,
         account.write_db()
         return "OK, mdb stored for user %s" % uname
 
-
-    all_commands['user_migrate_exchange_finished'] = Command(
+    #
+    # user migrate_exchange_finished
+    #
+    all_commands['user_migrate_exchange_finished'] = cmd_param.Command(
         ("user", "migrate_exchange_finished"),
-        AccountName(help_ref="account_name", repeat=True),
+        cmd_param.AccountName(help_ref="account_name", repeat=True),
         perm_filter='is_superuser')
+
     def user_migrate_exchange_finished(self, operator, uname):
         account = self._get_account(uname)
         if account.is_expired():
-            raise CerebrumError, "Account %s has expired" % account.account_name
+            raise CerebrumError(
+                "Account {!r} has expired".format(account.account_name))
         # Account migration is finished
         account.delete_trait(self.const.trait_exchange_under_migration)
         # Mark that account now is migrated to new exchange server
@@ -1397,8 +1480,7 @@ class BofhdExtension(BofhdCommonMethods,
         account.write_db()
         return "OK, deleted trait for user %s" % uname
 
-
-    ## Helper function, get phone number
+    # Helper function, get phone number
     def _get_phone_number(self, person_id, phone_types):
         """Search through a person's contact info and return the first found info
         value as defined by the given types and source systems.
@@ -1421,11 +1503,12 @@ class BofhdExtension(BofhdCommonMethods,
     #
     # user send_welcome_sms <accountname> [<mobile override>]
     #
-    all_commands['user_send_welcome_sms'] = Command(
+    all_commands['user_send_welcome_sms'] = cmd_param.Command(
         ("user", "send_welcome_sms"),
-        AccountName(help_ref="account_name", repeat=False),
+        cmd_param.AccountName(help_ref="account_name", repeat=False),
         Mobile(optional=True),
-        fs=FormatSuggestion([('Ok, message sent to %s', ('mobile',)), ]),
+        fs=cmd_param.FormatSuggestion(
+            [('Ok, message sent to %s', ('mobile',)), ]),
         perm_filter='can_send_welcome_sms')
 
     def user_send_welcome_sms(self, operator, username, mobile=None):
@@ -1468,7 +1551,7 @@ class BofhdExtension(BofhdCommonMethods,
         # Get primary e-mail address, if it exists
         mailaddr = ''
         try:
-            mailaddr = ac.get_primary_mailaddress()
+            mailaddr = account.get_primary_mailaddress()
         except:
             pass
         # NOTE: There's no need to supply the 'email' entry at the moment,
@@ -1493,11 +1576,11 @@ class BofhdExtension(BofhdCommonMethods,
     #
     # group multi_remove
     #
-    all_commands['group_multi_remove'] = Command(
+    all_commands['group_multi_remove'] = cmd_param.Command(
         ("group", "multi_remove"),
-        MemberType(help_ref='member_type', default='account'),
-        MemberName(help_ref="member_name_src", repeat=True),
-        GroupName(help_ref="group_name_dest", repeat=True),
+        cmd_param.MemberType(help_ref='member_type', default='account'),
+        cmd_param.MemberName(help_ref="member_name_src", repeat=True),
+        cmd_param.GroupName(help_ref="group_name_dest", repeat=True),
         perm_filter='can_alter_group')
 
     def group_multi_remove(self, operator, member_type, src_name, dest_group):

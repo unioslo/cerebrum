@@ -530,16 +530,26 @@ class BofhdExtension(BofhdCommandBase):
     """Class to expand bofhd with commands for manipulating subnets."""
 
     all_commands = {}
+    parent_commands = False
+    authz = DnsBofhdAuth
 
-    def __init__(self, server, default_zone='uio'):
-        super(BofhdExtension, self).__init__(server)
-        self.ba = DnsBofhdAuth(self.db)
+    def __init__(self, *args, **kwargs):
+        default_zone = kwargs.pop('default_zone', 'uio')
+        super(BofhdExtension, self).__init__(*args, **kwargs)
         self.default_zone = self.const.DnsZone(getattr(cereconf, 'DNS_DEFAULT_ZONE', default_zone))
-        # Circular dependencies are bad, m'kay
-        from Cerebrum.modules.dns import Utils
-        self._find = Utils.Find(server.db, self.default_zone)
 
-    def get_help_strings(self):
+    @property
+    def _find(self):
+        try:
+            return self.__find_util
+        except AttributeError:
+            # Circular dependencies are bad, m'kay
+            from Cerebrum.modules.dns import Utils
+            self.__find_util = Utils.Find(self.db, self.default_zone)
+            return self.__find_util
+
+    @classmethod
+    def get_help_strings(cls):
         group_help = {
             'subnet': "Commands for handling subnets",
         }
@@ -584,7 +594,8 @@ class BofhdExtension(BofhdCommandBase):
              """ID of the VLAN the subnet uses/represents."""],
         }
 
-        return (group_help, command_help,
+        return (group_help,
+                command_help,
                 arg_help)
 
     all_commands['subnet_info'] = Command(

@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2002-2011 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,85 +19,81 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from mx import DateTime
-
 import cereconf
-from Cerebrum import Cache
+
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory 
-from Cerebrum.modules.bofhd.cmd_param import *
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.Utils import Factory
+
+from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-from Cerebrum.modules.no.uio.bofhd_guestaccounts_utils \
-     import BofhdUtils, GuestAccountException    
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func
+
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
+from Cerebrum.modules.no.uio.bofhd_guestaccounts_utils import GuestUtils, GuestAccountException
 
 
-class BofhdExtension(BofhdCommandBase):
+uio_helpers = [
+    '_get_constant',
+    '_get_disk',
+    '_get_shell',
+    '_parse_date',
+    '_parse_date_from_to',
+    '_today'
+]
+
+
+@copy_func(
+    UiOBofhdExtension,
+    methods=uio_helpers)
+class BofhdExtension(BofhdCommonMethods):
+
     all_commands = {}
+    parent_commands = False
+    authz = BofhdAuth
 
-    copy_commands = (
-        #
-        # copy relevant helper-functions
-        #
-        '_get_disk', '_get_shell', '_get_constant',
-        '_parse_date_from_to', '_parse_date', '_today'
-        )
+    @property
+    def bgu(self):
+        try:
+            return self.__guest_utils
+        except AttributeError:
+            self.__guest_utils = GuestUtils(self.db, self.logger)
+            return self.__guest_utils
 
-
-    def __new__(cls, *arg, **karg):
-        # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
-        # into seperate classes.
-        from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
-             UiOBofhdExtension
-
-        non_all_cmds = ('num2str', 'user_set_owner_prompt_func',
-                        'user_create_basic_prompt_func',)
-        for func in BofhdExtension.copy_commands:
-            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
-            if func[0] != '_' and func not in non_all_cmds:
-                BofhdExtension.all_commands[func] = UiOBofhdExtension.all_commands[func]
-        x = object.__new__(cls)
-        return x
-
-
-    def __init__(self, server):
-        super(BofhdExtension, self).__init__(server)
-        
-        self.util = server.util
-        self.bgu = BofhdUtils(server)
-        self.ba = BofhdAuth(self.db)
-    # end __init__
-
-
-    def get_help_strings(self):
+    @classmethod
+    def get_help_strings(cls):
         group_help = {}
 
         # The texts in command_help are automatically line-wrapped, and should
         # not contain \n
         command_help = {
             'user': {
-            'user_create_guest': 'Create a number of guest users for a certain time',
-            'user_request_guest': 'Request a number of guest users for a certain time',
-            'user_release_guest': 'Manually release guest users that was requested earlier',
-            'user_guests': 'Show the guest users that are owned by a group',
-            'user_guests_status': 'Show how many guest users are available'
+                'user_create_guest': cls.user_create_guest.__doc__,
+                'user_request_guest': cls.user_request_guest.__doc__,
+                'user_release_guest': cls.user_release_guest.__doc__,
+                'user_guests': cls.user_guests.__doc__,
+                'user_guests_status': cls.user_guests_status.__doc__,
             }
-            }
+        }
 
         arg_help = {
-            'release_type':
-            ['release_type', 'Enter release type',
-             "Enter a guest user name or a range of names, e.g., guest007 "
-             "or guest010-040."],
-            'guest_owner_group':
-            ['guest_owner_group', 'Enter name of owner group'],
-            'nr_guests':
-            ['nr_guests', 'Enter number of guests'],
-            'comment':
-            ['comment', 'Enter comment']
-            }
+            'release_type': [
+                'release_type',
+                'Enter release type',
+                "Enter a guest user name or a range of names, e.g.,"
+                " guest007 or guest010-040.", ],
+            'guest_owner_group': [
+                'guest_owner_group',
+                'Enter name of owner group', ],
+            'nr_guests': [
+                'nr_guests',
+                'Enter number of guests', ],
+            'comment': [
+                'comment',
+                'Enter comment', ]
+        }
         return (group_help, command_help, arg_help)
-
 
     def user_create_guest_prompt_func(self, session, *args):
         all_args = list(args[:])
@@ -109,7 +105,7 @@ class BofhdExtension(BofhdCommandBase):
             all_args.pop(0)
         except ValueError:
             raise CerebrumError("Not a number: %s" % all_args[0])
-        # Get group name. 
+        # Get group name.
         if not all_args:
             return {'prompt': 'Enter owner group name',
                     'default': cereconf.GUESTS_OWNER_GROUP}
@@ -130,17 +126,20 @@ class BofhdExtension(BofhdCommandBase):
         # get prefix
         if not all_args:
             return {'prompt': "Name prefix",
-                    'default': cereconf.GUESTS_PREFIX[-1], 
+                    'default': cereconf.GUESTS_PREFIX[-1],
                     'last_arg': True}
         return {'last_arg': True}
 
-
+    #
     # user create_guest <nr> <group_id> <filegroup> <shell> <disk>
-    all_commands['user_create_guest'] = Command(
-        ('user', 'create_guest'), prompt_func=user_create_guest_prompt_func,
+    #
+    all_commands['user_create_guest'] = cmd_param.Command(
+        ('user', 'create_guest'),
+        prompt_func=user_create_guest_prompt_func,
         perm_filter='can_create_guests')
+
     def user_create_guest(self, operator, *args):
-        "Create <nr> new guest users"
+        """ Create a number of guest users for a certain time. """
         nr, owner_group_name, filegroup, shell, home, prefix = args
         owner_type = self.const.entity_group
         owner_id = self.util.get_target(owner_group_name,
@@ -164,7 +163,7 @@ class BofhdExtension(BofhdCommandBase):
                                 owner_type=owner_type,
                                 owner_id=owner_id, np_type=np_type,
                                 creator_id=operator.get_entity_id(),
-                                expire_date=expire_date)            
+                                expire_date=expire_date)
             try:
                 posix_user.write_db()
                 # For correct ordering of ChangeLog events, new users
@@ -178,9 +177,11 @@ class BofhdExtension(BofhdCommandBase):
                     status=self.const.home_status_not_created)
                 posix_user.set_home(self.const.spread_uio_nis_user, homedir_id)
             except self.db.DatabaseError, m:
-                raise CerebrumError, "Database error: %s" % m
+                raise CerebrumError("Database error: %s" % m)
             self.bgu.update_group_memberships(posix_user.entity_id)
-            posix_user.populate_trait(self.const.trait_uio_guest_owner, target_id=None)
+            posix_user.populate_trait(
+                self.const.trait_uio_guest_owner,
+                target_id=None)
             # The password must be set _after_ the trait, or else it
             # won't be stored using the 'PGP-guest_acc' method.
             posix_user.set_password(posix_user.make_passwd(uname))
@@ -188,62 +189,76 @@ class BofhdExtension(BofhdCommandBase):
             ret.append(uname)
         return "OK, created guest_users:\n %s " % self._pretty_print(ret)
 
-
+    #
     # user request_guest <nr> <to_from> <entity_name>
-    all_commands['user_request_guest'] = Command(
+    #
+    all_commands['user_request_guest'] = cmd_param.Command(
         ('user', 'request_guest'),
-        Integer(default="1", help_ref="nr_guests"),
-        SimpleString(help_ref="string_from_to"),
-        GroupName(help_ref="guest_owner_group"),
-        SimpleString(help_ref="comment"),
+        cmd_param.Integer(default="1", help_ref="nr_guests"),
+        cmd_param.SimpleString(help_ref="string_from_to"),
+        cmd_param.GroupName(help_ref="guest_owner_group"),
+        cmd_param.SimpleString(help_ref="comment"),
         perm_filter='can_request_guests')
+
     def user_request_guest(self, operator, nr, date, groupname, comment):
+        """ Request a number of guest users for a certain time. """
         # date checking
-        start_date, end_date = self._parse_date_from_to(date)        
+        start_date, end_date = self._parse_date_from_to(date)
         today = DateTime.today()
         if start_date < today:
             raise CerebrumError("Start date shouldn't be in the past")
         # end_date in allowed interval?
         if end_date < start_date:
             raise CerebrumError("End date can't be earlier than start_date")
-        max_date = start_date + DateTime.RelativeDateTime(days=cereconf.GUESTS_MAX_PERIOD)
+        max_date = start_date + DateTime.RelativeDateTime(
+            days=cereconf.GUESTS_MAX_PERIOD)
         if end_date > max_date:
-            raise CerebrumError("End date can't be later than %s" % max_date.date)
+            raise CerebrumError(
+                "End date can't be later than %s" % max_date.date)
         if not nr.isdigit():
-            raise CerebrumError("'Number of accounts' requested must be a number;"
-                                " '%s' isn't." % nr)
+            raise CerebrumError(
+                "'Number of accounts' requested must be a number;"
+                " '%s' isn't." % nr)
 
         try:
             self.ba.can_request_guests(operator.get_entity_id(), groupname)
         except Errors.NotFoundError:
-            raise CerebrumError, "Group '%s' not found" % groupname
+            raise CerebrumError("Group '%s' not found" % groupname)
         owner = self.util.get_target(groupname, default_lookup="group")
         try:
-            user_list = self.bgu.request_guest_users(int(nr), end_date, comment,
-                                                     owner.entity_id,
-                                                     operator.get_entity_id())
+            user_list = self.bgu.request_guest_users(
+                int(nr),
+                end_date,
+                comment,
+                owner.entity_id,
+                operator.get_entity_id())
             for uname, comment, e_id, passwd in user_list:
                 operator.store_state("new_account_passwd",
                                      {'account_id': e_id,
                                       'password': passwd})
-        
+
             ret = "OK, reserved guest users:\n%s\n" % \
                   self._pretty_print([x[0] for x in user_list])
-            ret += "Please use misc list_passwords to print or view the passwords."
+            ret += "Please use misc list_passwords to view the passwords\n"
+            ret += "or use misc print_passwords to print the passwords."
             return ret
         except GuestAccountException, e:
             raise CerebrumError(str(e))
 
-
+    #
     # user release_guest [<guest> || <range>]+
-    all_commands['user_release_guest'] = Command(
+    #
+    all_commands['user_release_guest'] = cmd_param.Command(
         ('user', 'release_guest'),
-        SimpleString(help_ref='release_type', repeat=True))
+        cmd_param.SimpleString(help_ref='release_type', repeat=True))
+
     def user_release_guest(self, operator, *args):
-        guests = []        
+        """ Manually release guest users that was requested earlier. """
+        guests = []
         if not args:
-            raise CerebrumError("Usage: user release_guest [<guest> || <range>]+")
-        # Each arg should be an guest account name or an interval 
+            raise CerebrumError(
+                "Usage: user release_guest [<guest> || <range>]+")
+        # Each arg should be an guest account name or an interval
         for arg in args:
             if '-' in arg:
                 first, last = arg.split('-')
@@ -263,19 +278,26 @@ class BofhdExtension(BofhdCommandBase):
                                            owner_group.group_name)
                 self.bgu.release_guest(guest, operator.get_entity_id())
             except Errors.NotFoundError:
-                raise CerebrumError("Could not find guest user with name %s" % guest)
+                raise CerebrumError(
+                    "Could not find guest user with name %s" % guest)
             except PermissionDenied:
-                raise CerebrumError("No permission to release guest user %s" % guest)
+                raise CerebrumError(
+                    "No permission to release guest user %s" % guest)
             except GuestAccountException, e:
-                raise CerebrumError("Could not release guest user. %s" % str(e))
+                raise CerebrumError(
+                    "Could not release guest user. %s" % str(e))
 
         return "OK, released guests:\n%s" % self._pretty_print(guests)
 
-                    
+    #
     # user guests <owner>
-    all_commands['user_guests'] = Command(
-        ('user', 'guests'), GroupName(help_ref="guest_owner_group"))
-    def user_guests(self, operator, groupname): 
+    #
+    all_commands['user_guests'] = cmd_param.Command(
+        ('user', 'guests'),
+        cmd_param.GroupName(help_ref="guest_owner_group"))
+
+    def user_guests(self, operator, groupname):
+        """ Show the guest users that are owned by a group. """
         owner = self.util.get_target(groupname, default_lookup="group")
         users = self.bgu.list_guest_users(owner_id=owner.entity_id,
                                           include_comment=True,
@@ -294,13 +316,18 @@ class BofhdExtension(BofhdCommandBase):
                  self._pretty_print(users, include_date=True,
                                     include_comment=True)))
 
+    #
+    # user guests_status <?>
+    #
+    all_commands['user_guests_status'] = cmd_param.Command(
+        ('user', 'guests_status'),
+        cmd_param.SimpleString(optional=True))
 
-    all_commands['user_guests_status'] = Command(
-        ('user', 'guests_status'), SimpleString(optional=True))
     def user_guests_status(self, operator, *args):
+        """ Show how many guest users are available. """
         ret = ""
-        if args and args[0] == "verbose" and self.ba.is_superuser(
-            operator.get_entity_id()):
+        if (args and args[0] == "verbose"
+                and self.ba.is_superuser(operator.get_entity_id())):
             tmp = self.bgu.list_guests_info()
             # Find status for all guests
             ret = "%-12s   %s:\n%s\n" % (
@@ -313,18 +340,17 @@ class BofhdExtension(BofhdCommandBase):
         ret += "%d guest users available." % self.bgu.num_available_accounts()
         return ret
 
-
     def _pretty_print(self, guests, include_comment=False, include_date=False):
-        """Return a pretty string of the names in guestlist. If the
-        list contains more than 2 consecutive names they are written
-        as an interval. If comment or date in included they must be
-        equal within an interval.
-        guests is either a list of guest names or a list of lists,
-        where the inner lists are on the form [username, end_date,
-        comment].
+        """Return a pretty string of the names in guestlist.
 
+        If the list contains more than 2 consecutive names they are written as
+        an interval.
+
+        If comment or date in included they must be equal within an interval.
+
+        guests is either a list of guest names or a list of lists, where the
+        inner lists are on the form [username, end_date, comment].
         """
-
         guests.sort()
         prev = -2
         prev_comment = None
@@ -335,8 +361,9 @@ class BofhdExtension(BofhdCommandBase):
             if not type(guest) is list:
                 guest = [guest, None, None]
             num = int(guest[0][-3:])
-            if intervals and num - prev == 1 and guest[1] == prev_date \
-                   and guest[2] == prev_comment:
+            if (intervals and num - prev == 1
+                    and guest[1] == prev_date
+                    and guest[2] == prev_comment):
                 intervals[-1][1] = guest
             else:
                 intervals.append([guest, guest])
@@ -360,4 +387,3 @@ class BofhdExtension(BofhdCommandBase):
                     tmp += ' %s' % i[2]
             ret.append(tmp)
         return '\n'.join(ret)
-

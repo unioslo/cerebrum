@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2007-2008 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2007-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,21 +17,23 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+u""" HiOF bohfd module. """
 
 import cereconf
+
 from Cerebrum import Utils
-from Cerebrum import Cache
 from Cerebrum import Errors
-from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-from Cerebrum.modules.bofhd.cmd_param import *
+from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.no.hiof import bofhd_hiof_help
+
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
 
 
 # BofhdRequests are unfortunately very UiO specific. Let's try to keep
@@ -39,111 +41,76 @@ from Cerebrum.modules.no.hiof import bofhd_hiof_help
 class HiofBofhdRequests(BofhdRequests):
     def __init__(self, db, const, id=None):
         # Do normal extension of baseclass constructor
-        BofhdRequests.__init__(self, db, const, id)
+        super(HiofBofhdRequests, self).__init__(db, const, id)
         # Hiofs BohfdRequest constant must be added to self.conflicts
         self.conflicts[int(const.bofh_ad_attrs_remove)] = None
 
 
+uio_helpers = [
+    '_find_persons',
+    '_format_ou_name',
+    '_get_constant',
+    '_parse_date',
+    '_user_create_set_account_type',
+]
+
+uio_commands = [
+    'misc_cancel_request',
+    'misc_list_requests',
+    'ou_info',
+    'ou_search',
+    'ou_tree',
+]
+
+
+@copy_command(
+    UiOBofhdExtension,
+    'all_commands', 'all_commands',
+    commands=uio_commands)
+@copy_func(
+    UiOBofhdExtension,
+    methods=uio_helpers + uio_commands)
 class BofhdExtension(BofhdCommonMethods):
+
     OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
+
     all_commands = {}
+    parent_commands = True
+    authz = BofhdAuth
 
-    copy_commands = (
-        #
-        # copy relevant user_create related methods
-        #
-        '_find_persons', '_get_account', '_format_ou_name',
-        '_user_create_set_account_type', '_get_constant', '_parse_date',
-        'misc_list_requests', 'misc_cancel_request',
-        #
-        # copy relevant ou-cmds and util methods
-        #
-        'ou_search', 'ou_info', 'ou_tree',
-        )
+    @property
+    def ou(self):
+        try:
+            return self.__ou
+        except AttributeError:
+            self.__ou = Factory.get('OU')(self.db)
+            return self.__ou
 
-    def __new__(cls, *arg, **karg):
-        # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
-        # into seperate classes.
-        from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
-             UiOBofhdExtension
-
-        non_all_cmds = ('num2str', 'user_create_basic_prompt_func',)
-        for func in BofhdExtension.copy_commands:
-            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
-            if func[0] != '_' and func not in non_all_cmds:
-                BofhdExtension.all_commands[func] = UiOBofhdExtension.all_commands[func]
-        x = object.__new__(cls)
-        return x
-
-    def __init__(self, server, default_zone='hiof'):
-        super(BofhdExtension, self).__init__(server)
-        self.server = server
-        self.logger = server.logger
-        self.util = server.util
-        self.db = server.db
-        self.const = Factory.get('Constants')(self.db)
-        self.ou = Factory.get('OU')(self.db)
-        self.ba = BofhdAuth(self.db)
-
-        # From uio
-        self.num2const = {}
-        self.str2const = {}
-        for c in dir(self.const):
-            tmp = getattr(self.const, c)
-            if isinstance(tmp, _CerebrumCode):
-                self.num2const[int(tmp)] = tmp
-                self.str2const[str(tmp)] = tmp
-        self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
-                                                           Cache.cache_slots,
-                                                           Cache.cache_timeout],
-                                                   size=500,
-                                                   timeout=60*60)
-        # Copy in all defined commands from the superclass that is not defined
-        # in this class.
-        for key, cmd in super(BofhdExtension, self).all_commands.iteritems():
-            if not self.all_commands.has_key(key):
-                self.all_commands[key] = cmd
-
-    def get_help_strings(self):
+    @classmethod
+    def get_help_strings(cls):
         return (bofhd_hiof_help.group_help,
                 bofhd_hiof_help.command_help,
                 bofhd_hiof_help.arg_help)
-    
-    def get_commands(self, account_id):
-        try:
-            return self._cached_client_commands[int(account_id)]
-        except KeyError:
-            pass
-        commands = {}
-        for k in self.all_commands.keys():
-            tmp = self.all_commands[k]
-            if tmp is not None:
-                if tmp.perm_filter:
-                    if not getattr(self.ba, tmp.perm_filter)(account_id, query_run_any=True):
-                        continue
-                commands[k] = tmp.get_struct(self)
-        self._cached_client_commands[int(account_id)] = commands
-        return commands
 
-    def get_format_suggestion(self, cmd):
-        return self.all_commands[cmd].get_fs()
-
-
+    #
     # user remove_ad_attrs
-    all_commands['user_remove_ad_attrs'] = Command(
-        ('user', 'remove_ad_attrs'), AccountName(), Spread(),
+    #
+    all_commands['user_remove_ad_attrs'] = cmd_param.Command(
+        ('user', 'remove_ad_attrs'),
+        cmd_param.AccountName(),
+        cmd_param.Spread(),
         perm_filter='is_superuser')
+
     def user_remove_ad_attrs(self, operator, uname, spread):
-        """
-        Bofh command user remove_ad_attrs
-    
+        """ Bofh command user remove_ad_attrs
+
         Delete AD attributes home, profile_path and ou for user by
         adding a BofhdRequests. The actual deletion is governed by
         job_runner when calling process_bofhd_requests. This is done
         to avvoid race condition with AD sync.
-    
+
         @param operator: operator in bofh session
         @type  uname: string
         @param uname: user name of account which AD values should be
@@ -166,12 +133,17 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             return "No AD attributes to remove for user %s" % uname
 
+    #
     # user list_ad_attrs
-    all_commands['user_list_ad_attrs'] = Command(
-        ('user', 'list_ad_attrs'), AccountName(),
-        perm_filter='is_superuser', fs=FormatSuggestion(
+    #
+    all_commands['user_list_ad_attrs'] = cmd_param.Command(
+        ('user', 'list_ad_attrs'),
+        cmd_param.AccountName(),
+        perm_filter='is_superuser',
+        fs=cmd_param.FormatSuggestion(
             "%-16s %-16s %s", ("spread", "ad_attr", "ad_val"),
             hdr="%-16s %-16s %s" % ("Spread", "AD attribute", "Value")))
+
     def user_list_ad_attrs(self, operator, uname):
         """
         Bofh command user list_ad_attrs
@@ -196,129 +168,13 @@ class BofhdExtension(BofhdCommonMethods):
                             'ad_val': attr_val})
         return ret
 
-    # def _user_set_ad_trait(self, uname, spread, trait_const, ad_val):
-    #     """
-    #     Utility function for methods user_set_ad_*
-    # 
-    #     Set new spread -> AD value mapping as an entity trait for
-    #     user. Do some sanity checks, log relevant info and raise
-    #     CerebrumError if something goes wrong.
-    # 
-    #     @type  uname: string
-    #     @param uname: user name of account which AD value should be
-    #                   set
-    #     @type  spread: string
-    #     @param spread: code_str of spread
-    #     @type  trait_const: trait constant (_EntityTraitCode)
-    #     @param trait_const: trait constant which type indicates which
-    #                         type of AD value that should be set
-    #     @return: None
-    #     """
-    #     account = self._get_account(uname, idtype='name')
-    #     spread = self._get_constant(self.const.Spread, spread)
-    #     if not account.has_spread(spread):
-    #         raise CerebrumError, "User hasn't spread %s. Can't set ad_trait" % spread
-    #     try:
-    #         trait = account.get_trait(trait_const)
-    #         if trait:
-    #             # user already has a ad_trait of that type. The trait
-    #             # is stored as a pickled dict (spread -> ad value
-    #             # mapping). Just change for the specified spread.
-    #             ad_trait = pickle.loads(str(trait['strval']))
-    #         else:
-    #             # No trait of type trait_const for this user. Set new dict
-    #             ad_trait = {}
-    #         ad_trait[int(spread)] = ad_val
-    #         account.populate_trait(trait_const, strval=pickle.dumps(ad_trait))
-    #         account.write_db()
-    #     except:
-    #         self.logger.exception("Error setting trait of type %s for %s" % (
-    #             trait_const, uname))
-    #         raise CerebrumError, "Couldn't set ad_trait for user %s" % uname
     #
-    # # user set_ad_home
-    # all_commands['user_set_ad_home'] = Command(
-    #     ('user', 'set_ad_home'), AccountName(), Spread(), SimpleString(),
-    #     perm_filter='is_superuser')
-    # def user_set_ad_home(self, operator, uname, spread, ad_home):
-    #     """
-    #     Bofh command user set_ad_home
-    # 
-    #     Set new value for ad_home in Cerebrum. The value represent the
-    #     AD variable homedir in AD domain indicated by spread.
-    #     
-    #     @param operator: operator in bofh session
-    #     @type  uname: string
-    #     @param uname: user name of account which AD values should be
-    #                   deleted. Given by operator
-    #     @type  spread: string
-    #     @param spread: code_str of spread. Given by operator
-    #     @type  ad_home: string
-    #     @param ad_home: New value for ad_home. Given by operator
-    #     @rtype: string
-    #     @return: OK message if success
-    #     """
-    #     self._user_set_ad_trait(uname, spread,
-    #                             self.const.trait_ad_homedir, ad_home)
-    #     return "OK, new ad_home set for user %s" % uname
-    # 
-    # # user set_ad_ou
-    # all_commands['user_set_ad_ou'] = Command(
-    #     ('user', 'set_ad_ou'), AccountName(), Spread(), SimpleString(),
-    #     perm_filter='is_superuser')
-    # def user_set_ad_ou(self, operator, uname, spread, ad_ou):
-    #     """
-    #     Bofh command user set_ad_ou
-    # 
-    #     Set new value for ad_ou in Cerebrum. The value represent the
-    #     AD variable OU in AD domain indicated by spread.
-    #     
-    #     @param operator: operator in bofh session
-    #     @type  uname: string
-    #     @param uname: user name of account which AD values should be
-    #                   deleted. Given by operator
-    #     @type  spread: string
-    #     @param spread: code_str of spread. Given by operator
-    #     @type  ad_ou: string
-    #     @param ad_ou: New value for ad_ou. Given by operator
-    #     @rtype: string
-    #     @return: OK message if success
-    #     """
-    #     self._user_set_ad_trait(uname, spread,
-    #                             self.const.trait_ad_account_ou, ad_ou)
-    #     return "OK, new ad_ou set for user %s" % uname
-    # 
-    # # user set_ad_profile
-    # all_commands['user_set_ad_profile'] = Command(
-    #     ('user', 'set_ad_profile'), AccountName(), Spread(), SimpleString(),
-    #     perm_filter='is_superuser')
-    # def user_set_ad_profile(self, operator, uname, spread, ad_profile):
-    #     """
-    #     Bofh command user set_ad_profile
-    # 
-    #     Set new value for ad_profile in Cerebrum. The value represent
-    #     the AD variable Profile Path in AD domain indicated by spread.
-    #     
-    #     @param operator: operator in bofh session
-    #     @type  uname: string
-    #     @param uname: user name of account which AD values should be
-    #                   deleted. Given by operator
-    #     @type  spread: string
-    #     @param spread: code_str of spread. Given by operator
-    #     @type  ad_profile: string
-    #     @param ad_profile: New value for ad_profile. Given by operator
-    #     @rtype: string
-    #     @return: OK message if success
-    #     """
-    #     self._user_set_ad_trait(uname, spread,
-    #                             self.const.trait_ad_profile_path, ad_profile)
-    #     return "OK, new ad_profile set for user %s" % uname
-    
     # user create prompt
     #
     def user_create_prompt_func(self, session, *args):
         return self._user_create_prompt_func_helper('Account', session, *args)
-    
+
+    #
     # user create prompt helper
     #
     def _user_create_prompt_func_helper(self, ac_type, session, *args):
@@ -352,10 +208,11 @@ class BofhdExtension(BofhdCommonMethods):
                     person = self._get_person("entity_id", c[i]['person_id'])
                     map.append((
                         ("%8i %s", int(c[i]['person_id']),
-                         person.get_name(self.const.system_cached, self.const.name_full)),
+                         person.get_name(self.const.system_cached,
+                                         self.const.name_full)),
                         int(c[i]['person_id'])))
                 if not len(map) > 1:
-                    raise CerebrumError, "No persons matched"
+                    raise CerebrumError("No persons matched")
                 return {'prompt': "Choose person from list",
                         'map': map,
                         'help_ref': 'user_create_select_person'}
@@ -382,7 +239,7 @@ class BofhdExtension(BofhdCommonMethods):
                     return {'prompt': "%sContinue? (y/n)" % existing_accounts}
                 yes_no = all_args.pop(0)
                 if not yes_no == 'y':
-                    raise CerebrumError, "Command aborted at user request"
+                    raise CerebrumError("Command aborted at user request")
             if not all_args:
                 map = [(("%-8s %s", "Num", "Affiliation"), None)]
                 for aff in person.get_affiliations():
@@ -390,11 +247,13 @@ class BofhdExtension(BofhdCommonMethods):
                     name = "%s@%s" % (
                         self.const.PersonAffStatus(aff['status']),
                         self._format_ou_name(ou))
-                    map.append((("%s", name),
-                                {'ou_id': int(aff['ou_id']), 'aff': int(aff['affiliation'])}))
+                    map.append(
+                        (("%s", name),
+                         {'ou_id': int(aff['ou_id']),
+                          'aff': int(aff['affiliation']), }))
                 if not len(map) > 1:
-                    raise CerebrumError(
-                        "Person has no affiliations. Try person affiliation_add")
+                    raise CerebrumError("Person has no affiliations."
+                                        " Try person affiliation_add")
                 return {'prompt': "Choose affiliation from list", 'map': map}
             affiliation = all_args.pop(0)
         else:
@@ -415,25 +274,31 @@ class BofhdExtension(BofhdCommonMethods):
             if not group_owner:
                 try:
                     person = self._get_person("entity_id", owner_id)
-                    fname, lname = [
-                        person.get_name(self.const.system_cached, v)
-                        for v in (self.const.name_first, self.const.name_last) ]
-                    sugg = account.suggest_unames(self.const.account_namespace, fname, lname)
+                    fname, lname = [person.get_name(self.const.system_cached, v)
+                                    for v in (self.const.name_first,
+                                              self.const.name_last)]
+                    sugg = account.suggest_unames(self.const.account_namespace,
+                                                  fname,
+                                                  lname)
                     if sugg:
                         ret['default'] = sugg[0]
                 except ValueError:
                     pass    # Failed to generate a default username
-            return ret    
+            return ret
         if len(all_args) == 1:
             return {'last_arg': True}
-        raise CerebrumError, "Too many arguments"
+        raise CerebrumError("Too many arguments")
 
+    #
     # user create
     #
-    all_commands['user_create'] = Command(
-        ('user', 'create'), prompt_func=user_create_prompt_func,
-        fs=FormatSuggestion("Created account_id=%i", ("account_id",)),
+    all_commands['user_create'] = cmd_param.Command(
+        ('user', 'create'),
+        prompt_func=user_create_prompt_func,
+        fs=cmd_param.FormatSuggestion(
+            "Created account_id=%i", ("account_id",)),
         perm_filter='is_superuser')
+
     def user_create(self, operator, *args):
         if args[0].startswith('group:'):
             group_id, np_type, spread, email_server, uname = args
@@ -445,9 +310,20 @@ class BofhdExtension(BofhdCommonMethods):
             owner_type = self.const.entity_group
         else:
             if len(args) == 6:
-                idtype, person_id, affiliation, spread, email_server, uname = args
+                (idtype,
+                 person_id,
+                 affiliation,
+                 spread,
+                 email_server,
+                 uname) = args
             else:
-                idtype, person_id, yes_no, affiliation, spread, email_server, uname = args
+                (idtype,
+                 person_id,
+                 yes_no,
+                 affiliation,
+                 spread,
+                 email_server,
+                 uname) = args
             person = self._get_person("entity_id", person_id)
             owner_type, owner_id = self.const.entity_person, person.entity_id
             np_type = None
@@ -484,7 +360,7 @@ class BofhdExtension(BofhdCommonMethods):
                     account, person.entity_id, ou_id, affiliation)
         except self.db.DatabaseError, m:
             raise CerebrumError("Database error: %s" % m)
-        operator.store_state("new_account_passwd", {'account_id': int(account.entity_id),
-                                                    'password': passwd})
+        operator.store_state(
+            "new_account_passwd",
+            {'account_id': int(account.entity_id), 'password': passwd})
         return {'account_id': int(account.entity_id)}
-

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014 University of Oslo, Norway
+# Copyright 2014-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,16 +29,13 @@ file:
     Cerebrum.modules.bofhd.bofhd_debug_cmds/BofhdExtension
 
 """
-import cerebrum_path
-import cereconf
+import time
 
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
-from Cerebrum.modules.bofhd.cmd_param import Command, FormatSuggestion, \
-    SimpleString, Integer
+from Cerebrum.modules.bofhd import cmd_param
 
 
 class ExceptionMultipleArgs(Exception):
@@ -59,12 +56,13 @@ class BofhdExtension(BofhdCommandBase):
     """ Debug commands. """
 
     all_commands = {}
+    authz = BofhdAuth
 
-    def __init__(self, server):
-        super(BofhdExtension, self).__init__(server)
-        self.ba = BofhdAuth(self.db)
+    MIN_SLEEP = 0
+    MAX_SLEEP = 10
 
-    def get_help_strings(self):
+    @classmethod
+    def get_help_strings(cls):
         group_help = {'debug': "Debug commands.", }
 
         # The texts in command_help are automatically line-wrapped, and should
@@ -87,15 +85,19 @@ class BofhdExtension(BofhdCommandBase):
                            'Enter a string value for the exception'],
             'exc_intval': ['integer', 'Enter an integer',
                            'Enter an integer value for the exception'],
+            'wait_int': ['integer', 'How many seconds?',
+                         'How many seconds should this command sleep for?'
+                         ' (min={:d} max={:d}'.format(cls.MIN_SLEEP,
+                                                      cls.MAX_SLEEP)],
         }
         return (group_help, command_help, arg_help)
 
     #
     # debug raise_cerebrum_error
     #
-    all_commands['debug_raise_cerebrum_error'] = Command(
+    all_commands['debug_raise_cerebrum_error'] = cmd_param.Command(
         ("debug", "raise_cerebrum_error"),
-        SimpleString(help_ref='exc_strval', optional=True),
+        cmd_param.SimpleString(help_ref='exc_strval', optional=True),
     )
 
     def debug_raise_cerebrum_error(self, operator, strval="Foo Bar"):
@@ -105,9 +107,9 @@ class BofhdExtension(BofhdCommandBase):
     #
     # debug raise_bofhd_cerebrum_error
     #
-    all_commands['debug_raise_bofhd_cerebrum_error'] = Command(
+    all_commands['debug_raise_bofhd_cerebrum_error'] = cmd_param.Command(
         ("debug", "raise_bofhd_cerebrum_error"),
-        SimpleString(help_ref='exc_strval', optional=True),
+        cmd_param.SimpleString(help_ref='exc_strval', optional=True),
     )
 
     def debug_raise_bofhd_cerebrum_error(self, operator, strval="Foo Bar"):
@@ -117,10 +119,10 @@ class BofhdExtension(BofhdCommandBase):
     #
     # debug raise_exception_multiple_args
     #
-    all_commands['debug_raise_exception_multiple_args'] = Command(
+    all_commands['debug_raise_exception_multiple_args'] = cmd_param.Command(
         ("debug", "raise_exception_multiple_args"),
-        SimpleString(help_ref='exc_strval', optional=True),
-        Integer(help_ref='exc_intval', optional=True),
+        cmd_param.SimpleString(help_ref='exc_strval', optional=True),
+        cmd_param.Integer(help_ref='exc_intval', optional=True)
     )
 
     def debug_raise_exception_multiple_args(self, operator, strval="Foo Bar",
@@ -136,8 +138,9 @@ class BofhdExtension(BofhdCommandBase):
     #
     # debug cause_integrity_error
     #
-    all_commands['debug_cause_integrity_error'] = Command(
-        ("debug", "cause_integrity_error"), )
+    all_commands['debug_cause_integrity_error'] = cmd_param.Command(
+        ("debug", "cause_integrity_error")
+    )
 
     def debug_cause_integrity_error(self, operator):
         """ Cause the db-driver to raise an IntegrityError.
@@ -163,3 +166,24 @@ class BofhdExtension(BofhdCommandBase):
         # op had spreads, and adding them again did not fail. Something is
         # seriously wrong!
         raise CerebrumError("Should not be reached.")
+
+    #
+    # debug wait <n>
+    #
+    all_commands['debug_wait'] = cmd_param.Command(
+        ("debug", "wait"),
+        cmd_param.Integer(help_ref='wait_int', optional=True),
+        fs=cmd_param.FormatSuggestion('%s seconds passed.', ('wait', ))
+    )
+
+    def debug_wait(self, operator, sleep_seconds=1):
+        """ Sleep and return.
+
+        This command can be used to simulate long blocks.
+
+        """
+        sleep_seconds = min(max(int(sleep_seconds),
+                                self.MIN_SLEEP),
+                            self.MAX_SLEEP)
+        time.sleep(sleep_seconds)
+        return {'wait': sleep_seconds, }

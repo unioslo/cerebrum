@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -59,7 +59,6 @@ import hashlib
 import random
 import os
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Utils
@@ -119,6 +118,58 @@ def ip_subnet_slash_to_range(subnet):
     return start, stop
 
 
+def _get_short_timeout():
+    """ Get the shorter timeout for the short timeout hosts.
+
+    This method fetches and validates the BOFHD_SHORT_TIMEOUT cereconf
+    setting. The shorter timeout is used for hosts fetched by
+    L{_get_short_timeout_hosts}.
+
+    """
+    if hasattr(cereconf, "BOFHD_SHORT_TIMEOUT"):
+        timeout = int(cereconf.BOFHD_SHORT_TIMEOUT)
+        if not (60 <= timeout <= 3600*24):
+            raise ValueError(
+                u'Bogus BOFHD_SHORT_TIMEOUT timeout: {:d}s'.format(
+                    cereconf.BOFHD_SHORT_TIMEOUT))
+        return timeout
+    return None
+
+
+def _get_short_timeout_hosts():
+    """ Build a list of hosts, where shorter session expiry is in place.
+
+    This static method populates with _short_timeout_hosts with a list of
+    IP address pairs. Each pair represents an IP range. All bofhd *clients*
+    connecting from addresses within this range will be timed out much
+    faster than the standard L{_auth_timeout}. The specific timeout value
+    is assigned here as well.
+
+    This method has been made static for performance reasons.
+
+    Caveat: It is probably a very bad idea to put a lot of IP addresses
+    into BOFHD_SHORT_TIMEOUT_HOSTS. L{_short_timeout_hosts} is traversed
+    to generate SQL once for every command received by bofhd.
+
+    """
+    # Contains a list of pairs (first address, last address). Note that a
+    # single IP X will be mapped to a pair (X, X) (a single IP is a range
+    # with 1 element). Ranges are *inclusive* (as opposed to python's
+    # range())
+    hosts = list()
+    if hasattr(cereconf, "BOFHD_SHORT_TIMEOUT_HOSTS"):
+        for ip in cereconf.BOFHD_SHORT_TIMEOUT_HOSTS:
+            # It's a subnet (A.B.C.D/N)
+            if '/' in ip:
+                low, high = ip_subnet_slash_to_range(ip)
+                hosts.append((ip, low, high))
+            # It's a simple IP-address
+            else:
+                addr_long = ip_to_long(ip)
+                hosts.append((ip, addr_long, addr_long))
+    return hosts
+
+
 class BofhdSession(object):
 
     """ Handle database sessions for the BofhdServer.
@@ -145,71 +196,16 @@ class BofhdSession(object):
 
     """
 
-    def _get_short_timeout(self):
-        """ Get the shorter timeout for the short timeout hosts.
-
-        This method fetches and validates the BOFHD_SHORT_TIMEOUT cereconf
-        setting. The shorter timeout is used for hosts fetched by
-        L{_get_short_timeout_hosts}.
-
-        """
-        if hasattr(cereconf, "BOFHD_SHORT_TIMEOUT"):
-            timeout = int(cereconf.BOFHD_SHORT_TIMEOUT)
-            if not (60 <= timeout <= 3600*24):
-                raise ValueError("Bogus BOFHD_SHORT_TIMEOUT timeout: %ss"
-                                 % cereconf.BOFHD_SHORT_TIMEOUT)
-            self.logger.debug("Short-lived sessions expire after %ds",
-                              timeout)
-            return timeout
-        return None
-
-    def _get_short_timeout_hosts(self):
-        """ Build a list of hosts, where shorter session expiry is in place.
-
-        This static method populates with _short_timeout_hosts with a list of
-        IP address pairs. Each pair represents an IP range. All bofhd *clients*
-        connecting from addresses within this range will be timed out much
-        faster than the standard L{_auth_timeout}. The specific timeout value
-        is assigned here as well.
-
-        This method has been made static for performance reasons.
-
-        Caveat: It is probably a very bad idea to put a lot of IP addresses
-        into BOFHD_SHORT_TIMEOUT_HOSTS. L{_short_timeout_hosts} is traversed
-        to generate SQL once for every command received by bofhd.
-
-        """
-        # Contains a list of pairs (first address, last address). Note that a
-        # single IP X will be mapped to a pair (X, X) (a single IP is a range
-        # with 1 element). Ranges are *inclusive* (as opposed to python's
-        # range())
-        hosts = list()
-        if hasattr(cereconf, "BOFHD_SHORT_TIMEOUT_HOSTS"):
-            for ip in cereconf.BOFHD_SHORT_TIMEOUT_HOSTS:
-                # It's a subnet (A.B.C.D/N)
-                if '/' in ip:
-                    low, high = ip_subnet_slash_to_range(ip)
-                    hosts.append((low, high))
-                    self.logger.debug("Sessions from subnet %s [%s, %s] "
-                                      "will be short-lived", ip, low, high)
-                # It's a simple IP-address
-                else:
-                    addr_long = ip_to_long(ip)
-                    hosts.append((addr_long, addr_long))
-                    self.logger.debug("Sessions from IP %s [%s, %s] will be "
-                                      "short-lived", ip, addr_long, addr_long)
-        return hosts
-
     _auth_timeout = 3600*24*7
     """ In seconds, how long a session should live after authentication. """
 
     _seen_timeout = 3600*24
     """ In seconds, how long a session should 'idle'. """
 
-    _short_timeout = None
+    _short_timeout = _get_short_timeout()
     """ In seconds, how long a session should 'idle' for certain clients. """
 
-    _short_timeout_hosts = None
+    _short_timeout_hosts = _get_short_timeout_hosts()
     """ Which clients should have the shorter timeout setting. """
 
     def __init__(self, database, logger, session_id=None, remote_address=None):
@@ -231,9 +227,19 @@ class BofhdSession(object):
         self._owner_id = None
         self.remote_address = remote_address
 
-        # Timeouts
-        self._short_timeout = self._get_short_timeout()
-        self._short_timeout_hosts = self._get_short_timeout_hosts()
+    @classmethod
+    def _log_short_timeouts(cls, logger):
+        u""" Log the short timeout settings.
+
+        Logs the settings to the specified logger with level 'DEBUG'.
+        """
+        if cls._short_timeout is not None:
+            logger.debug("Short-lived sessions expire after %ds",
+                         cls._short_timeout)
+        if cls._short_timeout_hosts:
+            for ip, low, high in cls._short_timeout_hosts:
+                logger.debug("Sessions from IP %s [%s, %s] will be "
+                             "short-lived", ip, low, high)
 
     def _get_timeout_timestamp(self, key):
         """ Get the current timeout threshold for this session.
@@ -294,7 +300,7 @@ class BofhdSession(object):
         sql = []
         params = {}
         # 'index' is needed to number free variables in the SQL query.
-        for index, (ip_start, ip_stop) in enumerate(self._short_timeout_hosts):
+        for index, (ip, ip_start, ip_stop) in enumerate(self._short_timeout_hosts):
             sql.append("(:start%d <= bs.ip_address AND "
                        " bs.ip_address <= :stop%d)" % (index, index))
             params["start%d" % index] = ip_start
@@ -364,7 +370,6 @@ class BofhdSession(object):
 
     def get_session_id(self):
         """ Return session_id that self is bound to.  """
-
         if self._id is None:
             return self._id
 
@@ -472,24 +477,24 @@ class BofhdSession(object):
         misc_list_passwords command.
 
         """
-        if state_types is None:
-            state_types = ('*',)
-        for state in state_types:
-            sql = """
-            DELETE FROM [:table schema=cerebrum name=bofhd_session_state]
-            WHERE session_id=:session_id
-            """
-            if state != '*':
-                sql += " AND state_type=:state"
-            self._db.execute(sql, {'session_id': self.get_session_id(),
-                                   'state': state})
-            if state == '*':
-                self._db.execute("""
-                DELETE FROM [:table schema=cerebrum name=bofhd_session]
-                WHERE session_id=:session_id
-                """, {'session_id': self.get_session_id()})
+        sql = """DELETE FROM [:table schema=cerebrum name=bofhd_session_state]
+                 WHERE session_id=:session_id"""
+        binds = {'session_id': self.get_session_id()}
+        if state_types:
+            sql += " AND " + Utils.argument_to_sql(
+                state_types, 'state_type', binds, str)
+
+        self._db.execute(sql, binds)
         self._remove_old_sessions()
     # end clear_state
+
+    def clear_session(self):
+        """ Remove session. """
+        sql = """DELETE FROM [:table schema=cerebrum name=bofhd_session]
+                 WHERE session_id=:session_id"""
+        binds = {'session_id': self.get_session_id()}
+        self.clear_state()
+        self._db.execute(sql, binds)
 
     def reassign_session(self, target_id):
         """Reassociate a new entity with current session key.

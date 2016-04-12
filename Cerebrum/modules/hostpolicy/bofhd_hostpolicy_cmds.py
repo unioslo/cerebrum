@@ -1,5 +1,6 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2011 University of Oslo, Norway
+#
+# Copyright 2011-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+u""" TODO """
 
 from mx import DateTime
 
@@ -35,7 +37,6 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.dns.bofhd_dns_cmds import HostId, DnsBofhdAuth, format_day
-
 
 
 class HostPolicyBofhdAuth(DnsBofhdAuth):
@@ -93,21 +94,19 @@ class Filter(Parameter):
 
 
 class HostPolicyBofhdExtension(BofhdCommandBase):
-    """Class to expand bofhd with commands for manipulating host
-    policies.
-
-    """
+    u"""Class with commands for manipulating host policies. """
 
     all_commands = {}
+    authz = HostPolicyBofhdAuth
 
-    def __init__(self, server):
-        super(HostPolicyBofhdExtension, self).__init__(server)
-        self.ba = HostPolicyBofhdAuth(self.db)
+    def __init__(self, *args, **kwargs):
+        super(HostPolicyBofhdExtension, self).__init__(*args, **kwargs)
         # TODO: don't know where to get the zone setting from
         self.default_zone = self.const.DnsZone(
-                getattr(cereconf, 'DNS_DEFAULT_ZONE', 'uio'))
+            getattr(cereconf, 'DNS_DEFAULT_ZONE', 'uio'))
 
-    def get_help_strings(self):
+    @classmethod
+    def get_help_strings(cls):
         """Help strings are used by jbofh to give users explanations for groups
         of commands, commands and all command arguments (parameters). The
         arg_help's keys are referencing to either Parameters' _help_ref (TODO:

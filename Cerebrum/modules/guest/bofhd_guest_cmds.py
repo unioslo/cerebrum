@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012-2014 University of Oslo, Norway
+# Copyright 2012-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-""" This is a bofhd module for guest functionality.
+u""" This is a bofhd module for guest functionality.
 
 The guest commands in this module creates guest accounts.
 
@@ -31,7 +30,6 @@ TODO: More info
 """
 from mx import DateTime
 
-import cerebrum_path
 import cereconf
 import guestconfig
 
@@ -60,18 +58,15 @@ class Mobile(Parameter):
 
 
 class BofhdExtension(BofhdCommonMethods):
-
-    """ Guest commands. """
+    u""" Guest commands. """
 
     hidden_commands = {}  # Not accessible through bofh
-
     all_commands = {}
+    parent_commands = False
+    authz = BofhdAuth
 
-    def __init__(self, server):
-        super(BofhdExtension, self).__init__(server)
-        self.ba = BofhdAuth(self.db)
-
-    def get_help_strings(self):
+    @classmethod
+    def get_help_strings(cls):
         """ Help strings for our commands and arguments. """
         group_help = {'guest': "Commands for handling guest users", }
 

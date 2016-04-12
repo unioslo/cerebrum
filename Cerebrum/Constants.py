@@ -1024,6 +1024,11 @@ class ConstantsBase(DatabaseAccessor):
         return clist
     # end fetch_constants
 
+    def cache_constants(self):
+        u""" Do a lookup on every constant, to cause caching of values. """
+        for const_obj in self.__iterate_constants(None):
+            int(const_obj)
+
     def human2constant(self, human_repr, const_type=None):
         """Map human representation of a const to _CerebrumCode.
 

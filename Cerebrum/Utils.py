@@ -1534,7 +1534,8 @@ def argument_to_sql(argument, sql_attr_name, binds,
     # the safe SQL string from this function with the values from L{binds}.
     binds_name = sql_attr_name.replace('.', '_')
 
-    if isinstance(argument, (collections.Sized, collections.Iterable)):
+    if (isinstance(argument, (collections.Sized, collections.Iterable)) and
+            not isinstance(argument, basestring)):
         assert len(argument) > 0, "List can not be empty."
         if len(argument) == 1 and isinstance(argument, collections.Sequence):
             # Sequence with only one scalar, let's unpack and treat as scalar.

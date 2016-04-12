@@ -103,6 +103,3 @@ class BofhdExtension(base.BofhdExtension):
             mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
 
         return mapping
-
-if __name__ == '__main__':
-    del cerebrum_path

@@ -80,23 +80,33 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     """Commands pertinent to user handling in VH."""
 
     all_commands = dict()
+    authz = BofhdVirtHomeAuth
 
-    # FIXME: Anytime *SOMETHING* from no/uio/bofhd_uio_cmds.py:BofhdExtension
-    # is used here, pull that something into a separate BofhdCommon class and
-    # stuff that into Cerebrum/modules/bofhd. Make
-    # no/uio/bofhd_uio_cmds.py:BofhdExtension inherit that common
-    # class. Refactoring, hell yeah!
-    def __init__(self, server):
-        super(BofhdVirthomeCommands, self).__init__(server)
-
-        self.ba = BofhdVirtHomeAuth(self.db)
+    def __init__(self, *args, **kwargs):
+        super(BofhdVirthomeCommands, self).__init__(*args, **kwargs)
         self.virtaccount_class = VirtAccount
         self.fedaccount_class = FEDAccount
 
-        self.virthome = VirthomeBase(self.db)
-        self.vhutils = VirthomeUtils(self.db)
+    @property
+    def virthome(self):
+        u""" Virthome command implementations. """
+        try:
+            return self.__virthome
+        except AttributeError:
+            self.__virthome = VirthomeBase(self.db)
+            return self.__virthome
 
-    def get_help_strings(self):
+    @property
+    def vhutils(self):
+        u""" Virthome command helpers. """
+        try:
+            return self.__vhutils
+        except AttributeError:
+            self.__vhutils = VirthomeUtils(self.db)
+            return self.__vhutils
+
+    @classmethod
+    def get_help_strings(cls):
         """Return a tuple of help strings for virthome bofhd.
 
         The help strings drive dumb clients' (such as jbofh) interface. The
