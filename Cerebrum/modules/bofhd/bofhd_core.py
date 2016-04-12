@@ -539,8 +539,7 @@ class BofhdCommandBase(object):
         if entity_type == self.const.entity_account:
             acc = self._get_account(entity_id, idtype='id')
             return acc.account_name
-        elif entity_type in (self.const.entity_group,
-                             self.const.entity_virtual_group):
+        elif entity_type in (self.const.entity_group, ):
             group = self._get_group(entity_id, idtype='id')
             return group.group_name
         elif entity_type == self.const.entity_disk:
