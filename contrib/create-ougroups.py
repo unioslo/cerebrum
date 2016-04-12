@@ -221,6 +221,7 @@ def main():
 
     for tp in args.types:
         if tp in configs:
+            logger.info('Setting up groups for rule %s', tp)
             conf = configs[tp]
             aff, status = parse_aff(conf.aff, co)
             source = co.AuthoritativeSystem(conf.source)
@@ -230,14 +231,18 @@ def main():
             perspective = co.OUPerspective(conf.perspective)
             spreads = map(co.Spread, conf.spreads)
             for root in roots:
+                logger.info('Setting up root %s', root)
                 setup_types(db, root, recursion, aff, status, source, members,
                             perspective, conf.nametemplate,
                             conf.descriptiontemplate, spreads, co)
+            logger.info('Done setting up %s', tp)
         else:
             sys.exit(1)
     if args.commit:
+        logger.info('Committing')
         db.commit()
     else:
+        logger.info('Doing rollback')
         db.rollback()
 
 if __name__ == '__main__':
