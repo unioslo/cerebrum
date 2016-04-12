@@ -144,7 +144,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     all_commands = {}
     hidden_commands = {}
-    parent_commands = False
+    parent_commands = True
 
     authz = UiOAuth
     external_id_mappings = {}
