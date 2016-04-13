@@ -47,7 +47,8 @@ def main():
     args = parser.parse_args()
     try:
         server = xmlrpclib.ServerProxy(args.url)
-        motd = server.get_motds(u'ZabbixTest', 1)
+        motd = server.get_motd(u'ZabbixTest', 1)
+        # We may want to match the response one day.
         # print('MOTD: {}'.format(motd))
         sys.exit(0)
     except socket.gaierror:
