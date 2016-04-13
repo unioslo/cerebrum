@@ -151,7 +151,7 @@ copy_uio = [
     'user_history',
     'user_info',
     'user_password',
-    'user_reserve',
+    'user_reserve_personal',
     'user_set_expire',
     'user_set_owner',
 ]
