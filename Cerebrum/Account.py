@@ -166,14 +166,18 @@ class AccountType(object):
                 'ou_id': ou_id,
                 'affiliation': int(affiliation),
                 'account_id': self.entity_id}
+        where = ' AND '.join(('{} = :{}'.format(x, x) for x in cols.keys()))
+        priority = self.query_1(
+            """SELECT priority FROM [:table schema=cerebrum name=account_type]
+            WHERE {}""".format(where), cols)
         self.execute("""
-        DELETE FROM [:table schema=cerebrum name=account_type]
-        WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
-                                   for x in cols.keys()]), cols)
+                     DELETE FROM [:table schema=cerebrum name=account_type]
+                     WHERE {}""".format(where), cols)
         self._db.log_change(self.entity_id, self.const.account_type_del,
                             None,
                             change_params={'ou_id': int(ou_id),
-                                           'affiliation': int(affiliation)})
+                                           'affiliation': int(affiliation),
+                                           'priority': int(priority)})
 
     def delete_ac_types(self):
         """Delete all the AccountTypes for the account."""
