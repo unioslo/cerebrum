@@ -1532,10 +1532,6 @@ class BofhdExtension(BofhdCommonMethods):
         # ("valid_addr",)),
         ("Valid addresses:  %s",
          ("aliases", )),
-        ("Dep restriction:  %s",
-         ("deprestr", )),
-        ("Join restriction: %s",
-         ("joinrestr", )),
         ("Hidden addr list: %s",
          ('hidden', )),
         #
@@ -5092,25 +5088,16 @@ Addresses and settings:
               "to become group member" % src_entity_id
         return self._group_add_entity(operator, src_entity, dest_group)
 
-    ## exchange-relatert-jazz
-    ## group exchangegroup_create
-    # should probably ask about language for displayname, but we
-    # can let that be for now
-    # perm_filter is now "is_postmaster" but it may be changed to
-    # accomodate local-IT in the future. For now the method is to
-    # be used by postmaster only.
-    # yes_no is a bit stupid, if the group is new the answer does not
-    # matter at all. not sure how to make this nicer
-    all_commands['group_exchangegroup_create'] = Command(
-        ("group", "exchangegroup_create"),
+    # group exchange_create
+    all_commands['group_exchange_create'] = Command(
+        ("group", "exchange_create"),
         GroupName(help_ref="group_name_new"),
         SimpleString(help_ref="group_disp_name", optional='true'),
         SimpleString(help_ref="string_dl_desc"),
         YesNo(help_ref='yes_no_from_existing', default='No'),
         fs=FormatSuggestion("Group created, internal id: %i", ("group_id",)),
         perm_filter='is_postmaster')
-    def group_exchangegroup_create(self, operator, groupname, displayname, description, from_existing=None):
-        # check for appropriate priviledge
+    def group_exchange_create(self, operator, groupname, displayname, description, from_existing=None):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to group')
         existing_group = False
@@ -5147,15 +5134,11 @@ Addresses and settings:
                             group_vis,
                             groupname, description=description,
                             roomlist=std_values['roomlist'],
-                            deprestr=std_values['deprestr'],
-                            joinrestr=std_values['joinrestr'],
                             hidden=std_values['hidden'])
             else:
                 dl_group.populate(roomlist=std_values['roomlist'],
-                                deprestr=std_values['deprestr'],
-                                joinrestr=std_values['joinrestr'],
-                                hidden=std_values['hidden'],
-                                parent=grp)
+                                  hidden=std_values['hidden'],
+                                  parent=grp)
             dl_group.write_db()
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
@@ -5166,9 +5149,9 @@ Addresses and settings:
         dl_group.write_db()
         return "Created Exchange group %s" % groupname
 
-    # group info
-    all_commands['group_exchangegroup_info'] = Command(
-        ("group", "exchangegroup_info"), GroupName(help_ref="id:gid:name"),
+    # group exchange_info
+    all_commands['group_exchange_info'] = Command(
+        ("group", "exchange_info"), GroupName(help_ref="id:gid:name"),
         fs=FormatSuggestion([("Name:         %s\n" +
                               "Spreads:      %s\n" +
                               "Description:  %s\n" +
@@ -5187,26 +5170,20 @@ Addresses and settings:
                                  ('displayname',)),
                              ("Roomlist:     %s",
                                  ('roomlist',)),
-                             ("Depart res.:  %s",
-                                 ('deprestr',)),
-                             ("Join restr.:  %s",
-                                 ('joinrestr',)),
                              ("Hidden:       %s",
                                  ('hidden',)),
-                             ("PrimaryAddr.: %s",
+                             ("PrimaryAddr:  %s",
                                  ('primary',)),
                              ("Aliases:      %s",
                                  ('aliases_1',)),
                              ("              %s",
                                  ('aliases',))]))
-    def group_exchangegroup_info(self, operator, groupname):
-        # check for appropriate priviledge
+    def group_exchange_info(self, operator, groupname):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to group')
 
-        grp = self._get_group(groupname, grtype="DistributionGroup")
-
         co = self.const
+        grp = self._get_group(groupname, grtype="DistributionGroup")
         gr_info = self._entity_info(grp)
 
         # Don't stop! Never give up!
@@ -5255,7 +5232,7 @@ Addresses and settings:
                                          str(ET(it2))))]
 
         ret.append({"members": ", ".join(entries)})
-        # Find distrgoup info
+        # Find distgroup info
         roomlist = True if grp.roomlist == 'T' else False
         dgr_info = grp.get_distgroup_attributes_and_targetdata(
                                                         roomlist=roomlist)
@@ -5266,13 +5243,13 @@ Addresses and settings:
         # Yes, I'm gonna do it!
         tmp = {}
         for attr in ['displayname', 'roomlist']:
-            if dgr_info.has_key(attr):
+            if attr in dgr_info:
                 tmp[attr] = dgr_info[attr]
         ret.append(tmp)
 
         tmp = {}
-        for attr in ['deprestr', 'joinrestr', 'hidden', 'primary']:
-            if dgr_info.has_key(attr):
+        for attr in ['hidden', 'primary']:
+            if attr in dgr_info:
                 tmp[attr] = dgr_info[attr]
         ret.append(tmp)
 
@@ -5284,19 +5261,14 @@ Addresses and settings:
                 ret.append({'aliases': alias})
 
         return ret
-    # end group_info
 
-    ## exchange-relatert-jazz
-    # deactivate a group as distribution-group, but we may not
-    # remove such groups permanently as the addresses then may be
-    # re-used
-    all_commands['group_exchangegroup_remove'] = Command(
-        ("group", "exchangegroup_remove"),
+    # group exchange_remove
+    all_commands['group_exchange_remove'] = Command(
+        ("group", "exchange_remove"),
         GroupName(help_ref="group_name", repeat='true'),
         YesNo(help_ref='yes_no_expire_group', default='No'),
-        # perm_filter makes the command visible
         perm_filter='is_postmaster')
-    def group_exchangegroup_remove(self, operator, groupname, expire_group=None):
+    def group_exchange_remove(self, operator, groupname, expire_group=None):
         # check for appropriate priviledge
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to group')
@@ -5315,48 +5287,22 @@ Addresses and settings:
             dl_group.write_db()
         return "Exchange group data removed for %s" % groupname
 
-    ## group exchangegroup_attr_set
-    #  Valid attributes are:
-    #    - depart_restriction (Open, Close, Approval, Required)
-    #    - join_restriction (Open, Close, Approval, Required)
-    #    - addrbook_hidden T/F
-    all_commands['group_exchangegroup_attr_set'] = Command(
-        ("group", "exchangegroup_attr_set"),
+    # group exchange_visibility
+    all_commands['group_exchange_visibility'] = Command(
+        ("group", "exchange_visibility"),
         GroupName(help_ref="group_name"),
-        GroupExchangeAttr(default='addrbook_visibility'),
-        # no help here as the values may differ
-        SimpleString(),
+        YesNo(optional=False, help_ref='yes_no_visible'),
         perm_filter='is_postmaster')
-    def group_exchangegroup_attr_set(self, operator, groupname, attr, val):
-        # attributte "roomlist" exists for distribution groups,
-        # but there are quite a few differences between roomlists
-        # and distributions group and we therefore don't support
-        # making existing distribution groups into roomlists.
-        # check for appropriate priviledges
+    def group_exchange_visibility(self, operator, groupname, visible):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to group')
         dl_group = self._get_group(groupname, idtype='name',
                                    grtype="DistributionGroup")
-        if attr == 'depart_restriction':
-            if val in dl_group.ret_valid_restrictions(variant="depart"):
-                dl_group.set_depjoin_restriction(variant="depart",
-                                                 restriction=val)
-        elif attr == 'join_restriction':
-            if val in dl_group.ret_valid_restrictions():
-                dl_group.set_depjoin_restriction(restriction=val)
-        elif attr == 'addrbook_visibility':
-            # We translate the argument. V and H are not ambiguous.
-            if val == 'V':
-                t_val = 'F'
-            elif val == 'H':
-                t_val = 'T'
-            else:
-                return 'Choose either \'V\' or \'H\''
-            dl_group.set_hidden(hidden=t_val)
-        else:
-            return "No such attribute %s" % attr
+        visible = self._get_boolean(visible)
+        dl_group.set_hidden(hidden='F' if visible else 'T')
         dl_group.write_db()
-        return "Ok, modified attribute %s with %s" % (attr, val)
+        return "OK, group {} is now {}".format(
+            groupname, 'visible' if visible else 'hidden')
 
     # create roomlists, which are a special kind of distribution group
     # no re-use of existing groups allowed
@@ -5413,8 +5359,6 @@ Addresses and settings:
                       group_vis,
                       groupname, description=description,
                       roomlist=std_values['roomlist'],
-                      deprestr=std_values['deprestr'],
-                      joinrestr=std_values['joinrestr'],
                       hidden=std_values['hidden'])
         room_list.write_db()
         room_list.add_spread(self.const.Spread(cereconf.EXCHANGE_GROUP_SPREAD))
@@ -5553,7 +5497,7 @@ Addresses and settings:
         if grp.has_extension('DistributionGroup'):
             raise CerebrumError(
                 "Cannot delete distribution groups, use 'group"
-                " exchangegroup_remove' to deactivate %s" % groupname)
+                " exchange_remove' to deactivate %s" % groupname)
         elif grp.has_extension('PosixGroup'):
             raise CerebrumError(
                 "Cannot delete posix groups, use 'group demote_posix %s'"
@@ -8262,7 +8206,7 @@ Addresses and settings:
         # dissallow spread-setting for distribution groups
         if cereconf.EXCHANGE_GROUP_SPREAD and \
                 str(spread) == cereconf.EXCHANGE_GROUP_SPREAD:
-            return "Please create distribution group via 'group exchangegroup_create' in bofh"
+            return "Please create distribution group via 'group exchange_create' in bofh"
         if entity.has_spread(spread):
             raise CerebrumError("entity id=%s already has spread=%s" %
                                 (id, spread))
@@ -8309,7 +8253,7 @@ Addresses and settings:
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         # exchange-relatert-jazz
         # make sure that if anyone uses spread remove instead of
-        # group exchangegroup_remove the appropriate clean-up is still
+        # group exchange_remove the appropriate clean-up is still
         # done
         if (entity_type == 'group' and
                 entity.has_spread(cereconf.EXCHANGE_GROUP_SPREAD)):
