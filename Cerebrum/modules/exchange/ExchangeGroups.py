@@ -1,4 +1,6 @@
-# -*- coding: iso-8859-1 -*-
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
 # Copyright 2013-2015 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -24,8 +26,7 @@ attributes necessary for establishing distribution groups in Exchange
 
 Note that distribution groups come in two flavors, based on what kind
 of members they accept. For now only accounts and rooms are allowed."""
-import cerebrum_path
-getattr(cerebrum_path, "linter", "is noisy!")
+
 import cereconf
 
 from Cerebrum.Utils import Factory
@@ -57,7 +58,7 @@ class DistributionGroup(Group_class):
 
     """
     __read_attr__ = ('__in_db',)
-    __write_attr__ = ('roomlist', 'deprestr', 'joinrestr', 'hidden')
+    __write_attr__ = ('roomlist', 'hidden')
 
     def clear(self):
         """Clear all object attributes."""
@@ -73,8 +74,6 @@ class DistributionGroup(Group_class):
                  create_date=None,
                  expire_date=None,
                  roomlist=None,
-                 deprestr=None,
-                 joinrestr=None,
                  hidden=None,
                  parent=None):
         """Populate Distribution group.
@@ -103,12 +102,6 @@ class DistributionGroup(Group_class):
         :type roomlist:
         :param roomlist:
 
-        :type deprestr:
-        :param deprestr:
-
-        :type joinrestr:
-        :param joinrestr:
-
         :type hidden:
         :param hidden:
 
@@ -124,8 +117,6 @@ class DistributionGroup(Group_class):
                                                     expire_date)
         self.__in_db = False
         self.roomlist = roomlist
-        self.deprestr = deprestr
-        self.joinrestr = joinrestr
         self.hidden = hidden
 
     def write_db(self):
@@ -136,17 +127,11 @@ class DistributionGroup(Group_class):
         if not self.__in_db:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=distribution_group]
-              (group_id, roomlist,
-               deprestr,
-               joinrestr, hidden)
-            VALUES (:g_id, :roomlist, :deprestr,
-                    :joinrestr, :hidden)""",
+              (group_id, roomlist, hidden)
+            VALUES (:g_id, :roomlist, :hidden)""",
                          {'g_id': self.entity_id,
                           'roomlist': self.roomlist,
-                          'deprestr': self.deprestr,
-                          'joinrestr': self.joinrestr,
                           'hidden': self.hidden})
-            # exchange-relatert-jazz
             if self.roomlist == 'T':
                 self._db.log_change(self.entity_id,
                                     self.const.dl_roomlist_create,
@@ -158,14 +143,10 @@ class DistributionGroup(Group_class):
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=distribution_group]
-            SET roomlist=:roomlist, deprestr=:deprestr,
-                joinrestr=:joinrestr, hidden=:hidden
+            SET roomlist=:roomlist, hidden=:hidden
             WHERE group_id=:g_id""", {'g_id': self.entity_id,
                                       'roomlist': self.roomlist,
-                                      'deprestr': self.deprestr,
-                                      'joinrestr': self.joinrestr,
                                       'hidden': self.hidden})
-        # exchange-relatert-jazz
         # should probably param-log all relevant data!
         self._db.log_change(self.entity_id,
                             self.const.dl_group_modify,
@@ -177,8 +158,6 @@ class DistributionGroup(Group_class):
     def __eq__(self, other):
         assert isinstance(other, DistributionGroup)
         if self.roomlist == other.roomlist and \
-           self.deprestr == other.deprestr and \
-           self.joinrestr == other.joinrestr and \
            self.hidden == other.hidden:
             return self.__super.__eq__(other)
         return False
@@ -191,8 +170,6 @@ class DistributionGroup(Group_class):
             create_date=None,
             expire_date=None,
             roomlist=None,
-            deprestr=None,
-            joinrestr=None,
             hidden=None):
         """
         """
@@ -204,11 +181,8 @@ class DistributionGroup(Group_class):
                                    create_date,
                                    expire_date,
                                    roomlist,
-                                   deprestr,
-                                   joinrestr,
                                    hidden)
         DistributionGroup.write_db(self)
-        # DistributionGroup.find(self, self.entity_id)
 
     def find(self, group_id):
         """Look up a DistributionGroup.
@@ -216,9 +190,8 @@ class DistributionGroup(Group_class):
         :type group_id: int
         :param group_id: The entity-id of the DistributionGroup."""
         super(DistributionGroup, self).find(group_id)
-        (self.roomlist, self.deprestr, self.joinrestr,
-         self.hidden) = self.query_1("""
-        SELECT roomlist, deprestr, joinrestr, hidden
+        (self.roomlist, self.hidden) = self.query_1("""
+        SELECT roomlist, hidden
         FROM [:table schema=cerebrum name=distribution_group]
         WHERE group_id=:g_id""", {'g_id': self.entity_id})
         self.__in_db = True
@@ -233,7 +206,6 @@ class DistributionGroup(Group_class):
         SELECT group_id
         FROM [:table schema=cerebrum name=distribution_group]""")
 
-    # assign or remove roomlist status
     def set_roomlist_status(self, roomlist='F'):
         """Set roomlist status for a distribution group.
 
@@ -254,39 +226,6 @@ class DistributionGroup(Group_class):
           WHERE group_id=:g_id""", {'g_id': self.entity_id,
                                     'roomlist': roomlist})
 
-    # set depart/join restrictions for group
-    # implementing this as one method as the restriction rule set
-    # is the same for both join and depart. if this should change
-    # in the future  a re-write may be advisable.
-    def set_depjoin_restriction(self, variant="join", restriction="Closed"):
-        """Set join and depart restrictions for a Distribution Group.
-
-        :type variant: str
-        :param variant: Alter 'join' or 'part' restrictions.
-
-        :type restriction: str
-        :param restriction: Set Member[Join|Part]ApprovalRequired to
-            'Open', 'Closed' or 'ApprovalRequired'."""
-        attribute = None
-        cl_type = None
-        if variant == 'join':
-            attribute = 'joinrestr'
-            cl_type = self.const.dl_group_joinre
-        elif variant == 'depart':
-            attribute = 'deprestr'
-            cl_type = self.const.dl_group_depres
-        else:
-            raise self._db.IntegrityError, \
-                "Only join and depart are valid variants"
-        self._db.log_change(self.entity_id, cl_type,
-                            None,
-                            change_params={attribute: restriction})
-        return self.execute("""
-          UPDATE [:table schema=cerebrum name=distribution_group]
-            SET %s=:restriction
-          WHERE group_id=:g_id""" % attribute, {'g_id': self.entity_id,
-                                                'restriction': restriction})
-
     # change the visibility in address list for a distribution group
     # default is visible
     def set_hidden(self, hidden='F'):
@@ -306,25 +245,10 @@ class DistributionGroup(Group_class):
     def ret_standard_attr_values(self, room=False):
         if not room:
             return {'roomlist': 'F',
-                    'deprestr': 'Closed',
-                    'joinrestr': 'Closed',
                     'hidden': 'T'}
         else:
             return {'roomlist': 'T',
-                    'deprestr': 'Closed',
-                    'joinrestr': 'Closed',
                     'hidden': 'F'}
-
-    # right now the restrictions are the same, but that may
-    # change in the future
-    def ret_valid_restrictions(self, variant='join'):
-        if variant == 'join':
-            return ['Open', 'Closed', 'ApprovalRequired']
-        elif variant == 'depart':
-            return ['Open', 'Closed', 'ApprovalRequired']
-        else:
-            raise self._db.IntegrityError, \
-                "Only join and depart restriction are supported in the schema"
 
     def ret_standard_language(self):
         return 'nb'
@@ -360,8 +284,6 @@ class DistributionGroup(Group_class):
                         'description': self.description,
                         'displayname': display_name,
                         'group_id': self.entity_id,
-                        'deprestr': self.deprestr,
-                        'joinrestr': self.joinrestr,
                         'roomlist': self.roomlist}
             return all_data
 
@@ -377,8 +299,8 @@ class DistributionGroup(Group_class):
             # could not find primary address for the e-mail target
             # this happens from time to time, and we should be able
             # to identify the error
-            raise self._db.IntegrityError, \
-                "No primary addresse registered for %s" % self.group_name
+            raise self._db.IntegrityError(
+                "No primary address registered for {}".format(self.group_name))
         ea.clear()
         ea.find(epat.email_primaddr_id)
         ed.clear()
@@ -394,15 +316,11 @@ class DistributionGroup(Group_class):
                     'displayname': display_name,
                     'group_id': self.entity_id,
                     'roomlist': self.roomlist,
-                    'deprestr': self.deprestr,
-                    'joinrestr': self.joinrestr,
                     'hidden': self.hidden,
                     'primary': primary_address,
                     'aliases': addrs}
         return all_data
 
-    # exchange-relatert-jazz
-    #
     # the following three methods could be placed into a separate
     # Email-mixin class for Distribution groups, but as there
     # are no clear plans to expand usage of mail functionality for

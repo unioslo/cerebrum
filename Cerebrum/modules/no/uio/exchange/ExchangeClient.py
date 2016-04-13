@@ -1041,10 +1041,10 @@ class ExchangeClient(PowershellClient):
         """Set the visibility of a DistributionGroup in the address books.
 
         :type gname: string
-        :param gname: The gropname associated with the mailbox.
+        :param gname: The group name
 
-        :type enabled: bool
-        :param enabled: To show or hide the mailbox. Default show.
+        :type visible: bool
+        :param visible: Should the group be visible? Defaults to true
 
         :raises ExchangeException: If the command fails to run."""
         cmd = self._generate_exchange_command(
