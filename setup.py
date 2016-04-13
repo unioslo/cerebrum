@@ -185,6 +185,9 @@ class LocaleInstaller(Command):
                               '-o',
                               os.path.join(lang_path, mo_basename),
                               po_file))
+                continue
+            self.warn('No locale for {!r} in language {!r}'.format(namespace,
+                                                                   lang_dir))
 
 
 class CerebrumLocales(LocaleInstaller):
