@@ -61,11 +61,7 @@ class IPv6Subnet(Entity):
         try:
             IPv6Subnet.validate_subnet(subnet)
             return True
-        except SubnetError, e:
-            # If a valid IPv6 was given, but the mask was invalid, we should
-            # raise the error message, as the user most likely just made a typo
-            if e.message.startswith('Invalid subnet mask'):
-                raise
+        except SubnetError:
             return False
     is_valid_subnet = staticmethod(is_valid_subnet)
 
