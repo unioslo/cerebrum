@@ -19,15 +19,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Simple script that creates the first distributiongroup in Cerebrum.
-If you want some other group name, you will add getopt-stuff to this script! Or else!!1
+If you want some other group name, you will add getopt-stuff to this script!
+Or else!!1
 """
 import sys
 
-import cerebrum_path
-import cereconf
-
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.Email import EmailDomain 
+from Cerebrum.modules.Email import EmailDomain
 from Cerebrum.modules.Email import EmailAddress
 from Cerebrum.modules.Email import EmailPrimaryAddressTarget
 
@@ -54,10 +52,12 @@ ac.clear()
 ac.find_by_name('bootstrap_account')
 
 gr.clear()
-gr.populate(ac.entity_id, co.group_visibility_all, 'groupadmin', 'Default group moderator')
+gr.populate(ac.entity_id,
+            co.group_visibility_all,
+            'groupadmin',
+            'Default group moderator')
 gr.write_db()
 
-#opprett/finn gruppe
 et.clear()
 et.populate(co.email_target_dl_group, gr.entity_id, co.entity_group)
 et.write_db()
@@ -82,8 +82,6 @@ dg.populate(creator_id=ac.entity_id,
             create_date=None,
             expire_date=None,
             roomlist='F',
-            deprestr='Closed',
-            joinrestr='Closed',
             hidden='T',
             parent=gr)
 dg.write_db()

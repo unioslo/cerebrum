@@ -1,5 +1,7 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2014 University of Oslo, Norway
+#
+# Copyright 2014-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -110,16 +112,6 @@ class CLConstants(CLConstants):
     dl_group_hidden = _ChangeTypeCode('dlgroup', 'modhidden',
                                       'group mod hidden for %(subject)s',
                                       ('hidden:%(string:hidden)'))
-    dl_group_depres = _ChangeTypeCode('dlgroup',
-                                      'moddepres',
-                                      'group mod dep restriction for '
-                                      '%(subject)s',
-                                      ('deprestr:%(string:deprestr)'))
-    dl_group_joinre = _ChangeTypeCode('dlgroup',
-                                      'modjoinre',
-                                      'group mod join restriction for '
-                                      '%(subject)s',
-                                      ('joinrestr:%(string:joinrestr)'))
     dl_group_manby = _ChangeTypeCode('dlgroup', 'modmanby',
                                      'group mod managed by for %(subject)s',
                                      ('manby:%(str:manby)'))

@@ -22,7 +22,7 @@
 category:metainfo;
 name=dlgroup;
 category:metainfo;
-version=1.1;
+version=1.2;
 
 /*
 
@@ -49,12 +49,6 @@ version=1.1;
     Functionality related to roomlists has low priority and might
     not be implemented at this point (Jazz, 2013-11). Should be
     implemented as a separate command!
-  - MemberDepartRestriction: rules for leaving the group in Exchange, 
-    from 'deprestr'. Valide values: Open, Closed, ApprovalRequired, 
-    default "Closed", validated database-level
-  - MemberJoinRestriction: rules for becoming a member of the group
-    in Exchange, from 'joinrestr'. Valide values: Open, Closed,
-    ApprovalRequired, default "Closed", validated database-level
   - HiddenFromAddressListEnabled: should the group be made visible
     in Exchange address list, from 'hidden'. Default value = true.
   - PrimarySMTPAddress: email_primary_address_address_id for target
@@ -76,22 +70,6 @@ CREATE TABLE distribution_group
         NOT NULL
         CONSTRAINT distribution_group_roomlist_bool
                 CHECK (roomlist IN ('T', 'F')),
-
-  deprestr  CHAR VARYING (64)
-        DEFAULT 'Closed'
-        NOT NULL
-        CONSTRAINT distribution_group_deprestr
-                CHECK (deprestr IN ('Closed',
-                                    'Open',
-                                    'ApprovalRequired')),
-
-  joinrestr CHAR VARYING (64)
-        DEFAULT 'Closed'
-        NOT NULL
-        CONSTRAINT distribution_group_joinrestr
-                CHECK (joinrestr IN ('Closed',
-                                     'Open',
-                                     'ApprovalRequired')),
 
   hidden    CHAR (1)
         DEFAULT 'F'

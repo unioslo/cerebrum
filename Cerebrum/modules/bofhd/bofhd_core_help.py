@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2013-2015 University of Oslo, Norway
@@ -223,6 +224,8 @@ command_help = {
             "Turn delivery pause on or off",
         "email_list_pause":
             "List all mailtargets with paused delivery",
+        "email_show_reservation_status":
+            "Show reservation status for an account",
     },
     'entity': {
         'entity_accounts':
@@ -241,16 +244,18 @@ command_help = {
         'group_def': 'Set default filegroup for an account',
         'group_delete': 'Delete a group from Cerebrum',
         'group_demote_posix':
-            'Make an existing POSIX-group into a Cerebrum group',
-        'group_exchangegroup_attr_set':
-            'Set an Exchange-group specific attribute',
-        'group_exchangegroup_create':
-            'Make an Exchange-group from an existing or a new group',
-        'group_exchangegroup_remove':
-            'Remove Exchange-group attributes from a group',
+            'Make an existing POSIX group into a Cerebrum group',
+        'group_exchange_visibility':
+            'Set address book visibility for an Exchange group',
+        'group_exchange_info':
+            'View information about an Exchange group',
+        'group_exchange_create':
+            'Create an Exchange group from an existing or a new group',
+        'group_exchange_remove':
+            'Remove Exchange group attributes from a group',
         'group_gadd': 'Let src_group(s) join dest_group(s)',
         'group_gremove': 'Remove src_group(s) from given dest_group(s)',
-        'group_info': 'View information about a spesific group',
+        'group_info': 'View information about a group',
         'group_list': 'List direct members of a group',
         'group_list_expanded':
             'List all members of a group, direct and indirect',
@@ -258,7 +263,7 @@ command_help = {
         'group_padd': 'Let a person join a group',
         'group_premove': 'Remove a person from a group',
         'group_personal': 'Create a new personal filegroup for an account',
-        'group_promote_posix': 'Make an existing group into a POSIX-group',
+        'group_promote_posix': 'Make an existing group into a POSIX group',
         'group_roomlist_create':
             'Make a roomlist from scratch. Remove with spread remove/group delete',
         'group_multi_remove': 'Remove member(s) from a given group',
@@ -903,7 +908,7 @@ arg_help = {
     'yes_no_all_op':
         ['all', 'All operations?'],
     'yes_no_from_existing':
-        ['from_existing', 'Create Exchange-group from existing group, optional, def no, (y/n)?'],
+        ['from_existing', 'Create Exchange group from existing group, optional, def no, (y/n)?'],
     'yes_no_expire_group':
         ['expire_group', 'Set an expire data in 90 days for group (y/n)?'],
     'yes_no_include_expired':
@@ -912,6 +917,8 @@ arg_help = {
         ['yes_no_with_request', 'Issue bofhd request? (y/n)'],
     'yes_no_extrainfo':
         ['yes_no_extrainfo', 'Show extra information? (y/n)'],
+    'yes_no_visible':
+        ['visible', 'Should it be visible? (y/n)'],
     'show_policy':
         ['policy', 'Show policies? (policy)',
          'If argument is "policy", all hostpolicies related to the given '

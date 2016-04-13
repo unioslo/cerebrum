@@ -1396,33 +1396,6 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
                              (event['event_id'], mngdby_address, gname, e))
             raise EventExecutionException
 
-    @event_map('dlgroup:moddepres', 'dlgroup:modjoinre')
-    def set_distgroup_restriction(self, event):
-        """Set depart and join restrictions on a distribution group.
-
-        :type event: Cerebrum.extlib.db_row.row
-        :param event: The event returned from Change- or EventLog."""
-        gname, description = self.ut.get_group_information(
-            event['subject_entity'])
-        params = self.ut.unpickle_event_params(event)
-        part = params.get('deprestr', None)
-        join = params.get('joinrestr', None)
-        try:
-            self.ec.set_distgroup_member_restrictions(gname, join, part)
-            if join:
-                self.ut.log_event_receipt(event, 'dlgroup:modjoinre')
-                self.logger.info('eid:%d: Set join restriction to %s for %s' %
-                                 (event['event_id'], join, gname))
-            if part:
-                self.ut.log_event_receipt(event, 'dlgroup:moddepres')
-                self.logger.info('eid:%d: Set part restriction to %s for %s' %
-                                 (event['event_id'], part, gname))
-        except (ExchangeException, ServerUnavailableException), e:
-            self.logger.warn(
-                'eid:%d: Can\'t set join/part restriction on %s: %s' %
-                (event['event_id'], gname, e))
-            raise EventExecutionException
-
     # TODO: Is add and del relevant?
     # TODO: This works for description?
     @event_map('entity_name:add', 'entity_name:mod', 'entity_name:del')
