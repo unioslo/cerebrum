@@ -73,8 +73,7 @@ class IPv6Subnet(Entity):
         """
         try:
             ip, mask = subnet.split('/')
-            if mask != '':
-                mask = int(mask)
+            mask = int(mask)
         except ValueError:
             raise SubnetError("Not a valid subnet '%s'" % subnet)
         if not IPv6Utils.is_valid_ipv6(ip):
@@ -84,7 +83,7 @@ class IPv6Subnet(Entity):
         # will validate an unspecified subnet mask (''), enabling bofh-users
         # to specify a subnet like this: '2007:700:111:1/'. This should be
         # fixed when/if proper subnet-handling is implemented.
-        if mask != '' and (mask < 0 or mask > 128):
+        if mask < 0 or mask > 128:
             raise SubnetError("Invalid subnet mask '%s'; "
                               "outside range 0-128" % mask)
         return True
