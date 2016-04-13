@@ -118,6 +118,51 @@ class BofhdServerImplementation(object):
         # Needed? Only used to throw ServerRestartedError...
         return Cache.Cache()
 
+    def _log_help_text_mismatch(self):
+        u""" Verify consistency of `self.cmdhelp`.
+
+        Reports mismatch between loaded extensions and available help texts
+        using the logger.
+        """
+        # Check that the help text is okay
+        # Reformat the command definitions to be suitable for the help.
+        cmds_for_help = dict()
+        for cls in self.extensions:
+            cmds_for_help.update(
+                dict((cmdname, command.get_struct(self.cmdhelp))
+                     for cmdname, command
+                     in cls.list_commands('all_commands').iteritems()
+                     if command and cmdname and self.classmap[cmdname] == cls))
+
+        self.__help.check_consistency(cmds_for_help)
+
+    def _log_command_mismatch(self):
+        u""" Verify consistency of `self.classmap`.
+
+        Reports mismatch between loaded extensions and available commands using
+        the logger.
+        """
+        def fmt_class(cls):
+            return u'{!s}/{!s}'.format(cls.__module__, cls.__name__)
+        for cls in self.extensions:
+            commands = cls.list_commands('all_commands')
+            for key, cmd in commands.iteritems():
+                if not key:
+                    self.logger.warn(u'Skipping: Unnamed command %r', cmd)
+                    continue
+                if key not in self.classmap:
+                    self.logger.warn(u'Skipping: No command %r in class map',
+                                     key)
+                    continue
+                if cls is not self.classmap[key]:
+                    self.logger.info(
+                        u'Skipping: Duplicate command %r'
+                        u' (skipping=%s, using=%s)',
+                        key,
+                        fmt_class(cls),
+                        fmt_class(self.classmap[key]))
+                    continue
+
     def load_extensions(self):
         """ Load BofhdExtensions (commands and help texts).
 
@@ -154,17 +199,8 @@ class BofhdServerImplementation(object):
                                  rpc)
         self.__help = Help(self.extensions, logger=self.logger)
 
-        # Check that the help text is okay
-        # Reformat the command definitions to be suitable for the help.
-        cmds_for_help = dict()
-        for cls in self.extensions:
-            cmds_for_help.update(
-                dict((cmdname, command.get_struct(self.cmdhelp))
-                     for cmdname, command
-                     in cls.list_commands('all_commands').iteritems()
-                     if command and self.classmap[cmdname] == cls))
-
-        self.__help.check_consistency(cmds_for_help)
+        self._log_help_text_mismatch()
+        self._log_command_mismatch()
 
     def get_cmd_info(self, rpc_name):
         """Return BofhdExtension and Command object for this cmd
@@ -249,7 +285,6 @@ class BofhdServer(BofhdServerImplementation, _TCPServer):
 class ThreadingBofhdServer(BofhdServerImplementation,
                            _ThreadingMixIn,
                            _TCPServer):
-
     """Threaded non-encrypted Bofhd server.
 
     Constructor accepts the following arguments:

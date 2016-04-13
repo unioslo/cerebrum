@@ -393,44 +393,19 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         return "OK"
 
     def __cache_commands(self, ident):
-        def fmt_class(cls):
-            return u'{!s}/{!s}'.format(
-                cls.__module__.lstrip('Cerebrum.modules.'),
-                cls.__name__)
         # TODO: Does this belong in the server?
         if ident not in self.server.commands:
             self.server.commands[ident] = dict()
         for cls in self.server.extensions:
             inst = cls(self.db, self.logger)
             commands = inst.get_commands(ident)
+            # Check if implementation is available (see server.load_extensions)
             for key, cmd in commands.iteritems():
                 if not key:
-                    self.logger.warn(u'Skipping: Unnamed command %r', cmd)
                     continue
                 if key not in self.server.classmap:
-                    self.logger.warn(u'Skipping: No command %r in class map',
-                                     key)
                     continue
                 if cls is not self.server.classmap[key]:
-                    # If module B is imported after module A, and both
-                    # implement 'command', only the implementation in
-                    # the latter module will actually be callable.
-                    #
-                    # However, A.get_commands() and B.get_commands()
-                    # might not agree on whether or not the
-                    # authenticated user should be allowed to invoke
-                    # 'command'.
-                    #
-                    # Hence, to avoid including overridden,
-                    # non-callable functions in our return value, we
-                    # verify that the module in
-                    # self.command2module[command] matches the module
-                    # whose .get_commands() we're processing.
-                    self.logger.info(
-                        u'Skipping: Duplicate command %r (in=%s, using=%s)',
-                        key,
-                        fmt_class(cls),
-                        fmt_class(self.server.classmap[key]))
                     continue
                 self.server.commands[ident][key] = cmd.get_struct(
                     self.server.cmdhelp)
