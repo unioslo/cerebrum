@@ -3,7 +3,7 @@
 #
 """ Tests for the Ephorte module - Cerebrum/modules/no/uio/Ephorte.py."""
 
-import unittest2 as unittest
+import unittest
 
 from Cerebrum.modules.no.uio import Ephorte
 from Cerebrum.Utils import Factory
