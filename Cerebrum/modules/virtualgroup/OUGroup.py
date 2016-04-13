@@ -347,6 +347,12 @@ class OUGroup(VirtualGroup):
             except NotFoundError:
                 return self.const.vg_normal_group
 
+        def get_ou_perspective(entity_id):
+            return self.query_1(
+                """SELECT ou_perspective FROM
+                    [:table schema=cerebrum name=virtual_group_ou]
+                    WHERE group_id = :gid""", {'gid': entity_id})
+
         binds = {
             'vdomain': self.const.group_namespace
         }
@@ -427,7 +433,8 @@ class OUGroup(VirtualGroup):
                             ou_id=gr.ou_id,
                             member_types=gr.member_type,
                             source=gr.affiliation_source)
-                            if x['ou_perspective'] == gr.ou_perspective])
+                            if get_ou_perspective(x['group_id']) ==
+                            gr.ou_perspective])
                 gr.clear()
             dp = {
                 self.const.entity_person: handle_person,
@@ -653,7 +660,7 @@ class OUGroup(VirtualGroup):
                 if spread:
                     s = ', [:table schema=cerebrum name=entity_spread] oes'
                     extra_where.extend([argument_to_sql(spread, 'oes.spread',
-                                                        binds, int),
+                                                        qparams, int),
                                         'oes.entity_id = vgo.group_id'])
                 else:
                     s = ''
@@ -771,7 +778,7 @@ class OUGroup(VirtualGroup):
             tmp = '[:table schema=cerebrum name=entity_spread] mes'
             tables.append(tmp)
             extra_tables.append(tmp)
-            tmp = argument_to_sql(member_spread, 'mes.spread', binds, int)
+            tmp = argument_to_sql(member_spread, 'mes.spread', qparams, int)
             wheres.extend(['mes.entity_id = {}'.format(memid), tmp])
             extra_where.extend(['mes.entity_id = vgo.group_id', tmp])
         if member_names:
@@ -783,7 +790,9 @@ class OUGroup(VirtualGroup):
             fields.append('men.entity_name AS member_name')
             group_fields.append('men.entity_name AS member_name')
         if filter_members:
-            wheres.append(argument_to_sql(filter_members, memid, binds, int))
+            wheres.append(argument_to_sql(filter_members, memid, qparams, int))
+            extra_where.append(argument_to_sql(filter_members, 'vgo.group_id',
+                                               qparams, int))
         if extra_sql:
             extra_tables_str = ''
             if extra_tables:
@@ -834,6 +843,11 @@ class OUGroup(VirtualGroup):
             except NotFoundError:
                 return self.const.vg_normal_group
 
+        def get_ou_perspective(entity_id):
+            return self.query_1(
+                """SELECT ou_perspective FROM
+                    [:table schema=cerebrum name=virtual_group_ou]
+                    WHERE group_id = :gid""", {'gid': entity_id})
         sgroups = None
         dosuper = True
         if group_id:
@@ -850,6 +864,7 @@ class OUGroup(VirtualGroup):
                 else:
                     dosuper = False
                     sgroups = ()
+                    group_id = set([group_id])
         if dosuper:
             for entry in super(OUGroup, self).search_members(
                     group_id=sgroups,
@@ -862,6 +877,11 @@ class OUGroup(VirtualGroup):
                     include_member_entity_name=include_member_entity_name):
                 # Py3 yield from ftw!
                 yield entry
+                if (group_id is not None and indirect_members and
+                        entry['member_type'] == self.const.entity_group and
+                        get_vgtype(entry['member_id']) ==
+                        self.const.vg_ougroup):
+                    group_id.add(entry['member_id'])
 
         # TODO: Don't ignore member type. Since ou groups only have one
         # member type, I have ignored it, but it should be filtered?
@@ -874,7 +894,7 @@ class OUGroup(VirtualGroup):
                     group_id = (group_id, )
                 for gid in group_id:
                     for entry in self.list_members(
-                            group_id, indirect=True,
+                            gid, indirect=True,
                             spread=spread,
                             member_names=include_member_entity_name,
                             member_spread=member_spread):
@@ -883,7 +903,9 @@ class OUGroup(VirtualGroup):
             else:  # member_id
                 # find all groups affected and add as member id
                 if not isinstance(member_id, collections.Iterable):
-                    member_id = (member_id, )
+                    member_id = set((member_id, ))
+                else:
+                    member_id = set(member_id)
                 objs = {}
                 affected_groups = set()
 
@@ -936,7 +958,7 @@ class OUGroup(VirtualGroup):
                 def handle_virtual_group(mid):
                     gr = fget('Group')
                     gr.find(mid)
-                    if (gr.virtual_group_type == self.const.virtual_group_ou and
+                    if (gr.virtual_group_type == self.const.vg_ougroup and
                             gr.recursion ==
                             self.const.virtual_group_ou_recursive):
                         affected_groups.update(
@@ -946,7 +968,9 @@ class OUGroup(VirtualGroup):
                                 ou_id=gr.ou_id,
                                 member_types=gr.member_type,
                                 source=gr.affiliation_source)
-                                if x['ou_perspective'] == gr.ou_perspective])
+                                if get_ou_perspective(x['group_id']) ==
+                                gr.ou_perspective
+                                and x['group_id'] not in member_id])
                 dp = {
                     self.const.entity_person: handle_person,
                     self.const.entity_account: handle_account,
@@ -957,16 +981,18 @@ class OUGroup(VirtualGroup):
                     if et in dp:
                         dp[et](mid)
 
-                for entry in super(OUGroup, self).search_members(
-                        spread=spread,
-                        member_id=affected_groups - set(member_id),
-                        member_type=member_type,
-                        indirect_members=indirect_members,
-                        member_spread=member_spread,
-                        member_filter_expired=member_filter_expired,
-                        include_member_entity_name=include_member_entity_name):
-                    # Py3 yield from ftw!
-                    yield entry
+                if affected_groups:
+                    tmp = include_member_entity_name
+                    for entry in super(OUGroup, self).search_members(
+                            spread=spread,
+                            member_id=affected_groups,
+                            member_type=member_type,
+                            indirect_members=indirect_members,
+                            member_spread=member_spread,
+                            member_filter_expired=member_filter_expired,
+                            include_member_entity_name=tmp):
+                        # Py3 yield from ftw!
+                        yield entry
                 group_id = affected_groups
         if group_id is not None:
             # list direct members of group
