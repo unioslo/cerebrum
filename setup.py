@@ -109,9 +109,6 @@ from distutils.util import change_root, convert_path
 import Cerebrum
 
 
-# Should we install servers?
-install_servers = True
-
 #
 # Which user should own the installed files
 #
@@ -142,46 +139,61 @@ def _execute_wrapper(*args):
     subprocess.call(args)
 
 
-class CompileAndInstallLocales(Command):
-    """
-    """
-    description = 'Compile and install Cerebrum locales'
-    user_options = []
+class LocaleInstaller(Command):
+    """ Abstract install class for building locales. """
+
+    description = 'Compile and install locales'
+    user_options = [
+        ('locale-dir=', None, "Install directory for locale files."),
+    ]
 
     def initialize_options(self):
-        self.cwd = None
+        self.locale_dir = locale_dir
 
     def finalize_options(self):
-        self.cwd = os.getcwd()
+        pass
 
     def run(self):
-        """
-        """
+        pass
+
+    def _install_locale_namespace(self, namespace):
         # go through all top dirs in 'locales/'
-        for lang_dir in os.listdir('locales/'):
+        lang_base = os.path.join(os.path.dirname(__file__), 'locales')
+        mo_basename = os.path.extsep.join((namespace, 'mo'))
+        po_basename = os.path.extsep.join((namespace, 'po'))
+        for lang_dir in os.listdir(lang_base):
+            # Source dir
+            messages_dir = os.path.join(lang_base, lang_dir, 'LC_MESSAGES')
+
             # the abs. path for this specific language
-            lang_path = os.path.join(locale_dir, lang_dir, 'LC_MESSAGES')
-            mo_file = os.path.join('locales', lang_dir, 'LC_MESSAGES', 'cerebrum.mo')
+            lang_path = os.path.join(self.locale_dir, lang_dir, 'LC_MESSAGES')
+            if not os.path.exists(lang_path):
+                # create the path if it doesn't exist
+                os.makedirs(lang_path)
+
+            mo_file = os.path.join(messages_dir, mo_basename)
             if os.path.isfile(mo_file):
-                # .mo file exists for this language in the Cerebrum repo. Use it!
-                if not os.path.exists(lang_path):
-                    # create the path if it doesn't exist
-                    os.makedirs(lang_path)
+                # .mo file exists for this language. Use it!
                 self.copy_file(mo_file, lang_path)
                 continue
             # no .mo file found. See is there is a .po file
-            po_file = os.path.join('locales', lang_dir, 'LC_MESSAGES', 'cerebrum.po')
+            po_file = os.path.join(messages_dir, po_basename)
             if os.path.isfile(po_file):
-                if not os.path.exists(lang_path):
-                    # create the path if it doesn't exist
-                    os.makedirs(lang_path)
                 # ... then compile the .po file into .mo file
                 self.execute(_execute_wrapper,
                              ('msgfmt',
                               '-o',
-                              os.path.join(lang_path, 'cerebrum.mo'),
+                              os.path.join(lang_path, mo_basename),
                               po_file))
-        
+                continue
+            self.warn('No locale for {!r} in language {!r}'.format(namespace,
+                                                                   lang_dir))
+
+
+class CerebrumLocales(LocaleInstaller):
+    def run(self):
+        self._install_locale_namespace('cerebrum')
+
 
 class my_install_data(install_data.install_data, object):
     """ Custom install_data class. """
@@ -296,17 +308,15 @@ class my_install_data(install_data.install_data, object):
 #
 sbin_files = [
     ('servers/job_runner/job_runner.py', 0755),
-    ('makedb.py', 0755)
+    ('makedb.py', 0755),
+    ('servers/bofhd/bofhd.py', 0755),
+    ('servers/event/exchange_daemon.py', 0755),
+    ('servers/event/cim_daemon.py', 0755),
+    ('servers/cis/SoapIndividuationServer.py', 0755),
+    ('servers/cis/SoapPostmasterServer.py', 0755),
+    ('servers/cis/SoapGroupServer.py', 0755),
+    ('servers/cis/SoapServer.py', 0755),
 ]
-
-if install_servers:
-    sbin_files.append(('servers/bofhd/bofhd.py', 0755))
-    sbin_files.append(('servers/event/exchange_daemon.py', 0755))
-    sbin_files.append(('servers/event/cim_daemon.py', 0755))
-    sbin_files.append(('servers/cis/SoapIndividuationServer.py', 0755))
-    sbin_files.append(('servers/cis/SoapPostmasterServer.py', 0755))
-    sbin_files.append(('servers/cis/SoapGroupServer.py', 0755))
-    sbin_files.append(('servers/cis/SoapServer.py', 0755))
 
 bin_files = []
 
@@ -451,82 +461,98 @@ data_files = [
 ]
 
 
-setup(name="Cerebrum", version=Cerebrum.__version__,
-      # TODO: This url is invalid
-      url="http://cerebrum.sourceforge.net",
-      maintainer="Cerebrum Developers",
-      maintainer_email="do.we@want.this.here",
-      description="Cerebrum is a user-administration system",
-      license="GPL",
-      long_description=("System for user semi-automatic user "
-                        "administration in a heterogenous "
-                        "environment"),
-      platforms = "UNIX",
-      # NOTE: all scripts ends up in the same dir!
-      # scripts = ['contrib/no/uio/import_FS.py',
-      # 'contrib/generate_nismaps.py'],
-      packages = ['Cerebrum',
-                  'Cerebrum/extlib',
-                  'Cerebrum/extlib/Plex',
-                  'Cerebrum/modules',
-                  'Cerebrum/modules/ad',
-                  'Cerebrum/modules/ad2',
-                  'Cerebrum/modules/consent',
-                  'Cerebrum/modules/cim',
-                  'Cerebrum/modules/dns',
-                  'Cerebrum/modules/event',
-                  'Cerebrum/modules/exchange',
-                  'Cerebrum/modules/hostpolicy',
-                  'Cerebrum/modules/bofhd',
-                  'Cerebrum/modules/guest',
-                  'Cerebrum/modules/job_runner',
-                  'Cerebrum/modules/no',
-                  'Cerebrum/modules/no/Indigo',
-                  'Cerebrum/modules/no/uio',
-                  'Cerebrum/modules/no/uio/printer_quota',
-                  'Cerebrum/modules/no/uio/voip',
-                  'Cerebrum/modules/no/uio/AutoStud',
-                  'Cerebrum/modules/no/uio/exchange',
-                  'Cerebrum/modules/no/hia',
-                  'Cerebrum/modules/no/hia/exchange',
-                  'Cerebrum/modules/no/hih',
-                  'Cerebrum/modules/no/hiof',
-                  'Cerebrum/modules/no/nmh',
-                  'Cerebrum/modules/no/nih',
-                  'Cerebrum/modules/no/hine',
-                  'Cerebrum/modules/no/notur',
-                  #'Cerebrum/modules/no/nvh',
-                  'Cerebrum/modules/posix',
-                  'Cerebrum/modules/pwcheck',
-                  'Cerebrum/modules/printutils',
-                  'Cerebrum/modules/tsd',
-                  'Cerebrum/modules/templates',
-                  'Cerebrum/modules/xmlutils',
-                  'Cerebrum/modules/abcenterprise',
-                  'Cerebrum/modules/process_entity',
-                  #'Cerebrum/modules/no/uit',
-                  #'Cerebrum/modules/no/uit/AutoStud',
-                  'Cerebrum/lib',
-                  'Cerebrum/client',
-                  'Cerebrum/modules/LMS',
-                  'Cerebrum/modules/virthome',
-                  'Cerebrum/modules/cis',
-                  'Cerebrum/modules/virtualgroup',
-                  'Cerebrum/config',
-                  'Cerebrum/utils',
-                  ],
+setup(
+    name="Cerebrum",
+    version=Cerebrum.__version__,
+    url="https://bitbucket.usit.uio.no/scm/crb/cerebrum.git",
+    maintainer="Cerebrum Developers",
+    maintainer_email="do.we@want.this.here",
+    description="Cerebrum is a user-administration system",
+    license="GPL",
+    long_description=("System for semi-automatic user "
+                      "administration in a heterogenous "
+                      "environment"),
+    platforms = "UNIX",
+    # NOTE: all scripts ends up in the same dir!
+    # scripts = ['contrib/no/uio/import_FS.py',
+    # 'contrib/generate_nismaps.py'],
+    packages=[
+        'Cerebrum',
+        'Cerebrum/extlib',
+        'Cerebrum/extlib/Plex',
+        'Cerebrum/modules',
+        'Cerebrum/modules/ad',
+        'Cerebrum/modules/ad2',
+        'Cerebrum/modules/consent',
+        'Cerebrum/modules/cim',
+        'Cerebrum/modules/dns',
+        'Cerebrum/modules/event',
+        'Cerebrum/modules/exchange',
+        'Cerebrum/modules/hostpolicy',
+        'Cerebrum/modules/bofhd',
+        'Cerebrum/modules/guest',
+        'Cerebrum/modules/job_runner',
+        'Cerebrum/modules/no',
+        'Cerebrum/modules/no/Indigo',
+        'Cerebrum/modules/no/uio',
+        'Cerebrum/modules/no/uio/printer_quota',
+        'Cerebrum/modules/no/uio/voip',
+        'Cerebrum/modules/no/uio/AutoStud',
+        'Cerebrum/modules/no/uio/exchange',
+        'Cerebrum/modules/no/hia',
+        'Cerebrum/modules/no/hia/exchange',
+        'Cerebrum/modules/no/hih',
+        'Cerebrum/modules/no/hiof',
+        'Cerebrum/modules/no/nmh',
+        'Cerebrum/modules/no/nih',
+        'Cerebrum/modules/no/hine',
+        'Cerebrum/modules/no/notur',
+        # 'Cerebrum/modules/no/nvh',
+        'Cerebrum/modules/posix',
+        'Cerebrum/modules/pwcheck',
+        'Cerebrum/modules/printutils',
+        'Cerebrum/modules/tsd',
+        'Cerebrum/modules/templates',
+        'Cerebrum/modules/xmlutils',
+        'Cerebrum/modules/abcenterprise',
+        'Cerebrum/modules/process_entity',
+        # 'Cerebrum/modules/no/uit',
+        # 'Cerebrum/modules/no/uit/AutoStud',
+        'Cerebrum/lib',
+        'Cerebrum/client',
+        'Cerebrum/modules/LMS',
+        'Cerebrum/modules/virthome',
+        'Cerebrum/modules/cis',
+        'Cerebrum/modules/virtualgroup',
+        'Cerebrum/config',
+        'Cerebrum/utils',
+    ],
+    # options override --prefix
+    # options = {'install_data': {'root' : '/foo/bar',  # prefix on slash
+    # 'install_dir': '/dddddddd' # prefix on no-slash
+    #                            }},
+    # data_files doesn't seem to handle wildcards
+    data_files = data_files,
 
-      # options override --prefix
-      # options = {'install_data': {'root' : '/foo/bar',  # prefix on slash
-      # 'install_dir': '/dddddddd' # prefix on no-slash
-      #                            }},
-      # data_files doesn't seem to handle wildcards
-      data_files = data_files,
-
-      # Overridden command classes
-      cmdclass={'install_data': my_install_data,
-                'install_locales': CompileAndInstallLocales}
+    # Overridden command classes
+    cmdclass={
+        'install_data': my_install_data,
+        'install_locales': CerebrumLocales,
+    }
 )
 
-setup(name='SoapAPI', packages=['SoapAPI'])
-setup(name='ClientAPI', packages=['ClientAPI'])
+setup(
+    name='SoapAPI',
+    packages=['SoapAPI'],
+    cmdclass={
+        'install_locales': LocaleInstaller,
+    }
+)
+
+setup(
+    name='ClientAPI',
+    packages=['ClientAPI'],
+    cmdclass={
+        'install_locales': LocaleInstaller,
+    }
+)
