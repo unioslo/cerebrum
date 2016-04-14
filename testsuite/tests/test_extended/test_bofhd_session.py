@@ -95,12 +95,12 @@ def test_ip_subnet_slash_to_range_small(session_module):
         session_module.ip_subnet_slash_to_range('127.0.0.0/32')
 
 
-def test_conf_short_timeout(session):
-    assert session._get_short_timeout() == BOFHD_SHORT_TIMEOUT
+def test_conf_short_timeout(session_module):
+    assert session_module._get_short_timeout() == BOFHD_SHORT_TIMEOUT
 
 
-def test_conf_short_timeout_hosts(session):
-    hosts = session._get_short_timeout_hosts()
+def test_conf_short_timeout_hosts(session_module):
+    hosts = session_module._get_short_timeout_hosts()
     assert len(hosts) == len(BOFHD_SHORT_TIMEOUT_HOSTS)
     # TODO: Iterate through `hosts` and check start/end values?
 
