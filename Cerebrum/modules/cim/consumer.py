@@ -181,9 +181,12 @@ class Listener(evhandlers.EventConsumer):
         'person:create',
         'person:update')
     def person_change(self, key, event):
-        u""" Person change - update CIM. """
+        u""" Person change. """
         pe = Factory.get('Person')(self.db)
-        pe.find(event['subject_entity'])
+        try:
+            pe.find(event['subject_entity'])
+        except NotFoundError:
+            raise UnrelatedEvent
         if not self.datasource.is_eligible(pe.entity_id):
             return UnrelatedEvent
         self.update_user(key, event, pe.entity_id)
@@ -193,9 +196,12 @@ class Listener(evhandlers.EventConsumer):
         'person:name_add',
         'person:name_mod')
     def person_name_change(self, key, event):
-        u""" Person name change - update CIM. """
+        u""" Person name change. """
         pe = Factory.get('Person')(self.db)
-        pe.find(event['subject_entity'])
+        try:
+            pe.find(event['subject_entity'])
+        except NotFoundError:
+            raise UnrelatedEvent
         if not self.datasource.is_eligible(pe.entity_id):
             return UnrelatedEvent
         self.update_user(key, event, pe.entity_id)
@@ -204,7 +210,7 @@ class Listener(evhandlers.EventConsumer):
         'entity_cinfo:add',
         'entity_cinfo:del')
     def entity_cinfo_change(self, key, event):
-        u""" Person name change - update CIM. """
+        u""" Person contact info change. """
         pe = Factory.get('Person')(self.db)
         try:
             pe.find(event['subject_entity'])
@@ -249,10 +255,12 @@ class Listener(evhandlers.EventConsumer):
         'person:aff_src_mod',
         'person:aff_src_del')
     def person_aff_change(self, key, event):
-        u""" Person aff change - update CIM. """
+        u""" Person aff change. """
         pe = Factory.get('Person')(self.db)
-
-        pe.find(event['subject_entity'])
+        try:
+            pe.find(event['subject_entity'])
+        except NotFoundError:
+            raise UnrelatedEvent
         new_primary = None
 
         if self.datasource.is_eligible(pe.entity_id):
