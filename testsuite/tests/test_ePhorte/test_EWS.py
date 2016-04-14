@@ -3,9 +3,8 @@
 #
 """ Tests for the Ephorte WS client - Cerebrum/modules/no/uio/EphorteWS.py."""
 
-import unittest2 as unittest
-
 import os
+import unittest
 
 # Avoid getting flooded by suds log messages
 import logging
