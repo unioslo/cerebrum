@@ -58,6 +58,22 @@ l33t_speak = string.maketrans('4831!05$72', 'abeiiosstz')
 
 _checkers = {}
 
+_checkers_loaded = False
+
+def load_checkers():
+    global _checkers_loaded
+    if not _checkers_loaded:
+        from . import simple
+        from . import dictionary
+        from . import history_checks
+        from . import phrase
+        _checkers_loaded = True
+
+
+def get_checkers():
+    load_checkers()
+    return _checkers
+
 
 def check_password(password, account=None, structured=False):
     """
@@ -70,6 +86,7 @@ def check_password(password, account=None, structured=False):
     :param structured: send a strctured (json) output or raise an exception
     :type structured: bool
     """
+    load_checkers()
     # Inspect the PASSWORD_CHECKS structure and decide
     # on supported password styles
     allowed_style = 'rigid'
@@ -174,7 +191,7 @@ def pwchecker(name):
 class PasswordChecker(object):
     """Base class for password checkers."""
 
-    _requirement = _('Something')
+    _requirement = ('Something')
 
     @property
     def requirement(self):
@@ -182,24 +199,3 @@ class PasswordChecker(object):
 
     def check_password(self, password):
         pass
-
-from .simple import (CheckSpaceOrNull,
-                     CheckEightBitChars,
-                     CheckASCIICharacters,
-                     CheckLatinCharacters,
-                     CheckIllegalCharacters,
-                     CheckSimpleCharacterGroups,
-                     CheckLengthMixin,
-                     CheckMultipleCharacterSets,
-                     CheckCharacterSequence,
-                     CheckRepeatedPattern,
-                     CheckUsername,
-                     CheckOwnerNameMixin,
-                     CheckLettersSpacesOnly,
-                     CheckNumberOfDigits,
-                     CheckNumberOfLetters,
-                     CheckMixedCasing)
-from .dictionary import CheckPasswordDictionary
-from .history_checks import CheckPasswordHistory
-from .phrase import (CheckPhraseWords,
-                     CheckPhraseAverageWordLength)
