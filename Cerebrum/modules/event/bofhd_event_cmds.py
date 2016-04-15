@@ -71,6 +71,9 @@ class BofhdExtension(BofhdCommandBase):
                 'event_info': 'Display an event',
                 'event_list': 'List locked and failed events',
                 'event_force': 'Force processing of a terminally failed event',
+                'event_force_all':
+                    ('Force processing of all failed events for a '
+                     'target system'),
                 'event_unlock': 'Unlock a previously locked event',
                 'event_delete': 'Delete an event',
                 'event_search': 'Search for events'
@@ -80,43 +83,50 @@ class BofhdExtension(BofhdCommandBase):
         arg_help = {
             'target_system': [
                 'target_system',
-                'Target system (i.e. \'Exchange\')',
+                'Target system (e.g. \'Exchange\')',
                 'Enter the target system for this operation'],
             'event_id': [
                 'event_id',
                 'Event Id',
-                'The numerical identificator of an event'],
+                'The numerical identifier of an event'],
             'search_pattern': [
                 'search_pattern',
                 'Search pattern',
                 'Patterns that can be used:\n'
-                '  id:0             Returns all events where dest- or '
+                '  id:0                   Matches events where dest- or '
                 'subject_entity is set to 0\n'
-                '  type:spread:add  Returns all events of type spread:add\n'
-                '  param:Joe        Returns all events where the string "Joe" '
-                'is found in the change params\n'
-                'In combination, these patterns form a boolean AND expression']
+                '  type:spread:add        Matches events of type spread:add\n'
+                '  param:Joe              Matches events where the string'
+                ' "Joe" is found in the change params\n'
+                '  target_system:Exchange Matches events for a target system\n'
+                '  from_ts:2016-01-01     Matches events from after a '
+                'timestamp\n'
+                '  to_ts:2016-12-31       Matches events from before a '
+                'timestamp\n'
+                'In combination, these patterns form a boolean AND expression.'
+                '\nTimestamps can also be \'today\', \'yesterday\' or precise'
+                ' to the second.']
         }
 
-        return (group_help, command_help,
-                arg_help)
+        return (group_help, command_help, arg_help)
 
     # Validate that the target system exists, and that the operator is
     # allowed to perform operations on it.
     def _validate_target_system(self, operator, target_sys):
-        # TODO: Chack for perms on target system.
+        # TODO: Check for perms on target system.
         ts = self.const.TargetSystem(target_sys)
         try:
             # Provoke. See if it exists.
             int(ts)
         except Errors.NotFoundError:
-            raise CerebrumError('No such target-system: %s' % target_sys)
+            raise CerebrumError('No such target system: {}'.format(target_sys))
         return ts
 
     # Convert dictionary entries known to contain contant codes,
     # to human-readable text
     def _make_constants_human_readable(self, data):
-        constant_keys = ['spread', 'entity_type', 'code', 'affiliation']
+        constant_keys = ['spread', 'entity_type', 'code', 'affiliation',
+                         'src', 'name_variant', 'action', 'level']
         try:
             for key in constant_keys:
                 if key in data:
@@ -177,12 +187,24 @@ class BofhdExtension(BofhdCommandBase):
                 locked=locked):
             r += [{
                 'id': ev['event_id'],
-                # TODO: Change this when we create TargetType()
-                'type': str(self.const.ChangeType(ev['event_type'])),
+                'type': str(self.const.map_const(ev['event_type'])),
                 'taken': str(ev['taken_time']).replace(' ', '_'),
                 'failed': ev['failed']
             }]
         return r
+
+    # event force_all
+    all_commands['event_force_all'] = Command(
+        ('event', 'force_all',), TargetSystem(),
+        fs=FormatSuggestion('Forced %s events', ('rowcount',)),
+        perm_filter='is_postmaster')
+
+    def event_force_all(self, operator, ts):
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to event')
+        ts = self._validate_target_system(operator, ts)
+        rowcount = self.db.reset_failed_counts_for_target_system(ts)
+        return {'rowcount': rowcount}
 
     # event force
     all_commands['event_force'] = Command(
@@ -194,7 +216,7 @@ class BofhdExtension(BofhdCommandBase):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to event')
         try:
-            self.db.decrement_failed_count(event_id)
+            self.db.reset_failed_count(event_id)
             state = True
         except Errors.NotFoundError:
             state = False
@@ -246,8 +268,8 @@ class BofhdExtension(BofhdCommandBase):
             'Subject entity:     %s\n'
             'Destination entity: %s\n'
             'Parameters:         %s',
-            ('event_id', 'event_type', 'target_system', 'failed', 'tstamp', 'taken_time',
-             'subject_entity', 'dest_entity', 'change_params')
+            ('event_id', 'event_type', 'target_system', 'failed', 'tstamp',
+             'taken_time', 'subject_entity', 'dest_entity', 'change_params')
         ),
         perm_filter='is_postmaster')
 
@@ -268,8 +290,8 @@ class BofhdExtension(BofhdCommandBase):
 
         ret = {
             'event_id': ev['event_id'],
-            'event_type': str(self.const.ChangeType(ev['event_type'])),
-            'target_system': str(self.const.TargetSystem(ev['target_system'])),
+            'event_type': str(self.const.map_const(ev['event_type'])),
+            'target_system': str(self.const.map_const(ev['target_system'])),
             'failed': ev['failed'],
             'tstamp': str(ev['tstamp']),
             'taken_time': str(ev['taken_time']) if ev['taken_time'] else '<not set>',
@@ -286,9 +308,11 @@ class BofhdExtension(BofhdCommandBase):
                 try:
                     en.clear()
                     en.find(ev[key])
-                    entity_type = str(self.const.EntityType(en.entity_type))
-                    entity_name = self._get_entity_name(en.entity_id, en.entity_type)
-                    ret[key] = '%s %s (id:%d)' % (entity_type, entity_name, en.entity_id)
+                    entity_type = str(self.const.map_const(en.entity_type))
+                    entity_name = self._get_entity_name(
+                        en.entity_id, en.entity_type)
+                    ret[key] = '{} {} (id:{:d})'.format(
+                        entity_type, entity_name, en.entity_id)
                 except:
                     pass
 
@@ -296,14 +320,15 @@ class BofhdExtension(BofhdCommandBase):
 
     # event search
     all_commands['event_search'] = Command(
-        ('event', 'search',), SimpleString(repeat=True,
-                                           help_ref='search_pattern'),
+        ('event', 'search',),
+        SimpleString(repeat=True, help_ref='search_pattern'),
         fs=FormatSuggestion(
             '%-8d %-35s %-15s %-15s %-25s %-6d %s',
             ('id', 'type', 'subject_type', 'dest_type', 'taken',
                 'failed', 'params'),
             hdr='%-8s %-35s %-15s %-15s %-25s %-6s %s' % (
-                'Id', 'Type', 'SubjectType', 'DestinationType', 'Taken', 'Failed', 'Params'),
+                'Id', 'Type', 'SubjectType', 'DestinationType', 'Taken',
+                'Failed', 'Params'),
         ),
         perm_filter='is_postmaster')
 
@@ -316,27 +341,30 @@ class BofhdExtension(BofhdCommandBase):
             raise PermissionDenied('No access to event')
         # TODO: Fetch an ACL of which target systems can be searched by this
         # TODO: Make the param-search handle spaces and stuff?
-        # operator
         params = {}
+
         # Parse search patterns
         for arg in args:
-            tmp = arg.split(':', 1)
             try:
-                if tmp[0] == 'type':
-                    try:
-                        cat, typ = tmp[1].split(':')
-                    except ValueError:
-                        raise CerebrumError('Search pattern incomplete')
-                    try:
-                        type_code = int(self.const.ChangeType(cat, typ))
-                    except Errors.NotFoundError:
-                        raise CerebrumError('EventType does not exist')
-                    params['type'] = type_code
-                else:
-                    params[tmp[0]] = tmp[1]
-            except IndexError:
-                # We just pass on, won't regard the param.
-                pass
+                key, value = arg.split(':', 1)
+            except ValueError:
+                # Ignore argument
+                continue
+            if key == 'type':
+                try:
+                    cat, typ = value.split(':')
+                except ValueError:
+                    raise CerebrumError('Search pattern incomplete')
+                try:
+                    type_code = int(self.const.ChangeType(cat, typ))
+                except Errors.NotFoundError:
+                    raise CerebrumError('EventType does not exist')
+                params['type'] = type_code
+            elif key == 'target_system':
+                ts = self._validate_target_system(operator, value)
+                params['target_system'] = ts
+            else:
+                params[key] = value
 
         # Raise if we do not have any search patterns
         if not params:
@@ -350,6 +378,10 @@ class BofhdExtension(BofhdCommandBase):
             # done so. They can always type '?' at the pattern-prompt to get
             # help.
             raise CerebrumError('Invalid arguments')
+        except self.db.DataError as e:
+            # E.g. bogus timestamp
+            message = e.args[0].split("\n")[0]
+            raise CerebrumError('Database does not approve: ' + message)
 
         # Fetch information about the event ids, and present it to the user.
         r = []
@@ -366,27 +398,24 @@ class BofhdExtension(BofhdCommandBase):
             change_params = ev['change_params']
             if ev['change_params']:
                 change_params = pickle.loads(ev['change_params'])
-                change_params = self._make_constants_human_readable(change_params)
+                change_params = self._make_constants_human_readable(
+                    change_params)
 
-            tmp = {
+            ret = {
                 'id': ev['event_id'],
-                # TODO: Change this when we create TargetType()
-                'type': str(self.const.ChangeType(ev['event_type'])),
+                'type': str(self.const.map_const(ev['event_type'])),
                 'taken': str(ev['taken_time']).replace(' ', '_'),
                 'failed': ev['failed'],
-                'params': repr(change_params)
+                'params': repr(change_params),
+                'dest_type': None,
+                'subject_type': None,
             }
 
             if 'dest_type' in types:
-                tmp['dest_type'] = str(self.const.EntityType(
+                ret['dest_type'] = str(self.const.map_const(
                     types['dest_type']))
-            else:
-                tmp['dest_type'] = None
-
             if 'subject_type' in types:
-                tmp['subject_type'] = str(self.const.EntityType(
+                ret['subject_type'] = str(self.const.map_const(
                     types['subject_type']))
-            else:
-                tmp['subject_type'] = None
-            r.append(tmp)
+            r.append(ret)
         return r

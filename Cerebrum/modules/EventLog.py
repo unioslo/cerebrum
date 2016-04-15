@@ -1,5 +1,7 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2013 University of Oslo, Norway
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright 2013-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,11 +19,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import cerebrum_path
-import Cerebrum.ChangeLog
-
 import pickle
 
+import Cerebrum.ChangeLog
 
 __version__ = '1.0'
 
@@ -111,32 +111,34 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         """Remove an event from the eventlog. Typically happens when an
         event has completed processing sucessfully.
 
-        @type event_id: int
-        @param event_id: The events ID
+        :param int event_id: The event id
 
-        @type target_system: TargetSystemCode
-        @param target_system: The target-system to perform delete on
+        :param TargetSystemCode target_system:
+            The target system to perform delete on
+
+        :rtype: int
+        :return: Affected event id
         """
         params = {'event_id': int(event_id)}
         if target_system:
             params['target_system'] = int(target_system)
 
         self.query_1("""
-        DELETE FROM [:table schema=cerebrum name=event_log]
-        WHERE %s RETURNING event_id""" % ' AND '.join(
-            ['%s = :%s' % (k, k) for k in params]), params)
+            DELETE FROM [:table schema=cerebrum name=event_log]
+            WHERE {} RETURNING event_id""".format(
+                ' AND '.join(['{} = :{}'.format(k, k) for k in params])),
+            params)
 
     def get_event(self, event_id, target_system=None):
         """Fetch information about an event
 
-        @type event_id: int
-        @param event_id: The event to fetch.
+        :param int event_id: The event to fetch.
 
-        @type target_system: TargetSystemCode
-        @param target_system: The target-system to perform select on
+        :param TargetSystemCode target_system:
+            The target system to perform select on
 
-        @rtype: Cerebrum.extlib.db_row.row
-        @return: One row representing the event
+        :rtype: Cerebrum.extlib.db_row.row
+        :return: One row representing the event
         """
         params = {'event_id': int(event_id)}
         if target_system:
@@ -150,121 +152,117 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
     def lock_event(self, event_id):
         """Lock an event for processing.
 
-        @type event_id: int
-        @param event_id: The event to lock.
+        :param int event_id: The event to lock.
 
-        @rtype: Cerebrum.extlib.db_row.row
-        @return: A DB-row with the event_id
+        :rtype: Cerebrum.extlib.db_row.row
+        :return: A database row with the event_id
         """
-        # TODO: Verify and test
-        return self.query_1("""
-            UPDATE event_log
+        return self.query_1(
+            """UPDATE event_log
             SET taken_time = now()
             WHERE event_id = :event_id
-            AND taken_time IS NULL RETURNING event_id""", {'event_id': int(event_id)})
+            AND taken_time IS NULL RETURNING event_id""",
+            {'event_id': int(event_id)})
 
-    # TODO: Rewrite this so it does not lock events, only collect
-    # the IDs of old and unprocessed events
     def get_unprocessed_events(self, target_system, fail_limit=None,
                                failed_delay=None, unpropagated_delay=None,
                                include_taken=False, fetchall=True):
         """Collect IDs of events that has not been processed, or have
         failed processing earlier.
 
-        @type target_system: int
-        @param target_system: The target system to select events from
+        :param int target_system: The target system to select events from
 
-        @type fail_limit: int
-        @param fail_limit: Select only events that have failed a number
+        :param int fail_limit: Select only events that have failed a number
             of times lower than fail_limit. Default None.
 
-        @type failed_delay: int
-        @param failed_delay: Select only events that does not have a taken_time
-            less than now() - failed_delay.
+        :param int failed_delay: Select only events that does not have a
+            taken_time less than now() - failed_delay.
 
-        @type unpropagted_delay: int
-        @param unpropagated_delay: Select only events that does not have a
+        :param int unpropagated_delay: Select only events that does not have a
             taken_time, and and tstamp less than now() - unpropagated_delay.
 
-        @type include_taken: bool
-        @param include_taken: Wether or not to include events marked for
+        :param bool include_taken: Wether or not to include events marked for
             processing.
 
-        @type fetchall: bool
-        @param fetchall: If True, fetch all results. Else, return iterator.
+        :param bool fetchall:
+            If True, fetch all results. Else, return iterator.
 
-        @rtype: list(Cerebrum.extlib.db_row.row)
-        @return: A list of unprocessed DB-rows
+        :rtype: list(Cerebrum.extlib.db_row.row)
+        :return: A list of unprocessed database rows
         """
-        filter = 'target_system = :target_system'
+        where = 'target_system = :target_system'
         args = {'target_system': int(target_system)}
-        # TODO: Make this pretty!!!111
-        # TODO: Calculate failed_delay on the basis of the number of times previously tried,
-        # and a var. Then we can increase the time between each retry. That seems sensible.
+        # TODO: Calculate failed_delay on the basis of the number of times
+        # previously tried, and a var. Then we can increase the time between
+        # each retry. That seems sensible.
         # This would probably neccitate a function. Or do it higher up?
         if fail_limit:
-            filter += ' AND failed < :failed_limit'
+            where += ' AND failed < :failed_limit'
             args['failed_limit'] = fail_limit
         if failed_delay and not unpropagated_delay:
             # OR taken_time IS NULL' % \
-            filter += ' AND (taken_time < [:now] - interval \'%d seconds\'' % failed_delay
+            where += " AND (taken_time < [:now] - interval '{:d}s".format(
+                failed_delay)
         elif unpropagated_delay and not failed_delay:
-            filter += ' AND tstamp < [:now] - interval \'%d seconds\'' % unpropagated_delay
+            where += " AND tstamp < [:now] - interval '{:d}s'".format(
+                unpropagated_delay)
         elif unpropagated_delay and failed_delay:
-            filter += ' AND (taken_time < [:now] - interval \'%d seconds\'' % failed_delay
-            filter += ' OR tstamp < [:now] - interval \'%d seconds\')' % unpropagated_delay
+            where += " AND (taken_time < [:now] - interval '{:d}s".format(
+                failed_delay)
+            where += " OR tstamp < [:now] - interval '{:d}s".format(
+                unpropagated_delay)
         if not include_taken:
-            filter += ' AND taken_time IS NULL'
+            where += ' AND taken_time IS NULL'
 
         return self.query("""
             SELECT * FROM event_log
-            WHERE %s""" % filter, args, fetchall=fetchall)
+            WHERE {}""".format(where), args, fetchall=fetchall)
 
     def release_event(self, event_id, target_system=None, increment=True):
         """Release a locked/taken event. Releases typically happens
         when an event fails processing.
 
-        @type event_id: int
-        @param event_id: The events id.
+        :param int event_id: The event id to release
 
-        @type target_system: TargetSystemCode
-        @param target_system: The target-system to perform unlock on
+        :param TargetSystemCode target_system:
+            The target system to perform unlock on
 
-        @type increment: bool
-        @param increment: wether or not to increment the 'failed' field
+        :param bool increment: Whether or not to increment the 'failed' field
             in the database upon release.
+
+        :rtype: int
+        :return: The event id
         """
         params = {'event_id': int(event_id)}
-        # We check if we should increment the failed-column
+        # We check if we should increment the failed column
         if increment:
             inc = ', failed = failed + 1'
         else:
             inc = ''
         if target_system:
             params['target_system'] = int(target_system)
-        self.query_1("""
-            UPDATE event_log
-            SET taken_time = NULL
-            %s
-            WHERE %s RETURNING event_id""" % (inc, ' AND '.join(
-            ['%s = :%s' % (k, k) for k in params])), params)
+        self.query_1(
+            """UPDATE event_log SET taken_time = NULL
+            {} WHERE {} RETURNING event_id""".format(
+                inc,
+                ' AND '.join(['{} = :{}'.format(k, k) for k in params])),
+            params)
 
-# TODO: Should this really be here? Should it be in a supplemental API?
-###
-# Utility functions for bofhd-tools
-###
+    ###
+    # Utility functions
+    ###
 
     def get_target_stats(self, target_system, fail_limit=10):
-        """Collect statistics for a target-system.
+        """Collect statistics for a target system.
 
-        @type target_system: TargetSystemCode
-        @param target_system: The target-system to collect from
+        :param TargetSystemCode target_system:
+            The target system to collect from
 
-        @type fail_limit: int
-        @param fail_limit: Number of failures before it is a permanent failure
+        :param int fail_limit:
+            Number of failures before it is a permanent failure
 
-        @rtype: dict
-        @return: {t_failed, t_locked, total}
+        :rtype: dict
+        :return: {t_failed, t_locked, total}
         """
         t_locked = self.query_1(
             'SELECT count(*) FROM event_log WHERE taken_time IS NOT NULL'
@@ -282,26 +280,24 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
 
     def get_failed_and_locked_events(self, target_system, fail_limit=10,
                                      locked=True, fetchall=True):
-        """Collect a list of events that have failed permanently, or are locked.
+        """Collect a list of events that have failed permanently,
+        or are locked.
 
-        @type target_system: TargetSystemCode
-        @param target_system: The target-system to collect from
+        :param TargetSystemCode target_system:
+            The target system to collect from
 
-        @type fail_limit: int
-        @param fail_limit: Number of failures to filter on
+        :param int fail_limit: Number of failures to filter on
 
-        @type locked: bool
-        @param locked: Return locked rows?
+        :param bool locked: Return locked rows?
 
-        @rtype: list(tuple)
-        @return: [(event_id, event_type, taken_time, failed,)]
-
+        :rtype: list(tuple)
+        :return: [(event_id, event_type, taken_time, failed,)]
         """
-        # TODO: Expand me to allow choosing "presicion" on the "locked" rows,
+        # TODO: Expand me to allow choosing "precision" on the "locked" rows,
         # like selecting only those locked up until 10 hours ago, for example.
         p = {'ts': int(target_system)}
-        q = 'SELECT event_id, event_type, taken_time, failed FROM event_log' + \
-            ' WHERE target_system = :ts'
+        q = ('SELECT event_id, event_type, taken_time, failed FROM event_log'
+             ' WHERE target_system = :ts')
         tmp = []
         if fail_limit:
             tmp += ['failed >= :fail_limit']
@@ -309,19 +305,37 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         if locked:
             tmp += ['taken_time IS NOT NULL']
         if tmp:
-            q += ' AND ' + ' OR '.join(tmp)
+            q += ' AND (' + ' OR '.join(tmp) + ')'
 
         return self.query(q, p, fetchall=fetchall)
 
-    def decrement_failed_count(self, event_id):
-        """Decrement the failed count on a row
+    def reset_failed_count(self, event_id):
+        """Reset the failed count on an event
 
-        @type event_id: int
-        @param event_id: The row id to do this in
+        :param int event_id: The event id
+
+        :rtype: int
+        :return: Affected event id
         """
         self.query_1(
-            'UPDATE event_log SET failed = failed - 1 WHERE event_id = :id RETURNING event_id',
+            """UPDATE event_log SET failed = 0
+            WHERE event_id = :id RETURNING event_id""",
             {'id': int(event_id)})
+
+    def reset_failed_counts_for_target_system(self, target_system):
+        """Reset the failed counts for all events to a target system where
+        failed > 0.
+
+        :param int target_system: The target system
+
+        :rtype: int
+        :return: Number of affected events
+        """
+        self.execute(
+            """UPDATE event_log SET failed = 0 WHERE target_system = :ts
+            AND failed > 0""",
+            {'ts': int(target_system)})
+        return self.rowcount
 
     def search_events(self, id=None, type=None, param=None,
                       from_ts=None, to_ts=None, target_system=None,
@@ -331,9 +345,9 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         :param int id: The subject- or dest_entity to search for.
         :param int type: The EventType to search for.
         :param str param: A substring to search for in change_params.
-        :param DateTime from_ts: Search for events that occoured after this
+        :param DateTime/str from_ts: Search for events that occoured after this
             timestamp.
-        :param DateTime to_ts: Search for events that occoured before this
+        :param DateTime/str to_ts: Search for events that occoured before this
             timestamp.
         :param int target_system: The TargetSystem to search for.
         :param bool fetchall: Wether to return an iterator, or everything.
@@ -342,33 +356,39 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         :return: A list of event ids.
         """
         q = "SELECT event_id FROM event_log"
-        tmp_q = []
-        parm = {}
+        where = []
+        binds = {}
         if id:
-            tmp_q.append("(subject_entity = :id OR dest_entity = :id)")
-            parm['id'] = int(id)
+            where.append("(subject_entity = :id OR dest_entity = :id)")
+            binds['id'] = int(id)
         if type:
             if isinstance(type, (list, tuple, set)):
-                tmp_q.append("event_type IN (%s)" % ", ".join(map(str, map(int, type))))
+                where.append("event_type IN ({})".format(
+                    ", ".join(map(str, map(int, type)))))
             else:
-                tmp_q.append("event_type = :type")
-                parm['type'] = int(type)
+                where.append("event_type = :type")
+                binds['type'] = int(type)
         if target_system:
-            tmp_q.append("target_system = :target_system")
-            parm['target_system'] = int(target_system)
+            where.append("target_system = :target_system")
+            binds['target_system'] = int(target_system)
+        if from_ts:
+            where.append("tstamp > :from_ts")
+            binds['from_ts'] = from_ts
+        if to_ts:
+            where.append("tstamp < :to_ts")
+            binds['to_ts'] = to_ts
         if param:
-            tmp_q.append("change_params LIKE :param")
-            parm['param'] = "%%%s%%" % param
-        if parm:
-            q += " WHERE "
-            q += ' AND '.join(tmp_q)
+            where.append("change_params LIKE :param")
+            binds['param'] = "%{}%".format(param)
+        if binds:
+            q += " WHERE " + ' AND '.join(where)
 
-        return self.query(q, parm, fetchall=True)
+        return self.query(q, binds, fetchall=True)
 
     def get_event_target_type(self, id):
         """Get the destination and subject entitys entity type.
 
-        :param int id: The events id.
+        :param int id: The event id.
         :rtype: dbrow
         :return: The entity type of the destination and subject entity.
         """
