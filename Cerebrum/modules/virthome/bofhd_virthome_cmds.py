@@ -1257,7 +1257,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         group = self._get_group(gname)
         self.ba.can_change_owners(operator.get_entity_id(), group.entity_id)
         owner = self.vhutils.list_group_owners(group),
-        owner = owner[0][0]['account_id']
+        try:
+            owner = owner[0][0]['account_id']
+        except IndexError:
+            owner = None
         ret = {}
         ret['confirmation_key'] = self.vhutils.setup_event_request(
                                       group.entity_id,
