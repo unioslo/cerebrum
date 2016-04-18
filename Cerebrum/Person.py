@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -771,8 +771,12 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                   affiliation = :affiliation AND
                   source_system = :source_system""", binds)
 
-    def add_affiliation(self, ou_id, affiliation,
-                        source, status, precedence=None):
+    def add_affiliation(self,
+                        ou_id,
+                        affiliation,
+                        source,
+                        status,
+                        precedence=None):
         """Add or update affiliation.
 
         :type ou_id: OU object or int
@@ -820,11 +824,11 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                  }
         updprec = ", precedence=:precedence"
         if not isinstance(affiliation, self.const.PersonAffiliation):
-            affiliation = self.const.PersonAffiliation(affiliation)
+            affiliation = self.const.PersonAffiliation(int(affiliation))
         if not isinstance(status, self.const.PersonAffStatus):
-            status = self.const.PersonAffStatus(status)
+            status = self.const.PersonAffStatus(int(status))
         if not isinstance(source, self.const.AuthoritativeSystem):
-            source = self.const.AuthoritativeSystem(source)
+            source = self.const.AuthoritativeSystem(int(source))
         change_params = {
             'ou_id': int(ou_id),
             'affiliation': int(affiliation),
@@ -918,9 +922,9 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                  'p_id': self.entity_id,
                  }
         if not isinstance(affiliation, self.const.PersonAffiliation):
-            affiliation = self.const.PersonAffiliation(affiliation)
+            affiliation = self.const.PersonAffiliation(int(affiliation))
         if not isinstance(source, self.const.AuthoritativeSystem):
-            source = self.const.AuthoritativeSystem(source)
+            source = self.const.AuthoritativeSystem(int(source))
 
         status = self.query_1(
             """
