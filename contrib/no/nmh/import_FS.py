@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -186,9 +186,9 @@ def _load_cere_aff():
 
 def rem_old_aff():
     person = Factory.get("Person")(db)
-    for k,v in old_aff.items():
+    for k, v in old_aff.items():
         if v:
-            ent_id,ou,affi = k.split(':')
+            ent_id, ou, affi = k.split(':')
             person.clear()
             person.find(int(ent_id))
             person.delete_affiliation(ou, affi, co.system_fs)
