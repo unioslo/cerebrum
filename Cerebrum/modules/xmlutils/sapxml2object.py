@@ -511,26 +511,31 @@ class XMLPerson2Object(XMLEntity2Object):
     def _make_contact(self, elem, priority):
         """Return a DataContact instance out of elem."""
 
-        kommtype2const = {"Faks arbeid": DataContact.CONTACT_FAX,
-                          "Telefaks midlertidig arbeidssted":
-                          DataContact.CONTACT_FAX,
-                          "Arbeidstelefon 1": DataContact.CONTACT_PHONE,
-                          "Arbeidstelefon 2": DataContact.CONTACT_PHONE,
-                          "Arbeidstelefon 3": DataContact.CONTACT_PHONE,
-                          "Mobilnummer, jobb":
-                          DataContact.CONTACT_MOBILE_WORK,
-                          "Mobilnummer, privat":
-                          DataContact.CONTACT_MOBILE_PRIVATE}
+        kommtype2const = {
+            u"Faks arbeid": DataContact.CONTACT_FAX,
+            u"Telefaks midlertidig arbeidssted": DataContact.CONTACT_FAX,
+            u"Arbeidstelefon 1": DataContact.CONTACT_PHONE,
+            u"Arbeidstelefon 2": DataContact.CONTACT_PHONE,
+            u"Arbeidstelefon 3": DataContact.CONTACT_PHONE,
+            u"Mobilnummer, jobb": DataContact.CONTACT_MOBILE_WORK,
+            u"Mobilnummer, privat": DataContact.CONTACT_MOBILE_PRIVATE,
+            u"Privat mobil synlig på web":
+            DataContact.CONTACT_MOBILE_PRIVATE_PUBLIC}
 
         ctype = elem.find("Type")
-        if (ctype is None
-                or ctype.text.strip() not in kommtype2const):
+        if ctype is None:
             return None
 
-        ctype = ctype.text.strip().encode("latin1")
+        ctype = ctype.text.strip()
+        if isinstance(ctype, str):
+            ctype = unicode(ctype, 'latin1')
+
+        ctype = kommtype2const.get(ctype)
+        if ctype is None:
+            return None
+
         cvalue = elem.find("Verdi").text.strip().encode("latin1")
         cvalue = deuglify_phone(cvalue)
-        ctype = kommtype2const[ctype]
 
         return DataContact(ctype, cvalue, priority)
 
