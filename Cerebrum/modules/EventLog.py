@@ -201,15 +201,15 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
             args['failed_limit'] = fail_limit
         if failed_delay and not unpropagated_delay:
             # OR taken_time IS NULL' % \
-            where += " AND (taken_time < [:now] - interval '{:d}s'".format(
+            where += " AND (taken_time < [:now] - interval '{:d}s')".format(
                 failed_delay)
         elif unpropagated_delay and not failed_delay:
-            where += " AND tstamp < [:now] - interval '{:d}s'".format(
+            where += " AND (tstamp < [:now] - interval '{:d}s')".format(
                 unpropagated_delay)
         elif unpropagated_delay and failed_delay:
             where += " AND (taken_time < [:now] - interval '{:d}s'".format(
                 failed_delay)
-            where += " OR tstamp < [:now] - interval '{:d}s'".format(
+            where += " OR tstamp < [:now] - interval '{:d}s')".format(
                 unpropagated_delay)
         if not include_taken:
             where += ' AND taken_time IS NULL'
