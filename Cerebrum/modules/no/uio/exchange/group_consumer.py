@@ -31,6 +31,7 @@ from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
                                                   ServerUnavailableException,
                                                   AlreadyPerformedException)
 from Cerebrum.modules.event.EventExceptions import (EntityTypeError,
+                                                    EventExecutionException,
                                                     EventHandlerNotImplemented,
                                                     UnrelatedEvent)
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
@@ -263,10 +264,7 @@ class ExchangeGroupEventHandler(evhandlers.EventConsumer):
                             entity_name=entity_name,
                             group_name=group_name,
                             reason=e))
-                    mod_ev = event.copy()
-                    mod_ev['dest_entity'] = group_id
-                    mod_ev['subject_entity'] = entity_id
-                    self.ut.log_event(mod_ev, 'e_group:add')
+                    raise EventExecutionException
 
     @event_map('exchange:group_rem')
     def remove_group_member(self, event):
