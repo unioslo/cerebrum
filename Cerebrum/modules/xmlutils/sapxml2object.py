@@ -372,6 +372,7 @@ class XMLPerson2Object(XMLEntity2Object):
         else:
             return DataEmployment.KATEGORI_OEVRIG
 
+    @XMLEntity2Object.exception_wrapper
     def _make_employment(self, emp_element):
         """Make a DataEmployment instance of an <Hovedstilling>, </Bistilling>.
 
@@ -459,9 +460,8 @@ class XMLPerson2Object(XMLEntity2Object):
                 tmp.add_name(work_title)
 
         return tmp
-    # Handle exceptions:
-    _make_employment = XMLEntity2Object.exception_wrapper(_make_employment)
 
+    @XMLEntity2Object.exception_wrapper
     def _make_role(self, elem):
         """Make an employment out of a <Roller>...</Roller>.
 
@@ -506,9 +506,8 @@ class XMLPerson2Object(XMLEntity2Object):
                               code=code,
                               start=start_date, end=end_date,
                               place=ou_id, category=None)
-    # Handle exceptions:
-    _make_role = XMLEntity2Object.exception_wrapper(_make_role)
 
+    @XMLEntity2Object.exception_wrapper
     def _make_contact(self, elem, priority):
         """Return a DataContact instance out of elem."""
 
@@ -534,8 +533,6 @@ class XMLPerson2Object(XMLEntity2Object):
         ctype = kommtype2const[ctype]
 
         return DataContact(ctype, cvalue, priority)
-    # Handle exceptions:
-    _make_contact = XMLEntity2Object.exception_wrapper(_make_contact)
 
     def _make_title(self, title_kind, title_element):
         """Return a DataName representing title with language."""
