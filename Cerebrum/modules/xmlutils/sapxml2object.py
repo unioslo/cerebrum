@@ -25,11 +25,8 @@ this means mapping XML-elements stemming from SAP data files to objects in
 datagetter.
 """
 
-from mx.DateTime import Date, now
-import time
-import sys
+from mx.DateTime import now
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.modules.xmlutils.xml2object import (
@@ -382,7 +379,7 @@ class XMLPerson2Object(XMLEntity2Object):
         DataEmployment object, representing the XML-employment object.
 
         """
-        percentage = code = title = None
+        percentage = code = None
         start_date = end_date = None
         ou_id = None
         category = None
@@ -407,14 +404,9 @@ class XMLPerson2Object(XMLEntity2Object):
                 if category is None:
                     category = self._code2category(code)
             elif sub.tag == "Stilling":
-                # 2014-05-26: `title' is assigned to, but never used
                 tmp = value.split(" ")
-                if len(tmp) == 1:
-                    title = tmp[0]
-                else:
-                    title = " ".join(tmp[1:])
-                    if category is None:
-                        category = self._code2category(tmp[0])
+                if len(tmp) != 1 and category is None:
+                    category = self._code2category(tmp[0])
             elif sub.tag == "Startdato":
                 start_date = self._make_mxdate(value, format="%Y-%m-%d")
             elif sub.tag == "Sluttdato":
@@ -606,7 +598,6 @@ class XMLPerson2Object(XMLEntity2Object):
         if middle is not None and middle.text:
             middle = to_latin1(middle.text).strip()
 
-        main = None
         # Iterate over *all* subelements, 'fill up' the result object
         for sub in element.getiterator():
             value = None
@@ -663,9 +654,6 @@ class XMLPerson2Object(XMLEntity2Object):
                 emp = self._make_employment(sub)
                 if emp is not None:
                     result.add_employment(emp)
-                    if sub.tag == "Hovedstilling":
-                        # TODO: Not used?
-                        main = emp
             elif sub.tag == "Roller" and sub.findtext("IKKE-ANGIT") is None:
                 emp = self._make_role(sub)
                 if emp is not None:

@@ -44,13 +44,10 @@ TODO:
 * Fix the documentation and provide a few more examples.
 """
 import copy
-import sys
 import time
-import types
 from xml.etree.cElementTree import parse, iterparse, ElementTree
 from mx.DateTime import Date, DateTimeDelta
 
-import cerebrum_path
 import cereconf
 from Cerebrum import Utils
 
