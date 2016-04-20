@@ -17,7 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 Generate a group tree for LDAP. This tree resides in
 "cn=groups,dc=uio,dc=no" for the time being. Tests will show if this
@@ -37,14 +36,20 @@ This script take the following arguments:
 --picklefile fname : pickle file with group memberships
 --ldiffile fname : LDIF file with the group tree
 """
-
-import os, sys
+import os
+import sys
 import getopt
 import pickle
+
 import cerebrum_path
 
-from Cerebrum.Utils import Factory, SimilarSizeWriter
-from Cerebrum.modules.LDIFutils import *
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.LDIFutils import ldapconf
+from Cerebrum.modules.LDIFutils import entry_string
+from Cerebrum.modules.LDIFutils import iso2utf
+from Cerebrum.modules.LDIFutils import ldif_outfile
+from Cerebrum.modules.LDIFutils import end_ldif_outfile
+from Cerebrum.modules.LDIFutils import container_entry_string
 
 logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
@@ -53,6 +58,7 @@ group = Factory.get('Group')(db)
 
 mbr2grp = {}
 top_dn = ldapconf('GROUP', 'dn')
+
 
 def dump_ldif(file_handle):
     for row in group.search(spread=co.spread_ldap_group):
@@ -65,7 +71,8 @@ def dump_ldif(file_handle):
         file_handle.write(entry_string(dn, {
             'objectClass': ("top", "uioGroup"),
             'description': (iso2utf(row['description']),)}))
-        
+
+
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h', [
@@ -89,6 +96,7 @@ def main():
     pickle.dump(mbr2grp, open(tmpfname, "w"))
     os.rename(tmpfname, picklefile)
     end_ldif_outfile('GROUP', destfile)
+
 
 def usage(exitcode=0):
     print __doc__

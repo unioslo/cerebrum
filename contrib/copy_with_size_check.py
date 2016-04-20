@@ -56,7 +56,10 @@ import os
 import sys
 import getopt
 
-from Cerebrum.Utils import Factory, SimilarSizeWriter, FileChangeTooBigError
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
+from Cerebrum.utils.atomicfile import FileChangeTooBigError
+
 
 def write_and_check_size(logger, inFilePath, outFilePath,
         limit_percentage=False, limit_lines=False):
@@ -104,13 +107,13 @@ def write_and_check_size(logger, inFilePath, outFilePath,
     try:
         # close() checks that changes are within limits
         ssw.close()
-    except FileChangeTooBigError, err:
-        logger.error("Changes are too big, leaving behind temporary file %s" % 
+    except FileChangeTooBigError as err:
+        logger.error(
+            "Changes are too big, leaving behind temporary file %s",
             ssw._tmpname)
         raise err
 
     logger.info("Changes are within limits, file replaced")
-
 
 
 def usage(exitcode=0):

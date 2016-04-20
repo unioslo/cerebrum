@@ -19,8 +19,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import hotshot, hotshot.stats
-proffile  = 'hotshot.prof'
+import hotshot
+import hotshot.stats
+proffile = 'hotshot.prof'
 
 import getopt
 import sys
@@ -35,7 +36,7 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, SimilarSizeWriter
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.no import fodselsnr

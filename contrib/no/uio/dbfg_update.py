@@ -81,24 +81,19 @@ Each of the updates can be turned on/off from the command line.
 import sys
 import string
 import getopt
-import time
+import traceback
 
 import cerebrum_path
 import cereconf
-import traceback
 
 import Cerebrum
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import AtomicFileWriter
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.modules.no.uio.access_FS import FS, FSvpd
-from Cerebrum.modules.no.uio.access_OF import OF
 from Cerebrum.modules.no.uio.access_AJ import AJ
 from Cerebrum.modules.no.uio.access_OA import OA
 from Cerebrum.modules.no.uio.access_OEP import OEP
-
-
-
 
 
 def sanitize_group(cerebrum_group, constants):

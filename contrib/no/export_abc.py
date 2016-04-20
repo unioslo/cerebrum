@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
 """Export person information in ABC Enterprise format.
 
 This file is an extension of Cerebrum. It generates an XML file containing
@@ -63,8 +61,8 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum import Database
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.access_FS import make_fs
@@ -1011,7 +1009,7 @@ def main():
 
     _cache_id_types()
     fs_db = make_fs()
-    stream = Utils.AtomicFileWriter(args.filename)
+    stream = AtomicFileWriter(args.filename)
     xmlwriter = xmlprinter.xmlprinter(stream,
                                       indent_level=2,
                                       # human-friendly output

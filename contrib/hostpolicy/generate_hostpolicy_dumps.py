@@ -52,14 +52,17 @@ There are four different files:
 
 The date format is: YYYY-MM-DD
 """
-
 import sys
 import os
 
 import cerebrum_path
 import cereconf
-from Cerebrum.Utils import Factory, SimilarSizeWriter
-from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent, Atom, Role
+
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
+from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent
+from Cerebrum.modules.hostpolicy.PolicyComponent import Atom
+from Cerebrum.modules.hostpolicy.PolicyComponent import Role
 
 logger = Factory.get_logger('cronjob')
 

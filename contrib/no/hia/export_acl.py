@@ -34,11 +34,14 @@ The XML is shaped in accordance with ABC-enterprise schema. e.g.:
 # FIXME: Too many magic constants!
 #
 
-import getopt, sys, time
+import getopt
+import sys
+import time
 
 import cerebrum_path
 import cereconf
-from Cerebrum import Utils
+
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum import Errors
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
@@ -943,7 +946,7 @@ def main():
     # od
 
     _cache_id_types()
-    stream = Utils.AtomicFileWriter(filename)
+    stream = AtomicFileWriter(filename)
     xmlwriter = xmlprinter.xmlprinter(stream,
                                       indent_level = 2,
                                       # Human-readable output

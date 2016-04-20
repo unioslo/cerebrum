@@ -32,19 +32,22 @@ This script take the following arguments:
 
 from os.path import join as pj
 
-import os, sys
+import sys
 import getopt
-import cerebrum_path
 
-from Cerebrum.Utils import Factory, SimilarSizeWriter
-from Cerebrum.modules.LDIFutils import *
+import cerebrum_path
+import cereconf
+
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
+from Cerebrum.modules.LDIFutils import entry_string
+# from Cerebrum.modules.LDIFutils import *
 
 logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
 
-filename = pj(LDAP_DUMP_DIR, 'webaccounts.ldif')
 
 def usage(exitcode=0):
     print __doc__
@@ -52,6 +55,7 @@ def usage(exitcode=0):
 
 
 def main():
+    filename = pj(cereconf.LDAP['dump_dir'], 'webaccounts.ldif')
     spread = base = None
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'hf:b:s:', [

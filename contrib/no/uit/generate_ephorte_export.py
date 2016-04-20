@@ -2,14 +2,13 @@
 # -*- coding: iso-8859-1 -*-
 
 import getopt
-import pickle
 import sys
+
 import cerebrum_path
+
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, XMLHelper, SimilarSizeWriter
-#from Cerebrum.modules import CLHandler
-#from Cerebrum.modules.no.uio.Ephorte import EphorteRole
-#from Cerebrum.modules.no.uio.Ephorte import EphortePermission
+from Cerebrum.Utils import Factory, XMLHelper
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
 progname = __file__.split("/")[-1]
 __doc__ = """

@@ -49,16 +49,12 @@ import time
 import cerebrum_path
 import cereconf
 
-
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import SimilarSizeWriter
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
 
 logger = None
-
-
-
 
 
 def output_element_helper(xml, element, value, attributes=dict()):
@@ -804,9 +800,6 @@ def main(argv):
     output_xml(sink, tag, root_ou_obj, perspective, source_system, spread)
     sink.close()
 # end main
-
-
-
 
 
 if __name__ == "__main__":

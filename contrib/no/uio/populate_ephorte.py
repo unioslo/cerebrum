@@ -3,24 +3,23 @@
 u"""This script adds ephorte_roles and ephorte-spreads to persons (employees) in
 Cerebrum according to the rules in ephorte-sync-spec.rst
 """
-
 import sys
+import argparse
+from mx import DateTime
+
 import cerebrum_path
 import cereconf
-from mx import DateTime
-from sets import Set
+
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, XMLHelper, SimilarSizeWriter
+from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
-from Cerebrum.modules.no.uio.Ephorte import EphortePermission, _EphortePermTypeCode
+from Cerebrum.modules.no.uio.Ephorte import EphortePermission
 from Cerebrum.modules.no.uio.EphorteWS import make_ephorte_client
 
-try:
-    import argparse
-except ImportError:
-    from Cerebrum.extlib import argparse
+
+Set = set
 
 db = Factory.get('Database')()
 db.cl_init(change_program="populate_ephorte")
@@ -34,6 +33,7 @@ ou = Factory.get("OU")(db)
 cl = CLHandler.CLHandler(db)
 logger = Factory.get_logger("cronjob")
 ou_mismatch_warnings = {'pols': [], 'ephorte': []}
+
 
 class SimpleRole(object):
     def __init__(self, role_type, adm_enhet, arkivdel, journalenhet, standard_role=True, auto_role=True):

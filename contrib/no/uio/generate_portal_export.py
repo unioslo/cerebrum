@@ -18,9 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
-
 This file is a part of the Cerebrum framework.
 
 It generates a plain text dump suitable for the student portal project.  The
@@ -57,10 +55,10 @@ The general workflow is pretty simple:
 <FS db> provides the rest (dates, courses, places, etc.)
 
 """
-
 import getopt
 import sys
 import string
+import logging
 
 import cerebrum_path
 import cereconf
@@ -68,14 +66,10 @@ import cereconf
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-
 from Cerebrum.modules.no.uio.access_FS import FS
-from Cerebrum.Utils import MinimumSizeWriter
-
-import logging
+from Cerebrum.utils.atomicfile import MinimumSizeWriter
 
 
-# 
 # It looks like there is way too much time spent looking up things. The
 # output structure suggests that it might be beneficial to cache
 # (no_ssn,uname) mappings

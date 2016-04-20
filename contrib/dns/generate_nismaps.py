@@ -1,26 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-import time
 import getopt
 import sys
-import os
 import mx
 
 import cerebrum_path
+
 from Cerebrum import Errors
-from Cerebrum import Utils
+from Cerebrum.Utils import Factory
+from Cerebrum.Utils import latin1_to_iso646_60
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
 from Cerebrum.Constants import _SpreadCode
 
-try:
-    set()
-except NameError:
-    from sets import Set as set
-
-Factory = Utils.Factory
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 logger = Factory.get_logger("cronjob")
@@ -52,10 +47,10 @@ def generate_passwd(filename, shadow_file, spread=None):
     shells = {}
     for s in posix_user.list_shells():
         shells[int(s['code'])] = s['shell']
-    f = Utils.SimilarSizeWriter(filename, "w")
+    f = SimilarSizeWriter(filename, "w")
     f.set_size_change_limit(10)
     if shadow_file:
-        s = Utils.SimilarSizeWriter(shadow_file, "w")
+        s = SimilarSizeWriter(shadow_file, "w")
         s.set_size_change_limit(10)
     n = 0
     diskid2path = {}
@@ -80,7 +75,7 @@ def generate_passwd(filename, shadow_file, spread=None):
             gecos = row['name']
         if gecos is None:
             gecos = "GECOS NOT SET"
-        gecos = Utils.latin1_to_iso646_60(gecos)
+        gecos = latin1_to_iso646_60(gecos)
         shell = shells[int(row['shell'])]
         if row['quarantine_type'] is not None:
             now = mx.DateTime.now()
@@ -236,7 +231,7 @@ class NISGroupUtil(object):
     def generate_netgroup(self, filename):
         logger.debug("generate_netgroup: %s" % filename)
 
-        f = Utils.SimilarSizeWriter(filename, "w")
+        f = SimilarSizeWriter(filename, "w")
         f.set_size_change_limit(5)
 
         for group_id in self._exported_groups.keys():
@@ -315,7 +310,7 @@ class FileGroup(NISGroupUtil):
 
     def generate_filegroup(self, filename):
         logger.debug("generate_group: %s" % filename)
-        f = Utils.SimilarSizeWriter(filename, "w")
+        f = SimilarSizeWriter(filename, "w")
         f.set_size_change_limit(5)
 
         groups = self._exported_groups.keys()

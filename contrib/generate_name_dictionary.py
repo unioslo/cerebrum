@@ -18,9 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""
-This file is part of the Cerebrum framework.
+""" This file is part of the Cerebrum framework.
 
 It generates a list of names used in the password checking algorithm. Roughly,
 we want to prevent people from using their own names (or variations thereof)
@@ -29,19 +27,14 @@ for passwords. This has been known to happen.
 The idea is to sort all names and write them to a file where bofhd would be
 able to pick it up (cereconf.PASSWORD_DICTIONARIES).
 """
-
 import getopt
 import sys
 
 import cerebrum_path
 import cereconf
-from Cerebrum import Errors
+
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import SimilarSizeWriter
-from Cerebrum.extlib.sets import Set as set
-
-
-
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
 
 logger = Factory.get_logger("cronjob")

@@ -24,11 +24,10 @@ import getopt
 
 import cerebrum_path
 import cereconf
+
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import SimilarSizeWriter
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.modules import Email, LDIFutils
-from Cerebrum.modules.LDIFutils import entry_string, iso2utf
-from Cerebrum.Constants import _PersonAffStatusCode
 
 LDIFutils.needs_base64 = LDIFutils.needs_base64_safe
 LDIFutils.base64_attrs.update({

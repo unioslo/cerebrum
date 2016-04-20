@@ -26,7 +26,9 @@ import getopt
 
 import cerebrum_path
 import cereconf
-from Cerebrum.Utils import Factory, SimilarSizeWriter
+
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.modules.dns import IPNumber, IPv6Number
 
 

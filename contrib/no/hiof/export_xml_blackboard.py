@@ -34,17 +34,14 @@ found in cerebrum_eksterne/docs/HIOF/spec/blackboard_hiof.rst.
 # http://imsproject.org/enterprise/entv1p1/imsent_bindv1p1.html
 
 import sys
-import locale
-import os
 import getopt
 import time
 
 import cerebrum_path
 import cereconf
-from Cerebrum import Errors
-from Cerebrum import Utils
+
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no import access_FS
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
 
 
@@ -52,7 +49,7 @@ from Cerebrum.extlib import xmlprinter
 db = const = logger = None
 
 ##
-## Data gathering methods 
+## Data gathering methods
 ##
 
 def fetch_person_data():
@@ -271,8 +268,8 @@ def main():
             filename = val
     if not filename:
         usage(1)    
-    
-    stream = Utils.AtomicFileWriter(filename)
+
+    stream = AtomicFileWriter(filename)
     xmlwriter = xmlprinter.xmlprinter(stream,
                                       indent_level=2,
                                       # human-friendly output

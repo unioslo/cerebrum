@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-
 """
 Generere LDAP tre med uioEduSection (Undervisningsaktivitet - gruppe,
 kollokvia...) eller uioEduOffering (Undervisningsenhet - emne) objekter.
@@ -17,14 +16,22 @@ role=Learner for studenter og Instructor for gruppe-lærer/foreleser.
 --ldiffile fname.ldif : trigger generering av ldif fil med angitt navn
 --picklefile fname : brukes av person-ldif exporten til å sette eduCourseMember
 """
-
 import getopt
 import pickle
-import os, sys
-import cerebrum_path
+import os
+import sys
 import locale
-from Cerebrum.Utils import Factory, SimilarSizeWriter
-from Cerebrum.modules.LDIFutils import *
+
+import cerebrum_path
+import cereconf
+
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.LDIFutils import ldapconf
+from Cerebrum.modules.LDIFutils import iso2utf
+from Cerebrum.modules.LDIFutils import entry_string
+from Cerebrum.modules.LDIFutils import ldif_outfile
+from Cerebrum.modules.LDIFutils import end_ldif_outfile
+from Cerebrum.modules.LDIFutils import container_entry_string
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
 
 logger = Factory.get_logger("cronjob")
@@ -53,21 +60,22 @@ interesting_fs_roles = (('student', 'Learner'),
                         ('sensor', 'Sensor'),
                         ('studiekons', 'Studiekonsulent'),)
 
+
 class CerebrumGroupInfo(object):
-    ## Fra generate_fronter_full.py:214
-    ##             id_seq = (self.EMNE_PREFIX, enhet['institusjonsnr'],
-    ##                       enhet['emnekode'], enhet['versjonskode'],
-    ##                       enhet['terminkode'], enhet['arstall'],
-    ##                       enhet['terminnr'])
-    ##             enhet_id = ":".join([str(x) for x in id_seq]).lower()
+    # Fra generate_fronter_full.py:214
+    #             id_seq = (self.EMNE_PREFIX, enhet['institusjonsnr'],
+    #                       enhet['emnekode'], enhet['versjonskode'],
+    #                       enhet['terminkode'], enhet['arstall'],
+    #                       enhet['terminnr'])
+    #             enhet_id = ":".join([str(x) for x in id_seq]).lower()
 
-    ## 1144:       enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
-    ## 982:        aktstud = "uio.no:fs:%s:student:%s" % (enhet_id.lower(), aktkode.lower())
+    # 1144:       enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
+    # 982:        aktstud = "uio.no:fs:%s:student:%s" % (enhet_id.lower(), aktkode.lower())
 
-    ##     752523 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:aktivitetsansvar:2-2
-    ##     752521 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:enhetsansvar
-    ##     752522 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:student
-    ##     752526 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:student:2-1
+    #     752523 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:aktivitetsansvar:2-2
+    #     752521 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:enhetsansvar
+    #     752522 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:student
+    #     752526 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:student:2-1
     PREFIX = "uio.no:fs:kurs:"
     id_key_seq = ('institusjonsnr', 'emnekode', 'versjonskode',
                   'terminkode', 'arstall', 'terminnr')
@@ -81,12 +89,12 @@ class CerebrumGroupInfo(object):
             self._emne_key2dta.setdefault(tuple(emne_key), []).append(
                 {'group_id': int(row['group_id']),
                  'emne_val': emne_val})
-##         for k, v in self._emne_key2dta.items():
-##             logger.debug("Emne "+repr(k)+" -> "+repr(v))
+            # for k, v in self._emne_key2dta.items():
+            #     logger.debug("Emne "+repr(k)+" -> "+repr(v))
 
     def find_group_by_undervisningsenhet(
-        self, institusjonsnr, emnekode, versjonskode, terminkode,
-        arstall, terminnr, persontype):
+            self, institusjonsnr, emnekode, versjonskode, terminkode,
+            arstall, terminnr, persontype):
         """Returnerer entity-id for aktuell gruppe.
         persontype er en av ('enhetsansvar', 'student').  De øvrige
         verdiene tilsvarer kolonner i FS
@@ -94,9 +102,11 @@ class CerebrumGroupInfo(object):
         rows = self._emne_key2dta.get(
             (institusjonsnr, emnekode, versjonskode, terminkode,
              arstall, terminnr), [])
-##         logger.debug("nokkel: %s" % repr((institusjonsnr, emnekode, versjonskode, terminkode,
-##              arstall, terminnr)))
-##         logger.debug("Leter i %s" % repr(rows))
+        # logger.debug(
+        #     "nokkel: %s",
+        #     repr((institusjonsnr, emnekode, versjonskode, terminkode,
+        #           arstall, terminnr)))
+        # logger.debug("Leter i %s" % repr(rows))
         for dta in rows:
             if(len(dta['emne_val']) == 1):
                 if persontype == dta['emne_val'][0]:
@@ -104,8 +114,8 @@ class CerebrumGroupInfo(object):
         return None
 
     def find_group_by_undervisningsaktivitet(
-        self, institusjonsnr, emnekode, versjonskode, terminkode,
-        arstall, terminnr, aktkode, persontype):
+            self, institusjonsnr, emnekode, versjonskode, terminkode,
+            arstall, terminnr, aktkode, persontype):
         """Returnerer entity-id for aktuell gruppe.
         persontype er en av ('aktivitetsansvar', 'student').  De
         øvrige verdiene tilsvarer kolonner i FS
@@ -113,18 +123,22 @@ class CerebrumGroupInfo(object):
         rows = self._emne_key2dta.get(
             (institusjonsnr, emnekode, versjonskode, terminkode,
              arstall, terminnr), [])
-##         logger.debug("nokkel: %s -- aktkode=%s" % (repr((institusjonsnr, emnekode, versjonskode, terminkode,
-##              arstall, terminnr)), aktkode))
-##         logger.debug("Leter i %s" % repr(rows))
+        # logger.debug(
+        #     "nokkel: %s -- aktkode=%s",
+        #     repr((institusjonsnr, emnekode, versjonskode, terminkode,
+        #           arstall, terminnr)),
+        #     aktkode)
+        # logger.debug("Leter i %s" % repr(rows))
         for dta in rows:
             if(len(dta['emne_val']) == 2):
                 if (persontype, aktkode) == tuple(dta['emne_val']):
                     return dta['group_id']
         return None
 
-##  1. Lage et "Offerings & sections" tre med informasjon om de
-##  undervisningsenheter og undervisningsaktiviteter som er definert
-##  ved UiO.
+
+#  1. Lage et "Offerings & sections" tre med informasjon om de
+#  undervisningsenheter og undervisningsaktiviteter som er definert
+#  ved UiO.
 
 class StudinfoParsers(object):
     def __init__(self, emne_file, aktivitet_file, enhet_file):
@@ -134,15 +148,16 @@ class StudinfoParsers(object):
         # The current emne query does not fetch emnenavn_bokmal.  If it did,
         # we could avoid this pre-parsing and use generators instead
         for entry in self.undervisningsenheter:
-            tmp =  self.emnekode2info.get(entry['emnekode'])
+            tmp = self.emnekode2info.get(entry['emnekode'])
             if not tmp:
                 logger.info("Enhet for ukjent emne: %s" % entry)
             else:
                 tmp['emnenavn_bokmal'] = entry['emnenavn_bokmal']
-    
+
     def _parse_emner(self, fname):
         logger.debug("Parsing %s" % fname)
         emnekode2info = {}
+
         def got_emne(dta, elem_stack):
             entry = elem_stack[-1][-1]
             sko = "%02i%02i%02i" % (int(entry['faknr_reglement']),
@@ -162,6 +177,7 @@ class StudinfoParsers(object):
     def _parse_undervisningsaktivitet(self, fname):
         logger.debug("Parsing %s" % fname)
         ret = []
+
         def got_aktivitet(dta, elem_stack):
             entry = elem_stack[-1][-1]
             ret.append(entry)
@@ -173,6 +189,7 @@ class StudinfoParsers(object):
     def _parse_undervisningenheter(self, fname):
         logger.debug("Parsing %s" % fname)
         ret = []
+
         def got_enhet(dta, elem_stack):
             entry = elem_stack[-1][-1]
             ret.append(entry)
@@ -180,6 +197,7 @@ class StudinfoParsers(object):
         cfg = [(['data', 'enhet'], got_enhet)]
         GeneralXMLParser(cfg, fname)
         return ret
+
 
 def gen_undervisningsaktivitet(cgi, sip, out):
     # uioEduSection - Undervisningsaktivitet (instansiering av gruppe,
@@ -199,10 +217,11 @@ def gen_undervisningsaktivitet(cgi, sip, out):
         try:
             emne = sip.emnekode2info[entry['emnekode']]
         except KeyError:
-            logger.warn("Undervisningsaktivitet %s er ikke knyttet til gyldig emne",
-                        entry['emnekode'])
+            logger.warn(
+                "Undervisningsaktivitet %s er ikke knyttet til gyldig emne",
+                entry['emnekode'])
             continue
-        if not emne.has_key('emnenavn_bokmal'):
+        if 'emnenavn_bokmal' not in emne:
             logger.warn("Undervisningsaktivitet %s uten enhet?" % repr(entry))
             continue
         aktivitet_id = {}
@@ -237,6 +256,7 @@ def gen_undervisningsaktivitet(cgi, sip, out):
         ret[urn] = aktivitet_id
     return ret
 
+
 def gen_undervisningsenhet(cgi, sip, out):
     # uioEduOffering - Undervisningsenhet (instansiering av et emne)
     # access_FS.py:Undervisning.list_undervisningenheter
@@ -250,7 +270,8 @@ def gen_undervisningsenhet(cgi, sip, out):
     for entry in sip.undervisningsenheter:
         emne = sip.emnekode2info.get(entry['emnekode'])
         if not emne:
-            continue # warned erlier
+            # warned erlier
+            continue
         aktivitet_id = {}
         for persontype, role in interesting_fs_roles:
             args = [entry[x] for x in CerebrumGroupInfo.id_key_seq]
@@ -280,6 +301,7 @@ def gen_undervisningsenhet(cgi, sip, out):
         ret[urn] = aktivitet_id
     return ret
 
+
 def dump_pickle_file(fname, urn_dict1, urn_dict2):
     urn_dict1.update(urn_dict2)
     owner_id2urn = {}
@@ -300,6 +322,7 @@ def dump_pickle_file(fname, urn_dict1, urn_dict2):
     tmpfname = fname + ".tmp"
     pickle.dump(owner_id2urn, open(tmpfname, "w"))
     os.rename(tmpfname, fname)
+
 
 def main():
     try:
@@ -338,9 +361,11 @@ def main():
                      gen_undervisningsenhet(cgi, sip, destfile))
     end_ldif_outfile('KURS', destfile)
 
+
 def usage(exitcode=0):
     print __doc__
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()

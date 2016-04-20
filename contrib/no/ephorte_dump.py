@@ -27,25 +27,18 @@ Note: The spec states that 'initial' attribute can't be equal to uid part of
       Uninett has stated that it's not required.
 """
 
-
 import sys
 import getopt
-import time
-import string
-import re
 
 import cerebrum_path
 import cereconf
-from Cerebrum import Constants
+
 from Cerebrum import Errors
 from Cerebrum import OU
-from Cerebrum import Person
-from Cerebrum import Group
-from Cerebrum import Entity
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import CLHandler
 from Cerebrum.modules.no import Stedkode
-from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
+from Cerebrum.Utils import XMLHelper
+from Cerebrum.utils.atomicfile import MinimumSizeWriter
 
 db = Factory.get('Database')()
 const = Factory.get('CLConstants')(db)
@@ -172,4 +165,3 @@ def main():
         
 if __name__ == '__main__':
     main()
-

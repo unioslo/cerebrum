@@ -17,8 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
 """
 This file is a HiA-specific extension of Cerebrum. It contains code which
 generates an export 'back' from Cerebrum to SAP. There is one entry per
@@ -29,6 +27,8 @@ TLFINT	CHAR30	Internal phone number
 TLFMOD	CHAR30	Work cellular phone number
 EMAIL	CHAR60	Work e-mail
 """
+import sys
+import getopt
 
 import cerebrum_path
 import cereconf
@@ -36,14 +36,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import tuple_to_sap_row
-from Cerebrum.Utils import AtomicFileWriter
-
-import sys
-import getopt
-import string
-
-
-
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 
 
 def locate_person(person, person_id):
