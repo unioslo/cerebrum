@@ -45,16 +45,6 @@ import gpgme
 from Cerebrum.UtilsHelper import Latin1
 
 
-# TODO: Fix imports
-from Cerebrum.utils.atomicfile import (
-    AtomicFileWriter,
-    FileSizeChangeError,
-    FileChangeTooBigError,
-    SimilarSizeWriter,
-    FileTooSmallError,
-    MinimumSizeWriter, )
-
-
 class _NotSet(object):
 
     """This class shouldn't be referred to directly, import the
@@ -63,7 +53,7 @@ class _NotSet(object):
     caller specifying None and not specifying it at all."""
 
     def __new__(cls):
-        if not '_the_instance' in cls.__dict__:
+        if '_the_instance' not in cls.__dict__:
             cls._the_instance = object.__new__(cls)
         return cls._the_instance
 
