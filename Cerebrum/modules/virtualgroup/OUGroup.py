@@ -338,6 +338,9 @@ class OUGroup(VirtualGroup):
             creator_id=creator_id,
             expired_only=expired_only)
 
+        if member_id is None:
+            return ret
+
         def get_entity_type(entity_id):
             ent = Entity(self._db)
             ent.find(entity_id)
@@ -377,100 +380,98 @@ class OUGroup(VirtualGroup):
             wheres.append(argument_to_sql(filter_groups, 'group_id', binds,
                                           int))
 
-        if member_id is not None:
-            objs = {}
-            affected_groups = set()
+        objs = {}
+        affected_groups = set()
 
-            def fget(name):
-                ret = objs.get(name)
-                if ret is None:
-                    ret = Factory.get(name)(self._db)
-                    objs[name] = ret
-                return ret
+        def fget(name):
+            ret = objs.get(name)
+            if ret is None:
+                ret = Factory.get(name)(self._db)
+                objs[name] = ret
+            return ret
 
-            def handle_person(mid, mtype=self.const.vg_ougroup):
-                # nonlocal ftw!
-                pe = fget('Person')
-                for row in pe.list_affiliations(person_id=mid,
-                                                include_deleted=False):
-                    affected_groups.update(
-                        map(lambda x: x['group_id'],
-                            self.list_ou_groups_for(
-                                affiliation=row['affiliation'],
-                                status=row['status'],
-                                ou_id=row['ou_id'],
-                                member_types=mtype,
-                                source=row['source_system'],
-                                indirect=indirect_members)))
+        def handle_person(mid, mtype=self.const.vg_ougroup):
+            # nonlocal ftw!
+            pe = fget('Person')
+            for row in pe.list_affiliations(person_id=mid,
+                                            include_deleted=False):
+                affected_groups.update(
+                    map(lambda x: x['group_id'],
+                        self.list_ou_groups_for(
+                            affiliation=row['affiliation'],
+                            status=row['status'],
+                            ou_id=row['ou_id'],
+                            member_types=mtype,
+                            source=row['source_system'],
+                            indirect=indirect_members)))
 
-            def handle_account(mid):
-                ac = fget('Account')
-                pe = fget('Person')
-                ac.find(mid)
-                for row in ac.get_account_types():
-                    affected_groups.update(
-                        map(lambda x: x['group_id'],
-                            self.list_ou_groups_for(
-                                affiliation=row['affiliation'],
-                                ou_id=row['ou_id'],
-                                member_types=self.const.
-                                virtual_group_ou_accounts,
-                                indirect=indirect_members)))
-                try:
-                    pe.find(ac.owner_id)
-                    if ac.entity_id == pe.get_primary_account():
-                        handle_person(mid,
-                                      self.const.virtual_group_ou_primary)
-                except:
-                    pass
-                pe.clear()
-                ac.clear()
+        def handle_account(mid):
+            ac = fget('Account')
+            pe = fget('Person')
+            ac.find(mid)
+            for row in ac.get_account_types():
+                affected_groups.update(
+                    map(lambda x: x['group_id'],
+                        self.list_ou_groups_for(
+                            affiliation=row['affiliation'],
+                            ou_id=row['ou_id'],
+                            member_types=self.const.
+                            virtual_group_ou_accounts,
+                            indirect=indirect_members)))
+            try:
+                pe.find(ac.owner_id)
+                if ac.entity_id == pe.get_primary_account():
+                    handle_person(mid,
+                                  self.const.virtual_group_ou_primary)
+            except:
+                pass
+            pe.clear()
+            ac.clear()
 
-            def handle_virtual_group(mid):
-                gr = fget('Group')
-                gr.find(mid)
-                if (gr.virtual_group_type == self.const.vg_ougroup and
-                        gr.recursion == self.const.virtual_group_ou_recursive):
-                    affected_groups.update(
-                        [x['group_id'] for x in self.list_ou_groups_for(
-                            affiliation=gr.affiliation,
-                            status=gr.affiliation_status,
-                            ou_id=gr.ou_id,
-                            member_types=gr.member_type,
-                            source=gr.affiliation_source)
-                            if get_ou_perspective(x['group_id']) ==
-                            gr.ou_perspective])
-                gr.clear()
-            dp = {
-                self.const.entity_person: handle_person,
-                self.const.entity_account: handle_account,
-                self.const.entity_group: handle_virtual_group,
-            }
-            if not isinstance(member_id, collections.Iterable):
-                member_id = [member_id]
-            quit = True
-            for mid in member_id:
-                et = get_entity_type(mid)
-                if et in dp:
-                    dp[et](mid)
-                    quit = False
-            if quit:
-                return ret
-            affected_groups.difference_update(member_id)
-            if affected_groups and indirect_members:
-                ret.extend(super(OUGroup, self).search(
-                    group_id=group_id,
-                    member_id=affected_groups,
-                    indirect_members=indirect_members,
-                    spread=spread,
-                    description=description,
-                    filter_expired=filter_expired,
-                    creator_id=creator_id,
-                    expired_only=expired_only))
-            if not affected_groups:
-                return ret
-            wheres.append(argument_to_sql(affected_groups, 'group_id', binds,
-                                          int))
+        def handle_virtual_group(mid):
+            gr = fget('Group')
+            gr.find(mid)
+            if (gr.virtual_group_type == self.const.vg_ougroup and
+                    gr.recursion == self.const.virtual_group_ou_recursive):
+                affected_groups.update(
+                    [x['group_id'] for x in self.list_ou_groups_for(
+                        affiliation=gr.affiliation,
+                        status=gr.affiliation_status,
+                        ou_id=gr.ou_id,
+                        member_types=gr.member_type,
+                        source=gr.affiliation_source)
+                        if get_ou_perspective(x['group_id']) ==
+                        gr.ou_perspective])
+            gr.clear()
+        dp = {
+            self.const.entity_person: handle_person,
+            self.const.entity_account: handle_account,
+            self.const.entity_group: handle_virtual_group,
+        }
+        if not isinstance(member_id, collections.Iterable):
+            member_id = [member_id]
+        quit = True
+        for mid in member_id:
+            et = get_entity_type(mid)
+            if et in dp:
+                dp[et](mid)
+                quit = False
+        if quit:
+            return ret
+        affected_groups.difference_update(member_id)
+        if affected_groups and indirect_members:
+            ret.extend(super(OUGroup, self).search(
+                group_id=group_id,
+                member_id=affected_groups,
+                indirect_members=indirect_members,
+                spread=spread,
+                description=description,
+                filter_expired=filter_expired,
+                creator_id=creator_id,
+                expired_only=expired_only))
+        if not affected_groups:
+            return ret
+        wheres.append(argument_to_sql(affected_groups, 'group_id', binds, int))
         if spread:
             tables.append("[:table schema=cerebrum name=entity_spread] es")
             wheres.append("gi.group_id = es.entity_id")
@@ -893,6 +894,10 @@ class OUGroup(VirtualGroup):
         # Member filter expired checks account info for ordinary groups.
         # Always on.
 
+        if member_type is not None and not isinstance(member_type,
+                                                      collections.Iterable):
+            member_type = (member_type, )
+
         if indirect_members:
             if group_id is not None:
                 if not isinstance(group_id, collections.Iterable):
@@ -903,7 +908,9 @@ class OUGroup(VirtualGroup):
                             spread=spread,
                             member_names=include_member_entity_name,
                             member_spread=member_spread):
-                        yield entry
+                        if (member_type is None
+                                or entry['member_type'] in member_type):
+                            yield entry
                 return
             else:  # member_id
                 # find all groups affected and add as member id
@@ -1010,7 +1017,9 @@ class OUGroup(VirtualGroup):
                         filter_members=member_id,
                         member_names=include_member_entity_name,
                         member_spread=member_spread):
-                    yield entry
+                    if (member_type is None
+                            or entry['member_type'] in member_type):
+                        yield entry
             return
 
 
