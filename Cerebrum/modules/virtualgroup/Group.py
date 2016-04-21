@@ -75,6 +75,11 @@ class VirtualGroup(Group):
     __read_attr__ = ('__in_db', 'virtual_group_type')
     __metaclass__ = GroupPopulatorInjector
 
+    def clear(self):
+        super(VirtualGroup, self).clear()
+        self.clear_class(VirtualGroup)
+        self.__updated = []
+
     def populate(self, creator_id=None, visibility=None, name=None,
                  description=None, create_date=None, expire_date=None,
                  parent=None, group_type='normal_group', **kw):

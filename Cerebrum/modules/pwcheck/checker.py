@@ -100,7 +100,8 @@ def check_password(password, account=None, structured=False):
     if pwstyle == 'mixed':
         # mark as 'phrase' if the password contains space, 'rigid' otherwise
         pwstyle = 'rigid'
-        if ' ' in password:  # the same as uio.Account.is_passphrase
+        if password and ' ' in password:
+            # the same as uio.Account.is_passphrase
             pwstyle = 'phrase'
 
     def tree():
