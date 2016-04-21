@@ -113,12 +113,10 @@ def test_assert_history_written():
 @with_setup(create_accounts(num=1), remove_accounts())
 def test_set_password_twice():
     for acc in get_next_account():
-        password = acc.make_password(acc.account_name)
-        acc.password_good_enough(password)
-        acc.set_password(password)
-        acc.write_db()
         try:
-            acc.password_good_enough(password)
+            password = acc.make_password(acc.account_name)
+            acc.set_password(password)
+            acc.write_db()
         except PasswordNotGoodEnough:
             return
     assert False, "Could re-use password!"
