@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2015 University of Oslo, Norway
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -44,6 +44,8 @@ from Cerebrum.Utils import (NotSet,
                             argument_to_sql,
                             prepare_string,
                             gpgme_encrypt)
+from Cerebrum.modules.pwcheck.checker import (check_password,
+                                              PasswordNotGoodEnough)
 
 import cereconf
 
@@ -1301,31 +1303,25 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         pot = string.ascii_letters + string.digits + '-+?=*()/&%#"_!,;.:'
         for i in ['O', 'l']:
             pot = pot.replace(i, '')
-        while True:
+        for attempt in range(10):
+            # try with 10 random passwords before giving up
             r = ''
             while len(r) < cereconf.MAKE_PASSWORD_LENGTH:
                 r += pot[random.randint(0, len(pot) - 1)]
             try:
-                self.password_good_enough(r)
+                check_password(r, self)
                 return r
-            except Errors.CerebrumError:  # PasswordNotGoodEnough
-                pass  # Wasn't good enough
+            except PasswordNotGoodEnough as e:
+                if attempt == 9:  # last attempt
+                    # raise PasswordNotGoodEnough(
+                    #     '(after 10 attempts) ' + str(e))
 
-    def password_good_enough(self, password):
-        """ PasswordChecker API function.
-
-        This function can be used to test if a given password is good enough to
-        be used with this account.
-
-        :param str password: The password to check
-
-        :return: Returns on success
-
-        :raise PasswordNotGoodEnough:
-            Raises an error if password is not good enough.
-
-        """
-        pass
+                    # Keep the old behaviour and let the caller handle the bad
+                    # password should not happen unless the configured password
+                    # rules are too restrictive
+                    # or min_length > MAKE_PASSWORD_LENGTH
+                    return r  # give up and return the last password
+                continue  # make a new attempt
 
     def suggest_unames(self, domain, fname, lname, maxlen=8, suffix="",
                        prefix=""):
