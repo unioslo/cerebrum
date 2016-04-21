@@ -191,6 +191,11 @@ class OUGroup(VirtualGroup):
         self.__in_db = True
         self.__updated = []
 
+    def clear(self):
+        super(OUGroup, self).clear()
+        self.clear_class(OUGroup)
+        self.__updated = []
+
     @populator('ougroup', 'virtual_ou_group')
     def populate_virtual_ou_group(self,
                                   ou_id=None,
