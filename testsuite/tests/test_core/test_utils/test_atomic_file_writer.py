@@ -15,10 +15,14 @@ import shutil
 
 
 # pytest.mark.skip only exists from pytest 2.9
-from distutils.version import LooseVersion
-if LooseVersion(pytest.__version__) < LooseVersion('2.9.0'):
-    from functools import partial
-    setattr(pytest.mark, 'skip', partial(pytest.mark.skipif, True))
+#   from distutils.version import LooseVersion
+#   if LooseVersion(pytest.__version__) < LooseVersion('2.9.0'):
+#       from functools import partial
+#       setattr(pytest.mark, 'skip', partial(pytest.mark.skipif, True))
+
+
+class TestException(Exception):
+    pass
 
 
 @pytest.yield_fixture(scope='module')
@@ -46,18 +50,14 @@ def file_module(cereconf):
 
 @pytest.fixture(params=['AtomicFileWriter',
                         'MinimumSizeWriter',
+                        'SimilarLineCountWriter',
                         'SimilarSizeWriter'])
 def AtomicFileWriter(file_module, request):
     cls = getattr(file_module, request.param)
 
     def init(*args, **kwargs):
         writer = cls(*args, **kwargs)
-        if request.param == 'MinimumSizeWriter':
-            # Make the MinimumSizeWriter behave like AtomicFileWriter
-            writer.set_minimum_size_limit(0)
-        elif request.param == 'SimilarSizeWriter':
-            # Make the SimilarSizeWriter behave like AtomicFileWriter
-            writer.set_size_change_limit(sys.maxsize)
+        writer.validate = False
         return writer
     return init
 
@@ -72,9 +72,25 @@ def SimilarSizeWriter(file_module):
     return getattr(file_module, 'SimilarSizeWriter')
 
 
+@pytest.fixture
+def SimilarLineCountWriter(file_module):
+    return getattr(file_module, 'SimilarLineCountWriter')
+
+
+@pytest.fixture
+def MixedWriter(file_module):
+    ssize = getattr(file_module, 'SimilarLineCountWriter')
+    minsize = getattr(file_module, 'MinimumSizeWriter')
+
+    class MixedSizeWriter(ssize, minsize):
+        pass
+    return MixedSizeWriter
+
+
 def generate_text(num_chars):
+    choice = string.ascii_letters + " \n"
     return u''.join(
-        [random.choice(string.printable) for i in range(num_chars)])
+        [random.choice(choice) for i in range(num_chars)])
 
 
 @pytest.fixture(params=[70, ])
@@ -160,7 +176,22 @@ def test_replace_close(AtomicFileWriter, text, text_file, more_text):
     assert match_contents(text_file, more_text)
 
 
-@pytest.mark.skip(reason="append mode is not implemented correctly")
+def test_context_pass(AtomicFileWriter, text, text_file, more_text):
+    with AtomicFileWriter(text_file) as af:
+        af.write(more_text)
+    assert match_contents(text_file, more_text)
+
+
+def test_context_fail(AtomicFileWriter, text, text_file, more_text):
+    try:
+        with AtomicFileWriter(text_file) as af:
+            af.write(more_text)
+            raise TestException()
+    except TestException:
+        pass
+    assert match_contents(text_file, text)
+
+
 def test_append_write(AtomicFileWriter, text, text_file, more_text):
     af = AtomicFileWriter(text_file, mode='a')
     af.write(more_text)
@@ -169,7 +200,6 @@ def test_append_write(AtomicFileWriter, text, text_file, more_text):
     assert match_contents(text_file, text)
 
 
-@pytest.mark.skip(reason="append mode is not implemented correctly")
 def test_append_close(AtomicFileWriter, text, text_file, more_text):
     af = AtomicFileWriter(text_file, mode='a')
     af.write(more_text)
@@ -251,9 +281,9 @@ def test_similar_size_new(SimilarSizeWriter, text, new_file):
     assert match_contents(new_file, text)
 
 
-def test_line_count_fail(SimilarSizeWriter, file_module, text, text_file):
-    af = SimilarSizeWriter(text_file)
-    af.set_line_count_change_limit(1)
+def test_line_count_fail(SimilarLineCountWriter, file_module, text, text_file):
+    af = SimilarLineCountWriter(text_file)
+    af.max_line_change = 1
 
     lines = text.split(u"\n")
     lines.append('another line')
@@ -268,9 +298,9 @@ def test_line_count_fail(SimilarSizeWriter, file_module, text, text_file):
     assert match_contents(text_file, text)
 
 
-def test_line_count_pass(SimilarSizeWriter, text, text_file):
-    af = SimilarSizeWriter(text_file)
-    af.set_line_count_change_limit(1)
+def test_line_count_pass(SimilarLineCountWriter, text, text_file):
+    af = SimilarLineCountWriter(text_file)
+    af.max_line_change = 1
 
     lines = text.split(u"\n")
     lines.append('another line')
@@ -282,6 +312,41 @@ def test_line_count_pass(SimilarSizeWriter, text, text_file):
     assert match_contents(text_file, new_content)
 
 
-# TODO: Test buffering
-# TODO: Test replace_equal
-# TODO: Test close(dont_rename)?
+def test_mixed_writer_pass(MixedWriter, text_file, text):
+    af = MixedWriter(text_file, mode='a')
+    af.max_line_change = 1
+    af.min_size = 1
+    line = "\nanother line"
+    af.write(line)
+    af.close()
+
+    assert match_contents(text_file, text + line)
+
+
+def test_mixed_writer_fail_size(MixedWriter, file_module, text_file, text):
+    af = MixedWriter(text_file, mode='a')
+    af.max_line_change = 1
+    line = "\nanother line"
+    af.min_size = len(text) + len(line) + 10
+    af.write(line)
+
+    with pytest.raises(file_module.FileTooSmallError):
+        af.close()
+
+    assert match_contents(text_file, text)
+
+
+def test_mixed_writer_fail_change(MixedWriter, file_module, text_file, text):
+    af = MixedWriter(text_file, mode='a')
+    line = "\nanother line"
+    af.max_line_change = 0
+    af.min_size = 1
+    af.write(line)
+
+    with pytest.raises(file_module.FileChangeTooBigError):
+        af.close()
+
+    assert match_contents(text_file, text)
+
+
+# TODO: Test buffering?

@@ -43,8 +43,8 @@ EXAMPLES
 
 OPTIONS
     -i, --input  <file>   File to read from.
-    -o, --output <file>   This file will be overwritten by the input file if the 
-                          changes aren't too big.
+    -o, --output <file>   This file will be overwritten by the input file if
+                          the changes aren't too big.
     -p, --limit-percentage <percentage>
                           If the input file size is bigger or smaller by this
                           percentage, output will not be overwritten.
@@ -58,10 +58,12 @@ import getopt
 
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
+from Cerebrum.utils.atomicfile import SimilarLineCountWriter
 from Cerebrum.utils.atomicfile import FileChangeTooBigError
 
 
-def write_and_check_size(logger, inFilePath, outFilePath,
+def write_and_check_size(
+        logger, inFilePath, outFilePath,
         limit_percentage=False, limit_lines=False):
     """Reads from the input file, writes to output file using SimilarSizeWriter.
     Changes to output file are done only if within limits.
@@ -82,23 +84,23 @@ def write_and_check_size(logger, inFilePath, outFilePath,
     @type limit_lines: Float"""
 
     try:
-        inFile = open(inFilePath, 'r') # Can we read from input?
-        assert(os.access(outFilePath, os.W_OK) == True) # Is output writable?
+        inFile = open(inFilePath, 'r')  # Can we read from input?
+        assert(os.access(outFilePath, os.W_OK))  # Is output writable?
     except IOError, err:
         logger.error(err)
         raise err
 
-    logger.info("Reading from: %s (%s bytes)" % (inFilePath,
-        os.path.getsize(inFilePath)))
-    logger.info("Comparing to: %s (%s bytes)" % (outFilePath,
-        os.path.getsize(outFilePath)))
-
-    ssw = SimilarSizeWriter(outFilePath, mode='w')
+    logger.info("Reading from: %s (%s bytes)",
+                inFilePath, os.path.getsize(inFilePath))
+    logger.info("Comparing to: %s (%s bytes)",
+                outFilePath, os.path.getsize(outFilePath))
 
     if limit_percentage:
-        ssw.set_size_change_limit(limit_percentage)
-    if limit_lines:
-        ssw.set_line_count_change_limit(limit_lines)
+        ssw = SimilarSizeWriter(outFilePath, mode='w')
+        ssw.max_pct_change = limit_percentage
+    else:
+        ssw = SimilarLineCountWriter(outFilePath, mode='w')
+        ssw.max_line_change = limit_lines
 
     # read from input, write to temporary output file
     for line in inFile:
@@ -122,6 +124,7 @@ def usage(exitcode=0):
     print __doc__
     sys.exit(exitcode)
 
+
 def main():
     """Reads options and moves forward."""
 
@@ -136,7 +139,7 @@ def main():
     except getopt.GetoptError, err:
         logger.error(err)
         usage(1)
-    
+
     outFilePath = inFilePath = limit_percentage = limit_lines = None
 
     for opt, val in opts:
@@ -157,8 +160,9 @@ def main():
         logger.error('Missing --input or --output parameter')
         usage(1)
 
-    write_and_check_size(logger, inFilePath, outFilePath, limit_percentage,
-        limit_lines)
+    write_and_check_size(
+        logger, inFilePath, outFilePath, limit_percentage, limit_lines)
+
 
 # If we run as a program, execute main(), then exit
 if __name__ == '__main__':

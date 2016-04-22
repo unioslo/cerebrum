@@ -85,13 +85,11 @@ class ZoneUtils(object):
             first = False
         self._file.write(extra_splitter)
 
-
     def close(self):
-        self._file.close(dont_rename=True)
-        if self._file.replaced_file:
-            self._read_update_serial(self._file._tmpname, update=True)
-            os.rename(self._file._tmpname, self._file._name)
-
+        self._file.close(rename=False)
+        if not self._file.discarded:
+            self._read_update_serial(self._file.tmpname, update=True)
+            os.rename(self._file.tmpname, self._file.name)
 
     def write(self, s):
         self._file.write(s)
