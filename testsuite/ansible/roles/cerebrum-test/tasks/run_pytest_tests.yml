@@ -18,11 +18,9 @@
 
 - name: build test dir
   file:
-    path: "{{ workdir }}/test"
+    path: "{{ workdir }}/{{config}}_test"
     state: directory
   register: _test_dir
-
-- debug: msg=
 
 - name: link tests
   file:
