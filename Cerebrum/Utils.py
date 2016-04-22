@@ -36,8 +36,10 @@ import socket
 import urllib2
 import urllib
 import urlparse
+import random
 import collections
 from io import BytesIO
+from string import ascii_lowercase, digits
 from subprocess import Popen, PIPE
 
 import gpgme
@@ -1076,6 +1078,13 @@ class fool_auto_super(object):
         def no_op(*args, **kws):
             pass
         return no_op
+
+
+def random_string(length, characters=ascii_lowercase + digits):
+    """Generate a random string of a given length using the given characters."""
+    random.seed()
+    # pick "length" number of letters, then combine them to a string
+    return ''.join([random.choice(characters) for _ in range(length)])
 
 
 class RecursiveDict(dict):
