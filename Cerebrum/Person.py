@@ -25,9 +25,12 @@ import collections
 import numbers
 
 import cereconf
-from Cerebrum.Entity import \
-    EntityContactInfo, EntityAddress, EntityQuarantine, \
-    EntityExternalId, EntitySpread, EntityNameWithLanguage
+from Cerebrum.Entity import (EntityContactInfo,
+                             EntityAddress,
+                             EntityQuarantine,
+                             EntityExternalId,
+                             EntitySpread,
+                             EntityNameWithLanguage)
 from Cerebrum import Utils
 from Cerebrum.Utils import argument_to_sql, prepare_string
 from Cerebrum import Errors
@@ -1090,6 +1093,55 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             result[row["external_id"]] = row["entity_name"]
 
         return result
+
+    def list_affiliated_persons(self,
+                                aff_list=None,
+                                status_list=None,
+                                inverted=False):
+        """
+        Retrieve a list of all persons *except* the ones containing
+        the specified affiliations and / or statuses
+
+        :type aff_list: NoneType or list
+        :param aff_list: Persons having one or more of the listed affiliations
+                         will not be listed
+
+        :type status_list: NoneType or list
+        :param status_list: Persons having one or more of the listed statuses
+                            will not be listed
+
+        :type inverted: bool
+        :param inverted: Reverse the query and list only persons that do *not*
+                        posess the specified affiliations and statuses.
+                        Default: False
+        """
+        binds = dict()
+        where = ('WHERE pi.person_id = pas.person_id '
+                 'AND (deleted_date IS NULL OR deleted_date > CURRENT_DATE)')
+        if aff_list is not None:
+            where += ' AND ' + argument_to_sql(aff_list,
+                                               'pas.affiliation',
+                                               binds,
+                                               int,
+                                               inverted)
+        if status_list is not None:
+            where += ' AND ' + argument_to_sql(status_list,
+                                               'pas.status',
+                                               binds,
+                                               int,
+                                               inverted)
+        q = """
+        SELECT DISTINCT pi.person_id AS person_id, pi.birth_date AS birth_date
+        FROM [:table schema=cerebrum name=person_info] pi,
+             [:table schema=cerebrum name=person_affiliation_source] pas
+        """ + where
+        print('query: ' + q)
+        return self.query("""
+        SELECT DISTINCT pi.person_id AS person_id, pi.birth_date AS birth_date
+        FROM [:table schema=cerebrum name=person_info] pi,
+             [:table schema=cerebrum name=person_affiliation_source] pas
+        """ + where, binds)
+
 
     def list_persons(self, person_id=None):
         """Return all persons' person_id and birth_date."""
