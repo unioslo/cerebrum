@@ -23,7 +23,7 @@
 - name: decide to set http_proxy and https_proxy environment variables
   when: pip_proxy is defined
   set_fact:
-      proxy_env: 
+      proxy_env:
         http_proxy: "{{ pip_proxy }}"
         https_proxy: "{{ pip_proxy }}"
 
@@ -40,7 +40,7 @@
 # This may give a better idea of progression as well...
 - name: fetch python package requirements
   set_fact:
-      crb_packages: "{{ lookup('file', crb_src_dir + '/requirements.txt') | split('\\n') | list }}"
+      crb_packages: "{{ lookup('file', crb_src_dir + '/requirements.txt') | split() | list }}"
 
 - name: set up python environment
   pip:
@@ -48,8 +48,8 @@
       name: "{{ item }}"
       extra_args: "{{ pip_extra_args|default(None) }}"
   when: skip_oracle is undefined or not (skip_oracle and 'cx_Oracle' in item)
-  with_items: crb_packages
-  environment: "{{ proxy_env }}"
+  with_items: "{{ crb_packages }}"
+  environment: "{{ proxy_env | default({}) }}"
 
 #   - name: set up python environment
 #     pip:

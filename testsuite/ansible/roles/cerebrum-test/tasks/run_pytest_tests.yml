@@ -16,16 +16,31 @@
 #                     variable as well?
 #      The test folders/files to run, relative to {{ crb_src_dir }}/testsuite/tests
 
-# TODO: Should we write a module for this?
+- name: build test dir
+  file:
+    path: "{{ virtualenv }}/_test"
+    state: directory
+  register: _test_dir
+
+- debug: msg=
+
+- name: link tests
+  file:
+    src: "{{ crb_src_dir }}/testsuite/tests"
+    path: "tests"
+    state: link
 
 - name: place pytest config
   template:
       src: "{{ item }}"
-      dest: "{{ crb_src_dir }}/testsuite/tests/{{ config }}_pytestconfig.ini"
-  with_file_overload:
-    - base: 'templates'
-    - file: 'pytestconfig.j2'
-    - alt: '{{ config | default(None) }}'
+      # dest: "{{ crb_src_dir }}/testsuite/tests/{{ config }}_pytestconfig.ini"
+      dest: "{{ _test_dir.path }}/pytest.ini"
+  with_first_found:
+    - files:
+        - 'pytestconfig.j2'
+      paths:
+        - templates/{{ config }}
+        - templates/
   register: _pytestconfig
 
 # Pytest requires that the config file is in the same path hierarchy as the
@@ -35,13 +50,17 @@
 # automatically read the main pytest-config when it is manually defined.
 - name: Run test
   command: '{{ virtualenv }}/bin/py.test
-                  -c {{ crb_src_dir }}/testsuite/tests/{{ config }}_pytestconfig.ini
-                  --cov-config {{ crb_src_dir }}/testsuite/tests/{{ config }}_pytestconfig.ini
-                  {{ lookup("file", item) | split | prefix(crb_src_dir + "/testsuite/tests/") | join( " " ) }}'
-  with_file_overload:
-    - base: 'files'
-    - file: 'pytest_tests.txt'
-    - alt: '{{ config | default(None) }}'
+                  -c {{ _pytestconfig | dest }}
+                  --cov-config {{ _pytestconfig | dest }}
+                  {{ lookup("file", item) | split | prefix("tests/") | join( " " ) }}'
+  args:
+    chdir: "{{ virtualenv }}/_test"
+  with_first_found:
+    - files:
+        - 'pytest_tests.txt'
+      paths:
+        - files/{{ config }}
+        - files/
   register: _test_result
   ignore_errors: yes
 

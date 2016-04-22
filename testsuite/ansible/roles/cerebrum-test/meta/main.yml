@@ -4,5 +4,3 @@ dependencies:
       pg_username: "{{ crb_db_user }}"
       pg_userdb: "{{ crb_db_name }}"
     - role: cerebrum
-      virtualenv: "{{ virtualenv }}"
-      crb_src_dir: "{{ crb_src_dir }}"

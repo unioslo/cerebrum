@@ -3,7 +3,7 @@
 # needs to have a unique, temporary basetemp, in order to keep pytest from
 # complaining when trying to clear its cache.
 [pytest]
-addopts = --cov Cerebrum --cov-report xml --verbose --junit-xml={{ xunit_report | default('default_pytestxunit.xml') }} --cache-clear --basetemp={{ crb_src_dir }}/testsuite/tests/{{ config }}
+addopts = --cov Cerebrum --cov-report xml --verbose --junit-xml={{ xunit_report | default('default_pytestxunit.xml') }} --cache-clear
 
 # coverage report output options
 [xml]
