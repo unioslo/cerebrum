@@ -18,7 +18,7 @@
 
 - name: build test dir
   file:
-    path: "{{ virtualenv }}/_test"
+    path: "{{ workdir }}/test"
     state: directory
   register: _test_dir
 
@@ -27,7 +27,7 @@
 - name: link tests
   file:
     src: "{{ crb_src_dir }}/testsuite/tests"
-    path: "tests"
+    path: "{{ _test_dir.path }}/tests"
     state: link
 
 - name: place pytest config
@@ -54,7 +54,7 @@
                   --cov-config {{ _pytestconfig | dest }}
                   {{ lookup("file", item) | split | prefix("tests/") | join( " " ) }}'
   args:
-    chdir: "{{ virtualenv }}/_test"
+    chdir: "{{ _test_dir.path }}"
   with_first_found:
     - files:
         - 'pytest_tests.txt'
