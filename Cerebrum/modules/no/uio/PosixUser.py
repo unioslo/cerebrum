@@ -33,6 +33,7 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
     """
 
     def __init__(self, database):
+        self.gr = Factory.get('Group')(database)
         self.pg = Factory.get('PosixGroup')(database)
         self.__super.__init__(database)
 
@@ -82,11 +83,20 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         try:
             self.pg.find_by_name(name or parent.account_name)
         except Errors.NotFoundError:
+            try:
+                self.gr.clear()
+                self.gr.find_by_name(name or parent.account_name)
+            except Errors.NotFoundError:
+                parent_group = None
+            else:
+                parent_group = self.gr
+
             self.pg.clear()
             self.pg.populate(visibility=self.const.group_visibility_all,
                              name=name or parent.account_name,
                              creator_id=creator_id,
-                             description=('Personal file group for %s' % name))
+                             description=('Personal file group for %s' % name),
+                             parent=parent_group)
 
         # The gid_id is not given to the super class, but should be set at
         # write_db, when we have the group's entity_id.
