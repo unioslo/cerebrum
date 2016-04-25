@@ -21,3 +21,4 @@ jsonschema
 functools32
 nose
 pytest
+jinja2

@@ -1130,18 +1130,14 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                                                binds,
                                                int,
                                                inverted)
+        where += " LIMIT 100"
         q = """
         SELECT DISTINCT pi.person_id AS person_id, pi.birth_date AS birth_date
         FROM [:table schema=cerebrum name=person_info] pi,
              [:table schema=cerebrum name=person_affiliation_source] pas
         """ + where
-        print('query: ' + q)
-        return self.query("""
-        SELECT DISTINCT pi.person_id AS person_id, pi.birth_date AS birth_date
-        FROM [:table schema=cerebrum name=person_info] pi,
-             [:table schema=cerebrum name=person_affiliation_source] pas
-        """ + where, binds)
-
+        # print('DEBUG: ' + q)
+        return self.query(q, binds)
 
     def list_persons(self, person_id=None):
         """Return all persons' person_id and birth_date."""
