@@ -82,6 +82,7 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         try:
             self.pg.find_by_name(name or parent.account_name)
         except Errors.NotFoundError:
+            self.pg.clear()
             self.pg.populate(visibility=self.const.group_visibility_all,
                              name=name or parent.account_name,
                              creator_id=creator_id,
