@@ -19,10 +19,12 @@
 #   template:
 #       src: "{{ item }}"
 #       dest: "{{ gnupg_home_dir }}/gpg_gen_key.tmpl"
-#   with_file_overload:
-#     - base: 'templates'
-#     - file: 'gpg_gen_key.j2'
-#     - alt: '{{ config | default(None) }}'
+#   with_first_found:
+#     - files:
+#         - 'gpg_gen_key.j2'
+#       paths:
+#         - templates/{{config}}
+#         - templates/
 
 - name: Copy GnuPG pubkeys
   when: gnupgtest is defined
@@ -30,10 +32,12 @@
       src: "{{ item }}"
       dest: "{{ gnupg_home_dir }}"
       mode: 0700
-  with_file_overload:
-    - base: 'files'
-    - file: 'pubring.gpg'
-    - alt: '{{ config | default(None) }}'
+  with_first_found:
+    - files:
+        - 'pubring.gpg'
+    - paths:
+        - files/{{ config }}
+        - files/
 
 - name: Copy GnuPG privkeys
   when: gnupgtest is defined
@@ -41,10 +45,12 @@
       src: "{{ item }}"
       dest: "{{ gnupg_home_dir }}"
       mode: 0700
-  with_file_overload:
-    - base: 'files'
-    - file: 'secring.gpg'
-    - alt: '{{ config | default(None) }}'
+  with_first_found:
+    - files:
+        - 'secring.gpg'
+    - paths:
+        - files/{{ config }}
+        - files/
 
 - name: Copy GnuPG trustdb
   when: gnupgtest is defined
@@ -52,10 +58,12 @@
       src: "{{ item }}"
       dest: "{{ gnupg_home_dir }}"
       mode: 0700
-  with_file_overload:
-    - base: 'files'
-    - file: 'trustdb.gpg'
-    - alt: '{{ config | default(None) }}'
+  with_first_found:
+    - files:
+        - 'trustdb.gpg'
+    - paths:
+        - files/{{ config }}
+        - files/
 
 # - name: Generate GnuPG keys
 #   when: gnupgtest is defined

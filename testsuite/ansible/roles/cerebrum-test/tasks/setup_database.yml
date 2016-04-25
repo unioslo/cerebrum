@@ -2,11 +2,12 @@
   copy:
       src: "{{ item }}"
       dest: "{{ item | tmpfile }}"
-  with_file_overload:
-    - base: 'files'
-    - file: 'extra_db_files.txt'
-    - alt: '{{ config | default(None) }}'
-    - skip: yes
+  with_first_found:
+    - files:
+        - 'extra_db_files.txt'
+      paths:
+        - files/{{config}}
+        - files/
   register: _extra_files
 
 - name: create cerebrum schema with makedb

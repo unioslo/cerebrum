@@ -45,10 +45,6 @@ are defined within this folder.
 
 TODO: Not sure if makedb will work remotely?
 
-### Lookup plugins
-
- - `file_overload` (`with_file_overload`):
-
 ### Filter plugins
 
  - prefix - prefix a string or list of strings
@@ -122,11 +118,17 @@ See the documentation in `vars/main.yml` and `defaults/main.yml` of each role.
   The name of an optional sub-folder where ansible will look for override
   templates and files.
 
-  Whenever we use the `with_file_overload` lookup plugin, we'll look for
-  alternate files in a sub-folder with this name.
-
   This variable is also used to create separate environments/namespaces on the
   test node.
+
+
+### Mandatory
+
+The following variables *must* be set:
+
+- `cerebrum` `crb_src_dir`: The location of the Cerebrum source code
+- `cerebrum` `virtualenv`: Where to install Cerebrum and dependencies
+- `cerebrum-test` `workdir`: Where to place test reports and other files.
 
 
 ## Creating a test configuration
@@ -139,15 +141,13 @@ should be used:
 
 1. Set global fact/variable *config* to the value *name* that you gave your
    subfolder(s).
-2. When fetching the file, use the *with_file_overload* lookup plugin:
+2. When fetching the file, use the *with_first_foun* lookup plugin:
 
     - name: Process template.j2 from template/{{config}}/ or template/
       action: sometask template={{ item }}
-      with_file_overload:
-        - file: 'template.j2'
-        - base: 'templates',
-        - alt: "{{ config | default(None) }}"
-      register: _result_of_sometask
-
-NOTE: If you need to inspect the result (`_result_of_sometask`), note that
-the actual results are dicts in a list, `_result_of_sometask.results`.
+      with_first_found:
+        - files:
+          - template.j2
+          paths:
+          - templates/{{config}}
+          - templates

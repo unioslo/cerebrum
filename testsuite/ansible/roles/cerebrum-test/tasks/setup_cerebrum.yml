@@ -15,10 +15,12 @@
       src: "{{ item }}"
       dest: "{{ virtualenv }}/etc/cerebrum/cereconf.py"
       validate: "{{ virtualenv }}/bin/python -B %s"
-  with_file_overload:
-    - base: 'templates'
-    - file: 'cereconf.j2'
-    - alt: '{{ config | default(None) }}'
+  with_first_found:
+      - files:
+          - 'cereconf.j2'
+        paths:
+          - templates/{{config}}
+          - templates/
 
 # TODO: ldapconf, other configs?
 
@@ -27,28 +29,34 @@
       src: "{{ item }}"
       dest: "{{ virtualenv }}/etc/cerebrum/logging.ini"
       validate: "python -c \"import ConfigParser;c=ConfigParser.ConfigParser();assert len(c.read(['%s', ]))==1\""
-  with_file_overload:
-    - base: 'templates'
-    - file: 'logging.j2'
-    - alt: '{{ config | default(None) }}'
+  with_first_found:
+      - files:
+          - 'logging.j2'
+        paths:
+          - templates/{{config}}
+          - templates/
 
 - name: create dummy file for database password
   template:
       src: "{{ item }}"
       dest: "{{ virtualenv }}/etc/cerebrum/passwd-{{ crb_db_user }}@{{ crb_db_name }}@localhost"
       validate: "grep {{crb_db_user}} %s"
-  with_file_overload:
-    - base: 'templates'
-    - file: 'passwd.j2'
-    - alt: '{{ config | default(None) }}'
+  with_first_found:
+      - files:
+          - 'passwd.j2'
+        paths:
+          - templates/{{config}}
+          - templates/
 
 - name: place adconf
   template:
       src: "{{ item }}"
       dest: "{{ virtualenv }}/etc/cerebrum/adconf.py"
       validate: "{{ virtualenv }}/bin/python -B %s"
-  with_file_overload:
-    - base: 'templates'
-    - file: 'adconf.j2'
-    - alt: '{{ config | default(None) }}'
-    - skip: yes
+  with_first_found:
+      - files:
+          - 'adconf.j2'
+        paths:
+          - templates/{{config}}
+          - templates/
+        skip: yes
