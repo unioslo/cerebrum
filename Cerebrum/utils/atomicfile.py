@@ -18,105 +18,339 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 # Copyright 2002-2015 University of Oslo, Norway
-""" File writers. """
+""" This module contains file writers and other file related tools.
 
-import cereconf
-import os.path
+cereconf
+--------
+FILE_CHECKS_DISABLED
+    If this is set to True, no checks will be done by any subclass of the
+    AtomicFileWriter when validating the changed file.
+
+SIMILARSIZE_CHECK_DISABLED
+    If this is set to True, no checks will be done by the SimilarSizeWriter
+    when validating the file size (i.e. validation will always succeed).
+
+SIMILARSIZE_LIMIT_MULTIPLIER
+    Modifies the change limit for SimilarSizeWriter by multiplying it by the
+    given number (default is 1.0, i.e. to not modify the value given by the
+    client.
+
+    Since central changes to the defaults for these values (especially central
+    disabling) is risky, non-default values for these variables will generate
+    warnings via the logger.
+
+"""
+import os
 import filecmp
 import random
+import inspect
+from warnings import warn as _warn
 from string import ascii_lowercase, digits
 
+import cereconf
 
-def random_string(length, characters=ascii_lowercase + digits):
+from Cerebrum.utils.funcwrap import deprecate
+
+
+def _copydoc(obj, replace=False):
+    """ Copy docstring from another object. """
+    def wrapper(val):
+        doc = getattr(obj, '__doc__', None) or ''
+        if not replace:
+            doc = "\n\n".join(
+                (doc,
+                 inspect.cleandoc(getattr(val, '__doc__', None) or '')))
+        val.__doc__ = doc or None
+        return val
+    return wrapper
+
+
+def _random_string(length, characters=ascii_lowercase + digits):
     """Generate a random string of given length using the given characters."""
     random.seed()
     # pick "length" number of letters, then combine them to a string
     return ''.join([random.choice(characters) for _ in range(length)])
 
 
+def _count_lines(fname):
+    """ Return the number of lines in a file """
+    if not os.path.exists(fname):
+        return 0
+    with open(fname) as f:
+        return f.read().count(os.linesep) + 1
+
+
+class FileChangeError(RuntimeError):
+    """ Indicates a problem with the file change. """
+    # TODO: Pass AtomicFileWriter object to error, and include info (name,
+    # tmpname, etc...) in error message
+    pass
+
+
+class FileSizeChangeError(FileChangeError):
+    """ Indicates a problem with a change in file size. """
+    pass
+
+
+class FileChangeTooBigError(FileSizeChangeError):
+    """ Indicates that a file has changed too much. """
+    pass
+
+
+class FileTooSmallError(FileSizeChangeError):
+    """ Indicates that the new file is too small. """
+    pass
+
+
+class FileWriterWarning(RuntimeWarning):
+    """ Warnings about abnormal settings. """
+    pass
+
+
+def _fwarn(msg, stacklevel=1):
+    _warn(msg, FileWriterWarning, stacklevel=2 + stacklevel)
+
+
 class AtomicFileWriter(object):
+    """ Atomic file writer class.
+
+    This class acts as a write-only `file` object, that doesn't actually write
+    to the file if an exception is encountered.
+
+    The implementation works like this:
+
+    1. Create a new, temporary file (filename.xyz) in the same folder that
+       `filename` is or would be in.
+    2. Write changes to the temporary file.
+    3. If successful, move the temporary file to `filename` (replacing
+       `filename` if needed).
+    """
+
+    tmpfile_ext_chars = ascii_lowercase + digits
+    """ Characters to use in the temporary file name extension. """
+
+    tmpfile_ext_length = 5
+    """ Length of the temporary file extension. """
+
+    tmpfile_ext_tries = 10
+    """ Number of tries to create a unique temporary file. """
 
     def __init__(self, name, mode='w', buffering=-1, replace_equal=False):
-        self._name = name
-        self._tmpname = self.make_tmpname(name)
-        self.__file = open(self._tmpname, mode, buffering)
-        self.closed = False
-        self.replaced_file = False
-        self._replace_equal = replace_equal
+        """ Creates a new, writable file-like object.
 
-    def close(self, dont_rename=False):
-        if self.closed:
+        :param str name:
+            The target filename (file to write).
+
+        :param str mode:
+            The file mode (see file.mode). Note that files *must* be opened in
+            a write mode ('a', 'w'). Appending ('a') can be slow, as it needs
+            to make a full copy of the original file.
+
+        :param int buffering:
+            See `file`.
+
+        :param bool replace_equal:
+            Replace the file `name` even if no changes were written.
+
+            If True, we will replace `name` when it is identical to the
+            temporary file that we actually wrote to. If False, we'll keep the
+            original. This is the default.
+
+        :see file: for more information about the arguments.
+        """
+        if not any(n in mode for n in 'aw'):
+            raise ValueError(
+                'Writer cannot open {!r} in read-only mode'
+                ' (mode={!r})'.format(name, mode))
+        self.__name = name
+        self.__file = open(self.__generate_tmpname(name), mode, buffering)
+        self.__replace_equal = replace_equal
+
+        # Append mode, we need to copy the contents of 'name'
+        if 'a' in mode and os.path.exists(name):
+            # TODO: Is it cheaper to use shutil.copyfile before opening?
+            readmode = 'r' + filter(lambda c: c not in 'arw', mode)
+            with open(name, readmode, buffering) as f:
+                self.__file.write(f.read())
+
+    def __enter__(self):
+        """ Enters AtomicFileWriter context.
+
+        This allows us to use the AtomicFileWriter class and subclasses as a
+        file-like context:
+
+        >>> with AtomicFileWriter('/tmp/foo') as f:
+        >>>    f.write('some text')
+
+        See __exit__ for context behaviour
+
+        """
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """ Exits AtomixFileWriter context and handles any exceptions.
+
+        This method handles context exit. We will always attempt to close the
+        actual file object, but:
+
+        * If no exception was raised, we close the file (`self.tmpname`) and
+          then move it to `self.name` (replacing any previous version).
+        * If we detect an exception, we close the file (`self.tmpname`) without
+          renaming it (i.e. without replacing the file named `self.name`).
+
+        """
+        if exc_type is None:
+            # No exception was raised, exiting context normally
+            self.close()
             return
-        ret = self.__file.close()
-        self.closed = True
-        if ret is None:
-            # close() didn't encounter any problems.  Do validation of
-            # the temporary file's contents.  If that doesn't raise
-            # any exceptions rename() to the real file name.
-            self.validate_output()
-            if not self._replace_equal:
-                if (os.path.exists(self._name) and
-                        filecmp.cmp(self._tmpname, self._name, shallow=0)):
-                    os.unlink(self._tmpname)
-                else:
-                    if not dont_rename:
-                        os.rename(self._tmpname, self._name)
-                    self.replaced_file = True
-            else:
-                if not dont_rename:
-                    os.rename(self._tmpname, self._name)
-                self.replaced_file = True
-        return ret
+
+        # An exception of type exc_type was raised
+        try:
+            self.__file.close()
+        except:
+            pass
+        raise exc_type, exc_value, traceback
+
+    @classmethod
+    def __generate_tmpname(cls, realname):
+        random.seed()
+        for attempt in xrange(cls.tmpfile_ext_tries):
+            name = os.path.extsep.join(
+                (realname,
+                 ''.join([random.choice(cls.tmpfile_ext_chars) for n
+                          in range(cls.tmpfile_ext_length)])))
+            if not os.path.exists(name):
+                return name
+        raise IOError("Unable to find available temporary filename")
+
+    @property
+    def name(self):
+        """ target file name. """
+        return self.__name
+
+    @property
+    def tmpname(self):
+        """ temporary file name. """
+        return self.__file.name
+
+    @property
+    @_copydoc(file.mode)
+    def mode(self):
+        return self.__file.mode
+
+    @property
+    @_copydoc(file.errors)
+    def errors(self):
+        return self.__file.errors
+
+    @property
+    @_copydoc(file.encoding)
+    def encoding(self):
+        return self.__file.encoding
+
+    @property
+    def discarded(self):
+        """ True if any changes was discarded without replacing the target file.
+
+        This can happen if AtomicFileWriter is configured NOT to replace the
+        target file when no changes are present.
+        """
+        try:
+            return self.__discarded
+        except AttributeError:
+            return False
+
+    @property
+    def replaced(self):
+        """ True if the target file has been replaced with a new file. """
+        try:
+            return self.__replaced
+        except AttributeError:
+            return False
+
+    @property
+    def closed(self):
+        """ True if the temporary file is closed. """
+        return self.__file.closed
+
+    @property
+    def validate(self):
+        """ True if the tmpfile will get validated. """
+        try:
+            return self.__validate
+        except AttributeError:
+            return True
+
+    @validate.setter
+    def validate(self, value):
+        self.__validate = bool(value)
+        if not self.__validate:
+            _fwarn('File checks are now disabled')
 
     def validate_output(self):
-        """Validate output (i.e. the temporary file) prior to renaming it.
+        """ Validate output (i.e. the temporary file) prior to renaming it.
 
         This method is intended to be overridden in subclasses.  If
         the content fails to meet the method's expectations, it should
         raise an exception.
 
+        :raise FileChangeError:
+            When the written file has changed beyond the acceptable criterias.
         """
         pass
 
-    # TODO: Use the temp file functions provided by the standard library!
-    def make_tmpname(self, realname):
-        for _ in range(10):
-            name = realname + '.' + random_string(5)
-            if not os.path.exists(name):
-                break
-        else:
-            raise IOError("Unable to find available temporary filename")
-        return name
+    @_copydoc(file.close)
+    def close(self, rename=True):
+        """ In addition to the normal close behaviour:
 
+        Closes the temporary file, and if applicable, replaces the target file.
+        Updates the properties .discarded and .replaced:
+
+        `replaced`: True if `tmpname` replaced `name`.
+        `discarded`: True if `tmpname` is deleted withouth replacing `name`.
+
+
+
+        :param bool rename:
+            When True, replace `name` with `tmpname` after successfully closing
+            `tmpname`. This is the default.
+
+        """
+        if self.closed:
+            return
+        ret = self.__file.close()
+        if ret is None:
+            # close() didn't encounter any problems.  Do validation of
+            # the temporary file's contents.  If that doesn't raise
+            # any exceptions rename() to the real file name.
+            if getattr(cereconf, 'FILE_CHECKS_DISABLED', False):
+                _fwarn("File checks are disabled by global setting"
+                       " 'cereconf.FILE_CHECKS_DISABLED'")
+            elif not self.validate:
+                _fwarn("File checks are disabled")
+            else:
+                self.validate_output()
+
+            if ((not self.__replace_equal) and os.path.exists(self.name)
+                    and filecmp.cmp(self.tmpname, self.name, shallow=0)):
+                os.unlink(self.tmpname)
+                self.__discarded = True
+            elif rename:
+                os.rename(self.tmpname, self.name)
+                self.__replaced = True
+        return ret
+
+    @_copydoc(file.flush)
     def flush(self):
         return self.__file.flush()
 
+    @_copydoc(file.write)
     def write(self, data):
         return self.__file.write(data)
 
 
-class FileSizeChangeError(RuntimeError):
-
-    """Indicates a problem related to change in file size for files
-    updated by the *SizeWriter classes.
-    """
-    pass
-
-
-class FileChangeTooBigError(FileSizeChangeError):
-
-    """Indicates that a file has either grown or been reduced beyond
-    acceptable limits.
-    """
-    pass
-
-
 class SimilarSizeWriter(AtomicFileWriter):
-
-    """This file writer will fail if the file size has changed by more
-    than a certain percentage (if using 'set_size_change_limit')
-    and/or by a certain number of lines (if using
-    'set_line_count_change_limit') from the old to the new version.
+    """This file writer will fail if the file size changes too much.
 
     Clients will normally govern the exact limits for 'similar size'
     themselves, but there are times when it is convenient to have
@@ -133,150 +367,167 @@ class SimilarSizeWriter(AtomicFileWriter):
 
     Since central changes to the defaults for these values (especially
     central disabling) is risky, non-default values for these
-    variables will generate warnings via the logger.
+    variables will generate warnings.
 
-    Clients can also disable/enable the checks directly by calling the
-    'set_checks_enabled', though this will not override
+    Clients can also disable/enable the checks directly by setting the
+    `validate` attribute of the writer-object, though this will not override
     SIMILARSIZE_CHECK_DISABLED.
 
     """
+    # TODO: Deprecate SIMILARSIZE_SIZE_LIMIT_MULTIPLIER
+    # TODO: Deprecate SIMILARSIZE_CHECK_DISABLED?
 
-    __checks_enabled = True
+    DEFAULT_FACTOR = 1.0
 
     def __init__(self, *args, **kwargs):
         super(SimilarSizeWriter, self).__init__(*args, **kwargs)
-        from Cerebrum.Utils import Factory
-        self.__percentage = self.__line_count = None
-        self._logger = Factory.get_logger("cronjob")
+        self.__factor = getattr(cereconf, 'SIMILARSIZE_SIZE_LIMIT_MULTIPLIER',
+                                self.DEFAULT_FACTOR)
 
+    @property
+    def max_pct_change(self):
+        u""" change max_pct_change for the new file, in percent. """
+        try:
+            return self.__percentage * self.__factor
+        except AttributeError:
+            return None
+
+    @max_pct_change.setter
+    def max_pct_change(self, percent):
+        self.__percentage = float(percent)
+        if self.__factor != self.DEFAULT_FACTOR:
+            _fwarn("SIMILARSIZE_SIZE_LIMIT_MULTIPLIER is set to a value other"
+                   " than {:.1f}; change limit will be {:.1f}% rather than the"
+                   " explicitly set {:.1f}".format(
+                       self.DEFAULT_FACTOR,
+                       self.__percentage * self.__factor,
+                       self.__percentage))
+
+    @max_pct_change.deleter
+    def max_pct_change(self):
+        del self.__percentage
+
+    @deprecate("use `validate = <True|False>`")
     def set_checks_enabled(self, new_enabled_status):
-        """Method for activating (new_enabled_status is 'True') or
-        de-activating (new_enabled_status is 'False') all similar size
-        checks being run by a given program.
+        self.validate = new_enabled_status
 
-        Default state, before this method has been called, is for
-        checks to be enabled.
-
-        """
-        self._logger.debug("SimilarSizeWriter: setting checks_enabled to '%s'"
-                           % new_enabled_status)
-        SimilarSizeWriter.__checks_enabled = new_enabled_status
-
+    @deprecate("use `max_pct_change = <percent>`")
     def set_size_change_limit(self, percentage):
-        """Method for setting a limit based on percentage change in
-        file size (bytes). The exact percentage can be centrally
-        modified by setting SIMILARSIZE_SIZE_LIMIT_MULTIPLIER to
-        something other than 1.0 in cereconf.
-
-        """
-        self.__percentage = percentage * cereconf.SIMILARSIZE_LIMIT_MULTIPLIER
-        if cereconf.SIMILARSIZE_LIMIT_MULTIPLIER != 1.0:
-            self._logger.warning("SIMILARSIZE_LIMIT_MULTIPLIER is set to "
-                                 "a value other than 1.0; change limit "
-                                 "will be %s%% rather than client's explicit "
-                                 "setting of %s%%.",
-                                 self.__percentage, percentage)
-        self._logger.debug("SimilarSize size change limit set to '%d'",
-                           self.__percentage)
-
-    def set_line_count_change_limit(self, num):
-        """Method for setting a limit based on change in number of
-        lines in the generated file. The exact number can be centrally
-        modified by setting SIMILARSIZE_SIZE_LIMIT_MULTIPLIER to
-        something other than 1.0 in cereconf.
-
-        """
-        self.__line_count = num * cereconf.SIMILARSIZE_LIMIT_MULTIPLIER
-        if cereconf.SIMILARSIZE_LIMIT_MULTIPLIER != 1.0:
-            self._logger.warning(("SIMILARSIZE_LIMIT_MULTIPLIER is set to " +
-                                 "a value other than 1.0; change limit " +
-                                 "will be %s lines rather than client's "
-                                 "explicit " +
-                                 "setting of %s lines.")
-                                 % (self.__line_count, num))
-        self._logger.debug("SimilarSize line count change limit set to '%d'"
-                           % self.__line_count)
-
-    def __count_lines(self, fname):
-        """Return the number of lines in a file"""
-        return open(fname).read().count(os.linesep)
+        self.max_pct_change = percentage
 
     def validate_output(self):
-        """Checks if the new file's size change (compared to the old
-        file) is within acceptable limits as previously set. If the
-        file did not exist or if the old file was empty, the new file
-        will be considered 'valid' no matter how large or small it is.
+        super(SimilarSizeWriter, self).validate_output()
 
-        If neither file size nor line count are set, an AssertionError
-        will be raised.
-
-        If SIMILARSIZE_CHECK_DISABLED is set to 'True' in cereconf,
-        validation will always succeed, no matter what, as is the case
-        if 'set_checks_enabled(False)' has been called.
-
-        """
-        if cereconf.SIMILARSIZE_CHECK_DISABLED:
-            # Having the check globally disabled is not A Good Thing(tm),
-            # so we warn about it, in all cases.
-            self._logger.warning("SIMILARSIZE_CHECK_DISABLED is 'True'; no "
-                                 "'similar filesize' comparisons will be done.")
+        if getattr(cereconf, 'SIMILARSIZE_CHECK_DISABLED', False):
+            _fwarn("SimilarSizeWriter: Check disabled by global setting"
+                   " 'cereconf.SIMILARSIZE_CHECK_DISABLED'")
             return
-        if not SimilarSizeWriter.__checks_enabled:
-            # Checks have been specifically disabled by a client, but
-            # we'll still inform them about it, in case they don't
-            # realize it
-            self._logger.info("Client has disabled similarsize checks for now;"
-                              "no 'similar filesize' comparisons will be done.")
+        if self.max_pct_change is None:
+            _fwarn("SimilarSizeWriter: No limit set.")
             return
-        if not os.path.exists(self._name):
+        if not os.path.exists(self.name):
             return
-        old = os.path.getsize(self._name)
-        if old == 0:
-            # Any change in size will be an infinite percent-wise size
-            # change.  Treat this as if the old file did not exist at
-            # all.
+        old_size = os.path.getsize(self.name)
+        if old_size == 0:
             return
-        new = os.path.getsize(self._tmpname)
-        assert self.__percentage or self.__line_count
-        if self.__percentage:
-            change_percentage = 100 * (float(new) / old) - 100
-            if abs(change_percentage) > self.__percentage:
-                raise FileChangeTooBigError(
-                    "%s: File size changed more than %d%%: "
-                    "%d -> %d (%+.1f)" % (self._name, self.__percentage,
-                                          old, new, change_percentage))
-        if self.__line_count:
-            old = self.__count_lines(self._name)
-            new = self.__count_lines(self._tmpname)
-            if abs(old - new) > self.__line_count:
-                raise FileChangeTooBigError(
-                    "%s: File changed more than %d lines: "
-                    "%d -> %d (%i)" % (self._name, self.__line_count,
-                                       old, new, abs(old - new)))
+
+        new_size = os.path.getsize(self.tmpname)
+        change_percentage = 100 * (float(new_size) / old_size) - 100
+        if abs(change_percentage) > self.max_pct_change:
+            raise FileChangeTooBigError(
+                "SimilarSizeWriter: File size of {!r} changed more than"
+                " {:.1f}% ({:d} bytes -> {:d} bytes, {:+.2f}%)".format(
+                    self.name, self.max_pct_change, old_size, new_size,
+                    change_percentage))
 
 
-class FileTooSmallError(FileSizeChangeError):
+class SimilarLineCountWriter(AtomicFileWriter):
+    """ This file writer will fail if the line count changes too much.
 
-    """Indicates that the new version of the file in question is below
-    acceptable size.
+    This file will raise a `FileChangeTooBig` error if the file changes more
+    than a certain number of lines. All other file changes are permitted,
+    regardless of the original file's size.
     """
-    pass
+
+    @property
+    def max_line_change(self):
+        u""" change limit for the new file, in lines. """
+        try:
+            return self.__limit
+        except AttributeError:
+            return None
+
+    @max_line_change.setter
+    def max_line_change(self, line_count):
+        self.__limit = int(line_count)
+
+    @max_line_change.deleter
+    def max_line_change(self):
+        try:
+            del self.__limit
+        except AttributeError:
+            pass
+
+    def validate_output(self):
+        super(SimilarLineCountWriter, self).validate_output()
+
+        if self.max_line_change is None:
+            _fwarn("SimilarLineCountWriter: No limit set.")
+            return
+        if not os.path.exists(self.name):
+            return
+
+        if self.max_line_change is not None:
+            old_size = _count_lines(self.name)
+            new_size = _count_lines(self.tmpname)
+            if abs(new_size - old_size) > self.max_line_change:
+                raise FileChangeTooBigError(
+                    "{!s}: File changed more than {:d} lines"
+                    " ({:d} -> {:d}, {:+d} lines)".format(
+                        self.name, self.max_line_change,
+                        old_size, new_size, new_size - old_size))
 
 
 class MinimumSizeWriter(AtomicFileWriter):
+    """ This file writer will fail if the file size is too small.
 
-    """This file writer would fail, if the new file size is less than
-    a certain number of bytes. All other file size changes are
-    permitted, regardless of the original file's size.
+    This file will raise a `FileTooSmallError` if the final file is less than a
+    certain number of bytes. All other file size changes are permitted,
+    regardless of the original file's size.
     """
 
+    ABSOLUTE_MIN_SIZE = 0
+
+    @property
+    def min_size(self):
+        u""" minimum file size for the changed file, in bytes. """
+        try:
+            return self.__limit
+        except AttributeError:
+            return self.ABSOLUTE_MIN_SIZE
+
+    @min_size.setter
+    def min_size(self, size):
+        self.__limit = max(int(size), self.ABSOLUTE_MIN_SIZE)
+
+    @min_size.deleter
+    def min_size(self):
+        del self.__limit
+
+    @deprecate("use `min_size = value`")
     def set_minimum_size_limit(self, size):
-        self.__minimum_size = size
+        self.min_size = size
 
     def validate_output(self):
         super(MinimumSizeWriter, self).validate_output()
 
-        new_size = os.path.getsize(self._tmpname)
-        if new_size < self.__minimum_size:
-            raise FileTooSmallError("%s: File is too small: current: %d, minimum allowed: %d" %
-                                   (self._name, new_size, self.__minimum_size))
+        if not self.min_size:
+            _fwarn("MinimumSizeWriter: No min_size set")
+            return
+
+        new_size = os.path.getsize(self.tmpname)
+        if new_size < self.min_size:
+            raise FileTooSmallError(
+                "{!s}: File is too small (current: {:d} bytes,"
+                " minimum allowed: {:d} bytes".format(
+                    self.name, new_size, self.min_size))

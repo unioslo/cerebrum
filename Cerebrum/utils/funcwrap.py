@@ -26,6 +26,7 @@ import threading
 import traceback
 import sys
 
+from warnings import warn as _warn
 from functools import wraps
 
 # TODO: Set this from somewhere?
@@ -229,3 +230,26 @@ class trace_call(debug_wrapper):
             self._log(u''.join(lines))
             return func(*args, **kwargs)
         return wrapper
+
+
+def deprecate(extra=''):
+    """ Deprecate a function.
+
+    Example:
+    >>>     @deprecate("Will be removed")
+    ...     def example(a, b):
+    ...         return a + b
+
+    :param str extra:
+        Extra info for the deprecation warning.
+    """
+    def wrapper(func):
+        @wraps(func)
+        def newfunc(*args, **kwargs):
+            msg = "{!r} is deprecated".format(func.func_name)
+            if extra:
+                msg += ' ({!s})'.format(extra)
+            _warn(msg, DeprecationWarning, stacklevel=2)
+            return func(*args, **kwargs)
+        return newfunc
+    return wrapper
