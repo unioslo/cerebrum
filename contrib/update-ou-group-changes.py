@@ -138,6 +138,7 @@ def fill_person(pid, db, co, data):
             'personal': personal,
             'primary': primary,
         },
+        'ignoregroups': data['ignoregroups'],
     }
     data['person'][pid] = ret
     return ret
@@ -161,7 +162,8 @@ def fill_account(acct, db, co, data):
     ret = {
         'old': {},
         'new': set(),
-        'owner': own
+        'owner': own,
+        'ignoregroups': data['ignoregroups'],
     }
     for at in ats:
         grps = g.list_ou_groups_for(at['ou_id'], affiliation=at['affiliation'],
