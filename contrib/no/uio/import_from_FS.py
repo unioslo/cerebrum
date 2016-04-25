@@ -24,7 +24,6 @@ processing by other scripts. This job is for UiO's FS.
 
 """
 
-import re
 import os
 import sys
 import getopt
@@ -32,14 +31,13 @@ import getopt
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Database
-from Cerebrum import Errors
-from Cerebrum.Utils import XMLHelper, FileChangeTooBigError
+from Cerebrum.Utils import XMLHelper
 from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.extlib import xmlprinter
-from Cerebrum.Utils import AtomicFileWriter, SimilarSizeWriter
+from Cerebrum.utils.atomicfile import AtomicFileWriter
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
+from Cerebrum.utils.atomicfile import FileChangeTooBigError
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no import fodselsnr
 
 xml = XMLHelper()
 fs = None
@@ -575,8 +573,8 @@ def main():
                 misc_tag = val
             elif o in ('--misc-file',):
                 write_misc_info(set_filepath(datadir, val), misc_tag, misc_func)
-        except FileChangeTooBigError, msg:
-            logger.error("Manual intervention required: %s" % msg)
+        except FileChangeTooBigError as msg:
+            logger.error("Manual intervention required: %s", msg)
 
     logger.info("Import from FS done")
 

@@ -28,6 +28,7 @@ telephone number, social security number (or equivalent)."""
 import cereconf
 
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 
 logger = Factory.get_logger('cronjob')
 
@@ -153,7 +154,6 @@ def write_file(filename, persons, skip_incomplete, skip_header=False):
     :param bool skip_header: Do not write field header. Default: write header.
     :param [dict()] persons: Person information to write.
     :param basestring filename: The name of the file to write."""
-    from Cerebrum.Utils import AtomicFileWriter
     from string import Template
     f = AtomicFileWriter(filename)
     i = 0

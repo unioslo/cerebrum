@@ -19,10 +19,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sys, time, getopt
+import sys
+import time
+import getopt
 
-import cerebrum_path, cereconf
-from Cerebrum.Utils import Factory, AtomicFileWriter
+import cerebrum_path
+import cereconf
+
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
 
 

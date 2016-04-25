@@ -31,10 +31,10 @@ import cerebrum_path
 getattr(cerebrum_path, 'This will shut the linters up', None)
 
 import cereconf
+
 from Cerebrum import Errors
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import AtomicFileWriter, SimilarSizeWriter
 from Cerebrum.modules.no.uio.fronter_lib import XMLWriter
 
 from Cerebrum.modules.no.hih.access_FS import FS

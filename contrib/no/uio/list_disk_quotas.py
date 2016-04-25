@@ -22,17 +22,21 @@
 import getopt
 import sys
 import mx
+
 import cerebrum_path
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum import Utils
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
+
+
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 
 
 def list_quotas(fname, hostname, diskname, spread):
-    f = Utils.SimilarSizeWriter(fname, "w")
+    f = SimilarSizeWriter(fname, "w")
     f.set_size_change_limit(10)
 
     disk = Factory.get("Disk")(db)
@@ -125,6 +129,6 @@ Options:
 """
     sys.exit(exitcode)
 
+
 if __name__ == '__main__':
     main()
-

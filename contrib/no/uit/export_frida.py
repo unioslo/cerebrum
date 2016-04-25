@@ -60,18 +60,17 @@ import sys
 import os
 import time
 import getopt
+
 import cerebrum_path
 import cereconf
+
 from xml.sax import make_parser
 from Cerebrum import Errors
-from Cerebrum import Database
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import SimilarSizeWriter
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
-from Cerebrum.modules import Email
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uit.nsd import nsd
-from Cerebrum.modules.no.uit.Email import email_address
 
 from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.modules.xmlutils.system2parser import system2parser

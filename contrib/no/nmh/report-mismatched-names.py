@@ -9,7 +9,7 @@ from collections import namedtuple
 from functools import partial
 from xml.etree import ElementTree
 
-from Cerebrum.Utils import AtomicFileWriter
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.Utils import Factory
 
 TEMPLATE = """

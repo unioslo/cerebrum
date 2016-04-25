@@ -59,7 +59,7 @@ import ftplib
 import Cerebrum
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import AtomicFileWriter
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 
 

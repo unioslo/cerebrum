@@ -19,17 +19,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-
-import re
 import sys
 import getopt
 
 import cerebrum_path
 import cereconf
+
 from Cerebrum import Database
-from Cerebrum import Errors
 from Cerebrum.extlib import xmlprinter
-from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
+from Cerebrum.Utils import XMLHelper
+from Cerebrum.utils.atomicfile import AtomicFileWriter
+from Cerebrum.utils.atomicfile import MinimumSizeWriter
 from Cerebrum.modules.no.hia.access_FS import FS
 from Cerebrum.Utils import Factory
 
@@ -54,7 +54,7 @@ def write_hia_person_info(outfile):
     # Aktive ordinære studenter ved HiA
     cols, hiastudent = _ext_cols(fs.student.list_aktiv())
     for a in hiastudent:
-	fix_float(a)
+        fix_float(a)
         f.write(xml.xmlify_dbrow(a, xml.conv_colnames(cols),'aktiv') + "\n")
     # Eksamensmeldinger
     cols, hiastudent = _ext_cols(fs.student.list_eksamensmeldinger())
@@ -63,7 +63,7 @@ def write_hia_person_info(outfile):
     # Privatister ved HiA
     cols, hiastudent = _ext_cols(fs.student.list_privatist())
     for p in hiastudent:
-	f.write(xml.xmlify_dbrow(p,xml.conv_colnames(cols),'privatist_studieprogram') + "\n")
+        f.write(xml.xmlify_dbrow(p,xml.conv_colnames(cols),'privatist_studieprogram') + "\n")
     # EVU-studenter ved HiA
     cols, hiastudent = _ext_cols(fs.evu.list())
     for e in hiastudent:
@@ -103,8 +103,8 @@ def write_ou_info(outfile):
         for fs_col, typekode in (
             ('telefonnr', 'EKSTRA TLF'),
             ('faxnr', 'FAX'),
-	    ('emailadresse','EMAIL'),
-	    ('url', 'URL')):
+            ('emailadresse','EMAIL'),
+            ('url', 'URL')):
             if o[fs_col]:               # Skip NULLs and empty strings
                 komm.append({'kommtypekode': xml.escape_xml_attr(typekode),
                              'kommnrverdi': xml.escape_xml_attr(o[fs_col])})
@@ -139,7 +139,7 @@ def write_role_info(outfile):
     f.write(xml.xml_hdr + "<data>\n")
     cols, role = _ext_cols(fs.undervisning.list_alle_personroller())
     for r in role:
-	f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'rolle') + "\n")
+        f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'rolle') + "\n")
     f.write("</data>\n")
     f.close()
 
@@ -294,11 +294,11 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "fpsruUoeE",
                                    ["hia-personinfo-file=", "studprog-file=", 
-				    "hia-roleinfo-file=", "hia-undenh-file=",
+                                    "hia-roleinfo-file=", "hia-undenh-file=",
                                     "hia-student-undenh-file=",
-				    "hia-emneinfo-file=",
+                                    "hia-emneinfo-file=",
                                     "hia-evukursinfo-file=",
-				    "hia-fnr-update-file=", "misc-func=", 
+                                    "hia-fnr-update-file=", "misc-func=", 
                                     "misc-file=", "misc-tag=",
                                     "ou-file=", "db-user=", "db-service="])
     except getopt.GetoptError:
@@ -316,14 +316,14 @@ def main():
             evu_kursinfo_file = val
         elif o in ('--studprog-file',):
             studprog_file = val
-	elif o in ('--hia-roleinfo-file',):
-	    role_file = val
-	elif o in ('--hia-undenh-file',):
-	    undervenh_file = val
+        elif o in ('--hia-roleinfo-file',):
+            role_file = val
+        elif o in ('--hia-undenh-file',):
+            undervenh_file = val
         elif o in ('--hia-student-undenh-file',):
             undenh_student_file = val
-	elif o in ('--hia-fnr-update-file',):
-	    fnr_update_file = val
+        elif o in ('--hia-fnr-update-file',):
+            fnr_update_file = val
         elif o in ('--ou-file',):
             ou_file = val
         elif o in ('--db-user',):
@@ -336,16 +336,16 @@ def main():
             write_hia_person_info(person_file)
         elif o in ('-s',):
             write_studprog_info(studprog_file)
-	elif o in ('-r',):
-	    write_role_info(role_file)
-	elif o in ('-u',):
-	    write_undenh_metainfo(undervenh_file)
+        elif o in ('-r',):
+            write_role_info(role_file)
+        elif o in ('-u',):
+            write_undenh_metainfo(undervenh_file)
         elif o in ('-U',):
             write_undenh_student(undenh_student_file)
         elif o in ('-e',):
-	    write_emne_info(emne_info_file)
-	elif o in ('-f',):
-	    write_fnrupdate_info(fnr_update_file)
+            write_emne_info(emne_info_file)
+        elif o in ('-f',):
+            write_fnrupdate_info(fnr_update_file)
         elif o in ('-o',):
             write_ou_info(ou_file)
         elif o in ('-E',):
@@ -360,4 +360,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

@@ -21,8 +21,6 @@
 
 import cerebrum_path
 
-import re
-import os
 import sys
 import getopt
 import cereconf
@@ -30,9 +28,9 @@ import time
 import string
 
 from Cerebrum.modules.no.uio.access_LT import LT
-from Cerebrum import Database,Errors
+from Cerebrum import Database
 from Cerebrum.Utils import XMLHelper
-from Cerebrum.Utils import AtomicFileWriter
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import Factory
 

@@ -51,14 +51,13 @@ import argparse
 import locale
 import mx.DateTime
 import re
-import sys
 from collections import deque
 
 import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import SimilarSizeWriter
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 from Cerebrum.modules.no.hiof.fronter_lib import lower

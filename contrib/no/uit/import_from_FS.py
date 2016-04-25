@@ -19,18 +19,18 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-
-import re
 import os
 import sys
 import getopt
 
 import cerebrum_path
 import cereconf
+
 from Cerebrum import Database
-from Cerebrum import Errors
 from Cerebrum.extlib import xmlprinter
-from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
+from Cerebrum.Utils import XMLHelper
+from Cerebrum.utils.atomicfile import MinimumSizeWriter
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.modules.no.uit.access_FS_obsolete import UiTFS
 from Cerebrum.modules.no.uit.access_FS import FS
 from Cerebrum.modules.no.uit import access_FS

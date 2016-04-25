@@ -35,7 +35,10 @@ except NameError:
     from sets import Set as set
 
 import cereconf
-from Cerebrum import Errors as _Errors, Utils as _Utils
+from Cerebrum import Errors as _Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.atomicfile import AtomicFileWriter
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
 # Attributes whose values should always be base64-encoded.
 # May be modified by the applications.
@@ -239,10 +242,10 @@ def ldif_outfile(tree, filename=None, default=None, explicit_default=False,
                 None, 'max_change', default=100, module=module),
                 module=module)
         if max_change < 100:
-            f = _Utils.SimilarSizeWriter(filename, 'w')
+            f = SimilarSizeWriter(filename, 'w')
             f.set_size_change_limit(max_change)
         else:
-            f = _Utils.AtomicFileWriter(filename, 'w')
+            f = AtomicFileWriter(filename, 'w')
         return f
     if default:
         return default
@@ -302,8 +305,8 @@ def _decode_const(constname, value):
     except ValueError:
         if not _const:
             from Cerebrum import Constants as _Constants
-            _const = _Utils.Factory.get('Constants')(
-                _Utils.Factory.get('Database')())
+            _const = Factory.get('Constants')(
+                Factory.get('Database')())
         try:
             return int(getattr(_const, value))
         except AttributeError:
@@ -384,9 +387,9 @@ class ldif_parser(object):
                  line_sep='\n'):
         try:
             import ldif
-        except ImportError, e:
-            raise _Errors.PoliteException((str(e) + '\n' +
-                                           "python-ldap module probably not installed."))
+        except ImportError as e:
+            raise _Errors.PoliteException(
+                (str(e) + '\n' + "python-ldap module probably not installed."))
         self._ldif = ldif.LDIFParser(
             inputfile, ignored_attr_types, max_entries,
             process_url_schemes, line_sep)

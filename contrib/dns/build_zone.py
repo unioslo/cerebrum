@@ -10,7 +10,6 @@ import getopt
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Utils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.dns import ARecord, AAAARecord
 from Cerebrum.modules.dns import HostInfo
@@ -19,6 +18,7 @@ from Cerebrum.modules.dns import IPNumber, IPv6Number
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns.Utils import IPCalc
 from Cerebrum.modules.dns.IPv6Utils import IPv6Calc
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -56,7 +56,7 @@ class ZoneUtils(object):
 
 
     def open(self, fname):
-        self._file = Utils.AtomicFileWriter(fname, "w")
+        self._file = AtomicFileWriter(fname, "w")
         self._fname = fname
 
 
@@ -122,7 +122,7 @@ class ZoneUtils(object):
             logger.debug("First time; new serial used: %s" % serial)
             return serial
         # Rewrite the entire file in case the serial line length has changed
-        f = Utils.AtomicFileWriter(fname, 'w')
+        f = AtomicFileWriter(fname, 'w')
         f.write("".join(all_lines))
         f.close()
 
@@ -492,7 +492,7 @@ class HostsFile(object):
 
     
     def generate_hosts_file(self, fname, with_comments=False):
-        f = Utils.AtomicFileWriter(fname, "w")
+        f = AtomicFileWriter(fname, "w")
         
         # IPv4
         fm = ForwardMap(self._zone)

@@ -26,23 +26,20 @@ import sys
 from contextlib import closing
 
 import cerebrum_path
+
 from Cerebrum import Errors
-from Cerebrum import Utils
+from Cerebrum.Utils import Factory
+from Cerebrum.Utils import latin1_to_iso646_60
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
 
-try:
-    set()
-except:
-    from sets import Set as set
 
-
-Factory = Utils.Factory
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 logger = Factory.get_logger("cronjob")
-posix_user = Utils.Factory.get('PosixUser')(db)
+posix_user = Factory.get('PosixUser')(db)
 posix_group = PosixGroup.PosixGroup(db)
 
 # The "official" NIS max line length (consisting of key + NUL + value
@@ -113,7 +110,7 @@ class Passwd(object):
             gecos = row['name']
         if gecos is None:
             gecos = uname
-        gecos = Utils.latin1_to_iso646_60(gecos)
+        gecos = latin1_to_iso646_60(gecos)
         shell = self.shells[int(row['shell'])]
         if row['quarantine_type'] is not None:
             now = mx.DateTime.now()
@@ -197,10 +194,10 @@ class Passwd(object):
 
     def write_passwd(self, filename, shadow_file, e_o_f=False):
         logger.debug("write_passwd: " + str((filename, shadow_file, self.spread)))
-        f = Utils.SimilarSizeWriter(filename, "w")
+        f = SimilarSizeWriter(filename, "w")
         f.set_size_change_limit(10)
         if shadow_file:
-            s = Utils.SimilarSizeWriter(shadow_file, "w")
+            s = SimilarSizeWriter(shadow_file, "w")
             s.set_size_change_limit(10)
 
         user_lines = self.generate_passwd()
@@ -351,7 +348,7 @@ class NISGroupUtil(object):
     def write_netgroup(self, filename, e_o_f=False):
         logger.debug("generate_netgroup: %s" % filename)
 
-        f = Utils.SimilarSizeWriter(filename, "w")
+        f = SimilarSizeWriter(filename, "w")
         f.set_size_change_limit(5)
 
         netgroups = self.generate_netgroup()
@@ -457,7 +454,7 @@ class FileGroup(NISGroupUtil):
         """
         logger.debug("write_filegroup: %s" % filename)
 
-        with closing(Utils.SimilarSizeWriter(filename, "w")) as f:
+        with closing(SimilarSizeWriter(filename, "w")) as f:
             f.set_size_change_limit(5)
             for group_name, gid, users in self.generate_filegroup():
                 f.write(self._wrap_line(group_name, ",".join(users), ':*:%i:' % gid))

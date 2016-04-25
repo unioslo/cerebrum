@@ -56,7 +56,9 @@ import sys
 
 import cerebrum_path
 import cereconf
-from Cerebrum.Utils import Factory, AtomicFileWriter
+
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 
 logger = None
 

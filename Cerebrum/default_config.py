@@ -247,7 +247,7 @@ PERSON_AFFILIATION_PRECEDENCE_RULE = {
     'alumni': (290, 300),
 }
 
-# Utils.SimilarSizeWriter default values
+# Cerebrum.utils.atomicfile.SimilarSizeWriter default values
 
 # Checks should be not be globally disabled.
 SIMILARSIZE_CHECK_DISABLED = False

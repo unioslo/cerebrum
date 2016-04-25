@@ -25,8 +25,11 @@ from os.path import join as pj
 
 import cerebrum_path
 import cereconf
+
 from Cerebrum.extlib import xmlprinter
-from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
+from Cerebrum.Utils import XMLHelper
+from Cerebrum.utils.atomicfile import MinimumSizeWriter
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.access_FS import make_fs
 

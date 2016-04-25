@@ -40,9 +40,8 @@ def cereconf(cereconf):
 
 @pytest.fixture
 def file_module(cereconf):
-    # We should move this to Cerebrum.utils.something
-    import Cerebrum.Utils
-    return Cerebrum.Utils
+    import Cerebrum.utils.atomicfile as module
+    return module
 
 
 @pytest.fixture(params=['AtomicFileWriter',

@@ -24,21 +24,19 @@ import os
 import sys
 import mx
 from itertools import ifilter
-from operator  import itemgetter
-try:
-    set
-except NameError:
-    from sets import Set as set
+from operator import itemgetter
 
 import posixconf
 import cerebrum_path
+
 from Cerebrum.Entity import EntityName
-from Cerebrum.Utils  import Factory, auto_super, latin1_to_iso646_60, \
-     SimilarSizeWriter, FileSizeChangeError
+from Cerebrum.Utils import Factory, auto_super, latin1_to_iso646_60
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
+from Cerebrum.utils.atomicfile import FileSizeChangeError
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.modules           import PosixGroup
-from Cerebrum.modules.LDIFutils import ldapconf, LDIFWriter, iso2utf, \
-     map_constants, map_spreads, entry_string
+from Cerebrum.modules import PosixGroup
+from Cerebrum.modules.LDIFutils import (
+    ldapconf, LDIFWriter, iso2utf, map_constants, map_spreads, entry_string)
 
 MAX_LINE_LENGTH = 1000
 
