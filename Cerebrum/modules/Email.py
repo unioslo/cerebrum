@@ -371,7 +371,7 @@ class CLConstants(CLConstants.CLConstants):
         'email_forward', 'add_forward',
         'add forward for %(subject)s',
         ('forward=%(string:forward)s',
-         'enable=%(TF:enable)s'))
+         'enable=%(bool:enable)s'))
     email_forward_rem = CLConstants._ChangeTypeCode(
         'email_forward', 'rem_forward',
         'remove forward for %(subject)s',
