@@ -53,6 +53,7 @@ def main():
         '-o', '--output',
         type=str,
         dest='output',
+        default='',
         help='The file to print the report to. Defaults to stdout.')
     args = parser.parse_args()
 
@@ -65,6 +66,7 @@ def main():
     total_person_count = 0
     person_count = 0
 
+    # TODO: Dynamic exemptions
     EXEMPT_AFFILIATIONS = [
         const.affiliation_ansatt,  # ANSATT
         const.affiliation_student,  # STUDENT
@@ -79,6 +81,7 @@ def main():
         const.affiliation_manuell_inaktiv_student,  # MANUELL/inaktiv_student
         const.affiliation_manuell_konsulent,  # MANUELL/konsulent
         const.affiliation_manuell_radium,  # MANUELL/radium
+        const.affiliation_manuell_frisch,  # MANUELL/frisch
         const.affiliation_manuell_unirand  # MANUELL/unirand
     ]
 
@@ -147,15 +150,21 @@ def main():
         loader=FileSystemLoader(os.path.join(os.path.dirname(__file__),
                                              'templates')))
     template = env.get_template('simple_list_overview.html')
-    with open(args.output, 'w') as fp:
-        fp.write(template.render(
-            headers=(
-                ('account_affiliations', u'Account affiliations'),
-                ('account_name', u'Account name'),
-                ('person_name', u'Name'),
-                ('person_affiliations', u'Persont affiliations')),
-            title=u'Manual affiliations report',
-            items=sorted_manual_users).encode('utf-8'))
+    output_str = template.render(
+        headers=(
+            ('account_affiliations', u'Account affiliations'),
+            ('account_name', u'Account name'),
+            ('person_name', u'Name'),
+            ('person_affiliations', u'Persont affiliations')),
+        title=u'Manual affiliations report',
+        prelist=u'<h3>Manual affiliations report</h3>',
+        postlist=u'<p>{summary}</p>'.format(summary=summary),
+        items=sorted_manual_users).encode('utf-8')
+    if args.output:
+        with open(args.output, 'w') as fp:
+            fp.write(output_str)
+    else:
+        sys.stdout.write(output_str)
     logger.info('{script_name} finished'.format(script_name=sys.argv[0]))
     sys.exit(0)
 

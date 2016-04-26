@@ -1130,7 +1130,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                                                binds,
                                                int,
                                                inverted)
-        where += " LIMIT 100"
+        # where += " LIMIT 100"
         q = """
         SELECT DISTINCT pi.person_id AS person_id, pi.birth_date AS birth_date
         FROM [:table schema=cerebrum name=person_info] pi,
