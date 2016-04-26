@@ -199,7 +199,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 status_str = str(self.const.PersonAffStatus(status).str)
                 self.status_cache[status] = status_str
             p = 'secondary'
-            if aff_str == pri_aff_str and status_str == pri_status_str and ou == pri_ou:
+            if (aff_str == pri_aff_str
+                    and status_str == pri_status_str and ou == pri_ou):
                 p = 'primary'
             ou = self.ou_id2ou_uniq_id[ou]
             if ou:
@@ -215,7 +216,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         # Add or extend entitlements
         if person_id in self.ownerid2urnlist:
             if 'eduPersonEntitlement' in entry:
-                entry['eduPersonEntitlement'].extend(self.ownerid2urnlist[person_id])
+                entry['eduPersonEntitlement'].extend(
+                    self.ownerid2urnlist[person_id])
             else:
                 entry['eduPersonEntitlement'] = self.ownerid2urnlist[person_id]
 
@@ -225,19 +227,22 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         # Add group memberships
         if person_id in self.person2group:
             # TODO: remove member and uioPersonObject after transition period
-            entry['uioMemberOf'] = entry['member'] = self.person2group[person_id]
+            entry['uioMemberOf'] = entry['member'] = \
+                self.person2group[person_id]
             entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))
 
         # Add scoped affiliations
-        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(person_id)
-        entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(
-            person_id, pri_aff, pri_ou)
+        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(
+            person_id)
+        entry['uioPersonScopedAffiliation'] = \
+            self.make_uioPersonScopedAffiliation(person_id, pri_aff, pri_ou)
 
         # Add the uioPersonObject class if missing
         if 'uioPersonObject' not in entry['objectClass']:
             entry['objectClass'].extend(('uioPersonObject',))
 
-        # Check if there exists «avvikende» addresses, if so, export them instead:
+        # Check if there exists «avvikende» (deviant) addresses.
+        # If so, export them instead.
         addrs = self.addr_info.get(person_id)
         post = addrs and addrs.get(int(self.const.address_other_post))
         if post:
@@ -281,7 +286,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_stip)),
             (tilkn_aff, int(self.const.affiliation_tilknyttet_frida_reg)),
             (tilkn_aff, int(self.const.affiliation_tilknyttet_innkjoper)),
-            (tilkn_aff, int(self.const.affiliation_tilknyttet_assosiert_person)),
+            (tilkn_aff, int(self.const.
+                            affiliation_tilknyttet_assosiert_person)),
             (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_forsker)),
             (tilkn_aff, int(self.const.affiliation_tilknyttet_emeritus)),
             (tilkn_aff, int(self.const.affiliation_tilknyttet_gjesteforsker)),
@@ -338,8 +344,10 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         return False
 
     def init_person_office365_consents(self):
-        """ Fetch the IDs of persons who have consented to being exported to Office 365. """
+        """Fetch the IDs of persons who have consented
+        to being exported to Office 365."""
         timer = make_timer(self.logger, 'Fetching Office 365 consents...')
-        consents = self.person.list_consents(consent_code=self.const.consent_office365)
+        consents = self.person.list_consents(
+            consent_code=self.const.consent_office365)
         self.office365_consents = set([c['entity_id'] for c in consents])
         timer('...Office 365 consents done.')
