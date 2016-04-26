@@ -42,11 +42,15 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         def __init__(self, db, logger):
             self.__super.__init__(db, logger)
             self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
+            self.attr2syntax['uioPrivateMobileVisible'] = \
+                self.attr2syntax['mobile']
     else:
         # Hacks for old LDAP structure
         def __init__(self, db, logger):
             self.__super.__init__(db, logger)
             self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
+            self.attr2syntax['uioPrivateMobileVisible'] = \
+                self.attr2syntax['mobile']
             # Used by make_ou_dn() for for migration to ny-ldap.uio.no:
             self.used_new_DNs = {}
             self.ou_quarantined = {}
