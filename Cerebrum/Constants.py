@@ -1195,6 +1195,8 @@ class CommonConstants(ConstantsBase):
     contact_mobile_phone = _ContactInfoCode('MOBILE', 'Mobile phone')
     contact_private_mobile = _ContactInfoCode(
         'PRIVATEMOBILE', 'Private mobile phone')
+    contact_private_mobile_visible = _ContactInfoCode(
+        'PRIVMOBVISIBLE', 'Private mobile phone (visible in directories)')
 
     address_post = _AddressCode('POST', 'Post address')
     address_post_private = _AddressCode('PRIVPOST',

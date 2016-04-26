@@ -109,17 +109,22 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
     def init_attr2id2contacts(self):
         # Change from superclass: Include 'mobile' as well.
-        contact_source = getattr(self.const, cereconf.LDAP['contact_source_system'])
-        contacts = [(attr, self.get_contacts(contact_type=contact_type,
-                                             source_system=source_system,
-                                             convert=self.attr2syntax[attr][0],
-                                             verify=self.attr2syntax[attr][1],
-                                             normalize=self.attr2syntax[attr][2]))
-                    for attr, source_system, contact_type in (
-                        ('telephoneNumber', contact_source, self.const.contact_phone),
-                        ('mobile', contact_source, self.const.contact_mobile_phone),
-                        ('facsimileTelephoneNumber', contact_source, self.const.contact_fax),
-                        ('labeledURI', None, self.const.contact_url))]
+        contact_source = getattr(self.const,
+                                 cereconf.LDAP['contact_source_system'])
+        contacts = [(attr, self.get_contacts(
+            contact_type=contact_type,
+            source_system=source_system,
+            convert=self.attr2syntax[attr][0],
+            verify=self.attr2syntax[attr][1],
+            normalize=self.attr2syntax[attr][2]))
+            for attr, source_system, contact_type in (
+                ('telephoneNumber', contact_source, self.const.contact_phone),
+                ('mobile', contact_source, self.const.contact_mobile_phone),
+                ('uioPrivateMobileVisible', contact_source,
+                 self.const.contact_private_mobile_visible),
+                ('facsimileTelephoneNumber', contact_source,
+                 self.const.contact_fax),
+                ('labeledURI', None, self.const.contact_url))]
 
         self.id2labeledURI = contacts[-1][1]
         self.attr2id2contacts = [v for v in contacts if v[1]]

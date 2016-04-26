@@ -66,7 +66,7 @@ class XML2Cerebrum:
                               DataContact.CONTACT_MOBILE_PRIVATE:
                               const.contact_private_mobile,
                               DataContact.CONTACT_MOBILE_PRIVATE_PUBLIC:
-                              const.contact_private_mobile}
+                              const.contact_private_mobile_visible}
 
         self.xmladdr2db = {DataAddress.ADDRESS_BESOK: const.address_street,
                            DataAddress.ADDRESS_POST: const.address_post,
