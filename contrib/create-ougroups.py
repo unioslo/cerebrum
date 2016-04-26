@@ -209,8 +209,6 @@ def main():
     else:
         conf = read(CreateOuGroupConfig(), 'create-ougroups')
 
-    print conf
-
     configs = {}
     for t in conf.types:
         configs[t.name] = t
