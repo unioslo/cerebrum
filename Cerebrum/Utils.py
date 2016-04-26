@@ -1226,8 +1226,11 @@ def format_exception_context(etype, evalue, etraceback):
              evalue))
 
 
-def argument_to_sql(argument, sql_attr_name, binds,
-                    transformation=lambda x: x):
+def argument_to_sql(argument,
+                    sql_attr_name,
+                    binds,
+                    transformation=lambda x: x,
+                    negate=False):
     """Help deal with sequences of values for SQL generation.
 
     On many occasions we want to allow a scalar, many scalars as a sequence,
@@ -1277,6 +1280,9 @@ def argument_to_sql(argument, sql_attr_name, binds,
         function (any callable) that converts whatever L{argument} is/consists
         of into something that we can embed into SQL.
 
+    :type negate: bool
+    :param negate: Negate the expression (f.i NOT IN)
+
     :rtype: basestring
     :return:
         SQL expression that can be safely embedded into SQL code to be passed
@@ -1286,7 +1292,7 @@ def argument_to_sql(argument, sql_attr_name, binds,
     # replace . with _, to not confuse the printf-like syntax when joining
     # the safe SQL string from this function with the values from L{binds}.
     binds_name = sql_attr_name.replace('.', '_')
-
+    negation = 'NOT ' if negate else ''
     if (isinstance(argument, (collections.Sized, collections.Iterable)) and
             not isinstance(argument, basestring)):
         assert len(argument) > 0, "List can not be empty."
@@ -1298,8 +1304,9 @@ def argument_to_sql(argument, sql_attr_name, binds,
         # entries, so then skip it. Also the odds for hitting the sql-query
         # cache diminishes rapidly, which is what binds is trying to aid.
         elif len(argument) > 8:
-            return '(%s IN (%s))' % (
+            return '(%s %sIN (%s))' % (
                 sql_attr_name,
+                negation,
                 ', '.join(map(str, map(transformation, argument))))
         else:
             tmp = dict()
@@ -1309,8 +1316,9 @@ def argument_to_sql(argument, sql_attr_name, binds,
                 tmp[name] = transformation(item)
 
             binds.update(tmp)
-            return '(%s IN (%s))' % (
+            return '(%s %sIN (%s))' % (
                 sql_attr_name,
+                negation,
                 ', '.join([':' + x for x in tmp.iterkeys()]))
 
     assert binds_name not in binds

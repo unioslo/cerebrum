@@ -1317,9 +1317,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     #     '(after 10 attempts) ' + str(e))
 
                     # Keep the old behaviour and let the caller handle the bad
-                    # password should not happen unless the configured password
-                    # rules are too restrictive
-                    # or min_length > MAKE_PASSWORD_LENGTH
+                    # password.
+                    # Should not happen unless the configured password rules
+                    # are too restrictive or min_length > MAKE_PASSWORD_LENGTH
                     return r  # give up and return the last password
                 continue  # make a new attempt
 
