@@ -127,7 +127,7 @@ def main():
                         row['affiliation']),
                     ou=_format_ou_name(ou, const)))
             if not account_affiliations:
-                break  # all affiliations are in EXEMPT_AFFILIATIONS
+                account_affiliations.append('EMPTY')
             manual_users.append({
                 'account_name': account.account_name.decode('latin1'),
                 'account_affiliations': str(

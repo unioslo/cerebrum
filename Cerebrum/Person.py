@@ -1102,11 +1102,11 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         Retrieve a list of all persons *except* the ones containing
         the specified affiliations and / or statuses
 
-        :type aff_list: NoneType or list
+        :type aff_list: NoneType, int or list
         :param aff_list: Persons having one or more of the listed affiliations
                          will not be listed
 
-        :type status_list: NoneType or list
+        :type status_list: NoneType, int or list
         :param status_list: Persons having one or more of the listed statuses
                             will not be listed
 
