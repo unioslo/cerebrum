@@ -390,7 +390,7 @@ class OUGroup(VirtualGroup):
                 objs[name] = ret
             return ret
 
-        def handle_person(mid, mtype=self.const.vg_ougroup):
+        def handle_person(mid, mtype=self.const.virtual_group_ou_person):
             # nonlocal ftw!
             pe = fget('Person')
             for row in pe.list_affiliations(person_id=mid,
