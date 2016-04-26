@@ -669,7 +669,7 @@ class BofhdCommonMethods(BofhdCommandBase):
         account.write_db()
         return "User %s is deactivated" % account.account_name
 
-    def _user_create_prompt_func_helper(self, ac_type, session, *args):
+    def _user_create_prompt_func_helper(self, session, *args):
         """A prompt_func on the command level should return
         {'prompt': message_string, 'map': dict_mapping}
         - prompt is simply shown.
@@ -752,13 +752,6 @@ class BofhdCommonMethods(BofhdCommandBase):
                 return {'prompt': "Enter np_type",
                         'help_ref': 'string_np_type'}
             all_args.pop(0)  # np_type
-        if ac_type == 'PosixUser':
-            if not all_args:
-                return {'prompt': "Shell", 'default': 'bash'}
-            all_args.pop(0)  # Shell
-            if not all_args:
-                return {'prompt': "Disk", 'help_ref': 'disk'}
-            all_args.pop(0)  # Disk
         if not all_args:
             ret = {'prompt': "Username", 'last_arg': True}
             posix_user = Factory.get('PosixUser')(self.db)
@@ -780,12 +773,26 @@ class BofhdCommonMethods(BofhdCommandBase):
             return {'last_arg': True}
         raise CerebrumError("Too many arguments")
 
-    def user_create_prompt_func(self, session, *args):
-        return self._user_create_prompt_func_helper('Account', session, *args)
+    def _user_create_set_account_type(self, account,
+                                      owner_id, ou_id, affiliation):
+        person = self._get_person('entity_id', owner_id)
+        try:
+            affiliation = self.const.PersonAffiliation(affiliation)
+            # make sure exist
+            int(affiliation)
+        except Errors.NotFoundError:
+            raise CerebrumError("Invalid affiliation {}".format(affiliation))
+        for aff in person.get_affiliations():
+            if aff['ou_id'] == ou_id and aff['affiliation'] == affiliation:
+                break
+        else:
+            raise CerebrumError(
+                "Owner did not have any affiliation {}".format(affiliation))
+        account.set_account_type(ou_id, affiliation)
 
     all_commands['user_create'] = cmd.Command(
         ('user', 'create'),
-        prompt_func=user_create_prompt_func,
+        prompt_func=_user_create_prompt_func_helper,
         fs=cmd.FormatSuggestion(
             "Created account_id=%i", ("account_id",)),
         perm_filter='is_superuser')
