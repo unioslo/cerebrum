@@ -563,7 +563,8 @@ class BofhdCommandBase(object):
                 etarget = Factory.get('EmailTarget')(self.db)
                 etarget.find(entity_id)
                 return '%s:%s' % (str(etarget.get_target_type_name()),
-                                  self._get_entity_name(etarget.get_target_entity_id()))
+                                  self._get_entity_name(
+                                      etarget.get_target_entity_id()))
             elif entity_type == self.const.entity_email_address:
                 ea = Email.EmailAddress(self.db)
                 ea.find(entity_id)
@@ -1024,9 +1025,11 @@ class BofhdCommonMethods(BofhdCommandBase):
             # check if person is still affiliated with the given source system
             for a in entity.get_affiliations():
                 # allow contact info added manually to be removed
-                if co.AuthoritativeSystem(a['source_system']) is co.system_manual:
+                if (co.AuthoritativeSystem(a['source_system']) is
+                        co.system_manual):
                     continue
-                if co.AuthoritativeSystem(a['source_system']) is source_system_code:
+                if (co.AuthoritativeSystem(a['source_system']) is
+                        source_system_code):
                     raise CerebrumError(
                         'Person has an affiliation from source system ' +
                         '%s, cannot remove' % source_system)
