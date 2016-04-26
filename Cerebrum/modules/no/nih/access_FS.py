@@ -42,7 +42,12 @@ class NIHStudent(access_FS.Student):
           p.adresseland_hjemsted, p.status_reserv_nettpubl,
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
-          sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil,
+          sps.arstall_kull, p.kjonn, p.status_dod,
+          nvl(trim(leading '0' from
+               trim(leading '+' from p.telefonlandnr_mobil)), '47')
+          telefonlandnr_mobil,
+          p.telefonretnnr_mobil,
+          p.telefonnr_mobil,
           s.studentnr_tildelt
         FROM fs.studieprogramstudent sps, fs.person p,
              fs.student s
@@ -106,7 +111,9 @@ class NIHStudent78(NIHStudent, access_FS.Student78):
           p.adresseland_hjemsted, p.status_reserv_nettpubl,
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
-          sps.arstall_kull, p.kjonn, p.status_dod, pt.telefonnr telefonnr_mobil,
+          sps.arstall_kull, p.kjonn, p.status_dod,
+          pt.telefonlandnr telefonlandnr_mobil,
+          pt.telefonnr telefonnr_mobil,
           s.studentnr_tildelt
         FROM fs.studieprogramstudent sps,
              fs.student s, fs.person p
