@@ -29,10 +29,9 @@ import xml
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Database
 from Cerebrum.extlib import xmlprinter
-from Cerebrum.Utils import Factory
-from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
+from Cerebrum.Utils import XMLHelper
+from Cerebrum.utils.atomicfile import MinimumSizeWriter
 from Cerebrum.modules.no.uit.access_SYSY import SystemY 
 
 default_role_file = os.path.join(cereconf.DUMPDIR,
