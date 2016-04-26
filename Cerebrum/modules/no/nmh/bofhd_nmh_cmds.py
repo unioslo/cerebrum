@@ -20,7 +20,6 @@
 u""" NMH bohfd module. """
 
 import mx
-import cereconf
 
 from Cerebrum import Database
 from Cerebrum import Utils
@@ -29,14 +28,15 @@ from Cerebrum.modules.no import fodselsnr
 
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailMixin
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 
 from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.modules.no.nmh import bofhd_nmh_help
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
+    UiOBofhdExtension
 
 
 def format_day(field):

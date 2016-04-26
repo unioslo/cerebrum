@@ -19,8 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 u""" HIH bohfd module. """
 
-import cereconf
-
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum import Errors
 from Cerebrum import Database
@@ -34,7 +32,8 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
 
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
+    UiOBofhdExtension
 
 
 def format_day(field):
@@ -198,7 +197,8 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         cmd_param.PersonId(),
         fs=cmd_param.FormatSuggestion(
             [
-                ("Studieprogrammer: %s, %s, %s, %s, tildelt=%s->%s privatist: %s",
+                ("Studieprogrammer: %s, %s, %s, %s, "
+                 "tildelt=%s->%s privatist: %s",
                  ("studprogkode",
                   "studieretningkode",
                   "studierettstatkode",
@@ -335,7 +335,8 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
             ret += self._email_info_detail(acc)
         return ret
 
-    def _person_affiliation_add_helper(self, operator, person, ou, aff, aff_status):
+    def _person_affiliation_add_helper(self, operator, person, ou, aff,
+                                       aff_status):
         """Helper-function for adding an affiliation to a person with
         permission checking.  person is expected to be a person
         object, while ou, aff and aff_status should be the textual

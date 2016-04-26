@@ -20,7 +20,6 @@
 u""" NIH bofhd commands. """
 
 import mx
-import cereconf
 
 from Cerebrum import Utils
 from Cerebrum import Errors
@@ -38,7 +37,8 @@ from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.modules.no.nih import bofhd_nih_help
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
+    UiOBofhdExtension
 
 
 def format_day(field):
@@ -214,7 +214,8 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         cmd_param.PersonId(),
         fs=cmd_param.FormatSuggestion(
             [
-                ("Studieprogrammer: %s, %s, %s, %s, tildelt=%s->%s privatist: %s",
+                ("Studieprogrammer: %s, %s, %s, %s, "
+                 "tildelt=%s->%s privatist: %s",
                  ("studprogkode",
                   "studieretningkode",
                   "studierettstatkode",

@@ -34,7 +34,8 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PhrasePasswordNotGoodEnough)
 
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
+    UiOBofhdExtension
 
 
 def format_day(field):
