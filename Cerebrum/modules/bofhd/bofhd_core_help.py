@@ -395,7 +395,7 @@ command_help = {
         'user_affiliation_remove': 'Remove an affiliation for an account',
         'user_create_personal':
             'Create a POSIX user account owned by a person',
-        'user_create_unpersonal': 'Create a user account own by a group',
+        'user_create_unpersonal': 'Create a user account owned by a group',
         'user_create_sysadm': 'Create a sysadm account, e.g. "foo-drift"',
         'user_delete': 'Delete an account',
         'user_demote_posix':
