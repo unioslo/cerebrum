@@ -306,8 +306,8 @@ class CLConstants(CLConstants.CLConstants):
         'email_target', 'rem_target',  'remove email target %(subject)s')
     email_target_mod = CLConstants._ChangeTypeCode(
         'email_target', 'mod_target', 'modify email target %(subject)s',
-        ('type=%(int:target_type)',
-         'server=%(int:server_id)'))
+        ('type=id:%(int:target_type)s',
+         'server=id:%(int:server_id)s', ))
     email_address_add = CLConstants._ChangeTypeCode(
         'email_address', 'add_address', 'add email address %(subject)s',
         ('lp=%(string:lp)s',
@@ -368,24 +368,30 @@ class CLConstants(CLConstants.CLConstants):
 
     # email forward (subject here is an email_target)
     email_forward_add = CLConstants._ChangeTypeCode(
-        'email_forward', 'add_forward', 'add forward for %(subject)s',
-        ('forward=%(string:forward)',
-         'enable=%(string:enable)'))
+        'email_forward', 'add_forward',
+        'add forward for %(subject)s',
+        ('forward=%(string:forward)s',
+         'enable=%(TF:enable)s'))
     email_forward_rem = CLConstants._ChangeTypeCode(
-        'email_forward', 'rem_forward', 'remove forward for %(subject)s',
-        ('forward=%(string:forward)'))
+        'email_forward', 'rem_forward',
+        'remove forward for %(subject)s',
+        ('forward=%(string:forward)s', ))
     email_forward_enable = CLConstants._ChangeTypeCode(
-        'email_forward', 'enable_forward', 'enable forward for %(subject)s',
-        ('forward=%(string:forward)',
-         'cat=%(int:cat)'))
+        'email_forward', 'enable_forward',
+        'enable forward for %(subject)s',
+        ('forward=%(string:forward)s',
+         'cat=%(int:cat)s'))
     email_forward_disable = CLConstants._ChangeTypeCode(
-        'email_forward', 'disable_forward', 'disable forward for %(subject)s',
-        ('forward=%(string:forward)',
-         'cat=%(int:cat)'))
+        'email_forward', 'disable_forward',
+        'disable forward for %(subject)s',
+        ('forward=%(string:forward)s',
+         'cat=%(int:cat)s'))
 
     # Local delivery of email forwards
     email_local_delivery = CLConstants._ChangeTypeCode(
-        'email_forward', 'local_delivery', ('enabled=%(string:enabled)',))
+        'email_forward', 'local_delivery',
+        'modify local delivery for subject %(subject)s',
+        ('enabled=%(string:enabled)s', ))
 
     # email vacation (subject here is an email_target)
     # TBD: should we bother to log this? I don't think so, vacation
