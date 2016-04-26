@@ -194,20 +194,20 @@ def person_addold(db, co, data, ou, aff, status, src):
     # This should most of the time generate new groups in old, not found
     # in new, thus generating group rem events.
     o = key(ou, aff, status, src)
-    g = Factory.get('Group')(db)
-    gs = g.list_ou_groups_for(ou, affiliation=aff, status=status, source=src,
-                              member_types=co.virtual_group_ou_person,
-                              indirect=False)
+    grp = Factory.get('Group')(db)
+    gs = grp.list_ou_groups_for(ou, affiliation=aff, status=status, source=src,
+                                member_types=co.virtual_group_ou_person,
+                                indirect=False)
     dct = data['old']['personal'][o] = set()
     for g in gs:
-        if g not in data['ignoregroups']:
-            dct.add(g['group_id'])
-    gs = g.list_ou_groups_for(ou, affiliation=aff, status=status, source=src,
-                              member_types=co.virtual_group_ou_primary,
-                              indirect=False)
+        if int(g['group_id']) not in data['ignoregroups']:
+            dct.add(int(g['group_id']))
+    gs = grp.list_ou_groups_for(ou, affiliation=aff, status=status, source=src,
+                                member_types=co.virtual_group_ou_primary,
+                                indirect=False)
     dct = data['old']['primary'][o] = set()
     for g in gs:
-        if g not in data['ignoregroups']:
+        if int(g['group_id']) not in data['ignoregroups']:
             dct.add(g['group_id'])
 
 
