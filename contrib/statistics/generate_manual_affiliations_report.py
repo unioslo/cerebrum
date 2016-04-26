@@ -20,10 +20,11 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import argparse
+import datetime
 import os
 import sys
 
-from jinja2 import Environment, FileSystemLoader, PackageLoader
+from jinja2 import Environment, FileSystemLoader
 
 import cereconf
 
@@ -140,8 +141,10 @@ def main():
                     person_affiliations_str).decode('latin1')})
     sorted_manual_users = sorted(manual_users,
                                  key=lambda x: x['account_affiliations'])
-    summary = (u'{0} accounts for {1} persons of total {2} '
+    iso_timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    summary = (u'{0}: {1} accounts for {2} persons of total {3} '
                u'persons processed').format(
+                   iso_timestamp,
                    len(manual_users),
                    person_count,
                    total_person_count)
@@ -156,7 +159,8 @@ def main():
             ('account_name', u'Account name'),
             ('person_name', u'Name'),
             ('person_affiliations', u'Persont affiliations')),
-        title=u'Manual affiliations report',
+        title=u'Manual affiliations report ({timestamp})'.format(
+            timestamp=iso_timestamp),
         prelist=u'<h3>Manual affiliations report</h3>',
         postlist=u'<p>{summary}</p>'.format(summary=summary),
         items=sorted_manual_users).encode('utf-8')
