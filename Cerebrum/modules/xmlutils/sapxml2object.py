@@ -25,11 +25,8 @@ this means mapping XML-elements stemming from SAP data files to objects in
 datagetter.
 """
 
-from mx.DateTime import Date, now
-import time
-import sys
+from mx.DateTime import now
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.modules.xmlutils.xml2object import (
@@ -375,6 +372,7 @@ class XMLPerson2Object(XMLEntity2Object):
         else:
             return DataEmployment.KATEGORI_OEVRIG
 
+    @XMLEntity2Object.exception_wrapper
     def _make_employment(self, emp_element):
         """Make a DataEmployment instance of an <Hovedstilling>, </Bistilling>.
 
@@ -382,7 +380,7 @@ class XMLPerson2Object(XMLEntity2Object):
         DataEmployment object, representing the XML-employment object.
 
         """
-        percentage = code = title = None
+        percentage = code = None
         start_date = end_date = None
         ou_id = None
         category = None
@@ -407,14 +405,9 @@ class XMLPerson2Object(XMLEntity2Object):
                 if category is None:
                     category = self._code2category(code)
             elif sub.tag == "Stilling":
-                # 2014-05-26: `title' is assigned to, but never used
                 tmp = value.split(" ")
-                if len(tmp) == 1:
-                    title = tmp[0]
-                else:
-                    title = " ".join(tmp[1:])
-                    if category is None:
-                        category = self._code2category(tmp[0])
+                if len(tmp) != 1 and category is None:
+                    category = self._code2category(tmp[0])
             elif sub.tag == "Startdato":
                 start_date = self._make_mxdate(value, format="%Y-%m-%d")
             elif sub.tag == "Sluttdato":
@@ -467,9 +460,8 @@ class XMLPerson2Object(XMLEntity2Object):
                 tmp.add_name(work_title)
 
         return tmp
-    # Handle exceptions:
-    _make_employment = XMLEntity2Object.exception_wrapper(_make_employment)
 
+    @XMLEntity2Object.exception_wrapper
     def _make_role(self, elem):
         """Make an employment out of a <Roller>...</Roller>.
 
@@ -514,36 +506,38 @@ class XMLPerson2Object(XMLEntity2Object):
                               code=code,
                               start=start_date, end=end_date,
                               place=ou_id, category=None)
-    # Handle exceptions:
-    _make_role = XMLEntity2Object.exception_wrapper(_make_role)
 
+    @XMLEntity2Object.exception_wrapper
     def _make_contact(self, elem, priority):
         """Return a DataContact instance out of elem."""
 
-        kommtype2const = {"Faks arbeid": DataContact.CONTACT_FAX,
-                          "Telefaks midlertidig arbeidssted":
-                          DataContact.CONTACT_FAX,
-                          "Arbeidstelefon 1": DataContact.CONTACT_PHONE,
-                          "Arbeidstelefon 2": DataContact.CONTACT_PHONE,
-                          "Arbeidstelefon 3": DataContact.CONTACT_PHONE,
-                          "Mobilnummer, jobb":
-                          DataContact.CONTACT_MOBILE_WORK,
-                          "Mobilnummer, privat":
-                          DataContact.CONTACT_MOBILE_PRIVATE}
+        kommtype2const = {
+            u"Faks arbeid": DataContact.CONTACT_FAX,
+            u"Telefaks midlertidig arbeidssted": DataContact.CONTACT_FAX,
+            u"Arbeidstelefon 1": DataContact.CONTACT_PHONE,
+            u"Arbeidstelefon 2": DataContact.CONTACT_PHONE,
+            u"Arbeidstelefon 3": DataContact.CONTACT_PHONE,
+            u"Mobilnummer, jobb": DataContact.CONTACT_MOBILE_WORK,
+            u"Mobilnummer, privat": DataContact.CONTACT_MOBILE_PRIVATE,
+            u"Privat mobil synlig på web":
+            DataContact.CONTACT_MOBILE_PRIVATE_PUBLIC}
 
         ctype = elem.find("Type")
-        if (ctype is None
-                or ctype.text.strip() not in kommtype2const):
+        if ctype is None:
             return None
 
-        ctype = ctype.text.strip().encode("latin1")
+        ctype = ctype.text.strip()
+        if isinstance(ctype, str):
+            ctype = unicode(ctype, 'latin1')
+
+        ctype = kommtype2const.get(ctype)
+        if ctype is None:
+            return None
+
         cvalue = elem.find("Verdi").text.strip().encode("latin1")
         cvalue = deuglify_phone(cvalue)
-        ctype = kommtype2const[ctype]
 
         return DataContact(ctype, cvalue, priority)
-    # Handle exceptions:
-    _make_contact = XMLEntity2Object.exception_wrapper(_make_contact)
 
     def _make_title(self, title_kind, title_element):
         """Return a DataName representing title with language."""
@@ -606,7 +600,6 @@ class XMLPerson2Object(XMLEntity2Object):
         if middle is not None and middle.text:
             middle = to_latin1(middle.text).strip()
 
-        main = None
         # Iterate over *all* subelements, 'fill up' the result object
         for sub in element.getiterator():
             value = None
@@ -663,9 +656,6 @@ class XMLPerson2Object(XMLEntity2Object):
                 emp = self._make_employment(sub)
                 if emp is not None:
                     result.add_employment(emp)
-                    if sub.tag == "Hovedstilling":
-                        # TODO: Not used?
-                        main = emp
             elif sub.tag == "Roller" and sub.findtext("IKKE-ANGIT") is None:
                 emp = self._make_role(sub)
                 if emp is not None:

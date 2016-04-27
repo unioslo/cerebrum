@@ -375,7 +375,7 @@ class _CerebrumCode(DatabaseAccessor):
             # Attempt converting self into integer code value; this
             # should raise NotFoundError for not-yet-created code
             # values.
-            code = int(self)
+            int(self)
             # If conversion worked without raising NotFoundError, our
             # job has been done before.
             raise CodeValuePresentError("Code value %r present." % self)
@@ -609,8 +609,8 @@ class _PersonAffStatusCode(_CerebrumCode):
             try:
                 code = int(affiliation)
             except ValueError:
-                raise TypeError, ("Must pass integer when initialising " +
-                                  "from code value")
+                raise TypeError('Must pass integer when initialising '
+                                'from code value')
 
             self.int = code
             try:
@@ -868,14 +868,14 @@ class _ChangeTypeCode(_CerebrumCode):
     def insert(self):
         self._pre_insert_check()
         self.sql.execute("""
-        INSERT INTO %(code_table)s
-          (%(code_col)s, category, type ,%(desc_col)s)
-        VALUES
-          ( %(code_seq)s, :category, :type, :desc)""" % {
-            'code_table': self._lookup_table,
-            'code_col': self._lookup_code_column,
-            'desc_col': self._lookup_desc_column,
-            'code_seq': self._code_sequence},
+                         INSERT INTO {code_table}
+                           ({code_col}, category, type, {desc_col})
+                         VALUES
+                           ({code_seq}, :category, :type, :desc)"""
+                         .format(code_table=self._lookup_table,
+                                 code_col=self._lookup_code_column,
+                                 desc_col=self._lookup_desc_column,
+                                 code_seq=self._code_sequence),
                          {'category': self.category,
                           'type': self.type,
                           'desc': self.msg_string})
@@ -1149,12 +1149,12 @@ class CommonConstants(ConstantsBase):
         "//www.users.zetnet.co.uk/hopwood/crypto/scan/algs/md5crypt.txt>.")
     auth_type_sha256_crypt = _AuthenticationCode(
         'SHA-256-crypt',
-        "SHA-256 derived password as implemented by crypt(3) in the GNU C library"
-        " http://www.akkadia.org/drepper/SHA-crypt.txt")
+        'SHA-256 derived password as implemented by crypt(3) in '
+        'the GNU C library http://www.akkadia.org/drepper/SHA-crypt.txt')
     auth_type_sha512_crypt = _AuthenticationCode(
         'SHA-512-crypt',
-        "SHA-512 derived password as implemented by crypt(3) in the GNU C library"
-        " http://www.akkadia.org/drepper/SHA-crypt.txt")
+        'SHA-512 derived password as implemented by crypt(3) in '
+        'the GNU C library http://www.akkadia.org/drepper/SHA-crypt.txt')
     auth_type_crypt3_des = _AuthenticationCode(
         'crypt3-DES',
         "Password hash generated with the 'traditional' Unix crypt(3)"
@@ -1195,6 +1195,8 @@ class CommonConstants(ConstantsBase):
     contact_mobile_phone = _ContactInfoCode('MOBILE', 'Mobile phone')
     contact_private_mobile = _ContactInfoCode(
         'PRIVATEMOBILE', 'Private mobile phone')
+    contact_private_mobile_visible = _ContactInfoCode(
+        'PRIVMOBVISIBLE', 'Private mobile phone (visible in directories)')
 
     address_post = _AddressCode('POST', 'Post address')
     address_post_private = _AddressCode('PRIVPOST',
@@ -1400,7 +1402,8 @@ class CLConstants(Constants):
         ('spread=%(spread_code:spread)s',))
     account_type_add = _ChangeTypeCode(
         'ac_type', 'add', 'ac_type add for account %(subject)s',
-        ('ou=%(ou:ou_id)s, aff=%(affiliation:affiliation)s, pri=%(int:priority)s',))
+        ('ou=%(ou:ou_id)s, aff=%(affiliation:affiliation)s, '
+         'pri=%(int:priority)s',))
     account_type_mod = _ChangeTypeCode(
         'ac_type', 'mod', 'ac_type mod for account %(subject)s',
         ('old_pri=%(int:old_pri)s, old_pri=%(int:new_pri)s',))
@@ -1556,7 +1559,8 @@ class CLConstants(Constants):
 
     guest_create = _ChangeTypeCode(
         'guest', 'create', 'created guest %(dest)s',
-        ('mobile=%(string:mobile)s, name=%(string:name)s, owner_id=%(string:owner)s',))
+        ('mobile=%(string:mobile)s, name=%(string:name)s, '
+         'owner_id=%(string:owner)s',))
 
 
 class ExampleConstants(Constants):

@@ -42,11 +42,15 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         def __init__(self, db, logger):
             self.__super.__init__(db, logger)
             self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
+            self.attr2syntax['uioPrivateMobileVisible'] = \
+                self.attr2syntax['mobile']
     else:
         # Hacks for old LDAP structure
         def __init__(self, db, logger):
             self.__super.__init__(db, logger)
             self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
+            self.attr2syntax['uioPrivateMobileVisible'] = \
+                self.attr2syntax['mobile']
             # Used by make_ou_dn() for for migration to ny-ldap.uio.no:
             self.used_new_DNs = {}
             self.ou_quarantined = {}
@@ -109,17 +113,22 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
     def init_attr2id2contacts(self):
         # Change from superclass: Include 'mobile' as well.
-        contact_source = getattr(self.const, cereconf.LDAP['contact_source_system'])
-        contacts = [(attr, self.get_contacts(contact_type=contact_type,
-                                             source_system=source_system,
-                                             convert=self.attr2syntax[attr][0],
-                                             verify=self.attr2syntax[attr][1],
-                                             normalize=self.attr2syntax[attr][2]))
-                    for attr, source_system, contact_type in (
-                        ('telephoneNumber', contact_source, self.const.contact_phone),
-                        ('mobile', contact_source, self.const.contact_mobile_phone),
-                        ('facsimileTelephoneNumber', contact_source, self.const.contact_fax),
-                        ('labeledURI', None, self.const.contact_url))]
+        contact_source = getattr(self.const,
+                                 cereconf.LDAP['contact_source_system'])
+        contacts = [(attr, self.get_contacts(
+            contact_type=contact_type,
+            source_system=source_system,
+            convert=self.attr2syntax[attr][0],
+            verify=self.attr2syntax[attr][1],
+            normalize=self.attr2syntax[attr][2]))
+            for attr, source_system, contact_type in (
+                ('telephoneNumber', contact_source, self.const.contact_phone),
+                ('mobile', contact_source, self.const.contact_mobile_phone),
+                ('uioPrivateMobileVisible', contact_source,
+                 self.const.contact_private_mobile_visible),
+                ('facsimileTelephoneNumber', contact_source,
+                 self.const.contact_fax),
+                ('labeledURI', None, self.const.contact_url))]
 
         self.id2labeledURI = contacts[-1][1]
         self.attr2id2contacts = [v for v in contacts if v[1]]
@@ -199,7 +208,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 status_str = str(self.const.PersonAffStatus(status).str)
                 self.status_cache[status] = status_str
             p = 'secondary'
-            if aff_str == pri_aff_str and status_str == pri_status_str and ou == pri_ou:
+            if (aff_str == pri_aff_str
+                    and status_str == pri_status_str and ou == pri_ou):
                 p = 'primary'
             ou = self.ou_id2ou_uniq_id[ou]
             if ou:
@@ -215,7 +225,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         # Add or extend entitlements
         if person_id in self.ownerid2urnlist:
             if 'eduPersonEntitlement' in entry:
-                entry['eduPersonEntitlement'].extend(self.ownerid2urnlist[person_id])
+                entry['eduPersonEntitlement'].extend(
+                    self.ownerid2urnlist[person_id])
             else:
                 entry['eduPersonEntitlement'] = self.ownerid2urnlist[person_id]
 
@@ -225,19 +236,22 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         # Add group memberships
         if person_id in self.person2group:
             # TODO: remove member and uioPersonObject after transition period
-            entry['uioMemberOf'] = entry['member'] = self.person2group[person_id]
+            entry['uioMemberOf'] = entry['member'] = \
+                self.person2group[person_id]
             entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))
 
         # Add scoped affiliations
-        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(person_id)
-        entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(
-            person_id, pri_aff, pri_ou)
+        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(
+            person_id)
+        entry['uioPersonScopedAffiliation'] = \
+            self.make_uioPersonScopedAffiliation(person_id, pri_aff, pri_ou)
 
         # Add the uioPersonObject class if missing
         if 'uioPersonObject' not in entry['objectClass']:
             entry['objectClass'].extend(('uioPersonObject',))
 
-        # Check if there exists «avvikende» addresses, if so, export them instead:
+        # Check if there exists «avvikende» (deviant) addresses.
+        # If so, export them instead.
         addrs = self.addr_info.get(person_id)
         post = addrs and addrs.get(int(self.const.address_other_post))
         if post:
@@ -281,7 +295,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_stip)),
             (tilkn_aff, int(self.const.affiliation_tilknyttet_frida_reg)),
             (tilkn_aff, int(self.const.affiliation_tilknyttet_innkjoper)),
-            (tilkn_aff, int(self.const.affiliation_tilknyttet_assosiert_person)),
+            (tilkn_aff, int(self.const.
+                            affiliation_tilknyttet_assosiert_person)),
             (tilkn_aff, int(self.const.affiliation_tilknyttet_ekst_forsker)),
             (tilkn_aff, int(self.const.affiliation_tilknyttet_emeritus)),
             (tilkn_aff, int(self.const.affiliation_tilknyttet_gjesteforsker)),
@@ -338,8 +353,10 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         return False
 
     def init_person_office365_consents(self):
-        """ Fetch the IDs of persons who have consented to being exported to Office 365. """
+        """Fetch the IDs of persons who have consented
+        to being exported to Office 365."""
         timer = make_timer(self.logger, 'Fetching Office 365 consents...')
-        consents = self.person.list_consents(consent_code=self.const.consent_office365)
+        consents = self.person.list_consents(
+            consent_code=self.const.consent_office365)
         self.office365_consents = set([c['entity_id'] for c in consents])
         timer('...Office 365 consents done.')

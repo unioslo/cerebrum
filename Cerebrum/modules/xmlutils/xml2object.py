@@ -44,13 +44,10 @@ TODO:
 * Fix the documentation and provide a few more examples.
 """
 import copy
-import sys
 import time
-import types
 from xml.etree.cElementTree import parse, iterparse, ElementTree
 from mx.DateTime import Date, DateTimeDelta
 
-import cerebrum_path
 import cereconf
 from Cerebrum import Utils
 
@@ -104,13 +101,10 @@ class DataAddress(object):
             # TBD: Log it with the logger framework?
             self.country = None
         # fi
-    # end __init__
 
     def __str__(self):
         return "%s, %s, %s, %s, %s" % (self.kind, self.street, self.zip,
                                        self.city, self.country)
-    # end __str__
-# end DataAddress
 
 
 class DataContact(object):
@@ -122,6 +116,7 @@ class DataContact(object):
     CONTACT_PRIVPHONE = "private phone"
     CONTACT_MOBILE_WORK = "cell phone work"
     CONTACT_MOBILE_PRIVATE = "cell phone private"
+    CONTACT_MOBILE_PRIVATE_PUBLIC = "cell phone private to display"
 
     """Class for storing contact information (phone, e-mail, URL, etc.)"""
 
@@ -130,15 +125,13 @@ class DataContact(object):
         assert self.kind in (self.CONTACT_PHONE, self.CONTACT_FAX,
                              self.CONTACT_URL, self.CONTACT_EMAIL,
                              self.CONTACT_PRIVPHONE, self.CONTACT_MOBILE_WORK,
-                             self.CONTACT_MOBILE_PRIVATE)
+                             self.CONTACT_MOBILE_PRIVATE,
+                             self.CONTACT_MOBILE_PRIVATE_PUBLIC)
         self.value = value
         self.priority = priority
-    # end __init__
 
     def __str__(self):
         return "contact (%s %s): %s" % (self.kind, self.priority, self.value)
-    # end __str__
-# end DataContact
 
 
 class DataName(object):
@@ -159,13 +152,11 @@ class DataName(object):
         self.value = value
         lang = lang and lang.lower() or lang
         self.language = lang
-    # end __init__
 
     def __str__(self):
         if self.language:
             return "%s: %s (%s)" % (self.kind, self.value, self.language)
         return "%s: %s" % (self.kind, self.value)
-# end DataName
 
 
 class NameContainer(object):
@@ -177,13 +168,11 @@ class NameContainer(object):
 
     def __init__(self):
         self._names = dict()
-    # end __init__
 
     def validate_name(self, name):
         """By default all names are valid."""
 
         return True
-    # end validate_name
 
     def add_name(self, name):
         """Add a new name.
@@ -199,16 +188,13 @@ class NameContainer(object):
             self._names[kind].append(name)
         else:
             self._names[kind] = [name, ]
-    # end add_name
 
     def iternames(self):
         return self._names.iteritems()
-    # end iternames
 
     def get_name(self, kind, default=None):
         tmp = self._names.get(kind, default)
         return tmp
-    # end get_name
 
     def get_name_with_lang(self, kind, *priority_order):
         """Extract a name of given kind, respecting the given priority order.
@@ -236,8 +222,6 @@ class NameContainer(object):
             return names[0].value
         else:
             return None
-    # end get_name_with_lang
-# end class NameContainer
 
 
 class DataEmployment(NameContainer):
@@ -389,33 +373,26 @@ class DataEntity(NameContainer):
         self._external_ids = dict()
         self._contacts = list()
         self._addresses = dict()
-    # end __init__
 
     def add_id(self, kind, value):
         self.validate_id(kind, value)
         self._external_ids[kind] = value
-    # end add_id
 
     def add_contact(self, contact):
         self._contacts.append(contact)
-    # end add_contact
 
     def add_address(self, address):
         if address:
             self._addresses[address.kind] = address
-    # end add_address
 
     def iterids(self):
         return self._external_ids.iteritems()
-    # end iterids
 
     def itercontacts(self):
         return iter(self._contacts)
-    # end itercontacts
 
     def iteraddress(self):
         return self._addresses.iteritems()
-    # end iteraddress
 
     def get_contact(self, kind, default=list()):
         result = list()
@@ -426,17 +403,12 @@ class DataEntity(NameContainer):
         # od
 
         return result or default
-    # end get_contact
 
     def get_id(self, kind, default=None):
         return self._external_ids.get(kind, default)
-    # end get_id
 
     def get_address(self, kind, default=None):
         return self._addresses.get(kind, default)
-    # end get_address
-
-# end DataEntity
 
 
 class DataOU(DataEntity):
@@ -459,7 +431,6 @@ class DataOU(DataEntity):
         # This is just a collection of names. However the name API itself
         # supports single values of a given type only.
         self._usage_codes = set()
-    # end __init__
 
     def add_usage_code(self, code):
         if (
@@ -467,20 +438,17 @@ class DataOU(DataEntity):
                 code in cereconf.OU_USAGE_SPREAD
         ):
             self._usage_codes.add(code)
-    # end add_usage_code
 
     def iter_usage_codes(self):
         return iter(self._usage_codes)
 
     def validate_id(self, kind, value):
         assert kind in (self.NO_SKO, self.NO_NSD,)
-    # end validate_id
 
     def validate_name(self, name):
         assert name.kind in (self.NAME_ACRONYM,
                              self.NAME_SHORT,
                              self.NAME_LONG)
-    # end validate_name
 
     def __str__(self):
         return "DataOU (valid: %s-%s): %s\n| %s\n| %s\n| %s\n__%s\n" % (
@@ -491,8 +459,6 @@ class DataOU(DataEntity):
             map(str, self.itercontacts()),
             list(self._usage_codes),
             ["%s:%s" % (x, str(y)) for x, y in self.iteraddress()])
-    # end __str__
-# end DataOU
 
 
 class DataPerson(DataEntity):
@@ -512,16 +478,13 @@ class DataPerson(DataEntity):
 
     def __init__(self):
         super(DataPerson, self).__init__()
-    # end __init__
 
     def validate_id(self, kind, value):
         assert kind in (self.NO_SSN, self.PASSNR)
-    # end validate_id
 
     def validate_name(self, name):
         assert name.kind in (self.NAME_FIRST, self.NAME_LAST, self.NAME_MIDDLE,
                              self.NAME_TITLE)
-    # end validate_name
 
     def __str__(self):
         ret = "DataPerson: %s\n" % list(self.iterids())
@@ -530,8 +493,6 @@ class DataPerson(DataEntity):
             ret += "| %s: %s\n" % (kind, map(str, name))
         ret += "__\n"
         return ret
-    # end __str__
-# end DataPerson
 
 
 class HRDataPerson(DataPerson):
@@ -545,11 +506,9 @@ class HRDataPerson(DataPerson):
         self.employments = list()
         self.reserved = None
         self.external_work = list()
-    # end __init__
 
     def add_employment(self, emp):
         self.employments.append(emp)
-    # end add_employment
 
     def add_external_work(self, emp):
         self.external_work.append(emp)
@@ -558,7 +517,6 @@ class HRDataPerson(DataPerson):
     # say the least :( There should be a "_" here.
     def iteremployment(self):
         return iter(self.employments)
-    # end iteremployment
 
     def has_active_employments(self, timepoint=Date(*time.localtime()[:3])):
         """Decide whether this person has employments at a given timepoint."""
@@ -578,7 +536,6 @@ class HRDataPerson(DataPerson):
                 return True
 
         return False
-    # end has_active_employments
 
     def __str__(self):
         spr = super(HRDataPerson, self).__str__()
@@ -599,8 +556,6 @@ class HRDataPerson(DataPerson):
         # if self.external_work:
         #     result += "\n| external work: %s" % map(str, self.external_work)
         return result
-    # end __str__
-# end HRDataPerson
 
 
 class AbstractDataGetter(object):
@@ -622,23 +577,18 @@ class AbstractDataGetter(object):
 
         self.logger = logger
         self.fetch(fetchall)
-    # end __init__
 
     def fetch(self, fetchall=True):
         """Connect to data source and fetch data."""
         raise NotImplementedError("fetch not implemented")
-    # end fetch
 
     def iter_person(self):
         """Give an iterator over person objects in the data source."""
         raise NotImplementedError("iter_person not implemented")
-    # end iter_person
 
     def iter_ou(self):
         """Give an iterator over OU objects in the data source."""
         raise NotImplementedError("iter_ou not implemented")
-    # end iter_ou
-# end AbstractDataGetter
 
 
 class XMLDataGetter(AbstractDataGetter):
@@ -649,7 +599,6 @@ class XMLDataGetter(AbstractDataGetter):
         self._data_source = None
 
         super(XMLDataGetter, self).__init__(logger, fetchall)
-    # end __init__
 
     def _make_iterator(self, element, klass):
         """Create an iterator over XML elements.
@@ -664,7 +613,6 @@ class XMLDataGetter(AbstractDataGetter):
             it = XMLEntityIterator(self._filename, element)
 
         return klass(iter(it), self.logger)
-    # end _make_iterator
 
     def fetch(self, fetchall=True):
         """Parse the XML file and convert it to HRDataPerson objects."""
@@ -679,8 +627,6 @@ class XMLDataGetter(AbstractDataGetter):
             # they are no longer needed (or they'll end up cached in memory;
             # something we are trying to avoid here).
             self._data_source = parse(self._filename)
-    # end fetch
-# end XMLDataGetter
 
 
 class XMLEntity2Object(object):
@@ -701,7 +647,6 @@ class XMLEntity2Object(object):
 
         self._xmliter = iter(xmliter)
         self.logger = logger
-    # end __init__
 
     def next(self):
         """Return next object constructed from a suitable XML element
@@ -754,8 +699,8 @@ class XMLEntity2Object(object):
                         Utils.format_exception_context(*sys.exc_info()),
                         element.tag)
                 element.clear()
-    # end next
 
+    @staticmethod
     def exception_wrapper(functor, exc_list=None, return_on_exc=None):
         """This is a convenience method for Utils.exception_wrapper.
 
@@ -788,15 +733,11 @@ class XMLEntity2Object(object):
                                            self.logger)
             # ... and here we call the wrapped method.
             return func(self, *rest, **kw_args)
-        # end wrapper
 
         return wrapper
-    # end exception_wrapper
-    exception_wrapper = staticmethod(exception_wrapper)
 
     def __iter__(self):
         return self
-    # end __iter__
 
     def _make_mxdate(self, text, format="%Y%m%d"):
         """Helper method to convert strings to dates.
@@ -818,7 +759,6 @@ class XMLEntity2Object(object):
 
         year, month, day = time.strptime(text, format)[:3]
         return Date(year, month, day)
-    # end _make_mxdate
 
     def format_xml_element(self, element):
         """Returned a 'serialized' version of an XML element.
@@ -842,8 +782,6 @@ class XMLEntity2Object(object):
         stream = cStringIO.StringIO()
         ElementTree(element).write(stream)
         return stream.getvalue()
-    # end format_xml_element
-# end XMLEntity2Object
 
 
 class XMLEntityIterator(object):
@@ -862,7 +800,6 @@ class XMLEntityIterator(object):
 
         # Keep track of the root element (to prevent element caching)
         junk, self._root = self.it.next()
-    # end __init__
 
     def next(self):
         """Return next specified element, ignoring all else.
@@ -888,9 +825,6 @@ class XMLEntityIterator(object):
             self._root.clear()
 
         raise StopIteration
-    # end next
 
     def __iter__(self):
         return self
-    # end __iter__
-# end XMLEntityIterator
