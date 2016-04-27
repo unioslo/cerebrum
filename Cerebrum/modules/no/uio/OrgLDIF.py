@@ -124,8 +124,6 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             for attr, source_system, contact_type in (
                 ('telephoneNumber', contact_source, self.const.contact_phone),
                 ('mobile', contact_source, self.const.contact_mobile_phone),
-                ('uioPrivateMobileVisible', contact_source,
-                 self.const.contact_private_mobile_visible),
                 ('facsimileTelephoneNumber', contact_source,
                  self.const.contact_fax),
                 ('labeledURI', None, self.const.contact_url))]
