@@ -82,8 +82,9 @@ def main():
         const.affiliation_manuell_inaktiv_student,  # MANUELL/inaktiv_student
         const.affiliation_manuell_konsulent,  # MANUELL/konsulent
         const.affiliation_manuell_radium,  # MANUELL/radium
+        const.affiliation_manuell_unirand,  # MANUELL/unirand
+        const.affiliation_manuell_universitas,  # MANUELL/universitas
         const.affiliation_manuell_frisch,  # MANUELL/frisch
-        const.affiliation_manuell_unirand  # MANUELL/unirand
     ]
 
     manual_users = list()
