@@ -786,19 +786,23 @@ class OUGroup(VirtualGroup):
             extra_tables.append(tmp)
             tmp = argument_to_sql(member_spread, 'mes.spread', qparams, int)
             wheres.extend(['mes.entity_id = {}'.format(memid), tmp])
-            extra_where.extend(['mes.entity_id = vgo.group_id', tmp])
+            if not indirect and rec == self.const.virtual_group_ou_recursive:
+                extra_where.extend(['mes.entity_id = vgo.group_id', tmp])
         if member_names:
             tmp = '[:table schema=cerebrum name=entity_name] men'
             tables.append(tmp)
             extra_tables.append(tmp)
             wheres.extend('men.entity_id = {}'.format(memid))
-            extra_where.extend('men.entity_id = vgo.group_id')
+            if not indirect and rec == self.const.virtual_group_ou_recursive:
+                extra_where.extend('men.entity_id = vgo.group_id')
             fields.append('men.entity_name AS member_name')
             group_fields.append('men.entity_name AS member_name')
         if filter_members:
             wheres.append(argument_to_sql(filter_members, memid, qparams, int))
-            extra_where.append(argument_to_sql(filter_members, 'vgo.group_id',
-                                               qparams, int))
+            if not indirect and rec == self.const.virtual_group_ou_recursive:
+                extra_where.append(argument_to_sql(filter_members,
+                                                   'vgo.group_id', qparams,
+                                                   int))
         if extra_sql:
             extra_tables_str = ''
             if extra_tables:
