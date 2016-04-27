@@ -10304,6 +10304,13 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             return str(self.const.EphorteRole(val))
         elif format == 'perm_type':
             return str(self.const.EphortePermission(val))
+        elif format == 'bool':
+            if val == 'T':
+                return str(True)
+            elif val == 'F':
+                return str(False)
+            else:
+                return str(bool(val))
         else:
             self.logger.warn("bad cl format: %s", repr((format, val)))
             return ''
@@ -10314,7 +10321,7 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             try:
                 dest = self._get_entity_name(dest)
             except Errors.NotFoundError:
-                pass
+                dest = repr(dest)
         this_cl_const = self.const.ChangeType(row['change_type_id'])
         msg = this_cl_const.msg_string % {
             'subject': self._get_entity_name(row['subject_entity']),

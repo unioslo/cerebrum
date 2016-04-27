@@ -715,7 +715,8 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         AccountName(help_ref="account_name", repeat=True),
         perm_filter='can_email_info',
         fs=FormatSuggestion([
-            ("Type:             %s", ("target_type",)),
+            ("Target ID:        %d\n"
+             "Target Type:      %s", ("target_id", "target_type", )),
             #
             # target_type == Account
             #
@@ -810,13 +811,10 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         ttype = et.email_target_type
         ttype_name = str(self.const.EmailTarget(ttype))
 
-        ret = []
-        if ttype not in (self.const.email_target_account,
-                         self.const.email_target_Mailman,
-                         self.const.email_target_Sympa,
-                         self.const.email_target_pipe,
-                         self.const.email_target_RT):
-            ret += [{'target_type': ttype_name, }, ]
+        ret = [
+            {'target_type': ttype_name,
+             'target_id': et.entity_id, },
+        ]
 
         # Default address
         try:
@@ -841,9 +839,11 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         #       bofhd_email_list.py
         if (ttype == self.const.email_target_Mailman and
                 hasattr(self, '_email_info_mailman')):
+            # TODO: What if the constant doesn't exist?
             ret += getattr(self, '_email_info_mailman')(et, uname)
         elif (ttype == self.const.email_target_Sympa and
                 hasattr(self, '_email_info_sympa')):
+            # TODO: What if the constant doesn't exist?
             ret += getattr(self, '_email_info_sympa')(operator, et, uname)
         elif ttype == self.const.email_target_multi:
             ret += self._email_info_multi(et, uname)
@@ -852,6 +852,7 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         elif ttype == self.const.email_target_pipe:
             ret += self._email_info_pipe(et, uname)
         elif ttype == self.const.email_target_RT:
+            # TODO: What if the constant doesn't exist?
             ret += self._email_info_rt(et, uname)
         elif ttype == self.const.email_target_forward:
             ret += self._email_info_forward(et, uname)
