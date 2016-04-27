@@ -35,8 +35,7 @@ from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.no.hia import bofhd_hia_help
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailMixin
-from Cerebrum.modules.bofhd.bofhd_email_list import BofhdEmailMailmanMixin, \
-    BofhdEmailSympaMixin
+from Cerebrum.modules.bofhd.bofhd_email_list import BofhdEmailSympaMixin
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, \
     BofhdAuthRole
@@ -252,20 +251,11 @@ email_mixin_commands = [
     'email_update',
 ]
 
-# Decide which mailman list commands to use
-email_mailman_mixin_commands = [
-    'mailman_create_list',
-    'mailman_create_list_alias',
-    'mailman_remove_list',
-    'mailman_remove_list_alias',
-]
-
 # Decide which sympa list commands to use
 email_sympa_mixin_commands = [
     'sympa_create_list',
     'sympa_create_list_alias',
     'sympa_create_list_in_cerebrum',
-    'sympa_reassign_mailman_list',
     'sympa_remove_list',
     'sympa_remove_list_alias',
 ]
@@ -275,10 +265,6 @@ email_sympa_mixin_commands = [
     BofhdEmailMixin,
     'default_email_commands', 'all_commands',
     commands=email_mixin_commands)
-@copy_command(
-    BofhdEmailMailmanMixin,
-    'default_mailman_commands', 'all_commands',
-    commands=email_mailman_mixin_commands)
 @copy_command(
     BofhdEmailSympaMixin,
     'default_sympa_commands', 'all_commands',
@@ -297,7 +283,6 @@ email_sympa_mixin_commands = [
 class BofhdExtension(
         BofhdCommonMethods,
         BofhdEmailMixin,
-        BofhdEmailMailmanMixin,
         BofhdEmailSympaMixin):
     """ The main UiA BofhdExtension. """
 
@@ -487,23 +472,6 @@ class BofhdExtension(
         et.email_server_id = es.entity_id
         et.write_db()
         return "OK, updated e-mail server for %s (to %s)" % (uname, server)
-
-    # mailman-stuff:
-    _interface2addrs = {
-        'post': ["%(local_part)s@%(domain)s"],
-        'mailcmd': ["%(local_part)s-request@%(domain)s",
-                    "%(local_part)s-confirm@%(domain)s",
-                    "%(local_part)s-join@%(domain)s",
-                    "%(local_part)s-leave@%(domain)s",
-                    "%(local_part)s-subscribe@%(domain)s",
-                    "%(local_part)s-unsubscribe@%(domain)s"],
-        'mailowner': ["%(local_part)s-admin@%(domain)s",
-                      "%(local_part)s-owner@%(domain)s",
-                      "%(local_part)s-bounces@%(domain)s"]
-        }
-    # These are just for show, UiA is not really using this
-    _mailman_pipe = "|/fake %(interface)s %(listname)s"
-    _mailman_patt = r'\|/fake (\S+) (\S+)$'
 
     #
     # person info <persin-id>
