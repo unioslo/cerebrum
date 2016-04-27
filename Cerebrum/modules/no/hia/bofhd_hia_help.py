@@ -103,11 +103,6 @@ def _arg_help_modifications():
                   'user_search_type']
     #remove_keys(arg_help, removekeys)
 
-    # Add subkeys
-    arg_help['mailman_admins'] = ['addresses', 'Enter comma separated list of administrators for the Mailman list']
-    arg_help['mailman_list'] = ['address', 'Enter address for Mailman list']
-    arg_help['mailman_list_exist'] = ['address', 'Enter address of existing Mailman list']
-
     # Modify subkeys
     arg_help['disk'][0] = 'disk'
     arg_help['disk'][2] = 'Enter the path to the disc without trailing slash or username.\n Example: /usit/sauron/u1\n For non-cerebrum disks, prepend the path with a :'
