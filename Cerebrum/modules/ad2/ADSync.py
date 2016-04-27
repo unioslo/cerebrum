@@ -413,6 +413,7 @@ class BaseSync(object):
         # code that touches new_group_scope in the create_object-method (in
         # this class).
         self.new_group_scope = self.config['group_scope'].lower()
+        self.new_group_type = self.config['group_type'].lower()
 
         # Check the config
         self.config_check()
@@ -1516,6 +1517,7 @@ class BaseSync(object):
         try:
             if self.ad_object_class == 'group':
                 parameters['GroupScope'] = self.new_group_scope
+                parameters['GroupCategory'] = self.new_group_type
             new_object = self.server.create_object(
                 ent.ad_id, ent.ou, self.ad_object_class,
                 attributes=ent.attributes, parameters=parameters)
@@ -2672,6 +2674,7 @@ class GroupSync(BaseSync):
         if self.config['group_type'] not in ('security', 'distribution'):
             raise Exception('Invalid group type: %s' %
                             self.config['group_type'])
+        self.new_group_type = self.config['group_type'].lower()
         # Check if the group scope is a valid scope:
         if self.config['group_scope'].lower() not in ('global', 'universal'):
             raise Exception('Invalid group scope: %s' %
