@@ -101,7 +101,9 @@ class BaseSync(object):
             - Subclasses could add more functionality.
         - Remaining entities that was not found in AD gets created in AD.
     3. At quicksync:
-        - TODO
+        - Get all unhandled events from the ChangeLog
+        - Process each unhandled event
+        - If successfully processed, mark the event as handled
 
     Subclasses could of course make changes to this behaviour.
 
@@ -138,7 +140,6 @@ class BaseSync(object):
                              ('create_ous', False),
                              ('attributes', {}),
                              ('useraccountcontrol', {}),
-                             # ('first_run', False), # should we support this?
                              ('store_sid', False),
                              ('handle_unknown_objects', ('ignore', None)),
                              ('handle_deactivated_objects', ('ignore', None)),
@@ -347,9 +348,6 @@ class BaseSync(object):
                     self.config['target_type'] = config_args['target_type']
                     self.config['target_spread'] = None
                 else:
-                    # TODO: in the future, we would like to require
-                    # target_spread, and force all syncs to go through spreads,
-                    # but that's too hard to change at the moment.
                     raise ConfigUtils.ConfigError(
                         'Either sync name must be a spread, or target_type '
                         'must be defined')
@@ -395,8 +393,6 @@ class BaseSync(object):
             for key in adconf.SYNCS:
                 adconf.SYNCS[key]['mock'] = True
 
-        # TODO: Check the attributes?
-
         # Messages for AD-administrators should be logged if the config says so,
         # or if there are no other options set:
         self.config['log_ad_admin_messages'] = False
@@ -412,7 +408,7 @@ class BaseSync(object):
                              in self.sidtype_map.iteritems())
             self.sidtype_map = converted
 
-        # We define the group scope for new distribution groups.
+        # We define the group scope and type for new groups.
         # This should probably be moved to UiADistGroupSync, and so should the
         # code that touches new_group_scope in the create_object-method (in
         # this class).
@@ -434,14 +430,6 @@ class BaseSync(object):
         for n in ('dn', 'Dn', 'sn', 'Sn'):
             if n in self.config['attributes']:
                 self.logger.warn('Bad attribute defined in config: %s' % n)
-        # Check the case of the attributes. They should all start with an
-        # uppercased letter, to match how the names are returned from AD.
-        # TODO: This might not be correct for all attributes, unfortunately...
-        for a in self.config['attributes']:
-            if a[0] != a[0].upper():
-                self.logger.warn('Attribute not capitalized: %s' % a)
-            # TODO: match with ADAttributeConstants?
-
         # The admin message config:
         for opt in self.config['ad_admin_message']:
             if opt[0] not in ('mail', 'file', 'log', None):
@@ -469,8 +457,6 @@ class BaseSync(object):
         # Check that all the defined change_types exists:
         for change_type in self.config.get('change_types', ()):
             int(change_type)
-
-        # TODO: add more checks here
 
         # TODO: move the instantiation of the server to somewhere else!
         self.setup_server()
@@ -902,7 +888,6 @@ class BaseSync(object):
             if not ids:
                 return
         i = 0
-        # TODO: fetch only the attributes defined in config - would be faster
         for row in self.ent.list_ad_attributes(
                 entity_id=ids,
                 spread=self.config['target_spread'],
@@ -1303,7 +1288,6 @@ class BaseSync(object):
 
         # Ignore the cases where an attribute is None in Cerebrum and an empty
         # string in AD:
-        # TODO: Is this correct after using JSON format?
         if c is None and a == '':
             return (False, None, None)
         # TODO: Should we ignore attributes with extra spaces? AD converts
@@ -1321,8 +1305,6 @@ class BaseSync(object):
         seq = (list, tuple, set)
         if isinstance(c, seq) and (isinstance(a, seq) or a is None):
             a = a or list()
-            # TODO: Do we in some cases need to unicodify strings before
-            # comparement?
             to_add = set(c).difference(a)
             to_remove = set(a).difference(c)
 
@@ -1347,110 +1329,6 @@ class BaseSync(object):
 
             return (to_add or to_remove, list(to_add), list(to_remove))
         return (c != a, None, None)
-
-    def changelog_handle_spread(self, ctype, row):
-        """Handler for changelog events of category 'spread'.
-
-        Syncs new changes that affects the spread and its entity. Example on
-        change types in this category: add and delete. Not all types might be
-        respected, but subclasses could override this.
-
-        """
-        en = Entity.EntityName(self.db)
-        try:
-            en.find(row['subject_entity'])
-        except Errors.NotFoundError:
-            self.logger.warn("Could not find entity: %s. Check if entity is "
-                             "nuked.", row['subject_entity'])
-            # TODO: ignore this? Are there other reasons than race conditions
-            # when the entity is nuked from the database?
-
-            # TODO: send a downgrade request about the object? Or should we
-            # trust the fullsync to do this?
-            return False
-
-        # TODO: check the spread type - all other spreads than the target spread
-        # gets ignored.
-
-        if ctype == 'add':
-            # TODO: create or recreate the object
-            pass
-        elif ctype == 'delete':
-            # TODO: downgrade the object
-            pass
-        else:
-            raise Exception('Unknown spread changetype %s for entity %s' % (
-                            ctype, row['subject_entity']))
-        return False
-
-    def changelog_handle_quarantine(self, ctype, row):
-        """Handler for changelog events of category 'quarantine'.
-
-        Syncs new changes that affects the quarantine's entity. Example on
-        change types in this category: add, refresh, mod and del. Not all types
-        might be respected, but subclasses could override this.
-
-        """
-        en = Entity.EntityName(self.db)
-        try:
-            en.find(row['subject_entity'])
-        except Errors.NotFoundError:
-            self.logger.warn("Could not find entity: %s. Check if entity is "
-                             "nuked.", row['subject_entity'])
-            # TODO: ignore this? Are there other reasons than race conditions
-            # when the entity is nuked from the database?
-
-            # TODO: send a downgrade request about the object? Or should we
-            # trust the fullsync to do this?
-            return False
-
-        # TODO: Check if entity is still in quarantine or not.
-        is_quarantined = True
-        if ctype == 'add' and is_quarantined:
-            # TODO: downgrade object
-            return False
-        elif ctype == 'del' and not is_quarantined:
-            # TODO: activate object
-            return False
-        # Other change types doesn't say if the entity got quarantined or not,
-        # so have to update it in AD anyway.
-        if is_quarantined:
-            # TODO: downgrade object
-            return False
-        else:
-            # TODO: activate object
-            return False
-        return False
-
-    def changelog_handle_ad_attr(self, ctype, row):
-        """Handler for changelog events of category 'ad_attr'.
-
-        Syncs new changes that affects the attribute and its entity. Example on
-        change types in this category: add and del. Not all types might be
-        respected, but subclasses could override this.
-
-        """
-        # TODO: check if the updated attribute is defined in the config. Ignore
-        # if not.
-
-        en = Entity.EntityName(self.db)
-        try:
-            en.find(row['subject_entity'])
-        except Errors.NotFoundError:
-            self.logger.warn("Could not find entity: %s. Check if entity is"
-                             " nuked.", row['subject_entity'])
-            # TODO: ignore this? Are there other reasons than race conditions
-            # when the entity is nuked from the database?
-
-            # TODO: send a downgrade request about the object? Or should we
-            # trust the fullsync to do this?
-            return False
-
-        # TODO: update attribute(s)
-
-        # TODO
-        self.logger.warn("change log ad_attr handle not implemented")
-        return False
 
     def process_entities_not_in_ad(self):
         """Go through entities that wasn't processed while going through AD.
@@ -1688,7 +1566,6 @@ class BaseSync(object):
                 self.move_object(ad_object, action[1])
             return True
         elif action[0] == 'delete':
-            # TODO: danger, this should be tested more carefully!
             self.delete_object(ad_object)
         else:
             raise Exception("Unknown config for downgrading object %s: %s" %
@@ -1951,7 +1828,6 @@ class UserSync(BaseSync):
             L{process_ad_data}.
 
         """
-        # TODO: some extra attributes to add?
         if self.config['useraccountcontrol']:
             attributes['UserAccountControl'] = None
         if 'Enabled' not in attributes:
@@ -2758,97 +2634,6 @@ class UserSync(BaseSync):
         # Other change types handled by other classes:
         return super(UserSync, self).process_cl_event(row)
 
-    def changelog_handle_e_account(self, ctype, row):
-        """Handler for changelog events of category 'e_account'.
-
-        Syncs new changes that affects the account. Example on change types in
-        this category: create, delete, mod, password, passwordtoken, destroy,
-        home_added, home_removed, move, home_updated. Not all types might be
-        respected, but subclasses could override this.
-
-        Accounts without the target spread gets ignored.
-
-        @type ctype: ChangeType constant
-        @param ctype: The change log type.
-
-        @type row: dict (db-row)
-        @param row: The row as returned from the database, e.g. from
-            L{get_change_log}.
-
-        @rtype: bool
-        @return: True if the change should be marked as finished. False only if
-            it failed and should be reprocessed later.
-        """
-        # TODO: move functionality from this command to the one above...
-
-        self.ac.clear()
-        # TODO: handle NotFoundError here, in case the entity has been nuked.
-        try:
-            self.ac.find(row['subject_entity'])
-        except Errors.NotFoundError, e:
-            self.logger.warn("Not found account: %s" % row['subject_entity'])
-            # TODO: this might be okay in some cases, e.g. if the change type is
-            # 'delete'? Should we always try to remove the entity from AD? We
-            # don't have the account name, but the 'change_params' might have
-            # something?
-            self.logger.debug("Change_params: %s" % (row['change_params'],))
-            if row['change_params']:
-                self.logger.debug("Change_params: %s" %
-                                  (pickle.loads(str(row['change_params'])),))
-            return False
-
-        if not self.ac.has_spread(self.config['target_spread']):
-            self.logger.debug("Account %s without spread, ignoring",
-                              self.ac.account_name)
-            return True
-
-        name = self._format_name(self.ac.account_name)
-
-        if ctype.type == 'password':
-            try:
-                pw = pickle.loads(str(row['change_params']))['password']
-            except (KeyError, TypeError):
-                self.logger.warn("No plaintext password found for: %s", name)
-                return False
-            # TODO: do we need to unicodify it here, or do we handle it in the
-            # ADclient instead?
-            #pwUnicode = unicode(pw, 'iso-8859-1')
-            return self.server.set_password(name, pw)
-        elif ctype.type == 'create':
-            try:
-                ad_object = self.server.create_object(name, self.config['target_ou'],
-                                                      self.ad_object_class)
-                self.script('new_object', ad_object)
-                return ad_object
-            except Exception, e:
-                self.logger.warn(e)
-                # TODO: check if it is because the object already exists! If so,
-                # return True, as our job is done.
-                return False
-        elif ctype.type in ('delete', 'destroy'):
-            # TODO: downgrade object after what config says
-            ad_object = {'Enabled': True,  # assume user is active
-                         'Name': name,
-                         'DistinguishedName': '%s%s' % (
-                             name, self.config['target_ou'])}
-            try:
-                return self.downgrade_object(ad_object,
-                                             self.config['handle_unknown_objects'])
-            except Exception, e:
-                self.logger.warn(e)
-                # TODO: check if the object is already deleted or deactivated.
-                # If so, our job is done.
-                return False
-        else:
-            # TODO: handle type == 'mod'? What is then changed? Should we just
-            # resync all of the account, i.e. calculate and sync its attributes
-            # check its location and so on?
-            self.logger.warn("Unknown log change of type %s:%s",
-                             ctype.category, ctype.type)
-        # TODO: change this to True when done with this method? Depending on how
-        # we want this to work...
-        return False
-
 
 class GroupSync(BaseSync):
 
@@ -3215,8 +3000,6 @@ class GroupSync(BaseSync):
         # TODO
         pass
 
-# Gruppa ad_ind590 og ad_dat208 er eksempler hvor det må flates ut
-
 
 class HostSync(BaseSync):
 
@@ -3370,64 +3153,3 @@ class ProxyAddressesCompare(BaseSync):
         return super(ProxyAddressesCompare, self).attribute_mismatch(ent, atr,
                                                                      c, a)
 
-
-class UpdateRecipientMixin(BaseSync):
-
-    """Extra sync functionality for running Update-Recipient for objects.
-
-    The Exchange Powershell command Update-Recipient has in Exchange previous to
-    2013 been used to update the rest of the Exchange attributes that we don't
-    sync. The cmdlet has to be run each time we modify an object and the changes
-    have effect on Exchange, e.g. attributes with e-mail addresses, and
-    especially new Exchange accounts.
-
-    TODO: Only subclass UserSync if we can't make this generic enough to be used
-    by different object types.
-
-    Note: An issue with this way of running the cmdlet is that we don't store
-    the state after the script has finished. The cmdlet will not be rerun after
-    this, so they will not be updated for Exchange, unfortunately. We should
-    instead make use of the new EventHandler functionality, created for Exchange
-    2013.
-
-    """
-    # The list of what attributes that is relevant for Update-Recipient. Only
-    # changes in these attributes would trigger the cmdlet.
-    recipient_related_attributes = set(('HomeMDB',
-                                        'MailNickName',
-                                        'ProxyAddresses',
-                                        'AltRecipient',
-                                        'TargetAddress',
-                                        'MsExchHomeServerName',
-                                        'MsExchHideFromAddressLists'
-                                        ))
-
-    def post_process(self):
-        """Run the Update-Recipient for all modified entities."""
-        subset = self.config.get('subset')
-        # Skip if none of the relevant attributes are synced:
-        if not any(a in self.recipient_related_attributes
-                   for a in self.config['attributes']):
-            return
-
-        def update_recipient(ad_dn):
-            """Helper command for handling the Update-Recipient."""
-            try:
-                return self.server.update_recipient(ad_dn)
-            except PowershellException:
-                # TODO: Would like to put the failed objects in a list to be
-                # rerun one more time, just to be sure.
-                self.logger.warn("Failed to run Update-Recipient for: %s",
-                                 ad_dn)
-            return False
-
-        for ent in self.entities.itervalues():
-            if subset and ent.ad_id not in subset:
-                continue
-            # Deactivated objects must also be updated.
-            if ent.ad_new:
-                update_recipient(ent.ad_data['dn'])
-            elif ent.changes and any(a in self.recipient_related_attributes
-                                     for a in ent.changes):
-                update_recipient(ent.ad_data['dn'])
-            # TODO: Other situations where we should run the cmdlet?
