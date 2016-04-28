@@ -21,8 +21,8 @@
 #
 """This is the core help text for bofhd, which is mostly used by jbofh.
 
-Please do not copy this file, but instead make imports from it. This is to avoid
-that all help text is duplicated all over.
+Please do not copy this file, but instead make imports from it. This is to
+avoid that all help text is duplicated all over.
 
 All help text in this file should be general enough to suit most Cerebrum
 instances. If some instances needs a different explanation for a given command
@@ -55,8 +55,8 @@ command_help = {
     'access': {
         'access_grant':
             "Grant authorisation to perform the operations in opset "
-            "<set> on <entity> of type <type> to the members of group <group>.  "
-            "The meaning of <attr> depends on <type>.",
+            "<set> on <entity> of type <type> to the members of group <group>."
+            "  The meaning of <attr> depends on <type>.",
         'access_disk':
             "List who's authorised to operate on disk <disk>",
         'access_global_dns':
@@ -94,8 +94,8 @@ command_help = {
     },
     'disk': {
         "disk_list":
-            "List the disks registered with a host.  A quota value in parenthesis "
-            "means it uses to the host's default disk quota.",
+            "List the disks registered with a host.  A quota value in "
+            "parenthesis means it uses to the host's default disk quota.",
         "disk_quota":
             "Enable quotas on a disk, and set the default value",
     },
@@ -139,7 +139,8 @@ command_help = {
         "email_remove_forward":
             "Remove a forward address",
         "email_local_delivery":
-            "Turn on/off local e-mail delivery for an account with a forward address",
+            "Turn on/off local e-mail delivery for an account with a forward "
+            "address",
         "email_info":
             "View e-mail information about a user or address",
         "email_create_archive":
@@ -154,8 +155,8 @@ command_help = {
             "Add an alias for a Mailman list.  This also adds additional "
             "-owner and -request addresses.",
         "email_create_sympa_list_alias":
-            "Add an alias for a Sympa list.  This also adds additional addresses "
-            "(e.g. -owner, -request, etc.)",
+            "Add an alias for a Sympa list.  This also adds additional "
+            "addresses (e.g. -owner, -request, etc.)",
         "email_remove_list_alias":
             "Remove an alias for a Mailman list. This also removes additional "
             "administrative addresses (-owner, -request, etc.)",
@@ -191,11 +192,11 @@ command_help = {
         "email_move":
             "Move a user's e-mail to another server",
         "email_primary_address":
-            "Changes the primary address for the e-mail target to the specified "
-            "value",
+            "Changes the primary address for the e-mail target to the "
+            "specified value",
         "email_set_primary_address":
-            "Changes the primary address for the e-mail target to the specified "
-            "value",
+            "Changes the primary address for the e-mail target to the "
+            "specified value",
         "email_quota":
             "Change a user's storage quota for e-mail",
         "email_rt_add_address":
@@ -265,14 +266,16 @@ command_help = {
         'group_personal': 'Create a new personal filegroup for an account',
         'group_promote_posix': 'Make an existing group into a POSIX group',
         'group_roomlist_create':
-            'Make a roomlist from scratch. Remove with spread remove/group delete',
+            'Make a roomlist from scratch. Remove with spread remove/group '
+            'delete',
         'group_multi_remove': 'Remove member(s) from a given group',
         'group_remove': 'Remove member accounts from a given group',
         'group_request': 'Send in request for a new Cerebrum group',
         'group_search': 'Search for a group using various criteria',
         'group_set_description': 'Set description for a group',
         'group_set_displayname':
-            'Set displayname with nb as varian for an Exchange-group/room list',
+            'Set displayname with nb as varian for an Exchange-group/room '
+            'list',
         'group_set_expire': 'Set expire date for a group',
         'group_set_visibility': 'Set visibility for a group',
     },
@@ -302,7 +305,8 @@ command_help = {
         "misc_hrem":
             "Remove a host",
         'misc_list_bofhd_request_types':
-            'List the various types of operations that can be done via bofhd-requests',
+            'List the various types of operations that can be done via '
+            'bofhd-requests',
         "misc_list_passwords":
             "View/print all the password altered this session",
         "misc_reload":
@@ -346,7 +350,8 @@ command_help = {
         'person_clear_name':
             'Remove the names coming from a source system from a person',
         'person_clear_id':
-            'Remove specific external id type from a source system from a person',
+            'Remove specific external id type from a source system from a '
+            'person',
         'person_create':
             'Register a new person in Cerebrum',
         'person_find':
@@ -354,7 +359,8 @@ command_help = {
         'person_info':
             'View information about a person',
         'person_list_user_priorities':
-            'View a list ordered by priority of all the accounts owned by a person',
+            'View a list ordered by priority of all the accounts owned by a '
+            'person',
         'person_set_bdate':
             'Set a new birth date for a person',
         'person_set_id':
@@ -393,7 +399,9 @@ command_help = {
     'user': {
         'user_affiliation_add': 'Add affiliation for an account',
         'user_affiliation_remove': 'Remove an affiliation for an account',
-        'user_create': 'Create a POSIX user account',
+        'user_create_personal':
+            'Create a POSIX user account owned by a person',
+        'user_create_unpersonal': 'Create a user account owned by a group',
         'user_create_sysadm': 'Create a sysadm account, e.g. "foo-drift"',
         'user_delete': 'Delete an account',
         'user_demote_posix':
@@ -411,7 +419,8 @@ command_help = {
         'user_password': 'Set a new password for an account',
         'user_promote_posix':
             'Make a Cerebrum account into a POSIX user account',
-        'user_reserve': 'Reserve a user name in the database',
+        'user_reserve_personal':
+            'Reserve a user name in the database for a person',
         'user_restore': 'Restore a deactivated user',
         'user_set_disk_quota': 'Temporary override users disk quota',
         'user_set_disk_status': 'Set homedir status for user',
@@ -422,7 +431,6 @@ command_help = {
         'user_shell': 'Set login-shell for a POSIX user account',
         'user_send_welcome_sms':
             'Manually send out the Welcome SMS to a student',
-        #'user_student_create': 'Create a user for a student'
     },
 }
 arg_help = {
@@ -447,13 +455,14 @@ arg_help = {
          affiliations"""],
     'affiliation_optional':
         ['aff_opt', 'Affiliation? (optional)',
-         'Enter affiliation to narrow search. Leave empty to search all affiliations.'],
+         'Enter affiliation to narrow search. Leave empty to search all '
+         'affiliations.'],
     'affiliation_status':
         ['aff_status', 'Enter affiliation status',
          """Affiliation status describes a persons current status within a
          defined organizational unit (e.a. whether the person is an active
-         student or an employee on leave). 'misc affiliations' lists affiliation
-         status codes"""],
+         student or an employee on leave). 'misc affiliations' lists
+         affiliation status codes"""],
     'source_system':
         ['source_system', 'Enter source system',
          'The name of the source system, i.e. FS/SAP/Override etc.'],
@@ -561,7 +570,8 @@ arg_help = {
          "Enter a group's internal id"],
     'id:entity_ext':
         ['entity_id', 'Enter entity_id, example: group:foo',
-         'Enter an entity_id either as number or as group:name / account:name'],
+         'Enter an entity_id either as number or as group:name / '
+         'account:name'],
     'id:gid:name':
         ['group', 'Enter an existing entity',
          """Enter the entity as type:name, for example 'name:foo'. If only a
@@ -600,7 +610,8 @@ arg_help = {
         ['entity', 'Enter an existing entity',
          """Enter the entity as type:name, for example: 'account:bob'
 
-         If only a name is entered, it will be assumed to be either an account or a fnr.
+         If only a name is entered, it will be assumed to be either an account
+         or a fnr.
 
          Valid types are
           - 'account' (name of user => Account or PosixUser)
@@ -769,10 +780,11 @@ arg_help = {
         ['spread', 'Enter spread',
          "'spread list' lists possible values"],
     'spread_filter':
-        ['spread_filter', 'Enter spread to filter by (leave empty for no filtering)',
+        ['spread_filter',
+         'Enter spread to filter by (leave empty for no filtering)',
          """Results should only include groups having the given spread. If no
-         value is given, no filtering will occur. The bofh-command 'spread list'
-         lists possible values"""],
+         value is given, no filtering will occur. The bofh-command
+         'spread list' lists possible values"""],
     'string_attribute':
         ['attr', 'Enter attribute',
          "Experts only.  See the documentation for details"],
@@ -790,7 +802,8 @@ arg_help = {
     'string_description':
         ['description', 'Enter description'],
     'string_dl_desc':
-        ['dl_desc', 'Enter description, not mandatory if an existing group is used'],
+        ['dl_desc', 'Enter description, not mandatory if an existing group '
+         'is used'],
     'string_spread':
         ['spread', 'Enter spread. Example: AD_group NIS_fg@uio'],
     'string_email_host':
@@ -798,7 +811,8 @@ arg_help = {
     'string_exec_host':
         ['run_host', 'Enter host (fqdn) for command execution'],
     'string_email_delivery_host':
-        ['delivery_host', 'Enter hostname for mail delivery. Example: lister-test'],
+        ['delivery_host', 'Enter hostname for mail delivery. '
+         'Example: lister-test'],
     'string_email_move_type':
         ['email_move_type', 'Enter e-mail move type',
          """Legal move types:
@@ -829,12 +843,14 @@ arg_help = {
          wildcards (* and ?).
 
          Example:
-         pc*,spread:AD_group  - list all AD groups whose names start with 'pc'"""],
+         pc*,spread:AD_group  - list all AD groups whose names start with """
+         "'pc'"],
     'string_host':
         ['hostname', 'Enter hostname.  Example: ulrik'],
     'string_new_priority':
         ['new_priority', 'Enter value new priority value',
-         'Enter a positive integer (1..999), lower integers give higher priority'],
+         'Enter a positive integer (1..999), lower integers give higher '
+         'priority'],
     'string_np_type':
         ['np_type', 'Enter np_type',
          """Type of non-personal account.  Valid values include:
@@ -880,7 +896,8 @@ arg_help = {
          blank all unnamed keys."""],
     'tripnote_text':
         ['text', 'Tripnote',
-         'Enter message to be sent.  You may use \\n to separate lines of text.'],
+         'Enter message to be sent.  You may use \\n to separate lines of '
+         'text.'],
     'user_create_person_id':
         ['owner', 'Enter account owner',
          """Identify account owner (person or group) by entering:
@@ -908,7 +925,8 @@ arg_help = {
     'yes_no_all_op':
         ['all', 'All operations?'],
     'yes_no_from_existing':
-        ['from_existing', 'Create Exchange group from existing group, optional, def no, (y/n)?'],
+        ['from_existing', 'Create Exchange group from existing group, '
+         'optional, def no, (y/n)?'],
     'yes_no_expire_group':
         ['expire_group', 'Set an expire data in 90 days for group (y/n)?'],
     'yes_no_include_expired':
@@ -938,8 +956,8 @@ def remove_keys(dictionary, keylist):
 
 
 def remove_keys_subkeys(dictionary, remove_dictionary, verbose=False):
-    """Remove the list of subkeys given a dictionary and a dictionary of keys and subkeys
-    that are to be removed."""
+    """Remove the list of subkeys given a dictionary and a dictionary of keys
+    and subkeys that are to be removed."""
     # Remove every subkey in the remove_dictionary
     removelist = []
     for key, subkeys in remove_dictionary.items():
@@ -955,13 +973,14 @@ def remove_keys_subkeys(dictionary, remove_dictionary, verbose=False):
 
 
 def remove_not_kept_subkeys(dictionary, keep_dictionary, verbose=False):
-    """Remove the list of subkeys given a dictionary and a dictionary of keys and subkeys
-    that are to be kept."""
+    """Remove the list of subkeys given a dictionary and a dictionary of keys
+    and subkeys that are to be kept."""
     # Remove every subkey not in the keep dictionary for a given key.
     removelist = []
     for key, subkeys in dictionary.items():
         for subkey in subkeys:
-            if (key in keep_dictionary) and (subkey not in keep_dictionary[key]):
+            if ((key in keep_dictionary) and
+                    (subkey not in keep_dictionary[key])):
                 if verbose:
                     print("removed " + key + "->" + subkey)
                 removelist.append((key, subkey))

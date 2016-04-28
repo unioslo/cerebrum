@@ -34,7 +34,8 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PhrasePasswordNotGoodEnough)
 
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
+    UiOBofhdExtension
 
 
 def format_day(field):
@@ -79,15 +80,12 @@ uio_helpers = [
     '_remove_auth_target',
     '_revoke_auth',
     '_today',
-    '_user_create_prompt_func_helper',
-    '_user_create_set_account_type',
     '_validate_access',
     '_validate_access_disk',
     '_validate_access_global_group',
     '_validate_access_global_ou',
     '_validate_access_group',
     '_validate_access_ou',
-    'user_create_basic_prompt_func',
     'user_set_owner_prompt_func',
 ]
 
@@ -151,7 +149,7 @@ copy_uio = [
     'user_history',
     'user_info',
     'user_password',
-    'user_reserve',
+    'user_reserve_personal',
     'user_set_expire',
     'user_set_owner',
 ]
@@ -183,67 +181,6 @@ class BofhdExtension(BofhdCommonMethods):
     @classmethod
     def get_help_strings(cls):
         return bofhd_core_help.get_help_strings()
-
-    # user create prompt
-    #
-    def user_create_prompt_func(self, session, *args):
-        return self._user_create_prompt_func_helper('Account', session, *args)
-
-    #
-    # user create
-    #
-    # FIXME: we should be able to use uio's user create her
-    all_commands['user_create'] = cmd_param.Command(
-        ('user', 'create'),
-        prompt_func=user_create_prompt_func,
-        fs=cmd_param.FormatSuggestion(
-            "Created account_id=%i", ("account_id",)),
-        perm_filter='is_superuser')
-
-    def user_create(self, operator, *args):
-        if args[0].startswith('group:'):
-            group_id, np_type, uname = args
-            owner_type = self.const.entity_group
-            owner_id = self._get_group(group_id.split(":")[1]).entity_id
-            np_type = self._get_constant(self.const.Account, np_type,
-                                         "account type")
-            affiliation = None
-            owner_type = self.const.entity_group
-        else:
-            if len(args) == 4:
-                idtype, person_id, affiliation, uname = args
-            else:
-                idtype, person_id, yes_no, affiliation, uname = args
-            person = self._get_person("entity_id", person_id)
-            owner_type, owner_id = self.const.entity_person, person.entity_id
-            np_type = None
-        account = self.Account_class(self.db)
-        account.clear()
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("only superusers may reserve users")
-        account.populate(uname,
-                         owner_type,  # Owner type
-                         owner_id,
-                         np_type,                      # np_type
-                         operator.get_entity_id(),  # creator_id
-                         None)                      # expire_date
-        account.write_db()
-        for spread in cereconf.BOFHD_NEW_USER_SPREADS:
-            account.add_spread(self.const.Spread(spread))
-        passwd = account.make_passwd(uname)
-        account.set_password(passwd)
-        try:
-            account.write_db()
-            if affiliation is not None:
-                ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
-                self._user_create_set_account_type(
-                    account, person.entity_id, ou_id, affiliation)
-        except self.db.DatabaseError, m:
-            raise CerebrumError("Database error: %s" % m)
-        operator.store_state(
-            "new_account_passwd",
-            {'account_id': int(account.entity_id), 'password': passwd})
-        return {'account_id': int(account.entity_id)}
 
     #
     # misc check_password
