@@ -90,7 +90,7 @@ def fill_person(pid, db, co, data):
         primary_account = [(at['account_id'], at['priority'], at['ou_id'],
                             at['affiliation']) for at in ats]
     else:
-        primary_account = None
+        primary_account = []
     old = {
         # Find change in primary account → primary groups
         'account': primary_account,
