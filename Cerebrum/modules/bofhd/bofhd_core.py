@@ -161,10 +161,14 @@ class BofhdCommandBase(object):
         merge(getattr(cls, attr, {}))
 
         if getattr(cls, 'parent_commands', False):
+            omit_commands = getattr(cls, 'omit_parent_commands', [])
             try:
                 for cand in cls.__bases__:
                     if hasattr(cand, 'list_commands'):
-                        cmds = cand.list_commands(attr)
+                        cmds = dict(
+                            filter(
+                                lambda (x, y): x not in omit_commands,
+                                cand.list_commands(attr).iteritems()))
                         merge(cmds)
             except IndexError:
                 pass

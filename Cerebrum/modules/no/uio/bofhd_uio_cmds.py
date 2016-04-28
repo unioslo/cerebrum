@@ -144,6 +144,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     all_commands = {}
     hidden_commands = {}
+    omit_parent_commands = {'user_create'}
     parent_commands = True
 
     authz = UiOAuth
