@@ -121,7 +121,6 @@ uio_helpers = [
     '_remove_auth_target',
     '_revoke_auth',
     '_today',
-    '_user_create_set_account_type',
     '_validate_access',
     '_validate_access_disk',
     '_validate_access_global_group',
