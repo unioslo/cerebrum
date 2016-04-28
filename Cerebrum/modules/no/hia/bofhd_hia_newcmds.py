@@ -206,6 +206,7 @@ copy_uio = [
     'user_history',
     'user_password',
     'user_reserve_personal',
+    'user_create_unpersonal',
     'user_set_disk_status',
     'user_set_expire',
     'user_set_np_type',
