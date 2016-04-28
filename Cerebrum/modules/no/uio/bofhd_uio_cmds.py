@@ -8218,11 +8218,12 @@ Addresses and settings:
         entity.write_db()
         if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
             self._spread_sync_group(entity)
-        if entity_type == 'group' and spread == self.const.spread_uio_nis_fg:
-            ad_spread = self.const.spread_uio_ad_group
-            if not entity.has_spread(ad_spread):
-                entity.add_spread(ad_spread)
-                entity.write_db()
+        if hasattr(self.const, 'spread_uio_nis_fg'):
+            if entity_type == 'group' and spread == self.const.spread_uio_nis_fg:
+                ad_spread = self.const.spread_uio_ad_group
+                if not entity.has_spread(ad_spread):
+                    entity.add_spread(ad_spread)
+                    entity.write_db()
         return "OK, added spread %s for %s" % (
             spread, self._get_name_from_object(entity))
 
