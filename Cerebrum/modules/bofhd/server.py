@@ -206,7 +206,7 @@ class BofhdServerImplementation(object):
         """Return BofhdExtension and Command object for this cmd
         """
         cls = self.classmap[rpc_name]
-        return (cls, cls.all_commands[rpc_name])
+        return (cls, cls.list_commands('all_commands')[rpc_name])
 
     # Override SocketServer.TCPServer (or subclass).
     def server_bind(self):
