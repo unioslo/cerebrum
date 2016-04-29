@@ -168,10 +168,11 @@ def test_writer_prop_discarded(AtomicFileWriter, text_file, text):
 
 
 def test_writer_prop_replace(AtomicFileWriter, text_file, text, more_text):
-    af = AtomicFileWriter(text_file)
+    af = AtomicFileWriter(text_file, replace_equal=True)
     af.replace = False
-    af.write(text)
+    af.write(more_text)
     af.close()
+    assert os.path.exists(af.tmpname)
     assert match_contents(af.name, text)
     assert match_contents(af.tmpname, more_text)
 
