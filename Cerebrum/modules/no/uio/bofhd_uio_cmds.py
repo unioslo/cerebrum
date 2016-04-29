@@ -8850,7 +8850,7 @@ Addresses and settings:
         elif len(valid_aff) > 1:
             raise CerebrumError('More than than one %s affiliation, '
                                 'add stedkode as argument' % status_blob)
-        self.user_reserve_personal(operator, person.entity_id, accountname)
+        self.user_reserve_personal(operator, 'entity_id:{}'.format(person.entity_id), accountname)
         self._user_create_set_account_type(self._get_account(accountname),
                                            person.entity_id,
                                            valid_aff[0]['ou_id'],
