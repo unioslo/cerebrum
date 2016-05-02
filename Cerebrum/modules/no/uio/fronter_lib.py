@@ -32,6 +32,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum import Database
 from Cerebrum.extlib import xmlprinter
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 
 
 
@@ -211,17 +212,16 @@ def key2fields(key):
       fields. ':' is the separator. The resulting fields are lowercased.
     @type key: basestring
     """
-    
     return key.lower().split(":")
-# end key2fields
-
 
 
 class XMLWriter(object):   # TODO: Move to separate file
     # TODO: should produce indented XML for easier readability
+
     def __init__(self, fname):
+        self.__file = AtomicFileWriter(fname, 'w')
         self.gen = xmlprinter.xmlprinter(
-            file(fname, 'w'), indent_level=2, data_mode=1,
+            self.__file, indent_level=2, data_mode=1,
             input_encoding='ISO-8859-1')
 
     def startTag(self, tag, attrs={}):
@@ -249,14 +249,13 @@ class XMLWriter(object):   # TODO: Move to separate file
 
     def comment(self, data):  # TODO: implement
         self.gen.comment(data)
-    
+
     def startDocument(self, encoding):
         self.gen.startDocument(encoding)
 
     def endDocument(self):
         self.gen.endDocument()
-# end XMLWriter
-
+        self.__file.close()
 
 
 def semester_number(start_year, start_semester,
