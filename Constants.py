@@ -111,14 +111,15 @@ class Constants(Constants.Constants):
         'Ansatt ved UiT (i følge LT)') 
     affiliation_flyt_ansatt_hih = _PersonAffiliationCode('ANSATT_HIH','Ansatt ved HiH')
     affiliation_flyt_student_hih = _PersonAffiliationCode('STUDENT_HIH','Student ved HiH')
-    affiliation_status_flyt_hin_ansatt_faculty = _PersonAffStatusCode(affiliation_ansatt,'Ansatt HiN','Vitenskapelig')
-    affiliation_status_flyt_hin_ansatt_tekadm = _PersonAffStatusCode(affiliation_ansatt,'ansatt HiN','Teknisk/administrativt')
 
     #
     # Affiliation status
     #
     affiliation_status_flyt_hih_ansatt_faculty = _PersonAffStatusCode(affiliation_ansatt,'ansatt HiH','Vitenskapelig')
     affiliation_status_flyt_hih_ansatt_tekadm = _PersonAffStatusCode(affiliation_ansatt,'ansatt HiH','Teknisk/administrativt')
+    affiliation_status_flyt_hin_ansatt_faculty = _PersonAffStatusCode(affiliation_ansatt,'Ansatt HiN','Vitenskapelig')
+    affiliation_status_flyt_hin_ansatt_tekadm = _PersonAffStatusCode(affiliation_ansatt,'ansatt HiN','Teknisk/administrativt')
+
 
     affiliation_status_ansatt_perm = _PersonAffStatusCode(
         affiliation_ansatt, 'permisjon', 'Ansatt, for tiden i permisjon')
@@ -128,15 +129,21 @@ class Constants(Constants.Constants):
     'ansatt HIFm',
     'Ansatte fra Høyskolen i Alta')
     
-    affiliation_status_ansatt_sito_sterk = _PersonAffStatusCode(
+    affiliation_status_ansatt_sito = _PersonAffStatusCode(
         affiliation_ansatt_sito,
-        'sito_sterk',
-        'Ansatt med sterk uit tilknytning')
+        'sito',
+        'Ansatt'
+        )
+
+    #affiliation_status_ansatt_sito_sterk = _PersonAffStatusCode(
+    #    affiliation_ansatt_sito,
+    #    'sito_sterk',
+    #    'Ansatt med sterk uit tilknytning')
     
-    affiliation_status_ansatt_sito_svak = _PersonAffStatusCode(
-        affiliation_ansatt_sito,
-        'sito_svak',
-        'Ansatt med svak uit tilknytning')
+    #affiliation_status_ansatt_sito_svak = _PersonAffStatusCode(
+    #    affiliation_ansatt_sito,
+    #    'sito_svak',
+    #    'Ansatt med svak uit tilknytning')
 
     affiliation_status_ansatt_sys_x = _PersonAffStatusCode(
         affiliation_ansatt, 
@@ -212,7 +219,7 @@ class Constants(Constants.Constants):
     affiliation_manuell_sito = _PersonAffStatusCode(
         affiliation_manuell, 
         'sito', 
-        'Sito')
+        'Manuelt registrert Sito ansatt')
     affiliation_manuell_gjest_u_konto = _PersonAffStatusCode(
         affiliation_manuell,
         'gjest_u_konto',
@@ -289,22 +296,11 @@ class Constants(Constants.Constants):
         '/local/bin/zsh')
     
     # Spread constants
-    spread_ifi_nis_user = _SpreadCode(
-        'NIS_user@ifi', 
-        Constants.Constants.entity_account,
-        'User in NIS domain "ifi"')
+
     spread_uit_nis_user = _SpreadCode(
         'NIS_user@uit', 
         Constants.Constants.entity_account,
         'User in NIS domain "uit"')
-    spread_uit_nis_user = _SpreadCode(
-        'NIS_user@uit', 
-        Constants.Constants.entity_account,
-        'User in NIS domain "uit"')
-    spread_uit_student_disk = _SpreadCode(
-        'student_disk@uit',
-        Constants.Constants.entity_disk,
-        'Student disk spread')
     spread_uit_fronter = _SpreadCode(
         'fronter@uit', 
         Constants.Constants.entity_group,
@@ -317,10 +313,7 @@ class Constants(Constants.Constants):
         'evu@uit', 
         Constants.Constants.entity_account,
         'evu person')
-    spread_uit_frida = _SpreadCode(
-        'frida@uit',
-        Constants.Constants.entity_account,
-        'Accounts with FRIDA spread')
+
     spread_uit_cristin = _SpreadCode(
         'cristin@uit',
         Constants.Constants.entity_account,
@@ -355,14 +348,19 @@ class Constants(Constants.Constants):
         'AD_group_litadmn',
         Constants.Constants.entity_group,
         'AD admingroup for local IT')
-    spread_uit_exchange = _SpreadCode(
-        'exchange_mailbox',
-        Constants.Constants.entity_account,
-        'Accounts with exchange mailbox')
-    spread_uit_sutmail = _SpreadCode(
-        'sut_mailbox',
-        Constants.Constants.entity_account,
-        'Accounts with sut mailbox')
+
+    # Spreads for Exchange
+    spread_exchange_account = _SpreadCode(
+        'exchange_acc@uit', Constants.Constants.entity_account,
+        'An account with an Exchange-mailbox')
+    spread_exchange_group = _SpreadCode(
+        'exchange_grp@uit', Constants.Constants.entity_group,
+        'A mail enabled security group for Exchange')
+    #spread_uit_exchange = _SpreadCode(
+    #    'exchange_mailbox',
+    #    Constants.Constants.entity_account,
+    #    'Accounts with exchange mailbox')
+
     spread_sito = _SpreadCode(
         'SITO',
         Constants.Constants.entity_account,
@@ -374,10 +372,7 @@ class Constants(Constants.Constants):
         'groups that have been automatically generated from FS.')
 
     # Email constants
-    spread_uit_imap = _SpreadCode(
-        'IMAP@uit', 
-        Constants.Constants.entity_account,
-        'IMAP account')
+
     email_server_type_exchange_imap= _EmailServerTypeCode(
             'exchange_imap',
             "Server is an Exchange server")
