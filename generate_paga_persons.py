@@ -32,12 +32,12 @@ import time
 
 import cerebrum_path
 import cereconf
-
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-from Cerebrum.utils.atomicfile import AtomicFileWriter
+from Cerebrum.Utils import Factory, AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
 
+from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 
 progname = __file__.split("/")[-1]
 __doc__="""Usage: %s [options]
