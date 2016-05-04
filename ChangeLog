@@ -1,3 +1,7 @@
+2016-05-04    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* OU.py (OUMixin.get_stedkoder): removed old code. we will manually add code if its needed at a later stage. This is done so we can get rid of old uit code which may be out of date
+
 2015-06-23    <cerebrum@cleomedes.uit.no>
 
 	* OrgLDIF.py (OrgLDIFUiTMixin.make_person_entry): removed uioPerson objectclass. not wanted in uit ldap
