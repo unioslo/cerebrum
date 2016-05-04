@@ -51,7 +51,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Entity
-from Cerebrum.Utils import Factory, simple_memoize
+from Cerebrum.Utils import Factory # , simple_memoize
 from Cerebrum.Constants import Constants
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no import fodselsnr
@@ -281,7 +281,7 @@ def is_ou_expired(ou_id):
         return True
     else:
         return False
-is_ou_expired = simple_memoize(is_ou_expired)
+#is_ou_expired = simple_memoize(is_ou_expired)
 
 
 def get_creator_id():
@@ -290,7 +290,7 @@ def get_creator_id():
         const.account_namespace)
     id = entity_name.entity_id    
     return id
-get_creator_id=simple_memoize(get_creator_id)
+#get_creator_id=simple_memoize(get_creator_id)
 
 def get_sko(ou_id):
     sko.clear()
@@ -303,7 +303,7 @@ def get_sko(ou_id):
         #print "unable to find stedkode. Return NoneNoneNone"
         return "NoneNoneNone"
     return "%02s%02s%02s" % (sko.fakultet,sko.institutt,sko.avdeling)
-get_sko=simple_memoize(get_sko)
+#get_sko=simple_memoize(get_sko)
 
 def get_expire_date():
     """ calculate a default expire date
@@ -414,14 +414,6 @@ def get_existing_accounts():
             if tmp is not None:
                 tmp.append_spread(int(spread_id))
     
-    # Account homes
-    logger.info("Loading account homes...")
-    for row in account_obj.list_account_home(filter_expired=False):
-        tmp=tmp_ac.get(int(row['account_id']), None)
-        if tmp is not None:
-            tmp.set_home(int(row['home_spread']), 
-                         row['home'],
-                         int(row['homedir_id']))
 
     # Account Affiliations
     logger.info("Loading account affs...")
@@ -532,7 +524,7 @@ def _handle_changes(a_id,changes):
             for s in cdata:
                 print "cdata[s] is: %s" % s
                 ac.add_spread(s)
-                ac.set_home_dir(s)
+                #ac.set_home_dir(s)
         elif ccode=='quarantine_add':
             ac.add_entity_quarantine(cdata,get_creator_id())
         elif ccode=='quarantine_del':
@@ -572,11 +564,12 @@ def _populate_account_affiliations(account_id, fnr):
         (fnr, persons[fnr].get_affiliations()))
     logger.debug("Account_id=%s,Fnr=%s has account affs=%s" % \
         (account_id, fnr,account_affs))
+
     ou_list = tmp_ou.list_all_with_perspective(const.perspective_fs)
-    
+     
     for aff, ou, status in persons[fnr].get_affiliations():
         valid_ou = False
-        for i in ou_list:
+        for i in ou_list: 
             if i[0] == ou:
                 valid_ou = True
 
@@ -627,7 +620,7 @@ class Build:
         # need atleast one aff to give exchange spread
         logger.debug("acc_affs=%s,in filter=%s, result=%s" % (Set(all_affs),tmp,Set(all_affs)-tmp))
         if Set(all_affs)-tmp:
-            default_spreads.append(int(const.Spread('exchange_mailbox')))
+            default_spreads.append(int(const.Spread('exchange_acc@uit')))
         return default_spreads
 
 

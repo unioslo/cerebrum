@@ -1,3 +1,9 @@
+2016-05-04    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_paga.py (get_existing_accounts): Setting homedir when
+	creating accounts is not needed. AD handles these things
+	internally
+
 2015-06-24    <cerebrum@cleomedes.uit.no>
 
 	* generate_groups_ldif.py (dump_ldif_uit): Added uit function to add account owners into groups
