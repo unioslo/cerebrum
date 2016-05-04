@@ -123,3 +123,6 @@ class BofhdAuth(auth.BofhdAuth):
             return False
         raise PermissionDenied("Not allowed to remove contact info")
 
+    def can_delete_group(self, operator, group=None, query_run_any=False):
+        return self.can_create_group(operator, group, query_run_any)
+
