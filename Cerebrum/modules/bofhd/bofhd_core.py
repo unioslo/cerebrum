@@ -883,6 +883,34 @@ class BofhdCommonMethods(BofhdCommandBase):
             g.write_db()
         return {'group_id': int(g.entity_id)}
 
+    all_commands['group_rename'] = cmd.Command(
+        ('group', 'rename'),
+        cmd.GroupName(help_ref="group_name"),
+        cmd.GroupName(help_ref="group_name_new"),
+        fs=cmd.FormatSuggestion(
+            "Group renamed to %s. Check integrations!", ("new_name",)),
+        perm_filter='is_superuser')
+
+    def group_rename(self, operator, groupname, newname):
+        """ Rename a Cerebrum group.
+
+        Warning: This creates issues for fullsyncs that doesn't handle state.
+        Normally, the old group would get deleted and lose any data attached to
+        it, and a shiny new one would be created. Do not use unless you're aware
+        of the consequences!
+
+        """
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Only superusers may rename groups, due "
+                                   "to its consequences!")
+        self.ba.can_create_group(operator.get_entity_id(),
+                                 groupname=groupname)
+        gr = self._get_group(ident)
+        gr.group_name = newname
+        # write_db validates with gr.illegal_name(newname)
+        gr.write_db()
+        return {'new_name': gr.group_name, 'group_id': int(gr.entity_id)}
+
     # entity contactinfo_add <entity> <contact type> <contact value>
     all_commands['entity_contactinfo_add'] = cmd.Command(
         ('entity', 'contactinfo_add'),
