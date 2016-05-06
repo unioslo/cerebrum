@@ -903,9 +903,7 @@ class BofhdCommonMethods(BofhdCommandBase):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Only superusers may rename groups, due "
                                    "to its consequences!")
-        self.ba.can_create_group(operator.get_entity_id(),
-                                 groupname=groupname)
-        gr = self._get_group(ident)
+        gr = self._get_group(groupname)
         gr.group_name = newname
         # write_db validates with gr.illegal_name(newname)
         gr.write_db()
