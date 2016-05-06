@@ -1,3 +1,9 @@
+2016-05-06    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_students.py: Added process_students.py to repo. This
+	file was stolen from the contrib/uio directory. Appart from a few
+	spread updates, no changes were needed
+
 2016-05-04    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_paga.py (get_existing_accounts): Setting homedir when
