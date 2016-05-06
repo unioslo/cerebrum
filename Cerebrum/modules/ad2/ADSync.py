@@ -1939,7 +1939,7 @@ class UserSync(BaseSync):
                     try:
                         validator.check(self.entities[uname])
                         self.entities[uname].ou = mapping['ou']
-                        self.logger.debug(
+                        self.logger.debug3(
                             'Using "ou_mappings". '
                             'OU for account %s (%d) has been set to %s' % (
                                 uname,
