@@ -905,8 +905,10 @@ class BofhdCommonMethods(BofhdCommandBase):
                                    "to its consequences!")
         gr = self._get_group(groupname)
         gr.group_name = newname
-        # write_db validates with gr.illegal_name(newname)
-        gr.write_db()
+        try:
+            gr.write_db()
+        except gr._db.IntegrityError, e:
+            raise CerebrumError("Couldn't rename group: %s" % e)
         return {'new_name': gr.group_name, 'group_id': int(gr.entity_id)}
 
     # entity contactinfo_add <entity> <contact type> <contact value>
