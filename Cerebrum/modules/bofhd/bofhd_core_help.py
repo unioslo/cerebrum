@@ -242,6 +242,10 @@ command_help = {
         'group_multi_add': 'Let an account, person or group join a group',
         'group_add': 'Let an account join a group',
         'group_create': 'Create a new Cerebrum group',
+        'group_rename': 'Rename a group. Don\'t use unless you\'re aware '
+            'of the consequences! Stateless integrations would after a '
+            'rename first delete the group and its data, before a new one '
+            'is created!',
         'group_def': 'Set default filegroup for an account',
         'group_delete': 'Delete a group from Cerebrum',
         'group_demote_posix':
