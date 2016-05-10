@@ -748,7 +748,6 @@ admin_uio_helpers = [
     '_remove_auth_target',
     '_revoke_auth',
     '_today',
-    '_user_create_set_account_type',
     '_validate_access',
     '_validate_access_group',
     'user_set_owner_prompt_func',
