@@ -121,7 +121,7 @@ def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
     if not ou_adr_cache.has_key(ou_id):
         ou = Factory.get('OU')(db)
         ou.find(ou_id)
-        rows = ou.get_entity_address(source=co.system_sap, type=co.address_street)
+        rows = ou.get_entity_address(source=co.system_fs, type=co.address_street)
         if rows:
             ou_adr_cache[ou_id] = {
                 'address_text': rows[0]['address_text'],
@@ -481,7 +481,11 @@ def process_person_callback(person_info):
     if fnr2person_id.has_key(fnr):
         new_person.find(fnr2person_id[fnr])
 
-    new_person.populate(mx.DateTime.Date(year, mon, day), gender)
+    try:
+        new_person.populate(mx.DateTime.Date(year, mon, day), gender)
+    except Errors.CerebrumError as e:
+        logger.error("Unable to process person: %s", e)
+        return
 
     new_person.affect_names(co.system_fs, co.name_first, co.name_last)
     new_person.populate_name(co.name_first, fornavn)

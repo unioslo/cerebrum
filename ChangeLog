@@ -8,6 +8,11 @@
     * generate_OU.py (get_fs_ou): Replaced "self.fs.ou.GetAlleOUer(institusjonsnr=186)" with 
     "self.fs.ou.list_ou(institusjonsnr=186)" and commented out use of obsolete fields.
 
+    * import_FS.py (process_person_callback): Now handles situations where populate is called with 
+    deceased_date = None but deceased_date is already set in the database.
+
+    * import_FS.py (_get_sted_address): Now using system_fs as source when calling ou.get_entity_address().
+
 2016-05-10    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_systemx.py: replaced all spread references to frida with
