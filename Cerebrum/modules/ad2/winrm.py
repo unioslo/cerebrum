@@ -944,10 +944,10 @@ class WinRMProtocol(object):
         for a in args[1:]:
             cmdline.append(self._xml_element('Arguments', 'rsp', text=a))
 
-        self.logger.debug3('Calling WSMAN Command for ShellId "%s" with args '
+        self.logger.debug5('Calling WSMAN Command for ShellId "%s" with args '
                            '"%s"' % (str(shellid), str(args)))
         ret = self._http_call(self._xml_envelope(header, body))
-        self.logger.debug3('WSMAN Command done for ShellId "%s"' %
+        self.logger.debug5('WSMAN Command done for ShellId "%s"' %
                            str(shellid))
         tag = '{%s}CommandId' % namespaces['rsp']
         for event, elem in etree.iterparse(ret.fp, tag=tag):
