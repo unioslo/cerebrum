@@ -149,7 +149,8 @@ def _rename_key(msg, field, new_field):
 @dispatch('.*_.*')
 def fix_cat_for_entities(msg, *args):
     if '_' in msg['category']:
-        (msg['category'], msg['meta_object_type']) = msg['category'].split('_')
+        (msg['category'], msg['meta_object_type']) = msg['category'].split(
+            '_', 1)
     return msg
 
 
