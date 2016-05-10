@@ -261,11 +261,11 @@ def spread(msg, *args):
 
 
 def _ou(msg, db):
-    ou = msg['params']['ou']
+    ou = msg['data'].get('ou_id')
     if ou:
         o = Factory.get("OU")(db)
         o.find(ou)
-        msg['params']['ou'] = str(o)
+        msg['data']['ou'] = str(o)
 
 
 @dispatch('ac_type')
