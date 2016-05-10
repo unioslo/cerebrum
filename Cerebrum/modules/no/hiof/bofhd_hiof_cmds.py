@@ -51,7 +51,6 @@ uio_helpers = [
     '_format_ou_name',
     '_get_constant',
     '_parse_date',
-    '_user_create_set_account_type',
 ]
 
 uio_commands = [

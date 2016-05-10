@@ -8529,23 +8529,6 @@ Addresses and settings:
         return "OK, removed %s@%s from %s" % (aff, self._format_ou_name(ou),
                                               accountname)
 
-    def _user_create_set_account_type(self, account,
-                                      owner_id, ou_id, affiliation):
-        person = self._get_person('entity_id', owner_id)
-        try:
-            affiliation=self.const.PersonAffiliation(affiliation)
-            # make sure exist
-            int(affiliation)
-        except Errors.NotFoundError:
-            raise CerebrumError, "Invalid affiliation %s" % affiliation
-        for aff in person.get_affiliations():
-            if aff['ou_id'] == ou_id and aff['affiliation'] == affiliation:
-                break
-        else:
-            raise CerebrumError, \
-                "Owner did not have any affiliation %s" % affiliation
-        account.set_account_type(ou_id, affiliation)
-
     all_commands['user_create_unpersonal'] = Command(
         ('user', 'create_unpersonal'),
         AccountName(), GroupName(), EmailAddress(),
