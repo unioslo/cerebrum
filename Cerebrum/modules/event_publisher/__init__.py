@@ -59,7 +59,9 @@ def change_type_to_message(db, change_type_code, subject,
             return (entity_id,
                     ent,
                     str(constants.EntityType(ent.entity_type)))
-        except Errors.NotFoundError:
+        # TODO: Handling ValueError here is a hack for handling entities that
+        # can't be accessed trough entity.get_subclassed_object()
+        except (Errors.NotFoundError, ValueError):
             return (entity_id, None, None)
 
     def get_entity_name(entity_id):
