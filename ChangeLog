@@ -1,3 +1,8 @@
+2016-05-10    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_systemx.py: replaced all spread references to frida with
+	cristin.
+
 2016-05-06    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_students.py: Added process_students.py to repo. This

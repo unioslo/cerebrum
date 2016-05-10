@@ -43,11 +43,11 @@ from Cerebrum.Constants import Constants
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit.access_SYSX import SYSX
 from Cerebrum.modules.no.uit import Email
-from Cerebrum.Utils import Factory, simple_memoize
+from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 from Cerebrum.modules.no.Stedkode import Stedkode
-
+            
 accounts=persons=logger=None
 sysx=None
 skipped=added=updated=unchanged=deletedaff=0
@@ -186,7 +186,7 @@ def get_existing_accounts():
     # Spreads
     spread_list=[co.spread_uit_ldap_account,\
                  co.spread_uit_fronter_account, \
-                 co.spread_uit_ad_account,co.spread_uit_frida, co.spread_uit_exchange]
+                 co.spread_uit_ad_account,co.spread_uit_cristin, co.spread_exchange_account]
     for spread_id in spread_list:
         is_account_spread=is_person_spread=False
         spread=co.Spread(spread_id)
@@ -370,7 +370,7 @@ def get_creator_id():
         co.account_namespace)
     id = entity_name.entity_id    
     return id
-get_creator_id=simple_memoize(get_creator_id)
+#get_creator_id=simple_memoize(get_creator_id)
 
 def _handle_changes(a_id,changes):
         
@@ -674,13 +674,14 @@ class Build(object):
         tmp_spread=[int(co.Spread('ldap@uit'))]        
         if(no_account == False):
             for s in person_info.get('spreads'):
+                print "S is:%s" % s
                 tmp_spread.append(int(co.Spread(s)))
                 if s=='SUT@uit':
                     got_sut = True
                     tmp_spread.append(int(co.Spread('fd@uit')))
                 elif s=="AD_account" and could_have_exchange:
                     got_exchange = True
-                    tmp_spread.append(int(co.Spread('exchange_mailbox')))
+                    tmp_spread.append(int(co.Spread('exchange_acc@uit')))
             if not got_exchange:
                 tmp_spread.append(int(co.Spread('sut_mailbox')))
                 if not got_sut:
