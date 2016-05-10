@@ -1,3 +1,8 @@
+2016-05-10    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_systemx.py (_handle_changes): removed call
+	toset_home(). We do not use this
+
 2016-05-10  Karen   <cerebrum@cleomedes.uit.no>
 
     * generate_OU.py (get_fs_ou): Replaced "self.fs.ou.GetAlleOUer(institusjonsnr=186)" with 
