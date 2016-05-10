@@ -165,6 +165,93 @@ class AccountResource(Resource):
 
 @swagger.model
 @swagger.nested(
+    quarantines='EntityQuarantine')
+class AccountQuarantineList(object):
+    """Data model for account quarantines."""
+    resource_fields = {
+        'locked': fields.base.Boolean,
+        'quarantines': fields.base.List(fields.base.Nested(
+            models.EntityQuarantine.resource_fields)),
+    }
+
+    swagger_metadata = {
+        'locked': {'description': 'Is this account locked?'},
+        'quarantines': {'description': 'List of quarantines'},
+    }
+
+
+class AccountQuarantineListResource(Resource):
+    """Quarantines for a single account."""
+    @swagger.operation(
+        notes='Get account quarantine information',
+        nickname='get',
+        responseClass='Quarantine',
+        parameters=[
+            {
+                'name': 'id',
+                'description': 'Account name or ID',
+                'required': True,
+                'allowMultiple': False,
+                'dataType': 'string',
+                'paramType': 'path'
+            },
+            {
+                'name': 'context',
+                'description': 'Consider locked status based on context.',
+                'required': False,
+                'allowMultiple': False,
+                'dataType': 'str',
+                'paramType': 'query'
+            },
+        ]
+    )
+    @auth.require()
+    @marshal_with(AccountQuarantineList.resource_fields)
+    def get(self, id):
+        """Returns quarantines for a single account.
+
+        :param str name_or_id: The account name or account ID
+        :return: Quarantines for the account
+        """
+        parser = reqparse.RequestParser()
+        parser.add_argument('context', type=str)
+        args = parser.parse_args()
+        print args
+
+        spreads = None
+        if args.context:
+            try:
+                spreads = [int(co.Spread(args.context))]
+            except Errors.NotFoundError:
+                abort(404, message=u'Unknown context {!r}'.format(
+                    args.context))
+
+        ac = find_account(id)
+
+        qh = QuarantineHandler.check_entity_quarantines(
+            db=db.connection,
+            entity_id=ac.entity_id,
+            spreads=spreads)
+        locked = qh.is_locked()
+
+        quarantines = []
+        for q in ac.get_entity_quarantine(only_active=True):
+            quarantines.append({
+                'type': q['quarantine_type'],
+                'description': q['description'],
+                'end': q['end_date'],
+                'start': q['start_date'],
+                'disable_until': q['disable_until'],
+            })
+
+        return {
+            'locked': locked,
+            'quarantines': quarantines
+        }
+
+
+@swagger.model
+@swagger.nested(
     addresses='EmailAddress')
 class AccountEmailAddress(object):
     resource_fields = {

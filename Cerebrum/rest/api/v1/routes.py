@@ -5,6 +5,7 @@ from account import (AccountListResource,
                      AccountGroupListResource,
                      AccountEmailAddressResource,
                      AccountAffiliationListResource,
+                     AccountQuarantineListResource,
                      AccountContactInfoListResource,
                      AccountHomeListResource)
 from group import (GroupListResource,
@@ -39,6 +40,11 @@ api.add_resource(
     AccountAffiliationListResource,
     '/accounts/<string:id>/affiliations',
     endpoint='accountaffiliations')
+
+api.add_resource(
+    AccountQuarantineListResource,
+    '/accounts/<string:id>/quarantines',
+    endpoint='accountquarantines')
 
 api.add_resource(
     AccountContactInfoListResource,
