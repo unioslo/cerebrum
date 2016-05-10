@@ -1,3 +1,8 @@
+2016-05-10  Karen   <cerebrum@cleomedes.uit.no>
+
+    * generate_OU.py (get_fs_ou): Replaced "self.fs.ou.GetAlleOUer(institusjonsnr=186)" with 
+    "self.fs.ou.list_ou(institusjonsnr=186)" and commented out use of obsolete fields.
+
 2016-05-10    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_systemx.py: replaced all spread references to frida with

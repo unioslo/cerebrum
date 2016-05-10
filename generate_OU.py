@@ -80,7 +80,7 @@ class ou:
     # lets collect data about all active ou's from FS.
     def get_fs_ou(self):
         logger.info("Reading OU's from FS")
-        ouer = self.fs.ou.GetAlleOUer(institusjonsnr=186)
+        ouer = self.fs.ou.list_ou(institusjonsnr=186)
         poststednr_besok_adr=''
         poststednr_alternativ_adr=''
         for i in ouer:
@@ -99,8 +99,8 @@ class ou:
             if(postnr_besok.isdigit()):
                 poststednr_alternativ_adr = postnr_besok
 
-            if not i['telefonlandnr'] : i['telefonlandnr']="0"
-            if not i['telefonretnnr'] : i['telefonretnnr']="0"
+            # if not i['telefonlandnr'] : i['telefonlandnr']="0" KB
+            # if not i['telefonretnnr'] : i['telefonretnnr']="0" KB
             if not i['telefonnr'] : i['telefonnr']="0"
             if not i['adrlin1'] : i['adrlin1'] = 'Universitetet i Tromsø'
             if not i['adrlin2'] : i['adrlin2'] = i['stednavn_bokmal'] 
@@ -115,37 +115,37 @@ class ou:
                 'forkstednavn' : i['stedkortnavn'],
                 'akronym' : i['stedakronym'],
                 'stedkortnavn_bokmal' : i['stedkortnavn'],
-                'stedkortnavn_nynorsk' : i['stednavn_nynorsk'],
-                'stedkortnavn_engelsk' : i['stednavn_engelsk'],
+                # 'stedkortnavn_nynorsk' : '', #i['stednavn_nynorsk'], KB
+                # 'stedkortnavn_engelsk' : '', # i['stednavn_engelsk'], KB
                 'stedlangnavn_bokmal': i['stednavn_bokmal'],
-                'stedlangnavn_nynorsk': i['stednavn_nynorsk'],
-                'stedlangnavn_engelsk' : i['stednavn_engelsk'],
+                # 'stedlangnavn_nynorsk': '', #i['stednavn_nynorsk'], KB
+                # 'stedlangnavn_engelsk' : '', #i['stednavn_engelsk'], KB
                 'fakultetnr_for_org_sted' : "%02d" % int(i['faknr_org_under']),
                 'instituttnr_for_org_sted': "%02d" % int(i['instituttnr_org_under']),
                 'gruppenr_for_org_sted' : "%02d" % int(i['gruppenr_org_under']),
                 'opprettetmerke_for_oppf_i_kat' : 'X', #i['opprettetmerke_for_oppf_i_kat'],
                 'telefonnr' : i['telefonnr'],
-                'innvalgnr' : '%s%s'%(i['telefonlandnr'],i['telefonretnnr']),
+                'innvalgnr' : '00', #'%s%s'%(i['telefonlandnr'],i['telefonretnnr']), KB
                 'linjenr' : i['telefonnr'],
-                'stedpostboks' : '',#i['stedpostboks'],
+                # 'stedpostboks' : '',#i['stedpostboks'],
                 'adrtypekode_besok_adr': 'INT',#i['adrtypekode_besok_adr'],
                 'adresselinje1_besok_adr' :i['adrlin1'],
                 'adresselinje2_besok_adr': i['adrlin2'],
                 'poststednr_besok_adr' : poststednr_besok_adr,
-                'poststednavn_besok_adr' : '%s %s %s' % (i['adrlin1_besok'],i['adrlin2_besok'],i['adrlin3_besok']),
-                'landnavn_besok_adr' : i['adresseland_besok'],
-                'adrtypekode_intern_adr': '',#i['adrtypekode_intern_adr'],
+                'poststednavn_besok_adr' : '%s %s %s' % (i['adrlin1_besok'],i['adrlin2_besok'],''), #i['adrlin3_besok']), KB
+                # 'landnavn_besok_adr' : '', #i['adresseland_besok'], KB
+                # 'adrtypekode_intern_adr': '',#i['adrtypekode_intern_adr'],
                 'adresselinje1_intern_adr' : i['adrlin1'],
                 'adresselinje2_intern_adr': i['adrlin2'],
                 'poststednr_intern_adr': i['postnr'],
                 'poststednavn_intern_adr': i['adrlin3'],
-                'landnavn_intern_adr': i['adresseland'],
-                'adrtypekode_alternativ_adr' : '',#i['adrtypekode_alternativ_adr'],
-                'adresselinje1_alternativ_adr': '',#i['adrlin1_besok'],
-                'adresselinje2_alternativ_adr': '',#i['adrlin2_besok'],
-                'poststednr_alternativ_adr': '',#poststednr_alternativ_adr,
-                'poststednavn_alternativ_adr' : '',#i['poststednavn_alternativ_adr'],
-                'landnavn_alternativ_adr': '',#i['adresseland_besok']
+                # 'landnavn_intern_adr': '', #i['adresseland'], KB
+                # 'adrtypekode_alternativ_adr' : '',#i['adrtypekode_alternativ_adr'],
+                # 'adresselinje1_alternativ_adr': '',#i['adrlin1_besok'],
+                # 'adresselinje2_alternativ_adr': '',#i['adrlin2_besok'],
+                # 'poststednr_alternativ_adr': '',#poststednr_alternativ_adr,
+                # 'poststednavn_alternativ_adr' : '',#i['poststednavn_alternativ_adr'],
+                # 'landnavn_alternativ_adr': '',#i['adresseland_besok']
                 }    
         return self.fs_data
     
