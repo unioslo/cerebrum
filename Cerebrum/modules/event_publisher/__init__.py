@@ -166,8 +166,8 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         return self.__unpublished_events
 
     def __try_send_messages(self):
-        client = self.__get_client()
         try:
+            client = self.__get_client()
             ue = self.__get_unpublished_events()
             unsent = ue.query_events(lock=True, parse_json=True)
             for event in unsent:

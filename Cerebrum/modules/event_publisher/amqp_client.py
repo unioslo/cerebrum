@@ -150,7 +150,8 @@ class AMQP091Client(object):
                     'Unable to publish message: {0}'.format(e))
 
     def __del__(self):
-        self.connection.close()
+        if hasattr(self, 'connection'):
+            self.connection.close()
 
     def close(self):
         """Close the connection."""
