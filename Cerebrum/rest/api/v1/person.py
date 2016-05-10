@@ -3,9 +3,10 @@ from flask.ext.restful import Resource, abort, marshal_with
 from api import db, auth, fields, utils
 from flask_restful_swagger import swagger
 
-import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+
+from api.v1 import models
 
 
 def find_person(id):
@@ -23,7 +24,7 @@ class PersonAffiliation(object):
     resource_fields = {
         'affiliation': fields.Constant(ctype='PersonAffiliation'),
         'status': fields.Constant(ctype='PersonAffStatus'),
-        'ou': fields.base.Nested(fields.OU.resource_fields),
+        'ou': fields.base.Nested(models.OU.resource_fields),
         'create_date': fields.DateTime(dt_format='iso8601'),
         'last_date': fields.DateTime(dt_format='iso8601'),
         'deleted_date': fields.DateTime(dt_format='iso8601'),
@@ -201,7 +202,7 @@ class PersonContactInfoListResource(Resource):
         ]
     )
     @auth.require()
-    @marshal_with(fields.EntityContactInfoList.resource_fields)
+    @marshal_with(models.EntityContactInfoList.resource_fields)
     def get(self, id):
         """Returns person contact information.
 
@@ -233,7 +234,7 @@ class PersonExternalIdListResource(Resource):
         ]
     )
     @auth.require()
-    @marshal_with(fields.EntityExternalIdList.resource_fields)
+    @marshal_with(models.EntityExternalIdList.resource_fields)
     def get(self, id):
         """Returns the external IDs of a person
 
@@ -252,7 +253,8 @@ class PersonExternalIdListResource(Resource):
     accounts='PersonAccount')
 class PersonAccountList(object):
     resource_fields = {
-        'accounts': fields.base.List(fields.base.Nested(PersonAccount.resource_fields)),
+        'accounts': fields.base.List(fields.base.Nested(
+            PersonAccount.resource_fields)),
     }
 
     swagger_metadata = {

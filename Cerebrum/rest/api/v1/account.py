@@ -2,14 +2,15 @@ from flask.ext.restful import Resource, abort, marshal_with, reqparse
 from flask.ext.restful_swagger import swagger
 from api import db, auth, fields, utils
 
-import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-
-import group
-
 from Cerebrum.modules import Email
-import emailaddress
+from Cerebrum.QuarantineHandler import QuarantineHandler
+
+from api.v1 import group
+from api.v1 import models
+from api.v1 import emailaddress
+
 
 co = Factory.get('Constants')(db.connection)
 
@@ -18,9 +19,12 @@ def find_account(identifier):
     idtype = 'entity_id' if identifier.isdigit() else 'name'
     try:
         try:
-            account = utils.get_account(identifier=identifier, idtype=idtype, actype='PosixUser')
+            account = utils.get_account(identifier=identifier,
+                                        idtype=idtype,
+                                        actype='PosixUser')
         except utils.EntityLookupError:
-            account = utils.get_account(identifier=identifier, idtype=idtype)
+            account = utils.get_account(identifier=identifier,
+                                        idtype=idtype)
     except utils.EntityLookupError as e:
         abort(404, message=str(e))
     return account
@@ -33,7 +37,7 @@ class AccountAffiliation(object):
     resource_fields = {
         'affiliation': fields.Constant(ctype='PersonAffiliation'),
         'priority': fields.base.Integer,
-        'ou': fields.base.Nested(fields.OU.resource_fields),
+        'ou': fields.base.Nested(models.OU.resource_fields),
     }
 
     swagger_metadata = {
@@ -48,7 +52,8 @@ class AccountAffiliation(object):
     affiliations='AccountAffiliation')
 class AccountAffiliationList(object):
     resource_fields = {
-        'affiliations': fields.base.List(fields.base.Nested(AccountAffiliation.resource_fields)),
+        'affiliations': fields.base.List(fields.base.Nested(
+            AccountAffiliation.resource_fields)),
     }
 
     swagger_metadata = {
@@ -67,7 +72,7 @@ class Account(object):
         'href': fields.base.Url('.account', absolute=True),
         'name': fields.base.String,
         'id': fields.base.Integer(default=None),
-        'owner': fields.base.Nested(fields.EntityOwner.resource_fields),
+        'owner': fields.base.Nested(models.EntityOwner.resource_fields),
         'create_date': fields.DateTime(dt_format='iso8601'),
         'expire_date': fields.DateTime(dt_format='iso8601'),
         'creator_id': fields.base.Integer(default=None),
@@ -76,8 +81,8 @@ class Account(object):
         'posix': fields.base.Boolean,
         'posix_uid': fields.base.Integer(default=None),
         'posix_shell': fields.Constant(ctype='PosixShell'),
-        'deleted': fields.base.Boolean,
-        'quarantine_status': fields.base.String,
+        'is_deleted': fields.base.Boolean,
+        'is_expired': fields.base.Boolean,
     }
 
     swagger_metadata = {
@@ -93,8 +98,8 @@ class Account(object):
         'posix': {'description': 'Is this a POSIX account?', },
         'posix_uid': {'description': 'POSIX UID', },
         'posix_shell': {'description': 'POSIX shell', },
-        'deleted': {'description': 'Is this account deleted?', },
-        'quarantine_status': {'description': 'Quarantine status', },
+        'is_deleted': {'description': 'Is this account deleted?', },
+        'is_expired': {'description': 'Is this account expired?', },
     }
 
 
@@ -137,39 +142,23 @@ class AccountResource(Resource):
             'creator_id': ac.creator_id,
             'contexts': [row['spread'] for row in ac.get_spread()],
             'primary_email': ac.get_primary_mailaddress(),
-            'deleted': ac.is_deleted(),
+            'is_deleted': ac.is_deleted(),
+            'is_expired': ac.is_expired(),
         }
 
         # POSIX
-        is_posix = hasattr(ac, 'posix_uid')
+        is_posix = getattr(ac, 'posix_uid', None) != None
         data['posix'] = is_posix
         if is_posix:
-            #group = self._get_group(account.gid_id, idtype='id', grtype='PosixGroup')
+            # group = self._get_group(account.gid_id, idtype='id',
+            #                         grtype='PosixGroup')
             data.update({
                 'posix_uid': ac.posix_uid,
-                #'dfg_posix_gid': group.posix_gid,
-                #'dfg_name': group.group_name,
-                #'gecos': ac.gecos,
+                # 'dfg_posix_gid': group.posix_gid,
+                # 'dfg_name': group.group_name,
+                # 'gecos': ac.gecos,
                 'posix_shell': ac.shell,
             })
-
-        # Quarantine status
-        quarantined = None
-        from mx import DateTime
-        now = DateTime.now()
-        for q in ac.get_entity_quarantine():
-            if q['start_date'] <= now:
-                if (q['end_date'] is not None and q['end_date'] < now):
-                    quarantined = 'expired'
-                elif (q['disable_until'] is not None and q['disable_until'] > now):
-                    quarantined = 'disabled'
-                else:
-                    quarantined = 'active'
-                    break
-            else:
-                quarantined = 'pending'
-        if quarantined:
-            data['quarantine_status'] = quarantined
 
         return data
 
@@ -236,7 +225,7 @@ class AccountListItem(object):
         'href': fields.base.Url('.account', absolute=True),
         'name': fields.base.String,
         'id': fields.base.Integer(default=None, attribute='account_id'),
-        'owner': fields.base.Nested(fields.EntityOwner.resource_fields),
+        'owner': fields.base.Nested(models.EntityOwner.resource_fields),
         'expire_date': fields.DateTime(dt_format='iso8601'),
         'np_type': fields.Constant(ctype='Account'),
     }
@@ -324,7 +313,8 @@ class AccountListResource(Resource):
         parser.add_argument('expire_start', type=str)
         parser.add_argument('expire_stop', type=str)
         args = parser.parse_args()
-        filters = {key: value for (key, value) in args.items() if value is not None}
+        filters = {key: value for (key, value) in args.items()
+                   if value is not None}
 
         if 'owner_type' in filters:
             try:
@@ -405,11 +395,13 @@ class AccountGroupListResource(Resource):
         ac = find_account(id)
 
         parser = reqparse.RequestParser()
-        parser.add_argument('indirect_memberships', type=bool, dest='indirect_members')
+        parser.add_argument('indirect_memberships', type=bool,
+                            dest='indirect_members')
         parser.add_argument('filter_expired', type=bool)
         parser.add_argument('expired_only', type=bool)
         args = parser.parse_args()
-        filters = {key: value for (key, value) in args.items() if value is not None}
+        filters = {key: value for (key, value) in args.items()
+                   if value is not None}
         filters['member_id'] = ac.entity_id
 
         gr = Factory.get('Group')(db.connection)
@@ -433,7 +425,7 @@ class AccountContactInfoListResource(Resource):
         parameters=[],
     )
     @auth.require()
-    @marshal_with(fields.EntityContactInfoList.resource_fields)
+    @marshal_with(models.EntityContactInfoList.resource_fields)
     def get(self, id):
         """Returns the contact information for an account.
 
@@ -501,7 +493,8 @@ class AccountHome(object):
     homes='AccountHome')
 class AccountHomeList(object):
     resource_fields = {
-        'homes': fields.base.List(fields.base.Nested(AccountHome.resource_fields)),
+        'homes': fields.base.List(fields.base.Nested(
+            AccountHome.resource_fields)),
     }
 
     swagger_metadata = {
@@ -534,7 +527,9 @@ class AccountHomeListResource(Resource):
         # Home directories
         for home in ac.get_homes():
             if home['home'] or home['disk_id']:
-                home['home'] = ac.resolve_homedir(disk_id=home['disk_id'], home=home['home'])
+                home['home'] = ac.resolve_homedir(
+                    disk_id=home['disk_id'],
+                    home=home['home'])
             homes.append(home)
 
         return {'homes': homes}
