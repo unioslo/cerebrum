@@ -915,7 +915,7 @@ class ADclient(PowershellClient):
         self.logger.debug3("Command(dryrun=%r): %s", self.dryrun, cmd)
         if not self.dryrun:
             out = self.run(cmd)
-            self.logger.debug5("Command result: %r", out)
+            self.logger.debug4("Command result: %r", out)
 
     def _setadobject_command_wrapper(self, ad_id, action, attributes):
         """Run Set-ADObject on a given object and update its attributes.
