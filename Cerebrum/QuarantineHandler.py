@@ -1,6 +1,7 @@
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2003 University of Oslo, Norway
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright 2003-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -61,8 +62,6 @@ const = Factory.get("Constants")
 
 
 class QuarantineHandler(object):
-#    __slots__ = 'quarantines'
-
     qc2rules = {}
     _explicit_sort = False
 
@@ -87,7 +86,7 @@ class QuarantineHandler(object):
                 for r in rules:
                     settings = r.copy()
                     used_sort_nums.append(settings.get('sort_num', None))
-                    if settings.has_key('spread'):
+                    if 'spread' in settings:
                         tmp_spreads = settings['spread']
                         del(settings['spread'])
                     else:
@@ -103,7 +102,7 @@ class QuarantineHandler(object):
             used_sort_nums = dict([(t, None) for t in used_sort_nums
                                    if t is not None]).keys()
             if len(used_sort_nums) != 0 and orig_len != len(used_sort_nums):
-                raise ValueError, "sort_num in QUARANTINE_RULES illegal"
+                raise ValueError("sort_num in QUARANTINE_RULES illegal")
             if used_sort_nums:
                 QuarantineHandler._explicit_sort = True
         if quarantines is None:
@@ -146,17 +145,18 @@ class QuarantineHandler(object):
 
     def should_skip(self):
         for m in self._get_matches():
-            if m.get('skip', 0):
-                return 1
-        return 0
+            if m.get('skip', False):
+                return True
+        return False
 
     def is_locked(self):
         """The account should be known, but the account locked"""
         for m in self._get_matches():
-            if m.get('lock', 0):
-                return 1
-        return 0
+            if m.get('lock', False):
+                return True
+        return False
 
+    @staticmethod
     def check_entity_quarantines(db, entity_id, spreads=None):
         """Utility method that returns an initiated QuarantineHandler
         for a given entity_id"""
@@ -166,7 +166,6 @@ class QuarantineHandler(object):
             db, [int(row['quarantine_type'])
                  for row in eq.get_entity_quarantine(only_active=True)],
             spreads)
-    check_entity_quarantines = staticmethod(check_entity_quarantines)
 
     @staticmethod
     def get_locked_entities(db, entity_types=None, only_active=True,
@@ -188,8 +187,8 @@ class QuarantineHandler(object):
             cache[row['entity_id']].append(
                 row['quarantine_type'])
 
-        is_locked = lambda key: QuarantineHandler(db,
-                                                  cache.get(key)).is_locked()
+        def is_locked(key):
+            return QuarantineHandler(db, cache.get(key)).is_locked()
         return set(filter(is_locked, cache.keys()))
 
 
@@ -229,4 +228,3 @@ def _test():
 
 if __name__ == '__main__':
     _test()
-
