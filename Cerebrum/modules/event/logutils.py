@@ -45,7 +45,7 @@ class QueueLogger(object):
     __slots__ = ('queue', 'source')
 
     # TODO: Make sure to implement proper logging API
-    log_levels = ('debug4', 'debug3', 'debug2', 'debug1', 'debug',
+    log_levels = ('debug5', 'debug4', 'debug3', 'debug2', 'debug1', 'debug',
                   'info', 'warn', 'warning', 'error')
     u""" Valid logging methods. """
 
