@@ -279,6 +279,10 @@ def handle_account_type_mod(event, db, co, data, p):
             accid, new, ou, aff = item
             del lst[i]
             break
+    else:
+        logger.error('Account type for priority %s not found for id:%s, '
+                     'skipping', new, accid)
+        return
     for i, item in enumerate(lst):
         if old < item[1]:
             lst.insert(i, (accid, old, ou, aff))
