@@ -186,9 +186,11 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
 
     def __save_queue(self):
         """Save queue to event queue"""
-        ue = self.__get_unpublished_events()
-        ue.add_events(self.__queue)
-        self.__queue = []
+        if self.__queue:
+            ue = self.__get_unpublished_events()
+            ue.add_events(self.__queue)
+            self.__queue = []
+            self._db.commit()
 
 
 class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
