@@ -316,7 +316,7 @@ def set_quaran(cer_ou_tab):
     for k in cer_ou_tab.keys():
         ous.clear()
         ous.find(k)
-        if (ous.get_entity_quarantine(type=co.quarantine_ou_notvalid) == []):
+        if (ous.get_entity_quarantine(qtype=co.quarantine_ou_notvalid) == []):
             ous.add_entity_quarantine(co.quarantine_ou_notvalid,
                                       acc.entity_id,
                                       description='import_OU',

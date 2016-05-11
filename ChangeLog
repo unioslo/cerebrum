@@ -1,3 +1,7 @@
+2016-05-10  Karen   <cerebrum@cleomedes.uit.no>
+
+    * import_OU.py (set_quaran): Call to get_entity_quarantine() updated to use correct parameter name.
+
 2016-05-10    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_systemx.py (_handle_changes): removed call
