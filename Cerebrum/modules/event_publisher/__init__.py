@@ -59,7 +59,9 @@ def change_type_to_message(db, change_type_code, subject,
             return (entity_id,
                     ent,
                     str(constants.EntityType(ent.entity_type)))
-        except Errors.NotFoundError:
+        # TODO: Handling ValueError here is a hack for handling entities that
+        # can't be accessed trough entity.get_subclassed_object()
+        except (Errors.NotFoundError, ValueError):
             return (entity_id, None, None)
 
     def get_entity_name(entity_id):
@@ -166,8 +168,8 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         return self.__unpublished_events
 
     def __try_send_messages(self):
-        client = self.__get_client()
         try:
+            client = self.__get_client()
             ue = self.__get_unpublished_events()
             unsent = ue.query_events(lock=True, parse_json=True)
             for event in unsent:
@@ -184,9 +186,11 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
 
     def __save_queue(self):
         """Save queue to event queue"""
-        ue = self.__get_unpublished_events()
-        ue.add_events(self.__queue)
-        self.__queue = []
+        if self.__queue:
+            ue = self.__get_unpublished_events()
+            ue.add_events(self.__queue)
+            self.__queue = []
+            self._db.commit()
 
 
 class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):

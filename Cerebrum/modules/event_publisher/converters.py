@@ -149,7 +149,8 @@ def _rename_key(msg, field, new_field):
 @dispatch('.*_.*')
 def fix_cat_for_entities(msg, *args):
     if '_' in msg['category']:
-        (msg['category'], msg['meta_object_type']) = msg['category'].split('_')
+        (msg['category'], msg['meta_object_type']) = msg['category'].split(
+            '_', 1)
     return msg
 
 
@@ -260,11 +261,11 @@ def spread(msg, *args):
 
 
 def _ou(msg, db):
-    ou = msg['params']['ou']
+    ou = msg['data'].get('ou_id')
     if ou:
         o = Factory.get("OU")(db)
         o.find(ou)
-        msg['params']['ou'] = str(o)
+        msg['data']['ou'] = str(o)
 
 
 @dispatch('ac_type')
