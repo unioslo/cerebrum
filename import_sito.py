@@ -409,17 +409,8 @@ def determine_affiliations(person):
     #pprint(person['Affiliation'])
     t = person['Affiliation'].split(",")
     for a in t:
-        #logger.debug('affiliation:%s' % (a))
-        #logger.debug("Employment description:%s, stillingsprosent:%s" %(person['Employment_description'],person['PositionPercent']))
-        percentage = person['PositionPercent'].split(".")
         position_type = person['Employment_description']
-        aff_stat = const.affiliation_status_ansatt_sito_sterk
-        #if(person['Employment_description'] in ('Fast ansatt','Engasjert','Vikar','Lærling')):
-        logger.info("fast ansatt med stillingsprosent:'%s'" % float(percentage[0]))
-        if(float(percentage[0]) < float(cereconf.SITO_AFFILIATION_PERCENTAGE)):
-            aff_stat = const.affiliation_status_ansatt_sito_svak
-        #else:
-        #    logger.debug('Unknown employment description:%s'%(person['Employment_description']))
+        aff_stat = const.affiliation_status_ansatt_sito
         ou = get_ou(a,person)
         if(ou == -1):
             # unable to find OU.

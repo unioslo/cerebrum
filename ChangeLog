@@ -4,6 +4,7 @@
 	set_expire_date(). This because we're trying to get as close to
 	uio code as possible. We may have to revert this later on, if
 	expire_date becomes a problem
+	(determine_affiliations): All sito persons now get affiliation_sito. sterk/svak is no longer used
 
 2016-05-10  Karen   <cerebrum@cleomedes.uit.no>
 
