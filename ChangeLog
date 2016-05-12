@@ -1,3 +1,10 @@
+2016-05-12    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* import_sito.py (import_OU): removed call to
+	set_expire_date(). This because we're trying to get as close to
+	uio code as possible. We may have to revert this later on, if
+	expire_date becomes a problem
+
 2016-05-10  Karen   <cerebrum@cleomedes.uit.no>
 
     * import_OU.py (set_quaran): Call to get_entity_quarantine() updated to use correct parameter name.

@@ -967,7 +967,7 @@ def import_OU(ou_list,dryrun):
             else:
                 # This ou is expired in input file, but
                 # active in DB. set expire_date in DB
-                ou.populate_expire_date("%02d%02d%02d" % (t[0], t[1], t[2]))
+                #ou.populate_expire_date("%02d%02d%02d" % (t[0], t[1], t[2]))
                 ou.write_db()
     except TypeError:
         logger.warning("cannot set expire date from empty list")
