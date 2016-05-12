@@ -426,6 +426,7 @@ class ADuserUtil(ADutil):
                         ret)
 
     # FIXME: Rewrite this mess. This is just ... ugly :(
+    # what is this I don't even
     def compare(self, delete_users, cerebrumusrs, adusrs):
         # Keys in dict from cerebrum must match fields to be populated in AD.
 
@@ -457,9 +458,8 @@ class ADuserUtil(ADutil):
                     # Check against home drive.
                     if attr == 'homeDrive':
                         home_drive = self.get_home_drive(cerebrumusrs[usr])
-                        if adusrs[usr].has_key('homeDrive'):
-                            if adusrs[usr]['homeDrive'] != home_drive:
-                                changes['homeDrive'] = home_drive
+                        if adusrs[usr].get('homeDrive') != home_drive:
+                            changes['homeDrive'] = home_drive
 
                     # Treating general cases
                     else:
@@ -577,7 +577,7 @@ class ADuserUtil(ADutil):
                 changes = cdta
                 changes['type'] = 'create_object'
                 changes['sAMAccountName'] = cusr
-                changelist.append(changes)
                 changes['homeDrive'] = self.get_home_drive(cdta)
+                changelist.append(changes)
 
         return changelist
