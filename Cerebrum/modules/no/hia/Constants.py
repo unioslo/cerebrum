@@ -35,6 +35,8 @@ from Cerebrum.modules.no.Constants import ConstantsHigherEdu
 from Cerebrum.modules.no.Constants import ConstantsUniversityColleges
 from Cerebrum.modules.PosixUser import _PosixShellCode
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
+from Cerebrum.modules.Email import _EmailSpamLevelCode
+from Cerebrum.modules.Email import _EmailSpamActionCode
 
 class Constants(Constants.Constants):
     system_fs_derived = _AuthoritativeSystemCode('FS-auto',
@@ -244,5 +246,18 @@ class Constants(Constants.Constants):
     quarantine_autoekstern = _QuarantineCode('autoekstern',
                                              'Ekstern konto gått ut på dato')
 
-# end Constants
+    email_spam_level_none = _EmailSpamLevelCode(
+        'no_filter', 9999, "No email will be filtered as spam")
+    email_spam_level_standard = _EmailSpamLevelCode(
+        'standard_spam', 8, "Only filter email that obviously is spam")
+    email_spam_level_heightened = _EmailSpamLevelCode(
+        'most_spam', 5, "Filter most emails that look like spam ")
+    email_spam_level_aggressive = _EmailSpamLevelCode(
+        'aggressive_spam', 3, "Filter everything that resembles spam")
+    email_spam_action_none = _EmailSpamActionCode(
+        'noaction', "Deliver spam just like legitimate email")
+    email_spam_action_folder = _EmailSpamActionCode(
+        'spamfolder', "Deliver spam to a separate IMAP folder")
+    email_spam_action_delete = _EmailSpamActionCode(
+        'dropspam', "Reject messages classified as spam")
 
