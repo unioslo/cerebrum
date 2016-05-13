@@ -10,8 +10,6 @@ from auth import Authentication
 db = Database()
 auth = Authentication()
 
-import api.v1
-
 
 def create_app(config):
     app = Flask(__name__)
@@ -19,6 +17,7 @@ def create_app(config):
     app.config['RESTFUL_JSON'] = {'ensure_ascii': False, 'encoding': 'utf-8'}
     app.wsgi_app = ProxyFix(app.wsgi_app)
 
+    import api.v1
     app.register_blueprint(api.v1.blueprint, url_prefix='/v1')
 
     db.init_app(app)

@@ -1,10 +1,7 @@
-from flask.ext.restful import abort
 from api import db
 
-import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import Email
 
 
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
