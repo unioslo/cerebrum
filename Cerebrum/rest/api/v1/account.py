@@ -80,8 +80,7 @@ class Account(object):
         'posix': fields.base.Boolean,
         'posix_uid': fields.base.Integer(default=None),
         'posix_shell': fields.Constant(ctype='PosixShell'),
-        'is_deleted': fields.base.Boolean,
-        'is_expired': fields.base.Boolean,
+        'active': fields.base.Boolean,
     }
 
     swagger_metadata = {
