@@ -1,16 +1,15 @@
 from flask.ext.restful import Resource, abort, marshal_with, reqparse
 from flask.ext.restful_swagger import swagger
+
 from api import db, auth, fields, utils
+from api.v1 import group
+from api.v1 import models
+from api.v1 import emailaddress
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.QuarantineHandler import QuarantineHandler
-
-from api.v1 import group
-from api.v1 import models
-from api.v1 import emailaddress
-
 
 co = Factory.get('Constants')(db.connection)
 
@@ -98,8 +97,8 @@ class Account(object):
         'posix': {'description': 'Is this a POSIX account?', },
         'posix_uid': {'description': 'POSIX UID', },
         'posix_shell': {'description': 'POSIX shell', },
-        'is_deleted': {'description': 'Is this account deleted?', },
-        'is_expired': {'description': 'Is this account expired?', },
+        'active': {'description':
+                   'Is this account active, i.e. not deleted or expired?', },
     }
 
 
@@ -142,8 +141,7 @@ class AccountResource(Resource):
             'creator_id': ac.creator_id,
             'contexts': [row['spread'] for row in ac.get_spread()],
             'primary_email': ac.get_primary_mailaddress(),
-            'is_deleted': ac.is_deleted(),
-            'is_expired': ac.is_expired(),
+            'active': not (ac.is_expired() or ac.is_deleted()),
         }
 
         # POSIX
@@ -216,7 +214,6 @@ class AccountQuarantineListResource(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('context', type=str)
         args = parser.parse_args()
-        print args
 
         spreads = None
         if args.context:
