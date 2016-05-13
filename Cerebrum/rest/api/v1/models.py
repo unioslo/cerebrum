@@ -94,18 +94,18 @@ class EntityQuarantine(object):
 
     resource_fields = {
         'type': fields.Constant(ctype='Quarantine'),
-        'description': fields.base.String,
+        # 'description': fields.base.String,
         'start': fields.DateTime(dt_format='iso8601'),
         'end': fields.DateTime(dt_format='iso8601'),
-        'disable_until': fields.DateTime(dt_format='iso8601'),
+        # 'disable_until': fields.DateTime(dt_format='iso8601'),
     }
 
     swagger_metadata = {
         'type': {'description': 'Type of quarantine'},
-        'description': {'description': 'Description of quarantine', },
+        # 'description': {'description': 'Description of quarantine', },
         'start': {'description': 'Quarantine start date', },
         'end': {'description': 'Quarantine end date', },
-        'disable_until': {'description': 'Quarantine disabled until', },
+        # 'disable_until': {'description': 'Quarantine disabled until', },
     }
 
 

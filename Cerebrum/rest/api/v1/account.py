@@ -234,10 +234,10 @@ class AccountQuarantineListResource(Resource):
         for q in ac.get_entity_quarantine(only_active=True):
             quarantines.append({
                 'type': q['quarantine_type'],
-                'description': q['description'],
+                # 'description': q['description'],
                 'end': q['end_date'],
                 'start': q['start_date'],
-                'disable_until': q['disable_until'],
+                # 'disable_until': q['disable_until'],
             })
 
         return {
