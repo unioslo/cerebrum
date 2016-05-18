@@ -10,6 +10,7 @@ from account import (AccountListResource,
                      AccountHomeListResource)
 from group import (GroupListResource,
                    GroupResource,
+                   PosixGroupResource,
                    GroupMemberListResource)
 from person import (PersonResource,
                     PersonAffiliationListResource,
@@ -75,6 +76,11 @@ api.add_resource(
     GroupMemberListResource,
     '/groups/<string:id>/members',
     endpoint='groupmembers')
+
+api.add_resource(
+    PosixGroupResource,
+    '/groups/<string:id>/posix',
+    endpoint='posixgroup')
 
 api.add_resource(
     PersonResource,

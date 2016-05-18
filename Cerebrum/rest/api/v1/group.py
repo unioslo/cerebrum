@@ -53,8 +53,7 @@ class Group(object):
         'moderators': fields.base.List(
             fields.base.Nested(
                 GroupModerator.resource_fields)),
-        'posix': fields.base.Boolean,
-        'posix_gid': fields.base.Integer,
+        'posix': fields.base.Url('.posixgroup', absolute=True),
         'members': fields.base.Url('.groupmembers', absolute=True),
     }
 
@@ -65,8 +64,7 @@ class Group(object):
         'description': {'description': 'Group description'},
         'contexts': {'description': 'Visible in these contexts'},
         'moderators': {'description': 'Group moderators'},
-        'posix': {'description': 'Is this a POSIX group?'},
-        'posix_gid': {'description': 'POSIX GID'},
+        'posix': {'description': 'URL to the groups posix information'},
         'members': {'description':
                     'URL to the resource containing group members'},
     }
@@ -99,7 +97,7 @@ class GroupResource(Resource):
         """
         gr = find_group(id)
 
-        data = {
+        return {
             'name': gr.group_name,
             'id': gr.entity_id,
             'create_date': gr.create_date,
@@ -110,13 +108,49 @@ class GroupResource(Resource):
                                                 target_type='group'),
         }
 
-        # POSIX
-        is_posix = hasattr(gr, 'posix_uid')
-        data['posix'] = is_posix
-        if is_posix:
-            data['posix_gid'] = getattr(gr, 'posix_gid', None)
 
-        return data
+@swagger.model
+class PosixGroup(object):
+    """Data model for the posix information of a group."""
+    resource_fields = {
+        'href': fields.base.Url('.posixgroup', absolute=True),
+        'id': fields.base.Integer,
+        'posix': fields.base.Boolean,
+        'posix_gid': fields.base.Integer(default=None),
+    }
+    swagger_metadata = {
+        'href': {'description': 'URL to this resource'},
+        'id': {'description': 'Group entity ID'},
+        'posix': {'description': 'Is this a POSIX group?'},
+        'posix_gid': {'description': 'The POSIX GID'},
+    }
+
+
+class PosixGroupResource(Resource):
+    """Resource for the POSIX information of a group."""
+    @swagger.operation(
+        notes='Get POSIX group information',
+        nickname='get',
+        responseClass='PosixGroup',
+        parameters=[
+            {'name': 'id',
+             'description': 'Group name or ID',
+             'required': True,
+             'allowMultiple': False,
+             'dataType': 'string',
+             'paramType': 'path'}])
+    @auth.require()
+    @marshal_with(PosixGroup.resource_fields)
+    def get(self, id):
+        """Returns POSIX group information for a single group based on the \
+            PosixGroup model."""
+        gr = find_group(id)
+
+        return {
+            'id': gr.entity_id,
+            'posix': hasattr(gr, 'posix_gid'),
+            'posix_gid': getattr(gr, 'posix_gid', None)
+        }
 
 
 @swagger.model
