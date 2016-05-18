@@ -1,5 +1,7 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2003 University of Oslo, Norway
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright 2003-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,8 +21,6 @@
 """ A changelog API that stores changes in the Database. """
 import pickle
 
-import cerebrum_path
-import cereconf
 import Cerebrum.ChangeLog
 from Cerebrum.Utils import argument_to_sql
 
@@ -278,14 +278,11 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
                 where.append("tstamp <= TO_DATE('%s', 'YYYY-MM-DD')" % edate)
         if (type, sdate, edate) is not None:
             where = "WHERE "+" AND ".join(where)
-        ret = []
-        for r in self.query("""
+        return self.query("""
         SELECT tstamp, change_id, subject_entity, change_type_id,
                dest_entity, change_params, change_by, change_program
         FROM [:table schema=cerebrum name=change_log] %s
-        ORDER BY change_id""" % where):
-            ret.append(r)
-        return ret
+        ORDER BY change_id""" % where)
 
     def get_changetypes(self):
         """ List the change types registered in the database. """
