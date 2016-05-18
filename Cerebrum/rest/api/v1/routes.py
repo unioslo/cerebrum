@@ -16,7 +16,7 @@ from person import (PersonResource,
                     PersonContactInfoListResource,
                     PersonExternalIdListResource,
                     PersonAccountListResource)
-from emailaddress import EmailAddressResource
+from emailaddress import EmailAddressesResource
 from ou import OrganizationalUnitResource
 
 api.add_resource(AuthTest, '/auth-test')
@@ -102,7 +102,7 @@ api.add_resource(
     endpoint='personaccounts')
 
 api.add_resource(
-    EmailAddressResource,
+    EmailAddressesResource,
     '/emailaddresses/<string:address>',
     endpoint='emailaddress')
 
