@@ -157,7 +157,6 @@ def get_auth_owners(entity, target_type):
 
     data = []
     for row in ar.list_owners(targets):
-        print dict(row)
         aos.clear()
         aos.find(row['op_set_id'])
         entity_id = int(row['entity_id'])
