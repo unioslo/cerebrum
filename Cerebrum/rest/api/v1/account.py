@@ -77,9 +77,6 @@ class Account(object):
         'creator_id': fields.base.Integer(default=None),
         'contexts': fields.base.List(fields.Constant(ctype='Spread')),
         'primary_email': fields.base.String,
-        'posix': fields.base.Boolean,
-        'posix_uid': fields.base.Integer(default=None),
-        'posix_shell': fields.Constant(ctype='PosixShell'),
         'active': fields.base.Boolean,
     }
 
@@ -93,9 +90,6 @@ class Account(object):
         'creator_id': {'description': 'Account creator entity ID', },
         'contexts': {'description': 'Visible in these contexts', },
         'primary_email': {'description': 'Primary email address', },
-        'posix': {'description': 'Is this a POSIX account?', },
-        'posix_uid': {'description': 'POSIX UID', },
-        'posix_shell': {'description': 'POSIX shell', },
         'active': {'description':
                    'Is this account active, i.e. not deleted or expired?', },
     }
@@ -128,7 +122,7 @@ class AccountResource(Resource):
         """
         ac = find_account(id)
 
-        data = {
+        return {
             'name': ac.account_name,
             'id': ac.entity_id,
             'owner': {
@@ -143,21 +137,74 @@ class AccountResource(Resource):
             'active': not (ac.is_expired() or ac.is_deleted()),
         }
 
-        # POSIX
-        is_posix = getattr(ac, 'posix_uid', None) != None
-        data['posix'] = is_posix
-        if is_posix:
-            # group = self._get_group(account.gid_id, idtype='id',
-            #                         grtype='PosixGroup')
-            data.update({
-                'posix_uid': ac.posix_uid,
-                # 'dfg_posix_gid': group.posix_gid,
-                # 'dfg_name': group.group_name,
-                # 'gecos': ac.gecos,
-                'posix_shell': ac.shell,
-            })
 
-        return data
+@swagger.model
+@swagger.nested(default_file_group='Group')
+class PosixAccount(object):
+    """Data model for a single POSIX account."""
+
+    resource_fields = {
+        'href': fields.base.Url('.posixaccount', absolute=True),
+        'name': fields.base.String,
+        'id': fields.base.Integer(default=None),
+        'posix': fields.base.Boolean,
+        'posix_uid': fields.base.Integer(default=None),
+        'posix_shell': fields.Constant(ctype='PosixShell'),
+        'default_file_group': fields.base.Nested(
+            group.Group.resource_fields, allow_null=True)
+    }
+
+    swagger_metadata = {
+        'href': {'description': 'URL to this resource'},
+        'name': {'description': 'Account name', },
+        'id': {'description': 'Entity ID', },
+        'posix': {'description': 'Is this a POSIX account?', },
+        'posix_uid': {'description': 'POSIX UID', },
+        'posix_shell': {'description': 'POSIX shell', },
+        'default_file_group': {'description': 'Default file group'},
+    }
+
+
+class PosixAccountResource(Resource):
+    """Resource for a single POSIX account."""
+    @swagger.operation(
+        notes='Get POSIX account information',
+        nickname='get',
+        responseClass='PosixAccount',
+        parameters=[
+            {
+                'name': 'id',
+                'description': 'Account name or ID',
+                'required': True,
+                'allowMultiple': False,
+                'dataType': 'string',
+                'paramType': 'path'
+            },
+        ]
+    )
+    @auth.require()
+    @marshal_with(PosixAccount.resource_fields)
+    def get(self, id):
+        """Returns POSIX account information for a single account based on \
+            the Account model.
+
+        :param str name_or_id: The account name or account ID
+        :return: Information about the account
+        """
+        ac = find_account(id)
+
+        return {
+            'name': ac.account_name,
+            'id': ac.entity_id,
+            'posix': hasattr(ac, 'posix_uid'),
+            'posix_uid': getattr(ac, 'posix_uid', None),
+            'posix_shell': getattr(ac, 'shell', None),
+            'gecos': getattr(ac, 'gecos', None),
+            'default_file_group': (
+                group.GroupResource.get(
+                    group.GroupResource(), getattr(ac, 'gid_id', None)) if
+                hasattr(ac, 'gid_id') else None),
+        }
 
 
 @swagger.model

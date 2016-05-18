@@ -2,7 +2,6 @@ from flask.ext.restful import Resource, abort, marshal_with, reqparse
 from flask.ext.restful_swagger import swagger
 from api import db, auth, fields, utils
 
-import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
@@ -10,10 +9,13 @@ co = Factory.get('Constants')(db.connection)
 
 
 def find_group(identifier):
-    idtype = 'entity_id' if identifier.isdigit() else 'name'
+    idtype = 'entity_id' if (isinstance(identifier, (int, long) or
+                             identifier.isdigit())) else 'name'
     try:
         try:
-            group = utils.get_group(identifier=identifier, idtype=idtype, grtype='PosixGroup')
+            group = utils.get_group(identifier=identifier,
+                                    idtype=idtype,
+                                    grtype='PosixGroup')
         except utils.EntityLookupError:
             group = utils.get_group(identifier=identifier, idtype=idtype)
     except utils.EntityLookupError as e:
@@ -49,9 +51,9 @@ class Group(object):
         'name': fields.base.String,
         'description': fields.base.String,
         'contexts': fields.base.List(fields.Constant(ctype='Spread')),
-        'moderators': fields.base.List(fields.base.Nested(GroupModerator.resource_fields)),
-        'posix': fields.base.Boolean,
-        'posix_gid': fields.base.Integer,
+        'moderators': fields.base.List(
+            fields.base.Nested(
+                GroupModerator.resource_fields)),
         'members': fields.base.Url('.groupmembers', absolute=True),
     }
 
@@ -62,9 +64,8 @@ class Group(object):
         'description': {'description': 'Group description'},
         'contexts': {'description': 'Visible in these contexts'},
         'moderators': {'description': 'Group moderators'},
-        'posix': {'description': 'Is this a POSIX group?'},
-        'posix_gid': {'description': 'POSIX GID'},
-        'members': {'description': 'URL to the resource containing group members'},
+        'members': {'description':
+                    'URL to the resource containing group members'},
     }
 
 
@@ -95,23 +96,60 @@ class GroupResource(Resource):
         """
         gr = find_group(id)
 
-        data = {
+        return {
             'name': gr.group_name,
             'id': gr.entity_id,
             'create_date': gr.create_date,
             'expire_date': gr.expire_date,
             'creator_id': gr.creator_id,
             'contexts': [row['spread'] for row in gr.get_spread()],
-            'moderators': utils.get_auth_owners(entity=gr, target_type='group'),
+            'moderators': utils.get_auth_owners(entity=gr,
+                                                target_type='group'),
         }
 
-        # POSIX
-        is_posix = hasattr(gr, 'posix_uid')
-        data['posix'] = is_posix
-        if is_posix:
-            data['posix_gid'] = getattr(gr, 'posix_gid', None)
 
-        return data
+@swagger.model
+class PosixGroup(object):
+    """Data model for the posix information of a group."""
+    resource_fields = {
+        'href': fields.base.Url('.posixgroup', absolute=True),
+        'id': fields.base.Integer,
+        'posix': fields.base.Boolean,
+        'posix_gid': fields.base.Integer(default=None),
+    }
+    swagger_metadata = {
+        'href': {'description': 'URL to this resource'},
+        'id': {'description': 'Group entity ID'},
+        'posix': {'description': 'Is this a POSIX group?'},
+        'posix_gid': {'description': 'The POSIX GID'},
+    }
+
+
+class PosixGroupResource(Resource):
+    """Resource for the POSIX information of a group."""
+    @swagger.operation(
+        notes='Get POSIX group information',
+        nickname='get',
+        responseClass='PosixGroup',
+        parameters=[
+            {'name': 'id',
+             'description': 'Group name or ID',
+             'required': True,
+             'allowMultiple': False,
+             'dataType': 'string',
+             'paramType': 'path'}])
+    @auth.require()
+    @marshal_with(PosixGroup.resource_fields)
+    def get(self, id):
+        """Returns POSIX group information for a single group based on the \
+            PosixGroup model."""
+        gr = find_group(id)
+
+        return {
+            'id': gr.entity_id,
+            'posix': hasattr(gr, 'posix_gid'),
+            'posix_gid': getattr(gr, 'posix_gid', None)
+        }
 
 
 @swagger.model
@@ -122,10 +160,8 @@ class GroupListItem(object):
         'name': fields.base.String,
         'id': fields.base.Integer(default=None, attribute='group_id'),
         'description': fields.base.String,
-        'creator_id': fields.base.Integer,
         'create_date': fields.DateTime(dt_format='iso8601'),
         'expire_date': fields.DateTime(dt_format='iso8601'),
-        'visibility': fields.Constant(ctype='GroupVisibility'),
     }
 
     swagger_metadata = {
@@ -133,10 +169,8 @@ class GroupListItem(object):
         'name': {'description': 'Group name'},
         'id': {'description': 'Group entity ID'},
         'description': {'description': 'Group description'},
-        'creator_id': {'description': 'Creator entity ID'},
         'create_date': {'description': 'Creation date'},
         'expire_date': {'description': 'Expiration date'},
-        'visibility': {'description': 'Group visibility'},
     }
 
 
@@ -146,7 +180,9 @@ class GroupListItem(object):
 class GroupList(object):
     """Data model for a list of groups"""
     resource_fields = {
-        'groups': fields.base.List(fields.base.Nested(GroupListItem.resource_fields)),
+        'groups': fields.base.List(
+            fields.base.Nested(
+                GroupListItem.resource_fields)),
     }
 
     swagger_metadata = {
@@ -171,7 +207,8 @@ class GroupListResource(Resource):
             },
             {
                 'name': 'description',
-                'description': 'Filter by description. Accepts * and ? as wildcards.',
+                'description': 'Filter by description. Accepts * and ? as \
+                    wildcards.',
                 'required': False,
                 'allowMultiple': False,
                 'dataType': 'str',
@@ -179,7 +216,8 @@ class GroupListResource(Resource):
             },
             {
                 'name': 'context',
-                'description': 'Filter by context. Accepts * and ? as wildcards.',
+                'description': 'Filter by context. Accepts * and ? as \
+                    wildcards.',
                 'required': False,
                 'allowMultiple': False,
                 'dataType': 'str',
@@ -188,8 +226,8 @@ class GroupListResource(Resource):
             {
                 'name': 'member_id',
                 'description': 'Filter by memberships. Only groups that have member_id as a \
-                    member will be returned. If member_id is a sequence, the group is returned \
-                    if any of the IDs are a member of it.',
+                    member will be returned. If member_id is a sequence, the \
+                    group is returned if any of the IDs are a member of it.',
                 'required': False,
                 'allowMultiple': True,
                 'dataType': 'int',
@@ -251,7 +289,8 @@ class GroupListResource(Resource):
         parser.add_argument('expired_only', type=bool)
         parser.add_argument('creator_id', type=int)
         args = parser.parse_args()
-        filters = {key: value for (key, value) in args.items() if value is not None}
+        filters = {key: value for (key, value) in args.items() if
+                   value is not None}
 
         gr = Factory.get('Group')(db.connection)
 
@@ -269,7 +308,8 @@ class GroupListResource(Resource):
 class GroupMember(object):
     """Data model for group members."""
     resource_fields = {
-        'href': fields.UrlFromEntityType(absolute=True, type_field='member_type'),
+        'href': fields.UrlFromEntityType(absolute=True,
+                                         type_field='member_type'),
         'id': fields.base.Integer(attribute='member_id'),
         'type': fields.Constant(ctype='EntityType', attribute='member_type'),
         'name': fields.base.String(attribute='member_name'),
@@ -289,7 +329,9 @@ class GroupMember(object):
 class GroupMemberList(object):
     """Data model for a list of groups"""
     resource_fields = {
-        'members': fields.base.List(fields.base.Nested(GroupMember.resource_fields)),
+        'members': fields.base.List(
+            fields.base.Nested(
+                GroupMember.resource_fields)),
     }
 
     swagger_metadata = {
@@ -322,7 +364,8 @@ class GroupMemberListResource(Resource):
             },
             {
                 'name': 'context',
-                'description': 'Filter by context. Accepts * and ? as wildcards.',
+                'description': 'Filter by context. Accepts * and ? as \
+                    wildcards.',
                 'required': False,
                 'allowMultiple': False,
                 'dataType': 'str',
@@ -352,9 +395,12 @@ class GroupMemberListResource(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('type', type=str, dest='member_type')
         parser.add_argument('context', type=str, dest='member_spread')
-        parser.add_argument('filter_expired', type=bool, dest='member_filter_expired')
+        parser.add_argument('filter_expired',
+                            type=bool,
+                            dest='member_filter_expired')
         args = parser.parse_args()
-        filters = {key: value for (key, value) in args.items() if value is not None}
+        filters = {key: value for (key, value) in args.items() if
+                   value is not None}
 
         if 'member_type' in filters:
             try:
@@ -369,7 +415,8 @@ class GroupMemberListResource(Resource):
                 member_spread = co.Spread(filters['member_spread'])
                 filters['member_spread'] = int(member_spread)
             except Errors.NotFoundError:
-                abort(404, message=u'Unknown context for context={}'.format(filters['member_spread']))
+                abort(404, message=u'Unknown context for context={}'.format(
+                    filters['member_spread']))
 
         gr = find_group(id)
 

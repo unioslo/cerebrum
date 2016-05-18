@@ -2,6 +2,7 @@ from . import api
 from authtest import AuthTest
 from account import (AccountListResource,
                      AccountResource,
+                     PosixAccountResource,
                      AccountGroupListResource,
                      AccountEmailAddressResource,
                      AccountAffiliationListResource,
@@ -10,6 +11,7 @@ from account import (AccountListResource,
                      AccountHomeListResource)
 from group import (GroupListResource,
                    GroupResource,
+                   PosixGroupResource,
                    GroupMemberListResource)
 from person import (PersonResource,
                     PersonAffiliationListResource,
@@ -30,6 +32,11 @@ api.add_resource(
     AccountResource,
     '/accounts/<string:id>',
     endpoint='account')
+
+api.add_resource(
+    PosixAccountResource,
+    '/accounts/<string:id>/posix',
+    endpoint='posixaccount')
 
 api.add_resource(
     AccountGroupListResource,
@@ -75,6 +82,11 @@ api.add_resource(
     GroupMemberListResource,
     '/groups/<string:id>/members',
     endpoint='groupmembers')
+
+api.add_resource(
+    PosixGroupResource,
+    '/groups/<string:id>/posix',
+    endpoint='posixgroup')
 
 api.add_resource(
     PersonResource,
