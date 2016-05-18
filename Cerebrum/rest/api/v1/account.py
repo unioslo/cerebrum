@@ -252,7 +252,9 @@ class AccountQuarantineListResource(Resource):
 class AccountEmailAddress(object):
     resource_fields = {
         'primary': fields.base.String,
-        'addresses': fields.base.Nested(emailaddress.EmailAddress.resource_fields),
+        'addresses': fields.base.List(
+            fields.base.Nested(
+                emailaddress.EmailAddress.resource_fields)),
     }
 
     swagger_metadata = {
@@ -281,18 +283,15 @@ class AccountEmailAddressResource(Resource):
     @auth.require()
     @marshal_with(AccountEmailAddress.resource_fields)
     def get(self, id):
-        """Returns the email addresses for a single account based on the EmailAddress model.
+        """Returns the email addresses for a single account based on the
+        EmailAddress model.
 
         :param str id: The account name or account ID
         :return: Information about the email addresses
         """
         ac = find_account(id)
-
-        ea = Email.EmailAddress(db.connection)
-        et = Email.EmailTarget(db.connection)
-        et.find_by_target_entity(ac.entity_id)
-        target_addresses = ea.list_target_addresses(et.entity_id)
-        addresses = [emailaddress.get_email_address(a['address_id']) for a in target_addresses]
+        addresses = emailaddress.list_email_addresses(
+            ac.get_primary_mailaddress())
         return {
             'primary': ac.get_primary_mailaddress(),
             'addresses': addresses,
