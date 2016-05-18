@@ -2,9 +2,10 @@ from flask.ext.restful import Resource, abort, marshal_with
 from api import db, auth, fields
 from flask_restful_swagger import swagger
 
-import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+
+from api.v1 import models
 
 
 def find_ou(ou_id):
@@ -35,7 +36,8 @@ def format_ou(ou):
             'institutt': ou.institutt,
             'avdeling': ou.avdeling,
             'institusjon': ou.institusjon,
-            'stedkode': "{:02d}{:02d}{:02d}".format(ou.fakultet, ou.institutt, ou.avdeling),
+            'stedkode': "{:02d}{:02d}{:02d}".format(
+                ou.fakultet, ou.institutt, ou.avdeling),
         })
     except AttributeError:
         pass
@@ -49,9 +51,9 @@ class OrganizationalUnit(object):
         'href': fields.base.Url(endpoint='.ou', absolute=True),
         'id': fields.base.Integer,
         'contact': fields.base.List(fields.base.Nested(
-            fields.EntityContactInfo.resource_fields)),
+            models.EntityContactInfo.resource_fields)),
         'names': fields.base.List(fields.base.Nested(
-            fields.EntityNameWithLanguage.resource_fields)),
+            models.EntityNameWithLanguage.resource_fields)),
         'contexts': fields.base.List(fields.Constant(ctype='Spread')),
         'stedkode': fields.base.String,
         'fakultet': fields.base.Integer,
