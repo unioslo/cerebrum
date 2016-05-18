@@ -220,9 +220,11 @@ class CleanChangeLog(object):
                 if change_type is None:
                     logger.info(
                         "Unknown change type {!r} ignored".format(trigger))
+                    continue
                 if not isinstance(change_type, self.co.ChangeType):
-                    raise ValueError(
+                    logger.info(
                         "{!r} is not a change type".format(trigger))
+                    continue
                 triggers.append(int(change_type))
 
             # Skip toggler if a change type is unknown
