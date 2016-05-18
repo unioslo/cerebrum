@@ -9,7 +9,8 @@ co = Factory.get('Constants')(db.connection)
 
 
 def find_group(identifier):
-    idtype = 'entity_id' if identifier.isdigit() else 'name'
+    idtype = 'entity_id' if (isinstance(identifier, (int, long) or
+                             identifier.isdigit())) else 'name'
     try:
         try:
             group = utils.get_group(identifier=identifier,
