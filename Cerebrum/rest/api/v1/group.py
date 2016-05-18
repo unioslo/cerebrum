@@ -161,10 +161,8 @@ class GroupListItem(object):
         'name': fields.base.String,
         'id': fields.base.Integer(default=None, attribute='group_id'),
         'description': fields.base.String,
-        'creator_id': fields.base.Integer,
         'create_date': fields.DateTime(dt_format='iso8601'),
         'expire_date': fields.DateTime(dt_format='iso8601'),
-        'visibility': fields.Constant(ctype='GroupVisibility'),
     }
 
     swagger_metadata = {
@@ -172,10 +170,8 @@ class GroupListItem(object):
         'name': {'description': 'Group name'},
         'id': {'description': 'Group entity ID'},
         'description': {'description': 'Group description'},
-        'creator_id': {'description': 'Creator entity ID'},
         'create_date': {'description': 'Creation date'},
         'expire_date': {'description': 'Expiration date'},
-        'visibility': {'description': 'Group visibility'},
     }
 
 
