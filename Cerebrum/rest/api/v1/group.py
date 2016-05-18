@@ -54,7 +54,6 @@ class Group(object):
         'moderators': fields.base.List(
             fields.base.Nested(
                 GroupModerator.resource_fields)),
-        'posix': fields.base.Url('.posixgroup', absolute=True),
         'members': fields.base.Url('.groupmembers', absolute=True),
     }
 
@@ -65,7 +64,6 @@ class Group(object):
         'description': {'description': 'Group description'},
         'contexts': {'description': 'Visible in these contexts'},
         'moderators': {'description': 'Group moderators'},
-        'posix': {'description': 'URL to the groups posix information'},
         'members': {'description':
                     'URL to the resource containing group members'},
     }
