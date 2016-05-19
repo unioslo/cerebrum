@@ -101,7 +101,6 @@ class GroupResource(Resource):
             'id': gr.entity_id,
             'create_date': gr.create_date,
             'expire_date': gr.expire_date,
-            'creator_id': gr.creator_id,
             'contexts': [row['spread'] for row in gr.get_spread()],
             'moderators': utils.get_auth_owners(entity=gr,
                                                 target_type='group'),

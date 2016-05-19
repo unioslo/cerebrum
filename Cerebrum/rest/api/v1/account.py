@@ -74,7 +74,6 @@ class Account(object):
         'owner': fields.base.Nested(models.EntityOwner.resource_fields),
         'create_date': fields.DateTime(dt_format='iso8601'),
         'expire_date': fields.DateTime(dt_format='iso8601'),
-        'creator_id': fields.base.Integer(default=None),
         'contexts': fields.base.List(fields.Constant(ctype='Spread')),
         'primary_email': fields.base.String,
         'active': fields.base.Boolean,
@@ -87,7 +86,6 @@ class Account(object):
         'owner': {'description': 'Entity owner'},
         'create_date': {'description': 'Date of account creation', },
         'expire_date': {'description': 'Expiration date', },
-        'creator_id': {'description': 'Account creator entity ID', },
         'contexts': {'description': 'Visible in these contexts', },
         'primary_email': {'description': 'Primary email address', },
         'active': {'description':
@@ -131,7 +129,6 @@ class AccountResource(Resource):
             },
             'create_date': ac.create_date,
             'expire_date': ac.expire_date,
-            'creator_id': ac.creator_id,
             'contexts': [row['spread'] for row in ac.get_spread()],
             'primary_email': ac.get_primary_mailaddress(),
             'active': not (ac.is_expired() or ac.is_deleted()),
