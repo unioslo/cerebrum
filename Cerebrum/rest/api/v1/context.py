@@ -14,9 +14,9 @@ co = Factory.get('Constants')(db.connection)
 class Context(object):
     resource_fields = {
         'context': fields.base.String(attribute='spread'),
-        #'spread_code': base.Integer,
         'description': fields.base.String,
-        'entity_type': fields.Constant(ctype='EntityType', attribute='entity_type'),
+        'entity_type': fields.Constant(ctype='EntityType',
+                                       attribute='entity_type'),
     }
 
 
@@ -56,7 +56,8 @@ class ContextListResource(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('entity_types', type=str, action='append')
         args = parser.parse_args()
-        filters = {key: value for (key, value) in args.items() if value is not None}
+        filters = {key: value for (key, value) in args.items() if
+                   value is not None}
 
         entity_types = None
 
@@ -68,8 +69,8 @@ class ContextListResource(Resource):
                     int(entity_type)
                     etypes.append(entity_type)
                 except Errors.NotFoundError:
-                    abort(404, message=u'Unknown entity type for entity_types={}'.format(
-                        etype))
+                    abort(404, message=u'Unknown entity type for '
+                          'entity_types={}'.format(etype))
             entity_types = etypes or None
 
         es = EntitySpread(db.connection)
