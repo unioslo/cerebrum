@@ -48,6 +48,7 @@ class Group(object):
     resource_fields = {
         'href': fields.base.Url('.group', absolute=True),
         'id': fields.base.Integer,
+        'create_date': fields.DateTime(dt_format='iso8601'),
         'name': fields.base.String,
         'description': fields.base.String,
         'contexts': fields.base.List(fields.Constant(ctype='Spread')),
