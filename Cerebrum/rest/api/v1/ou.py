@@ -84,7 +84,8 @@ class OrganizationalUnitResource(Resource):
     @auth.require()
     @marshal_with(OrganizationalUnit.resource_fields)
     def get(self, id):
-        """Returns organizational unit information based on the OrganizationalUnit model.
+        """Returns organizational unit information based on the \
+            OrganizationalUnit model.
 
         :param int entity_id: The entity ID of the organizational unit
 
