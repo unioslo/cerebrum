@@ -54,9 +54,6 @@ import csv
 import getopt
 import sys
 
-import cerebrum_path
-import cereconf
-
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 
@@ -188,7 +185,7 @@ def generate_file(filename):
     ostream = AtomicFileWriter(filename)
     writer = csv.writer(ostream,
                         delimiter=';',
-                        quotechar='\\',
+                        quotechar='',
                         quoting=csv.QUOTE_NONE,
                         # Make sure that lines end with a Unix-style linefeed
                         lineterminator='\n')
