@@ -1444,7 +1444,7 @@ def output_xml(output_file,
 
     # Nuke the old copy
     output_stream = SimilarSizeWriter(output_file, "w")
-    output_stream.set_size_change_limit(15)
+    output_stream.max_pct_change = 15
     writer = xmlprinter.xmlprinter(output_stream,
                                    indent_level = 2,
                                    # Output is for humans too

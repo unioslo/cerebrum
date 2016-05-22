@@ -48,10 +48,10 @@ def generate_passwd(filename, shadow_file, spread=None):
     for s in posix_user.list_shells():
         shells[int(s['code'])] = s['shell']
     f = SimilarSizeWriter(filename, "w")
-    f.set_size_change_limit(10)
+    f.max_pct_change = 10
     if shadow_file:
         s = SimilarSizeWriter(shadow_file, "w")
-        s.set_size_change_limit(10)
+        s.max_pct_change = 10
     n = 0
     diskid2path = {}
     disk = Factory.get('Disk')(db)
@@ -232,7 +232,7 @@ class NISGroupUtil(object):
         logger.debug("generate_netgroup: %s" % filename)
 
         f = SimilarSizeWriter(filename, "w")
-        f.set_size_change_limit(5)
+        f.max_pct_change = 5
 
         for group_id in self._exported_groups.keys():
             group_name = self._exported_groups[group_id]
@@ -311,7 +311,7 @@ class FileGroup(NISGroupUtil):
     def generate_filegroup(self, filename):
         logger.debug("generate_group: %s" % filename)
         f = SimilarSizeWriter(filename, "w")
-        f.set_size_change_limit(5)
+        f.max_pct_change = 5
 
         groups = self._exported_groups.keys()
         groups.sort()

@@ -150,7 +150,7 @@ def write_edu_info(outfile):
     """
 
     f = SimilarSizeWriter(outfile, "w")
-    f.set_size_change_limit(15)
+    f.max_pct_change = 15
     f.write(xml.xml_hdr + "<data>\n")
 
     for triple in (("kull", None, fs.undervisning.list_studenter_alle_kull),
@@ -192,7 +192,7 @@ def write_person_info(outfile):
     logger.info("Writing person info to '%s'" % outfile)
     
     f = SimilarSizeWriter(outfile, "w")
-    f.set_size_change_limit(10)
+    f.max_pct_change = 10
     f.write(xml.xml_hdr + "<data>\n")
     # Fagpersoner
     cols, fagpersoner = _ext_cols(fs.undervisning.list_fagperson_semester())
@@ -272,7 +272,7 @@ def write_ou_info(outfile):
     logger.info("Writing OU info to '%s'" % outfile)
     
     f = SimilarSizeWriter(outfile, "w")
-    f.set_size_change_limit(10)
+    f.max_pct_change = 10
     f.write(xml.xml_hdr + "<data>\n")
     cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR))  # TODO
     for o in ouer:
@@ -321,7 +321,7 @@ def write_topic_info(outfile):
     # TODO: Denne filen blir endret med det nye opplegget :-(
     logger.info("Writing topic info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.set_size_change_limit(10)
+    f.max_pct_change = 10
     f.write(xml.xml_hdr + "<data>\n")
     cols, topics = _ext_cols(fs.student.list_eksamensmeldinger())
     for t in topics:
@@ -336,7 +336,7 @@ def write_regkort_info(outfile):
     inneværende semester"""
     logger.info("Writing regkort info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.set_size_change_limit(10)
+    f.max_pct_change = 10
     f.write(xml.xml_hdr + "<data>\n")
     cols, regkort = _ext_cols(fs.student.list_semreg())
     for r in regkort:
@@ -348,7 +348,7 @@ def write_netpubl_info(outfile):
     """Lager fil med informasjon om status nettpublisering"""
     logger.info("Writing nettpubl info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.set_size_change_limit(10)
+    f.max_pct_change = 10
     f.write(xml.xml_hdr + "<data>\n")
     cols, nettpubl = _ext_cols(fs.person.list_status_nettpubl())
     for n in nettpubl:
@@ -360,7 +360,7 @@ def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
     logger.info("Writing studprog info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.set_size_change_limit(10)
+    f.max_pct_change = 10
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.info.list_studieprogrammer())
     for t in dta:
@@ -372,7 +372,7 @@ def write_emne_info(outfile):
     """Lager fil med informasjon om alle definerte emner"""
     logger.info("Writing emne info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.set_size_change_limit(15)
+    f.max_pct_change = 15
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.info.list_emner())
     for t in dta:
@@ -384,7 +384,7 @@ def write_personrole_info(outfile):
     """Lager fil med informasjon om alle roller definer i FS.PERSONROLLE"""
     logger.info("Writing personrolle info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.set_size_change_limit(20)
+    f.max_pct_change = 20
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.undervisning.list_alle_personroller())
     for t in dta:
@@ -397,11 +397,11 @@ def write_misc_info(outfile, tag, func_name):
     logger.info("Writing misc info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
     if tag == 'aktivitet':
-        f.set_size_change_limit(20)
+        f.max_pct_change = 20
     elif tag == 'enhet':
-        f.set_size_change_limit(15)
+        f.max_pct_change = 15
     else:
-        f.set_size_change_limit(10)
+        f.max_pct_change = 10
     f.write(xml.xml_hdr + "<data>\n")
     # It's still not foolproof, but hopefully much more sane than simply
     # eval'ing.
@@ -460,7 +460,7 @@ def write_betalt_papir_info(outfile):
     
     logger.info("Writing betaltpapir info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.set_size_change_limit(10)
+    f.max_pct_change = 10
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.betaling.list_kopiavgift_data(kun_fritak=False, semreg=True))
     for t in dta:

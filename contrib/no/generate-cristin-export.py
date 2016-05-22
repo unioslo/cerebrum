@@ -796,7 +796,7 @@ def main(argv):
                     ' must have this spread.' %spread)
         sys.exit(1)
     sink = SimilarSizeWriter(output_file)
-    sink.set_size_change_limit(15)
+    sink.max_pct_change = 15
     output_xml(sink, tag, root_ou_obj, perspective, source_system, spread)
     sink.close()
 # end main

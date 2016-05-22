@@ -123,7 +123,7 @@ def main():
             filename = value
 
     f = SimilarSizeWriter(filename, "w")
-    f.set_size_change_limit(50)
+    f.max_pct_change = 50
     output_file(sort_list(generate_list()), f)
     f.close()
 # end main

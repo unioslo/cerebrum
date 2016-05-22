@@ -50,7 +50,7 @@ def _ext_cols(db_rows):
 
 def write_person_info(outfile):
     f = SimilarSizeWriter(outfile)
-    f.set_size_change_limit(20)
+    f.max_pct_change = 20
     f.write(xml.xml_hdr + "<data>\n")
 
     # Aktive fagpersoner ved NMH
@@ -76,7 +76,7 @@ def write_person_info(outfile):
 def write_netpubl_info(outfile):
     """Lager fil med informasjon om status nettpublisering"""
     f = SimilarSizeWriter(outfile, "w")
-    f.set_size_change_limit(15)
+    f.max_pct_change = 15
     f.write(xml.xml_hdr + "<data>\n")
     cols, nettpubl = _ext_cols(fs.person.list_status_nettpubl())
     for n in nettpubl:

@@ -269,7 +269,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
 
     xml = ExtXMLHelper()
     f = SimilarSizeWriter(fname, "w")
-    f.set_size_change_limit(50)
+    f.max_pct_change = 50
     f.write(xml.xml_hdr)
     f.write("<ephortedata>\n")
     # RH 2008-02-01: we don't export ous until ephorte is ready

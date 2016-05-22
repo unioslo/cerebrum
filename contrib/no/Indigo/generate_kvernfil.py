@@ -169,7 +169,7 @@ def main():
 
     # Dump OFK info 
     f = SimilarSizeWriter("%s/ofk.txt" % txt_path, "w")
-    f.set_size_change_limit(10)
+    f.max_pct_change = 10
     users = process_txt_file(f)
     f.close()
     

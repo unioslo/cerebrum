@@ -123,7 +123,7 @@ def write_to_file(ips_by_mac, file):
     logger.info("Writing to export-file: '%s'" % file)
 
     output_stream = SimilarSizeWriter(file, "w")
-    output_stream.set_size_change_limit(10)
+    output_stream.max_pct_change = 10
     
     for mac in all_macs:
         output_stream.write("%-18s %s\n" % (mac, ",".join(ips_by_mac[mac])))

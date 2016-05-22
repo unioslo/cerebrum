@@ -1258,7 +1258,7 @@ def list_noncallback_users(fname):
 
     logger.info("Dumping noncallback users to %s" % fname)
     f = SimilarSizeWriter(fname, 'w')
-    f.set_size_change_limit(10)
+    f.max_pct_change = 10
     on_student_disk = {}
     # TBD: This includes expired accounts, is that what we want?
     for row in account_obj.list_account_home(filter_expired=False):

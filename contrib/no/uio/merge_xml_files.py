@@ -103,7 +103,7 @@ def main():
             CollectParser(val, big_xml, delim, True)
         elif opt in ('-o', '--out'):
             f = SimilarSizeWriter(val, "w")
-            f.set_size_change_limit(10)
+            f.max_pct_change = 10
             xml = XMLHelper()
             f.write(xml.xml_hdr + "<data>\n")
             for bx_key in big_xml.keys():

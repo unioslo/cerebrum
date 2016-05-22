@@ -243,7 +243,7 @@ def ldif_outfile(tree, filename=None, default=None, explicit_default=False,
                 module=module)
         if max_change < 100:
             f = SimilarSizeWriter(filename, 'w')
-            f.set_size_change_limit(max_change)
+            f.max_pct_change = max_change
         else:
             f = AtomicFileWriter(filename, 'w')
         return f

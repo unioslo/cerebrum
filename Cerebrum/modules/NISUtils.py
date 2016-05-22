@@ -195,10 +195,10 @@ class Passwd(object):
     def write_passwd(self, filename, shadow_file, e_o_f=False):
         logger.debug("write_passwd: " + str((filename, shadow_file, self.spread)))
         f = SimilarSizeWriter(filename, "w")
-        f.set_size_change_limit(10)
+        f.max_pct_change = 10
         if shadow_file:
             s = SimilarSizeWriter(shadow_file, "w")
-            s.set_size_change_limit(10)
+            s.max_pct_change = 10
 
         user_lines = self.generate_passwd()
         for l in user_lines:
@@ -349,7 +349,7 @@ class NISGroupUtil(object):
         logger.debug("generate_netgroup: %s" % filename)
 
         f = SimilarSizeWriter(filename, "w")
-        f.set_size_change_limit(5)
+        f.max_pct_change = 5
 
         netgroups = self.generate_netgroup()
         for group_name, members in netgroups:
@@ -455,7 +455,7 @@ class FileGroup(NISGroupUtil):
         logger.debug("write_filegroup: %s" % filename)
 
         with closing(SimilarSizeWriter(filename, "w")) as f:
-            f.set_size_change_limit(5)
+            f.max_pct_change = 5
             for group_name, gid, users in self.generate_filegroup():
                 f.write(self._wrap_line(group_name, ",".join(users), ':*:%i:' % gid))
             if e_o_f:

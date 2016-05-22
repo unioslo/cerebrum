@@ -634,7 +634,7 @@ def main(argv=None):
     if options["export"]:
         if options["output"] != sys.stdout:
             output_stream = SimilarSizeWriter(options["output"], "w")
-            output_stream.set_size_change_limit(10)
+            output_stream.max_pct_change = 10
             
         export_data(output_stream)
         

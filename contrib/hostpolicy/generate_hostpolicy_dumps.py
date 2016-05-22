@@ -177,7 +177,7 @@ def main():
                               (opts.relationships, process_relationships)):
         if filename:
             stream = SimilarSizeWriter(filename)
-            stream.set_size_change_limit(90)
+            stream.max_pct_change = 90
             process(stream)
             streams.append(stream)
             action = True

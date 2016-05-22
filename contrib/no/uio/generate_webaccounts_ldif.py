@@ -82,7 +82,7 @@ def main():
     print "foo"
 
     f = SimilarSizeWriter(filename, 'w')
-    f.set_size_change_limit(90)
+    f.max_pct_change = 90
     dump_accounts(f, spread, base)
     f.close()
 

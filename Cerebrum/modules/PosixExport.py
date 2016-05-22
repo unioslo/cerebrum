@@ -243,7 +243,7 @@ Examples:
                     f.write_container()
             else:
                 f = SimilarSizeWriter(fname, "w")
-                f.set_size_change_limit(10)
+                f.max_pct_change = 10
             return f
 
     @staticmethod
