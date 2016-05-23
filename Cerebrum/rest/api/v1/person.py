@@ -17,6 +17,7 @@ def find_person(id):
         abort(404, message=u"No such person with entity_id={}".format(id))
     return pe
 
+
 @swagger.model
 @swagger.nested(
     ou='OU')
@@ -46,7 +47,8 @@ class PersonAffiliation(object):
 class PersonName(object):
     resource_fields = {
         'source_system': fields.Constant(ctype='AuthoritativeSystem'),
-        'variant': fields.Constant(ctype='PersonName', attribute='name_variant'),
+        'variant': fields.Constant(ctype='PersonName',
+                                   attribute='name_variant'),
         'name': fields.base.String,
     }
 
@@ -79,7 +81,9 @@ class Person(object):
         'href': fields.base.Url('.person', absolute=True),
         'id': fields.base.Integer(default=None),
         'birth_date': fields.DateTime(dt_format='iso8601'),
-        'names': fields.base.List(fields.base.Nested(PersonName.resource_fields)),
+        'names': fields.base.List(
+            fields.base.Nested(
+                PersonName.resource_fields)),
         'contexts': fields.base.List(fields.Constant(ctype='Spread')),
 
     }
@@ -138,7 +142,9 @@ class PersonResource(Resource):
 class PersonAffiliationList(object):
     """Data model for a single person"""
     resource_fields = {
-        'affiliations': fields.base.List(fields.base.Nested(PersonAffiliation.resource_fields))
+        'affiliations': fields.base.List(
+            fields.base.Nested(
+                PersonAffiliation.resource_fields))
     }
 
     swagger_metadata = {

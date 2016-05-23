@@ -8,7 +8,6 @@ from api.v1 import emailaddress
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import Email
 from Cerebrum.QuarantineHandler import QuarantineHandler
 
 co = Factory.get('Constants')(db.connection)
@@ -51,8 +50,9 @@ class AccountAffiliation(object):
     affiliations='AccountAffiliation')
 class AccountAffiliationList(object):
     resource_fields = {
-        'affiliations': fields.base.List(fields.base.Nested(
-            AccountAffiliation.resource_fields)),
+        'affiliations': fields.base.List(
+            fields.base.Nested(
+                AccountAffiliation.resource_fields)),
     }
 
     swagger_metadata = {
@@ -74,7 +74,6 @@ class Account(object):
         'owner': fields.base.Nested(models.EntityOwner.resource_fields),
         'create_date': fields.DateTime(dt_format='iso8601'),
         'expire_date': fields.DateTime(dt_format='iso8601'),
-        'creator_id': fields.base.Integer(default=None),
         'contexts': fields.base.List(fields.Constant(ctype='Spread')),
         'primary_email': fields.base.String,
         'active': fields.base.Boolean,
@@ -87,7 +86,6 @@ class Account(object):
         'owner': {'description': 'Entity owner'},
         'create_date': {'description': 'Date of account creation', },
         'expire_date': {'description': 'Expiration date', },
-        'creator_id': {'description': 'Account creator entity ID', },
         'contexts': {'description': 'Visible in these contexts', },
         'primary_email': {'description': 'Primary email address', },
         'active': {'description':
@@ -131,7 +129,6 @@ class AccountResource(Resource):
             },
             'create_date': ac.create_date,
             'expire_date': ac.expire_date,
-            'creator_id': ac.creator_id,
             'contexts': [row['spread'] for row in ac.get_spread()],
             'primary_email': ac.get_primary_mailaddress(),
             'active': not (ac.is_expired() or ac.is_deleted()),
@@ -365,7 +362,8 @@ class AccountListItem(object):
         'id': {'description': 'Account entity ID'},
         'owner': {'description': 'Account owner'},
         'expire_date': {'description': 'Expiration date'},
-        'np_type': {'description': 'Non-personal account type, null if personal'},
+        'np_type': {'description':
+                    'Non-personal account type, null if personal'},
     }
 
 
@@ -375,7 +373,9 @@ class AccountListItem(object):
 class AccountList(object):
     """Data model for a list of accounts"""
     resource_fields = {
-        'accounts': fields.base.List(fields.base.Nested(AccountListItem.resource_fields)),
+        'accounts': fields.base.List(
+            fields.base.Nested(
+                AccountListItem.resource_fields)),
     }
 
     swagger_metadata = {
@@ -392,7 +392,8 @@ class AccountListResource(Resource):
         parameters=[
             {
                 'name': 'name',
-                'description': 'Filter by account name. Accepts * and ? as wildcards.',
+                'description':
+                    'Filter by account name. Accepts * and ? as wildcards.',
                 'required': False,
                 'allowMultiple': False,
                 'dataType': 'str',
@@ -400,7 +401,8 @@ class AccountListResource(Resource):
             },
             {
                 'name': 'context',
-                'description': 'Filter by context. Accepts * and ? as wildcards.',
+                'description':
+                    'Filter by context. Accepts * and ? as wildcards.',
                 'required': False,
                 'allowMultiple': False,
                 'dataType': 'str',
@@ -450,8 +452,9 @@ class AccountListResource(Resource):
                 owner_type = co.EntityType(filters['owner_type'])
                 filters['owner_type'] = int(owner_type)
             except Errors.NotFoundError:
-                abort(404, message=u'Unknown entity type for owner_type={}'.format(
-                    filters['owner_type']))
+                abort(404,
+                      message=u'Unknown entity type for owner_type={}'.format(
+                          filters['owner_type']))
 
         ac = Factory.get('Account')(db.connection)
 

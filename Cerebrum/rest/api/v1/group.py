@@ -48,6 +48,7 @@ class Group(object):
     resource_fields = {
         'href': fields.base.Url('.group', absolute=True),
         'id': fields.base.Integer,
+        'create_date': fields.DateTime(dt_format='iso8601'),
         'name': fields.base.String,
         'description': fields.base.String,
         'contexts': fields.base.List(fields.Constant(ctype='Spread')),
@@ -101,7 +102,6 @@ class GroupResource(Resource):
             'id': gr.entity_id,
             'create_date': gr.create_date,
             'expire_date': gr.expire_date,
-            'creator_id': gr.creator_id,
             'contexts': [row['spread'] for row in gr.get_spread()],
             'moderators': utils.get_auth_owners(entity=gr,
                                                 target_type='group'),
