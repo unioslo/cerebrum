@@ -37,7 +37,7 @@ co = Factory.get('Constants')(db)
 
 def list_quotas(fname, hostname, diskname, spread):
     f = SimilarSizeWriter(fname, "w")
-    f.set_size_change_limit(10)
+    f.max_pct_change = 10
 
     disk = Factory.get("Disk")(db)
     if diskname:

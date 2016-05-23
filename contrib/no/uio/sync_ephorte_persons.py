@@ -227,8 +227,8 @@ def update_person_info(pe, client):
         # an unspecified rule violation for field length.
         # Should be removed once the WS itself returns the specific field
         # that caused the exception.
-        if e.message.find('Det er ikke tillatt med mer enn') != -1:
-            max_length = [num for num in e.message.split() if num.isdigit()][0]
+        if str(e).find('Det er ikke tillatt med mer enn') != -1:
+            max_length = [num for num in str(e).split() if num.isdigit()][0]
             e = ('Unknown field violating WS-rule of max '
                  '%s characters.' % max_length)
         logger.warn(u'Could not ensure existence of %s in ePhorte: %s',

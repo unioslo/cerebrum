@@ -244,7 +244,7 @@ def test_similar_size_pass(SimilarSizeWriter, text, text_file, more_text):
     print('Limit: {:d}%'.format(limit))
 
     af = SimilarSizeWriter(text_file)
-    af.set_size_change_limit(limit)
+    af.max_pct_change = limit
     af.write(more_text)
     af.close()
 
@@ -261,7 +261,7 @@ def test_similar_size_fail(
     print('Limit: {:d}%'.format(limit))
 
     af = SimilarSizeWriter(text_file)
-    af.set_size_change_limit(limit)
+    af.max_pct_change = limit
     af.write(more_text)
 
     with pytest.raises(file_module.FileChangeTooBigError):
@@ -273,7 +273,7 @@ def test_similar_size_fail(
 def test_similar_size_new(SimilarSizeWriter, text, new_file):
 
     af = SimilarSizeWriter(new_file)
-    af.set_size_change_limit(0)
+    af.max_pct_change = 0
     af.write(text)
     af.close()
 
