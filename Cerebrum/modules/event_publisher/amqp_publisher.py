@@ -23,9 +23,9 @@
 
 # Connect and publish messages with the client:
 >>> import amqp_client
->>> c = amqp_client.AMQP091Client({'hostname': '127.0.0.1',
-...                                'exchange': '/queue/test',
-...                                'port': 6161)
+>>> c = amqp_client.PublishingAMQP091Client({'hostname': '127.0.0.1',
+...                                          'exchange': '/queue/test',
+...                                          'port': 6161)
 >>> c.publish(['ost', 'fisk'])
 >>> c.publish('kolje')
 >>> c.commit()
@@ -35,10 +35,11 @@ import json
 
 import pika
 
-from Cerebrum.modules.event_publisher import ClientErrors
+from Cerebrum.modules.event.clients import ClientErrors
+from Cerebrum.modules.event.clients.amqp_client import BaseAMQP091Client
 
 
-class AMQP091Client(object):
+class PublishingAMQP091Client(BaseAMQP091Client):
     """
     """
 
@@ -51,41 +52,8 @@ class AMQP091Client(object):
                   'exchange-name': 'min_exchange',
                   'exchange-type': 'topic'}
         """
-        if not isinstance(config, dict):
-            raise TypeError('config must be a dict')
-        self.config = config
-        self.exchange = self.config.get('exchange-name')
-        # Define potential credentials
-        if self.config.get('username'):
-            from Cerebrum.Utils import read_password
-            cred = pika.credentials.PlainCredentials(
-                self.config.get('username'),
-                read_password(self.config.get('username'),
-                              self.config.get('hostname')))
-            ssl_opts = None
-        elif self.config.get('cert'):
-            cred = pika.credentials.ExternalCredentials()
-            ssl_opts = {'keyfile': self.config.get('cert').get('client-key'),
-                        'certfile': self.config.get('cert').get('client-cert')}
-        else:
-            raise ClientErrors.ConfigurationFormatError(
-                "Configuration contains neither 'username' or 'cert' value")
-        # Create connection-object
-        try:
-            err_msg = 'Ivalid connection parameters'
-            conn_params = pika.ConnectionParameters(
-                host=self.config.get('hostname'),
-                port=int(self.config.get('port')),
-                virtual_host=self.config.get('virtual-host'),
-                credentials=cred,
-                ssl=self.config.get('tls-on'),
-                ssl_options=ssl_opts)
-            err_msg = 'Unable to connect to broker'
-            self.connection = pika.BlockingConnection(conn_params)
-        except Exception as e:
-            raise ClientErrors.ConnectionError('{0}: {1}'.format(err_msg, e))
-        # Set up channel
-        self.channel = self.connection.channel()
+        super(PublishingAMQP091Client, self).__init__(config)
+
         # Declare exchange
         self.channel.exchange_declare(
             exchange=self.exchange,
