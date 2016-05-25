@@ -23,7 +23,7 @@
 __version__ = '1.0'
 
 
-def get_client():
+def get_consumer(callback_func=None):
     """Instantiate consuming client.
 
     Instantiated trough the defined config."""
@@ -32,8 +32,10 @@ def get_client():
     conf = get_config(__name__.split('.')[-1])
     (client_mod_name, client_class_name) = conf.get('client').split('/', 1)
     client = getattr(dyn_import(client_mod_name), client_class_name)
-    (callback_mod_name, callback_class_name) = conf.get('client').split('/', 1)
-    callback_func = getattr(
-        getattr(dyn_import(callback_mod_name), callback_class_name),
-        'consumer_callback')
+    if not callback_func:
+        (callback_mod_name,
+         callback_class_name) = conf.get('client').split('/', 1)
+        callback_func = getattr(
+            getattr(dyn_import(callback_mod_name), callback_class_name),
+            'consumer_callback')
     return client(conf, callback_func)
