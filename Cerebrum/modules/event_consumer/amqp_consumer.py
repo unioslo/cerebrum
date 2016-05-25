@@ -21,12 +21,19 @@
 """AMQP 0.9.1 consuming client."""
 
 import uuid
+import functools
 
 from Cerebrum.modules.event.clients.amqp_client import BaseAMQP091Client
 
 
-def consumer_callback(channel, method, header, body):
+def consumer_callback(route, content_type, body):
     """Absorbs messages silently."""
+    return True
+
+
+def _wrap_callback(callback_func, channel, method, header, body):
+    callback_func(method.routing_key, header.content_type, body)
+    # TODO: Always ack the message?
     channel.basic_ack(delivery_tag=method.delivery_tag)
 
 
@@ -44,7 +51,8 @@ class ConsumingAMQP091Client(BaseAMQP091Client):
         """
         super(ConsumingAMQP091Client, self).__init__(config)
 
-        self.channel.basic_consume(callback_func,
+        self.channel.basic_consume(functools.partial(_wrap_callback,
+                                                     callback_func),
                                    queue=config.get('queue'),
                                    no_ack=config.get('no_ack', False),
                                    consumer_tag=config.get('consumer_tag',
