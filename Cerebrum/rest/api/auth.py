@@ -3,8 +3,8 @@
 u"""Authentication framework for flask."""
 
 import sys
-from flask import request, Response
-
+from flask import request, Response, g
+import logging
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
@@ -16,13 +16,15 @@ class Authentication(object):
         self._modules = list()
         self._module = None  # TODO: Could we link the _module to the request?
         self.challenge = AuthModule.challenge
+        self.logger = None
 
     def init_app(self, app, db):
         self.app = app
         self.db = db
-
         for options in app.config.get('AUTH', []):
             self.add_module(**options)
+        if app.config.get('LOGGER_NAME'):
+            self.logger = logging.getLogger(app.config.get('LOGGER_NAME'))
 
     def add_module(self, name, *mod_args, **mod_kw):
         u"""Add an authentication module.
@@ -61,17 +63,17 @@ class Authentication(object):
             if challenge and hasattr(m, 'challenge'):
                 self.challenge = m.challenge
             if m.detect():
-                print u"Attempting auth with", m
                 if m.do_authenticate():
                     self._module = m
-                    print u"Successful auth with", m
+                    self.logger.debug(u"Successful auth with {0}".format(m))
+                    g.auth = m
                     break
                 else:
-                    print u"Failed auth with", m
+                    self.logger.debug(u"Failed auth with {0}".format(m))
                     return m.error(u"Not authenticated")
         if not self.has_auth:
-            print u"No auth found with", [x[0] for x in self._modules]
-            print u"Issuing challenge with", self._challenge
+            self.logger.debug(u"No auth found with", [x[0] for x in self._modules])
+            self.logger.debug(u"Issuing challenge with", self._challenge)
             return self.challenge
 
     def require(auth_obj, *auth_args, **auth_kw):
@@ -183,6 +185,7 @@ class BasicAuth(AuthModule):
         account = Factory.get('Account')(self.db.connection)
         try:
             account.find_by_name(username)
+            g.user_id = account.entity_id
             return account.verify_auth(password)
         except Errors.NotFoundError:
             return False
@@ -196,6 +199,7 @@ class BasicAuth(AuthModule):
         auth = request.authorization
         if self.check(auth.username, auth.password):
             self.user = auth.username
+            g.user = auth.username
         else:
             self.user = None
         return self.is_authenticated()
@@ -209,6 +213,16 @@ class BasicAuth(AuthModule):
     def error(self, msg=u"Log in"):
         u"""Respond with 401 Unauthorized in case of invalid credentials."""
         return self.challenge(msg)
+
+    def __unicode__(self):
+        return u'BasicAuth'
+
+    def __repr__(self):
+        return u'BasicAuth'
+
+    def __str__(self):
+        return u'BasicAuth'
+
 
 
 class CertAuth(AuthModule):
@@ -226,8 +240,17 @@ class CertAuth(AuthModule):
         fingerprint = request.headers.get('X-Ssl-Cert-Fingerprint')
         self.user = self.certs.get(fingerprint)
         if self.user:
-            print 'Authenticated user', self.user,'with certificate', fingerprint
+            g.user = self.user
         return self.is_authenticated()
+
+    def __unicode__(self):
+        return u'CertAuth'
+
+    def __repr__(self):
+        return u'CertAuth'
+
+    def __str__(self):
+        return u'CertAuth'
 
 
 class HeaderAuth(AuthModule):
@@ -248,4 +271,14 @@ class HeaderAuth(AuthModule):
             self.user = None
         else:
             self.user = v
+            g.user = self.user
         return self.is_authenticated()
+
+    def __unicode__(self):
+        return u'HeaderAuth'
+
+    def __repr__(self):
+        return u'HeaderAuth'
+
+    def __str__(self):
+        return u'HeaderAuth'
