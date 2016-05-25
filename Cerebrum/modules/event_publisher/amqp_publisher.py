@@ -54,6 +54,7 @@ class PublishingAMQP091Client(BaseAMQP091Client):
         """
         super(PublishingAMQP091Client, self).__init__(config)
 
+        self.exchange = self.config.get('exchange-name')
         # Declare exchange
         self.channel.exchange_declare(
             exchange=self.exchange,

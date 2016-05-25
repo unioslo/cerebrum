@@ -52,7 +52,6 @@ class BaseAMQP091Client(object):
         if not isinstance(config, dict):
             raise TypeError('config must be a dict')
         self.config = config
-        self.exchange = self.config.get('exchange-name')
         # Define potential credentials
         if self.config.get('username'):
             from Cerebrum.Utils import read_password
