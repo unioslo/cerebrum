@@ -1,3 +1,14 @@
+2016-05-25  Karen   <cerebrum@cleomedes.uit.no>
+
+    * populate_fronter_groups.py: merged in changes made to the uio version since we copied it.
+
+    * populate_fronter_groups.py (valid_roles): Changed valid_roles.FAGANSVAR to valid_roles.FAGANSVARL
+
+2016-05-12    <cerebrum@cleomedes.uit.no-cleomedes>
+
+    * import_sito.py (import_OU): removed call to populate_expire_date(). we are trying to get as close to
+    uio code as possible. We may have to revert this change later if expire date becomes a problem.
+
 2016-05-12    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* import_sito.py (import_OU): removed call to

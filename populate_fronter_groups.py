@@ -141,8 +141,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory, latin1_wash, NotSet
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
-from Cerebrum.modules.no.uit.access_FS import FS
-from Cerebrum.modules.no.access_FS import roles_xml_parser
+from Cerebrum.modules.no.access_FS import roles_xml_parser, make_fs
 from Cerebrum.modules.no.uit.fronter_lib \
      import UE2KursID, key2fields, str2key, fields2key
 from Cerebrum.modules.xmlutils.fsxml2object import EduGenericIterator
@@ -150,9 +149,12 @@ from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 
 
 
+# kbj005 2016-05-25: 
+#   These roles are missing in valid_roles: VEILEDER, ANSVLEDER, KURSANSV, KONTAKT, ASSISTENT
+
 # IVR 2007-11-08 FIXME: Should this be in fronter_lib?
 # Roles that are considered at all
-valid_roles = ("ADMIN", "DLO", "FAGANSVAR", "FORELESER", "GJESTEFORE",
+valid_roles = ("ADMIN", "DLO", "FAGANSVARL", "FORELESER", "GJESTEFORE",
                "GRUPPELÆRE", "HOVEDLÆRER", "IT-ANSVARL", "LÆRER", "SENSOR",
                "STUDIEKONS", "TOLK", "TILSYN",)
 # Roles that are inherited by entities located at a certain sko or at a
@@ -321,7 +323,7 @@ def prefetch_primaryusers():
             continue
         fnr = row['external_id']
         src_sys = int(row['source_system'])
-        if fnr_source.has_key(fnr) and fnr_source[fnr][0] <> p_id:
+        if fnr_source.has_key(fnr) and fnr_source[fnr][0] != p_id:
             # Multiple person_info rows have the same fnr (presumably
             # the different fnrs come from different source systems).
             logger.error("Multiple persons share fnr %s: (%d, %d)" % (
@@ -807,6 +809,7 @@ def get_evu(evu_file, edu_file):
     for evu in EduDataGetter(evu_file, logger).iter_evu():
         evu_id = fields2key("evu", evu['etterutdkurskode'],
                             evu['kurstidsangivelsekode'])
+
         # students' account ids (a dict, since sync_group expects a
         # db_row-like object)
         tmp = dict((account_id, 1) for account_id in
@@ -1184,6 +1187,7 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
       False means that fronter spreads should be removed.
       True meands that fronter spreads should be added.
     """
+
     logger.debug("sync_group(%s; %s; %s; %s; %s; %s); auto_spread=%s" %
                  (affil, gname, descr, mtype, memb.keys(), recurse,
                   auto_spread is NotSet and "NotSet" or auto_spread))
@@ -1291,7 +1295,12 @@ def destroy_group(gname, max_recurse=2, recurse=True):
     if recurse and max_recurse < 0:
         logger.fatal("destroy_group(%s): Recursion too deep" % gr.group_name)
         sys.exit(3)
-        
+
+    if gr.get_extensions():
+        logger.fatal("destroy_group(%s): Group is %r",
+                     gr.group_name, gr.get_extensions())
+        sys.exit(4)
+
     # If this group is a member of other groups, remove those
     # memberships.
     for r in gr.search(member_id=gr.entity_id, indirect_members=False):
@@ -1568,7 +1577,7 @@ def main():
             edu_file = val
         elif o in ('--dryrun',):
             dryrun = True
-    fs = Factory.get("FS")()
+    fs = make_fs()
 
     db = Factory.get('Database')()
     db.cl_init(change_program='CF_gen_groups')
