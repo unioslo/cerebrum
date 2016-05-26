@@ -49,7 +49,7 @@ def handle_user_create(data):
 
 
 def callback(routing_key, content_type, body):
-    """Call apropriate handler functions."""
+    """Call appropriate handler functions."""
     if content_type == 'application/json':
         import json
         body = json.loads(body)
