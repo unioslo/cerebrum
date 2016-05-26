@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2003-2008, 2013 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2003-2008, 2013, 2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -59,7 +59,7 @@ class AccountHiOfMixin(Account.Account):
         self.ad_trait_types = []
         for trait_str in cereconf.AD_TRAIT_TYPES:
             self.ad_trait_types.append(self.const.EntityTrait(trait_str))
-        
+
     def illegal_name(self, name):
         # Avoid circular import dependency
         from Cerebrum.modules.PosixUser import PosixUser
@@ -116,7 +116,7 @@ class AccountHiOfMixin(Account.Account):
             entity.find(self.owner_id)
         except Errors.NotFoundError:
             pass
-        
+
         if not old_server:
             # we should update servers for employees as well, but we
             # cannot do that for now as there are no clear criteria
@@ -138,10 +138,9 @@ class AccountHiOfMixin(Account.Account):
         # list.
         # if the only address found is in EMAIL_DEFAULT_DOMAIN
         # don't set default address. This is done in order to prevent
-        # adresses in default domain being sat as primary 
+        # adresses in default domain being sat as primary
         # TODO: account_types affiliated to OU's  without connected
         # email domain don't get a default address
-        primary_set = False
         ed = Email.EmailDomain(self._db)
         ed.find(self.get_primary_maildomain())
         domains = [ed.email_domain_name]
@@ -186,16 +185,7 @@ class AccountHiOfMixin(Account.Account):
                     # Address doesn't exist; create it.
                     ea.populate(lp, ed.entity_id, et.entity_id, expire=None)
                 ea.write_db()
-                if not primary_set:
-                    epat.clear()
-                    try:
-                        epat.find(ea.email_addr_target_id)
-                        epat.populate(ea.entity_id)
-                    except Errors.NotFoundError:
-                        epat.clear()
-                        epat.populate(ea.entity_id, parent = et)
-                    epat.write_db()
-                    primary_set = True
+                # HiØ do not want the primary adress to change automatically
 
     def _update_email_server(self, server_name):
         es = Email.EmailServer(self._db)
@@ -229,7 +219,7 @@ class AccountHiOfMixin(Account.Account):
             if a['status'] == self.const.affiliation_status_ansatt_vitenskapelig:
                 return True
         return False
-    
+
     def is_adm_employee(self):
         person = Factory.get("Person")(self._db)
         person.clear()
@@ -246,7 +236,7 @@ class AccountHiOfMixin(Account.Account):
         for a in person.get_affiliations():
             if a['affiliation'] == self.const.affiliation_student:
                 return True
-        return False            
+        return False
 
     def _calculate_homedir(self):
         """Calculate what a user should get as its HomeDirectory in AD,
@@ -357,7 +347,7 @@ class AccountHiOfMixin(Account.Account):
         Return all AD attrs for account
 
         @rtype: dict
-        @return: {spread : {attr_type:attr_val, ...}, ...} 
+        @return: {spread : {attr_type:attr_val, ...}, ...}
         """
         ret = {}
         # It's quicker to get all traits at once instead of picking
@@ -366,7 +356,7 @@ class AccountHiOfMixin(Account.Account):
         # We only want the relevant ad traits
         for trait_type, entity_trait in traits.iteritems():
             if trait_type in self.ad_trait_types:
-                attr_type = str(trait_type)    
+                attr_type = str(trait_type)
                 unpickle_val = cPickle.loads(str(entity_trait['strval']))
                 # unpickle_val is a spread -> attribute value mapping
                 for spread, attr_val in unpickle_val.items():
@@ -435,7 +425,7 @@ class AccountHiOfMixin(Account.Account):
             # If spread is None simply delete all ad_traits for this user
             if not spread:
                 self.delete_trait(trait_type)
-                continue            
+                continue
             # Spread is given, then we must modify the traits
             tmp = self.get_ad_attrs_by_type(trait_type)
             if tmp and int(spread) in tmp:
