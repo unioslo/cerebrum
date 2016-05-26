@@ -1,3 +1,7 @@
+2016-05-26  Karen   <cerebrum@cleomedes.uit.no>
+
+    * generate_fronter_full.py: Added to repository. Copied from /home/cerebrum/cerebrum/contrib/no/uio/.
+
 2016-05-26    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_sito.py (_handle_changes): we will no longer set account homedir
