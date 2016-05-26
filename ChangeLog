@@ -1,3 +1,9 @@
+2016-05-26    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_sito.py (_handle_changes): we will no longer set account homedir
+	sito does not use stedkoder. as such the OU class cannot use the OU_CLASS. instead we will
+	import the uit.OUMixin class directly
+
 2016-05-25  Karen   <cerebrum@cleomedes.uit.no>
 
     * populate_fronter_groups.py: merged in changes made to the uio version since we copied it.

@@ -42,10 +42,11 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum import Utils
-from Cerebrum.Utils import Factory, simple_memoize
+from Cerebrum.Utils import Factory
 from Cerebrum.Constants import Constants
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit import Email
+from Cerebrum.modules.no.uit import OU
 #from Cerebrum.modules.no.uit.EntityExpire import EntityExpire
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 from pprint import pprint
@@ -63,7 +64,8 @@ logger=Factory.get_logger("cronjob")
 sito_affs = {}
 person = Factory.get('Person')(db)
 group = Factory.get('Group')(db)
-ou = Factory.get('OU')(db)
+#ou = Factory.get('OU')(db)
+ou = OU.OUMixin(db)
 #exp = EntityExpire(db)
 
 
@@ -244,7 +246,6 @@ def is_ou_expired(ou_id):
         return True
     else:
         return False
-is_ou_expired = simple_memoize(is_ou_expired)
 
 
 def get_existing_accounts():
@@ -461,7 +462,7 @@ class Build:
         # need atleast one aff to give exchange spread
         #logger.debug("acc_affs=%s,in filter=%s, result=%s" % (Set(all_affs),tmp,Set(all_affs)-tmp))
         if Set(all_affs)-tmp:
-            default_spreads.append(int(co.Spread('exchange_mailbox')))
+            default_spreads.append(int(co.Spread('exchange_acc@uit')))
         return default_spreads
 
 
@@ -671,7 +672,7 @@ def _handle_changes(a_id,changes):
         if ccode=='spreads_add':
             for s in cdata:
                 ac.add_spread(s)
-                ac.set_home_dir(s)
+                #ac.set_home_dir(s)
         elif ccode=='quarantine_add':
             ac.add_entity_quarantine(cdata,get_creator_id())
         elif ccode=='quarantine_del':
@@ -724,7 +725,6 @@ def get_creator_id():
         co.account_namespace)
     id = entity_name.entity_id    
     return id
-get_creator_id=simple_memoize(get_creator_id)
 
 
 def _populate_account_affiliations(account_id, fnr):
