@@ -69,7 +69,7 @@ class BaseAMQP091Client(object):
                 "Configuration contains neither 'username' or 'cert' value")
         # Create connection-object
         try:
-            err_msg = 'Ivalid connection parameters'
+            err_msg = 'Invalid connection parameters'
             conn_params = pika.ConnectionParameters(
                 host=self.config.get('hostname'),
                 port=int(self.config.get('port')),
