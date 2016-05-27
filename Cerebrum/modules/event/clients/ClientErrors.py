@@ -45,3 +45,8 @@ class ConnectionError(Exception):
 class ProtocolError(Exception):
     """Error related to protocol used."""
     pass
+
+
+class ConsumerCanceledError(Exception):
+    """Consumer was canceled by broker."""
+    pass

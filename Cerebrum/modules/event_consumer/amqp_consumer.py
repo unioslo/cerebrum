@@ -36,6 +36,12 @@ def _wrap_callback(callback_func, channel, method, header, body):
     channel.basic_ack(delivery_tag=method.delivery_tag)
 
 
+def _cancel_callback(method_frame):
+    from Cerebrum.modules.event.clients.ClientErrors import (
+        ConsumerCanceledError)
+    raise ConsumerCanceledError()
+
+
 class ConsumingAMQP091Client(BaseAMQP091Client):
     """AMQP 0.9.1 consuming client."""
 
@@ -50,6 +56,7 @@ class ConsumingAMQP091Client(BaseAMQP091Client):
         """
         super(ConsumingAMQP091Client, self).__init__(config)
 
+        self.channel.add_on_cancel_callback(_cancel_callback)
         self.channel.basic_consume(functools.partial(_wrap_callback,
                                                      callback_func),
                                    queue=config.queue,
