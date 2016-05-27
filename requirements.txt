@@ -22,3 +22,7 @@ functools32
 nose
 pytest
 jinja2
+Flask
+flask-restful
+flask-restful-swagger
+gunicorn
