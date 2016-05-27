@@ -62,7 +62,8 @@ def callback(routing_key, content_type, body):
 
 def main():
     """Start consuming messages."""
-    get_consumer(callback)
+    import argparse
+    get_consumer(callback, argparse.ArgumentParser().prog.rsplit('.', 1)[0])
 
 if __name__ == "__main__":
     main()
