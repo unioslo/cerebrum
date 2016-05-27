@@ -49,6 +49,17 @@ class AMQPClientConsumerConfig(BaseAMQPClientConfig):
 
 
 def load_config(filepath=None, consumer_name=None):
+    u"""Load config.
+
+    Load config from filepath or the config associated with consumer_name.
+
+    Defaults to consumer_config.json
+
+    :type filepath: str
+    :param filepath: The filepath to load
+
+    :type consumer_name: str
+    :param consumer_name: Load <consumer_name>.json"""
     config_cls = AMQPClientConsumerConfig()
     if filepath:
         config_cls.load_dict(read_config(filepath))

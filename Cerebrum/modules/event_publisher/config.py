@@ -37,9 +37,10 @@ class AMQPClientPublisherConfig(BaseAMQPClientConfig):
                                      default=u"topic",
                                      doc=u"The exchange type")
 
-    exchange_durable = ConfigDescriptor(Boolean,
-                               default=True,
-                               doc=u"Whether the exchange is durable or not")
+    exchange_durable = ConfigDescriptor(
+        Boolean,
+        default=True,
+        doc=u"Whether the exchange is durable or not")
 
     exchange_name = ConfigDescriptor(String,
                                      default=u"api_events",
@@ -47,6 +48,9 @@ class AMQPClientPublisherConfig(BaseAMQPClientConfig):
 
 
 def load_config(filepath=None):
+    u"""Load the config in filepath.
+
+    defaults to event_publisher.json"""
     config_cls = AMQPClientPublisherConfig()
     if filepath:
         config_cls.load_dict(read_config(filepath))

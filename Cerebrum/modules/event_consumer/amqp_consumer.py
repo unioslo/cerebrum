@@ -44,6 +44,9 @@ class ConsumingAMQP091Client(BaseAMQP091Client):
 
         :type config: AMQPClientConsumerConfig
         :param config: The configuration for the AMQP client.
+
+        :type callback_func: function
+        :param callback_func: Routing key, content type and message body.
         """
         super(ConsumingAMQP091Client, self).__init__(config)
 

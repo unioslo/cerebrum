@@ -22,13 +22,13 @@
 """ Wrapper of the pika AMQP 0.9.1 client.
 
 # Connect and publish messages with the client:
->>> import amqp_client
->>> c = amqp_client.PublishingAMQP091Client({'hostname': '127.0.0.1',
-...                                          'exchange': '/queue/test',
-...                                          'port': 6161)
+>>> from Cerebrum.modules.event_publisher.config import load_config
+>>> from Cerebrum.modules.event_publisher.amqp_publisher import (
+...     PublishingAMQP091Client)
+>>> c = PublishingAMQP091Client(load_config())
 >>> c.publish(['ost', 'fisk'])
 >>> c.publish('kolje')
->>> c.commit()
+>>> c.close()
 """
 
 import json
@@ -40,8 +40,7 @@ from Cerebrum.modules.event.clients.amqp_client import BaseAMQP091Client
 
 
 class PublishingAMQP091Client(BaseAMQP091Client):
-    """
-    """
+    """AMQP 0.9.1 client wrapper usable for publishing messages."""
 
     def __init__(self, config):
         """Init the Pika AMQP 0.9.1 wrapper client.

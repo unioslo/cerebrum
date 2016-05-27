@@ -22,13 +22,11 @@
 """ Wrapper base of the pika AMQP 0.9.1 client.
 
 # Connect with the client:
->>> import amqp_client
->>> c = amqp_client.AMQP091Client({'hostname': '127.0.0.1',
-...                                'exchange': '/queue/test',
-...                                'port': 6161)
->>> c.publish(['ost', 'fisk'])
->>> c.publish('kolje')
->>> c.commit()
+>>> from Cerebrum.modules.event.clients.config import load_config
+>>> from Cerebrum.modules.event.clients.amqp_client import (
+...     BaseAMQP091Client)
+>>> c = BaseAMQP091Client(load_config())
+>>> c.close()
 """
 
 import pika
@@ -37,8 +35,7 @@ from Cerebrum.modules.event.clients import ClientErrors
 
 
 class BaseAMQP091Client(object):
-    """
-    """
+    """AMQP 0.9.1 client implementing open/close of connections."""
 
     def __init__(self, config):
         """Init the Pika AMQP 0.9.1 wrapper client.
