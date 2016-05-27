@@ -37,7 +37,7 @@ class AMQPClientPublisherConfig(BaseAMQPClientConfig):
                                      default=u"topic",
                                      doc=u"The exchange type")
 
-    durable = ConfigDescriptor(Boolean,
+    exchange_durable = ConfigDescriptor(Boolean,
                                default=True,
                                doc=u"Whether the exchange is durable or not")
 
@@ -51,6 +51,6 @@ def load_config(filepath=None):
     if filepath:
         config_cls.load_dict(read_config(filepath))
     else:
-        read(config_cls, 'publisher_config')
+        read(config_cls, 'event_publisher')
     config_cls.validate()
     return config_cls

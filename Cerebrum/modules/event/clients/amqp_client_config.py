@@ -39,7 +39,7 @@ class BaseAMQPClientConfig(Configuration):
                                 doc=u"Hostname of broker")
 
     port = ConfigDescriptor(Integer,
-                            default=u"5762",
+                            default=5762,
                             doc=u"Portnumber of broker")
 
     virtual_host = ConfigDescriptor(String,

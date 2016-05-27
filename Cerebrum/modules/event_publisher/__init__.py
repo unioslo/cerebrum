@@ -39,11 +39,11 @@ def get_client():
     """Instantiate publishing client.
 
     Instantiated trough the defined config."""
-    from Cerebrum.config import get_config
-    from Cerebrum.Utils import dyn_import
-    conf = get_config(__name__.split('.')[-1])
-    (mod_name, class_name) = conf.get('client').split('/', 1)
-    client = getattr(dyn_import(mod_name), class_name)
+    from Cerebrum.modules.event_publisher.config import load_config
+    from Cerebrum.modules.event_publisher.amqp_publisher import (
+        PublishingAMQP091Client as client)
+
+    conf = load_config()
     return client(conf)
 
 

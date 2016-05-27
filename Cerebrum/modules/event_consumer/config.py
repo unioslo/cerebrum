@@ -53,7 +53,7 @@ def load_config(filepath=None, consumer_name=None):
     if filepath:
         config_cls.load_dict(read_config(filepath))
     elif consumer_name:
-        config_cls.load_dict(read_config(consumer_name))
+        read(config_cls, consumer_name)
     else:
         read(config_cls, 'consumer_config')
     config_cls.validate()
