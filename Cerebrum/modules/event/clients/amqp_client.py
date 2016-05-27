@@ -70,3 +70,7 @@ class BaseAMQP091Client(object):
             raise ClientErrors.ConnectionError('{0}: {1}'.format(err_msg, e))
         # Set up channel
         self.channel = self.connection.channel()
+
+    def close(self):
+        """Close the connection."""
+        self.connection.close()
