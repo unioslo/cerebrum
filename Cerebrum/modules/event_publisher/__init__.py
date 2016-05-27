@@ -183,6 +183,8 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
             Factory.get_logger("cronjob") \
                 .error("Could not write message: %s", e)
             self.__save_queue()
+        finally:
+            client.close()
 
     def __save_queue(self):
         """Save queue to event queue"""

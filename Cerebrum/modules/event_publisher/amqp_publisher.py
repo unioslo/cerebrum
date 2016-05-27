@@ -113,10 +113,6 @@ class PublishingAMQP091Client(BaseAMQP091Client):
                 raise ClientErrors.MessagePublishingError(
                     'Unable to publish message: {0}'.format(e))
 
-    def __del__(self):
-        if hasattr(self, 'connection'):
-            self.connection.close()
-
     def close(self):
         """Close the connection."""
         self.connection.close()
