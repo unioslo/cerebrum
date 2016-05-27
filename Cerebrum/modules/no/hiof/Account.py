@@ -129,7 +129,7 @@ class AccountHiOfMixin(Account.Account):
             #    self._update_email_server('mail.adm.hiof.no')
             if entity.entity_type != self.const.entity_group:
                 if self.is_student():
-                    self._update_email_server('mail.stud.hiof.no')
+                    self._update_email_server('epost.hiof.no')
                 else:
                     # do not set email_server_target until account_type is registered
                     return
