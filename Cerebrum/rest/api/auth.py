@@ -19,6 +19,7 @@ class Authentication(object):
 
     def init_app(self, app, db):
         self.app = app
+        self.logger = self.app.logger
         self.db = db
 
         for options in app.config.get('AUTH', []):
@@ -57,21 +58,25 @@ class Authentication(object):
         self._module = None
         for module, mod_args, mod_kw in self._modules:
             challenge = mod_kw.pop('challenge', False)
-            m = module(app=self.app, db=self.db, *mod_args, **mod_kw)
+            m = module(app=self.app, db=self.db, logger=self.logger,
+                       *mod_args, **mod_kw)
             if challenge and hasattr(m, 'challenge'):
                 self.challenge = m.challenge
             if m.detect():
-                print u"Attempting auth with", m
+                self.logger.debug(u"Attempting auth with {}".format(m))
                 if m.do_authenticate():
                     self._module = m
-                    print u"Successful auth with", m
+                    self.logger.debug(u"Successful auth with {}".format(m))
                     break
                 else:
-                    print u"Failed auth with", m
+                    self.logger.debug(u"Failed auth with {}".format(m))
                     return m.error(u"Not authenticated")
         if not self.has_auth:
-            print u"No auth found with", [x[0] for x in self._modules]
-            print u"Issuing challenge with", self._challenge
+            self.logger.debug(
+                u"No auth found with {!r}".format(
+                    [x[0] for x in self._modules]))
+            self.logger.debug(u"Issuing challenge with {}".format(
+                self._challenge))
             return self.challenge
 
     def require(auth_obj, *auth_args, **auth_kw):
@@ -138,10 +143,11 @@ class Authentication(object):
 class AuthModule(object):
     u"""Abstract auth module."""
 
-    def __init__(self, app=None, db=None, *args, **kwargs):
+    def __init__(self, app=None, db=None, logger=None, *args, **kwargs):
         u"""Initialize module."""
         self.app = app
         self.db = db
+        self.logger = logger
         self.user = None
 
     def detect(self):
@@ -174,9 +180,10 @@ class AuthModule(object):
 class BasicAuth(AuthModule):
     u"""HTTP-Basic-Auth"""
 
-    def __init__(self, realm, app=None, db=None):
-        super(BasicAuth, self).__init__(app=app, db=db)
+    def __init__(self, realm, whitelist=None, app=None, db=None, logger=None):
+        super(BasicAuth, self).__init__(app=app, db=db, logger=logger)
         self.realm = realm
+        self.whitelist = whitelist
 
     def check(self, username, password):
         u"""Verify username and password."""
@@ -194,9 +201,19 @@ class BasicAuth(AuthModule):
     def do_authenticate(self):
         """Perform auth."""
         auth = request.authorization
+        if self.whitelist is not None:
+            if auth.username not in self.whitelist:
+                self.user = None
+                self.logger.debug(
+                    "BasicAuth: {} not in whitelist".format(auth.username))
+                return self.is_authenticated()
         if self.check(auth.username, auth.password):
+            self.logger.info("BasicAuth: Valid credentials for {!r}".format(
+                auth.username))
             self.user = auth.username
         else:
+            self.logger.info("BasicAuth: Invalid credentials for {!r}".format(
+                auth.username))
             self.user = None
         return self.is_authenticated()
 
@@ -206,7 +223,7 @@ class BasicAuth(AuthModule):
             msg, 401,
             {'WWW-Authenticate': 'Basic realm="{}"'.format(self.realm)})
 
-    def error(self, msg=u"Log in"):
+    def error(self, msg=u"Invalid credentials"):
         u"""Respond with 401 Unauthorized in case of invalid credentials."""
         return self.challenge(msg)
 
@@ -214,8 +231,8 @@ class BasicAuth(AuthModule):
 class CertAuth(AuthModule):
     u"""Client certificate authentication"""
 
-    def __init__(self, certs, app=None, db=None):
-        super(CertAuth, self).__init__(app=app, db=db)
+    def __init__(self, certs, app=None, db=None, logger=None):
+        super(CertAuth, self).__init__(app=app, db=db, logger=logger)
         self.certs = certs
 
     def detect(self):
@@ -226,15 +243,17 @@ class CertAuth(AuthModule):
         fingerprint = request.headers.get('X-Ssl-Cert-Fingerprint')
         self.user = self.certs.get(fingerprint)
         if self.user:
-            print 'Authenticated user', self.user,'with certificate', fingerprint
+            self.logger.info(
+                "CertAuth: Authenticated user {} with certificate {}".format(
+                    self.user, fingerprint))
         return self.is_authenticated()
 
 
 class HeaderAuth(AuthModule):
     u"""Pass authentication if header contains a constant."""
 
-    def __init__(self, header, values, app=None, db=None):
-        super(HeaderAuth, self).__init__(app=app, db=db)
+    def __init__(self, header, values, app=None, db=None, logger=None):
+        super(HeaderAuth, self).__init__(app=app, db=db, logger=logger)
         self.header = header
         self.values = values
 
