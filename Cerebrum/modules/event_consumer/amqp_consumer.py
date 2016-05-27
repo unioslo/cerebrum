@@ -20,7 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """AMQP 0.9.1 consuming client."""
 
-import uuid
 import functools
 
 from Cerebrum.modules.event.clients.amqp_client import BaseAMQP091Client
@@ -43,18 +42,14 @@ class ConsumingAMQP091Client(BaseAMQP091Client):
     def __init__(self, config, callback_func=consumer_callback):
         """Init the consuming Pika AMQP 0.9.1 wrapper client.
 
-        :type config: dict
+        :type config: AMQPClientConsumerConfig
         :param config: The configuration for the AMQP client.
-            I.e. {'hostname': '127.0.0.1',
-                  'exchange-name': 'min_exchange',
-                  'exchange-type': 'topic'}
         """
         super(ConsumingAMQP091Client, self).__init__(config)
 
         self.channel.basic_consume(functools.partial(_wrap_callback,
                                                      callback_func),
-                                   queue=config.get('queue'),
-                                   no_ack=config.get('no_ack', False),
-                                   consumer_tag=config.get('consumer_tag',
-                                                           uuid.uuid4()))
+                                   queue=config.queue,
+                                   no_ack=config.no_ack,
+                                   consumer_tag=config.consumer_tag)
         self.channel.start_consuming()

@@ -46,20 +46,17 @@ class PublishingAMQP091Client(BaseAMQP091Client):
     def __init__(self, config):
         """Init the Pika AMQP 0.9.1 wrapper client.
 
-        :type config: dict
+        :type config: AMQPClientPublisherConfig
         :param config: The configuration for the AMQP client.
-            I.e. {'hostname': '127.0.0.1',
-                  'exchange-name': 'min_exchange',
-                  'exchange-type': 'topic'}
         """
         super(PublishingAMQP091Client, self).__init__(config)
 
-        self.exchange = self.config.get('exchange-name')
+        self.exchange = config.exchange_name
         # Declare exchange
         self.channel.exchange_declare(
             exchange=self.exchange,
-            exchange_type=self.config.get('exchange-type'),
-            durable=self.config.get('exchange-durable'))
+            exchange_type=config.exchange_type,
+            durable=config.exchange_durable)
         # Ensure that messages are recieved by the broker
         self.channel.confirm_delivery()
 
@@ -72,8 +69,6 @@ class PublishingAMQP091Client(BaseAMQP091Client):
         :type durable: bool
         :param durable: If this message should be durable.
         """
-        # TODO: Implement support for publishing outside transaction? For this
-        # to work, we must create a new channel.
         if isinstance(messages, dict):
             messages = [messages]
         elif not isinstance(messages, list):

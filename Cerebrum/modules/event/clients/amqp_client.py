@@ -21,7 +21,7 @@
 
 """ Wrapper base of the pika AMQP 0.9.1 client.
 
-# Connect and publish messages with the client:
+# Connect with the client:
 >>> import amqp_client
 >>> c = amqp_client.AMQP091Client({'hostname': '127.0.0.1',
 ...                                'exchange': '/queue/test',
@@ -43,27 +43,17 @@ class BaseAMQP091Client(object):
     def __init__(self, config):
         """Init the Pika AMQP 0.9.1 wrapper client.
 
-        :type config: dict
+        :type config: BaseAMQPClientConfig
         :param config: The configuration for the AMQP client.
-            I.e. {'hostname': '127.0.0.1',
-                  'exchange-name': 'min_exchange',
-                  'exchange-type': 'topic'}
         """
-        if not isinstance(config, dict):
-            raise TypeError('config must be a dict')
-        self.config = config
         # Define potential credentials
-        if self.config.get('username'):
+        if config.username:
             from Cerebrum.Utils import read_password
             cred = pika.credentials.PlainCredentials(
-                self.config.get('username'),
-                read_password(self.config.get('username'),
-                              self.config.get('hostname')))
+                config.username,
+                read_password(config.username,
+                              config.hostname))
             ssl_opts = None
-        elif self.config.get('cert'):
-            cred = pika.credentials.ExternalCredentials()
-            ssl_opts = {'keyfile': self.config.get('cert').get('client-key'),
-                        'certfile': self.config.get('cert').get('client-cert')}
         else:
             raise ClientErrors.ConfigurationFormatError(
                 "Configuration contains neither 'username' or 'cert' value")
@@ -71,11 +61,11 @@ class BaseAMQP091Client(object):
         try:
             err_msg = 'Invalid connection parameters'
             conn_params = pika.ConnectionParameters(
-                host=self.config.get('hostname'),
-                port=int(self.config.get('port')),
-                virtual_host=self.config.get('virtual-host'),
+                host=config.hostname,
+                port=config.port,
+                virtual_host=config.virtual_host,
                 credentials=cred,
-                ssl=self.config.get('tls-on'),
+                ssl=config.tls_on,
                 ssl_options=ssl_opts)
             err_msg = 'Unable to connect to broker'
             self.connection = pika.BlockingConnection(conn_params)
