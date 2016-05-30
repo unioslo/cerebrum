@@ -409,7 +409,7 @@ class AccountHiAMixin(Account.Account):
         server_name = 'mail-imap2'
         if spread in (int(self.const.spread_exchange_account),
                       int(self.const.spread_uia_office_365)):
-            server_name = 'excas-grm01.uia.no'
+            server_name = 'outlook.uia.no'
         if spread == int(self.const.spread_exchange_acc_old):
             server_name = 'exchkrs01.uia.no'
         es.find_by_name(server_name)
