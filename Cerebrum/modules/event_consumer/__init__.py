@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,16 +18,21 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Event-related exceptions"""
+""" Get a client that can be used to consume messages."""
 
-class EventExecutionException(BaseException):
-    """Normally raised when an event fails processing"""
-    pass
+__version__ = '1.0'
 
-class EntityTypeError(BaseException):
-    """Typically called when an objects owner type is wrong."""
-    pass
 
-class UnrelatedEvent(BaseException):
-    """Raised for events that should not be processed."""
-    pass
+def get_consumer(callback_func=None, consumer_name=None):
+    """Instantiate consuming client.
+
+    Instantiated trough the defined config."""
+    from Cerebrum.modules.event_consumer.config import load_config
+    from Cerebrum.modules.event_consumer.amqp_consumer import (
+        ConsumingAMQP091Client as client)
+
+    conf = load_config(consumer_name=consumer_name)
+
+    if not callback_func:
+        callback_func = client.consumer_callback
+    return client(conf, callback_func)

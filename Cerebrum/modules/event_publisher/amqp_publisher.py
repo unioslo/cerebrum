@@ -22,75 +22,40 @@
 """ Wrapper of the pika AMQP 0.9.1 client.
 
 # Connect and publish messages with the client:
->>> import amqp_client
->>> c = amqp_client.AMQP091Client({'hostname': '127.0.0.1',
-...                                'exchange': '/queue/test',
-...                                'port': 6161)
+>>> from Cerebrum.modules.event_publisher.config import load_config
+>>> from Cerebrum.modules.event_publisher.amqp_publisher import (
+...     PublishingAMQP091Client)
+>>> c = PublishingAMQP091Client(load_config())
 >>> c.publish(['ost', 'fisk'])
 >>> c.publish('kolje')
->>> c.commit()
+>>> c.close()
 """
 
 import json
 
 import pika
 
-from Cerebrum.modules.event_publisher import ClientErrors
+from Cerebrum.modules.event.clients import ClientErrors
+from Cerebrum.modules.event.clients.amqp_client import BaseAMQP091Client
 
 
-class AMQP091Client(object):
-    """
-    """
+class PublishingAMQP091Client(BaseAMQP091Client):
+    """AMQP 0.9.1 client wrapper usable for publishing messages."""
 
     def __init__(self, config):
         """Init the Pika AMQP 0.9.1 wrapper client.
 
-        :type config: dict
+        :type config: AMQPClientPublisherConfig
         :param config: The configuration for the AMQP client.
-            I.e. {'hostname': '127.0.0.1',
-                  'exchange-name': 'min_exchange',
-                  'exchange-type': 'topic'}
         """
-        if not isinstance(config, dict):
-            raise TypeError('config must be a dict')
-        self.config = config
-        self.exchange = self.config.get('exchange-name')
-        # Define potential credentials
-        if self.config.get('username'):
-            from Cerebrum.Utils import read_password
-            cred = pika.credentials.PlainCredentials(
-                self.config.get('username'),
-                read_password(self.config.get('username'),
-                              self.config.get('hostname')))
-            ssl_opts = None
-        elif self.config.get('cert'):
-            cred = pika.credentials.ExternalCredentials()
-            ssl_opts = {'keyfile': self.config.get('cert').get('client-key'),
-                        'certfile': self.config.get('cert').get('client-cert')}
-        else:
-            raise ClientErrors.ConfigurationFormatError(
-                "Configuration contains neither 'username' or 'cert' value")
-        # Create connection-object
-        try:
-            err_msg = 'Ivalid connection parameters'
-            conn_params = pika.ConnectionParameters(
-                host=self.config.get('hostname'),
-                port=int(self.config.get('port')),
-                virtual_host=self.config.get('virtual-host'),
-                credentials=cred,
-                ssl=self.config.get('tls-on'),
-                ssl_options=ssl_opts)
-            err_msg = 'Unable to connect to broker'
-            self.connection = pika.BlockingConnection(conn_params)
-        except Exception as e:
-            raise ClientErrors.ConnectionError('{0}: {1}'.format(err_msg, e))
-        # Set up channel
-        self.channel = self.connection.channel()
+        super(PublishingAMQP091Client, self).__init__(config)
+
+        self.exchange = config.exchange_name
         # Declare exchange
         self.channel.exchange_declare(
             exchange=self.exchange,
-            exchange_type=self.config.get('exchange-type'),
-            durable=self.config.get('exchange-durable'))
+            exchange_type=config.exchange_type,
+            durable=config.exchange_durable)
         # Ensure that messages are recieved by the broker
         self.channel.confirm_delivery()
 
@@ -103,8 +68,6 @@ class AMQP091Client(object):
         :type durable: bool
         :param durable: If this message should be durable.
         """
-        # TODO: Implement support for publishing outside transaction? For this
-        # to work, we must create a new channel.
         if isinstance(messages, dict):
             messages = [messages]
         elif not isinstance(messages, list):
@@ -148,11 +111,3 @@ class AMQP091Client(object):
             except Exception as e:
                 raise ClientErrors.MessagePublishingError(
                     'Unable to publish message: {0}'.format(e))
-
-    def __del__(self):
-        if hasattr(self, 'connection'):
-            self.connection.close()
-
-    def close(self):
-        """Close the connection."""
-        self.connection.close()

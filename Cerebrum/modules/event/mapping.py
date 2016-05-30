@@ -21,17 +21,16 @@
 u""" Module for setting up mappings between events and actions. """
 
 from collections import defaultdict
-from Cerebrum.modules.event.EventExceptions import EventHandlerNotImplemented
 
 
-class EventMap(object):
+class CallbackMap(object):
 
     u""" An event decorator that maps events to callbacks.
 
     Example use:
 
     >>> class Foo(object):
-    >>>     emap = EventMap()
+    >>>     emap = CallbackMap()
     >>>     @emap('foo', 'bar')
     >>>     def foo_or_bar(*args):
     >>>         print 'foo_or_bar called with args', repr(args)
@@ -73,13 +72,9 @@ class EventMap(object):
 
         :return list:
             A list of callables.
-
-        :raises EventHandlerNotImplemented:
-            If the `event_key` doesn't exist in the lookup table.
         """
         if event_key not in self._callback_lut:
-            raise EventHandlerNotImplemented(
-                u'No event handler for {!r}'.format(event_key))
+            return []
         return self._callback_lut[event_key]
 
     def __call__(self, *events):
