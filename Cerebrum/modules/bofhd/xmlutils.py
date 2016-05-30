@@ -1,6 +1,7 @@
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2002-2008 University of Oslo, Norway
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,16 +19,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import decimal
 import xmlrpclib
 from mx import DateTime
 
-# Some db backends like psycopg2 return decimal.Decimal, so we must
-# handle that. On the other hand decimal was included in Python from
-# version 2.4 and we support python 2.3 which makes this a bit hackish
-try:
-    import decimal
-except ImportError:
-    decimal = False
 
 class AttributeDict(dict):
     """Adds attribute access to keys, ie. a['knott'] == a.knott"""
@@ -35,9 +30,11 @@ class AttributeDict(dict):
         try:
             return self[name]
         except KeyError:
-            raise AttributeError, name
+            raise AttributeError(name)
+
     def __setattr__(self, name, value):
-        self[name] = value        
+        self[name] = value
+
 
 def native_to_xmlrpc(obj, no_unicodify=0):
     """Translate Python objects to XML-RPC-usable structures."""
@@ -54,8 +51,9 @@ def native_to_xmlrpc(obj, no_unicodify=0):
         return obj_type([native_to_xmlrpc(x) for x in obj])
     elif isinstance(obj, dict):
         obj_type = type(obj)
-        return obj_type([(native_to_xmlrpc(x, no_unicodify=1), native_to_xmlrpc(obj[x]))
-                         for x in obj])
+        return obj_type(
+            [(native_to_xmlrpc(x, no_unicodify=1), native_to_xmlrpc(obj[x]))
+             for x in obj])
     elif isinstance(obj, (int, long, float)):
         return obj
     elif decimal and isinstance(obj, decimal.Decimal):
@@ -68,8 +66,9 @@ def native_to_xmlrpc(obj, no_unicodify=0):
         # python2.3 don't want floats here
         return xmlrpclib.DateTime(tuple([int(i) for i in obj.tuple()]))
     else:
-        raise ValueError, "Unrecognized parameter type: '%r' %r" % (obj, 
-                        getattr(obj, '__class__', type(obj)))
+        raise ValueError("Unrecognized parameter type: '{!r}' {!r}".format(
+            obj, getattr(obj, '__class__', type(obj))))
+
 
 def xmlrpc_to_native(obj):
     """Translate XML-RPC-usable structures back to Python objects"""
@@ -94,7 +93,8 @@ def xmlrpc_to_native(obj):
         return obj
     elif isinstance(obj, xmlrpclib.DateTime):
         return DateTime.ISO.ParseDateTime(obj.value)
+    elif isinstance(obj, xmlrpclib.Binary):
+        return xmlrpc_to_native(obj.data)
     else:
-        # unknown type, no need to recurse (probably DateTime =) ) 
+        # unknown type, no need to recurse
         return obj
-
