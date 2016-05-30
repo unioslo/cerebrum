@@ -62,4 +62,9 @@ class ConsumingAMQP091Client(BaseAMQP091Client):
                                    queue=config.queue,
                                    no_ack=config.no_ack,
                                    consumer_tag=config.consumer_tag)
+
+    def start(self):
         self.channel.start_consuming()
+
+    def stop(self):
+        self.channel.stop_consuming()
