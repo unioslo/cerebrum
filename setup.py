@@ -511,7 +511,6 @@ setup(
         'Cerebrum/modules/no/nih',
         'Cerebrum/modules/no/hine',
         'Cerebrum/modules/no/notur',
-        # 'Cerebrum/modules/no/nvh',
         'Cerebrum/modules/posix',
         'Cerebrum/modules/pwcheck',
         'Cerebrum/modules/printutils',
@@ -520,8 +519,6 @@ setup(
         'Cerebrum/modules/xmlutils',
         'Cerebrum/modules/abcenterprise',
         'Cerebrum/modules/process_entity',
-        # 'Cerebrum/modules/no/uit',
-        # 'Cerebrum/modules/no/uit/AutoStud',
         'Cerebrum/lib',
         'Cerebrum/client',
         'Cerebrum/modules/LMS',
@@ -530,6 +527,7 @@ setup(
         'Cerebrum/modules/virtualgroup',
         'Cerebrum/config',
         'Cerebrum/utils',
+        'Cerebrum/rest',
     ],
     # options override --prefix
     # options = {'install_data': {'root' : '/foo/bar',  # prefix on slash
