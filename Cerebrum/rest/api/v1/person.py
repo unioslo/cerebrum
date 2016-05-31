@@ -1,5 +1,5 @@
 from flask import url_for
-from flask.ext.restful import Resource, abort, marshal_with
+from flask_restful import Resource, abort, marshal_with
 from flask_restful_swagger import swagger
 
 from Cerebrum.Utils import Factory

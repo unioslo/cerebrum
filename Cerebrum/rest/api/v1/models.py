@@ -1,4 +1,4 @@
-from flask.ext.restful_swagger import swagger
+from flask_restful_swagger import swagger
 from Cerebrum.rest.api import fields
 
 

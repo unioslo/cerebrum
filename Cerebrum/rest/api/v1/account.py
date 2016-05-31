@@ -1,5 +1,5 @@
-from flask.ext.restful import Resource, abort, marshal_with, reqparse
-from flask.ext.restful_swagger import swagger
+from flask_restful import Resource, abort, marshal_with, reqparse
+from flask_restful_swagger import swagger
 
 from Cerebrum.rest.api import db, auth, fields, utils
 from Cerebrum.rest.api.v1 import group

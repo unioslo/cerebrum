@@ -1,4 +1,4 @@
-from flask.ext.restful import fields as base
+from flask_restful import fields as base
 from werkzeug.routing import BuildError
 
 from Cerebrum.rest.api import db
