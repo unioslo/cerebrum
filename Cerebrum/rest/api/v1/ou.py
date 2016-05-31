@@ -1,11 +1,11 @@
 from flask.ext.restful import Resource, abort, marshal_with
-from api import db, auth, fields
 from flask_restful_swagger import swagger
+
+from Cerebrum.rest.api import db, auth, fields
+from Cerebrum.rest.api.v1 import models
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-
-from api.v1 import models
 
 
 def find_ou(ou_id):

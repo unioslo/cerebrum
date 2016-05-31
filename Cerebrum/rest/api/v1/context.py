@@ -1,6 +1,6 @@
 from flask.ext.restful import Resource, abort, marshal_with, reqparse
 from flask.ext.restful_swagger import swagger
-from api import db, auth, fields
+from Cerebrum.rest.api import db, auth, fields
 
 from Cerebrum import Errors
 from Cerebrum.Entity import EntitySpread

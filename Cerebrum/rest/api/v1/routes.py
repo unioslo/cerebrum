@@ -1,27 +1,30 @@
 from . import api
-from authtest import AuthTest
-from account import (AccountListResource,
-                     AccountResource,
-                     PosixAccountResource,
-                     AccountGroupListResource,
-                     AccountEmailAddressResource,
-                     AccountAffiliationListResource,
-                     AccountQuarantineListResource,
-                     AccountContactInfoListResource,
-                     AccountHomeListResource)
-from group import (GroupListResource,
-                   GroupResource,
-                   PosixGroupResource,
-                   GroupMemberListResource)
-from person import (PersonResource,
-                    PersonAffiliationListResource,
-                    PersonContactInfoListResource,
-                    PersonExternalIdListResource,
-                    PersonAccountListResource)
-from emailaddress import EmailAddressesResource
-from ou import OrganizationalUnitResource
+from Cerebrum.rest.api.v1.account import (
+    AccountListResource,
+    AccountResource,
+    PosixAccountResource,
+    AccountGroupListResource,
+    AccountEmailAddressResource,
+    AccountAffiliationListResource,
+    AccountQuarantineListResource,
+    AccountContactInfoListResource,
+    AccountHomeListResource)
+from Cerebrum.rest.api.v1.group import (
+    GroupListResource,
+    GroupResource,
+    PosixGroupResource,
+    GroupMemberListResource)
+from Cerebrum.rest.api.v1.person import (
+    PersonResource,
+    PersonAffiliationListResource,
+    PersonContactInfoListResource,
+    PersonExternalIdListResource,
+    PersonAccountListResource)
+from Cerebrum.rest.api.v1.emailaddress import EmailAddressesResource
+from Cerebrum.rest.api.v1.ou import OrganizationalUnitResource
 
-api.add_resource(AuthTest, '/auth-test')
+# from authtest import AuthTest
+# api.add_resource(AuthTest, '/auth-test')
 
 api.add_resource(
     AccountListResource,
