@@ -1,4 +1,4 @@
-from api import create_app
+from Cerebrum.rest.api import create_app
 import restconfig
 
 app = create_app(restconfig)
