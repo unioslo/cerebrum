@@ -175,6 +175,9 @@ class AuthModule(object):
         u"""An appropriate acces denied/auth error response."""
         return Response(msg, 403)
 
+    def __str__(self):
+        return "<{} as {!r}>".format(type(self).__name__, self.user)
+
 
 class BasicAuth(AuthModule):
     u"""HTTP-Basic-Auth"""
@@ -250,15 +253,6 @@ class CertAuth(AuthModule):
             g.user = self.user
         return self.is_authenticated()
 
-    def __unicode__(self):
-        return u'CertAuth'
-
-    def __repr__(self):
-        return u'CertAuth'
-
-    def __str__(self):
-        return u'CertAuth'
-
 
 class HeaderAuth(AuthModule):
     u"""Pass authentication if header contains a constant."""
@@ -280,12 +274,3 @@ class HeaderAuth(AuthModule):
             self.user = v
             g.user = self.user
         return self.is_authenticated()
-
-    def __unicode__(self):
-        return u'HeaderAuth'
-
-    def __repr__(self):
-        return u'HeaderAuth'
-
-    def __str__(self):
-        return u'HeaderAuth'

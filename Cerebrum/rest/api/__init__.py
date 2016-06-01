@@ -29,20 +29,19 @@ def create_app(config):
 
     @app.before_request
     def before_request():
-        g.start = time.time()
+        g.request_start = time.time()
 
     @app.after_request
     def log_request_data(response):
-        req_time = time.time() - g.start
+        req_time = time.time() - g.request_start
         req_time_millis = int(round(req_time * 1000))
 
-        app.logger.info('"{method} {path} - {code}" - {user} - {auth} - '
-                         '{ip} - {ua} - {req_time}ms.'.format(
+        app.logger.info('"{method} {path}" - {code} - {req_time}ms - {auth} - '
+                        '{ip} - "{ua}"'.format(
                             method=request.method,
-                            path=request.path,
+                            path=request.full_path,
                             code=response.status_code,
-                            user=g.get('user'),
-                            auth=g.get('auth'),
+                            auth=str(auth._module),
                             ip=request.remote_addr,
                             ua=request.user_agent,
                             req_time=req_time_millis))
