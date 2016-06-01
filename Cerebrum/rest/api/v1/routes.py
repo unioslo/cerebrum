@@ -56,10 +56,10 @@ api.add_resource(
     '/accounts/<string:id>/quarantines',
     endpoint='accountquarantines')
 
-api.add_resource(
-    AccountContactInfoListResource,
-    '/accounts/<string:id>/contacts',
-    endpoint='accountcontacts')
+# api.add_resource(
+#     AccountContactInfoListResource,
+#     '/accounts/<string:id>/contacts',
+#     endpoint='accountcontacts')
 
 api.add_resource(
     AccountHomeListResource,
@@ -101,15 +101,15 @@ api.add_resource(
     '/persons/<int:id>/affiliations',
     endpoint='personaffiliations')
 
-api.add_resource(
-    PersonContactInfoListResource,
-    '/persons/<int:id>/contacts',
-    endpoint='personcontacts')
+# api.add_resource(
+#     PersonContactInfoListResource,
+#     '/persons/<int:id>/contacts',
+#     endpoint='personcontacts')
 
-api.add_resource(
-    PersonExternalIdListResource,
-    '/persons/<int:id>/external-ids',
-    endpoint='personexternalids')
+# api.add_resource(
+#     PersonExternalIdListResource,
+#     '/persons/<int:id>/external-ids',
+#     endpoint='personexternalids')
 
 api.add_resource(
     PersonAccountListResource,
