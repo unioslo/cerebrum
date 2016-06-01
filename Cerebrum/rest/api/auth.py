@@ -3,7 +3,7 @@
 u"""Authentication framework for flask."""
 
 import sys
-from flask import request, Response, g, current_app
+from flask import request, Response
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -192,7 +192,6 @@ class BasicAuth(AuthModule):
         account = Factory.get('Account')(self.db.connection)
         try:
             account.find_by_name(username)
-            g.user_id = account.entity_id
             return account.verify_auth(password)
         except Errors.NotFoundError:
             return False
@@ -214,7 +213,6 @@ class BasicAuth(AuthModule):
             self.logger.info("BasicAuth: Valid credentials for {!r}".format(
                 auth.username))
             self.user = auth.username
-            g.user = auth.username
         else:
             self.logger.info("BasicAuth: Invalid credentials for {!r}".format(
                 auth.username))
@@ -250,7 +248,6 @@ class CertAuth(AuthModule):
             self.logger.info(
                 "CertAuth: Authenticated user {} with certificate {}".format(
                     self.user, fingerprint))
-            g.user = self.user
         return self.is_authenticated()
 
 
@@ -272,5 +269,4 @@ class HeaderAuth(AuthModule):
             self.user = None
         else:
             self.user = v
-            g.user = self.user
         return self.is_authenticated()
