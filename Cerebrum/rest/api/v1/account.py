@@ -6,6 +6,7 @@ from Cerebrum.rest.api.v1 import group
 from Cerebrum.rest.api.v1 import models
 from Cerebrum.rest.api.v1 import emailaddress
 
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.QuarantineHandler import QuarantineHandler
@@ -119,7 +120,6 @@ class AccountResource(Resource):
         :return: Information about the account
         """
         ac = find_account(id)
-
         return {
             'name': ac.account_name,
             'id': ac.entity_id,
