@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import cereconf
-from logging.handlers import RotatingFileHandler
 
 DEBUG = True
 
@@ -10,7 +9,6 @@ PORT = 5000
 HOST = 'localhost'
 
 APPNAME = u"cerebrum-rest"
-
 
 AUTH = [
     {
@@ -31,15 +29,12 @@ AUTH = [
     #},
 ]
 
-
-LOGGER_NAME = 'api'
-
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': True,
     'formatters': {
         'fmt': {
-            'format': '%(asctime)s - [%(levelname)s] - %(message)s',
+            'format': '%(asctime)s - %(name)s - [%(levelname)s] - %(message)s',
             'datefmt': '%Y-%m-%d %H:%M:%S'
         },
     },
@@ -52,9 +47,8 @@ LOGGING = {
             'encoding': 'UTF-8'
         },
     },
-
     'loggers': {
-        'api': {
+        '': {
             'handlers': ['file'],
             'level': 'DEBUG',
             'propagate': False,

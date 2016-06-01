@@ -3,8 +3,7 @@
 u"""Authentication framework for flask."""
 
 import sys
-from flask import request, Response, g
-import logging
+from flask import request, Response, g, current_app
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
@@ -16,15 +15,12 @@ class Authentication(object):
         self._modules = list()
         self._module = None  # TODO: Could we link the _module to the request?
         self.challenge = AuthModule.challenge
-        self.logger = None
 
     def init_app(self, app, db):
         self.app = app
         self.db = db
         for options in app.config.get('AUTH', []):
             self.add_module(**options)
-        if app.config.get('LOGGER_NAME'):
-            self.logger = logging.getLogger(app.config.get('LOGGER_NAME'))
 
     def add_module(self, name, *mod_args, **mod_kw):
         u"""Add an authentication module.
@@ -65,15 +61,15 @@ class Authentication(object):
             if m.detect():
                 if m.do_authenticate():
                     self._module = m
-                    self.logger.debug(u"Successful auth with {0}".format(m))
+                    self.app.logger.info(u"Successful auth with {0}".format(m))
                     g.auth = m
                     break
                 else:
-                    self.logger.debug(u"Failed auth with {0}".format(m))
+                    self.app.logger.info(u"Failed auth with {0}".format(m))
                     return m.error(u"Not authenticated")
         if not self.has_auth:
-            self.logger.debug(u"No auth found with", [x[0] for x in self._modules])
-            self.logger.debug(u"Issuing challenge with", self._challenge)
+            self.app.logger.info(u"No auth found with", [x[0] for x in self._modules])
+            self.app.logger.info(u"Issuing challenge with", self._challenge)
             return self.challenge
 
     def require(auth_obj, *auth_args, **auth_kw):
@@ -222,7 +218,6 @@ class BasicAuth(AuthModule):
 
     def __str__(self):
         return u'BasicAuth'
-
 
 
 class CertAuth(AuthModule):
