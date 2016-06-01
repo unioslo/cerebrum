@@ -11,23 +11,25 @@ HOST = 'localhost'
 APPNAME = u"cerebrum-rest"
 
 AUTH = [
-    #{
-    #    'name': 'CertAuth',
-    #    'certs': {
-    #        '1a56e3bfd0a0974110894a73fa2ad31897dbf76d': 'bootstrap_account',
-    #    }
-    #},
+    # {
+    #     'name': 'CertAuth',
+    #     'certs': {
+    #         '1a56e3bfd0a0974110894a73fa2ad31897dbf76d': 'bootstrap_account',
+    #     }
+    # },
     {
         'name': 'BasicAuth',
         'realm': cereconf.INSTITUTION_DOMAIN_NAME,
         'challenge': True,
         'whitelist': [],
     },
-    #{
-    #    'name': 'HeaderAuth',
-    #    'header': 'Foo',
-    #    'values': ['Bar', 'Baz', ],
-    #},
+    # {
+    #     'name': 'HeaderAuth',
+    #     'header': 'Foo',
+    #     'keys': {
+    #         'supertopsecretverylongkey': 'bootstrap_account',
+    #     },
+    # },
 ]
 
 LOGGING = {

@@ -254,19 +254,20 @@ class CertAuth(AuthModule):
 class HeaderAuth(AuthModule):
     u"""Pass authentication if header contains a constant."""
 
-    def __init__(self, header, values, app=None, db=None):
+    def __init__(self, header, keys, app=None, db=None):
         super(HeaderAuth, self).__init__(app=app, db=db)
         self.header = header
-        self.values = values
+        self.keys = keys
 
     def detect(self):
+        u"""Detect if header is present."""
         return bool(request.headers.get(self.header))
 
     def do_authenticate(self):
-        # TODO: What is the best way to convey info to the Auth modules?
+        u"""Verify key and map to user."""
         v = request.headers.get(self.header)
-        if not v or v not in self.values:
+        if not v or v not in self.keys.keys():
             self.user = None
         else:
-            self.user = v
+            self.user = self.keys.get(v)
         return self.is_authenticated()
