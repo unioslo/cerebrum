@@ -24,6 +24,11 @@ class EventExecutionException(BaseException):
     """Normally raised when an event fails processing"""
     pass
 
+class EventHandlerNotImplemented(BaseException):
+    """Normally raised when an event can't be handled due to no handler beeing
+    implemented (registred)"""
+    pass
+
 class EntityTypeError(BaseException):
     """Typically called when an objects owner type is wrong."""
     pass

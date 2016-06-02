@@ -6,14 +6,14 @@ import pytest
 
 @pytest.fixture
 def event_map():
-    u""" The CallbackMap module to test. """
+    u""" The EventMap module to test. """
     module = pytest.importorskip('Cerebrum.modules.event.mapping')
-    return getattr(module, 'CallbackMap')
+    return getattr(module, 'EventMap')
 
 
 @pytest.fixture
 def test_cls(event_map):
-    u""" CallbackMap used as an event handler class attribute. """
+    u""" EventMap used as an event handler class attribute. """
     class Test(object):
 
         eventmap = event_map()

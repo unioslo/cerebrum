@@ -19,6 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 u""" Processes to handle events from the Cerebrum.modules.EventLog module. """
+import pickle
 import time
 import select
 import traceback
@@ -28,6 +29,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 from .EventExceptions import EventExecutionException
+from .EventExceptions import EventHandlerNotImplemented
 
 from .processes import ProcessLoggingMixin
 from .processes import ProcessLoopMixin
@@ -164,6 +166,11 @@ class EventConsumer(
                               ev['event_id'], str(e))
             self.__release_event(ev['event_id'])
 
+        except EventHandlerNotImplemented as e:
+            self.logger.debug3('Unable to handle event_id {:d}: {!s}',
+                               ev['event_id'], str(e))
+            self.__remove_event(ev['event_id'])
+
         except Exception as e:
             # What happened here? We have an unhandled error,
             # which is bad. Log it!
@@ -202,6 +209,9 @@ class EventConsumer(
         if not key:
             return
         self.logger.debug3(u'Got event key {!r}', str(key))
+
+        raise EventHandlerNotImplemented(
+            u'Abstract event handler called')
 
 
 class _DBEventProducer(

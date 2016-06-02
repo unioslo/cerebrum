@@ -53,7 +53,7 @@ def logutils():
 
 @pytest.fixture
 def queue_logger(logutils, queue):
-    u""" The QueueLogger module to test. """
+    u""" The EventMap module to test. """
     return logutils.QueueLogger('test', queue)
 
 
