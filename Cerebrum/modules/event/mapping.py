@@ -100,3 +100,32 @@ class EventMap(object):
     @property
     def events(self):
         return self._callback_lut.keys()
+
+
+class CallbackMap(EventMap):
+    u""" An event decorator that maps events to callbacks.
+
+    Example use:
+
+    >>> class Foo(object):
+    >>>     cmap = CallbackMap()
+    >>>     @emap('foo', 'bar')
+    >>>     def foo_or_bar(*args):
+    >>>         print 'foo_or_bar called with args', repr(args)
+    >>>     def handle(self, event_name):
+    >>>         for cb in self.cmap.get_callbacks(event_name)
+    >>>             cb(self, 1, 2, 3)
+    >>> Foo().handle('foo')
+    """
+    def get_callbacks(self, event_key):
+        u""" Get callbacks added for a given event.
+
+        :param str event_key:
+            The event name to fetch callbacks for.
+
+        :return list:
+            A list of callables.
+        """
+        if event_key not in self._callback_lut:
+            return []
+        return self._callback_lut[event_key]
