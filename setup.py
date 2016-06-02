@@ -528,6 +528,8 @@ setup(
         'Cerebrum/config',
         'Cerebrum/utils',
         'Cerebrum/rest',
+        'Cerebrum/rest/api',
+        'Cerebrum/rest/api/v1',
     ],
     # options override --prefix
     # options = {'install_data': {'root' : '/foo/bar',  # prefix on slash
