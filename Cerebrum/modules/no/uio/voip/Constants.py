@@ -149,6 +149,11 @@ class VoipConstants(Constants.Constants):
         "voip_service_trådløs",
         "trådløs",
     )
+
+    voip_service_calling = VoipServiceTypeCode(
+        "voip_service_calling",
+        "calling",
+    )
     
     ########################################################################
     # voip-client
