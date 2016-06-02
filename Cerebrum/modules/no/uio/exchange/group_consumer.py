@@ -32,13 +32,14 @@ from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
                                                   AlreadyPerformedException)
 from Cerebrum.modules.event.EventExceptions import (EntityTypeError,
                                                     EventExecutionException,
+                                                    EventHandlerNotImplemented,
                                                     UnrelatedEvent)
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
 
 
-from Cerebrum.modules.event.mapping import CallbackMap
+from Cerebrum.modules.event.mapping import EventMap
 from Cerebrum.modules.event import evhandlers
 
 from . import group_flattener
@@ -52,7 +53,7 @@ class ExchangeGroupEventHandler(evhandlers.EventConsumer):
     associated with, trough the event_map decorator.
     """
 
-    event_map = CallbackMap()
+    event_map = EventMap()
 
     def __init__(self, config, mock=False, **kwargs):
         """ExchangeGroupEventHandler initialization routine.
@@ -198,8 +199,11 @@ class ExchangeGroupEventHandler(evhandlers.EventConsumer):
     def handle(self, item):
         """Check if events are appropriate for this handler before handling."""
         key = str(self.get_event_code(item.event))
-        self.event_map.get_callbacks(key)
-        super(ExchangeGroupEventHandler, self).handle(item)
+        try:
+            self.event_map.get_callbacks(key)
+            super(ExchangeGroupEventHandler, self).handle(item)
+        except EventHandlerNotImplemented:
+            return
 
     def handle_event(self, event):
         u""" Call the appropriate handlers.

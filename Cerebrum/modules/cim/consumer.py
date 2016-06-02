@@ -24,7 +24,7 @@ import pickle
 from Cerebrum.modules.event.EventExceptions import EntityTypeError
 from Cerebrum.modules.event.EventExceptions import UnrelatedEvent
 from Cerebrum.modules.event.EventExceptions import EventExecutionException
-from Cerebrum.modules.event.mapping import CallbackMap
+from Cerebrum.modules.event.mapping import EventMap
 from Cerebrum.modules.event import evhandlers
 from Cerebrum.utils.funcwrap import memoize
 
@@ -38,7 +38,7 @@ from Cerebrum.Utils import Factory
 class Listener(evhandlers.EventConsumer):
     u""" Event listener and handler for CIM. """
 
-    event_map = CallbackMap()
+    event_map = EventMap()
 
     def __init__(self, cim_config, cim_mock=False, **kwargs):
         self._config = cim_config
