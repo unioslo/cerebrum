@@ -28,7 +28,7 @@ Cerebrum built by the complementary script populate_fronter_groups.py.
 p_f_g.py creates the proper groups in Cerebrum (based on the information from
 FS) and assigns proper fronter spreads to them. This script loads the groups
 from Cerebrum and additional info from FS and creates an XML file that can be
-used to populate all of UiO's fronter instances.
+used to populate all of UiT's fronter instances.
 
 Group names are used to merge information from Cerebrum and FS. All of the
 fronter groups have a unique name structure (cf. p_f_g.py). Unique FS 'keys'
@@ -49,16 +49,16 @@ getattr(cerebrum_path, 'This will shut the linters up', None)
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uio.fronter_lib \
+from Cerebrum.modules.no.uit.fronter_lib \
      import XMLWriter, UE2KursID, key2fields, fields2key, host_config
-from Cerebrum.modules.no.uio.fronter_lib import semester_number
+from Cerebrum.modules.no.uit.fronter_lib import semester_number
 from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 
 
-root_sko = '900199'
+root_sko = '000000'
 root_ou_id = 'will be set later'
-root_struct_id = 'UiO root node'
-group_struct_id = "UREG2000@uio.no imported groups"
+root_struct_id = 'UiT root node'
+group_struct_id = "UREG2000@uio.no imported groups"     #kbj005: probably need to change this...
 group_struct_title = 'Automatisk importerte grupper'
 
 
@@ -233,11 +233,11 @@ class Fronter(object):
 
         A few examples for the 5 categories:
 
-        - undenh:  uio.no:fs:kurs:185:mas4530:1:høst:2007:1:student
-        - undakt:  uio.no:fs:kurs:185:mas4530:1:høst:2007:1:dlo:1-1
-        - kurs:    uio.no:fs:evu:14-kun2502k:2007-høst:enhetsansvar
-        - kursakt: uio.no:fs:evu:14-tolkaut:2005-vår:aktivitetsansvar:1-1
-        - kull:    uio.no:fs:kull:realmas:høst:2007:student
+        - undenh:  uit.no:fs:kurs:185:mas4530:1:høst:2007:1:student
+        - undakt:  uit.no:fs:kurs:185:mas4530:1:høst:2007:1:dlo:1-1
+        - kurs:    uit.no:fs:evu:14-kun2502k:2007-høst:enhetsansvar
+        - kursakt: uit.no:fs:evu:14-tolkaut:2005-vår:aktivitetsansvar:1-1
+        - kull:    uit.no:fs:kull:realmas:høst:2007:student
 
         To produce a key (that can later be used to filter FS-data), we strip
         the prefix, and student/enhetsansvar/dlo/etc. (there are about 12
@@ -267,7 +267,7 @@ class Fronter(object):
         # remove common prefix
         if fields[start] == "internal":
             start += 1
-        if fields[start] == "uio.no":
+        if fields[start] == "uit.no":
             start += 1
         if fields[start] == "fs":
             start += 1
@@ -286,9 +286,9 @@ class Fronter(object):
             elif count == 5:               # kursakt
                 key = fields[start:-2] + [fields[-1],]
         elif fields[start] == "kull":
-            if count == 4:                 # internal:uio.no:fs:kull:...
+            if count == 4:                 # internal:uit.no:fs:kull:...
                 key = fields[start:]
-            if count == 5:                 # uio.no:fs:kull:...:{dlo,student,etc}
+            if count == 5:                 # uit.no:fs:kull:...:{dlo,student,etc}
                 key = fields[start:-1]
         else:
             self.logger.warn("Ukjent kurstype: <%s> (group name: <%s>) "
@@ -594,7 +594,7 @@ class Fronter(object):
 
     def profile(self, name=None):
         if name is None:
-            return 'UiOstdrom2003'
+            return 'UiOstdrom2003'      #TODO kbj005: what should this be?
         return name
 # end class Fronter
 
@@ -795,7 +795,7 @@ def process_undakt_permissions(template, korridor, fellesrom,
       A template for nameing the fronter groups (for different roles). A
       typical template would look like this:
 
-          uio.no:fs:kurs:185:noas4103:1:høst:2007:1:%s:1-1
+          uit.no:fs:kurs:185:noas4103:1:høst:2007:1:%s:1-1
 
       The role itself (admin, sensor, etc.) will be interpolated.
     @type template: basestring
@@ -809,7 +809,7 @@ def process_undakt_permissions(template, korridor, fellesrom,
     @param studentnode:
       Student group id for students registered for this undakt/kursakt. E.g.:
 
-          uio.no:fs:kurs:185:nor4308:1:høst:2007:1:student:1-1
+          uit.no:fs:kurs:185:nor4308:1:høst:2007:1:student:1-1
     @type studentnode: basestring
       
     @param undakt_node:
@@ -868,7 +868,7 @@ def process_undenh_permissions(template, korridor, fellesrom,
     @param template:
       A template for generating group names for various roles. E.g.:
 
-          uio.no:fs:kurs:185:rus2122s:1:høst:2007:1:%s
+          uit.no:fs:kurs:185:rus2122s:1:høst:2007:1:%s
 
       ... where the role itself (admin, sensor, etc.) is interpolated.
     @type template: basestring
@@ -888,7 +888,7 @@ def process_undenh_permissions(template, korridor, fellesrom,
     @param studentnode:
       Student group id for the given undenh/EVU-kurs. E.g.:
 
-          uio.no:fs:kurs:185:lit4000:1:høst:2007:1:student
+          uit.no:fs:kurs:185:lit4000:1:høst:2007:1:student
     """
 
     permissions = kind2permissions['undenh']
@@ -947,7 +947,7 @@ def process_kull_permissions(template, korridor, kullrom, studentnode):
     @param studentnode:
       Student group id for the given 'kull'. E.g.:
 
-          uio.no:fs:kull:foo:bar:2007:student
+          uit.no:fs:kull:foo:bar:2007:student
     @param student
     """
 
@@ -1267,6 +1267,7 @@ def init_globals():
 
 
 def list_users_for_fronter_export():  # TODO: rewrite this
+# TODO kbj005: check this! Why is email generated here instead of getting it from database?
     ret = []
     posix_user = Factory.get('PosixUser')(db)
     email_addrs = posix_user.getdict_uname2mailaddr()
@@ -1275,7 +1276,7 @@ def list_users_for_fronter_export():  # TODO: rewrite this
     for row in posix_user.list_extended_posix_users(const.auth_type_md5_crypt):
         tmp = {'email': email_addrs.get(row['entity_name'],
                                         '@'.join((row['entity_name'],
-                                                  'ulrik.uio.no'))),
+                                                  'uit.no'))),
                'uname': row['entity_name']}
         tmp['fullname'] = row['name']
         ret.append(tmp)
@@ -1588,11 +1589,11 @@ def process_single_enhet_id(enhet_id, struct_id, emnekode,
                         ": ValueError: '%s' '%s' '%s' from <%s>" %
                         (emnekode, aktkode, aktnavn, akt))
 
-        aktstud = "uio.no:fs:%s:student:%s" % (enhet_id.lower(),
+        aktstud = "uit.no:fs:%s:student:%s" % (enhet_id.lower(),
                                                aktkode.lower())
         akt_rom_id = "ROOM/Aktivitet:%s:%s" % (enhet_id.upper(),
                                                aktkode.upper())
-        template_id = "uio.no:fs:%s:%s:%s" % (enhet_id.lower(), "%s",
+        template_id = "uit.no:fs:%s:%s:%s" % (enhet_id.lower(), "%s",
                                               aktkode.lower())
         fellesrom_id = "ROOM/Felles:%s" % struct_id
         process_undakt_permissions(template_id, undervisning_node,
@@ -1731,8 +1732,8 @@ def process_kurs2enhet():
                 if multi_termin:
                     pass # term-suffix now added above for all courses
 
-                enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
-                template_id = "uio.no:fs:%s:%s" % (enhet_id.lower(), "%s")
+                enhstud = "uit.no:fs:%s:student" % enhet_id.lower()
+                template_id = "uit.no:fs:%s:%s" % (enhet_id.lower(), "%s")
                 process_undenh_permissions(template_id, korr_node,
                                            fellesrom_id, enhstud)
                 process_single_enhet_id(enhet_id, struct_id,
@@ -1749,10 +1750,10 @@ def process_kurs2enhet():
                 tittel = "%s - %s, %s" % (kurskode.upper(),
                                           fronter.kurs2navn[kurs_id],
                                           tidskode.upper())
-                enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
+                enhstud = "uit.no:fs:%s:student" % enhet_id.lower()
 
                 # EVU-kurs and undenh are alike when it comes to permissions
-                template_id = "uio.no:fs:%s:%s" % (enhet_id.lower(), "%s")
+                template_id = "uit.no:fs:%s:%s" % (enhet_id.lower(), "%s")
                 fellesrom_id = "ROOM/Felles:%s" % struct_id
 
                 # We register a corridor for them rooms
@@ -1802,9 +1803,9 @@ def process_kurs2enhet():
                               kull_node, stprog_node,
                               make_profile(enhet_id))
 
-                kullstud = "uio.no:fs:%s:student" % enhet_id.lower()
+                kullstud = "uit.no:fs:%s:student" % enhet_id.lower()
 
-                template_id = "uio.no:fs:%s:%s" % (enhet_id.lower(), "%s")
+                template_id = "uit.no:fs:%s:%s" % (enhet_id.lower(), "%s")
                 process_kull_permissions(template_id, stprog_node,
                                          kull_node, kullstud)
                 process_single_enhet_id(enhet_id, struct_id, stprog,
