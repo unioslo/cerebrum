@@ -1,12 +1,12 @@
 from flask import url_for
-from flask.ext.restful import Resource, abort, marshal_with
-from api import db, auth, fields, utils
+from flask_restful import Resource, abort, marshal_with
 from flask_restful_swagger import swagger
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
-from api.v1 import models
+from Cerebrum.rest.api import db, auth, fields, utils
+from Cerebrum.rest.api.v1 import models
 
 
 def find_person(id):

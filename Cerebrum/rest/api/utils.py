@@ -1,4 +1,4 @@
-from api import db
+from Cerebrum.rest.api import db
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory

@@ -1,7 +1,6 @@
-from api import create_app
-import restconfig
+from Cerebrum.rest.api import create_app
 
-app = create_app(restconfig)
+app = create_app('restconfig')
 
 if __name__ == '__main__':
     app.run(host=app.config['HOST'],

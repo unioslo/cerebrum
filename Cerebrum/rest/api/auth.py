@@ -58,8 +58,7 @@ class Authentication(object):
         self._module = None
         for module, mod_args, mod_kw in self._modules:
             challenge = mod_kw.pop('challenge', False)
-            m = module(app=self.app, db=self.db, logger=self.logger,
-                       *mod_args, **mod_kw)
+            m = module(app=self.app, db=self.db, *mod_args, **mod_kw)
             if challenge and hasattr(m, 'challenge'):
                 self.challenge = m.challenge
             if m.detect():
@@ -143,11 +142,11 @@ class Authentication(object):
 class AuthModule(object):
     u"""Abstract auth module."""
 
-    def __init__(self, app=None, db=None, logger=None, *args, **kwargs):
+    def __init__(self, app=None, db=None, *args, **kwargs):
         u"""Initialize module."""
         self.app = app
         self.db = db
-        self.logger = logger
+        self.logger = self.app.logger
         self.user = None
 
     def detect(self):
@@ -176,12 +175,15 @@ class AuthModule(object):
         u"""An appropriate acces denied/auth error response."""
         return Response(msg, 403)
 
+    def __str__(self):
+        return "<{} as {!r}>".format(type(self).__name__, self.user)
+
 
 class BasicAuth(AuthModule):
     u"""HTTP-Basic-Auth"""
 
-    def __init__(self, realm, whitelist=None, app=None, db=None, logger=None):
-        super(BasicAuth, self).__init__(app=app, db=db, logger=logger)
+    def __init__(self, realm, whitelist=None, app=None, db=None):
+        super(BasicAuth, self).__init__(app=app, db=db)
         self.realm = realm
         self.whitelist = whitelist
 
@@ -231,8 +233,8 @@ class BasicAuth(AuthModule):
 class CertAuth(AuthModule):
     u"""Client certificate authentication"""
 
-    def __init__(self, certs, app=None, db=None, logger=None):
-        super(CertAuth, self).__init__(app=app, db=db, logger=logger)
+    def __init__(self, certs, app=None, db=None):
+        super(CertAuth, self).__init__(app=app, db=db)
         self.certs = certs
 
     def detect(self):
@@ -252,19 +254,20 @@ class CertAuth(AuthModule):
 class HeaderAuth(AuthModule):
     u"""Pass authentication if header contains a constant."""
 
-    def __init__(self, header, values, app=None, db=None, logger=None):
-        super(HeaderAuth, self).__init__(app=app, db=db, logger=logger)
+    def __init__(self, header, keys, app=None, db=None):
+        super(HeaderAuth, self).__init__(app=app, db=db)
         self.header = header
-        self.values = values
+        self.keys = keys
 
     def detect(self):
+        u"""Detect if header is present."""
         return bool(request.headers.get(self.header))
 
     def do_authenticate(self):
-        # TODO: What is the best way to convey info to the Auth modules?
+        u"""Verify key and map to user."""
         v = request.headers.get(self.header)
-        if not v or v not in self.values:
+        if not v or v not in self.keys.keys():
             self.user = None
         else:
-            self.user = v
+            self.user = self.keys.get(v)
         return self.is_authenticated()

@@ -1,6 +1,6 @@
 from flask import Blueprint
-from flask.ext.restful import Api
-from flask.ext.restful.representations.json import output_json
+from flask_restful import Api
+from flask_restful.representations.json import output_json
 from flask_restful_swagger import swagger
 
 __version__ = '1'

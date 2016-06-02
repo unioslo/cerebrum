@@ -1,7 +1,7 @@
-from flask.ext.restful import fields as base
+from flask_restful import fields as base
 from werkzeug.routing import BuildError
-from api import db
 
+from Cerebrum.rest.api import db
 from Cerebrum.Utils import Factory
 
 co = Factory.get('Constants')(db.connection)

@@ -1,10 +1,11 @@
-from flask.ext.restful import Resource, abort, marshal_with, reqparse
-from flask.ext.restful_swagger import swagger
+from flask_restful import Resource, abort, marshal_with, reqparse
+from flask_restful_swagger import swagger
 
-from api import db, auth, fields, utils
-from api.v1 import group
-from api.v1 import models
-from api.v1 import emailaddress
+from Cerebrum.rest.api import db, auth, fields, utils
+from Cerebrum.rest.api.v1 import group
+from Cerebrum.rest.api.v1 import models
+from Cerebrum.rest.api.v1 import emailaddress
+
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -119,7 +120,6 @@ class AccountResource(Resource):
         :return: Information about the account
         """
         ac = find_account(id)
-
         return {
             'name': ac.account_name,
             'id': ac.entity_id,

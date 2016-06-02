@@ -10,23 +10,51 @@ HOST = 'localhost'
 
 APPNAME = u"cerebrum-rest"
 
-
 AUTH = [
-    #{
-    #    'name': 'CertAuth',
-    #    'certs': {
-    #        '1a56e3bfd0a0974110894a73fa2ad31897dbf76d': 'bootstrap_account',
-    #    }
-    #},
+    # {
+    #     'name': 'CertAuth',
+    #     'certs': {
+    #         '1a56e3bfd0a0974110894a73fa2ad31897dbf76d': 'bootstrap_account',
+    #     }
+    # },
     {
         'name': 'BasicAuth',
         'realm': cereconf.INSTITUTION_DOMAIN_NAME,
         'challenge': True,
         'whitelist': [],
     },
-    #{
-    #    'name': 'HeaderAuth',
-    #    'header': 'Foo',
-    #    'values': ['Bar', 'Baz', ],
-    #},
+    # {
+    #     'name': 'HeaderAuth',
+    #     'header': 'Foo',
+    #     'keys': {
+    #         'supertopsecretverylongkey': 'bootstrap_account',
+    #     },
+    # },
 ]
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': True,
+    'formatters': {
+        'fmt': {
+            'format': '%(asctime)s - %(name)s - [%(levelname)s] - %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S'
+        },
+    },
+    'handlers': {
+        'file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'level': 'DEBUG',
+            'formatter': 'fmt',
+            'filename': '/tmp/cerebrum-rest.log',
+            'encoding': 'UTF-8'
+        },
+    },
+    'loggers': {
+        '': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    }
+}

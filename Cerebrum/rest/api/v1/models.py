@@ -1,5 +1,5 @@
-from flask.ext.restful_swagger import swagger
-from api import fields
+from flask_restful_swagger import swagger
+from Cerebrum.rest.api import fields
 
 
 # Model for data from entity.get_contact_info()
