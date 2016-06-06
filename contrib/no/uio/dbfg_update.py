@@ -25,14 +25,15 @@ databases and cerebrum.
 
 The updates are performed for the following sources/groups:
 
-External db	table/source				Cerebrum group
+External db     table/source                            Cerebrum group
 ----------------------------------------------------------------------
-FSPROD		select username FROM all_users		fsprod
-FSSBKURS	select username FROM all_users		fssbkurs
-AJPROD		select username FROM all_users		ajprod
-OAPRD		select user_name FROM applsys.fnd_user	oaprd
-OEPATST		[1], [2], [3], [4], [5]
-OEPAPRD         [6], [7]
+FSPROD          select username FROM all_users          fsprod
+FSSBKURS        select username FROM all_users          fssbkurs
+AJPROD          select username FROM all_users          ajprod
+OAPRD           select user_name FROM applsys.fnd_user  oaprd
+OEPA2TST        [1], [2], [3], [4]                      basware-*-test
+OEPAKURS        [5], [6], [7], [8]                      basware-*-kurs
+OEPAPRD         [9], [10], [11], [12]                   basware-*
 
 [1]   basware-users-test:
       select USER_NETWORK_NAME FROM basware.ip_group_user
@@ -43,16 +44,31 @@ OEPAPRD         [6], [7]
 [3]   basware-monitor-test:
       SELECT USER_NETWORK_NAME FROM basware.ip_group_user
       WHERE GROUP_NAME = 'Monitorbrukere' AND upper(DOMAIN) = 'UIO'
-[4]   basware-readsoft-test:
-      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'Readsoftbrukere' AND upper(DOMAIN) = 'UIO'
-[5]   basware-useradmin-test:
+[4]   basware-useradmin-test:
       SELECT USER_NETWORK_NAME FROM basware.ip_group_user
       WHERE GROUP_NAME = 'UserAdminbrukere' AND upper(DOMAIN) = 'UIO'
-[6]   basware-users:
+[5]   basware-users-kurs:
       select USER_NETWORK_NAME FROM basware.ip_group_user
       WHERE GROUP_NAME = 'BasWareBrukere' AND upper(DOMAIN) = 'UIO'
-[7]   basware-masters:
+[6]   basware-masters-kurs:
+      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
+      WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'
+[7]   basware-monitor-kurs:
+      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
+      WHERE GROUP_NAME = 'Monitorbrukere' AND upper(DOMAIN) = 'UIO'
+[8]   basware-useradmin-kurs:
+      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
+      WHERE GROUP_NAME = 'UserAdminbrukere' AND upper(DOMAIN) = 'UIO'
+[9]   basware-users:
+      select USER_NETWORK_NAME FROM basware.ip_group_user
+      WHERE GROUP_NAME = 'BasWareBrukere' AND upper(DOMAIN) = 'UIO'
+[10]  basware-masters:
+      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
+      WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'      
+[11]  basware-monitor:
+      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
+      WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'      
+[12]  basware-useradmin:
       SELECT USER_NETWORK_NAME FROM basware.ip_group_user
       WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'      
 
@@ -559,7 +575,6 @@ information about certain kind of expired accounts
 --basware-users             Update basware-users group
 --basware-masters           Update basware-masters group
 --basware-monitor-test      Update basware-monitor-test group
---basware-readsoft-test     Update basware-readsoft-test group
 --basware-useradmin-test    Update basware-useradmin-test group
 --expired-file, -e=file     Locate expired accounts and generate a report
 
@@ -617,31 +632,49 @@ def main():
                                            "report_accessor" : "list_dbfg_masters",
                                            "ceregroup"     : "basware-masters",
                                            "db_charset"    : "utf-16-be", },
-                     "basware-users-test" : { "dbname"        : "OEPATST.uio.no",
+                     "basware-users-kurs" : { "dbname"        : "OEPAKURS.uio.no",
+                                              "dbuser"        : "ureg2000",
+                                              "class"         : OEP,
+                                              "sync_accessor" : "list_dbfg_users",
+                                              "report_accessor" : "list_dbfg_users",
+                                              "ceregroup"     : "basware-users-kurs", },
+                     "basware-masters-kurs" : { "dbname"        : "OEPAKURS.uio.no",
+                                                "dbuser"        : "ureg2000",
+                                                "class"         : OEP,
+                                                "sync_accessor" : "list_dbfg_masters",
+                                                "report_accessor" : "list_dbfg_masters",
+                                                "ceregroup"     : "basware-masters-kurs", },
+                     "basware-monitor-kurs" : { "dbname"        : "OEPAKURS.uio.no",
+                                                "dbuser"        : "ureg2000",
+                                                "class"         : OEP,
+                                                "sync_accessor" : "list_dbfg_monitor",
+                                                "report_accessor" : "list_dbfg_monitor",
+                                                "ceregroup"     : "basware-monitor-kurs", },
+                     "basware-useradmin-kurs" : { "dbname"        : "OEPAKURS.uio.no",
+                                                  "dbuser"        : "ureg2000",
+                                                  "class"         : OEP,
+                                                  "sync_accessor" : "list_dbfg_useradmin",
+                                                  "report_accessor" : "list_dbfg_useradmin",
+                                                  "ceregroup"     : "basware-useradmin-kurs", },
+                     "basware-users-test" : { "dbname"        : "OEPA2TST.uio.no",
                                               "dbuser"        : "ureg2000",
                                               "class"         : OEP,
                                               "sync_accessor" : "list_dbfg_users",
                                               "report_accessor" : "list_dbfg_users",
                                               "ceregroup"     : "basware-users-test", },
-                     "basware-masters-test" : { "dbname"        : "OEPATST.uio.no",
+                     "basware-masters-test" : { "dbname"        : "OEPA2TST.uio.no",
                                                 "dbuser"        : "ureg2000",
                                                 "class"         : OEP,
                                                 "sync_accessor" : "list_dbfg_masters",
                                                 "report_accessor" : "list_dbfg_masters",
                                                 "ceregroup"     : "basware-masters-test", },
-                     "basware-monitor-test" : { "dbname"        : "OEPATST.uio.no",
+                     "basware-monitor-test" : { "dbname"        : "OEPA2TST.uio.no",
                                                 "dbuser"        : "ureg2000",
                                                 "class"         : OEP,
                                                 "sync_accessor" : "list_dbfg_monitor",
                                                 "report_accessor" : "list_dbfg_monitor",
                                                 "ceregroup"     : "basware-monitor-test", },
-                     "basware-readsoft-test" : { "dbname"        : "OEPATST.uio.no",
-                                                 "dbuser"        : "ureg2000",
-                                                 "class"         : OEP,
-                                                 "sync_accessor" : "list_dbfg_readsoft",
-                                                 "report_accessor" : "list_dbfg_readsoft",
-                                                 "ceregroup"     : "basware-readsoft-test", },
-                     "basware-useradmin-test" : { "dbname"        : "OEPATST.uio.no",
+                     "basware-useradmin-test" : { "dbname"        : "OEPA2TST.uio.no",
                                                   "dbuser"        : "ureg2000",
                                                   "class"         : OEP,
                                                   "sync_accessor" : "list_dbfg_useradmin",
@@ -654,13 +687,6 @@ def main():
                                            "report_accessor" : "list_dbfg_monitor",
                                            "ceregroup"     : "basware-monitor",
                                            "db_charset"    : "utf-16-be", },
-                     "basware-readsoft" : { "dbname"        : "OEPAPRD.uio.no",
-                                            "dbuser"        : "ureg2000",
-                                            "class"         : OEP,
-                                            "sync_accessor" : "list_dbfg_readsoft",
-                                            "report_accessor" : "list_dbfg_readsoft",
-                                            "ceregroup"     : "basware-readsoft",
-                                            "db_charset"    : "utf-16-be", },
                      "basware-useradmin" : { "dbname"        : "OEPAPRD.uio.no",
                                              "dbuser"        : "ureg2000",
                                              "class"         : OEP,
