@@ -67,10 +67,10 @@ OEPAPRD         [9], [10], [11], [12]                   basware-*
       WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'      
 [11]  basware-monitor:
       SELECT USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'      
+      WHERE GROUP_NAME = 'Monitorbrukere' AND upper(DOMAIN) = 'UIO'      
 [12]  basware-useradmin:
       SELECT USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'      
+      WHERE GROUP_NAME = 'UserAdminbrukere' AND upper(DOMAIN) = 'UIO'      
 
 After the update, each group in cerebrum contains only the members listed in
 the corresponding external database. That is, if
@@ -574,6 +574,14 @@ information about certain kind of expired accounts
 --oaprd                     Update oaprd group
 --basware-users             Update basware-users group
 --basware-masters           Update basware-masters group
+--basware-monitor           Update basware-monitor group
+--basware-useradmin         Update basware-useradmin group
+--basware-users-kurs        Update basware-users-kurs group
+--basware-masters-kurs      Update basware-masters-kurs group
+--basware-monitor-kurs      Update basware-monitor-kurs group
+--basware-useradmin-kurs    Update basware-useradmin-kurs group
+--basware-users-test        Update basware-users-test group
+--basware-masters-test      Update basware-masters-test group
 --basware-monitor-test      Update basware-monitor-test group
 --basware-useradmin-test    Update basware-useradmin-test group
 --expired-file, -e=file     Locate expired accounts and generate a report
