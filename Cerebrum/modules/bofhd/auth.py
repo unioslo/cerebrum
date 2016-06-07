@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2014 University of Oslo, Norway
+# Copyright 2003-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -2377,6 +2377,12 @@ class BofhdAuth(DatabaseAccessor):
         # Grab all groups where entity_id is a direct member
         ret.extend([int(x["group_id"])
                     for x in group.search(member_id=entity_id,
+                                          indirect_members=False)])
+        # Now get the operator's Person-entity_id
+        account = Factory.get('Account')(self._db)
+        account.find(entity_id)
+        ret.extend([int(x["group_id"])
+                    for x in group.search(member_id=account.owner_id,
                                           indirect_members=False)])
         self._users_auth_entities_cache[entity_id] = list(set(ret))
         return ret
