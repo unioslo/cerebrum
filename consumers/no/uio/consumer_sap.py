@@ -117,7 +117,7 @@ def parse_titles(d):
                    ('name_language', LanguageCode('en')),
                    ('name', 'Over Engingineer'))]
     :return: A list of tuples with the fields that should be updated"""
-    co = Factory.get('Constans')
+    co = Factory.get('Constants')
 
     def make_tuple(variant, lang, name):
         return (('name_variant', variant),
@@ -149,7 +149,7 @@ def parse_titles(d):
         work_title.get('Job').get('Title').get(lang_str)),
         [('Norwegian', co.language_nb),
          ('Norwegian', co.language_nn),
-         ('English', co.language_english)])
+         ('English', co.language_en)])
 
 
 def parse_external_ids(source_system, d):
@@ -288,12 +288,12 @@ def update_person(database, source_system, hr_person, cerebrum_person):
     cerebrum_person.populate(
         hr_person.get('birth_date'),
         hr_person.get('gender'))
+    cerebrum_person.write_db()
+
     logger.debug('Added birth date {} and gender {} for {}'.format(
         hr_person.get('birth_date'),
         hr_person.get('gender'),
         cerebrum_person.entity_id))
-
-    cerebrum_person.write_db()
 
 
 def update_affiliations(database, source_system, hr_person, cerebrum_person):
