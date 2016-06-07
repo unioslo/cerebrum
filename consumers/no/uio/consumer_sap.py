@@ -41,6 +41,13 @@ class RemoteSourceDown(Exception):
 
 
 def parse_address(d):
+    """Parse the data from SAP an return a diff-able structure.
+
+    :type d: dict
+    :param d: Data from SAP
+
+    :rtype: tuple()
+    :return: A tuple with the fields that should be updated"""
     co = Factory.get('Constants')
     r = d.get('Address')
     m = {'ResidentialAddress': co.address_post_private,
@@ -62,15 +69,35 @@ def parse_address(d):
 
 
 def parse_names(d):
+    """Parse data from SAP and return names.
+
+    :type d: dict
+    :param d: Data from SAP
+
+    :rtype: tuple((PersonName('FIRST'), 'first'),
+                  (PersonName('FIRST'), 'last'))
+    :return: A tuple with the fields that should be updated"""
+
     co = Factory.get('Constants')
     return ((co.name_first, d.get('FirstName')),
             (co.name_last, d.get('LastName')))
 
 
 def parse_contacts(d):
+    """Parse data from SAP and return contact information.
+
+    :type d: dict
+    :param d: Data from SAP
+
+    :rtype: (ContactInfo('PHONE'), ''),
+             ContactInfo('MOBILE_PHONE'), ''),
+             ContactInfo('MOBILE'), ''),
+             ContactInfo('PRIVATEMOBILE'), ''),
+             ContactInfo('PRIVMOBVISIBLE'), '')
+    :return: A tuple with the fields that should be updated"""
     co = Factory.get('Constants')
     c = d.get('Communication')
-    # TODO: Vaildate/clean numbers with phonenumbers?
+    # TODO: Validate/clean numbers with phonenumbers?
     m = {'Phone1': co.contact_phone,
          'Phone2': co.contact_phone,
          'Mobile': co.contact_mobile_phone,
@@ -81,6 +108,15 @@ def parse_contacts(d):
 
 
 def parse_titles(d):
+    """Parse data from SAP and return person titles.
+
+    :type d: dict
+    :param d: Data from SAP
+
+    :rtype: [tuple(('name_variant', EntityNameCode('PERSONALTITLE')),
+                   ('name_language', LanguageCode('en')),
+                   ('name', 'Over Engingineer'))]
+    :return: A list of tuples with the fields that should be updated"""
     co = Factory.get('Constans')
 
     def make_tuple(variant, lang, name):
@@ -96,6 +132,7 @@ def parse_titles(d):
                                     d.get('Title').get('Norwegian')),
             [co.language_nb, co.language_nn])]
 
+    # Select appropriate work title.
     work_title = None
     for e in d.get('Employments').get('results', []):
         if e.get('IsMain'):
@@ -116,6 +153,15 @@ def parse_titles(d):
 
 
 def parse_external_ids(source_system, d):
+    """Parse data from SAP and return external ids (i.e. passnr).
+
+    :type d: dict
+    :param d: Data from SAP
+
+    :rtype: [tuple(('id_type', EntityExternalId('PASSNR')),
+                   ('source_system', AuthoritativeSystem('SAP')),
+                   ('external_id', '000001'))]
+    :return: A list of tuples with the fields that should be updated"""
     co = Factory.get('Constants')
 
     def make_tuple(id_type, source_system, value):
@@ -146,6 +192,16 @@ def parse_external_ids(source_system, d):
 
 
 def parse_affiliations(database, d):
+    """Parse data from SAP and return names.
+
+    :type d: dict
+    :param d: Data from SAP
+
+    :rtype: [tuple(('ou_id': 3),
+                   ('affiliation', PersonAffiliation('ANSATT')),
+                   ('status', PersonAffStatus('ANSATT', 'tekadm')),
+                   (precedence', (50, 50)))]
+    :return: A list of tuples with the fields that should be updated"""
     import cereconf
     co = Factory.get('Constants')
     ou = Factory.get('OU')(database)
@@ -162,16 +218,27 @@ def parse_affiliations(database, d):
         yield {'ou_id': ou.entity_id,
                'affiliation': co.affiliation_ansatt,
                'status': status,
-               'precedence': 50L if main else None}
+               'precedence': (50L, 50L) if main else None}
 
 
-def get_hr_person(database, source_system, endpoint, identificator):
+def get_hr_person(database, source_system, endpoint, identifier):
+    """Collect a person entry from the remote source system, and parse the data.
+
+    :param db: Database object
+    :param source_system: The source system code
+    :param endpoint: The endpoint to contact for collection
+    :param identifier: The id of the object to collect
+
+    :rtype: dict
+    :return The parsed data from the remote source system
+
+    :raises: RemoteSourceDown if the remote system can't be contacted"""
     import requests
     import json
     from mx import DateTime
 
     co = Factory.get('Constants')
-    r = requests.get(endpoint.format(identificator))
+    r = requests.get(endpoint.format(identifier))
     if r.status_code == 200:
         data = json.loads(r.text).get('d', None)
         return {
@@ -190,16 +257,20 @@ def get_hr_person(database, source_system, endpoint, identificator):
             'reserved': data.get('PublicView')}
     else:
         logger.error('Could not fetch {} from remote source: {}: {}').format(
-            identificator, r.status_code, r.reason)
+            identifier, r.status_code, r.reason)
         raise RemoteSourceDown
 
 
-def get_cerebrum_person(database, identificator):
+def get_cerebrum_person(database, identifier):
+    """Get a person object from Cerebrum.
+
+    If the person does not exist in Cerebrum, the returned object is
+    clear()'ed"""
     pe = Factory.get('Person')(database)
     co = Factory.get('Constants')(database)
     from Cerebrum import Errors
     try:
-        pe.find_by_external_id(co.externalid_sap_ansattnr, str(identificator))
+        pe.find_by_external_id(co.externalid_sap_ansattnr, str(identifier))
         logger.debug(''.format())
     except Errors.NotFoundError:
         logger.debug(''.format())
@@ -208,7 +279,7 @@ def get_cerebrum_person(database, identificator):
 
 
 def update_person(database, source_system, hr_person, cerebrum_person):
-
+    """Update person with birth date and gender."""
     cerebrum_person.populate(
         hr_person.get('birth_date'),
         hr_person.get('gender'))
@@ -221,6 +292,13 @@ def update_person(database, source_system, hr_person, cerebrum_person):
 
 
 def update_affiliations(database, source_system, hr_person, cerebrum_person):
+    """Update a person in Cerebrum with the latest affiliations.
+
+    :param database: A database object
+    :param source_system: The source system code
+    :param hr_person: The parsed data from the remote source system
+    :param cerebrum_person: The Person object to be updated.
+    """
     for affiliation in hr_person:
         cerebrum_person.populate_affiliation(source_system, **affiliation)
         logger.debug('Adding affiliation {} for id:{}'.format(
@@ -228,6 +306,13 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
 
 
 def update_names(database, source_system, hr_person, cerebrum_person):
+    """Update a person in Cerebrum with fresh names.
+
+    :param database: A database object
+    :param source_system: The source system code
+    :param hr_person: The parsed data from the remote source system
+    :param cerebrum_person: The Person object to be updated.
+    """
     co = Factory.get('Constants')(database)
     names = map(lambda name_type:
                 (name_type,
@@ -260,6 +345,13 @@ row_transform = (lambda key_type, key_label, squash_keys, elements:
 
 
 def update_external_ids(database, source_system, hr_person, cerebrum_person):
+    """Update a person in Cerebrum with appropriate external ids.
+
+    :param database: A database object
+    :param source_system: The source system code
+    :param hr_person: The parsed data from the remote source system
+    :param cerebrum_person: The Person object to be updated.
+    """
     co = Factory.get('Constants')(database)
 
     hr_person.get('external_ids')
@@ -287,6 +379,13 @@ def update_external_ids(database, source_system, hr_person, cerebrum_person):
 
 
 def update_addresses(database, source_system, hr_person, cerebrum_person):
+    """Update a person in Cerebrum with addresses.
+
+    :param database: A database object
+    :param source_system: The source system code
+    :param hr_person: The parsed data from the remote source system
+    :param cerebrum_person: The Person object to be updated.
+    """
     co = Factory.get('Constants')(database)
     addresses = row_transform(co.Address,
                               'address_type',
@@ -306,6 +405,13 @@ def update_addresses(database, source_system, hr_person, cerebrum_person):
 
 
 def update_contact_info(database, source_system, hr_person, cerebrum_person):
+    """Update a person in Cerebrum with contact information (telephone, etc.).
+
+    :param database: A database object
+    :param source_system: The source system code
+    :param hr_person: The parsed data from the remote source system
+    :param cerebrum_person: The Person object to be updated.
+    """
     co = Factory.get('Constants')(database)
     contacts = row_transform(co.ContactInfo,
                              'contact_type',
@@ -326,6 +432,13 @@ def update_contact_info(database, source_system, hr_person, cerebrum_person):
 
 
 def update_titles(database, source_system, hr_person, cerebrum_person):
+    """Update a person in Cerebrum with work and personal titles.
+
+    :param database: A database object
+    :param source_system: The source system code
+    :param hr_person: The parsed data from the remote source system
+    :param cerebrum_person: The Person object to be updated.
+    """
     co = Factory.get('Constants')(database)
     titles = set(map(lambda x:
                      tuple(filter(lambda (k, v):
@@ -347,6 +460,14 @@ def update_titles(database, source_system, hr_person, cerebrum_person):
 
 
 def update_reservation(database, hr_person, cerebrum_person):
+    """Manage reservation from public display for a person in Cerebrum.
+
+    :param database: A database object
+    :param source_system: The source system code
+    :param hr_person: The parsed data from the remote source system
+    :param cerebrum_person: The Person object to be updated.
+    """
+    # TODO: Recode this function when we handle reservation on the fly
     gr = Factory.get('Group')(database)
     gr.find_by_name('SAP-elektroniske-reservasjoner')
     in_reserved_group = gr.has_member(cerebrum_person.entity_id)
@@ -361,9 +482,16 @@ def update_reservation(database, hr_person, cerebrum_person):
             cerebrum_person.entity_id))
 
 
-def handle_person(database, source_system, identificator):
-    hr_person = get_hr_person(database, source_system, identificator)
-    cerebrum_person = get_cerebrum_person(database, identificator)
+def handle_person(database, source_system, endpoint, identifier):
+    """Fetch info from the remote system, and perform changes.
+
+    :param database: A database object
+    :param source_system: The source system code
+    :param endpoint: The WS endpoint address, prepared for .format() insertion
+        of identifier
+    :param identifier: The updated identifier"""
+    hr_person = get_hr_person(database, source_system, endpoint, identifier)
+    cerebrum_person = get_cerebrum_person(database, identifier)
 
     update_person(database, source_system, hr_person, cerebrum_person)
     update_addresses(database, source_system, hr_person, cerebrum_person)
@@ -375,19 +503,27 @@ def handle_person(database, source_system, identificator):
     database.commit()
 
 
+def select_identifier(body):
+    """Excavate identifier from message body."""
+    import json
+    d = json.loads(body)
+    return d.get('d').get('__metadata').get('id')
+
+
 def callback(database, source_system, routing_key, content_type, body):
     """Call appropriate handler functions."""
+    (endpoint, identifier) = select_identifier(body)
     return_state = True
     try:
-        handle_person(database, source_system, body)
-        logger.info('Sucessfully processed {}'.format(body))
+        handle_person(database, source_system, endpoint, identifier)
+        logger.info('Successfully processed {}'.format(identifier))
     except RemoteSourceDown:
         return_state = False
     except Exception as e:
-        logger.error('Failed processing {}: {}'.format(body, e))
+        logger.error('Failed processing {}: {}'.format(identifier, e))
 
     # Always rollback, since we do an implicit begin and we want to discard
-    # posible outstanding changes.
+    # possible outstanding changes.
     database.rollback()
     return return_state
 
