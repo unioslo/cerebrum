@@ -276,9 +276,11 @@ def get_cerebrum_person(database, identifier):
     from Cerebrum import Errors
     try:
         pe.find_by_external_id(co.externalid_sap_ansattnr, str(identifier))
-        logger.debug(''.format())
+        logger.debug('Found existing person with id:{}'.format(pe.entity_id))
     except Errors.NotFoundError:
-        logger.debug(''.format())
+        logger.debug(
+            'Could not find existing person for external_id:{}'.format(
+                identifier))
         pe.clear()
     return pe
 
