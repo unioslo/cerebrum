@@ -221,12 +221,32 @@ def parse_affiliations(database, d):
                'precedence': (50L, 50L) if main else None}
 
 
-def get_hr_person(database, source_system, endpoint, identifier):
+def _parse_hr_person(database, source_system, data):
+    from mx import DateTime
+    co = Factory.get('Constants')
+
+    return {
+        'addresses': parse_address(data),
+        'names': parse_names(data),
+        'birth_date': DateTime.DateFrom(
+            data.get('PersonalDetails').get('DateOfBirth')),
+        'gender': {'Kvinne': co.gender_female,
+                   'Mann': co.gender_male}.get(
+                       data.get('PersonalDetails').get('Gender'),
+                       co.gender_unknown),
+        'external_ids': parse_external_ids(source_system, data),
+        'contacts': parse_contacts(data),
+        'affiliations': parse_affiliations(database, data),
+        'titles': parse_titles(data),
+        'reserved': data.get('PublicView')}
+
+
+def get_hr_person(database, source_system, url, identifier):
     """Collect a person entry from the remote source system, and parse the data.
 
     :param db: Database object
     :param source_system: The source system code
-    :param endpoint: The endpoint to contact for collection
+    :param url: The URL to contact for collection
     :param identifier: The id of the object to collect
 
     :rtype: dict
@@ -235,26 +255,11 @@ def get_hr_person(database, source_system, endpoint, identifier):
     :raises: RemoteSourceDown if the remote system can't be contacted"""
     import requests
     import json
-    from mx import DateTime
 
-    co = Factory.get('Constants')
-    r = requests.get(endpoint.format(identifier))
+    r = requests.get(url)
     if r.status_code == 200:
         data = json.loads(r.text).get('d', None)
-        return {
-            'addresses': parse_address(data),
-            'names': parse_names(data),
-            'birth_date': DateTime.DateFrom(
-                data.get('PersonalDetails').get('DateOfBirth')),
-            'gender': {'Kvinne': co.gender_female,
-                       'Mann': co.gender_male}.get(
-                           data.get('PersonalDetails').get('Gender'),
-                           co.gender_unknown),
-            'external_ids': parse_external_ids(source_system, data),
-            'contacts': parse_contacts(data),
-            'affiliations': parse_affiliations(database, data),
-            'titles': parse_titles(data),
-            'reserved': data.get('PublicView')}
+        return _parse_hr_person(database, source_system, data)
     else:
         logger.error('Could not fetch {} from remote source: {}: {}').format(
             identifier, r.status_code, r.reason)
@@ -482,15 +487,15 @@ def update_reservation(database, hr_person, cerebrum_person):
             cerebrum_person.entity_id))
 
 
-def handle_person(database, source_system, endpoint, identifier):
+def handle_person(database, source_system, url, identifier,
+                  datasource=get_hr_person):
     """Fetch info from the remote system, and perform changes.
 
     :param database: A database object
     :param source_system: The source system code
-    :param endpoint: The WS endpoint address, prepared for .format() insertion
-        of identifier
+    :param url: The URL to the person object in the HR systems WS.
     :param identifier: The updated identifier"""
-    hr_person = get_hr_person(database, source_system, endpoint, identifier)
+    hr_person = datasource(database, source_system, url, identifier)
     cerebrum_person = get_cerebrum_person(database, identifier)
 
     update_person(database, source_system, hr_person, cerebrum_person)
@@ -507,20 +512,24 @@ def select_identifier(body):
     """Excavate identifier from message body."""
     import json
     d = json.loads(body)
-    return d.get('d').get('__metadata').get('id')
+    return (d.get('url'), d.get('id'))
 
 
-def callback(database, source_system, routing_key, content_type, body):
+def callback(database, source_system, routing_key, content_type, body,
+             datasource=get_hr_person):
     """Call appropriate handler functions."""
-    (endpoint, identifier) = select_identifier(body)
+    (url, identifier) = select_identifier(body)
+
     return_state = True
     try:
-        handle_person(database, source_system, endpoint, identifier)
+        handle_person(database, source_system, url, identifier,
+                      datasource=datasource)
         logger.info('Successfully processed {}'.format(identifier))
     except RemoteSourceDown:
         return_state = False
     except Exception as e:
-        logger.error('Failed processing {}: {}'.format(identifier, e))
+        logger.error('Failed processing {}: {}'.format(identifier, e),
+                     exc_info=True)
 
     # Always rollback, since we do an implicit begin and we want to discard
     # possible outstanding changes.
@@ -528,23 +537,62 @@ def callback(database, source_system, routing_key, content_type, body):
     return return_state
 
 
-def main():
+def load_mock(mock_file):
+    """Call appropriate handler functions."""
+    import json
+    with open(mock_file) as f:
+        data = json.load(f).get('d')
+        import pprint
+        logger.debug1(
+            'Using mock with data:\n%s', pprint.pformat(data, indent=4))
+    return data
+
+
+def main(args=None):
     """Start consuming messages."""
     import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-m', '--mock',
+                        dest='mock',
+                        metavar='FILE',
+                        default=None,
+                        help='Load person object from JSON file')
+    parser.add_argument('--dryrun',
+                        dest='dryrun',
+                        action='store_true',
+                        default=False,
+                        help='Do not commit changes')
+    args = parser.parse_args(args)
+    prog_name = parser.prog.rsplit('.', 1)[0]
+
     import functools
     from Cerebrum.modules.event_consumer import get_consumer
 
     database = Factory.get('Database')()
+    database.cl_init(change_program=prog_name)
     source_system = Factory.get('Constants')(database).system_sap
 
-    consumer = get_consumer(functools.partial(callback,
-                                              (database, source_system)),
-                            argparse.ArgumentParser().prog.rsplit('.', 1)[0])
+    if args.dryrun:
+        database.commit = database.rollback
 
-    try:
-        consumer.start()
-    except KeyboardInterrupt:
-        consumer.stop()
+    if args.mock:
+        import json
+        mock_data = load_mock(args.mock)
+        parsed_mock_data = _parse_hr_person(database,
+                                            source_system,
+                                            mock_data)
+        body = json.dumps({'id': mock_data.get(u'PersonID'), 'url': None})
+        callback(database, source_system, '', '', body,
+                 datasource=lambda *x: parsed_mock_data)
+    else:
+        consumer = get_consumer(functools.partial(callback,
+                                                  (database, source_system)),
+                                prog_name)
+
+        try:
+            consumer.start()
+        except KeyboardInterrupt:
+            consumer.stop()
         consumer.close()
 
 if __name__ == "__main__":
