@@ -3,7 +3,8 @@
 u"""Authentication framework for flask."""
 
 import sys
-from flask import request, Response
+from flask import request, Response, abort
+from functools import wraps
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -99,12 +100,14 @@ class Authentication(object):
             Returns a wrapped function.
         """
         def wrap(function):
+            @wraps(function)
             def wrapped(*args, **kwargs):
                 resp = auth_obj.authenticate(*auth_args, **auth_kw)
                 if resp:
                     return resp
                 if not auth_obj.has_auth:
-                    raise Exception(u"Not authenticated")
+                    # raise Exception(u"Not authenticated")
+                    abort(401)
                 # TODO: Should we have an authz map, and look up authorization
                 # here?
                 return function(*args, **kwargs)
@@ -168,12 +171,14 @@ class AuthModule(object):
     @staticmethod
     def challenge(msg=u""):
         u"""An appropriate response to indicate that auth is wanted."""
-        return Response(msg, 401)
+        #return Response(msg, 401)
+        abort(401, msg)
 
     @staticmethod
     def error(msg=u""):
         u"""An appropriate acces denied/auth error response."""
-        return Response(msg, 403)
+        #return Response(msg, 403)
+        abort(403, msg)
 
     def __str__(self):
         return "<{} as {!r}>".format(type(self).__name__, self.user)
@@ -221,9 +226,13 @@ class BasicAuth(AuthModule):
 
     def challenge(self, msg=u"Log in"):
         u"""An appropriate response to indicate that Basic-Auth is wanted."""
-        return Response(
-            msg, 401,
-            {'WWW-Authenticate': 'Basic realm="{}"'.format(self.realm)})
+        # return Response(
+        #     msg, 401,
+        #     {'WWW-Authenticate': 'Basic realm="{}"'.format(self.realm)})
+
+        # TODO: Implement some custom errorhandler to serve challenges.
+        # We cannot send a response from here.
+        abort(401, msg)
 
     def error(self, msg=u"Invalid credentials"):
         u"""Respond with 401 Unauthorized in case of invalid credentials."""
