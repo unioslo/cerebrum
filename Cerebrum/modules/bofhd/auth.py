@@ -2381,9 +2381,11 @@ class BofhdAuth(DatabaseAccessor):
         # Now get the operator's Person-entity_id
         account = Factory.get('Account')(self._db)
         account.find(entity_id)
-        ret.extend([int(x["group_id"])
-                    for x in group.search(member_id=account.owner_id,
-                                          indirect_members=False)])
+        if account.owner_type == self.const.entity_person:
+            # if the owner of the account is a Person
+            ret.extend([int(x["group_id"])
+                        for x in group.search(member_id=account.owner_id,
+                                              indirect_members=False)])
         self._users_auth_entities_cache[entity_id] = list(set(ret))
         return ret
 
