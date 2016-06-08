@@ -769,14 +769,14 @@ def encode_decode_text(list,type):
 def populate_the_rest(name, acronym, short_name, display_name, sort_name):
     
     name_language = const.language_nb
-    
+    logger
     ou.add_name_with_language(const.ou_name, name_language, name)
     ou.add_name_with_language(const.ou_name_acronym, name_language, acronym)
     ou.add_name_with_language(const.ou_name_short, name_language, short_name)
     ou.add_name_with_language(const.ou_name_display, name_language, display_name)
     
     # TODO: don't know what to do with sort_name, ignoring it for now.
-
+    
 def import_OU(ou_list,dryrun):
 
     # get sito ou's from BAS
@@ -815,6 +815,7 @@ def import_OU(ou_list,dryrun):
                     #ou.populate(name=sito_ou['Name'],acronym=None,short_name=sito_ou['Name'],display_name=sito_ou['Name'],sort_name=1,parent=None)
                     #ou.populate(sito_ou['Name'],None,sito_ou['Name'],sito_ou['Name'],1,None)
                     ou.populate()
+                    ou.write_db()
                     populate_the_rest(sito_ou['Name'],sito_ou['Name'],sito_ou['Name'],sito_ou['Name'],1) #KEB
                 else:
                     ou.populate_withouth_sko()

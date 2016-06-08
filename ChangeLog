@@ -1,6 +1,8 @@
 2016-06-08    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* import_sito.py (generate_person_list): Removed old debug line
+	(import_OU): added ou.write_db after ou.populate. this is needed
+	to get ou.entity_id in the add_name_with_language on the next line.
 
 2016-05-30  Karen   <cerebrum@cleomedes.uit.no>
 
