@@ -52,10 +52,10 @@ EmailAddresses = api.model('EmailAddresses', {
 
 
 @api.route('/<string:address>', endpoint='emailaddresses')
-@api.doc(params={'address': 'Email address'})
 class EmailAddressesResource(Resource):
     """Resource for listing email addresses."""
     @api.marshal_list_with(EmailAddress)
+    @api.doc(params={'address': 'Email address'})
     @auth.require()
     def get(self, address):
         """Get email address information."""

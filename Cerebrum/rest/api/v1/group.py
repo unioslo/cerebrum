@@ -66,11 +66,11 @@ Group = api.model('Group', {
 
 
 @api.route('/<string:id>', endpoint='group')
-@api.doc(params={'id': 'Group name or ID'})
 class GroupResource(Resource):
     """Resource for a single group."""
     @auth.require()
     @api.marshal_with(Group)
+    @api.doc(params={'id': 'Group name or ID'})
     def get(self, id):
         """Get group information."""
         gr = find_group(id)
@@ -102,11 +102,11 @@ PosixGroup = api.model('PosixGroup', {
 
 
 @api.route('/<string:id>/posix', endpoint='posixgroup')
-@api.doc(params={'id': 'Group name or ID'})
 class PosixGroupResource(Resource):
     """Resource for the POSIX information of a group."""
     @auth.require()
     @api.marshal_with(PosixGroup)
+    @api.doc(params={'id': 'Group name or ID'})
     def get(self, id):
         """Get POSIX group information."""
         gr = find_group(id)
@@ -234,12 +234,12 @@ group_member_filter.add_argument(
 
 
 @api.route('/<string:id>/members', endpoint='group-members')
-@api.doc(params={'id': 'Group name or ID'})
 class GroupMemberListResource(Resource):
     """Resource for list of members of groups."""
     @auth.require()
     @api.marshal_with(GroupMemberList)
     @api.doc(parser=group_member_filter)
+    @api.doc(params={'id': 'Group name or ID'})
     def get(self, id):
         """List members of a group."""
         args = group_member_filter.parse_args()

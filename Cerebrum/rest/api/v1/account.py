@@ -77,10 +77,10 @@ Account = api.model('Account', {
 
 
 @api.route('/<string:id>', endpoint='account')
-@api.doc(params={'id': 'Account name or ID'})
 class AccountResource(Resource):
     """Resource for a single account."""
     @api.marshal_with(Account)
+    @api.doc(params={'id': 'Account name or ID'})
     @api.response(404, 'Not Found')
     @auth.require()
     def get(self, id):
@@ -127,10 +127,10 @@ PosixAccount = api.model('PosixAccount', {
 
 
 @api.route('/<string:id>/posix', endpoint="posixaccount")
-@api.doc(params={'id': 'Account name or ID'})
 class PosixAccountResource(Resource):
     """Resource for a single POSIX account."""
     @api.marshal_with(PosixAccount)
+    @api.doc(params={'id': 'Account name or ID'})
     @auth.require()
     def get(self, id):
         """Get POSIX account information."""
@@ -218,10 +218,10 @@ AccountEmailAddress = api.model('AccountEmailAddress', {
 
 
 @api.route('/<string:id>/emailaddresses', endpoint='account-emailaddresses')
-@api.doc(params={'id': 'Account name or ID'})
 class AccountEmailAddressResource(Resource):
     """Resource for the email addresses of a single account."""
     @api.marshal_with(AccountEmailAddress)
+    @api.doc(params={'id': 'Account name or ID'})
     @auth.require()
     def get(self, id):
         """Get the email addresses for an account."""
@@ -292,13 +292,7 @@ class AccountListResource(Resource):
     @api.doc(parser=account_search_filter)
     @auth.require()
     def get(self):
-        """List accounts.
-
-        :param str name_or_id: the account name or account ID
-
-        :rtype: list
-        :return: a list of accounts
-        """
+        """List accounts."""
         args = account_search_filter.parse_args()
         filters = {key: value for (key, value) in args.items()
                    if value is not None}
@@ -341,10 +335,10 @@ account_groups_filter.add_argument(
 
 
 @api.route('/<string:id>/groups')
-@api.doc(params={'id': 'Account name or ID'})
 class AccountGroupListResource(Resource):
     """Resource for account group memberships."""
     @api.marshal_with(group.GroupList)
+    @api.doc(params={'id': 'Account name or ID'})
     @auth.require()
     def get(self, id):
         """List groups an account is a member of."""
@@ -367,10 +361,10 @@ class AccountGroupListResource(Resource):
 
 
 @api.route('/<string:id>/contacts')
-@api.doc(params={'id': 'Account name or ID'})
 class AccountContactInfoListResource(Resource):
     """Resource for account contact information."""
     @api.marshal_with(models.EntityContactInfoList)
+    @api.doc(params={'id': 'Account name or ID'})
     @auth.require()
     def get(self, id):
         """Lists contact information for an account."""
@@ -380,10 +374,10 @@ class AccountContactInfoListResource(Resource):
 
 
 @api.route('/<string:id>/affiliations')
-@api.doc(params={'id': 'Account name or ID'})
 class AccountAffiliationListResource(Resource):
     """Resource for account affiliations."""
     @api.marshal_with(AccountAffiliationList)
+    @api.doc(params={'id': 'Account name or ID'})
     @auth.require()
     def get(self, id):
         """List affiliations for an account."""
@@ -424,10 +418,10 @@ AccountHomeList = api.model('AccountHomeList', {
 
 
 @api.route('/<string:id>/homes')
-@api.doc(params={'id': 'Account name or ID'})
 class AccountHomeListResource(Resource):
     """Resource for account home directories."""
     @api.marshal_with(AccountHomeList)
+    @api.doc(params={'id': 'Account name or ID'})
     @auth.require()
     def get(self, id):
         """List home directories for an account."""
