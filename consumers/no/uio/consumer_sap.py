@@ -32,8 +32,7 @@ filter_meta = lambda l: dict(
     filter(lambda (k, _): k != '__metadata', l.items()))
 translate_keys = lambda d, m: dict(
     map(lambda (k, v): (m.get(k, None), v), d.items()))
-filter_elements = lambda d: dict(
-    filter(lambda (k, _): k, d.items()))
+filter_elements = lambda d:     filter(lambda (k, _): k, d.items())
 
 
 class RemoteSourceDown(Exception):
@@ -46,7 +45,11 @@ def parse_address(d):
     :type d: dict
     :param d: Data from SAP
 
-    :rtype: tuple()
+    :rtype: tuple(
+        (AddressCode,
+         ('city', 'OSLO'),
+         ('postal_number', 0316),
+         ('address_text', 'Postboks 1059 Blindern')))
     :return: A tuple with the fields that should be updated"""
     co = Factory.get('Constants')
     r = d.get('Address')
@@ -60,12 +63,13 @@ def parse_address(d):
 
     # Visiting address should be a concoction of real address and a
     # meta-location
-    r['VisitingAddress'] = '{}\n{}'.format(
+    r['VisitingAddress']['StreetAndHouseNumber'] = '{}\n{}'.format(
         r.get('VisitingAddress').get('StreetAndHouseNumber'),
         r.get('VisitingAddress').get('Location'))
 
-    for address in filter_elements(translate_keys(filter_meta(r), m)):
-        yield filter_elements(translate_keys(address, m))
+    return tuple([(k, tuple(filter_elements(translate_keys(v, m)))) for
+                  (k, v) in filter_elements(
+                      translate_keys(filter_meta(r), m))])
 
 
 def parse_names(d):
@@ -122,15 +126,15 @@ def parse_titles(d):
     def make_tuple(variant, lang, name):
         return (('name_variant', variant),
                 ('name_language', lang),
-                ('name'), name)
-    titles = [
+                ('name', name))
+    titles = ([
         make_tuple(co.personal_title,
                    co.language_en,
-                   d.get('Title').get('English')),
-        map(lambda lang: make_tuple(co.personal_title,
-                                    lang,
-                                    d.get('Title').get('Norwegian')),
-            [co.language_nb, co.language_nn])]
+                   d.get('Title').get('English'))] +
+              map(lambda lang: make_tuple(co.personal_title,
+                                          lang,
+                                          d.get('Title').get('Norwegian')),
+                  [co.language_nb, co.language_nn]))
 
     # Select appropriate work title.
     work_title = None
@@ -147,9 +151,9 @@ def parse_titles(d):
         co.work_title,
         lang_code,
         work_title.get('Job').get('Title').get(lang_str)),
-        [('Norwegian', co.language_nb),
-         ('Norwegian', co.language_nn),
-         ('English', co.language_en)])
+        [(co.language_nb, 'Norwegian'),
+         (co.language_nn, 'Norwegian'),
+         (co.language_en, 'English')])
 
 
 def parse_external_ids(source_system, d):
@@ -209,11 +213,11 @@ def parse_affiliations(database, d):
     for x in d.get('Employments').get('results'):
         status = {'T/A': co.affiliation_status_ansatt_tekadm,
                   'Vit': co.affiliation_status_ansatt_vitenskapelig}.get(
-                      x.get('Category'))
+                      x.get('Job').get('Category'))
 
         ou.find_stedkode(
             *map(''.join, zip(*[iter(x.get('OrganizationalUnit'))]*2)) +
-            [cereconf.DEFAULT_INSTITUSJONSNR]).entity_id
+            [cereconf.DEFAULT_INSTITUSJONSNR])
         main = x.get('IsMain')
         yield {'ou_id': ou.entity_id,
                'affiliation': co.affiliation_ansatt,
@@ -306,7 +310,7 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
     :param hr_person: The parsed data from the remote source system
     :param cerebrum_person: The Person object to be updated.
     """
-    for affiliation in hr_person:
+    for affiliation in hr_person.get('affiliations'):
         cerebrum_person.populate_affiliation(source_system, **affiliation)
         logger.debug('Adding affiliation {} for id:{}'.format(
             affiliation, cerebrum_person.entity_id))
@@ -401,14 +405,14 @@ def update_addresses(database, source_system, hr_person, cerebrum_person):
                                   source=source_system))
 
     for (k, v) in set(hr_person.get('addresses')) - addresses:
-        cerebrum_person.delete_entity_address(source_system, k)
-        logger.debug('Removing address {} for id:{}'.format(
-            (k, v), cerebrum_person.entity_id))
-    for (k, v) in addresses - set(hr_person.get('addresses')):
         cerebrum_person.add_entity_address(source_system, k, **dict(v))
         logger.debug('Adding address {} for id:{}'.format(
             (k, v), cerebrum_person.entity_id))
-        logger.debug(''.format())
+
+    for (k, v) in addresses - set(hr_person.get('addresses')):
+        cerebrum_person.delete_entity_address(source_system, k)
+        logger.debug('Removing address {} for id:{}'.format(
+            (k, v), cerebrum_person.entity_id))
 
 
 def update_contact_info(database, source_system, hr_person, cerebrum_person):
@@ -429,12 +433,12 @@ def update_contact_info(database, source_system, hr_person, cerebrum_person):
                                  source=source_system))
 
     for (k, v) in set(hr_person.get('contacts')) - contacts:
-        cerebrum_person.delete_contact_info(source_system, k)
-        logger.debug('Removing contact {} for id:{}'.format(
-            (k, v), cerebrum_person.entity_id))
-    for (k, v) in contacts - set(hr_person.get('contacts')):
         cerebrum_person.populate_contact_info(source_system, k, v)
         logger.debug('Adding contact {} for id:{}'.format(
+            (k, v), cerebrum_person.entity_id))
+    for (k, v) in contacts - set(hr_person.get('contacts')):
+        cerebrum_person.delete_contact_info(source_system, k)
+        logger.debug('Removing contact {} for id:{}'.format(
             (k, v), cerebrum_person.entity_id))
 
 
@@ -454,15 +458,16 @@ def update_titles(database, source_system, hr_person, cerebrum_person):
                      cerebrum_person.search_name_with_language(
                          entity_id=cerebrum_person.entity_id,
                          name_variant=[co.name_work_title,
-                                       co.name_person_title])))
+                                       co.name_personal_title])))
 
-    for e in hr_person.get('titles') - titles:
-        cerebrum_person.delete_name_with_language(**dict(e))
-        logger.debug('Removing title {} for id:{}'.format(
-            e, cerebrum_person.entity_id))
-    for e in titles - hr_person.get('titles'):
+    for e in set(hr_person.get('titles')) - titles:
         cerebrum_person.add_name_with_language(**dict(e))
         logger.debug('Adding title {} for id:{}'.format(
+            e, cerebrum_person.entity_id))
+
+    for e in titles - set(hr_person.get('titles')):
+        cerebrum_person.delete_name_with_language(**dict(e))
+        logger.debug('Removing title {} for id:{}'.format(
             e, cerebrum_person.entity_id))
 
 
