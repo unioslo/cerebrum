@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2014 University of Oslo, Norway
+# Copyright 2003-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -2378,6 +2378,18 @@ class BofhdAuth(DatabaseAccessor):
         ret.extend([int(x["group_id"])
                     for x in group.search(member_id=entity_id,
                                           indirect_members=False)])
+        # Now get the operator's Person-entity_id
+        # When we check whether some operator user is a member of
+        # f.i. a moderator-group, in addition to checking whether the user is
+        # member of the group, we want to also check whether the user's
+        # owner (only if the owner is a Person) is a member of the group.
+        account = Factory.get('Account')(self._db)
+        account.find(entity_id)
+        if account.owner_type == self.const.entity_person:
+            # if the owner of the account is a Person
+            ret.extend([int(x["group_id"])
+                        for x in group.search(member_id=account.owner_id,
+                                              indirect_members=False)])
         self._users_auth_entities_cache[entity_id] = list(set(ret))
         return ret
 
