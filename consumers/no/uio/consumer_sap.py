@@ -449,11 +449,19 @@ def update_contact_info(database, source_system, hr_person, cerebrum_person):
                              cerebrum_person.get_contact_info(
                                  source=source_system))
 
-    for (k, v) in set(hr_person.get(u'contacts')) - contacts:
+    # TODO: Combine row_transform and the following into something simpler
+    stripper = lambda s: set(map(
+        lambda (ck, cv): (ck, filter(
+            lambda e: e, map(
+                lambda (k, v): v if k == u'contact_value' else None,
+                cv)).pop()),
+        s))
+
+    for (k, v) in set(hr_person.get(u'contacts')) - stripper(contacts):
         cerebrum_person.populate_contact_info(source_system, k, v)
         logger.debug(u'Adding contact {} for id:{}'.format(
             (_stringify_for_log(k), v), cerebrum_person.entity_id))
-    for (k, v) in contacts - set(hr_person.get('contacts')):
+    for (k, v) in stripper(contacts) - set(hr_person.get('contacts')):
         cerebrum_person.delete_contact_info(source_system, k)
         logger.debug(u'Removing contact {} for id:{}'.format(
             (_stringify_for_log(k), v), cerebrum_person.entity_id))
