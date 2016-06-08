@@ -648,7 +648,6 @@ def generate_person_list(personfile,person_list):
                             #afflist.append(unit)
                     else:
                         #logger.debug("\t Today is NOT in range from:%s to: infinite" % (TODAY_conv,from_date_conv))
-                        logger.debug("\t Today is: %s. Persons start date:%s  has not been reached yet",(TODAY_conv,from_date_conv))
                         logger.debug("\t NOT appending this affiliation. it is out of date.")
                 #print "afflist length=:%i" % len(afflist)
                 if len(afflist) > 0:

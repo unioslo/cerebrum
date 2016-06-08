@@ -1,3 +1,7 @@
+2016-06-08    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* import_sito.py (generate_person_list): Removed old debug line
+
 2016-05-30  Karen   <cerebrum@cleomedes.uit.no>
 
     * generate_fronter_full.py: Replaced 'uio' with 'uit' where necessary
