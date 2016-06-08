@@ -289,6 +289,21 @@ def get_cerebrum_person(database, identifier):
     return pe
 
 
+def _stringify_for_log(data):
+    from Cerebrum.Constants import _CerebrumCode
+    import collections
+    if isinstance(data, _CerebrumCode):
+        return str(data)
+    elif isinstance(data, basestring):
+        return data
+    elif isinstance(data, collections.Mapping):
+        return dict(map(_stringify_for_log, data.iteritems()))
+    elif isinstance(data, collections.Iterable):
+        return type(data)(map(_stringify_for_log, data))
+    else:
+        return data
+
+
 def update_person(database, source_system, hr_person, cerebrum_person):
     """Update person with birth date and gender."""
     cerebrum_person.populate(
@@ -313,7 +328,7 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
     for affiliation in hr_person.get('affiliations'):
         cerebrum_person.populate_affiliation(source_system, **affiliation)
         logger.debug('Adding affiliation {} for id:{}'.format(
-            affiliation, cerebrum_person.entity_id))
+            _stringify_for_log(affiliation), cerebrum_person.entity_id))
 
 
 def update_names(database, source_system, hr_person, cerebrum_person):
@@ -407,12 +422,12 @@ def update_addresses(database, source_system, hr_person, cerebrum_person):
     for (k, v) in set(hr_person.get('addresses')) - addresses:
         cerebrum_person.add_entity_address(source_system, k, **dict(v))
         logger.debug('Adding address {} for id:{}'.format(
-            (k, v), cerebrum_person.entity_id))
+            (_stringify_for_log(k), v), cerebrum_person.entity_id))
 
     for (k, v) in addresses - set(hr_person.get('addresses')):
         cerebrum_person.delete_entity_address(source_system, k)
         logger.debug('Removing address {} for id:{}'.format(
-            (k, v), cerebrum_person.entity_id))
+            (_stringify_for_log(k), v), cerebrum_person.entity_id))
 
 
 def update_contact_info(database, source_system, hr_person, cerebrum_person):
@@ -435,11 +450,11 @@ def update_contact_info(database, source_system, hr_person, cerebrum_person):
     for (k, v) in set(hr_person.get('contacts')) - contacts:
         cerebrum_person.populate_contact_info(source_system, k, v)
         logger.debug('Adding contact {} for id:{}'.format(
-            (k, v), cerebrum_person.entity_id))
+            (_stringify_for_log(k), v), cerebrum_person.entity_id))
     for (k, v) in contacts - set(hr_person.get('contacts')):
         cerebrum_person.delete_contact_info(source_system, k)
         logger.debug('Removing contact {} for id:{}'.format(
-            (k, v), cerebrum_person.entity_id))
+            (_stringify_for_log(k), v), cerebrum_person.entity_id))
 
 
 def update_titles(database, source_system, hr_person, cerebrum_person):
@@ -463,12 +478,12 @@ def update_titles(database, source_system, hr_person, cerebrum_person):
     for e in set(hr_person.get('titles')) - titles:
         cerebrum_person.add_name_with_language(**dict(e))
         logger.debug('Adding title {} for id:{}'.format(
-            e, cerebrum_person.entity_id))
+            _stringify_for_log(e), cerebrum_person.entity_id))
 
     for e in titles - set(hr_person.get('titles')):
         cerebrum_person.delete_name_with_language(**dict(e))
         logger.debug('Removing title {} for id:{}'.format(
-            e, cerebrum_person.entity_id))
+            _stringify_for_log(e), cerebrum_person.entity_id))
 
 
 def update_reservation(database, hr_person, cerebrum_person):
