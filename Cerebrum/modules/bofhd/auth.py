@@ -2379,6 +2379,10 @@ class BofhdAuth(DatabaseAccessor):
                     for x in group.search(member_id=entity_id,
                                           indirect_members=False)])
         # Now get the operator's Person-entity_id
+        # When we check whether some operator user is a member of
+        # f.i. a moderator-group, in addition to checking whether the user is
+        # member of the group, we want to also check whether the user's
+        # owner (only if the owner is a Person) is a member of the group.
         account = Factory.get('Account')(self._db)
         account.find(entity_id)
         if account.owner_type == self.const.entity_person:
