@@ -7,7 +7,8 @@ blueprint = Blueprint('api_v1', __name__)
 api = Api(blueprint,
           version=__version__,
           title='Cerebrum REST API',
-          description='Cerebrum is an user administration system.',
+          description='Cerebrum is a user administration and '
+                      'identity management system.',
           contact='cerebrum-kontakt@usit.uio.no')
 
 from Cerebrum.rest.api.v1.account import api as account_ns
