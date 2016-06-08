@@ -84,11 +84,7 @@ class AccountResource(Resource):
     @api.response(404, 'Not Found')
     @auth.require()
     def get(self, id):
-        """Get account information.
-
-        :param str name_or_id: The account name or account ID
-        :return: Information about the account
-        """
+        """Get account information."""
         ac = find_account(id)
         return {
             'name': ac.account_name,

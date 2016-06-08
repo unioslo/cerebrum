@@ -59,7 +59,7 @@ Group = api.model('Group', {
         fields.base.Nested(GroupModerator),
         description='Group moderators'),
     'members': fields.base.Url(
-        endpoint='.groupmembers',
+        endpoint='.group-members',
         absolute=True,
         description='URL to the resource containing group members'),
 })
@@ -69,29 +69,10 @@ Group = api.model('Group', {
 @api.doc(params={'id': 'Group name or ID'})
 class GroupResource(Resource):
     """Resource for a single group."""
-    # @swagger.operation(
-    #     notes='Get group information',
-    #     nickname='get',
-    #     responseClass='Group',
-    #     parameters=[
-    #         {
-    #             'name': 'id',
-    #             'description': 'Group name or ID',
-    #             'required': True,
-    #             'allowMultiple': False,
-    #             'dataType': 'string',
-    #             'paramType': 'path'
-    #         },
-    #     ]
-    # )
     @auth.require()
     @api.marshal_with(Group)
     def get(self, id):
-        """Returns group information for a single group based on the Group model.
-
-        :param str id: The group name or ID
-        :return: Information about the group
-        """
+        """Get group information."""
         gr = find_group(id)
 
         return {
@@ -124,24 +105,11 @@ PosixGroup = api.model('PosixGroup', {
 @api.doc(params={'id': 'Group name or ID'})
 class PosixGroupResource(Resource):
     """Resource for the POSIX information of a group."""
-    # @swagger.operation(
-    #     notes='Get POSIX group information',
-    #     nickname='get',
-    #     responseClass='PosixGroup',
-    #     parameters=[
-    #         {'name': 'id',
-    #          'description': 'Group name or ID',
-    #          'required': True,
-    #          'allowMultiple': False,
-    #          'dataType': 'string',
-    #          'paramType': 'path'}])
     @auth.require()
     @api.marshal_with(PosixGroup)
     def get(self, id):
-        """Returns POSIX group information for a single group based on the \
-            PosixGroup model."""
+        """Get POSIX group information."""
         gr = find_group(id)
-
         return {
             'id': gr.entity_id,
             'posix': hasattr(gr, 'posix_gid'),
@@ -176,107 +144,45 @@ GroupList = api.model('GroupList', {
         description='List of groups'),
 })
 
+group_search_filter = api.parser()
+group_search_filter.add_argument(
+    'name', type=str,
+    help='Filter by name. Accepts * and ? as wildcards.')
+group_search_filter.add_argument(
+    'description', type=str,
+    help='Filter by description. Accepts * and ? as wildcards.')
+group_search_filter.add_argument(
+    'context', type=str, dest='spread',
+    help='Filter by context. Accepts * and ? as wildcards.')
+group_search_filter.add_argument(
+    'member_id', type=int, action='append',
+    help='Filter by memberships. Only groups that have member_id as a member '
+         'will be returned. If member_id is a sequence, the group is returned '
+         'if any of the IDs are a member of it.')
+group_search_filter.add_argument(
+    'indirect_members', type=bool,
+    help='If true, alter the behavior of the member_id filter to also '
+         'include groups where member_id is an indirect member.')
+group_search_filter.add_argument(
+    'filter_expired', type=bool,
+    help='If false, include expired groups.')
+group_search_filter.add_argument(
+    'expired_only', type=bool,
+    help='If true, only include expired groups.')
+group_search_filter.add_argument(
+    'creator_id', type=int,
+    help='Filter by creator entity ID.')
+
 
 @api.route('/', endpoint='groups')
 class GroupListResource(Resource):
     """Resource for list of groups."""
-    # @swagger.operation(
-    #     notes='Get a list of groups',
-    #     nickname='get',
-    #     responseClass='GroupList',
-    #     parameters=[
-    #         {
-    #             'name': 'name',
-    #             'description': 'Filter by name. Accepts * and ? as wildcards.',
-    #             'required': False,
-    #             'allowMultiple': False,
-    #             'dataType': 'str',
-    #             'paramType': 'query'
-    #         },
-    #         {
-    #             'name': 'description',
-    #             'description': 'Filter by description. Accepts * and ? as \
-    #                 wildcards.',
-    #             'required': False,
-    #             'allowMultiple': False,
-    #             'dataType': 'str',
-    #             'paramType': 'query'
-    #         },
-    #         {
-    #             'name': 'context',
-    #             'description': 'Filter by context. Accepts * and ? as \
-    #                 wildcards.',
-    #             'required': False,
-    #             'allowMultiple': False,
-    #             'dataType': 'str',
-    #             'paramType': 'query'
-    #         },
-    #         {
-    #             'name': 'member_id',
-    #             'description': 'Filter by memberships. Only groups that have member_id as a \
-    #                 member will be returned. If member_id is a sequence, the \
-    #                 group is returned if any of the IDs are a member of it.',
-    #             'required': False,
-    #             'allowMultiple': True,
-    #             'dataType': 'int',
-    #             'paramType': 'query'
-    #         },
-    #         {
-    #             'name': 'indirect_members',
-    #             'description': 'If true, alter the behavior of the member_id filter to also \
-    #                 include groups where member_id is an indirect member.',
-    #             'required': False,
-    #             'allowMultiple': False,
-    #             'dataType': 'bool',
-    #             'paramType': 'query'
-    #         },
-    #         {
-    #             'name': 'filter_expired',
-    #             'description': 'If false, include expired groups.',
-    #             'required': False,
-    #             'allowMultiple': False,
-    #             'defaultValue': True,
-    #             'dataType': 'bool',
-    #             'paramType': 'query'
-    #         },
-    #         {
-    #             'name': 'expired_only',
-    #             'description': 'If true, only include expired groups.',
-    #             'required': False,
-    #             'allowMultiple': False,
-    #             'dataType': 'bool',
-    #             'paramType': 'query'
-    #         },
-    #         {
-    #             'name': 'creator_id',
-    #             'description': 'Filter by creator entity ID.',
-    #             'required': False,
-    #             'allowMultiple': False,
-    #             'dataType': 'int',
-    #             'paramType': 'query'
-    #         },
-    #     ],
-    # )
     @auth.require()
     @api.marshal_with(GroupList)
+    @api.doc(parser=group_search_filter)
     def get(self):
-        """Returns a list of groups based on the GroupList model.
-
-        :param str id: the group name or entity ID
-
-        :rtype: list
-        :return: a list of groups
-        """
-        parser = reqparse.RequestParser()
-        parser.add_argument('name', type=str)
-        parser.add_argument('description', type=str)
-        parser.add_argument('context', type=str, dest='spread')
-        parser.add_argument('member_id', type=int, action='append')
-        parser.add_argument('indirect_members', type=bool)
-        parser.add_argument('filter_expired', type=bool)
-        parser.add_argument('expired_only', type=bool)
-        parser.add_argument('creator_id', type=int)
-        args = parser.parse_args()
+        """List groups."""
+        args = group_search_filter.parse_args()
         filters = {key: value for (key, value) in args.items() if
                    value is not None}
 
@@ -315,69 +221,28 @@ GroupMemberList = api.model('GroupMemberList', {
         description='List of group members'),
 })
 
+group_member_filter = api.parser()
+group_member_filter.add_argument(
+    'type', type=str, dest='member_type',
+    help='Filter by entity type.')
+group_member_filter.add_argument(
+    'context', type=str, dest='member_spread',
+    help='Filter by context. Accepts * and ? as wildcards.')
+group_member_filter.add_argument(
+    'filter_expired', type=bool, dest='member_filter_expired',
+    help='If false, include members that are expired.')
 
-@api.route('/<string:id>/members', endpoint='groupmembers')
+
+@api.route('/<string:id>/members', endpoint='group-members')
 @api.doc(params={'id': 'Group name or ID'})
 class GroupMemberListResource(Resource):
     """Resource for list of members of groups."""
-    # @swagger.operation(
-    #     notes='Get a list of members of a group',
-    #     nickname='get',
-    #     responseClass='GroupMemberList',
-    #     parameters=[
-    #         {
-    #             'name': 'id',
-    #             'description': 'Group name or ID',
-    #             'required': True,
-    #             'allowMultiple': False,
-    #             'dataType': 'string',
-    #             'paramType': 'path'
-    #         },
-    #         {
-    #             'name': 'type',
-    #             'description': 'Filter by entity type.',
-    #             'required': False,
-    #             'allowMultiple': False,
-    #             'dataType': 'str',
-    #             'paramType': 'query'
-    #         },
-    #         {
-    #             'name': 'context',
-    #             'description': 'Filter by context. Accepts * and ? as \
-    #                 wildcards.',
-    #             'required': False,
-    #             'allowMultiple': False,
-    #             'dataType': 'str',
-    #             'paramType': 'query'
-    #         },
-    #         {
-    #             'name': 'filter_expired',
-    #             'description': 'If false, include members that are expired.',
-    #             'required': False,
-    #             'allowMultiple': False,
-    #             'defaultValue': True,
-    #             'dataType': 'bool',
-    #             'paramType': 'query'
-    #         },
-    #     ],
-    # )
     @auth.require()
     @api.marshal_with(GroupMemberList)
+    @api.doc(parser=group_member_filter)
     def get(self, id):
-        """Returns a list of groups based on the GroupList model.
-
-        :param str id: the group name or entity ID
-
-        :rtype: list
-        :return: a list of groups
-        """
-        parser = reqparse.RequestParser()
-        parser.add_argument('type', type=str, dest='member_type')
-        parser.add_argument('context', type=str, dest='member_spread')
-        parser.add_argument('filter_expired',
-                            type=bool,
-                            dest='member_filter_expired')
-        args = parser.parse_args()
+        """List members of a group."""
+        args = group_member_filter.parse_args()
         filters = {key: value for (key, value) in args.items() if
                    value is not None}
 
