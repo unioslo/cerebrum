@@ -1,16 +1,15 @@
-from flask_restful import Resource, abort, marshal_with, reqparse
-from flask_restful_swagger import swagger
+from flask_restplus import Namespace, Resource, abort
 
 from Cerebrum.rest.api import db, auth, fields, utils
 from Cerebrum.rest.api.v1 import group
 from Cerebrum.rest.api.v1 import models
 from Cerebrum.rest.api.v1 import emailaddress
 
-
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.QuarantineHandler import QuarantineHandler
 
+api = Namespace('accounts', description='Account operations')
 co = Factory.get('Constants')(db.connection)
 
 
@@ -29,92 +28,63 @@ def find_account(identifier):
     return account
 
 
-@swagger.model
-@swagger.nested(
-    ou='OU')
-class AccountAffiliation(object):
-    resource_fields = {
-        'affiliation': fields.Constant(ctype='PersonAffiliation'),
-        'priority': fields.base.Integer,
-        'ou': fields.base.Nested(models.OU.resource_fields),
-    }
+AccountAffiliation = api.model('AccountAffiliation', {
+    'affiliation': fields.Constant(
+        ctype='PersonAffiliation',
+        description='Affiliation name'),
+    'priority': fields.base.Integer(
+        description='Affiliation priority'),
+    'ou': fields.base.Nested(
+        models.OU,
+        description='Organizational unit'),
+})
 
-    swagger_metadata = {
-        'affiliation': {'description': 'Affiliation name'},
-        'priority': {'description': 'Affiliation priority'},
-        'ou': {'description': 'Organizational unit'},
-    }
-
-
-@swagger.model
-@swagger.nested(
-    affiliations='AccountAffiliation')
-class AccountAffiliationList(object):
-    resource_fields = {
-        'affiliations': fields.base.List(
-            fields.base.Nested(
-                AccountAffiliation.resource_fields)),
-    }
-
-    swagger_metadata = {
-        'affiliations': {'description': 'Account affiliations'},
-    }
+AccountAffiliationList = api.model('AccountAffiliationList', {
+    'affiliations': fields.base.List(
+        fields.base.Nested(
+            AccountAffiliation),
+        description='Account affiliations'),
+})
 
 
-@swagger.model
-@swagger.nested(
-    owner='EntityOwner',
-    homes='AccountHome')
-class Account(object):
-    """Data model for a single account."""
-
-    resource_fields = {
-        'href': fields.base.Url('.account', absolute=True),
-        'name': fields.base.String,
-        'id': fields.base.Integer(default=None),
-        'owner': fields.base.Nested(models.EntityOwner.resource_fields),
-        'create_date': fields.DateTime(dt_format='iso8601'),
-        'expire_date': fields.DateTime(dt_format='iso8601'),
-        'contexts': fields.base.List(fields.Constant(ctype='Spread')),
-        'primary_email': fields.base.String,
-        'active': fields.base.Boolean,
-    }
-
-    swagger_metadata = {
-        'href': {'description': 'URL to this resource'},
-        'name': {'description': 'Account name', },
-        'id': {'description': 'Entity ID', },
-        'owner': {'description': 'Entity owner'},
-        'create_date': {'description': 'Date of account creation', },
-        'expire_date': {'description': 'Expiration date', },
-        'contexts': {'description': 'Visible in these contexts', },
-        'primary_email': {'description': 'Primary email address', },
-        'active': {'description':
-                   'Is this account active, i.e. not deleted or expired?', },
-    }
+Account = api.model('Account', {
+    'href': fields.base.Url(
+        endpoint='.account',
+        absolute=True,
+        description='URL to this resource'),
+    'name': fields.base.String(
+        description='Account name'),
+    'id': fields.base.Integer(
+        default=None,
+        description='Entity ID'),
+    'owner': fields.base.Nested(
+        models.EntityOwner,
+        description='Entity owner'),
+    'create_date': fields.DateTime(
+        dt_format='iso8601',
+        description='Account creation date'),
+    'expire_date': fields.DateTime(
+        dt_format='iso8601',
+        description='Expiration date'),
+    'contexts': fields.base.List(
+        fields.Constant(ctype='Spread'),
+        description='Visible in these contexts'),
+    'primary_email': fields.base.String(
+        description='Primary email address'),
+    'active': fields.base.Boolean(
+        description='Is this account active, i.e. not deleted or expired?'),
+})
 
 
+@api.route('/<string:id>', endpoint='account')
+@api.doc(params={'id': 'Account name or ID'})
 class AccountResource(Resource):
     """Resource for a single account."""
-    @swagger.operation(
-        notes='Get account information',
-        nickname='get',
-        responseClass='Account',
-        parameters=[
-            {
-                'name': 'id',
-                'description': 'Account name or ID',
-                'required': True,
-                'allowMultiple': False,
-                'dataType': 'string',
-                'paramType': 'path'
-            },
-        ]
-    )
+    @api.marshal_with(Account)
+    @api.response(404, 'Not Found')
     @auth.require()
-    @marshal_with(Account.resource_fields)
     def get(self, id):
-        """Returns account information for a single account based on the Account model.
+        """Get account information.
 
         :param str name_or_id: The account name or account ID
         :return: Information about the account
@@ -135,59 +105,39 @@ class AccountResource(Resource):
         }
 
 
-@swagger.model
-@swagger.nested(default_file_group='Group')
-class PosixAccount(object):
-    """Data model for a single POSIX account."""
-
-    resource_fields = {
-        'href': fields.base.Url('.posixaccount', absolute=True),
-        'name': fields.base.String,
-        'id': fields.base.Integer(default=None),
-        'posix': fields.base.Boolean,
-        'posix_uid': fields.base.Integer(default=None),
-        'posix_shell': fields.Constant(ctype='PosixShell'),
-        'default_file_group': fields.base.Nested(
-            group.Group.resource_fields, allow_null=True)
-    }
-
-    swagger_metadata = {
-        'href': {'description': 'URL to this resource'},
-        'name': {'description': 'Account name', },
-        'id': {'description': 'Entity ID', },
-        'posix': {'description': 'Is this a POSIX account?', },
-        'posix_uid': {'description': 'POSIX UID', },
-        'posix_shell': {'description': 'POSIX shell', },
-        'default_file_group': {'description': 'Default file group'},
-    }
+PosixAccount = api.model('PosixAccount', {
+    'href': fields.base.Url(
+        endpoint='.posixaccount',
+        absolute=True,
+        description='URL to this resource'),
+    'name': fields.base.String(
+        description='Account name'),
+    'id': fields.base.Integer(
+        default=None,
+        description='Entity ID'),
+    'posix': fields.base.Boolean(
+        description='Is this a POSIX account?'),
+    'posix_uid': fields.base.Integer(
+        default=None,
+        description='POSIX UID'),
+    'posix_shell': fields.Constant(
+        ctype='PosixShell',
+        description='POSIX shell'),
+    'default_file_group': fields.base.Nested(
+        group.Group,
+        allow_null=True,
+        description='Default file group')
+})
 
 
+@api.route('/<string:id>/posix', endpoint="posixaccount")
+@api.doc(params={'id': 'Account name or ID'})
 class PosixAccountResource(Resource):
     """Resource for a single POSIX account."""
-    @swagger.operation(
-        notes='Get POSIX account information',
-        nickname='get',
-        responseClass='PosixAccount',
-        parameters=[
-            {
-                'name': 'id',
-                'description': 'Account name or ID',
-                'required': True,
-                'allowMultiple': False,
-                'dataType': 'string',
-                'paramType': 'path'
-            },
-        ]
-    )
+    @api.marshal_with(PosixAccount)
     @auth.require()
-    @marshal_with(PosixAccount.resource_fields)
     def get(self, id):
-        """Returns POSIX account information for a single account based on \
-            the Account model.
-
-        :param str name_or_id: The account name or account ID
-        :return: Information about the account
-        """
+        """Get POSIX account information."""
         ac = find_account(id)
 
         return {
@@ -204,59 +154,31 @@ class PosixAccountResource(Resource):
         }
 
 
-@swagger.model
-@swagger.nested(
-    quarantines='EntityQuarantine')
-class AccountQuarantineList(object):
-    """Data model for account quarantines."""
-    resource_fields = {
-        'locked': fields.base.Boolean,
-        'quarantines': fields.base.List(fields.base.Nested(
-            models.EntityQuarantine.resource_fields)),
-    }
-
-    swagger_metadata = {
-        'locked': {'description': 'Is this account locked?'},
-        'quarantines': {'description': 'List of quarantines'},
-    }
+AccountQuarantineList = api.model('AccountQuarantineList', {
+    'locked': fields.base.Boolean(
+        description='Is this account locked?'),
+    'quarantines': fields.base.List(
+        fields.base.Nested(models.EntityQuarantine),
+        description='List of quarantines'),
+    })
 
 
+account_quarantines_filter = api.parser()
+account_quarantines_filter.add_argument(
+    'context', type=str,
+    help='Consider locked status based on context.')
+
+
+@api.route('/<string:id>/quarantines', endpoint='account-quarantines')
+@api.doc(params={'id': 'Account name or ID'})
 class AccountQuarantineListResource(Resource):
     """Quarantines for a single account."""
-    @swagger.operation(
-        notes='Get account quarantine information',
-        nickname='get',
-        responseClass='Quarantine',
-        parameters=[
-            {
-                'name': 'id',
-                'description': 'Account name or ID',
-                'required': True,
-                'allowMultiple': False,
-                'dataType': 'string',
-                'paramType': 'path'
-            },
-            {
-                'name': 'context',
-                'description': 'Consider locked status based on context.',
-                'required': False,
-                'allowMultiple': False,
-                'dataType': 'str',
-                'paramType': 'query'
-            },
-        ]
-    )
+    @api.marshal_with(AccountQuarantineList)
+    @api.doc(parser=account_quarantines_filter)
     @auth.require()
-    @marshal_with(AccountQuarantineList.resource_fields)
     def get(self, id):
-        """Returns quarantines for a single account.
-
-        :param str name_or_id: The account name or account ID
-        :return: Quarantines for the account
-        """
-        parser = reqparse.RequestParser()
-        parser.add_argument('context', type=str)
-        args = parser.parse_args()
+        """Get account quarantines."""
+        args = account_quarantines_filter.parse_args()
 
         spreads = None
         if args.context:
@@ -290,49 +212,23 @@ class AccountQuarantineListResource(Resource):
         }
 
 
-@swagger.model
-@swagger.nested(
-    addresses='EmailAddress')
-class AccountEmailAddress(object):
-    resource_fields = {
-        'primary': fields.base.String,
-        'addresses': fields.base.List(
-            fields.base.Nested(
-                emailaddress.EmailAddress.resource_fields)),
-    }
-
-    swagger_metadata = {
-        'primary': {'description': 'Primary email address for this account'},
-        'addresses': {'description': 'All addresses targeting this account'},
-    }
+AccountEmailAddress = api.model('AccountEmailAddress', {
+    'primary': fields.base.String(
+        description='Primary email address for this account'),
+    'addresses': fields.base.List(
+        fields.base.Nested(emailaddress.EmailAddress),
+        description='All addresses targeting this account'),
+})
 
 
+@api.route('/<string:id>/emailaddresses', endpoint='account-emailaddresses')
+@api.doc(params={'id': 'Account name or ID'})
 class AccountEmailAddressResource(Resource):
     """Resource for the email addresses of a single account."""
-    @swagger.operation(
-        notes='Get the email addresses of an account',
-        nickname='get',
-        responseClass=AccountEmailAddress,
-        parameters=[
-            {
-                'name': 'id',
-                'description': 'Account name or ID',
-                'required': True,
-                'allowMultiple': False,
-                'dataType': 'string',
-                'paramType': 'path'
-            },
-        ]
-    )
+    @api.marshal_with(AccountEmailAddress)
     @auth.require()
-    @marshal_with(AccountEmailAddress.resource_fields)
     def get(self, id):
-        """Returns the email addresses for a single account based on the
-        EmailAddress model.
-
-        :param str id: The account name or account ID
-        :return: Information about the email addresses
-        """
+        """Get the email addresses for an account."""
         ac = find_account(id)
         addresses = emailaddress.list_email_addresses(
             ac.get_primary_mailaddress())
@@ -342,108 +238,72 @@ class AccountEmailAddressResource(Resource):
         }
 
 
-@swagger.model
-@swagger.nested(
-    owner='EntityOwner')
-class AccountListItem(object):
-    """Data model for an account in a list."""
-    resource_fields = {
-        'href': fields.base.Url('.account', absolute=True),
-        'name': fields.base.String,
-        'id': fields.base.Integer(default=None, attribute='account_id'),
-        'owner': fields.base.Nested(models.EntityOwner.resource_fields),
-        'expire_date': fields.DateTime(dt_format='iso8601'),
-        'np_type': fields.Constant(ctype='Account'),
-    }
-
-    swagger_metadata = {
-        'href': {'description': 'Account URI'},
-        'name': {'description': 'Account name'},
-        'id': {'description': 'Account entity ID'},
-        'owner': {'description': 'Account owner'},
-        'expire_date': {'description': 'Expiration date'},
-        'np_type': {'description':
-                    'Non-personal account type, null if personal'},
-    }
+AccountListItem = api.model('AccountListItem', {
+    'href': fields.base.Url(
+        endpoint='.account',
+        absolute=True,
+        description='URL to this resource'),
+    'name': fields.base.String(
+        description='Account name'),
+    'id': fields.base.Integer(
+        default=None,
+        attribute='account_id',
+        description='Account entity ID'),
+    'owner': fields.base.Nested(
+        models.EntityOwner,
+        description='Account owner'),
+    'expire_date': fields.DateTime(
+        dt_format='iso8601',
+        description='Expiration date'),
+    'np_type': fields.Constant(
+        ctype='Account',
+        description='Non-personal account type (null if personal)'),
+})
 
 
-@swagger.model
-@swagger.nested(
-    accounts='AccountListItem')
-class AccountList(object):
-    """Data model for a list of accounts"""
-    resource_fields = {
-        'accounts': fields.base.List(
-            fields.base.Nested(
-                AccountListItem.resource_fields)),
-    }
-
-    swagger_metadata = {
-        'accounts': {'description': 'List of accounts'},
-    }
+AccountList = api.model('AccountList', {
+    'accounts': fields.base.List(
+        fields.base.Nested(AccountListItem),
+        description='List of accounts'),
+})
 
 
+account_search_filter = api.parser()
+account_search_filter.add_argument(
+    'name', type=str,
+    help='Filter by account name. Accepts * and ? as wildcards.')
+account_search_filter.add_argument(
+    'context', type=str, dest='spread',
+    help='Filter by context. Accepts * and ? as wildcards.')
+account_search_filter.add_argument(
+    'owner_id', type=int,
+    help='Filter by owner entity ID.')
+account_search_filter.add_argument(
+    'owner_type', type=str,
+    help='Filter by owner entity type.')
+account_search_filter.add_argument(
+    'expire_start', type=str,
+    help='Filter by expiration start date.')
+account_search_filter.add_argument(
+    'expire_stop', type=str,
+    help='Filter by expiration end date.')
+
+
+@api.route('/', endpoint='accounts')
 class AccountListResource(Resource):
     """Resource for list of accounts."""
-    @swagger.operation(
-        notes='Get a list of accounts',
-        nickname='get',
-        responseClass=AccountList.__name__,
-        parameters=[
-            {
-                'name': 'name',
-                'description':
-                    'Filter by account name. Accepts * and ? as wildcards.',
-                'required': False,
-                'allowMultiple': False,
-                'dataType': 'str',
-                'paramType': 'query'
-            },
-            {
-                'name': 'context',
-                'description':
-                    'Filter by context. Accepts * and ? as wildcards.',
-                'required': False,
-                'allowMultiple': False,
-                'dataType': 'str',
-                'paramType': 'query'
-            },
-            {
-                'name': 'owner_id',
-                'description': 'Filter by owner entity ID.',
-                'required': False,
-                'allowMultiple': False,
-                'dataType': 'int',
-                'paramType': 'query'
-            },
-            {
-                'name': 'owner_type',
-                'description': 'Filter by owner entity type.',
-                'required': False,
-                'allowMultiple': False,
-                'dataType': 'str',
-                'paramType': 'query'
-            },
-        ],
-    )
+    @api.marshal_with(AccountList)
+    @api.doc(parser=account_search_filter)
     @auth.require()
-    @marshal_with(AccountList.resource_fields)
     def get(self):
-        """Returns a list of accounts based on the model in AccountListResourceFields.
+        """List accounts.
 
         :param str name_or_id: the account name or account ID
 
         :rtype: list
         :return: a list of accounts
         """
-        parser = reqparse.RequestParser()
-        parser.add_argument('name', type=str)
-        parser.add_argument('context', type=str, dest='spread')
-        parser.add_argument('owner_id', type=int)
-        parser.add_argument('owner_type', type=str)
-        parser.add_argument('expire_start', type=str)
-        parser.add_argument('expire_stop', type=str)
-        args = parser.parse_args()
+        args = account_search_filter.parse_args()
         filters = {key: value for (key, value) in args.items()
                    if value is not None}
 
@@ -472,66 +332,28 @@ class AccountListResource(Resource):
         return {'accounts': accounts}
 
 
+account_groups_filter = api.parser()
+account_groups_filter.add_argument(
+    'indirect_memberships', type=bool, dest='indirect_members',
+    help='If true, include indirect group memberships.')
+account_groups_filter.add_argument(
+    'filter_expired', type=bool,
+    help='If false, include expired groups.')
+account_groups_filter.add_argument(
+    'expired_only', type=bool,
+    help='If true, only include expired groups.')
+
+
+@api.route('/<string:id>/groups')
+@api.doc(params={'id': 'Account name or ID'})
 class AccountGroupListResource(Resource):
     """Resource for account group memberships."""
-    @swagger.operation(
-        notes='Get a list of groups this account is a member of',
-        nickname='get',
-        responseClass='GroupList',
-        parameters=[
-            {
-                'name': 'id',
-                'description': 'Account name or ID',
-                'required': True,
-                'allowMultiple': False,
-                'dataType': 'string',
-                'paramType': 'path'
-            },
-            {
-                'name': 'indirect_memberships',
-                'description': 'If true, include indirect group memberships.',
-                'required': False,
-                'allowMultiple': False,
-                'dataType': 'bool',
-                'paramType': 'query'
-            },
-            {
-                'name': 'filter_expired',
-                'description': 'If false, include expired groups.',
-                'required': False,
-                'allowMultiple': False,
-                'defaultValue': True,
-                'dataType': 'bool',
-                'paramType': 'query'
-            },
-            {
-                'name': 'expired_only',
-                'description': 'If true, only include expired groups.',
-                'required': False,
-                'allowMultiple': False,
-                'dataType': 'bool',
-                'paramType': 'query'
-            },
-        ],
-    )
+    @api.marshal_with(group.GroupList)
     @auth.require()
-    @marshal_with(group.GroupList.resource_fields)
     def get(self, id):
-        """Returns the groups this account is a member of.
-
-        :param str id: the account name or id
-
-        :rtype: list
-        :return: a list of groups
-        """
+        """List groups an account is a member of."""
         ac = find_account(id)
-
-        parser = reqparse.RequestParser()
-        parser.add_argument('indirect_memberships', type=bool,
-                            dest='indirect_members')
-        parser.add_argument('filter_expired', type=bool)
-        parser.add_argument('expired_only', type=bool)
-        args = parser.parse_args()
+        args = account_groups_filter.parse_args()
         filters = {key: value for (key, value) in args.items()
                    if value is not None}
         filters['member_id'] = ac.entity_id
@@ -548,47 +370,27 @@ class AccountGroupListResource(Resource):
         return {'groups': groups}
 
 
+@api.route('/<string:id>/contacts')
+@api.doc(params={'id': 'Account name or ID'})
 class AccountContactInfoListResource(Resource):
     """Resource for account contact information."""
-    @swagger.operation(
-        notes='Get contact information for an account',
-        nickname='get',
-        responseClass='EntityContactInfoList',
-        parameters=[],
-    )
+    @api.marshal_with(models.EntityContactInfoList)
     @auth.require()
-    @marshal_with(models.EntityContactInfoList.resource_fields)
     def get(self, id):
-        """Returns the contact information for an account.
-
-        :param str id: the account name or id
-
-        :rtype: dict
-        :return: contact information
-        """
+        """Lists contact information for an account."""
         ac = find_account(id)
         contacts = ac.get_contact_info()
         return {'contacts': contacts}
 
 
+@api.route('/<string:id>/affiliations')
+@api.doc(params={'id': 'Account name or ID'})
 class AccountAffiliationListResource(Resource):
     """Resource for account affiliations."""
-    @swagger.operation(
-        notes='Get affiliations for an account',
-        nickname='get',
-        responseClass='AccountAffiliationList',
-        parameters=[],
-    )
+    @api.marshal_with(AccountAffiliationList)
     @auth.require()
-    @marshal_with(AccountAffiliationList.resource_fields)
     def get(self, id):
-        """Returns the affiliations for an account.
-
-        :param str id: the account name or id
-
-        :rtype: dict
-        :return: affiliations
-        """
+        """List affiliations for an account."""
         ac = find_account(id)
 
         affiliations = list()
@@ -601,57 +403,38 @@ class AccountAffiliationListResource(Resource):
         return {'affiliations': affiliations}
 
 
-@swagger.model
-class AccountHome(object):
-    resource_fields = {
-        'homedir_id': fields.base.Integer,
-        'home': fields.base.String,
-        'context': fields.Constant(ctype='Spread', attribute='spread'),
-        'status': fields.Constant(ctype='AccountHomeStatus'),
-        'disk_id': fields.base.Integer,
-    }
-
-    swagger_metadata = {
-        'homedir_id': {'description': 'Home directory entity ID'},
-        'home': {'description': 'Home directory path'},
-        'context': {'description': ''},
-        'status': {'description': 'Home status'},
-        'disk_id': {'description': 'Disk entity ID'},
-    }
+AccountHome = api.model('AccountHome', {
+    'homedir_id': fields.base.Integer(
+        description='Home directory entity ID'),
+    'home': fields.base.String(
+        description='Home directory path'),
+    'context': fields.Constant(
+        ctype='Spread',
+        attribute='spread',
+        description='Context'),
+    'status': fields.Constant(
+        ctype='AccountHomeStatus',
+        description='Home status'),
+    'disk_id': fields.base.Integer(
+        description='Disk entity ID'),
+})
 
 
-@swagger.model
-@swagger.nested(
-    homes='AccountHome')
-class AccountHomeList(object):
-    resource_fields = {
-        'homes': fields.base.List(fields.base.Nested(
-            AccountHome.resource_fields)),
-    }
-
-    swagger_metadata = {
-        'homes': {'description': 'Home directories'},
-    }
+AccountHomeList = api.model('AccountHomeList', {
+    'homes': fields.base.List(
+        fields.base.Nested(AccountHome),
+        description='Home directories'),
+})
 
 
+@api.route('/<string:id>/homes')
+@api.doc(params={'id': 'Account name or ID'})
 class AccountHomeListResource(Resource):
     """Resource for account home directories."""
-    @swagger.operation(
-        notes='Get home directories for an account',
-        nickname='get',
-        responseClass='AccountHomeList',
-        parameters=[],
-    )
+    @api.marshal_with(AccountHomeList)
     @auth.require()
-    @marshal_with(AccountHomeList.resource_fields)
     def get(self, id):
-        """Returns the home directories for an account.
-
-        :param str id: the account name or id
-
-        :rtype: dict
-        :return: home directories
-        """
+        """List home directories for an account."""
         ac = find_account(id)
 
         homes = list()

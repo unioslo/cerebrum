@@ -1,143 +1,111 @@
-from flask_restful_swagger import swagger
 from Cerebrum.rest.api import fields
 
+from . import api
 
 # Model for data from entity.get_contact_info()
-@swagger.model
-class EntityContactInfo(object):
-    resource_fields = {
-        'value': fields.base.String(attribute='contact_value'),
-        'alias': fields.base.String(attribute='contact_alias'),
-        'preference': fields.base.Integer(attribute='contact_pref'),
-        'type': fields.Constant(ctype='ContactInfo', attribute='contact_type'),
-        'entity_id': fields.base.Integer,
-        'description': fields.base.String,
-        'source_system': fields.Constant(ctype='AuthoritativeSystem'),
-    }
+EntityContactInfo = api.model('EntityContactInfo', {
+    'value': fields.base.String(
+        attribute='contact_value',
+        description='Value'),
+    'alias': fields.base.String(
+        attribute='contact_alias',
+        description='Alias'),
+    'preference': fields.base.Integer(
+        attribute='contact_pref',
+        description='Preference/priority, 1 = highest'),
+    'type': fields.Constant(
+        ctype='ContactInfo',
+        attribute='contact_type',
+        description='Type'),
+    'entity_id': fields.base.Integer(
+        description='Entity ID'),
+    'description': fields.base.String(
+        description='Description'),
+    'source_system': fields.Constant(
+        ctype='AuthoritativeSystem',
+        description='Source system'),
+})
 
-    swagger_metadata = {
-        'value': {'description': 'Value'},
-        'alias': {'description': 'Alias'},
-        'preference': {'description': 'Preference/priority, 1 = highest'},
-        'type': {'description': 'Type'},
-        'entity_id': {'description': 'Entity ID'},
-        'description': {'description': 'Description'},
-        'source_system': {'description': 'Source system'},
-    }
-
-
-@swagger.model
-@swagger.nested(
-    contacts='EntityContactInfo')
-class EntityContactInfoList(object):
-    resource_fields = {
-        'contacts': fields.base.List(fields.base.Nested(
-            EntityContactInfo.resource_fields)),
-    }
-
-    swagger_metadata = {
-        'contacts': {'description': 'Contact information'},
-    }
+EntityContactInfoList = api.model('EntityContactInfoList', {
+    'contacts': fields.base.List(
+        fields.base.Nested(EntityContactInfo),
+        description='Contact information'),
+})
 
 
-@swagger.model
-class EntityOwner(object):
-    """Data model for the owner of an entity."""
-    resource_fields = {
-        'id': fields.base.Integer(default=None),
-        'type': fields.Constant(ctype='EntityType'),
-        'href': fields.UrlFromEntityType(absolute=True),
-    }
-
-    swagger_metadata = {
-        'id': {'description': 'Entity ID', },
-        'type': {'description': 'Entity type', },
-        'href': {'description': 'URL to resource', },
-    }
+EntityOwner = api.model('EntityOwner', {
+    'id': fields.base.Integer(
+        default=None,
+        description='Entity ID'),
+    'type': fields.Constant(
+        ctype='EntityType',
+        description='Entity type'),
+    'href': fields.UrlFromEntityType(
+        absolute=True,
+        description='URL to resource'),
+})
 
 
 # Model for data from entity.get_external_id()
-@swagger.model
-class EntityExternalId(object):
-    """Data model for the external ID of an entity."""
-    resource_fields = {
-        'id': fields.base.String(attribute='external_id'),
-        'type': fields.Constant(ctype='EntityExternalId', attribute='id_type'),
-        'source_system': fields.Constant(ctype='AuthoritativeSystem'),
-    }
+EntityExternalId = api.model('EntityExternalId', {
+    'id': fields.base.String(
+        attribute='external_id',
+        description='External ID'),
+    'type': fields.Constant(
+        ctype='EntityExternalId',
+        attribute='id_type',
+        description='ID type'),
+    'source_system': fields.Constant(
+        ctype='AuthoritativeSystem',
+        description='Source system'),
+})
 
-    swagger_metadata = {
-        'id': {'description': 'External ID'},
-        'type': {'description': 'ID type'},
-        'source_system': {'description': 'Source system'},
-    }
-
-
-@swagger.model
-@swagger.nested(
-    external_ids='EntityExternalId')
-class EntityExternalIdList(object):
-    resource_fields = {
-        'external_ids': fields.base.List(fields.base.Nested(
-            EntityExternalId.resource_fields)),
-    }
-
-    swagger_metadata = {
-        'external_ids': {'description': 'External IDs'},
-    }
+EntityExternalIdList = api.model('EntityExternalIdList', {
+    'external_ids': fields.base.List(
+        fields.base.Nested(EntityExternalId),
+        description='External IDs'),
+})
 
 
 # Model for data from entity.get_entity_quarantines()
-@swagger.model
-class EntityQuarantine(object):
-    """Data model for a quarantine."""
-
-    resource_fields = {
-        'type': fields.Constant(ctype='Quarantine'),
-        # 'description': fields.base.String,
-        'start': fields.DateTime(dt_format='iso8601'),
-        'end': fields.DateTime(dt_format='iso8601'),
-        # 'disable_until': fields.DateTime(dt_format='iso8601'),
-    }
-
-    swagger_metadata = {
-        'type': {'description': 'Type of quarantine'},
-        # 'description': {'description': 'Description of quarantine', },
-        'start': {'description': 'Quarantine start date', },
-        'end': {'description': 'Quarantine end date', },
-        # 'disable_until': {'description': 'Quarantine disabled until', },
-    }
+EntityQuarantine = api.model('EntityQuarantine', {
+    'type': fields.Constant(
+        ctype='Quarantine',
+        description='Type of quarantine'),
+    # 'description': fields.base.String(
+    #     description='Description of quarantine'),
+    'start': fields.DateTime(
+        dt_format='iso8601',
+        description='Quarantine start date'),
+    'end': fields.DateTime(
+        dt_format='iso8601',
+        description='Quarantine end date'),
+    # 'disable_until': fields.DateTime(
+    #     dt_format='iso8601',
+    #     description='Quarantine disabled until'),
+})
 
 
 # Model for data from entity.search_name_with_language()
-@swagger.model
-class EntityNameWithLanguage(object):
-    """Data model for the name of an entity."""
-    resource_fields = {
-        'variant': fields.Constant(ctype='EntityNameCode',
-                                   attribute='name_variant'),
-        'language': fields.Constant(ctype='LanguageCode',
-                                    attribute='name_language'),
-        'name': fields.base.String(),
-    }
-
-    swagger_metadata = {
-        'variant': {'description': 'Name variant'},
-        'language': {'description': 'Language'},
-        'name': {'description': 'Name'},
-    }
-
+EntityNameWithLanguage = api.model('EntityNameWithLanguage', {
+    'variant': fields.Constant(
+        ctype='EntityNameCode',
+        attribute='name_variant',
+        description='Name variant'),
+    'language': fields.Constant(
+        ctype='LanguageCode',
+        attribute='name_language',
+        description='Language'),
+    'name': fields.base.String(
+        description='Name'),
+})
 
 # Model for referencing OUs by ID
-@swagger.model
-class OU(object):
-    """Data model for an OU reference."""
-    resource_fields = {
-        'href': fields.base.Url(endpoint='.ou', absolute=True),
-        'id': fields.base.Integer,
-    }
-
-    swagger_metadata = {
-        'href': {'description': 'OU resource URL'},
-        'id': {'description': 'OU entity ID'},
-    }
+OU = api.model('OU', {
+    'href': fields.base.Url(
+        endpoint='.ou',
+        absolute=True,
+        description='OU resource URL'),
+    'id': fields.base.Integer(
+        description='OU entity ID'),
+})

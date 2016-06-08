@@ -1,4 +1,4 @@
-from flask_restful import fields as base
+from flask_restplus import fields as base
 from werkzeug.routing import BuildError
 
 from Cerebrum.rest.api import db
@@ -36,9 +36,9 @@ class UrlFromEntityType(base.Url):
     """Attempts to build a self-referencing URL from the 'id' and 'type'
     fields in a model."""
     def __init__(self, endpoint=None, absolute=False, scheme=None,
-                 ctype='EntityType', type_field='type'):
+                 ctype='EntityType', type_field='type', **kwargs):
         super(UrlFromEntityType, self).__init__(
-            endpoint=endpoint, absolute=absolute, scheme=scheme)
+            endpoint=endpoint, absolute=absolute, scheme=scheme, **kwargs)
         self.type_field = type_field
         self.ctype = ctype
 

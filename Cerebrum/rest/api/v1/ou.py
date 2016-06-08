@@ -1,11 +1,12 @@
-from flask_restful import Resource, abort, marshal_with
-from flask_restful_swagger import swagger
+from flask_restplus import Namespace, Resource, abort
 
 from Cerebrum.rest.api import db, auth, fields
 from Cerebrum.rest.api.v1 import models
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+
+api = Namespace('ous', description='Organizational unit operations')
 
 
 def find_ou(ou_id):
@@ -45,53 +46,36 @@ def format_ou(ou):
     return data
 
 
-@swagger.model
-class OrganizationalUnit(object):
-    resource_fields = {
-        'href': fields.base.Url(endpoint='.ou', absolute=True),
-        'id': fields.base.Integer,
-        'contact': fields.base.List(fields.base.Nested(
-            models.EntityContactInfo.resource_fields)),
-        'names': fields.base.List(fields.base.Nested(
-            models.EntityNameWithLanguage.resource_fields)),
-        'contexts': fields.base.List(fields.Constant(ctype='Spread')),
-        'stedkode': fields.base.String,
-        'fakultet': fields.base.Integer,
-        'institutt': fields.base.Integer,
-        'avdeling': fields.base.Integer,
-    }
+OrganizationalUnit = api.model('OrganizationalUnit', {
+    'href': fields.base.Url(
+        endpoint='.ou',
+        absolute=True,
+        description='URL to this resource'),
+    'id': fields.base.Integer(
+        description='OU entity ID'),
+    'contact': fields.base.List(
+        fields.base.Nested(models.EntityContactInfo),
+        description='Contact information'),
+    'names': fields.base.List(
+        fields.base.Nested(models.EntityNameWithLanguage),
+        description='Names'),
+    'contexts': fields.base.List(
+        fields.Constant(ctype='Spread'),
+        description='Visible in these contexts'),
+    'stedkode': fields.base.String(),
+    'fakultet': fields.base.Integer(),
+    'institutt': fields.base.Integer(),
+    'avdeling': fields.base.Integer(),
+})
 
-    swagger_metadata = {}
 
-
+@api.route('/<string:id>', endpoint='ou')
+@api.doc(params={'id': 'OU ID'})
 class OrganizationalUnitResource(Resource):
     """Resource for organizational units."""
-    @swagger.operation(
-        notes='Get organizational unit information',
-        nickname='get',
-        responseClass='OrganizationalUnit',
-        parameters=[
-            {
-                'name': 'id',
-                'description': 'The entity ID of the organizational unit',
-                'required': True,
-                'allowMultiple': False,
-                'dataType': 'int',
-                'paramType': 'path'
-            },
-        ]
-    )
     @auth.require()
-    @marshal_with(OrganizationalUnit.resource_fields)
+    @api.marshal_with(OrganizationalUnit)
     def get(self, id):
-        """Returns organizational unit information based on the \
-            OrganizationalUnit model.
-
-        :param int entity_id: The entity ID of the organizational unit
-
-        :rtype: dict
-        :return: information about the organizational unit
-        """
+        """Get organizational unit information."""
         ou = find_ou(id)
-        data = format_ou(ou)
-        return data
+        return format_ou(ou)

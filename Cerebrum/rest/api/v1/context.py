@@ -1,61 +1,43 @@
-from flask_restful import Resource, abort, marshal_with, reqparse
-from flask_restful_swagger import swagger
+from flask_restplus import Namespace, Resource, abort, reqparse
 from Cerebrum.rest.api import db, auth, fields
 
 from Cerebrum import Errors
 from Cerebrum.Entity import EntitySpread
 from Cerebrum.Utils import Factory
 
+api = Namespace('contexts', description='Context operations')
 co = Factory.get('Constants')(db.connection)
 
 
 # Model for data from EntitySpread.list_spreads()
-@swagger.model
-class Context(object):
-    resource_fields = {
-        'context': fields.base.String(attribute='spread'),
-        'description': fields.base.String,
-        'entity_type': fields.Constant(ctype='EntityType',
-                                       attribute='entity_type'),
-    }
+Context = api.model('Context', {
+    'context': fields.base.String(
+        attribute='spread',
+        description='Context name'),
+    'description': fields.base.String(
+        description='Context description'),
+    'entity_type': fields.Constant(
+        ctype='EntityType',
+        attribute='entity_type',
+        description=''),
+})
 
 
-@swagger.model
-class ContextList(object):
-    resource_fields = {
-        'contexts': fields.base.Nested(Context.resource_fields),
-    }
+context_search_filter = api.parser()
+context_search_filter.add_argument(
+    'entity_types', type=str, action='append',
+    help='Filter by entity type(s)')
 
 
+@api.route('/', endpoint='contexts')
 class ContextListResource(Resource):
     """Resource for contexts."""
-    @swagger.operation(
-        notes='Get a list of contexts',
-        nickname='get',
-        responseClass='Context',
-        parameters=[
-            {
-                'name': 'entity_types',
-                'description': 'Filter by entity type(s).',
-                'required': False,
-                'allowMultiple': True,
-                'dataType': 'str',
-                'paramType': 'query'
-            },
-        ],
-    )
+    @api.marshal_list_with(Context)
+    @api.doc(parser=context_search_filter)
     @auth.require()
-    @marshal_with(ContextList.resource_fields)
     def get(self):
-        """Returns the groups this account is a member of.
-
-        :rtype: list
-        :return: a list of contexts
-        """
-
-        parser = reqparse.RequestParser()
-        parser.add_argument('entity_types', type=str, action='append')
-        args = parser.parse_args()
+        """List contexts"""
+        args = context_search_filter.parse_args()
         filters = {key: value for (key, value) in args.items() if
                    value is not None}
 
@@ -75,4 +57,4 @@ class ContextListResource(Resource):
 
         es = EntitySpread(db.connection)
         contexts = es.list_spreads(entity_types=entity_types)
-        return {'contexts': contexts}
+        return contexts
