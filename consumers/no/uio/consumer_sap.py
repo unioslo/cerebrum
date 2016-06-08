@@ -30,9 +30,9 @@ callback_filters = CallbackMap()
 
 filter_meta = lambda l: dict(
     filter(lambda (k, _): k != '__metadata', l.items()))
-translate_keys = lambda d, m: dict(
-    map(lambda (k, v): (m.get(k, None), v), d.items()))
-filter_elements = lambda d:     filter(lambda (k, _): k, d.items())
+translate_keys = lambda d, m: map(
+    lambda (k, v): (m.get(k, None), v), d.items())
+filter_elements = lambda d: filter(lambda (k, v): k and v, d)
 
 
 class RemoteSourceDown(Exception):
@@ -67,7 +67,7 @@ def parse_address(d):
         r.get('VisitingAddress').get('StreetAndHouseNumber'),
         r.get('VisitingAddress').get('Location'))
 
-    return tuple([(k, tuple(filter_elements(translate_keys(v, m)))) for
+    return tuple([(k, tuple(sorted(filter_elements(translate_keys(v, m))))) for
                   (k, v) in filter_elements(
                       translate_keys(filter_meta(r), m))])
 
@@ -127,14 +127,14 @@ def parse_titles(d):
         return (('name_variant', variant),
                 ('name_language', lang),
                 ('name', name))
-    titles = ([
+    titles = filter(lambda ((vk, vn), (lk, lv), (nk, nv)): nv, [
         make_tuple(co.personal_title,
                    co.language_en,
                    d.get('Title').get('English'))] +
-              map(lambda lang: make_tuple(co.personal_title,
-                                          lang,
-                                          d.get('Title').get('Norwegian')),
-                  [co.language_nb, co.language_nn]))
+        map(lambda lang: make_tuple(co.personal_title,
+                                    lang,
+                                    d.get('Title').get('Norwegian')),
+            [co.language_nb, co.language_nn]))
 
     # Select appropriate work title.
     work_title = None
@@ -415,18 +415,19 @@ def update_addresses(database, source_system, hr_person, cerebrum_person):
     co = Factory.get('Constants')(database)
     addresses = row_transform(co.Address,
                               'address_type',
-                              ('entity_id', 'source_system', 'address_type'),
+                              ('entity_id', 'source_system', 'address_type',
+                               'p_o_box', 'country'),
                               cerebrum_person.get_entity_address(
                                   source=source_system))
-
-    for (k, v) in set(hr_person.get('addresses')) - addresses:
-        cerebrum_person.add_entity_address(source_system, k, **dict(v))
-        logger.debug('Adding address {} for id:{}'.format(
-            (_stringify_for_log(k), v), cerebrum_person.entity_id))
 
     for (k, v) in addresses - set(hr_person.get('addresses')):
         cerebrum_person.delete_entity_address(source_system, k)
         logger.debug('Removing address {} for id:{}'.format(
+            (_stringify_for_log(k), v), cerebrum_person.entity_id))
+
+    for (k, v) in set(hr_person.get('addresses')) - addresses:
+        cerebrum_person.add_entity_address(source_system, k, **dict(v))
+        logger.debug('Adding address {} for id:{}'.format(
             (_stringify_for_log(k), v), cerebrum_person.entity_id))
 
 
@@ -472,8 +473,8 @@ def update_titles(database, source_system, hr_person, cerebrum_person):
                                   x.items())),
                      cerebrum_person.search_name_with_language(
                          entity_id=cerebrum_person.entity_id,
-                         name_variant=[co.name_work_title,
-                                       co.name_personal_title])))
+                         name_variant=[co.work_title,
+                                       co.personal_title])))
 
     for e in set(hr_person.get('titles')) - titles:
         cerebrum_person.add_name_with_language(**dict(e))
