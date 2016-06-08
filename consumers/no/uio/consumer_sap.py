@@ -307,15 +307,19 @@ def _stringify_for_log(data):
 
 def update_person(database, source_system, hr_person, cerebrum_person):
     """Update person with birth date and gender."""
-    cerebrum_person.populate(
-        hr_person.get(u'birth_date'),
-        hr_person.get(u'gender'))
-    cerebrum_person.write_db()
+    if not (cerebrum_person.gender and
+            cerebrum_person.birth_date and
+            cerebrum_person.gender == hr_person.get(u'gender') and
+            cerebrum_person.birth_date == hr_person.get(u'birth_date')):
+        cerebrum_person.populate(
+            hr_person.get(u'birth_date'),
+            hr_person.get(u'gender'))
+        cerebrum_person.write_db()
 
-    logger.debug(u'Added birth date {} and gender {} for {}'.format(
-        hr_person.get(u'birth_date'),
-        hr_person.get(u'gender'),
-        cerebrum_person.entity_id))
+        logger.debug(u'Added birth date {} and gender {} for {}'.format(
+            hr_person.get(u'birth_date'),
+            hr_person.get(u'gender'),
+            cerebrum_person.entity_id))
 
 
 def update_affiliations(database, source_system, hr_person, cerebrum_person):
