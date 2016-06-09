@@ -72,6 +72,21 @@ class AccountUiTMixin(Account.Account):
     """
 
     #
+    # SITO accounts will have their own namespace as describe here
+    #
+    # sitø username will be on the following format:S-XXXNNN
+    #
+    # S = The letter S
+    # XXX = letters generated based on fname and lname
+    # NNN = unique numeric identifier
+    #
+    def suggest_unames_sito(self,ssn,fname,lname):
+        full_name = "%s %s" % (fname, lname)
+        sito_username = self.get_sito_uname(ssn,full_name)
+        return sito_username
+
+
+    #
     # Override username generator in core Account.py
     # Do it the UiT way!
     #
@@ -173,6 +188,48 @@ class AccountUiTMixin(Account.Account):
 
         #print "Finish"
             
+
+    #
+    # Create sito usernames
+    #
+    def get_sito_uname(self,fnr,name,Regime=None):
+        create_new = True
+        cstart=0
+        step=1
+        legacy_type='P'
+        
+
+        new_ac=Factory.get('Account')(self._db)
+        p = Factory.get('Person')(self._db)
+        try:
+            p.find_by_external_id(self.const.externalid_fodselsnr,fnr)
+        except Errors.NotFoundError:
+            logger.warning("sito person is missing fnr. Account not created")
+            raise Errors.ProgrammingError("Trying to create account for person:%s that does not exist!" % fnr)
+
+        except Exception,m:
+            print m
+            raise Errors.ProgrammingError("Unhandled exception: %s",str(m))
+        else:
+            person_id = p.entity_id
+
+        person_accounts = self.list_accounts_by_owner_id(person_id,filter_expired=False)
+        
+        
+        # regexp for checking username format
+        p=re.compile('^[a-z]{3}[0-9]{3}-s$')
+             
+
+        # getting here implies that  person does not have a previous account in BAS
+        # create a new username
+        inits = self.get_uit_inits(name)
+        if inits == 0:
+            return inits
+        #new_username = self.get_serial(inits,cstart,step=step,postfix='-s')
+        new_username = self.get_serial(inits,cstart,step=step,postfix=cereconf.USERNAME_POSTFIX['sito'])
+        username="%s" %(new_username,)
+        
+        return username
 
 
     def get_uit_uname(self,fnr,name,Regime=None):

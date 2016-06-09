@@ -1,3 +1,7 @@
+2016-06-09    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Account.py (AccountUiTMixin.suggest_unames_sito): Added functions to creatre sito usernames
+
 2016-05-10    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* access_SYSX.py (SYSX): Renamed systemx guest file path
