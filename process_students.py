@@ -66,8 +66,6 @@ disk_quota_obj = DiskQuota.DiskQuota(db)
 
 debug = 0
 max_errors = 50          # Max number of errors to accept in person-callback
-for i in cereconf.POSIX_SPREAD_CODES:
-    print "spread: %s" % i
 posix_spreads = [int(const.Spread(_s)) for _s in cereconf.POSIX_SPREAD_CODES]
 
 # global Command-line alterable variables.  Defined here to make
