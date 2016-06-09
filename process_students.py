@@ -229,7 +229,6 @@ class AccountUtil(object):
         if changes[0][0] == 'dfg' and accounts[account_id].get_gid() is None:
             uid = user.get_free_uid()
             shell = default_shell
-            print "shell is:%s" % shell
             account_obj.clear()
             account_obj.find(account_id)
             user.populate(uid, changes[0][1], None, shell,

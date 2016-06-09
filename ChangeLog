@@ -1,6 +1,7 @@
 2016-06-09    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_students.py: removed debug line
+	(AccountUtil._handle_user_changes): removed debug line
 
 2016-06-08    <cerebrum@cleomedes.uit.no-cleomedes>
 
