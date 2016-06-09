@@ -1,5 +1,7 @@
 2016-06-09    <cerebrum@cleomedes.uit.no-cleomedes>
 
+	* process_systemx.py (Build._CreateAccount): fnr need to be processed as string, not int
+
 	* process_students.py: removed debug line
 	(AccountUtil._handle_user_changes): removed debug line
 

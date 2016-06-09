@@ -544,6 +544,7 @@ class Build(object):
             fnr=sysx_id
 
         account=PosixUser.PosixUser(db)
+        fnr = str(fnr)
         uname=account.suggest_unames(fnr, first_name, last_name)
         account.populate(name=uname,
             owner_id=person_id,
@@ -674,7 +675,9 @@ class Build(object):
         tmp_spread=[int(co.Spread('ldap@uit'))]        
         if(no_account == False):
             for s in person_info.get('spreads'):
-                print "S is:%s" % s
+                if s == 'frida@uit':
+                    logger.warn("renaming old spread frida to cristin")
+                    s = 'cristin@uit'
                 tmp_spread.append(int(co.Spread(s)))
                 if s=='SUT@uit':
                     got_sut = True
@@ -884,7 +887,6 @@ def main():
    
     sysx=SYSX()
     sysx.list()
-    logger.info("Got %d persons from file" % len(sysx.sysxids))
     persons,accounts=get_existing_accounts()
 
     build=Build()
