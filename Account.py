@@ -403,14 +403,18 @@ class AccountUiTMixin(Account.Account):
 
 
 
-    def get_serial(self,inits,cstart,step=1):
+    def get_serial(self,inits,cstart,step=1,postfix=None):
 
         found = False
         db = self._db
         ac = Factory.get('Account')(db)
         while ((not found) and (cstart <= 999) and (cstart >=0)):
             # xxx999 is reserved for admin use
-            uname = "%s%03d" % (inits, cstart)
+
+            if(postfix != None):
+                uname = "%s%03d%s" % (inits, cstart,postfix)
+            else:
+                uname = "%s%03d" % (inits, cstart)
             ac.clear()
             query = "select * from entity_name where entity_name='%s'" % uname
             db_row = db.query(query)
@@ -427,7 +431,7 @@ class AccountUiTMixin(Account.Account):
             print "CRITICAL: Unable to find serial: inits=%s,cstart=%d,step=%d" % (inits,cstart,step)
             sys.exit(1)
                 
-        return uname 
+        return uname      
 
     def get_uit_inits(self,dname):
        #Gets the first 3 letters based upon the name of the user.
