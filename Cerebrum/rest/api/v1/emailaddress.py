@@ -1,9 +1,10 @@
-from flask_restful import Resource, abort, marshal_with
-from flask_restful_swagger import swagger
+from flask_restplus import Namespace, Resource, abort
 from Cerebrum.rest.api import db, auth, fields
 
 from Cerebrum import Errors
 from Cerebrum.modules import Email
+
+api = Namespace('emailaddresses', description='Email address operations')
 
 
 def find_email_address(address):
@@ -35,59 +36,27 @@ def list_email_addresses(ea):
                et.get_addresses())
 
 
-@swagger.model
-class EmailAddress(object):
-    """Data model for a single email address."""
-    resource_fields = {
-        'value': fields.base.String,
-        'type': fields.Constant(ctype='EmailTarget')
-    }
-    swagger_metadata = {
-        'value': {'description': 'The email address'},
-        'type': {'description':
-                 "Email address type, i.e. 'forward', 'target'"}
-    }
+EmailAddress = api.model('EmailAddress', {
+    'value': fields.base.String(
+        description='The email address'),
+    'type': fields.Constant(
+        ctype='EmailTarget',
+        description="Email address type, i.e. 'forward', 'target'")
+})
+
+EmailAddresses = api.model('EmailAddresses', {
+    'addresses': fields.base.List(
+        fields.base.Nested(EmailAddress),
+        description='List of addresses'),
+})
 
 
-@swagger.nested(addresses='EmailAddress')
-@swagger.model
-class EmailAddresses(object):
-    """Data model for a set of email addresses."""
-    resource_fields = {
-        'addresses': fields.base.List(
-            fields.base.Nested(
-                EmailAddress.resource_fields)),
-    }
-    swagger_metadata = {
-        'addresses': {'description': 'List of addresses'}
-    }
-
-
+@api.route('/<string:address>', endpoint='emailaddresses')
 class EmailAddressesResource(Resource):
     """Resource for listing email addresses."""
-    @swagger.operation(
-        notes='Get email address information',
-        nickname='get',
-        responseClass=EmailAddresses,
-        parameters=[
-            {
-                'name': 'address',
-                'description': 'The email address',
-                'required': True,
-                'allowMultiple': False,
-                'dataType': 'string',
-                'paramType': 'path'
-            },
-        ]
-    )
+    @api.marshal_list_with(EmailAddress)
+    @api.doc(params={'address': 'Email address'})
     @auth.require()
-    @marshal_with(EmailAddresses.resource_fields)
     def get(self, address):
-        """Returns email address information for a single address based on the
-        EmailAddresses model.
-
-        :param str address: The email address
-        :return: Information about the email address
-        """
-        r = list_email_addresses(address)
-        return {'addresses': r}
+        """Get email address information."""
+        return {'addresses': list_email_addresses(address)}

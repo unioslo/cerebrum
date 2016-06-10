@@ -1,12 +1,13 @@
 from flask import url_for
-from flask_restful import Resource, abort, marshal_with
-from flask_restful_swagger import swagger
+from flask_restplus import Namespace, Resource, abort
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
 from Cerebrum.rest.api import db, auth, fields, utils
 from Cerebrum.rest.api.v1 import models
+
+api = Namespace('persons', description='Person operations')
 
 
 def find_person(id):
@@ -18,167 +19,108 @@ def find_person(id):
     return pe
 
 
-@swagger.model
-@swagger.nested(
-    ou='OU')
-class PersonAffiliation(object):
-    resource_fields = {
-        'affiliation': fields.Constant(ctype='PersonAffiliation'),
-        'status': fields.Constant(ctype='PersonAffStatus'),
-        'ou': fields.base.Nested(models.OU.resource_fields),
-        'create_date': fields.DateTime(dt_format='iso8601'),
-        'last_date': fields.DateTime(dt_format='iso8601'),
-        'deleted_date': fields.DateTime(dt_format='iso8601'),
-        'source_system': fields.Constant(ctype='AuthoritativeSystem'),
-    }
+PersonAffiliation = api.model('PersonAffiliation', {
+    'affiliation': fields.Constant(
+        ctype='PersonAffiliation',
+        description='Affiliation type'),
+    'status': fields.Constant(
+        ctype='PersonAffStatus',
+        description='Affiliation status'),
+    'ou': fields.base.Nested(
+        models.OU,
+        description='Organizational unit'),
+    'create_date': fields.DateTime(
+        dt_format='iso8601',
+        description='Creation date'),
+    'last_date': fields.DateTime(
+        dt_format='iso8601',
+        description='Last seen in source system'),
+    'deleted_date': fields.DateTime(
+        dt_format='iso8601',
+        description='Deletion date'),
+    'source_system': fields.Constant(
+        ctype='AuthoritativeSystem',
+        description='Source system'),
+})
 
-    swagger_metadata = {
-        'affiliation': {'description': 'Affiliation type'},
-        'status': {'description': 'Affiliation status'},
-        'ou': {'description': 'Organizational unit'},
-        'create_date': {'description': 'Creation date'},
-        'last_date': {'description': 'Last seen in source system'},
-        'deleted_date': {'description': 'Deletion date'},
-        'source_system': {'description': 'Source system'},
-    }
+PersonName = api.model('PersonName', {
+    'source_system': fields.Constant(
+        ctype='AuthoritativeSystem',
+        description='Source system'),
+    'variant': fields.Constant(
+        ctype='PersonName',
+        attribute='name_variant',
+        description='Name variant'),
+    'name': fields.base.String(
+        description='Name value'),
+})
 
+PersonAccount = api.model('PersonAccount', {
+    'href': fields.base.String(
+        description='URL to this resource'),
+    'id': fields.base.String(
+        description='Account ID'),
+    'primary': fields.base.Boolean(
+        description='Is this a primary account?'),
+})
 
-@swagger.model
-class PersonName(object):
-    resource_fields = {
-        'source_system': fields.Constant(ctype='AuthoritativeSystem'),
-        'variant': fields.Constant(ctype='PersonName',
-                                   attribute='name_variant'),
-        'name': fields.base.String,
-    }
+Person = api.model('Person', {
+    'href': fields.base.Url(
+        endpoint='.person',
+        absolute=True,
+        description='URL to this resource'),
+    'id': fields.base.Integer(
+        default=None,
+        description='Person entity ID'),
+    'birth_date': fields.DateTime(
+        dt_format='iso8601',
+        description='Birth date'),
+    'names': fields.base.List(
+        fields.base.Nested(PersonName),
+        description='Names'),
+    'contexts': fields.base.List(
+        fields.Constant(ctype='Spread'),
+        description='Visible in these contexts'),
+})
 
-    swagger_metadata = {
-        'source_system': {'description': 'Source system'},
-        'variant': {'description': 'Name variant'},
-        'name': {'description': 'Name'},
-    }
+PersonAffiliationList = api.model('PersonAffiliationList', {
+    'affiliations': fields.base.List(
+        fields.base.Nested(PersonAffiliation),
+        description='List of person affiliations')
+})
 
-
-@swagger.model
-class PersonAccount(object):
-    resource_fields = {
-        'href': fields.base.String,
-        'id': fields.base.String,
-        'primary': fields.base.Boolean,
-    }
-
-
-@swagger.model
-@swagger.nested(
-    affiliations='PersonAffiliation',
-    names='PersonName',
-    external_ids='EntityExternalId',
-    contact='EntityContactInfo',
-    accounts='PersonAccount')
-class Person(object):
-    """Data model for a single person"""
-    resource_fields = {
-        'href': fields.base.Url('.person', absolute=True),
-        'id': fields.base.Integer(default=None),
-        'birth_date': fields.DateTime(dt_format='iso8601'),
-        'names': fields.base.List(
-            fields.base.Nested(
-                PersonName.resource_fields)),
-        'contexts': fields.base.List(fields.Constant(ctype='Spread')),
-
-    }
-
-    swagger_metadata = {
-        'id': {'description': 'Person entity ID', },
-        'birth_date': {'description': 'Birth date', },
-        'names': {'description': 'Names', },
-        'contexts': {'description': 'Visible in these contexts', },
-        'accounts': {'description': 'Accounts'},
-    }
+PersonAccountList = api.model('PersonAccountList', {
+    'accounts': fields.base.List(
+        fields.base.Nested(PersonAccount),
+        description='List of accounts'),
+})
 
 
+@api.route('/<int:id>', endpoint='person')
 class PersonResource(Resource):
     """Resource for a single person."""
-    @swagger.operation(
-        notes='Get person information',
-        nickname='get',
-        responseClass=Person,
-        parameters=[
-            {
-                'name': 'id',
-                'description': 'The entity ID of the person',
-                'required': True,
-                'allowMultiple': False,
-                'dataType': 'int',
-                'paramType': 'path'
-            },
-        ]
-    )
     @auth.require()
-    @marshal_with(Person.resource_fields)
+    @api.marshal_with(Person)
+    @api.doc(params={'id': 'Person entity ID'})
     def get(self, id):
-        """Returns person information based on the model in Person.
-
-        :param int id: The entity ID of the person
-
-        :rtype: dict
-        :return: information about the person
-        """
+        """Get person information"""
         pe = find_person(id)
-
-        data = {
+        return {
             'id': pe.entity_id,
             'contexts': [row['spread'] for row in pe.get_spread()],
             'birth_date': pe.birth_date,
             'names': pe.get_all_names(),
         }
 
-        return data
 
-
-@swagger.model
-@swagger.nested(
-    affiliations='PersonAffiliation')
-class PersonAffiliationList(object):
-    """Data model for a single person"""
-    resource_fields = {
-        'affiliations': fields.base.List(
-            fields.base.Nested(
-                PersonAffiliation.resource_fields))
-    }
-
-    swagger_metadata = {
-        'affiliations': {'description': 'Person affiliations', },
-    }
-
-
+@api.route('/<int:id>/affiliations', endpoint='person-affiliations')
 class PersonAffiliationListResource(Resource):
     """Resource for person affiliations."""
-    @swagger.operation(
-        notes='Get person affiliations',
-        nickname='get',
-        responseClass=PersonAffiliationList,
-        parameters=[
-            {
-                'name': 'id',
-                'description': 'The entity ID of the person',
-                'required': True,
-                'allowMultiple': False,
-                'dataType': 'int',
-                'paramType': 'path'
-            },
-        ]
-    )
     @auth.require()
-    @marshal_with(PersonAffiliationList.resource_fields)
+    @api.marshal_with(PersonAffiliationList)
+    @api.doc(params={'id': 'Person entity ID'})
     def get(self, id):
-        """Returns person affiliations.
-
-        :param int id: The entity ID of the person
-
-        :rtype: dict
-        :return: person affiliations
-        """
+        """List person affiliations."""
         pe = find_person(id)
         affiliations = list()
 
@@ -190,111 +132,38 @@ class PersonAffiliationListResource(Resource):
         return {'affiliations': affiliations}
 
 
+@api.route('/<int:id>/contacts', endpoint='person-contacts')
 class PersonContactInfoListResource(Resource):
     """Resource for person contact information."""
-    @swagger.operation(
-        notes='Get person contact information',
-        nickname='get',
-        responseClass='EntityContactInfoList',
-        parameters=[
-            {
-                'name': 'id',
-                'description': 'The entity ID of the person',
-                'required': True,
-                'allowMultiple': False,
-                'dataType': 'int',
-                'paramType': 'path'
-            },
-        ]
-    )
     @auth.require()
-    @marshal_with(models.EntityContactInfoList.resource_fields)
+    @api.marshal_with(models.EntityContactInfoList)
+    @api.doc(params={'id': 'Person entity ID'})
     def get(self, id):
-        """Returns person contact information.
-
-        :param int id: The entity ID of the person
-
-        :rtype: dict
-        :return: contact information
-        """
+        """Get person contact information."""
         pe = find_person(id)
-        contacts = pe.get_contact_info()
-        return {'contacts': contacts}
+        return {'contacts': pe.get_contact_info()}
 
 
+@api.route('/<int:id>/external-ids', endpoint='person-externalids')
 class PersonExternalIdListResource(Resource):
     """Resource for person external IDs."""
-    @swagger.operation(
-        notes='Get the external IDs of a person',
-        nickname='get',
-        responseClass='EntityContactInfoList',
-        parameters=[
-            {
-                'name': 'id',
-                'description': 'The entity ID of the person',
-                'required': True,
-                'allowMultiple': False,
-                'dataType': 'int',
-                'paramType': 'path'
-            },
-        ]
-    )
     @auth.require()
-    @marshal_with(models.EntityExternalIdList.resource_fields)
+    @api.marshal_with(models.EntityExternalIdList)
+    @api.doc(params={'id': 'Person entity ID'})
     def get(self, id):
-        """Returns the external IDs of a person
-
-        :param int id: The entity ID of the person
-
-        :rtype: dict
-        :return: external ids
-        """
+        """Get external IDs of a person."""
         pe = find_person(id)
-        external_ids = pe.get_external_id(),
-        return {'external_ids': external_ids}
+        return {'external_ids': pe.get_external_id()}
 
 
-@swagger.model
-@swagger.nested(
-    accounts='PersonAccount')
-class PersonAccountList(object):
-    resource_fields = {
-        'accounts': fields.base.List(fields.base.Nested(
-            PersonAccount.resource_fields)),
-    }
-
-    swagger_metadata = {
-        'accounts': {'description': 'Accounts'},
-    }
-
-
+@api.route('/<int:id>/accounts', endpoint='person-accounts')
 class PersonAccountListResource(Resource):
     """Resource for person accounts."""
-    @swagger.operation(
-        notes='Get the accounts of a person',
-        nickname='get',
-        responseClass='PersonAccountList',
-        parameters=[
-            {
-                'name': 'id',
-                'description': 'The entity ID of the person',
-                'required': True,
-                'allowMultiple': False,
-                'dataType': 'int',
-                'paramType': 'path'
-            },
-        ]
-    )
     @auth.require()
-    @marshal_with(PersonAccountList.resource_fields)
+    @api.marshal_with(PersonAccountList)
+    @api.doc(params={'id': 'Person entity ID'})
     def get(self, id):
-        """Returns the accounts of a person.
-
-        :param int id: The entity ID of the person
-
-        :rtype: dict
-        :return: accounts
-        """
+        """Get the accounts of a person."""
         pe = find_person(id)
 
         accounts = list()

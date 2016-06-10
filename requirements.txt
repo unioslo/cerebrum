@@ -23,6 +23,5 @@ nose
 pytest
 jinja2
 Flask
-flask-restful
-flask-restful-swagger
+flask-restplus
 gunicorn

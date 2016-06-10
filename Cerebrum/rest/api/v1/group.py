@@ -1,10 +1,11 @@
-from flask_restful import Resource, abort, marshal_with, reqparse
-from flask_restful_swagger import swagger
+from flask_restplus import Namespace, Resource, abort, reqparse
+
 from Cerebrum.rest.api import db, auth, fields, utils
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
+api = Namespace('groups', description='Group operations')
 co = Factory.get('Constants')(db.connection)
 
 
@@ -23,78 +24,55 @@ def find_group(identifier):
     return group
 
 
-@swagger.model
-class GroupModerator(object):
-    """Data model for group moderators."""
-    resource_fields = {
-        'href': fields.UrlFromEntityType(),
-        'id': fields.base.String(attribute='owner_id'),
-        'type': fields.Constant(ctype='EntityType'),
-        'operation_name': fields.base.String,
-    }
-
-    swagger_metadata = {
-        'id': {'description': 'Moderator entity ID'},
-        'type': {'description': 'Moderator entity type'},
-        'operation_name': {'description': 'Authorization name'},
-    }
+GroupModerator = api.model('GroupModerator', {
+    'href': fields.UrlFromEntityType(
+        description='URL to resource'),
+    'id': fields.base.String(
+        attribute='owner_id',
+        description='Entity ID'),
+    'type': fields.Constant(
+        ctype='EntityType',
+        description='Entity type'),
+    'operation_name': fields.base.String(
+        description='Authorization name'),
+})
 
 
-@swagger.model
-@swagger.nested(
-    moderators='GroupModerator')
-class Group(object):
-    """Data model for a single group."""
-    resource_fields = {
-        'href': fields.base.Url('.group', absolute=True),
-        'id': fields.base.Integer,
-        'create_date': fields.DateTime(dt_format='iso8601'),
-        'name': fields.base.String,
-        'description': fields.base.String,
-        'contexts': fields.base.List(fields.Constant(ctype='Spread')),
-        'moderators': fields.base.List(
-            fields.base.Nested(
-                GroupModerator.resource_fields)),
-        'members': fields.base.Url('.groupmembers', absolute=True),
-    }
-
-    swagger_metadata = {
-        'href': {'description': 'URL to this resource'},
-        'id': {'description': 'Group entity ID'},
-        'name': {'description': 'Group name'},
-        'description': {'description': 'Group description'},
-        'contexts': {'description': 'Visible in these contexts'},
-        'moderators': {'description': 'Group moderators'},
-        'members': {'description':
-                    'URL to the resource containing group members'},
-    }
+Group = api.model('Group', {
+    'href': fields.base.Url(
+        endpoint='.group',
+        absolute=True,
+        description='URL to this resource'),
+    'id': fields.base.Integer(
+        description='Group entity ID'),
+    'create_date': fields.DateTime(
+        dt_format='iso8601',
+        description='Creation date'),
+    'name': fields.base.String(
+        description='Group name'),
+    'description': fields.base.String(
+        description='Group description'),
+    'contexts': fields.base.List(
+        fields.Constant(ctype='Spread'),
+        description='Visible in these contexts'),
+    'moderators': fields.base.List(
+        fields.base.Nested(GroupModerator),
+        description='Group moderators'),
+    'members': fields.base.Url(
+        endpoint='.group-members',
+        absolute=True,
+        description='URL to the resource containing group members'),
+})
 
 
+@api.route('/<string:id>', endpoint='group')
 class GroupResource(Resource):
     """Resource for a single group."""
-    @swagger.operation(
-        notes='Get group information',
-        nickname='get',
-        responseClass='Group',
-        parameters=[
-            {
-                'name': 'id',
-                'description': 'Group name or ID',
-                'required': True,
-                'allowMultiple': False,
-                'dataType': 'string',
-                'paramType': 'path'
-            },
-        ]
-    )
     @auth.require()
-    @marshal_with(Group.resource_fields)
+    @api.marshal_with(Group)
+    @api.doc(params={'id': 'Group name or ID'})
     def get(self, id):
-        """Returns group information for a single group based on the Group model.
-
-        :param str id: The group name or ID
-        :return: Information about the group
-        """
+        """Get group information."""
         gr = find_group(id)
 
         return {
@@ -108,43 +86,30 @@ class GroupResource(Resource):
         }
 
 
-@swagger.model
-class PosixGroup(object):
-    """Data model for the posix information of a group."""
-    resource_fields = {
-        'href': fields.base.Url('.posixgroup', absolute=True),
-        'id': fields.base.Integer,
-        'posix': fields.base.Boolean,
-        'posix_gid': fields.base.Integer(default=None),
-    }
-    swagger_metadata = {
-        'href': {'description': 'URL to this resource'},
-        'id': {'description': 'Group entity ID'},
-        'posix': {'description': 'Is this a POSIX group?'},
-        'posix_gid': {'description': 'The POSIX GID'},
-    }
+PosixGroup = api.model('PosixGroup', {
+    'href': fields.base.Url(
+        endpoint='.posixgroup',
+        absolute=True,
+        description='URL to this resource'),
+    'id': fields.base.Integer(
+        description='Group entity ID'),
+    'posix': fields.base.Boolean(
+        description='Is this a POSIX group?'),
+    'posix_gid': fields.base.Integer(
+        default=None,
+        description='Group POSIX GID'),
+})
 
 
+@api.route('/<string:id>/posix', endpoint='posixgroup')
 class PosixGroupResource(Resource):
     """Resource for the POSIX information of a group."""
-    @swagger.operation(
-        notes='Get POSIX group information',
-        nickname='get',
-        responseClass='PosixGroup',
-        parameters=[
-            {'name': 'id',
-             'description': 'Group name or ID',
-             'required': True,
-             'allowMultiple': False,
-             'dataType': 'string',
-             'paramType': 'path'}])
     @auth.require()
-    @marshal_with(PosixGroup.resource_fields)
+    @api.marshal_with(PosixGroup)
+    @api.doc(params={'id': 'Group name or ID'})
     def get(self, id):
-        """Returns POSIX group information for a single group based on the \
-            PosixGroup model."""
+        """Get POSIX group information."""
         gr = find_group(id)
-
         return {
             'id': gr.entity_id,
             'posix': hasattr(gr, 'posix_gid'),
@@ -152,143 +117,72 @@ class PosixGroupResource(Resource):
         }
 
 
-@swagger.model
-class GroupListItem(object):
-    """Data model for an item in a group list."""
-    resource_fields = {
-        'href': fields.base.Url('.group', absolute=True),
-        'name': fields.base.String,
-        'id': fields.base.Integer(default=None, attribute='group_id'),
-        'description': fields.base.String,
-        'create_date': fields.DateTime(dt_format='iso8601'),
-        'expire_date': fields.DateTime(dt_format='iso8601'),
-    }
+GroupListItem = api.model('GroupListItem', {
+    'href': fields.base.Url(
+        endpoint='.group',
+        absolute=True,
+        description='URL to this resource'),
+    'name': fields.base.String(
+        description='Group name'),
+    'id': fields.base.Integer(
+        default=None,
+        attribute='group_id',
+        description='Group entity ID'),
+    'description': fields.base.String(
+        description='Group description'),
+    'create_date': fields.DateTime(
+        dt_format='iso8601',
+        description='Creation date'),
+    'expire_date': fields.DateTime(
+        dt_format='iso8601',
+        description='Expiration date'),
+})
 
-    swagger_metadata = {
-        'href': {'description': 'URL to this resource'},
-        'name': {'description': 'Group name'},
-        'id': {'description': 'Group entity ID'},
-        'description': {'description': 'Group description'},
-        'create_date': {'description': 'Creation date'},
-        'expire_date': {'description': 'Expiration date'},
-    }
+GroupList = api.model('GroupList', {
+    'groups': fields.base.List(
+        fields.base.Nested(GroupListItem),
+        description='List of groups'),
+})
+
+group_search_filter = api.parser()
+group_search_filter.add_argument(
+    'name', type=str,
+    help='Filter by name. Accepts * and ? as wildcards.')
+group_search_filter.add_argument(
+    'description', type=str,
+    help='Filter by description. Accepts * and ? as wildcards.')
+group_search_filter.add_argument(
+    'context', type=str, dest='spread',
+    help='Filter by context. Accepts * and ? as wildcards.')
+group_search_filter.add_argument(
+    'member_id', type=int, action='append',
+    help='Filter by memberships. Only groups that have member_id as a member '
+         'will be returned. If member_id is a sequence, the group is returned '
+         'if any of the IDs are a member of it.')
+group_search_filter.add_argument(
+    'indirect_members', type=bool,
+    help='If true, alter the behavior of the member_id filter to also '
+         'include groups where member_id is an indirect member.')
+group_search_filter.add_argument(
+    'filter_expired', type=bool,
+    help='If false, include expired groups.')
+group_search_filter.add_argument(
+    'expired_only', type=bool,
+    help='If true, only include expired groups.')
+group_search_filter.add_argument(
+    'creator_id', type=int,
+    help='Filter by creator entity ID.')
 
 
-@swagger.model
-@swagger.nested(
-    groups='GroupListItem')
-class GroupList(object):
-    """Data model for a list of groups"""
-    resource_fields = {
-        'groups': fields.base.List(
-            fields.base.Nested(
-                GroupListItem.resource_fields)),
-    }
-
-    swagger_metadata = {
-        'groups': {'description': 'List of groups'},
-    }
-
-
+@api.route('/', endpoint='groups')
 class GroupListResource(Resource):
     """Resource for list of groups."""
-    @swagger.operation(
-        notes='Get a list of groups',
-        nickname='get',
-        responseClass='GroupList',
-        parameters=[
-            {
-                'name': 'name',
-                'description': 'Filter by name. Accepts * and ? as wildcards.',
-                'required': False,
-                'allowMultiple': False,
-                'dataType': 'str',
-                'paramType': 'query'
-            },
-            {
-                'name': 'description',
-                'description': 'Filter by description. Accepts * and ? as \
-                    wildcards.',
-                'required': False,
-                'allowMultiple': False,
-                'dataType': 'str',
-                'paramType': 'query'
-            },
-            {
-                'name': 'context',
-                'description': 'Filter by context. Accepts * and ? as \
-                    wildcards.',
-                'required': False,
-                'allowMultiple': False,
-                'dataType': 'str',
-                'paramType': 'query'
-            },
-            {
-                'name': 'member_id',
-                'description': 'Filter by memberships. Only groups that have member_id as a \
-                    member will be returned. If member_id is a sequence, the \
-                    group is returned if any of the IDs are a member of it.',
-                'required': False,
-                'allowMultiple': True,
-                'dataType': 'int',
-                'paramType': 'query'
-            },
-            {
-                'name': 'indirect_members',
-                'description': 'If true, alter the behavior of the member_id filter to also \
-                    include groups where member_id is an indirect member.',
-                'required': False,
-                'allowMultiple': False,
-                'dataType': 'bool',
-                'paramType': 'query'
-            },
-            {
-                'name': 'filter_expired',
-                'description': 'If false, include expired groups.',
-                'required': False,
-                'allowMultiple': False,
-                'defaultValue': True,
-                'dataType': 'bool',
-                'paramType': 'query'
-            },
-            {
-                'name': 'expired_only',
-                'description': 'If true, only include expired groups.',
-                'required': False,
-                'allowMultiple': False,
-                'dataType': 'bool',
-                'paramType': 'query'
-            },
-            {
-                'name': 'creator_id',
-                'description': 'Filter by creator entity ID.',
-                'required': False,
-                'allowMultiple': False,
-                'dataType': 'int',
-                'paramType': 'query'
-            },
-        ],
-    )
     @auth.require()
-    @marshal_with(GroupList.resource_fields)
+    @api.marshal_with(GroupList)
+    @api.doc(parser=group_search_filter)
     def get(self):
-        """Returns a list of groups based on the GroupList model.
-
-        :param str id: the group name or entity ID
-
-        :rtype: list
-        :return: a list of groups
-        """
-        parser = reqparse.RequestParser()
-        parser.add_argument('name', type=str)
-        parser.add_argument('description', type=str)
-        parser.add_argument('context', type=str, dest='spread')
-        parser.add_argument('member_id', type=int, action='append')
-        parser.add_argument('indirect_members', type=bool)
-        parser.add_argument('filter_expired', type=bool)
-        parser.add_argument('expired_only', type=bool)
-        parser.add_argument('creator_id', type=int)
-        args = parser.parse_args()
+        """List groups."""
+        args = group_search_filter.parse_args()
         filters = {key: value for (key, value) in args.items() if
                    value is not None}
 
@@ -304,101 +198,51 @@ class GroupListResource(Resource):
         return {'groups': groups}
 
 
-@swagger.model
-class GroupMember(object):
-    """Data model for group members."""
-    resource_fields = {
-        'href': fields.UrlFromEntityType(absolute=True,
-                                         type_field='member_type'),
-        'id': fields.base.Integer(attribute='member_id'),
-        'type': fields.Constant(ctype='EntityType', attribute='member_type'),
-        'name': fields.base.String(attribute='member_name'),
-    }
+GroupMember = api.model('GroupMember', {
+    'href': fields.UrlFromEntityType(
+        absolute=True,
+        type_field='member_type',
+        description='URL to this resource'),
+    'id': fields.base.Integer(
+        attribute='member_id',
+        description='Member entity ID'),
+    'type': fields.Constant(
+        ctype='EntityType',
+        attribute='member_type',
+        description='Member entity type'),
+    'name': fields.base.String(
+        attribute='member_name',
+        description='Member name'),
+})
 
-    swagger_metadata = {
-        'href': {'description': 'URL to this resource'},
-        'id': {'description': 'Member entity ID'},
-        'type': {'description': 'Member entity type'},
-        'name': {'description': 'Member name'},
-    }
+GroupMemberList = api.model('GroupMemberList', {
+    'members': fields.base.List(
+        fields.base.Nested(GroupMember),
+        description='List of group members'),
+})
+
+group_member_filter = api.parser()
+group_member_filter.add_argument(
+    'type', type=str, dest='member_type',
+    help='Filter by entity type.')
+group_member_filter.add_argument(
+    'context', type=str, dest='member_spread',
+    help='Filter by context. Accepts * and ? as wildcards.')
+group_member_filter.add_argument(
+    'filter_expired', type=bool, dest='member_filter_expired',
+    help='If false, include members that are expired.')
 
 
-@swagger.model
-@swagger.nested(
-    members='GroupMember')
-class GroupMemberList(object):
-    """Data model for a list of groups"""
-    resource_fields = {
-        'members': fields.base.List(
-            fields.base.Nested(
-                GroupMember.resource_fields)),
-    }
-
-    swagger_metadata = {
-        'members': {'description': 'List of group members'},
-    }
-
-
+@api.route('/<string:id>/members', endpoint='group-members')
 class GroupMemberListResource(Resource):
     """Resource for list of members of groups."""
-    @swagger.operation(
-        notes='Get a list of members of a group',
-        nickname='get',
-        responseClass='GroupMemberList',
-        parameters=[
-            {
-                'name': 'id',
-                'description': 'Group name or ID',
-                'required': True,
-                'allowMultiple': False,
-                'dataType': 'string',
-                'paramType': 'path'
-            },
-            {
-                'name': 'type',
-                'description': 'Filter by entity type.',
-                'required': False,
-                'allowMultiple': False,
-                'dataType': 'str',
-                'paramType': 'query'
-            },
-            {
-                'name': 'context',
-                'description': 'Filter by context. Accepts * and ? as \
-                    wildcards.',
-                'required': False,
-                'allowMultiple': False,
-                'dataType': 'str',
-                'paramType': 'query'
-            },
-            {
-                'name': 'filter_expired',
-                'description': 'If false, include members that are expired.',
-                'required': False,
-                'allowMultiple': False,
-                'defaultValue': True,
-                'dataType': 'bool',
-                'paramType': 'query'
-            },
-        ],
-    )
     @auth.require()
-    @marshal_with(GroupMemberList.resource_fields)
+    @api.marshal_with(GroupMemberList)
+    @api.doc(parser=group_member_filter)
+    @api.doc(params={'id': 'Group name or ID'})
     def get(self, id):
-        """Returns a list of groups based on the GroupList model.
-
-        :param str id: the group name or entity ID
-
-        :rtype: list
-        :return: a list of groups
-        """
-        parser = reqparse.RequestParser()
-        parser.add_argument('type', type=str, dest='member_type')
-        parser.add_argument('context', type=str, dest='member_spread')
-        parser.add_argument('filter_expired',
-                            type=bool,
-                            dest='member_filter_expired')
-        args = parser.parse_args()
+        """List members of a group."""
+        args = group_member_filter.parse_args()
         filters = {key: value for (key, value) in args.items() if
                    value is not None}
 
