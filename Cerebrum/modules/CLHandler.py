@@ -74,6 +74,22 @@ class CLHandler(DatabaseAccessor):
         WHERE evthdlr_key=:key
         ORDER BY first_id""", {'key': key})]
 
+    def ignore_events(self, key, time, types):
+        """Confirm all events with timestamp before given time.
+
+        Calls get_events, and confirm_event repeatedly.
+
+        :param key: Eventhandler key
+        :param time: the timestamp in question
+        :param types: Event types the export cares about
+        :returns: Iterator over unconfirmed events
+        """
+        for evt in self.get_events(key, types):
+            if evt['tstamp'] < time:
+                self.confirm_event(evt)
+            else:
+                yield evt
+
     def confirm_event(self, evt):
         "Confirm that a given event was received OK."
         self._confirmed_events.add(int(evt['change_id']))
