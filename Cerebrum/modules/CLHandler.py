@@ -18,9 +18,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import itertools
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
-from Cerebrum.Database import Errors
-from Cerebrum.Utils import Factory
+
 
 class CLHandler(DatabaseAccessor):
 
@@ -40,7 +40,7 @@ class CLHandler(DatabaseAccessor):
     def get_events(self, key, types):
         """Fetch all new events of type key.
 
-        types is a tuple of event-types to listen for.  The client
+        types is a tuple of event-types to listen for, or None.  The client
         should call confirm_event() for each event that it does not want
         to receive again, and commit_confirmations() once all events are
         processed."""
@@ -49,8 +49,8 @@ class CLHandler(DatabaseAccessor):
         if len(prev_ranges) == 0:
             prev_ranges = [[-1, -1]]
         self._prev_ranges = prev_ranges
-        self._confirmed_events = []
-        self._sent_events = []
+        self._confirmed_events = set()
+        self._sent_events = set()
         self._current_key = key
         ret = []
         for n in range(len(prev_ranges)):
@@ -63,7 +63,7 @@ class CLHandler(DatabaseAccessor):
             for evt in self._db.get_log_events(min_id,
                                                max_id=max_id, types=types):
                 ret.append(evt)
-                self._sent_events.append(int(evt['change_id']))
+                self._sent_events.add(int(evt['change_id']))
         return ret
 
     def _get_last_changes(self, key):
@@ -76,7 +76,7 @@ class CLHandler(DatabaseAccessor):
 
     def confirm_event(self, evt):
         "Confirm that a given event was received OK."
-        self._confirmed_events.append(int(evt['change_id']))
+        self._confirmed_events.add(int(evt['change_id']))
 
     def commit_confirmations(self):
         """Update database with confirmed events.
@@ -90,72 +90,20 @@ class CLHandler(DatabaseAccessor):
         be a reason for it. Can't remove it without checking all scripts!
 
         """
-        debug = False
-        self._confirmed_events.sort()
-        new_ranges = self._prev_ranges[:]
-        range_no = 0
-        i_sent = i_confirmed = 0
-        updated = False
-        if len(self._confirmed_events) == 0:
-            return  # No update needed
-        # We know what events we sent to the client, which events the
-        # client confirmed this time, as well as what ranges of events the
-        # client has previously acknowledged.  Now we iterate over all
-        # sent events and determine which range the event corresponds to.
-        #
-        # Since we know that the _sent_events list does not contain holes,
-        # we can update the range with the new end-value if the client
-        # confirmed the event.  If the client did not confirm the event,
-        # we must create a new range to fit the next confirmed event.
-        found_hole = False
-        while i_sent < len(self._sent_events):
-            tmp_evt_id = self._sent_events[i_sent]
-            # Find a range corresponding to this event
-            while (range_no+1 < len(new_ranges) and
-                   tmp_evt_id >= new_ranges[range_no+1][0]):
-                range_no += 1
-            if debug:
-                print "Matching range# %i for %i (len=%i) hole=%s" % (
-                    range_no, tmp_evt_id, len(new_ranges), found_hole)
-                print i_confirmed+1,"<=",len(self._confirmed_events)
-                print self._confirmed_events[i_confirmed],"<=",tmp_evt_id
-            # Check if the event was confirmed
-            while (i_confirmed < len(self._confirmed_events) and
-                   self._confirmed_events[i_confirmed] <= tmp_evt_id):
-                i_confirmed += 1
-            if (self._confirmed_events[i_confirmed-1] == tmp_evt_id):
-                # The event was confirmed, uppdate corresponding range
-                if debug:
-                    print "  C: hole=%i (%s)" % (found_hole, new_ranges)
+        prev = set(itertools.chain(*self._prev_ranges))
+        ranges = []
+        start = -1
+        for isconf, values in itertools.groupby(
+                sorted(self._sent_events + prev),
+                (self._confirmed_events + prev).__contains__):
+            if not isconf:
+                end = values.next() - 1
+                ranges.append([start, end])
+                start = max(values) + 1
 
-                if (tmp_evt_id > new_ranges[range_no][1] and
-                    tmp_evt_id > new_ranges[range_no][0]):
-                    updated = True
-                    if found_hole:
-                        if range_no < len(new_ranges):
-                            new_ranges.insert(range_no+1, [tmp_evt_id, tmp_evt_id])
-                        else:
-                            new_ranges.append([tmp_evt_id, tmp_evt_id])
-                        found_hole = False
-                    else:
-                        new_ranges[range_no][1] = tmp_evt_id
-                if debug:
-                    print "  RES: %s" % new_ranges
-            else:
-                found_hole = True
-            i_sent += 1
-        if debug:
-            print "NR: %s (%s)" % (new_ranges, updated)
-
-        # TODO:
-        #
-        # Now, loop through all notified events, and if two consecutive
-        # events matches the last and first element in two ranges, join
-        # them.  Also join if the event is older than N seconds
-
-        if not updated:
+        if self._prev_ranges == ranges:
             return
-        self._update_ranges(self._current_key, new_ranges)
+        self._update_ranges(self._current_key, ranges)
 
     def _update_ranges(self, key, ranges):
         """Update DB with new ranges for a given handler key.
