@@ -109,6 +109,7 @@ class CLHandler(DatabaseAccessor):
         prev = set(itertools.chain(*self._prev_ranges))
         ranges = []
         start = -1
+        isconf = False
         for isconf, values in itertools.groupby(
                 sorted(self._sent_events + prev),
                 (self._confirmed_events + prev).__contains__):
@@ -119,6 +120,8 @@ class CLHandler(DatabaseAccessor):
                     start = max(values) + 1
                 except:
                     start = end + 2
+        if isconf:
+            ranges.append([start, max(values)])
 
         if self._prev_ranges == ranges:
             return
