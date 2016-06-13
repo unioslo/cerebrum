@@ -121,7 +121,8 @@ class CLHandler(DatabaseAccessor):
                 except:
                     start = end + 2
         if isconf:
-            ranges.append([start, max(values)])
+            ranges.append([start,
+                           max(itertools.chain(prev, self._confirmed_events))])
 
         if self._prev_ranges == ranges:
             return
