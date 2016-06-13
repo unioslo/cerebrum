@@ -115,7 +115,10 @@ class CLHandler(DatabaseAccessor):
             if not isconf:
                 end = values.next() - 1
                 ranges.append([start, end])
-                start = max(values) + 1
+                try:
+                    start = max(values) + 1
+                except:
+                    start = end + 2
 
         if self._prev_ranges == ranges:
             return
