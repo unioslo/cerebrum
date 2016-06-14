@@ -106,13 +106,64 @@ class CLHandler(DatabaseAccessor):
         be a reason for it. Can't remove it without checking all scripts!
 
         """
+
+        # The idea here is to build the list of ranges each time.
+        # Use this as an example:
+        # [-]X--CC-C--[--]-C-C-C-X-X-C-X--[---]-X--X--C-C-C
+        # Legend: [ and ]   existing range
+        #         -         event not sent (i.e. not in self._sent_events)
+        #         C         confirmed event
+        #         X         unconfirmed event
+        #
+        # The first thing to do is to pretend [ and ] is C's:
+        # C-CX--CC-C--C--C-C-C-C-X-X-C-X--C---C-X--X--C-C-C
+        # The idea is to find sequences of X's, ignoring -, and make new
+        # ranges excluding them:
+        #
+        # [-]X[-CC-C--C--C-C-C-C]X-X[C]X[-C---C]X--X[-C-C-]
+        #
+        # Note the details:
+        # -1 is used as a number guaranteed to be smaller than every event id.
+        # for every sequence of X's, find min(event_id) - 1
+        # and max(event_id) + 1. This will be the new range.
+        # If the largest event is confirmed, this should be equal to the upper
+        # limit of the last range. (Else, an ending with -C-X-X will use
+        # -C]X-X, i.e. let the last X's for next run.)
+
+        # itertools.groupby iterates over sequences of X's or C's, making
+        # isconf: True = C's, False = X's. The values is an iterator over the
+        # change_id's in the current sequence returned. Our example is returned:
+        # (each line one iteration in the outer for loop)
+        # [-]
+        #    X
+        #       CC-C--[--]-C-C-C    (remember [ and ] are treated as C)
+        #                        X-X
+        #                            C
+        #                              X
+        #                                 [---]
+        #                                       X--X
+        #                                             C-C-C
+        #
+        # Note: if we did'nt insert [ and ] as C, the [---] on the seventh line
+        # had been ignored. We need to keep this range, else the confirmed
+        # events inside it will be returned at next run.
+        #
+        # Now, we take the X-lines, inserting ] at the start (values.next()-1),
+        # and setting start = max(values)+1. If the X-line held a sole X, this
+        # would generate a ValueError, so catch that. Start holds the id of the
+        # start of the next range.
+        #
+        # If the first line is an X-line, we would insert a [-1, id-1], where
+        # id-1 > -1, not doing any harm. If the first line is a C-line, it is
+        # ignored, and we go to the second line, being the X-line. This should
+        # be correct.
         prev = set(itertools.chain(*self._prev_ranges))
         ranges = []
         start = -1
-        isconf = False
+        isconf = False  # to avoid NameError
         for isconf, values in itertools.groupby(
-                sorted(self._sent_events + prev),
-                (self._confirmed_events + prev).__contains__):
+                sorted(self._sent_events | prev),
+                (self._confirmed_events | prev).__contains__):
             if not isconf:
                 end = values.next() - 1
                 ranges.append([start, end])
@@ -120,6 +171,8 @@ class CLHandler(DatabaseAccessor):
                     start = max(values) + 1
                 except:
                     start = end + 2
+        # If the last line is a C-line (might be the only line, too), we create
+        # a range ending with the highest id returned.
         if isconf:
             ranges.append([start,
                            max(itertools.chain(prev, self._confirmed_events))])
