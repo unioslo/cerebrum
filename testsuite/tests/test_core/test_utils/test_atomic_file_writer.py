@@ -6,7 +6,6 @@ from __future__ import print_function
 import pytest
 
 import os
-import sys
 import math
 import string
 import random
@@ -138,13 +137,65 @@ def match_contents(filename, expected):
     return current == expected
 
 
+def test_writer_prop_name(AtomicFileWriter, new_file):
+    af = AtomicFileWriter(new_file)
+    assert af.name == new_file
+
+
+def test_writer_prop_closed(AtomicFileWriter, new_file):
+    af = AtomicFileWriter(new_file)
+    assert not af.closed
+    af.close()
+    assert af.closed
+
+
+def test_writer_prop_tmpname(AtomicFileWriter, new_file, text):
+    af = AtomicFileWriter(new_file)
+    assert os.path.exists(af.tmpname)
+    assert not os.path.exists(new_file)
+    af.close()
+    assert not os.path.exists(af.tmpname)
+    assert os.path.exists(new_file)
+
+
+def test_writer_prop_discarded(AtomicFileWriter, text_file, text):
+    af = AtomicFileWriter(text_file)
+    assert not af.discarded
+    af.write(text)
+    assert not af.discarded
+    af.close()
+    assert af.discarded
+
+
+def test_writer_prop_replace(AtomicFileWriter, text_file, text, more_text):
+    af = AtomicFileWriter(text_file, replace_equal=True)
+    af.replace = False
+    af.write(more_text)
+    af.close()
+    assert os.path.exists(af.tmpname)
+    assert match_contents(af.name, text)
+    assert match_contents(af.tmpname, more_text)
+
+
+def test_writer_prop_replaced(AtomicFileWriter, new_file, text):
+    af = AtomicFileWriter(new_file)
+    assert not af.replaced
+    af.write(text)
+    assert not af.replaced
+    af.close()
+    assert af.replaced
+
+
 def test_new_file_write(AtomicFileWriter, new_file, text):
     # Write 'text' to a new file (non-existing filename)
     af = AtomicFileWriter(new_file)
     af.write(text)
+    af.flush()
 
     # Assert that 'new_file' does *not* exist after write
     assert not os.path.exists(new_file)
+    assert os.path.exists(af.tmpname)
+    assert match_contents(af.tmpname, text)
 
 
 def test_new_file_close(AtomicFileWriter, new_file, text):
@@ -154,6 +205,8 @@ def test_new_file_close(AtomicFileWriter, new_file, text):
     af.close()
 
     # Read the file, assert that the contents is as expected after close
+    assert af.name == new_file
+    assert os.path.exists(af.name)
     assert match_contents(new_file, text)
 
 

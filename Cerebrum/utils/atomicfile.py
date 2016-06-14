@@ -234,6 +234,18 @@ class AtomicFileWriter(object):
         return self.__file.name
 
     @property
+    def replace(self):
+        """ if the temporary file should replace the target file. """
+        try:
+            return self.__replace
+        except AttributeError:
+            return True
+
+    @replace.setter
+    def replace(self, value):
+        self.__replace = bool(value)
+
+    @property
     @_copydoc(file.mode)
     def mode(self):
         return self.__file.mode
@@ -300,7 +312,7 @@ class AtomicFileWriter(object):
         pass
 
     @_copydoc(file.close)
-    def close(self, rename=True):
+    def close(self):
         """ In addition to the normal close behaviour:
 
         Closes the temporary file, and if applicable, replaces the target file.
@@ -308,12 +320,6 @@ class AtomicFileWriter(object):
 
         `replaced`: True if `tmpname` replaced `name`.
         `discarded`: True if `tmpname` is deleted withouth replacing `name`.
-
-
-
-        :param bool rename:
-            When True, replace `name` with `tmpname` after successfully closing
-            `tmpname`. This is the default.
 
         """
         if self.closed:
@@ -335,7 +341,7 @@ class AtomicFileWriter(object):
                     and filecmp.cmp(self.tmpname, self.name, shallow=0)):
                 os.unlink(self.tmpname)
                 self.__discarded = True
-            elif rename:
+            elif self.replace:
                 os.rename(self.tmpname, self.name)
                 self.__replaced = True
         return ret
