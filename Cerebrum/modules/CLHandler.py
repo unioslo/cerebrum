@@ -18,9 +18,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import itertools
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
-from Cerebrum.Database import Errors
-from Cerebrum.Utils import Factory
+
 
 class CLHandler(DatabaseAccessor):
 
@@ -40,7 +40,7 @@ class CLHandler(DatabaseAccessor):
     def get_events(self, key, types):
         """Fetch all new events of type key.
 
-        types is a tuple of event-types to listen for.  The client
+        types is a tuple of event-types to listen for, or None.  The client
         should call confirm_event() for each event that it does not want
         to receive again, and commit_confirmations() once all events are
         processed."""
@@ -49,8 +49,8 @@ class CLHandler(DatabaseAccessor):
         if len(prev_ranges) == 0:
             prev_ranges = [[-1, -1]]
         self._prev_ranges = prev_ranges
-        self._confirmed_events = []
-        self._sent_events = []
+        self._confirmed_events = set()
+        self._sent_events = set()
         self._current_key = key
         ret = []
         for n in range(len(prev_ranges)):
@@ -63,7 +63,7 @@ class CLHandler(DatabaseAccessor):
             for evt in self._db.get_log_events(min_id,
                                                max_id=max_id, types=types):
                 ret.append(evt)
-                self._sent_events.append(int(evt['change_id']))
+                self._sent_events.add(int(evt['change_id']))
         return ret
 
     def _get_last_changes(self, key):
@@ -74,9 +74,25 @@ class CLHandler(DatabaseAccessor):
         WHERE evthdlr_key=:key
         ORDER BY first_id""", {'key': key})]
 
+    def ignore_events(self, key, time, types):
+        """Confirm all events with timestamp before given time.
+
+        Calls get_events, and confirm_event repeatedly.
+
+        :param key: Eventhandler key
+        :param time: the timestamp in question
+        :param types: Event types the export cares about
+        :returns: Iterator over unconfirmed events
+        """
+        for evt in self.get_events(key, types):
+            if evt['tstamp'] < time:
+                self.confirm_event(evt)
+            else:
+                yield evt
+
     def confirm_event(self, evt):
         "Confirm that a given event was received OK."
-        self._confirmed_events.append(int(evt['change_id']))
+        self._confirmed_events.add(int(evt['change_id']))
 
     def commit_confirmations(self):
         """Update database with confirmed events.
@@ -90,72 +106,80 @@ class CLHandler(DatabaseAccessor):
         be a reason for it. Can't remove it without checking all scripts!
 
         """
-        debug = False
-        self._confirmed_events.sort()
-        new_ranges = self._prev_ranges[:]
-        range_no = 0
-        i_sent = i_confirmed = 0
-        updated = False
-        if len(self._confirmed_events) == 0:
-            return  # No update needed
-        # We know what events we sent to the client, which events the
-        # client confirmed this time, as well as what ranges of events the
-        # client has previously acknowledged.  Now we iterate over all
-        # sent events and determine which range the event corresponds to.
+
+        # The idea here is to build the list of ranges each time.
+        # Use this as an example:
+        # [-]X--CC-C--[--]-C-C-C-X-X-C-X--[---]-X--X--C-C-C
+        # Legend: [ and ]   existing range
+        #         -         event not sent (i.e. not in self._sent_events)
+        #         C         confirmed event
+        #         X         unconfirmed event
         #
-        # Since we know that the _sent_events list does not contain holes,
-        # we can update the range with the new end-value if the client
-        # confirmed the event.  If the client did not confirm the event,
-        # we must create a new range to fit the next confirmed event.
-        found_hole = False
-        while i_sent < len(self._sent_events):
-            tmp_evt_id = self._sent_events[i_sent]
-            # Find a range corresponding to this event
-            while (range_no+1 < len(new_ranges) and
-                   tmp_evt_id >= new_ranges[range_no+1][0]):
-                range_no += 1
-            if debug:
-                print "Matching range# %i for %i (len=%i) hole=%s" % (
-                    range_no, tmp_evt_id, len(new_ranges), found_hole)
-                print i_confirmed+1,"<=",len(self._confirmed_events)
-                print self._confirmed_events[i_confirmed],"<=",tmp_evt_id
-            # Check if the event was confirmed
-            while (i_confirmed < len(self._confirmed_events) and
-                   self._confirmed_events[i_confirmed] <= tmp_evt_id):
-                i_confirmed += 1
-            if (self._confirmed_events[i_confirmed-1] == tmp_evt_id):
-                # The event was confirmed, uppdate corresponding range
-                if debug:
-                    print "  C: hole=%i (%s)" % (found_hole, new_ranges)
-
-                if (tmp_evt_id > new_ranges[range_no][1] and
-                    tmp_evt_id > new_ranges[range_no][0]):
-                    updated = True
-                    if found_hole:
-                        if range_no < len(new_ranges):
-                            new_ranges.insert(range_no+1, [tmp_evt_id, tmp_evt_id])
-                        else:
-                            new_ranges.append([tmp_evt_id, tmp_evt_id])
-                        found_hole = False
-                    else:
-                        new_ranges[range_no][1] = tmp_evt_id
-                if debug:
-                    print "  RES: %s" % new_ranges
-            else:
-                found_hole = True
-            i_sent += 1
-        if debug:
-            print "NR: %s (%s)" % (new_ranges, updated)
-
-        # TODO:
+        # The first thing to do is to pretend [ and ] is C's:
+        # C-CX--CC-C--C--C-C-C-C-X-X-C-X--C---C-X--X--C-C-C
+        # The idea is to find sequences of X's, ignoring -, and make new
+        # ranges excluding them:
         #
-        # Now, loop through all notified events, and if two consecutive
-        # events matches the last and first element in two ranges, join
-        # them.  Also join if the event is older than N seconds
+        # [-]X[-CC-C--C--C-C-C-C]X-X[C]X[-C---C]X--X[-C-C-]
+        #
+        # Note the details:
+        # -1 is used as a number guaranteed to be smaller than every event id.
+        # for every sequence of X's, find min(event_id) - 1
+        # and max(event_id) + 1. This will be the new range.
+        # If the largest event is confirmed, this should be equal to the upper
+        # limit of the last range. (Else, an ending with -C-X-X will use
+        # -C]X-X, i.e. let the last X's for next run.)
 
-        if not updated:
+        # itertools.groupby iterates over sequences of X's or C's, making
+        # isconf: True = C's, False = X's. The values is an iterator over the
+        # change_id's in the current sequence returned. Our example is returned:
+        # (each line one iteration in the outer for loop)
+        # [-]
+        #    X
+        #       CC-C--[--]-C-C-C    (remember [ and ] are treated as C)
+        #                        X-X
+        #                            C
+        #                              X
+        #                                 [---]
+        #                                       X--X
+        #                                             C-C-C
+        #
+        # Note: if we did'nt insert [ and ] as C, the [---] on the seventh line
+        # had been ignored. We need to keep this range, else the confirmed
+        # events inside it will be returned at next run.
+        #
+        # Now, we take the X-lines, inserting ] at the start (values.next()-1),
+        # and setting start = max(values)+1. If the X-line held a sole X, this
+        # would generate a ValueError, so catch that. Start holds the id of the
+        # start of the next range.
+        #
+        # If the first line is an X-line, we would insert a [-1, id-1], where
+        # id-1 > -1, not doing any harm. If the first line is a C-line, it is
+        # ignored, and we go to the second line, being the X-line. This should
+        # be correct.
+        prev = set(itertools.chain(*self._prev_ranges))
+        ranges = []
+        start = -1
+        isconf = False  # to avoid NameError
+        for isconf, values in itertools.groupby(
+                sorted(self._sent_events | prev),
+                (self._confirmed_events | prev).__contains__):
+            if not isconf:
+                end = values.next() - 1
+                ranges.append([start, end])
+                try:
+                    start = max(values) + 1
+                except:
+                    start = end + 2
+        # If the last line is a C-line (might be the only line, too), we create
+        # a range ending with the highest id returned.
+        if isconf:
+            ranges.append([start,
+                           max(itertools.chain(prev, self._confirmed_events))])
+
+        if self._prev_ranges == ranges:
             return
-        self._update_ranges(self._current_key, new_ranges)
+        self._update_ranges(self._current_key, ranges)
 
     def _update_ranges(self, key, ranges):
         """Update DB with new ranges for a given handler key.
