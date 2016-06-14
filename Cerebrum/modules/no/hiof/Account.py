@@ -141,6 +141,7 @@ class AccountHiOfMixin(Account.Account):
         # adresses in default domain being sat as primary
         # TODO: account_types affiliated to OU's  without connected
         # email domain don't get a default address
+        primary_set = False
         ed = Email.EmailDomain(self._db)
         ed.find(self.get_primary_maildomain())
         domains = [ed.email_domain_name]
@@ -186,6 +187,15 @@ class AccountHiOfMixin(Account.Account):
                     ea.populate(lp, ed.entity_id, et.entity_id, expire=None)
                 ea.write_db()
                 # HiØ do not want the primary adress to change automatically
+                if not primary_set:
+                    epat.clear()
+                    try:
+                        epat.find(ea.email_addr_target_id)
+                    except Errors.NotFoundError:
+                        epat.clear()
+                        epat.populate(ea.entity_id, parent=et)
+                        epat.write_db()
+                    primary_set = True
 
     def _update_email_server(self, server_name):
         es = Email.EmailServer(self._db)
