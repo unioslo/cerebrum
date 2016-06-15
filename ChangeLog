@@ -1,5 +1,10 @@
 2016-06-15    <cerebrum@cleomedes.uit.no-cleomedes>
 
+	* OrgLDIF.py: need to import LDIFUtils.py.
+	use make_timer, not self.make_timer.
+	make_timer also need self.logger as first parameter.
+	make_person_entry need 2nd parameter as person_id
+
 	* sito_utils.py (sitoFactory.get): removed debug line
 
 2016-06-10    <cerebrum@cleomedes.uit.no-cleomedes>

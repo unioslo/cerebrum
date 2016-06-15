@@ -25,6 +25,7 @@ from collections import defaultdict
 from os.path import join as join_paths
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.OrgLDIF import *
+from Cerebrum.modules.LDIFutils import *
 from pprint import pprint
         
 class OrgLDIFUiTMixin(OrgLDIF):
@@ -34,14 +35,14 @@ class OrgLDIFUiTMixin(OrgLDIF):
 
     def init_person_course(self):
         """Populate dicts with a person's course information."""
-        timer = self.make_timer("Processing person courses...")
+        timer = make_timer(self.logger,"Processing person courses...")
         self.ownerid2urnlist = pickle.load(file(
             join_paths(ldapconf(None, 'dump_dir'), "ownerid2urnlist.pickle")))
         timer("...person courses done.")
     
     def init_person_groups(self):
         """Populate dicts with a person's group information."""
-        timer = self.make_timer("Processing person groups...")
+        timer = make_timer(self.logger,"Processing person groups...")
         self.person2group = pickle.load(file(
             join_paths(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
         timer("...person groups done.")
@@ -112,8 +113,8 @@ class OrgLDIFUiTMixin(OrgLDIF):
         self.init_person_dump(use_mail_module)
         if self.person_parent_dn not in (None, self.org_dn):
             outfile.write(container_entry_string('PERSON'))
-        timer       = self.make_timer("Processing persons...")
-        round_timer = self.make_timer()
+        timer       = make_timer(self.logger,"Processing persons...")
+        round_timer = make_timer(self.logger)
         round       = 0
         for row in self.list_persons():
             print "---"
@@ -174,8 +175,8 @@ class OrgLDIFUiTMixin(OrgLDIF):
         
     def make_person_entry(self, row):
         """Add data from person_course to a person entry."""
-        dn, entry, alias_info = self.__super.make_person_entry(row)
         p_id = int(row['person_id'])
+        dn, entry, alias_info = self.__super.make_person_entry(row,p_id)
         if not dn:
             return dn, entry, alias_info
         if self.ownerid2urnlist.has_key(p_id):
