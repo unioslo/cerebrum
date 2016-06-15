@@ -664,7 +664,23 @@ class AlwaysEqual(object):
 
 
 def noupdate(ad_transform=None, attrclass=AttrConfig, *rest, **kw):
-    """Make AttrConfig object (or subclass) write once semantic.
+    """Make AttrConfig object (or subclass) only write if not set in AD.
+
+    The attribute is normally only written once, the first time. It could also
+    be written if AD-admins blanks out the attribute in AD.
+
+    Examples on how to set up in adconf::
+
+        # Simple writeonce:
+        'attr1': noupdate(default='%(entity_name)s'),
+        # Using specialized AttrConfig, with passed params
+        'attr2': noupdate(
+            attrclass=TraitAttr,
+            traitcode=co.trait_example,
+            transform=lambda x: x['strval'],
+            spread=co.spread_exchange,
+            default='nah...',
+            ),
 
     :type ad_transform: Callable
     :param ad_transform: See AttrConfig
