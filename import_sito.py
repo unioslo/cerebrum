@@ -210,7 +210,7 @@ def import_person(person_list):
             logger.warn("person:%s is missing birthdate. Setting it based on SSN" % (person['Ssn']))
             if( fodselsnr.personnr_ok(person['Ssn'])):
                 year,mon,day = fodselsnr.fodt_dato(person['Ssn'])
-                print "year:%s, mon:%s, day:%s" % (year,mon,day)
+                #print "year:%s, mon:%s, day:%s" % (year,mon,day)
                 person_processed['birth_year'] = year
                 person_processed['birth_month'] = mon
                 person_processed['birth_day'] = day
@@ -1035,7 +1035,7 @@ def main():
         logger.info("\t ## Generate Person list ##")
         person_list = generate_person_list(personfile,person_list)
         logger.info("\t ## Person list finished")
-        pprint(person_list)
+        #pprint(person_list)
         logger.info("\t ## decode/encode person names##")
         person_list = encode_decode_text(person_list,'Person')
         logger.info("\t ## decode/encode finished##")

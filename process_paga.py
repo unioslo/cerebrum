@@ -522,7 +522,7 @@ def _handle_changes(a_id,changes):
         ccode,cdata=chg
         if ccode=='spreads_add':
             for s in cdata:
-                print "cdata[s] is: %s" % s
+                #print "cdata[s] is: %s" % s
                 ac.add_spread(s)
                 #ac.set_home_dir(s)
         elif ccode=='quarantine_add':

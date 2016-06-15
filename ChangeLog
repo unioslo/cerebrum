@@ -1,3 +1,9 @@
+2016-06-15    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* import_sito.py (import_person): removed debug line
+
+	* process_paga.py (_handle_changes): removed debug line
+
 2016-06-09    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_systemx.py (Build._CreateAccount): fnr need to be processed as string, not int
