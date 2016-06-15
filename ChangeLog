@@ -1,3 +1,7 @@
+2016-06-15    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* sito_utils.py (sitoFactory.get): removed debug line
+
 2016-06-10    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* Account.py (AccountUiTMixin.get_serial): updated get_serial to
