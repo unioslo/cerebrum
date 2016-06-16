@@ -195,7 +195,8 @@ def update_person_info(pe, client):
         logger.warn('No email address for %s', user_id)
         email_address = None
 
-    telephone = u((lambda x: x[0]['contact_value'] if len(x) else None)
+    # Webservice accepts max 20 characters for this field
+    telephone = u((lambda x: x[0]['contact_value'][:20] if len(x) else None)
                   (pe.get_contact_info(source=co.system_sap,
                                        type=co.contact_phone)))
 
@@ -404,7 +405,7 @@ def sanity_check_person(person_id, selection_spread):
     try:
         pe.find(person_id)
     except Errors.NotFoundError:
-        logger.warn(u'person_id:%s does not exist, skipping', person_id)
+        logger.info(u'person_id:%s does not exist, skipping', person_id)
         return False
 
     try:
