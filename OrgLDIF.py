@@ -117,9 +117,9 @@ class OrgLDIFUiTMixin(OrgLDIF):
         round_timer = make_timer(self.logger)
         round       = 0
         for row in self.list_persons():
-            print "---"
-            pprint(row)
-            print "---"
+            #print "---"
+            #pprint(row)
+            #print "---"
             if(row[2] in [int(self.const.affiliation_ansatt_sito)]):
                 # this person does not qualify to be listed in the FEIDE tree on the ldap server.
                 #self.logger.warn("sito person. Not to be included")
@@ -192,11 +192,7 @@ class OrgLDIFUiTMixin(OrgLDIF):
         # p_id == person_id
         #
         
-        #print "p_id is:"
-        #pprint(self.person2group)
-        pprint("processing p_id:%s" %p_id)
         if self.person2group.has_key(p_id):
-            print "have correct key"
             # TODO: remove member and uioPersonObject after transition period
             entry['uitMemberOf'] = self.person2group[p_id]
             #entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))

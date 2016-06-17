@@ -1,3 +1,7 @@
+2016-06-17    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* OrgLDIF.py (OrgLDIFUiTMixin.generate_person): removed debug lines
+
 2016-06-15    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* OrgLDIF.py: need to import LDIFUtils.py.
