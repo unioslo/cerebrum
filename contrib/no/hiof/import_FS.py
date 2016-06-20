@@ -245,6 +245,12 @@ def rem_old_aff():
                                        source_system=co.system_fs,
                                        affiliation=aff_const,
                                        ou_id=ou_id)
+        if not aff:
+            logger.warn(
+                'Possible race condition when attempting to remove aff '
+                '{} for {}'.format(aff_const, person_id))
+            continue
+
         aff = aff[0]
 
         # Check grace period.
