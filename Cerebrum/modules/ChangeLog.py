@@ -28,6 +28,21 @@ from Cerebrum.Utils import argument_to_sql
 __version__ = "1.3"
 
 
+def _pickle_change_params(encoding, cp):
+    """Utility function for converting unicode objects in pickled data."""
+    def encode(value):
+        if isinstance(value, unicode):
+            return value.encode(encoding)
+        else:
+            return value
+
+    if isinstance(cp, dict):
+        return pickle.dumps(
+            dict(map(lambda (k, v): (k, encode(v)), cp.items())))
+    else:
+        return pickle.dumps(cp)
+
+
 class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
     # Don't want to override the Database constructor
     def cl_init(self, change_by=None, change_program=None, **kw):
@@ -51,7 +66,7 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
 
         """
         if change_params is not None:
-            change_params = pickle.dumps(change_params)
+            change_params = _pickle_change_params(self.encoding, change_params)
         self.execute("""
         UPDATE [:table schema=cerebrum name=change_log]
         SET change_params=:change_params
@@ -128,7 +143,7 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
             raise self.ProgrammingError("must set change_by or change_program")
         change_type_id = int(change_type_id)
         if change_params is not None:
-            change_params = pickle.dumps(change_params)
+            change_params = _pickle_change_params(self.encoding, change_params)
         self.messages.append(locals())  # ugh
 
     def clear_log(self):
