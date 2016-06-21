@@ -39,6 +39,34 @@ class RemoteSourceDown(Exception):
     """Exception signaling that the remote system is out of service."""
 
 
+from Cerebrum.config.configuration import (ConfigDescriptor,
+                                           Configuration)
+from Cerebrum.config.settings import String
+from Cerebrum.config.loader import read, read_config
+
+
+class SAPConsumerConfig(Configuration):
+    auth_user = ConfigDescriptor(
+        String,
+        default=u"webservice",
+        doc=u"Username to use when connecting to the WS.")
+
+    auth_system = ConfigDescriptor(
+        String,
+        default='sap_ws',
+        doc=u"The system name used for the password file, for example 'test'.")
+
+
+def load_config(filepath=None):
+    config_cls = SAPConsumerConfig()
+    if filepath:
+        config_cls.load_dict(read_config(filepath))
+    else:
+        read(config_cls, 'consumer_sap')
+    config_cls.validate()
+    return config_cls
+
+
 def parse_address(d):
     """Parse the data from SAP an return a diff-able structure.
 
@@ -246,7 +274,7 @@ def _parse_hr_person(database, source_system, data):
         u'reserved': data.get(u'PublicView')}
 
 
-def get_hr_person(database, source_system, url, identifier):
+def get_hr_person(config, database, source_system, url, identifier):
     """Collect a person entry from the remote source system, and parse the data.
 
     :param db: Database object
@@ -588,6 +616,11 @@ def main(args=None):
     """Start consuming messages."""
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-c', '--config',
+                        dest='configfile',
+                        metavar='FILE',
+                        default=None,
+                        help='Use a custom configuration file')
     parser.add_argument(u'-m', u'--mock',
                         dest=u'mock',
                         metavar=u'FILE',
@@ -608,6 +641,8 @@ def main(args=None):
     database.cl_init(change_program=prog_name)
     source_system = Factory.get('Constants')(database).system_sap
 
+    config = load_config(filepath=args.configfile)
+
     if args.dryrun:
         database.commit = database.rollback
 
@@ -622,7 +657,9 @@ def main(args=None):
                  datasource=lambda *x: parsed_mock_data)
     else:
         consumer = get_consumer(functools.partial(callback,
-                                                  (database, source_system)),
+                                                  (database, source_system),
+                                                  datasource=functools.partial(
+                                                      get_hr_person, config)),
                                 prog_name)
 
         try:
