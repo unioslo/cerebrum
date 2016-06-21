@@ -288,8 +288,16 @@ def get_hr_person(config, database, source_system, url, identifier):
     :raises: RemoteSourceDown if the remote system can't be contacted"""
     import requests
     import json
+    from Cerebrum.Utils import read_password
 
-    r = requests.get(url)
+    auth = (config.ws_auth_user, read_password(user=config.ws_auth_user,
+                                               system=config.ws_auth_system))
+
+    headers = {'Accept': 'application/json'}
+
+    r = requests.get('{}?$expand=employments'.format(url),
+                     auth=auth,
+                     headers=headers)
     if r.status_code == 200:
         data = json.loads(r.text).get(u'd', None)
         return _parse_hr_person(database, source_system, data)
