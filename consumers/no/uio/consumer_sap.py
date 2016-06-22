@@ -308,8 +308,8 @@ def get_hr_person(config, database, source_system, url, identifier):
         data = json.loads(r.text).get(u'd', None)
         return _parse_hr_person(database, source_system, data)
     else:
-        logger.error(u'Could not fetch {} from remote source: {}: {}').format(
-            identifier, r.status_code, r.reason)
+        logger.error(u'Could not fetch {} from remote source: {}: {}'.format(
+            identifier, r.status_code, r.reason))
         raise RemoteSourceDown
 
 
