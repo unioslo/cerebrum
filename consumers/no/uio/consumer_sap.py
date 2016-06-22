@@ -675,6 +675,7 @@ def main(args=None):
         callback(database, source_system, u'', u'', body,
                  datasource=lambda *x: parsed_mock_data)
     else:
+        logger.info('Starting {}'.format(prog_name))
         consumer = get_consumer(functools.partial(callback,
                                                   database, source_system,
                                                   datasource=functools.partial(
@@ -687,6 +688,7 @@ def main(args=None):
         except KeyboardInterrupt:
             consumer.stop()
         consumer.close()
+        logger.info('Stopping {}'.format(prog_name))
 
 if __name__ == "__main__":
     main()
