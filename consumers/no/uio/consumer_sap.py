@@ -597,7 +597,11 @@ def select_identifier(body):
 def callback(database, source_system, routing_key, content_type, body,
              datasource=get_hr_person):
     """Call appropriate handler functions."""
-    (url, identifier) = select_identifier(body)
+    try:
+        (url, identifier) = select_identifier(body)
+    except Exception as e:
+        logger.warn('Received malformed message "{}"'.format(body))
+        return True
 
     message_processed = True
     try:
