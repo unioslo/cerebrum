@@ -40,12 +40,14 @@ class RemoteSourceDown(Exception):
 
 
 from Cerebrum.config.configuration import (ConfigDescriptor,
+                                           Namespace,
                                            Configuration)
 from Cerebrum.config.settings import String
 from Cerebrum.config.loader import read, read_config
+from Cerebrum.modules.event_consumer.config import AMQPClientConsumerConfig
 
 
-class SAPConsumerConfig(Configuration):
+class SAPWSConsumerConfig(Configuration):
     auth_user = ConfigDescriptor(
         String,
         default=u"webservice",
@@ -55,6 +57,11 @@ class SAPConsumerConfig(Configuration):
         String,
         default='sap_ws',
         doc=u"The system name used for the password file, for example 'test'.")
+
+
+class SAPConsumerConfig(Configuration):
+    ws = ConfigDescriptor(Namespace, config=SAPWSConsumerConfig)
+    consumer = ConfigDescriptor(Namespace, config=AMQPClientConsumerConfig)
 
 
 def load_config(filepath=None):
@@ -667,8 +674,9 @@ def main(args=None):
         consumer = get_consumer(functools.partial(callback,
                                                   (database, source_system),
                                                   datasource=functools.partial(
-                                                      get_hr_person, config)),
-                                prog_name)
+                                                      get_hr_person,
+                                                      config.ws)),
+                                config=config.consumer)
 
         try:
             consumer.start()

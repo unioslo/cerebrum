@@ -23,16 +23,17 @@
 __version__ = '1.0'
 
 
-def get_consumer(callback_func=None, consumer_name=None):
+def get_consumer(callback_func=None, consumer_name=None, config=None):
     """Instantiate consuming client.
 
     Instantiated trough the defined config."""
-    from Cerebrum.modules.event_consumer.config import load_config
     from Cerebrum.modules.event_consumer.amqp_consumer import (
         ConsumingAMQP091Client as client)
+    if not config:
+        from Cerebrum.modules.event_consumer.config import load_config
 
-    conf = load_config(consumer_name=consumer_name)
+        config = load_config(consumer_name=consumer_name)
 
     if not callback_func:
         callback_func = client.consumer_callback
-    return client(conf, callback_func)
+    return client(config, callback_func)
