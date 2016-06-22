@@ -607,7 +607,8 @@ def callback(database, source_system, routing_key, content_type, body,
         handle_person(database, source_system, url, identifier,
                       datasource=datasource)
         logger.info(u'Successfully processed {}'.format(identifier))
-    except RemoteSourceDown:
+    except (RemoteSourceDown, IOError):
+        # IOError typically results from missing password files
         message_processed = False
     except Exception as e:
         logger.error(u'Failed processing {}: {}'.format(identifier, e),
