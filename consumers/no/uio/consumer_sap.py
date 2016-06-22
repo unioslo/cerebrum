@@ -672,7 +672,7 @@ def main(args=None):
                  datasource=lambda *x: parsed_mock_data)
     else:
         consumer = get_consumer(functools.partial(callback,
-                                                  (database, source_system),
+                                                  database, source_system,
                                                   datasource=functools.partial(
                                                       get_hr_person,
                                                       config.ws)),
