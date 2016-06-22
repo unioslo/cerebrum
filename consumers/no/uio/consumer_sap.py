@@ -297,9 +297,8 @@ def get_hr_person(config, database, source_system, url, identifier):
     import json
     from Cerebrum.Utils import read_password
 
-    auth = (config.ws_auth_user, read_password(user=config.ws_auth_user,
-                                               system=config.ws_auth_system))
-
+    auth = (config.auth_user, read_password(user=config.auth_user,
+                                            system=config.auth_system))
     headers = {'Accept': 'application/json'}
 
     r = requests.get('{}?$expand=employments'.format(url),
