@@ -599,13 +599,13 @@ def callback(database, source_system, routing_key, content_type, body,
     """Call appropriate handler functions."""
     (url, identifier) = select_identifier(body)
 
-    return_state = True
+    message_processed = True
     try:
         handle_person(database, source_system, url, identifier,
                       datasource=datasource)
         logger.info(u'Successfully processed {}'.format(identifier))
     except RemoteSourceDown:
-        return_state = False
+        message_processed = False
     except Exception as e:
         logger.error(u'Failed processing {}: {}'.format(identifier, e),
                      exc_info=True)
@@ -613,7 +613,7 @@ def callback(database, source_system, routing_key, content_type, body,
     # Always rollback, since we do an implicit begin and we want to discard
     # possible outstanding changes.
     database.rollback()
-    return return_state
+    return message_processed
 
 
 def load_mock(mock_file):
