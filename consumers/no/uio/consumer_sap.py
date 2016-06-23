@@ -204,36 +204,31 @@ def parse_external_ids(source_system, d):
     :type d: dict
     :param d: Data from SAP
 
-    :rtype: [tuple(('id_type', EntityExternalId('PASSNR')),
-                   ('source_system', AuthoritativeSystem('SAP')),
-                   ('external_id', '000001'))]
-    :return: A list of tuples with the fields that should be updated"""
+    :rtype: [tuple(EntityExternalId('PASSNR'),
+                   '000001')]
+    :return: A list of tuples with the external_ids"""
     co = Factory.get('Constants')
 
-    def make_tuple(id_type, source_system, value):
-        return ((u'id_type', id_type),
-                (u'source_system', source_system),
-                (u'external_id', value))
+    def make_tuple(id_type, value):
+        return (id_type, value)
 
     external_ids = [
         make_tuple(co.externalid_sap_ansattnr,
-                   source_system,
-                   d.get(u'PersonID'))]
+                   unicode(d.get(u'personId')))]
 
     passport = (
-        d.get(u'PersonalDetails').get(u'InternationalID').get(u'Passport'))
-    if passport.get(u'Country') and passport.get(u'IdentityNumber'):
+        d.get(u'personalDetails').get(u'internationalId'))
+    if (passport and passport.get(u'countryOfId') and
+            passport.get(u'identityNumber')):
         external_ids.append(
             make_tuple(co.externalid_pass_number,
-                       source_system,
-                       (passport.get(u'Country') +
-                        passport.get(u'IdentityNumber'))))
+                       (passport.get(u'countryOfId') +
+                        passport.get(u'identityNumber'))))
 
-    if d.get(u'PersonalDetails').get(u'NationalID'):
+    if d.get(u'personalDetails').get(u'nationalId'):
         external_ids.append(
             make_tuple(co.externalid_fodselsnr,
-                       source_system,
-                       d.get(u'PersonalDetails').get(u'NationalID')))
+                       d.get(u'personalDetails').get(u'nationalId')))
 
     return external_ids
 
@@ -444,26 +439,28 @@ def update_external_ids(database, source_system, hr_person, cerebrum_person):
 
     hr_person.get(u'external_ids')
 
-    external_ids = row_transform(
-        co.EntityExternalId,
-        u'id_type',
-        u'id_type',
-        cerebrum_person.get_external_id(source_system=source_system))
+    external_ids = set(map(lambda e: (e[u'id_type'], e[u'external_id']),
+                       cerebrum_person.get_external_id(
+                           source_system=source_system)))
 
-    to_remove = hr_person.get(u'external_ids') - external_ids
-    to_add = external_ids - hr_person.get(u'external_ids')
+    to_remove = external_ids - set(hr_person.get(u'external_ids'))
+    to_add = set(hr_person.get(u'external_ids')) - external_ids
 
     cerebrum_person.affect_external_id(
         source_system,
-        map(lambda (k, _): k, to_remove | to_add))
-    logger.debug(u'Purging externalids of types {} for id:{}'.format(
-        map(lambda (k, _): k, to_remove), cerebrum_person.entity_id))
+        *map(lambda (k, _): k, to_remove | to_add))
+    if to_remove:
+        logger.debug(u'Purging externalids of types {} for id:{}'.format(
+            map(lambda (k, _): _stringify_for_log(co.EntityExternalId(k)),
+                to_remove),
+            cerebrum_person.entity_id))
 
     for (k, v) in to_add:
         cerebrum_person.populate_external_id(
             source_system, k, v)
         logger.debug(u'Adding externalid {} for id:{}'.format(
-            (k, v), cerebrum_person.entity_id))
+            (_stringify_for_log(co.EntityExternalId(k)), v),
+            cerebrum_person.entity_id))
 
 
 def update_addresses(database, source_system, hr_person, cerebrum_person):
@@ -592,6 +589,8 @@ def handle_person(database, source_system, url, identifier,
     cerebrum_person = get_cerebrum_person(database, identifier)
 
     update_person(database, source_system, hr_person, cerebrum_person)
+    update_external_ids(database, source_system, hr_person, cerebrum_person)
+    update_names(database, source_system, hr_person, cerebrum_person)
     update_addresses(database, source_system, hr_person, cerebrum_person)
     update_contact_info(database, source_system, hr_person, cerebrum_person)
     update_titles(database, source_system, hr_person, cerebrum_person)
