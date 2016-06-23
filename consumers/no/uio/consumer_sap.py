@@ -87,20 +87,27 @@ def parse_address(d):
          ('address_text', 'Postboks 1059 Blindern')))
     :return: A tuple with the fields that should be updated"""
     co = Factory.get('Constants')
-    r = d.get(u'Address')
-    m = {u'ResidentialAddress': co.address_post_private,
-         u'PostalAddress': co.address_post,
-         u'VisitingAddress': co.address_street,
 
-         u'City': u'city',
-         u'PostalCode': u'postal_number',
-         u'StreetAndHouseNumber': u'address_text'}
+    m = {u'residentialAddress': co.address_post_private,
+         u'postalAddress': co.address_post,
+         u'visitingAddress': co.address_street,
+
+         u'city': u'city',
+         u'postalCode': u'postal_number',
+         u'streetAndHouseNumber': u'address_text'}
+
+    r = {
+        u'postalAddress': d.get(u'contact').get(u'postalAddress'),
+        u'visitingAddress': d.get(u'contact').get(u'visitingAddress'),
+        u'residentialAddress': d.get(u'personalDetails'
+                                     ).get(u'contact').get(u'address')
+    }
 
     # Visiting address should be a concoction of real address and a
     # meta-location
-    r[u'VisitingAddress'][u'StreetAndHouseNumber'] = u'{}\n{}'.format(
-        r.get(u'VisitingAddress').get(u'StreetAndHouseNumber'),
-        r.get(u'VisitingAddress').get(u'Location'))
+    r[u'visitingAddress'][u'streetAndHouseNumber'] = u'{}\n{}'.format(
+        r.get(u'visitingAddress').get(u'streetAndHouseNumber'),
+        r.get(u'visitingAddress').get(u'location'))
 
     return tuple([(k, tuple(sorted(filter_elements(translate_keys(v, m))))) for
                   (k, v) in filter_elements(
