@@ -31,6 +31,7 @@ import Cerebrum.ChangeLog
 import Cerebrum.DatabaseAccessor
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+from . import scim
 
 __version__ = '1.0'
 
@@ -87,7 +88,7 @@ def change_type_to_message(db, change_type_code, subject,
     else:
         destid = desttype = None
     if 'spread' in change_params:
-        context = str(constants.Spread(change_params['spread']))
+        context = constants.Spread(change_params['spread'])
         del change_params['spread']
     else:
         context = None
@@ -103,6 +104,7 @@ def change_type_to_message(db, change_type_code, subject,
         'objecttype': desttype,
         'objectname': get_entity_name(destid),
         'data': change_params,
+        'payload': None
     },
         subject, dest, change_type_code, db)
 
@@ -168,6 +170,7 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         return self.__unpublished_events
 
     def __try_send_messages(self):
+        client = None
         try:
             client = self.__get_client()
             ue = self.__get_unpublished_events()
@@ -175,6 +178,7 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
             for event in unsent:
                 client.publish(event['message'])
                 ue.delete_event(event['eventid'])
+            self.__queue = scim.merge_payloads(self.__queue)
             while self.__queue:
                 message = self.__queue[0]
                 client.publish(message)
@@ -184,7 +188,8 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                 .error("Could not write message: %s", e)
             self.__save_queue()
         finally:
-            client.close()
+            if client is not None:
+                client.close()
 
     def __save_queue(self):
         """Save queue to event queue"""
@@ -245,7 +250,9 @@ class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
         dumps = json.dumps
         for event in events:
             # From python docs: use separators to get compact encoding
-            self.execute(qry, {'event': dumps(event,
+            pl = event.get_payload()
+            pl['routing-key'] = event.key
+            self.execute(qry, {'event': dumps(pl,
                                               separators=(',', ':'),
                                               encoding=self._db.encoding)})
 

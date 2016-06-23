@@ -37,6 +37,7 @@ import pika
 
 from Cerebrum.modules.event.clients import ClientErrors
 from Cerebrum.modules.event.clients.amqp_client import BaseAMQP091Client
+from . import scim
 
 
 class PublishingAMQP091Client(BaseAMQP091Client):
@@ -68,20 +69,23 @@ class PublishingAMQP091Client(BaseAMQP091Client):
         :type durable: bool
         :param durable: If this message should be durable.
         """
-        if isinstance(messages, dict):
+        if isinstance(messages, (dict, scim.Event)):
             messages = [messages]
         elif not isinstance(messages, list):
-            raise TypeError('messages must be a dict or a list of dicts')
+            raise TypeError('messages must be a dict, event or a list thereof')
         for msg in messages:
-            if not isinstance(msg, dict):
-                raise TypeError('messages must be a dict or a list of dicts')
+            if not isinstance(msg, (dict, scim.Event)):
+                raise TypeError('messages must be a dict, '
+                                'Event or a list thereof')
             try:
                 err_msg = 'Could not generate routing key'
-                event_type = '.'.join(
-                    filter(lambda y: y is not None,
-                           map(lambda x: msg.get(x), ('category',
-                                                      'meta_object_type',
-                                                      'change'))))
+                if isinstance(msg, dict):
+                    event_type = msg['routing-key']
+                    del msg['routing-key']
+                else:
+                    event_type = msg.key
+                    msg = msg.get_payload()
+
                 err_msg = ('Could not generate'
                            ' application/json content from message')
                 msg_body = json.dumps(msg)
