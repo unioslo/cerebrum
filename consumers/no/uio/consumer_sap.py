@@ -174,30 +174,35 @@ def parse_titles(d):
     titles = filter(lambda ((vk, vn), (lk, lv), (nk, nv)): nv, [
         make_tuple(co.personal_title,
                    co.language_en,
-                   d.get(u'Title').get(u'English'))] +
+                   d.get(u'title').get(u'en'))] +
         map(lambda lang: make_tuple(co.personal_title,
                                     lang,
-                                    d.get(u'Title').get(u'Norwegian')),
+                                    d.get(u'title').get(u'no')),
             [co.language_nb, co.language_nn]))
 
     # Select appropriate work title.
     work_title = None
-    for e in d.get(u'Employments').get(u'results', []):
+    for e in d.get(u'employments').get(u'results', []):
         if e.get(u'IsMain'):
             work_title = e
             break
-        if (e.get(u'EmploymentPercentage') >
-                work_title.get(u'EmploymentPercentage') or
+        if not work_title:
+            work_title = e
+        elif (e.get(u'employmentPercentage') >
+                work_title.get(u'employmentPercentage') or
                 not work_title):
             work_title = e
 
-    return titles + map(lambda (lang_code, lang_str): make_tuple(
-        co.work_title,
-        lang_code,
-        work_title.get(u'Job').get(u'Title').get(lang_str)),
-        [(co.language_nb, u'Norwegian'),
-         (co.language_nn, u'Norwegian'),
-         (co.language_en, u'English')])
+    if work_title:
+        titles.extend(map(lambda (lang_code, lang_str): make_tuple(
+            co.work_title,
+            lang_code,
+            work_title.get(u'job').get(u'title').get(lang_str)),
+            [(co.language_nb, u'no'),
+             (co.language_nn, u'no'),
+             (co.language_en, u'en')]))
+
+    return titles
 
 
 def parse_external_ids(source_system, d):
