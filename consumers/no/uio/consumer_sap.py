@@ -308,9 +308,17 @@ def get_hr_person(config, database, source_system, url, identifier):
                                             system=config.auth_system))
     headers = {'Accept': 'application/json'}
 
-    r = requests.get('{}?$expand=employments'.format(url),
-                     auth=auth,
-                     headers=headers)
+    try:
+        r = requests.get('{}?$expand=employments'.format(url),
+                         auth=auth,
+                         headers=headers)
+    except Exception as e:
+        # Be polite on connection errors. Conenction errors seldom fix
+        # themselves quickly.
+        import time
+        time.sleep(1)
+        raise e
+
     if r.status_code == 200:
         data = json.loads(r.text).get(u'd', None)
         return _parse_hr_person(database, source_system, data)
@@ -614,10 +622,12 @@ def callback(database, source_system, routing_key, content_type, body,
         handle_person(database, source_system, url, identifier,
                       datasource=datasource)
         logger.info(u'Successfully processed {}'.format(identifier))
-    except (RemoteSourceDown, IOError):
-        # IOError typically results from missing password files
+    except RemoteSourceDown:
         message_processed = False
     except Exception as e:
+        if isinstance(e, IOError):
+            # IOError typically results from missing password files
+            message_processed = False
         logger.error(u'Failed processing {}: {}'.format(identifier, e),
                      exc_info=True)
 
