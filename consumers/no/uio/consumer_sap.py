@@ -276,16 +276,16 @@ def _parse_hr_person(database, source_system, data):
         u'addresses': parse_address(data),
         u'names': parse_names(data),
         u'birth_date': DateTime.DateFrom(
-            data.get(u'PersonalDetails').get(u'DateOfBirth')),
+            data.get(u'personalDetails').get(u'dateOfBirth')),
         u'gender': {u'Kvinne': co.gender_female,
                     u'Mann': co.gender_male}.get(
-                        data.get(u'PersonalDetails').get(u'Gender'),
+                        data.get(u'personalDetails').get(u'gender'),
                         co.gender_unknown),
         u'external_ids': parse_external_ids(source_system, data),
         u'contacts': parse_contacts(data),
         u'affiliations': parse_affiliations(database, data),
         u'titles': parse_titles(data),
-        u'reserved': data.get(u'PublicView')}
+        u'reserved': data.get(u'publicView')}
 
 
 def get_hr_person(config, database, source_system, url, identifier):
