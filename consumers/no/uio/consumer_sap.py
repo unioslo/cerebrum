@@ -697,7 +697,7 @@ def main(args=None):
         parsed_mock_data = _parse_hr_person(database,
                                             source_system,
                                             mock_data)
-        body = json.dumps({u'id': mock_data.get(u'PersonID'), u'url': None})
+        body = json.dumps({u'id': mock_data.get(u'personId'), u'url': None})
         callback(database, source_system, u'', u'', body,
                  datasource=lambda *x: parsed_mock_data)
     else:
