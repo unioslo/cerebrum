@@ -125,8 +125,8 @@ def parse_names(d):
     :return: A tuple with the fields that should be updated"""
 
     co = Factory.get('Constants')
-    return ((co.name_first, d.get(u'FirstName')),
-            (co.name_last, d.get(u'LastName')))
+    return ((co.name_first, d.get(u'firstName')),
+            (co.name_last, d.get(u'lastName')))
 
 
 def parse_contacts(d):
@@ -407,21 +407,24 @@ def update_names(database, source_system, hr_person, cerebrum_person):
     :param cerebrum_person: The Person object to be updated.
     """
     co = Factory.get('Constants')(database)
-    names = map(lambda name_type:
+    names = set(map(lambda name_type:
                 (name_type,
                  cerebrum_person.get_name(
                      source_system,
                      name_type)),
-                [co.name_first, co.name_last])
+                [co.name_first, co.name_last]))
 
-    to_remove = set(hr_person.get(u'names')) - names
-    to_add = names - set(hr_person.get(u'names'))
+    to_remove = names - set(hr_person.get(u'names'))
+    to_add = set(hr_person.get(u'names')) - names
 
-    cerebrum_person.affect_names(source_system,
-                                 map(lambda (k, _): k, to_remove | to_add))
-    logger.debug(u'Purging names of types {} for id:{}'.format(
-        map(lambda (k, _): k, to_remove), cerebrum_person.entity_id))
+    if to_remove:
+        logger.debug(u'Purging names of types {} for id:{}'.format(
+            map(lambda (k, _): _stringify_for_log(k), to_remove),
+            cerebrum_person.entity_id))
 
+    cerebrum_person.affect_names(
+        source_system,
+        *map(lambda (k, _): k, to_remove | to_add))
     for (k, v) in to_add:
         cerebrum_person.populate_name(k, v)
         logger.debug(u'Adding name {} for id:{}'.format(
