@@ -52,11 +52,16 @@ class PublishingAMQP091Client(BaseAMQP091Client):
         super(PublishingAMQP091Client, self).__init__(config)
 
         self.exchange = config.exchange_name
+        self.exchange_type = config.exchange_type
+        self.durable = config.exchange_durable
+
+    def open(self):
+        super(PublishingAMQP091Client, self).open()
         # Declare exchange
         self.channel.exchange_declare(
             exchange=self.exchange,
-            exchange_type=config.exchange_type,
-            durable=config.exchange_durable)
+            exchange_type=self.exchange_type,
+            durable=self.exchange_durable)
         # Ensure that messages are recieved by the broker
         self.channel.confirm_delivery()
 

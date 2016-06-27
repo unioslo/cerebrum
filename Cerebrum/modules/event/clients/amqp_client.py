@@ -30,6 +30,7 @@
 """
 
 import pika
+import pika.exceptions
 
 from Cerebrum.modules.event.clients import ClientErrors
 
@@ -56,21 +57,41 @@ class BaseAMQP091Client(object):
                 "Configuration contains neither 'username' or 'cert' value")
         # Create connection-object
         try:
-            err_msg = 'Invalid connection parameters'
-            conn_params = pika.ConnectionParameters(
+            self.conn_params = pika.ConnectionParameters(
                 host=config.hostname,
                 port=config.port,
                 virtual_host=config.virtual_host,
                 credentials=cred,
                 ssl=config.tls_on,
                 ssl_options=ssl_opts)
-            err_msg = 'Unable to connect to broker'
-            self.connection = pika.BlockingConnection(conn_params)
         except Exception as e:
-            raise ClientErrors.ConnectionError('{0}: {1}'.format(err_msg, e))
+            raise ClientErrors.ConnectionError(
+                'Invalid connection parameters: {}'.format(e))
+        self.channel = self.connection = None
+
+    def open(self):
+        """Open connection"""
+        try:
+            self.connection = pika.BlockingConnection(self.conn_params)
+        except Exception as e:
+            raise ClientErrors.ConnectionError(
+                'Unable to connect to broker: {}'.format(e))
         # Set up channel
         self.channel = self.connection.channel()
 
+    def __enter__(self):
+        if self.channel is None:
+            self.open()
+        return self
+
     def close(self):
         """Close the connection."""
-        self.connection.close()
+        try:
+            self.connection.close()
+        except pika.exceptions.ConnectionClosed:
+            pass
+
+    def __exit__(self, exc_type, exc, trace):
+        if self.connection is not None and self.connection.is_open:
+            self.close()
+        return self

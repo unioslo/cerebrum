@@ -170,34 +170,34 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         return self.__unpublished_events
 
     def __try_send_messages(self):
-        client = None
         try:
-            client = self.__get_client()
-            ue = self.__get_unpublished_events()
-            unsent = ue.query_events(lock=True, parse_json=True)
-            for event in unsent:
-                client.publish(event['message'])
-                ue.delete_event(event['eventid'])
-            self.__queue = scim.merge_payloads(self.__queue)
-            while self.__queue:
-                message = self.__queue[0]
-                client.publish(message)
-                del self.__queue[0]
+            with self.__get_client() as client:
+                ue = self.__get_unpublished_events()
+                unsent = ue.query_events(lock=True, parse_json=True)
+                for event in unsent:
+                    client.publish(event['message'])
+                    ue.delete_event(event['eventid'])
+                    while self.__queue:
+                        message = self.__queue[0]
+                        client.publish(message)
+                        del self.__queue[0]
         except Exception as e:
             Factory.get_logger("cronjob") \
                 .error("Could not write message: %s", e)
             self.__save_queue()
-        finally:
-            if client is not None:
-                client.close()
 
     def __save_queue(self):
         """Save queue to event queue"""
         if self.__queue:
-            ue = self.__get_unpublished_events()
-            ue.add_events(self.__queue)
-            self.__queue = []
-            self._db.commit()
+            try:
+                ue = self.__get_unpublished_events()
+                ue.add_events(self.__queue)
+                self.__queue = []
+                self._db.commit()
+            except:
+                log = Factory.get_logger('cronjob')
+                for i in self.__queue:
+                    log.error("Didn't write event: %s", i)
 
 
 class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
