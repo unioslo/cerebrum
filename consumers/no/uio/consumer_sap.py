@@ -290,7 +290,7 @@ def _parse_hr_person(database, source_system, data):
         u'contacts': parse_contacts(data),
         u'affiliations': parse_affiliations(database, data),
         u'titles': parse_titles(data),
-        u'reserved': data.get(u'publicView')}
+        u'reserved': not data.get(u'publicView')}
 
 
 def get_hr_person(config, database, source_system, url, identifier):
@@ -582,11 +582,11 @@ def update_reservation(database, hr_person, cerebrum_person):
 
     if hr_person.get(u'reserved') and not in_reserved_group:
         gr.add_member(cerebrum_person.entity_id)
-        logger.debug(u'Removing id:{} from reservation group'.format(
+        logger.debug(u'Adding id:{} to reservation group'.format(
             cerebrum_person.entity_id))
     elif not hr_person.get(u'reserved') and in_reserved_group:
         gr.remove_member(cerebrum_person.entity_id)
-        logger.debug(u'Adding id:{} to reservation group'.format(
+        logger.debug(u'Removing id:{} from reservation group'.format(
             cerebrum_person.entity_id))
 
 
