@@ -18,93 +18,133 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+"""Importerer personer fra FS iht. fs_import.txt."""
 from os.path import join as pj
 
-import re
-import os
 import sys
 import getopt
-import time
 import mx
 
-import xml.sax
-
-import cerebrum_path
 import cereconf
 from Cerebrum import Errors
-from Cerebrum import Person
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
-from Cerebrum.modules.no.uio import AutoStud
 
-default_personfile = pj(cereconf.FS_DATA_DIR, "merged_persons.xml")
-default_studieprogramfile = pj(cereconf.FS_DATA_DIR, "studieprog.xml")
-default_emnefile = pj(cereconf.FS_DATA_DIR, "emner.xml")
-group_name = cereconf.FS_GROUP_NAME
-group_desc = cereconf.FS_GROUP_DESC
+# Defaults
+DEFAULT_PERSONFILE = pj(cereconf.FS_DATA_DIR, "merged_persons.xml")
+DEFAULT_STUDIEPROGRAMFILE = pj(cereconf.FS_DATA_DIR, "studieprog.xml")
+DEFAULT_EMNEFILE = pj(cereconf.FS_DATA_DIR, "emner.xml")
 
-
+# Lookup tables for 'studieprogramkode' and 'emnekode' attributes to OU
 studieprog2sko = {}
 emne2sko = {}
-ou_cache = {}
-ou_adr_cache = {}
-gen_groups = False
-no_name = 0 # count persons for which we do not have any name data from FS
 
+# Lookup table for 'fnr' to person_id (persons already in Cerebrum)
+fnr2person_id = {}
+
+# List of affiliations in Cerebrum, and whether the aff has been seen in this
+# import. Maps 'entity_id:ou_id:aff_code' -> bool. Use:
+# 1. Load: `_load_cere_affs` populates existing affiliations with `False`
+# 2. Update: `_process_student_callback` sets seen affiliations to `True`
+# 3. Use: `rem_old_aff` cleans up old affiliations
+old_aff = {}
+
+# Script options
+gen_groups = False  # Generate FS reservation group
+include_delete = False  # Run affiliation cleanup
+
+# Stats
+no_name = 0  # count persons for which we do not have any name data from FS
+
+# objects
+logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
 db.cl_init(change_program='import_FS')
 co = Factory.get('Constants')(db)
-aff_status_pri_order = [int(x) for x in (  # Most significant first
+
+# Vekting av affiliation_status
+aff_status_pri_order = [
     co.affiliation_status_student_drgrad,
     co.affiliation_status_student_aktiv,
     co.affiliation_status_student_emnestud,
     co.affiliation_status_student_evu,
     co.affiliation_status_student_privatist,
-##
-## Ikke i bruk p.t.
-##    co.affiliation_status_student_permisjon,
+    # Ikke i bruk p.t.
+    #    co.affiliation_status_student_permisjon,
     co.affiliation_status_student_opptak,
     co.affiliation_status_student_alumni,
-##
-## Ikke i bruk p.t.
-##    co.affiliation_status_student_tilbud,
-    co.affiliation_status_student_soker)]
-aff_status_pri_order = dict([(aff_status_pri_order[i], i)
-                              for i in range(len(aff_status_pri_order))] )
+    # Ikke i bruk p.t.
+    #    co.affiliation_status_student_tilbud,
+    co.affiliation_status_student_soker,
+]
+aff_status_pri_order = dict(
+    (int(status), index) for index, status in enumerate(aff_status_pri_order))
 
-"""Importerer personer fra FS iht. fs_import.txt."""
 
 def _add_res(entity_id):
-    if not group.has_member(entity_id):
-        group.add_member(entity_id)
+    raise NotImplementedError("init_reservation_group not called")
+
 
 def _rem_res(entity_id):
-    if group.has_member(entity_id):
-        group.remove_member(entity_id)
+    raise NotImplementedError("init_reservation_group not called")
+
+
+def init_reservation_group():
+    """ get callbacks to add/remove members in reservation group """
+    group = Factory.get('Group')(db)
+    group_name = cereconf.FS_GROUP_NAME
+    group_desc = cereconf.FS_GROUP_DESC
+
+    try:
+        group.find_by_name(group_name)
+    except Errors.NotFoundError:
+        group.clear()
+        ac = Factory.get('Account')(db)
+        ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+        group.populate(ac.entity_id, co.group_visibility_internal,
+                       group_name, group_desc)
+        group.write_db()
+
+    def add_member(entity_id):
+        """ add person to reservation group """
+        if not group.has_member(entity_id):
+            group.add_member(entity_id)
+
+    def remove_member(entity_id):
+        """ remove person from reservation group """
+        if group.has_member(entity_id):
+            group.remove_member(entity_id)
+
+    return add_member, remove_member
+
 
 def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
-    #
-    # We cannot ignore institusjon (inst A, sko x-y-z is NOT the same as
-    # inst B, sko x-y-z)
+    """ Lookup ou_id from a_dict SKO data """
+    ou_cache = _get_sko.cache
     if kinstitusjon is not None:
         institusjon = a_dict[kinstitusjon]
     else:
         institusjon = cereconf.DEFAULT_INSTITUSJONSNR
-    # fi
-    
-    key = "-".join((str(institusjon), a_dict[kfak], a_dict[kinst], a_dict[kgr]))
-    if not ou_cache.has_key(key):
+
+    key = "-".join(
+        (str(institusjon), a_dict[kfak], a_dict[kinst], a_dict[kgr]))
+
+    if key not in ou_cache:
         ou = Factory.get('OU')(db)
         try:
-            ou.find_stedkode(int(a_dict[kfak]), int(a_dict[kinst]), int(a_dict[kgr]),
-                             institusjon=institusjon)
+            ou.find_stedkode(
+                int(a_dict[kfak]),
+                int(a_dict[kinst]),
+                int(a_dict[kgr]),
+                institusjon=institusjon)
             ou_cache[key] = ou.entity_id
         except Errors.NotFoundError:
             logger.info("Cannot find an OU in Cerebrum with stedkode: %s", key)
             ou_cache[key] = None
     return ou_cache[key]
+_get_sko.cache = {}
+
 
 def _process_affiliation(aff, aff_status, new_affs, ou):
     # TBD: Should we for example remove the 'opptak' affiliation if we
@@ -112,16 +152,20 @@ def _process_affiliation(aff, aff_status, new_affs, ou):
     if ou is not None:
         new_affs.append((ou, aff, aff_status))
 
+
 def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
-    ou_id = _get_sko(a_dict, k_fak, k_inst, k_gruppe,
+    ou_adr_cache = _get_sted_address.cache
+    ou_id = _get_sko(a_dict,
+                     k_fak, k_inst, k_gruppe,
                      kinstitusjon=k_institusjon)
     if not ou_id:
         return None
     ou_id = int(ou_id)
-    if not ou_adr_cache.has_key(ou_id):
+    if ou_id not in ou_adr_cache:
         ou = Factory.get('OU')(db)
         ou.find(ou_id)
-        rows = ou.get_entity_address(source=co.system_sap, type=co.address_street)
+        rows = ou.get_entity_address(source=co.system_sap,
+                                     type=co.address_street)
         if rows:
             ou_adr_cache[ou_id] = {
                 'address_text': rows[0]['address_text'],
@@ -132,7 +176,9 @@ def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
             ou_adr_cache[ou_id] = None
             logger.warn("No address for ou_id:%i" % ou_id)
     return ou_adr_cache[ou_id]
-    
+_get_sted_address.cache = {}
+
+
 def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
     ret = {}
     ret['address_text'] = "\n".join([a_dict.get(f, None)
@@ -142,9 +188,10 @@ def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
     if postal_number:
         postal_number = "%04i" % int(postal_number)
     ret['postal_number'] = postal_number
-    ret['city'] =  a_dict.get(kline3, '')
+    ret['city'] = a_dict.get(kline3, '')
     if len(ret['address_text']) == 1:
-        logger.debug("Address might not be complete, but we need to cover one-line addresses")
+        logger.debug("Address might not be complete, "
+                     "but we need to cover one-line addresses")
     # we have to register at least the city in order to have a "proper" address
     # this mean that addresses containing only ret['city'] will be imported
     # as well
@@ -152,6 +199,7 @@ def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
         logger.debug("No adress found")
         return None
     return ret
+
 
 def _calc_address(person_info):
     """Evaluerer personens adresser iht. til flereadresser_spek.txt og
@@ -162,7 +210,7 @@ def _calc_address(person_info):
     # FS.STUDENT    *_semadr (2)
     # FS.FAGPERSON  *_arbeide (3)
     # FS.DELTAKER   *_job (4)
-    # FS.DELTAKER   *_hjem (5) 
+    # FS.DELTAKER   *_hjem (5)
     rules = [
         ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
         ('aktiv', ('_semadr', '_hjemsted', None)),
@@ -187,20 +235,22 @@ def _calc_address(person_info):
                   'postnr_hjem', 'adresseland_hjem'),
         '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
         }
-    logger.debug("Getting address for person %s%s" % (person_info['fodselsdato'], person_info['personnr']))
+    logger.debug("Getting address for person %s%s" % (
+        person_info['fodselsdato'], person_info['personnr']))
     ret = [None, None, None]
     for key, addr_src in rules:
-        if not person_info.has_key(key):
+        if key not in person_info:
             continue
         tmp = person_info[key][0].copy()
         if key == 'aktiv':
             # Henter ikke adresseinformasjon for aktiv, men vi vil
             # alltid ha minst et opptak når noen er aktiv.
-            if not (person_info.has_key('opptak') or
-                    person_info.has_key('privatist_studieprogram') or
-                    person_info.has_key('emnestud')):
-                logger.error("Har aktiv tag uten opptak/privatist/emnestud tag! (fnr: %s %s)" % (
-                    person_info['fodselsdato'], person_info['personnr']))
+            if not any(tag in person_info for tag in (
+                    'opptak', 'privatist_studieprogram', 'emnestud')):
+                logger.error(
+                    "Har aktiv tag uten opptak/privatist/emnestud tag! "
+                    "(fnr: %s%s)",
+                    person_info['fodselsdato'], person_info['personnr'])
                 continue
             tmp = person_info['opptak'][0].copy()
         for i in range(len(addr_src)):
@@ -213,13 +263,15 @@ def _calc_address(person_info):
                 ret[i] = _ext_address_info(tmp, *addr_cols)
     return ret
 
+
 def _load_cere_aff():
     fs_aff = {}
     person = Factory.get("Person")(db)
     for row in person.list_affiliations(source_system=co.system_fs):
-        k = "%s:%s:%s" % (row['person_id'],row['ou_id'],row['affiliation'])
+        k = "%s:%s:%s" % (row['person_id'], row['ou_id'], row['affiliation'])
         fs_aff[str(k)] = True
     return(fs_aff)
+
 
 def rem_old_aff():
     """Deleting the remaining person affiliations that were not processed by the
@@ -249,11 +301,11 @@ def rem_old_aff():
             continue
         aff = aff[0]
 
-        # Check date, do not remove affiliation for active students until end of
-        # grace period. EVU affiliations should be removed at once.
+        # Check date, do not remove affiliation for active students until end
+        # of grace period. EVU affiliations should be removed at once.
         grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
         if (aff['last_date'] > (mx.DateTime.now() - grace_days) and
-              int(aff['status']) != int(co.affiliation_status_student_evu)):
+                int(aff['status']) != int(co.affiliation_status_student_evu)):
             logger.info("Too fresh aff for person %s, skipping", ent_id)
             continue
 
@@ -265,8 +317,10 @@ def rem_old_aff():
             continue
         logger.info("Removing aff %s for person=%s, at ou_id=%s",
                     co.PersonAffiliation(affi), ent_id, ou)
-        person.delete_affiliation(ou_id=ou, affiliation=affi,
+        person.delete_affiliation(ou_id=ou,
+                                  affiliation=affi,
                                   source=co.system_fs)
+
 
 def filter_affiliations(affiliations):
     """The affiliation list with cols (ou, affiliation, status) may
@@ -274,17 +328,20 @@ def filter_affiliations(affiliations):
     combination, while the db-schema only allows one.  Return a list
     where duplicates are removed, preserving the most important
     status.  """
-    
-    affiliations.sort(lambda x,y: aff_status_pri_order.get(int(y[2]), 99) -
-                      aff_status_pri_order.get(int(x[2]), 99))
+
+    # Reverse sort affiliations list according to aff_status_pri_order
+    affiliations.sort(
+        lambda x, y: (
+            aff_status_pri_order.get(int(y[2]), 99)
+            - aff_status_pri_order.get(int(x[2]), 99)))
     aktiv = False
-    
+
     for ou, aff, aff_status in affiliations:
-        if aff_status == int(co.affiliation_status_student_aktiv) or \
-               aff_status == int(co.affiliation_status_student_drgrad) or \
-               aff_status == int(co.affiliation_status_student_evu):
+        if (aff_status == int(co.affiliation_status_student_aktiv)
+                or aff_status == int(co.affiliation_status_student_drgrad)
+                or aff_status == int(co.affiliation_status_student_evu)):
             aktiv = True
-            
+
     ret = {}
     for ou, aff, aff_status in affiliations:
         if aff_status == int(co.affiliation_status_student_emnestud) and aktiv:
@@ -326,7 +383,6 @@ def register_cellphone(person, person_info):
                     phone = '+' + dct[phone_country] + phone
                 numbers.add(phone.strip().replace(' ', ''))
 
-
     if len(numbers) < 1:
         return
     if len(numbers) == 1:
@@ -337,7 +393,7 @@ def register_cellphone(person, person_info):
 
         # No point in registering a number that's already there.
         if cell_phone in _fetch_cerebrum_contact():
-            return 
+            return
 
         person.populate_contact_info(co.system_fs)
         person.populate_contact_info(co.system_fs,
@@ -346,24 +402,24 @@ def register_cellphone(person, person_info):
         logger.debug("Registering cell phone number %s for %s",
                      cell_phone, fnr)
         return
+    logger.warn("Person %s has several cell phone numbers. Ignoring them all",
+                fnr)
 
-    logger.warn("Person %s has several cell phone numbers. Ignoring them all", fnr)
-# end register_cellphone
 
 def process_person_callback(person_info):
     """Called when we have fetched all data on a person from the xml
     file.  Updates/inserts name, address and affiliation
     information."""
-    
     global no_name
     try:
-        fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
-                                                  int(person_info['personnr'])))
+        fnr = fodselsnr.personnr_ok(
+            "%06d%05d" % (int(person_info['fodselsdato']),
+                          int(person_info['personnr'])))
         fnr = fodselsnr.personnr_ok(fnr)
         logger.info("Process %s " % (fnr))
         (year, mon, day) = fodselsnr.fodt_dato(fnr)
         if (year < 1970
-            and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
+                and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
             # Seems to be a bug in time.mktime on some machines
             year = 1970
     except fodselsnr.InvalidFnrError:
@@ -381,17 +437,19 @@ def process_person_callback(person_info):
     aktiv_sted = []
     aktivemne_sted = []
 
-    # Iterate over all person_info entries and extract relevant data    
-    if person_info.has_key('aktiv'):
+    # Iterate over all person_info entries and extract relevant data
+    if 'aktiv' in person_info:
         for row in person_info['aktiv']:
             if studieprog2sko[row['studieprogramkode']] is not None:
-                aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
+                aktiv_sted.append(
+                    int(studieprog2sko[row['studieprogramkode']]))
                 logger.debug("App2akrivts")
-    if person_info.has_key('emnestud'):
+    if 'emnestud' in person_info:
         for row in person_info['emnestud']:
             if emne2sko[row['emnekode']] is not None:
                 aktivemne_sted.append(int(emne2sko[row['emnekode']]))
-                logger.debug('Add sko %s based on emne %s', int(emne2sko[row['emnekode']]), row['emnekode'])
+                logger.debug('Add sko %s based on emne %s',
+                             int(emne2sko[row['emnekode']]), row['emnekode'])
 
     for dta_type in person_info.keys():
         x = person_info[dta_type]
@@ -399,18 +457,29 @@ def process_person_callback(person_info):
         if isinstance(p, str):
             continue
         # Get name
-        if dta_type in ('fagperson', 'opptak', 'tilbud', 'evu', 'privatist_emne',
-                        'privatist_studieprogram', 'alumni', 'emnestud'):
+        if dta_type in (
+                'fagperson',
+                'opptak',
+                'tilbud',
+                'evu',
+                'privatist_emne',
+                'privatist_studieprogram',
+                'alumni',
+                'emnestud', ):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
-        if p.has_key('studentnr_tildelt'):
+        if 'studentnr_tildelt' in p:
             studentnr = p['studentnr_tildelt']
         # Get affiliations
         if dta_type in ('fagperson',):
             _process_affiliation(co.affiliation_tilknyttet,
                                  co.affiliation_tilknyttet_fagperson,
-                                 affiliations, _get_sko(p, 'faknr',
-                                 'instituttnr', 'gruppenr', 'institusjonsnr'))
+                                 affiliations,
+                                 _get_sko(p,
+                                          'faknr',
+                                          'instituttnr',
+                                          'gruppenr',
+                                          'institusjonsnr'))
         elif dta_type in ('opptak', ):
             for row in x:
                 subtype = co.affiliation_status_student_opptak
@@ -422,8 +491,10 @@ def process_person_callback(person_info):
                     subtype = co.affiliation_status_student_alumni
                 elif int(row['studienivakode']) >= 980:
                     subtype = co.affiliation_status_student_drgrad
-                _process_affiliation(co.affiliation_student, subtype,
-                                     affiliations, studieprog2sko[row['studieprogramkode']])
+                _process_affiliation(co.affiliation_student,
+                                     subtype,
+                                     affiliations,
+                                     studieprog2sko[row['studieprogramkode']])
         elif dta_type in ('emnestud',):
             for row in x:
                 subtype = co.affiliation_status_student_emnestud
@@ -433,8 +504,8 @@ def process_person_callback(person_info):
                 try:
                     sko = emne2sko[row['emnekode']]
                 except KeyError:
-                    logger.warn("Fant ingen emner med koden %s" % p['emnekode'])
-                    continue  
+                    logger.warn("Fant ingen emner med koden %s", p['emnekode'])
+                    continue
                 if sko in aktiv_sted:
                     subtype = co.affiliation_status_student_aktiv
                 _process_affiliation(co.affiliation_student, subtype,
@@ -442,7 +513,8 @@ def process_person_callback(person_info):
         elif dta_type in ('privatist_studieprogram',):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_privatist,
-                                 affiliations, studieprog2sko[p['studieprogramkode']])
+                                 affiliations,
+                                 studieprog2sko[p['studieprogramkode']])
         elif dta_type in ('privatist_emne',):
             try:
                 sko = emne2sko[p['emnekode']]
@@ -451,35 +523,41 @@ def process_person_callback(person_info):
                 continue
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_privatist,
-                                 affiliations, sko)
+                                 affiliations,
+                                 sko)
         elif dta_type in ('perm',):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_aktiv,
-                                 affiliations, studieprog2sko[p['studieprogramkode']])
+                                 affiliations,
+                                 studieprog2sko[p['studieprogramkode']])
         elif dta_type in ('tilbud',):
             for row in x:
                 _process_affiliation(co.affiliation_student,
                                      co.affiliation_status_student_tilbud,
-                                     affiliations, studieprog2sko[row['studieprogramkode']])
+                                     affiliations,
+                                     studieprog2sko[row['studieprogramkode']])
         elif dta_type in ('evu', ):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_evu,
-                                 affiliations, _get_sko(p, 'faknr_adm_ansvar',
-                                 'instituttnr_adm_ansvar', 'gruppenr_adm_ansvar'))
+                                 affiliations,
+                                 _get_sko(p,
+                                          'faknr_adm_ansvar',
+                                          'instituttnr_adm_ansvar',
+                                          'gruppenr_adm_ansvar'))
         else:
             logger.debug2("No such affiliation type: %s, skipping", dta_type)
-            
+
     if etternavn is None:
         logger.debug("Ikke noe navn på %s" % fnr)
-        no_name += 1 
+        no_name += 1
         return
 
     # TODO: If the person already exist and has conflicting data from
     # another source-system, some mechanism is needed to determine the
     # superior setting.
-    
+
     new_person = Factory.get('Person')(db)
-    if fnr2person_id.has_key(fnr):
+    if fnr in fnr2person_id:
         new_person.find(fnr2person_id[fnr])
 
     new_person.populate(mx.DateTime.Date(year, mon, day), gender)
@@ -521,8 +599,8 @@ def process_person_callback(person_info):
         ou, aff, aff_status = a
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
         if include_delete:
-            key_a = "%s:%s:%s" % (new_person.entity_id,ou,int(aff))
-            if old_aff.has_key(key_a):
+            key_a = "%s:%s:%s" % (new_person.entity_id, ou, int(aff))
+            if key_a in old_aff:
                 old_aff[key_a] = False
 
     register_cellphone(new_person, person_info)
@@ -530,18 +608,19 @@ def process_person_callback(person_info):
     op2 = new_person.write_db()
     if op is None and op2 is None:
         logger.info("**** EQUAL ****")
-    elif op == True:
+    elif op:
         logger.info("**** NEW ****")
     else:
         logger.info("**** UPDATE ****")
 
-    # Reservations    
+    # Reservations
     if gen_groups:
         should_add = False
 
-        if person_info.has_key('nettpubl'):
+        if 'nettpubl' in person_info:
             for row in person_info['nettpubl']:
-                if row.get('akseptansetypekode', "") == "NETTPUBL" and row.get('status_svar', "") == "J":
+                if (row.get('akseptansetypekode', "") == "NETTPUBL"
+                        and row.get('status_svar', "") == "J"):
                     should_add = True
 
         if should_add:
@@ -576,34 +655,29 @@ def usage(exitcode=0):
     -g --generate-groups    If set, the group for accept for being published at
                             uio.no gets populated with the students.
 
-    -d --include-delete     If set, old person affiliations are deleted from the
-                            students that should not have this anymore.
+    -d --include-delete     If set, old person affiliations are deleted from
+                            the students that should not have this anymore.
 
     Misc:
-
-    -v --verbose            Be extra verbose in the logs.
 
     -h --help               Show this and quit.
     """
     sys.exit(exitcode)
 
-def main():
-    global verbose, ou, logger, fnr2person_id, gen_groups, group
-    global old_aff, include_delete, no_name
-    verbose = 0
-    include_delete = False
-    logger = Factory.get_logger("cronjob")
-    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:e:gdfh', [
-        'verbose', 'person-file=', 'studieprogram-file=',
-        'emne-file=', 'generate-groups','include-delete', 'help'])
 
-    personfile = default_personfile
-    studieprogramfile = default_studieprogramfile
-    emnefile = default_emnefile
+def main():
+    global gen_groups, group
+    global old_aff, include_delete
+    global _add_res, _rem_res
+    opts, args = getopt.getopt(sys.argv[1:], 'p:s:e:gdfh', [
+        'person-file=', 'studieprogram-file=',
+        'emne-file=', 'generate-groups', 'include-delete', 'help'])
+
+    personfile = DEFAULT_PERSONFILE
+    studieprogramfile = DEFAULT_STUDIEPROGRAMFILE
+    emnefile = DEFAULT_EMNEFILE
     for opt, val in opts:
-        if opt in ('-v', '--verbose'):
-            verbose += 1
-        elif opt in ('-p', '--person-file'):
+        if opt in ('-p', '--person-file'):
             personfile = val
         elif opt in ('-s', '--studieprogram-file'):
             studieprogramfile = val
@@ -621,49 +695,52 @@ def main():
     if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
         print "Check your config, SYSTEM_LOOKUP_ORDER is wrong!"
         sys.exit(1)
-    logger.info("Started")
-    ou = Factory.get('OU')(db)
 
-    group = Factory.get('Group')(db)
-    try:
-        group.find_by_name(group_name)
-    except Errors.NotFoundError:
-        group.clear()
-        ac = Factory.get('Account')(db)
-        ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-        group.populate(ac.entity_id, co.group_visibility_internal,
-                       group_name, group_desc)
-        group.write_db()
+    logger.info("Started")
     if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
         logger.warn("Warning: ENABLE_MKTIME_WORKAROUND is set")
 
+    # Initialize reservation group
+    if gen_groups:
+        _add_res, _rem_res = init_reservation_group()
+
+    # Build cache data
     for s in StudentInfo.StudieprogDefParser(studieprogramfile):
-        studieprog2sko[s['studieprogramkode']] = \
-            _get_sko(s, 'faknr_studieansv', 'instituttnr_studieansv',
-                     'gruppenr_studieansv')
+        studieprog2sko[s['studieprogramkode']] = _get_sko(
+            s,
+            'faknr_studieansv',
+            'instituttnr_studieansv',
+            'gruppenr_studieansv')
 
     for e in StudentInfo.EmneDefParser(emnefile):
-        emne2sko[e['emnekode']] = \
-            _get_sko(e, 'faknr_reglement', 'instituttnr_reglement',
-                     'gruppenr_reglement')
+        emne2sko[e['emnekode']] = _get_sko(
+            e,
+            'faknr_reglement',
+            'instituttnr_reglement',
+            'gruppenr_reglement')
+
+    if include_delete:
+        old_aff = _load_cere_aff()
 
     # create fnr2person_id mapping, always using fnr from FS when set
     person = Factory.get('Person')(db)
-    if include_delete:
-        old_aff = _load_cere_aff()
-    fnr2person_id = {}
     for p in person.list_external_ids(id_type=co.externalid_fodselsnr):
         if co.system_fs == p['source_system']:
             fnr2person_id[p['external_id']] = p['entity_id']
-        elif not fnr2person_id.has_key(p['external_id']):
+        elif p['external_id'] not in fnr2person_id:
             fnr2person_id[p['external_id']] = p['entity_id']
+
+    # Start import
     StudentInfo.StudentInfoParser(personfile, process_person_callback, logger)
+
+    # Clean old affs
     if include_delete:
         rem_old_aff()
-    db.commit()
+
+    db.commit()  # note that process_person_callback does commit as well
     logger.info("Found %d persons without name." % no_name)
     logger.info("Completed")
 
+
 if __name__ == '__main__':
     main()
-
