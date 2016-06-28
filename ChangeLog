@@ -1,3 +1,7 @@
+2016-06-28  Karen   <cerebrum@cleomedes.uit.no>
+
+    * export_xml_fronter.py: Added to repo. Copied from Leetah.
+
 2016-06-15    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* import_sito.py (import_person): removed debug line
