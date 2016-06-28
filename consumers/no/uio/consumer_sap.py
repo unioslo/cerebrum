@@ -406,13 +406,17 @@ def update_names(database, source_system, hr_person, cerebrum_person):
     :param hr_person: The parsed data from the remote source system
     :param cerebrum_person: The Person object to be updated.
     """
+    from Cerebrum import Errors
     co = Factory.get('Constants')(database)
-    names = set(map(lambda name_type:
-                (name_type,
-                 cerebrum_person.get_name(
-                     source_system,
-                     name_type)),
-                [co.name_first, co.name_last]))
+    try:
+        names = set(map(lambda name_type:
+                    (name_type,
+                     cerebrum_person.get_name(
+                         source_system,
+                         name_type)),
+                    [co.name_first, co.name_last]))
+    except Errors.NotFoundError:
+        names = set()
 
     to_remove = names - set(hr_person.get(u'names'))
     to_add = set(hr_person.get(u'names')) - names
