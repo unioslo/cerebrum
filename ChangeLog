@@ -1,3 +1,7 @@
+2016-06-29  Karen   <cerebrum@cleomedes.uit.no>
+
+    * export_xml_fronter.py: Adapted so it runs with new cerebrum and removed hifm_stedkode things. 
+
 2016-06-28  Karen   <cerebrum@cleomedes.uit.no>
 
     * export_xml_fronter.py: Added to repo. Copied from Leetah.

@@ -39,7 +39,7 @@ from Cerebrum import Entity
 from Cerebrum import Person
 from Cerebrum import Group
 from Cerebrum.modules.no import Stedkode
-from Cerebrum.modules.no.uit import uit_fronter_lib
+from Cerebrum.modules.no.uit import fronter_lib
 from Cerebrum.extlib import logging
 from Cerebrum.modules import Email
 from Cerebrum.modules.no.uit.Email import email_address
@@ -51,28 +51,271 @@ dumpdir = os.path.join(cereconf.DUMPDIR,"Fronter")
 default_log_dir = os.path.join(cereconf.CB_PREFIX,'var','log')
 default_debug_file = "x-import.log"
 default_export_file = 'test.xml'
-default_studieprog_file = os.path.join(cereconf.DUMPDIR, 'FS', 'studieprog.xml')
-default_underv_enhet_file = os.path.join(cereconf.DUMPDIR, 'FS', 'underv_enhet.xml')
-default_undakt_file = os.path.join(cereconf.DUMPDIR, 'FS', 'undakt.xml')
-FronterUtils = uit_fronter_lib.FronterUtils()
+default_studieprog_file = os.path.join(cereconf.DUMPDIR, 'FS', 'studieprogrammer.xml')
+default_underv_enhet_file = os.path.join(cereconf.DUMPDIR, 'FS', 'undervisningenheter.xml')
+default_undakt_file = os.path.join(cereconf.DUMPDIR, 'FS', 'undervisningsaktiviteter.xml')
 
 db = const = logger = None
 fxml = None
 romprofil_id = {}
-hifm_stedkode_list = []
 accid2accname = {}
 groupid2groupname = {}
 
+# kbj005, 14.06.2016: Copied from class Fronter in Leetah's uit_fronter_lib.py
+STATUS_ADD = 1
+STATUS_UPDATE = 2
+STATUS_DELETE = 3
+ROLE_READ = '01'
+ROLE_WRITE = '02'
+ROLE_DELETE = '03'
+ROLE_CHANGE = '07'
+
+# kbj005, 14.06.2016: Class FronterXML copied from Leetah's uit_fronter_lib.py
+class FronterXML(object):
+    def __init__(self, fname, cf_dir=None, debug_file=None, debug_level=None,
+                 fronter=None, include_password=True):
+        self.xml = fronter_lib.XMLWriter(fname)
+        self.xml.startDocument(encoding='utf-8')
+        self.rootEl = 'enterprise'
+        self.DataSource = 'NO-FS'
+        self.cf_dir = cf_dir
+        self.debug_file = debug_file
+        self.debug_level = debug_level
+        self.fronter = fronter
+        self.include_password = include_password
+        self.cf_id = 'uitfronter'
+
+    def start_xml_head(self):
+        self.xml.comment("Eksporterer data for UiT")
+        self.xml.startTag(self.rootEl)
+        self.xml.startTag('properties')
+        self.xml.dataElement('datasource', self.DataSource)
+        self.xml.dataElement('datetime', time.strftime("%Y-%m-%d"))
+        self.xml.endTag('properties')
+
+    def start_xml_file(self, kurs2enhet):
+        self.xml.comment("Eksporterer data om følgende emner:\n  " + 
+                    "\n  ".join(kurs2enhet.keys()))
+        self.xml.startTag(self.rootEl)
+        self.xml.startTag('properties')
+        self.xml.dataElement('datasource', self.DataSource)
+        self.xml.dataElement('target', "ClassFronter/%s@uit.no" % self.cf_id)
+        # :TODO: Tell Fronter (again) that they need to define the set of
+        # codes for the TYPE element.
+        # self.xml.dataElement('TYPE', "REFRESH")
+        self.xml.dataElement('datetime', time.strftime("%Y-%m-%d"))
+        self.xml.startTag('extension')
+        self.xml.emptyTag('debug', {
+            'debugdest': 0, # File
+            'logpath': self.debug_file,
+            'debuglevel': self.debug_level})
+        self.xml.emptyTag('databasesettings', {
+            'database': 0,  # Oracle
+            'jdbcfilename': "%s/%s.dat" % (self.cf_dir, self.cf_id)
+            })
+        self.xml.endTag('extension')
+        self.xml.endTag('properties')
+
+    def user_to_XML(self, id, recstatus, data):
+        #Uit: temporary setting recstatus=1 for all users
+        recstatus = 1
+        """Lager XML for en person"""
+        self.xml.startTag('person', {'recstatus': recstatus})
+        self.xml.startTag('sourcedid')
+        self.xml.dataElement('source', self.DataSource)
+        self.xml.dataElement('id', id)
+        self.xml.endTag('sourcedid')
+        #self.xml.emptyTag('userid',{'pwencryptiontype':'5'})  # 5 = ldap
+
+        self.xml.startTag('userid',{'pwencryptiontype':'5'})
+        self.xml.data(id)
+        self.xml.endTag('userid')
+        
+        if (recstatus == STATUS_ADD
+            or recstatus == STATUS_UPDATE):
+            self.xml.startTag('name')
+            self.xml.dataElement('fn', data['FN'])
+            self.xml.startTag('n')
+            self.xml.dataElement('family', data['FAMILY'])
+            self.xml.dataElement('given', data['GIVEN'])
+            self.xml.endTag('n')
+            self.xml.endTag('name')
+            self.xml.dataElement('email', data['EMAIL'])
+            self.xml.startTag('extension')
+            #if self.include_password:
+            #    #self.xml.emptyTag('PASSWORD',
+            #    #                  {'password': data['PASSWORD_CRYPT'],'passwordtype': data['PASSWORD_TYPE']})
+            #    self.xml.emptyTag('password',
+            #                      {'passwordtype': 'ldap1'})
+            self.xml.emptyTag('useraccess', {'accesstype': data['USERACCESS']})
+
+            self.xml.emptyTag('emailclient',
+                              {'clienttype': data['EMAILCLIENT']})
+            if data['USE_EMAILCLIENT'] == 1:
+                self.xml.emptyTag('emailsettings', 
+                                  {'mail_username': id,
+                                   'mail_password': data['IMAPPASSWD'],
+                                   'description': 'UiT IMAP Server',
+                                   'mailserver': data['IMAPSERVER'],
+                                   'mailtype': '1', #RMI000 20070919: DTD says IMAP, Fronter Support says 1
+                                   'use_ssl': '1',
+                                   'is_primary':'1'})
+            self.xml.endTag('extension')
+        self.xml.endTag('person')
+
+    def group_to_XML(self, id, recstatus, data):
+        # Lager XML for en gruppe
+        if recstatus == STATUS_DELETE:
+            return
+        #Uit: temporary setting recstatus=1 for all groups
+        recstatus = 1
+        self.xml.startTag('group', {'recstatus': recstatus})
+        self.xml.startTag('sourcedid')
+        self.xml.dataElement('source', self.DataSource)
+        self.xml.dataElement('id', id)
+        self.xml.endTag('sourcedid')
+        if (recstatus == STATUS_ADD or
+            recstatus == STATUS_UPDATE):
+            self.xml.startTag('grouptype')
+            self.xml.dataElement('scheme', 'FronterStructure1.0')
+            allow_room = data.get('allow_room', 0)
+            allow_room = allow_room and 1 or 0
+            if allow_room:
+                allow_room = 1
+            allow_contact = data.get('allow_contact', 0)
+            allow_contact = allow_contact and 2 or 0
+            if allow_contact:
+                allow_contact = 2
+            self.xml.emptyTag('typevalue',
+                              {'level': allow_room | allow_contact})
+            self.xml.endTag('grouptype')
+            self.xml.startTag('description')
+            if (len(data['title']) > 60):
+                self.xml.emptyTag('short')
+                self.xml.dataElement('long', data['title'])
+            else:
+                self.xml.dataElement('short', data['title'])
+            self.xml.endTag('description')
+            self.xml.startTag('relationship', {'relation': 1})
+            self.xml.startTag('sourcedid')
+            self.xml.dataElement('source', self.DataSource)
+            self.xml.dataElement('id', data['parent'])
+            self.xml.endTag('sourcedid')
+            self.xml.emptyTag('label')
+            self.xml.endTag('relationship')
+        self.xml.endTag('group')
+
+    def room_to_XML(self, id, recstatus, data):
+        # Lager XML for et rom
+        #
+        # Gamle rom skal aldri slettes automatisk.
+        if recstatus == STATUS_DELETE:
+            return 
+        self.xml.startTag('group', {'recstatus': recstatus})
+        self.xml.startTag('sourcedid')
+        self.xml.dataElement('source', self.DataSource)
+        self.xml.dataElement('id', id)
+        self.xml.endTag('sourcedid')
+        if (recstatus == STATUS_ADD or
+            recstatus == STATUS_UPDATE):
+            self.xml.startTag('grouptype')
+            self.xml.dataElement('scheme', 'FronterStructure1.0')
+            self.xml.emptyTag('typevalue', {'level': 4})
+            self.xml.endTag('grouptype')
+            if (recstatus == STATUS_ADD):
+                # Romprofil settes kun ved opprettelse av rommet, og vil
+                # aldri senere tvinges tilbake til noen bestemt profil.
+                self.xml.startTag('grouptype')
+                self.xml.dataElement('scheme', 'Roomprofile1.0')
+                self.xml.emptyTag('typevalue', {'level': data['profile']})
+                self.xml.endTag('grouptype')
+
+        self.xml.startTag('description')
+        if (len(data['title']) > 60):
+            self.xml.emptyTag('short')
+            self.xml.dataElement('long', data['title'])
+        else:
+            self.xml.dataElement('short', data['title'])
+
+        self.xml.endTag('description')
+        self.xml.startTag('relationship', {'relation': 1})
+        self.xml.startTag('sourcedid')
+        self.xml.dataElement('source', self.DataSource)
+        self.xml.dataElement('id', data['parent'])
+        self.xml.endTag('sourcedid')
+        self.xml.emptyTag('label')
+        self.xml.endTag('relationship')
+        self.xml.endTag('group')
+
+    def personmembers_to_XML(self, gid, recstatus, members):
+        # lager XML av medlemer
+        self.xml.startTag('membership')
+        self.xml.startTag('sourcedid')
+        self.xml.dataElement('source', self.DataSource)
+        self.xml.dataElement('id', gid)
+        self.xml.endTag('sourcedid')
+        for uname in members:
+            self.xml.startTag('member')
+            self.xml.startTag('sourcedid')
+            self.xml.dataElement('source', self.DataSource)
+            self.xml.dataElement('id', uname)
+            self.xml.endTag('sourcedid')
+            self.xml.dataElement('idtype', '1') # The following member ids are persons.
+            self.xml.startTag('role', {'recstatus': recstatus,
+                                       'roletype': ROLE_READ})
+            self.xml.dataElement('status', '1')
+            self.xml.startTag('extension')
+            self.xml.emptyTag('memberof', {'type': 1}) # Member of group, not room.
+            self.xml.endTag('extension')
+            self.xml.endTag('role')
+            self.xml.endTag('member')
+        self.xml.endTag('membership')
+
+    def acl_to_XML(self, node, recstatus, groups):
+        self.xml.startTag('membership')
+        self.xml.startTag('sourcedid')
+        self.xml.dataElement('source', self.DataSource)
+        self.xml.dataElement('id', node)
+        self.xml.endTag('sourcedid')
+        for gname in groups.keys():
+            self.xml.startTag('member')
+            self.xml.startTag('sourcedid')
+            self.xml.dataElement('source', self.DataSource)
+            self.xml.dataElement('id', gname)
+            self.xml.endTag('sourcedid')
+            self.xml.dataElement('idtype', '2') # The following member ids are groups.
+            acl = groups[gname]
+            if acl.has_key('role'):
+                self.xml.startTag('role', {'recstatus': recstatus,
+                                           'roletype': acl['role']})
+                self.xml.dataElement('status', '1')
+                self.xml.startTag('extension')
+                self.xml.emptyTag('memberof', {'type': 2}) # Member of room.
+            else:
+                self.xml.startTag('role', {'recstatus': recstatus})
+                self.xml.dataElement('status', '1')
+                self.xml.startTag('extension')
+                self.xml.emptyTag('memberof', {'type': 1}) # Member of group.
+                self.xml.emptyTag('groupaccess',
+                                  {'contactAccess': acl['gacc'],
+                                   'roomAccess': acl['racc']})
+            self.xml.endTag('extension')
+            self.xml.endTag('role')
+            self.xml.endTag('member')
+        self.xml.endTag('membership')
+
+    def end(self):
+        self.xml.endTag(self.rootEl)
+        self.xml.endDocument()
+
 def init_globals():
-    global db, const, logger, use_emailclient, hifm_stedkode_list
+    global db, const, logger, use_emailclient
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
     logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
     cf_dir = dumpdir
     log_dir = default_log_dir
     use_emailclient = 1
-
-    hifm_stedkode_list = FronterUtils.generate_filter(logger)
 
     ent_name = Entity.EntityName(db)
     for name in ent_name.list_names(const.account_namespace):
@@ -118,15 +361,15 @@ def init_globals():
     filename = os.path.join(cf_dir, default_export_file)
     if len(args) == 1:
         filename = args[0]
-    elif len(args) <> 0:
+    elif len(args) != 0:
         usage(2)
 
     global fxml
-    fxml = uit_fronter_lib.FronterXML(filename,
-                                  cf_dir = cf_dir,
-                                  debug_file = debug_file,
-                                  debug_level = debug_level,
-                                  fronter = None)
+    fxml = FronterXML(filename,
+                      cf_dir = cf_dir,
+                      debug_file = debug_file,
+                      debug_level = debug_level,
+                      fronter = None)
 
 def load_acc2name():
     person = Person.Person(db)
@@ -292,11 +535,10 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
                     gname_el.pop(0)
                 undakt_group_id = ':'.join(gname_el)
 
-                #undakt_group_title = '%s - %s (%s. Sem) - %s (Påmeldte) - (%s %s)' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term, ar)
-                undakt_group_title = 'Studenter på %s - %s (%s. Sem) - %s (%s%s)' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term[0].upper(), ar)
+                undakt_group_title = 'Studenter på %s - %s (%s. Sem) - %s (%s%s)' % (emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term[0].upper(), ar)
                 #print "UNDAKT GROUP", undakt_group_title
                 undakt_group_parent_id = 'STRUCTURE:%s:fs:emner:%s:%s:%s' % (cereconf.INSTITUTION_DOMAIN_NAME, ar, term, 'undakt')
-                rettighet = uit_fronter_lib.Fronter.ROLE_WRITE
+                rettighet = ROLE_WRITE
 
                 register_group(undakt_group_title, undakt_group_id, undakt_group_parent_id, allow_contact=True)
                 register_members(undakt_group_id, user_members)
@@ -347,12 +589,11 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
                     gname_el.pop(0)
                 undakt_group_id = ':'.join(gname_el)
 
-                #undakt_group_title = 'Gruppelærere på %s - %s (%s. Sem) - %s (%s %s)' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term, ar)
-                undakt_group_title = 'Gruppelærere på %s - %s (%s. Sem) - %s (%s%s)' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term[0].upper(), ar)
+                undakt_group_title = 'Gruppelærere på %s - %s (%s. Sem) - %s (%s%s)' % (emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term[0].upper(), ar)
  
                 #print "GRUPPELÆRE GROUP", undakt_group_title
                 undakt_group_parent_id = 'STRUCTURE:%s:fs:emner:%s:%s:%s' % (cereconf.INSTITUTION_DOMAIN_NAME, ar, term, 'gruppelære')
-                rettighet = uit_fronter_lib.Fronter.ROLE_DELETE
+                rettighet = ROLE_DELETE
 
                 register_group(undakt_group_title, undakt_group_id, undakt_group_parent_id, allow_contact=True)
                 register_members(undakt_group_id, user_members)
@@ -369,7 +610,12 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
             ar, term, emnekode, versjon, terminnr = gname_el[5:10]
             if int(ar) < 2006:
                 continue
-            fak_sko = "%02d0000" % emne_info[emnekode]['fak']
+
+            try: #KB
+                fak_sko = "%02d0000" % emne_info[emnekode]['fak']
+            except KeyError as e: #KB
+                logger.warn("Couldn't register spread group for %s because of KeyError. %s not in %s", gname_el, e, default_underv_enhet_file)
+                continue
 
             # Rom for undervisningsenheten.
             emne_id_prefix = '%s:fs:emner:%s:%s:%s:%s' % (
@@ -429,21 +675,21 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
                 
                 if kategori == 'student':
                     title = 'Studenter på '
-                    rettighet = uit_fronter_lib.Fronter.ROLE_WRITE
+                    rettighet = ROLE_WRITE
                 elif kategori == 'foreleser':
                     title = 'Forelesere på '
-                    rettighet = uit_fronter_lib.Fronter.ROLE_DELETE
+                    rettighet = ROLE_DELETE
                 elif kategori == 'fagansvarlig':
                     title = 'Fagansvarlige på '
-                    rettighet = uit_fronter_lib.Fronter.ROLE_CHANGE
-                    #rettighet = uit_fronter_lib.Fronter.ROLE_DELETE
+                    rettighet = ROLE_CHANGE
+                    #rettighet = ROLE_DELETE
                 elif kategori == 'gruppelære':
                     continue
                     #title = 'Gruppelærere på '
-                    #rettighet = uit_fronter_lib.Fronter.ROLE_DELETE
+                    #rettighet = ROLE_DELETE
                 elif kategori == 'undakt':
                     title = ''
-                    rettighet = uit_fronter_lib.Fronter.ROLE_WRITE
+                    rettighet = ROLE_WRITE
                 else:
                     raise RuntimeError, "Ukjent kategori: %s" % (kategori,)
                 #title += '%s (ver %s, %d. termin)' % (
@@ -525,10 +771,11 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
                     register_group("Studenter", fellesrom_studenter_id,
                                    fellesrom_sted_id)
                     kull =  subg_name_el[-3]
-                    sem =  subg_name_el[-2]                    
+                    sem =  subg_name_el[-2]   
+
+                    title = "Studenter på %s (Kull %s %s)" % (stprog.upper(), kull,sem)
                     register_group(
-                        "Studenter på %s (Kull %s %s)" %
-                        (stprog.upper(),kull,sem),
+                        title,
                         fronter_gname, fellesrom_studenter_id,
                         allow_contact=True)
 
@@ -536,7 +783,7 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
                     # Gi denne studiekullgruppen 'skrive'-rettighet i
                     # studieprogrammets fellesrom.
                     register_room_acl(fellesrom_stprog_rom_id, fronter_gname,
-                                      uit_fronter_lib.Fronter.ROLE_WRITE)
+                                      ROLE_WRITE)
 
 
 
@@ -549,7 +796,7 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
 
                     # Gi studiekullgruppen rettigheter i kullrommet
                     register_room_acl(kullrom_id, fronter_gname,
-                                      uit_fronter_lib.Fronter.ROLE_WRITE)
+                                      ROLE_WRITE)
 
                 elif subg_name_el[-1] == 'studieleder-program':
                     fellesrom_rolle_id = fellesrom_sted_id + ':studieleder-program'
@@ -560,19 +807,17 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
                         allow_contact=True)
                     # Gi studieleder-gruppen 'slette'-rettighet i studieprogrammets fellesrom.
                     register_room_acl(fellesrom_stprog_rom_id, fronter_gname,
-                                       uit_fronter_lib.Fronter.ROLE_CHANGE)
+                                       ROLE_CHANGE)
 
                 elif subg_name_el[-1] == 'lærer-kull':
-                    fellesrom_rolle_id = fellesrom_sted_id + \
-                                                ':lærer-kull'
-                    register_group("Lærere for kullprogram", fellesrom_rolle_id,
-                                   fellesrom_sted_id)
+                    fellesrom_rolle_id = fellesrom_sted_id + ':lærer-kull'
+                    register_group("Lærere for kullprogram", fellesrom_rolle_id, fellesrom_sted_id)
 
                     kull =  subg_name_el[-3]
                     sem =  subg_name_el[-2]
+                    title = "Lærere på %s (Kull %s %s)" % (stprog.upper(), kull,sem)
                     register_group(
-                        "Lærere på %s (Kull %s %s)" %
-                        (stprog.upper(),kull,sem),
+                        title,
                         fronter_gname, fellesrom_rolle_id,
                         allow_contact=True)
 
@@ -585,7 +830,7 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
 
                     # Gi lærere rettigheter i kullrommet
                     register_room_acl(kullrom_id, fronter_gname,
-                                      uit_fronter_lib.Fronter.ROLE_DELETE)
+                                      ROLE_DELETE)
 
                 elif subg_name_el[-1] == 'studieleder-kull':
                     fellesrom_rolle_id = fellesrom_sted_id + \
@@ -595,9 +840,9 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
 
                     kull =  subg_name_el[-3]
                     sem =  subg_name_el[-2]
+                    title = "Studieledere på %s (Kull %s %s)" % (stprog.upper(), kull,sem)
                     register_group(
-                        "Studieledere på %s (Kull %s %s)" %
-                        (stprog.upper(),kull,sem),
+                        title,
                         fronter_gname, fellesrom_rolle_id,
                         allow_contact=True)
 
@@ -610,7 +855,7 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
 
                     # Gi studieledere rettigheter i kullrommet
                     register_room_acl(kullrom_id, fronter_gname,
-                                      uit_fronter_lib.Fronter.ROLE_CHANGE)
+                                      ROLE_CHANGE)
 
 
                 else:
@@ -654,17 +899,13 @@ def register_room(title, id, parentid, profile):
 new_group = {}
 def register_group(title, id, parentid,
                    allow_room=False, allow_contact=False):
-    global hifm_stedkode_list
     """Adds info in new_group about group."""
     
-    filter_ret = -1
-    filter_ret = FronterUtils.filter_stedkode(hifm_stedkode_list,id,logger)
-    parent_filter_ret = FronterUtils.filter_stedkode(hifm_stedkode_list,parentid,logger)
     found = -1
     found2 = -1
     found = id.find(":195:")
     found2 = id.find(":4902:")
-    if ((found == -1) and (found2 == -1) and (filter_ret == -1) and (parent_filter_ret == -1)):
+    if ((found == -1) and (found2 == -1)):
         logger.info("appending: title:%s, parent:%s, allow_room:%s, allow_contact:%s, CFID:%s" % (title,parentid,allow_room,allow_contact,id))
         new_group[id] = { 'title': title,
                           'parent': parentid,
@@ -684,9 +925,9 @@ def output_group_xml():
 
         data = new_group[id]
         parent = data['parent']
-        if parent <> id:
+        if parent != id:
             output(parent)
-        fxml.group_to_XML(data['CFid'], uit_fronter_lib.Fronter.STATUS_ADD, data)
+        fxml.group_to_XML(data['CFid'], STATUS_ADD, data)
         done[id] = True
     for group in new_group.iterkeys():
         output(group)
@@ -698,10 +939,9 @@ def usage(exitcode):
 
 
 def main():
-    global hifm_stedkode_list
-    # Håndter upper- og lowercasing av strenger som inneholder norske
+    # Handter upper- og lowercasing av strenger som inneholder norske
     # tegn.
-    locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591')) # edited 7 july. removing iso88591
+    locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
     init_globals()
 
@@ -777,7 +1017,7 @@ def main():
     fak_emner = {}
     def finn_emne_info(element, attrs):
         
-        if element <> 'undenhet':
+        if element != 'enhet':
             return
         emnenavnfork = attrs['emnenavnfork']
         emnekode = attrs['emnekode'].lower()
@@ -806,7 +1046,7 @@ def main():
     # <undakt institusjonsnr="186" emnekode="BIO-2300" versjonskode="1" terminkode="HØST" arstall="2009" terminnr="1" aktivitetkode="2-2" undpartilopenr="2" disiplinkode="TEORI" undformkode="KOL" aktivitetsnavn="Kollokvier gr. 2 (Farmasi)"/>
 
     def cache_UA_helper(el_name, attrs):
-        if el_name == 'undakt':
+        if el_name == 'aktivitet':
 
             emnekode = attrs['emnekode'].lower()
             aktivitetkode = attrs['aktivitetkode']
@@ -825,8 +1065,6 @@ def main():
     undakt_xml_parser(
         default_undakt_file,
         cache_UA_helper)
-
-    #print undakt_info
 
     # Henter ut ansatte per fakultet
     fak_temp = fak_emner.keys() # UIT
@@ -894,10 +1132,10 @@ def main():
     #print "##ROOMS##"
     for room, data in new_rooms.iteritems():
         #print room
-        fxml.room_to_XML(data['CFid'], uit_fronter_lib.Fronter.STATUS_ADD, data)
+        fxml.room_to_XML(data['CFid'], STATUS_ADD, data)
 
     for node, data in new_acl.iteritems():
-        fxml.acl_to_XML(node, uit_fronter_lib.Fronter.STATUS_ADD, data)
+        fxml.acl_to_XML(node, STATUS_ADD, data)
         
 
     ### lets print out all members in a group
@@ -907,7 +1145,7 @@ def main():
     #print "##GNAMES##"
     for gname, members in new_groupmembers.iteritems():
         #print gname
-        fxml.personmembers_to_XML(gname, uit_fronter_lib.Fronter.STATUS_ADD,
+        fxml.personmembers_to_XML(gname, STATUS_ADD,
                                   members)
     fxml.end()
 
