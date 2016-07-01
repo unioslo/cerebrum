@@ -255,6 +255,9 @@ class XMLWriter(object):   # TODO: Move to separate file
 
     def endDocument(self):
         self.gen.endDocument()
+
+    def data(self,data):
+        self.gen.data(data)
 # end XMLWriter
 
 

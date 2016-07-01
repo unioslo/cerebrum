@@ -25,6 +25,41 @@ from Cerebrum import Errors
 
 from Cerebrum.modules.no import access_FS
 
+def get_semester(uppercase = False):
+    '''Returns two pairs: ((this_year, this_sem),(next_year,next_sem))
+    Ex. Usage: this_sem, next_sem = access_FS.get_semester()
+    '''    
+    spring = 'vår'
+    autumn = 'høst'
+    
+    if uppercase:
+        spring = str_upper_no(spring)
+        autumn = str_upper_no(autumn)
+    
+    t = time.localtime()[0:2]
+    this_year = t[0]
+    if t[1] <= 6:
+        this_sem = spring
+        next_year = this_year
+        next_sem = autumn
+    else:
+        this_sem = autumn
+        next_year = this_year + 1
+        next_sem = spring
+    return ((str(this_year), this_sem), (str(next_year), next_sem))
+
+class underv_enhet_xml_parser(access_FS.underv_enhet_xml_parser):
+    "Utvidelse av parserklasse for underv_enhet.xml."
+
+    access_FS.underv_enhet_xml_parser.elements['data'] = False
+    access_FS.underv_enhet_xml_parser.elements['enhet'] = True
+
+class undakt_xml_parser(access_FS.non_nested_xml_parser):
+    "Parserklasse for undakt.xml."
+
+    elements = {'data': False,
+                'aktivitet': True}
+
 class UiTStudent(access_FS.Student):
     def list(self, **kwargs): # GetStudent_50
         """Hent personer med opptak til et studieprogram ved
