@@ -1866,6 +1866,11 @@ class EVU78(EVU):
         return self.db.query(qry)
 
 
+@fsobject('forkurs')
+class Forkurs(FSObject):
+    pass
+
+
 @fsobject('alumni')
 class Alumni(FSObject):
     def list(self):  # GetAlumni_50
@@ -1997,7 +2002,7 @@ class FS(object):
                                   DB_driver=DB_driver)
         self.db = db
         self.fsversion = _get_fs_version(self.db)
-        for comp in 'person student undervisning evu alumni'.split():
+        for comp in 'person student undervisning evu alumni forkurs'.split():
             setattr(self, comp, self._component(comp)(db))
         self.info = self._component('studieinfo')(db)
 
