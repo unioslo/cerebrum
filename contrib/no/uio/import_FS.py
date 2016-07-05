@@ -23,7 +23,7 @@ from os.path import join as pj
 
 import sys
 import getopt
-import mx
+import mx.DateTime
 
 import cereconf
 from Cerebrum import Errors
@@ -72,6 +72,7 @@ aff_status_pri_order = [
     co.affiliation_status_student_privatist,
     # Ikke i bruk p.t.
     #    co.affiliation_status_student_permisjon,
+    co.affiliation_status_student_ny,
     co.affiliation_status_student_opptak,
     co.affiliation_status_student_alumni,
     # Ikke i bruk p.t.
@@ -406,6 +407,57 @@ def register_cellphone(person, person_info):
                 fnr)
 
 
+def _get_admission_date_func(for_date, grace_days=0):
+    """ Get a admission date filter function to evaluate *new* students.
+
+    For any given date `for_date`, this method returns a filter function that
+    tests admission dates. Students with an admission date that passes this
+    filter are considered *new* students.
+
+    """
+    date_ranges = [
+        # Dec. 1 (previous year) - Feb. 1 (same year)
+        (
+            mx.DateTime.DateTime(for_date.year - 1, mx.DateTime.December, 1),
+            mx.DateTime.DateTime(for_date.year, mx.DateTime.February, 1)
+        ),
+        # June. 1 (same year) - Sept. 1 (same year)
+        (
+            mx.DateTime.DateTime(for_date.year, mx.DateTime.June, 1),
+            mx.DateTime.DateTime(for_date.year, mx.DateTime.September, 1)
+        ),
+        # Dec 1. (same year) - Feb. 1 (next year)
+        (
+            mx.DateTime.DateTime(for_date.year, mx.DateTime.December, 1),
+            mx.DateTime.DateTime(for_date.year + 1, mx.DateTime.February, 1)
+        )
+    ]
+
+    for from_date, to_date in date_ranges:
+        if from_date <= for_date <= to_date + grace_days:
+            return lambda date: (
+                isinstance(date, mx.DateTime.DateTimeType)
+                and from_date <= date <= to_date + grace_days)
+
+    return lambda date: False
+
+
+_new_student_filter = _get_admission_date_func(mx.DateTime.now(), grace_days=7)
+
+
+def _is_new_admission(admission_date_str):
+    """ Parse date string and apply `_new_student_filter`. """
+    if not isinstance(admission_date_str, basestring):
+        return False
+    try:
+        # parse YYYY-mm-dd string
+        date = mx.DateTime.Parser.DateFromString(admission_date_str,
+                                                 formats=('ymd1', ))
+    except mx.DateTime.Error:
+        return False
+    return _new_student_filter(date)
+
+
 def process_person_callback(person_info):
     """Called when we have fetched all data on a person from the xml
     file.  Updates/inserts name, address and affiliation
@@ -491,6 +543,8 @@ def process_person_callback(person_info):
                     subtype = co.affiliation_status_student_alumni
                 elif int(row['studienivakode']) >= 980:
                     subtype = co.affiliation_status_student_drgrad
+                elif _is_new_admission(row.get('dato_studierett_tildelt')):
+                    subtype = co.affiliation_status_student_ny
                 _process_affiliation(co.affiliation_student,
                                      subtype,
                                      affiliations,
