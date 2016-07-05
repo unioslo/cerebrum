@@ -298,7 +298,7 @@ class SelectMapGroupMember(SelectMapSuper):
         for s_attr in select_attrs:
             group_id = self._pc.lookup_helper.get_group(s_attr['navn'])
             self._select_map.setdefault(group_id, []).append(profile)
-    
+
     def get_matches(self, person_info, member_groups=None, person_affs=None):
         matches = []
         if not member_groups:
@@ -308,13 +308,14 @@ class SelectMapGroupMember(SelectMapSuper):
                 self._append_match(matches, self._select_map[g])
         return matches
 
+
 class SelectMapPersonAffiliation(SelectMapSuper):
     def set_select_map(self, select_attrs, profile):
         self._logger.debug2("Paff Map: %s -> %s" % (select_attrs, profile))
         for s_attr in select_attrs:
             affiliation = self._pc.autostud.co.PersonAffiliation(
                 s_attr['affiliation'])
-            if not s_attr.has_key('status'):
+            if 'status' not in s_attr:
                 key = int(affiliation)
                 self._select_map.setdefault(key, []).append(profile)
             else:
@@ -322,16 +323,21 @@ class SelectMapPersonAffiliation(SelectMapSuper):
                     affiliation, s_attr['status'])
                 key = (int(affiliation), int(aff_status))
                 self._select_map.setdefault(key, []).append(profile)
-    
+
     def get_matches(self, person_info, member_groups=None, person_affs=None):
+        # person_affs are tuples from
+        # process_students/ExistingPerson.get_affiliations()
         matches = []
         if not person_affs:
             return matches
-        for p_aff in ([(x[1], x[2]) for x in person_affs] +  # ou, aff, status
-                      [x[1] for x in person_affs]):
+
+        # try keys `(aff, status)` and `aff`
+        for p_aff in ([(x[0], x[2]) for x in person_affs] +
+                      [x[0] for x in person_affs]):
             if self._select_map.has_key(p_aff):
                 self._append_match(matches, self._select_map[p_aff])
         return matches
+
 
 class SelectTool(object):
     select_map_defs = {
@@ -351,7 +357,7 @@ class SelectTool(object):
                                'drgrad',
                                ['studieprogramkode']),
         "emne": SelectMapTag('emnekode', 'eksamen', 'emnekode'),
-        "privatist_emne": SelectMapTag('emnekode','privatist_emne', 'emnekode'),
+        "privatist_emne": SelectMapTag('emnekode', 'privatist_emne', 'emnekode'),
         "aktivt_sted": SelectMapAktivtSted(),
         "tilbud_sted": SelectMapTilbudSted(),
         "emnestud_sted": SelectMapEmnestudSted(),
