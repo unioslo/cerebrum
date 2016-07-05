@@ -90,6 +90,9 @@ def usage(exitcode=0):
                         misc-tag arguments. Note that a relative filename could
                         be used for putting it into the set datadir.
 
+    --pre-course-file name: Name of output file for pre course information.
+                        Default: pre_course.xml.
+
     Action:
 
     -p              Generate person xml file
@@ -111,6 +114,8 @@ def usage(exitcode=0):
     -o              Generate ou xml file
 
     -n              Generate netpublication reservation xml file
+
+    --pre-course    Generate a pre-course xml file
 
     Other:
 
@@ -177,7 +182,28 @@ def write_edu_info(outfile):
     f.write("</data>\n")
     f.close()
 # end write_edu_info
-    
+
+
+def write_forkurs_info(outfile):
+    from mx.DateTime import now
+    logger.info("Writing pre-course file to '{}'".format(outfile))
+    f = SimilarSizeWriter(outfile, "w")
+    f.max_pct_change = 10
+    cols, course_attendants = _ext_cols(fs.forkurs.list())
+    f.write(xml.xml_hdr + "<data>\n")
+    for a in course_attendants:
+        f.write('<regkort fodselsdato="{}" personnr="{}" dato_endring="{}" dato_opprettet="{}"/>\n'.format(a['fodselsdato'], a['personnr'], str(now()), str(now())))
+        f.write('<emnestud fodselsdato="{}" personnr="{}" etternavn="{}" fornavn="{}" adrlin2_semadr="" postnr_semadr="" adrlin3_semadr="" adrlin2_hjemsted="" postnr_hjemsted="" adrlin3_hjemsted="" sprakkode_malform="NYNORSK" kjonn="X" studentnr_tildelt="{}" emnekode="FORGLU" versjonskode="1" terminkode="VÅR" arstall="2016" telefonlandnr_mobil="{}" telefonnr_mobil="{}"/>\n'.format(
+                    a['fodselsdato'],
+                    a['personnr'],
+                    a['etternavn'],
+                    a['fornavn'],
+                    a['studentnr_tildelt'],
+                    a['telefonlandnr'],
+                    a['telefonnr']
+                ))
+    f.write("</data>\n")
+    f.close()
 
 
 def write_person_info(outfile):
@@ -490,11 +516,12 @@ def main():
                                    ["datadir=",
                                     "person-file=", "topics-file=",
                                     "studprog-file=", "regkort-file=",
-                                    'emne-file=', "ou-file=", 
+                                    'emne-file=', "ou-file=",
                                     'fnr-update-file=', 'betalt-papir-file=',
                                     'role-file=', 'netpubl-file=',
                                     'edu-file=',
-                                    "misc-func=", "misc-file=", "misc-tag="])
+                                    "misc-func=", "misc-file=", "misc-tag=",
+                                    "pre-course", "pre-course-file="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -511,6 +538,7 @@ def main():
     betalt_papir_file = 'betalt_papir.xml'
     netpubl_file = 'nettpublisering.xml'
     edu_file = 'edu_info.xml'
+    pre_course_file = 'pre_course.xml'
 
     for o, val in opts:
         if o in ('--datadir',):
@@ -537,6 +565,8 @@ def main():
             netpubl_file = val
         elif o in ('--edu-file',):
             edu_file = val
+        elif o in ('--pre-course-file',):
+            pre_course_file = val
 
     global fs
     fs = make_fs()
@@ -566,6 +596,8 @@ def main():
                 write_netpubl_info(set_filepath(datadir, netpubl_file))
             elif o in ('-d',):
                 write_edu_info(set_filepath(datadir, edu_file))
+            elif o in ('--pre-course',):
+                write_forkurs_info(set_filepath(datadir, pre_course_file))
             # We want misc-* to be able to produce multiple file in one script-run
             elif o in ('--misc-func',):
                 misc_func = val

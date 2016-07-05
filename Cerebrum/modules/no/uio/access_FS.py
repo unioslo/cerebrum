@@ -1915,6 +1915,43 @@ class UiOStudieInfo(access_FS.StudieInfo):
 # end UiOStudieInfo
 
 
+@fsobject('forkurs')
+class UiOForkurs(access_FS.FSObject):
+    """Class for fetching specially registred forkurs students."""
+    def list(self, course_code='FORGLU'):
+        """List students registred for a pre-course.
+
+        :type course_code: str
+        :param course_code: The course code to fetch students for. Default:
+            'FORGLU'
+        :return: A list of pre-course students
+        """
+        return self.db.query("""
+        SELECT
+            FS.VURDKOMBMELDING.FODSELSDATO,
+            FS.VURDKOMBMELDING.PERSONNR,
+            FS.STUDENT.STUDENTNR_TILDELT,
+            FS.PERSON.FORNAVN,
+            FS.PERSON.ETTERNAVN,
+            FS.PERSONTELEFON.TELEFONLANDNR,
+            FS.PERSONTELEFON.TELEFONNR
+        FROM FS.VURDKOMBMELDING
+        INNER JOIN FS.STUDENT
+            ON FS.STUDENT.FODSELSDATO = FS.VURDKOMBMELDING.FODSELSDATO
+                AND FS.STUDENT.PERSONNR = FS.VURDKOMBMELDING.PERSONNR
+                AND FS.STUDENT.INSTITUSJONSNR_EIER = FS.VURDKOMBMELDING.INSTITUSJONSNR_EIER
+        INNER JOIN FS.PERSON
+            ON FS.PERSON.FODSELSDATO = FS.STUDENT.FODSELSDATO
+                AND FS.PERSON.PERSONNR = FS.STUDENT.PERSONNR
+                AND FS.PERSON.INSTITUSJONSNR_EIER = FS.STUDENT.INSTITUSJONSNR_EIER
+        LEFT JOIN FS.PERSONTELEFON
+            ON FS.PERSON.FODSELSDATO = FS.PERSONTELEFON.FODSELSDATO
+                AND FS.PERSON.PERSONNR = FS.PERSONTELEFON.PERSONNR
+                AND FS.PERSON.INSTITUSJONSNR_EIER = FS.PERSONTELEFON.INSTITUSJONSNR_EIER
+                AND FS.PERSONTELEFON.TELEFONNRTYPEKODE LIKE 'MOBIL'
+        WHERE FS.VURDKOMBMELDING.EMNEKODE LIKE '{}'""".format(course_code))
+
+
 @fsobject('FS')
 class FS(access_FS.FS):
 
