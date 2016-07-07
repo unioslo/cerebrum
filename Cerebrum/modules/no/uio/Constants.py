@@ -530,3 +530,16 @@ class Constants(Constants.Constants):
         entity_type=Constants.Constants.entity_person,
         consent_type=Consent.Constants.consent_opt_in,
         description="Export to office365?")
+
+    # Temporary access for new students:
+    #
+    # Trait to tag students with temporary access to IT-services
+    trait_tmp_student = _EntityTraitCode(
+        'tmp_student',
+        Constants.Constants.entity_account,
+        'Account is granted temporary access')
+    #
+    # Quarantine for revoking access
+    quarantine_auto_tmp_student = _QuarantineCode(
+        'auto_tmp_student',
+        'Account is no longer active')
