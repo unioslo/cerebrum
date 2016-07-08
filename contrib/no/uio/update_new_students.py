@@ -264,8 +264,11 @@ def main(args=None):
     logger.info("Start")
 
     db_helper = NewStudentHelper()
+    logger.info("unlock active accounts...")
     process_locked_accounts(db_helper, logger)
+    logger.info("process tagged accounts...")
     process_tagged_accounts(db_helper, logger)
+    logger.info("tag new accounts...")
     tag_new_accounts(db_helper, logger)
 
     if args.commit:
