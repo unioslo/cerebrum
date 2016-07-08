@@ -249,8 +249,7 @@ def list_action_cb():
 
 
 def main(args=None):
-    # TODO: cronjob
-    logger = Factory.get_logger('console')
+    logger = Factory.get_logger('cronjob')
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--list',
