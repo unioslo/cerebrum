@@ -156,7 +156,7 @@ class NewStudentHelper(object):
         """ List tagged accounts. """
         ac_list = Factory.get(b'Account')(self.db)
         for row in ac_list.list_traits(code=self.trait):
-            if not row['entity_type'] == ac_list.entity_type:
+            if row['entity_type'] != self.co.entity_account:
                 continue
             ac = Factory.get(b'Account')(self.db)
             ac.find(row['entity_id'])
@@ -179,7 +179,7 @@ class NewStudentHelper(object):
         """ List accounts locked by this script. """
         ac_list = Factory.get(b'Account')(self.db)
         for row in ac_list.list_entity_quarantines(
-                entity_types=ac_list.entity_type,
+                entity_types=self.co.entity_account,
                 quarantine_types=self.quarantine):
             account = Factory.get(b'Account')(self.db)
             account.find(row['entity_id'])
