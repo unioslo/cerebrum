@@ -64,7 +64,8 @@ class UiOStudent(access_FS.Student):
            nvl(trim(leading '0' from
                    trim(leading '+' from p.telefonlandnr_mobil)), '47')
                 telefonlandnr_mobil,
-           p.telefonretnnr_mobil, p.telefonnr_mobil
+           p.telefonretnnr_mobil, p.telefonnr_mobil,
+           sps.dato_studierett_tildelt
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
            fs.studieprogram sp
         WHERE  p.fodselsdato=s.fodselsdato AND
@@ -104,7 +105,8 @@ class UiOStudent(access_FS.Student):
            nvl(trim(leading '0' from
                    trim(leading '+' from p.telefonlandnr_mobil)), '47')
                 telefonlandnr_mobil,
-           p.telefonretnnr_mobil, p.telefonnr_mobil
+           p.telefonretnnr_mobil, p.telefonnr_mobil,
+           sps.dato_studierett_tildelt
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
            fs.studieprogram sp
         WHERE p.fodselsdato=s.fodselsdato AND
@@ -142,7 +144,8 @@ class UiOStudent(access_FS.Student):
            nvl(trim(leading '0' from
                    trim(leading '+' from p.telefonlandnr_mobil)), '47')
                 telefonlandnr_mobil,
-           p.telefonretnnr_mobil, p.telefonnr_mobil
+           p.telefonretnnr_mobil, p.telefonnr_mobil,
+           sps.dato_studierett_tildelt
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
            fs.registerkort r, fs.studieprogram sp
         WHERE  p.fodselsdato=s.fodselsdato AND
@@ -771,7 +774,8 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            s.studentnr_tildelt,
            pt.telefonlandnr telefonlandnr_mobil,
            '' telefonretnnr_mobil,
-           pt.telefonnr telefonnr_mobil
+           pt.telefonnr telefonnr_mobil,
+           sps.dato_studierett_tildelt
         FROM fs.student s, fs.studieprogram sp, fs.studieprogramstudent sps,
            fs.person p LEFT JOIN fs.persontelefon pt ON
            pt.fodselsdato = p.fodselsdato AND
@@ -812,7 +816,8 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
            s.studentnr_tildelt,
            pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
-           pt.telefonnr telefonnr_mobil
+           pt.telefonnr telefonnr_mobil,
+           sps.dato_studierett_tildelt
         FROM fs.student s, fs.studieprogram sp, fs.studieprogramstudent sps,
            fs.person p LEFT JOIN fs.persontelefon pt ON
            pt.fodselsdato = p.fodselsdato AND
@@ -851,7 +856,8 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
            s.studentnr_tildelt,
            pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
-           pt.telefonnr telefonnr_mobil
+           pt.telefonnr telefonnr_mobil,
+           sps.dato_studierett_tildelt
         FROM fs.student s, fs.studieprogram sp, fs.studieprogramstudent sps,
            fs.registerkort r, fs.person p
            LEFT JOIN fs.persontelefon pt ON
