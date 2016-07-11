@@ -88,8 +88,8 @@ def usage(exitcode=0):
     
     Usage: %(file)s FILE_OR_DIR [FILE_OR_DIR...]
 
-    Where FILE_OR_DIR is a specific XML file to import, or a directory where all
-    the XML files should be imported from. You could specify several directories
+    Where FILE_OR_DIR is a specific JSON file to import, or a directory where all
+    the JSON files should be imported from. You could specify several directories
     and/or files.
 
     --archive DIR       A directory to move successfully processed files. The
@@ -196,7 +196,7 @@ class InputControl(object):
     just False, but no explanation would get logged about why the input was
     invalid.
 
-    All the data given from the XML forms must not be trusted, as it could be
+    All the data given from the JSON forms must not be trusted, as it could be
     given by anyone with an FNR. The only data we could trust, is the FNR
     itself, as that is authenticated by ID-porten.
 
@@ -502,7 +502,7 @@ def process_file(file, dryrun):
     return ret
 
 class Processing(object):
-    """Handles the processing of the parsed and validated XML data."""
+    """Handles the processing of the parsed and validated JSON data."""
 
     def __init__(self, fnr):
         """Set up the processing.
@@ -593,6 +593,7 @@ class Processing(object):
     def _create_ou(self, input):
         """Create the project OU based on given input."""
         pname = input['p_id']
+        ou.clear()
         pid = ou.create_project(pname)
         logger.debug("New project %s named: %s", pid, pname)
 
@@ -780,7 +781,7 @@ class Processing(object):
                                      description='User not yet approved',
                                      start=DateTime.now())
         else:
-            # TODO: Should the XML file now be deleted automatically?
+            # TODO: Should the JSON file now be deleted automatically?
             raise BadInputError("Person %s not affiliated to project %s",
                                 pe.entity_id, ou.entity_id)
         ac.write_db()
@@ -968,7 +969,7 @@ class Processing(object):
                         status=(co.affiliation_status_project_owner,
                                 co.affiliation_status_project_admin),
                         ou_id=ou.entity_id)):
-            # TODO: Delete the XML file?
+            # TODO: Delete the JSON file?
             raise BadInputError("Person %s is not PA of project %s" %
                                        (pe.entity_id, pid))
 
