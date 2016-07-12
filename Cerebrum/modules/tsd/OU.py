@@ -473,6 +473,21 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
     Each created group is automatically affiliated with the project OU.
     """
 
+    def apply_spreads(self, entity, spreads):
+        u""" Find spreads and add to entity.
+
+        :param EntitySpread entity:
+            A populated entity with spread-support.
+
+        :param list spreads:
+            A list of spreads (Constants.Spread, int, str).
+        """
+        for spread in [s if isinstance(s, self.const.Spread)
+                       else self.const.Spread(s)
+                       for s in (spreads or [])]:
+            if not entity.has_spread(spread):
+                entity.add_spread(spread)
+
     def _project_entity_name(self, basename):
         u""" Get real entity name from base name. """
         return '-'.join((self.project_id, basename)).lower()
@@ -484,7 +499,7 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
         return gr
 
     def create_project_group(self, creator_id, basename,
-                             description=None, spreads=[]):
+                             description=None):
         u""" Create or update a project group.
 
         :param int creator_id:
@@ -493,11 +508,7 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
             The group base name. The actual group name will be prefixed with
             the project ID of this project.
         :param str description:
-            The group description (default: None, will fetch description from
-            config).
-        :param tuple spreads:
-            A list of spreads for the group (default: None, will fetch spreads
-            from config).
+            The group description.
 
         :return Group:
             The created or updated group.
@@ -505,9 +516,6 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
         name = self._project_entity_name(basename)
         description = ('Group %r' % self._project_entity_name(basename)
                        if description is None else description)
-        spreads = [s if isinstance(s, self.const.Spread)
-                   else self.const.Spread(s)
-                   for s in (spreads or [])]
         gr = Factory.get('PosixGroup')(self._db)
         try:
             gr.find_by_name(name)
@@ -521,13 +529,6 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
 
         if not self.is_affiliated_entity(gr):
             self.affiliate_entity(gr)
-
-        for spr in spreads:
-            if not isinstance(spr, self.const.Spread):
-                spr = self.const.Spread(spr)
-            if not gr.has_spread(spr):
-                gr.add_spread(spr)
-                gr.write_db()
         return gr
 
     def update_project_group_members(self, basename, selectors=()):
@@ -703,7 +704,6 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
 
         if not self.is_affiliated_entity(user.pg):
             self.affiliate_entity(user.pg)
-
         return user
 
 
@@ -763,7 +763,7 @@ class OUTSDMixin(TsdDefaultEntityMixin,
         """
         for basename, settings in getattr(cereconf, 'TSD_PROJECT_USERS',
                                           dict()).iteritems():
-            self.create_project_user(
+            user = self.create_project_user(
                 creator_id,
                 basename,
                 fname=settings.get('first_name', basename),
@@ -772,6 +772,8 @@ class OUTSDMixin(TsdDefaultEntityMixin,
                 bdate=settings.get('birth_date'),
                 shell=settings.get('shell', 'bash'),
                 affiliation=settings.get('affiliation'))
+
+            self.apply_spreads(user, settings.get('spreads', []))
 
     def _setup_project_groups(self, creator_id):
         u""" Create or update project groups.
@@ -786,11 +788,12 @@ class OUTSDMixin(TsdDefaultEntityMixin,
         # Create groups
         for basename, settings in getattr(cereconf, 'TSD_PROJECT_GROUPS',
                                           dict()).iteritems():
-            self.create_project_group(
+            group = self.create_project_group(
                 creator_id,
                 basename,
-                description=settings.get('description'),
-                spreads=settings.get('spreads', []))
+                description=settings.get('description'))
+            self.apply_spreads(group, settings.get('spreads', []))
+
         # Update group members
         for basename, settings in getattr(cereconf, 'TSD_PROJECT_GROUPS',
                                           dict()).iteritems():
