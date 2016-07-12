@@ -25,6 +25,7 @@ from __future__ import unicode_literals, absolute_import, print_function
 import os.path
 import argparse
 import mx.DateTime
+from collections import defaultdict
 
 import cereconf
 
@@ -73,6 +74,11 @@ class NewStudentHelper(object):
         An account with a unique trait given by this utility.
     """
 
+    STAT_TAGGED = 'tagged'
+    STAT_UNTAGGED = 'untagged'
+    STAT_LOCKED = 'locked'
+    STAT_UNLOCKED = 'unlocked'
+
     @lazy_property
     def db(self):
         db = Factory.get(b'Database')()
@@ -92,6 +98,10 @@ class NewStudentHelper(object):
     def quarantine(self):
         """ the quarantine used by this script. """
         return self.co.quarantine_auto_tmp_student
+
+    @lazy_property
+    def stats(self):
+        return defaultdict(int)
 
     @lazy_property
     def operator(self):
@@ -170,10 +180,12 @@ class NewStudentHelper(object):
         """ Tag account as new account. """
         account.populate_trait(code=self.trait)
         account.write_db()
+        self.stats[self.STAT_TAGGED] += 1
 
     def untag_account(self, account):
         """ Untag account. """
         account.delete_trait(self.trait)
+        self.stats[self.STAT_UNTAGGED] += 1
 
     def list_locked_accounts(self):
         """ List accounts locked by this script. """
@@ -200,10 +212,12 @@ class NewStudentHelper(object):
             self.operator.entity_id,
             description="ny, inaktiv student",
             start=mx.DateTime.now())
+        self.stats[self.STAT_LOCKED] += 1
 
     def unlock_account(self, account):
         """ Unlock an account. """
         account.delete_entity_quarantine(self.quarantine)
+        self.stats[self.STAT_UNLOCKED] += 1
 
 
 def tag_new_accounts(db_helper, logger):
@@ -270,6 +284,15 @@ def main(args=None):
     process_tagged_accounts(db_helper, logger)
     logger.info("tag new accounts...")
     tag_new_accounts(db_helper, logger)
+
+    logger.info("Tagged {:d} accounts".format(
+        db_helper.stats[db_helper.STAT_TAGGED]))
+    logger.info("Untagged {:d} accounts".format(
+        db_helper.stats[db_helper.STAT_UNTAGGED]))
+    logger.info("Locked {:d} accounts".format(
+        db_helper.stats[db_helper.STAT_LOCKED]))
+    logger.info("Unlocked {:d} accounts".format(
+        db_helper.stats[db_helper.STAT_UNLOCKED]))
 
     if args.commit:
         db_helper.db.commit()
