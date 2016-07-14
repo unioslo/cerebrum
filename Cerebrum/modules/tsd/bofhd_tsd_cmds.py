@@ -1891,6 +1891,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou = self._get_project(project)
         groupname = '%s-%s' % (project, group)
 
+        gr = Utils.Factory.get('PosixGroup')(self.db)
+        name_error = gr.illegal_name(groupname)
+        if name_error:
+            raise CerebrumError("Illegal name: {!s}".format(name_error))
+
         # Check that no account exists with the same name. Necessary for AD:
         ac = self.Account_class(self.db)
         try:
@@ -1901,16 +1906,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             raise CerebrumError('An account exists with name: %s' % groupname)
 
         self.ba.can_create_group(operator.get_entity_id())
-        gr = Utils.Factory.get('PosixGroup')(self.db)
         gr.populate(creator_id=operator.get_entity_id(),
                     visibility=self.const.group_visibility_all,
                     name=groupname,
                     description=description)
 
-        try:
-            gr.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError("Database error: %s" % m)
+        gr.write_db()
 
         # Connect group to project:
         gr.populate_trait(code=self.const.trait_project_group,
@@ -1921,7 +1922,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         if not tuple(ou.get_entity_quarantine(only_active=True)):
             for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
                 gr.add_spread(self.const.Spread(spread))
-                gr.write_db()
         return "Group %s created, group_id=%s, GID=%s" % (
             gr.group_name, gr.entity_id, gr.posix_gid)
 
