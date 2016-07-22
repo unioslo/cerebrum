@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003-2009 University of Oslo, Norway
+# Copyright 2003-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,7 +22,6 @@
 import errno
 import fcntl
 import getopt
-import imaplib
 import mx
 import os
 import pickle
@@ -34,25 +33,23 @@ import ssl
 import subprocess
 from select import select
 
-import cerebrum_path
 import cereconf
 
+from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
-from Cerebrum import Constants
-from Cerebrum.Utils import (Factory, read_password, spawn_and_log_output,
-    CerebrumIMAP4_SSL)
+
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 
-db = Factory.get('Database')()
+db = Utils.Factory.get('Database')()
 db.cl_init(change_program='process_bofhd_r')
-cl_const = Factory.get('CLConstants')(db)
-const = Factory.get('Constants')(db)
-logger = Factory.get_logger("bofhd_req")
+cl_const = Utils.Factory.get('CLConstants')(db)
+const = Utils.Factory.get('Constants')(db)
+logger = Utils.Factory.get_logger("bofhd_req")
 
 max_requests = 999999
 ou_perspective = None
@@ -63,6 +60,7 @@ SSH_CEREBELLUM = [SSH_CMD, "cerebrum@cerebellum"]
 
 ldapconns = None
 
+DEBUG = False
 EXIT_SUCCESS = 0
 
 # TODO: now that we support multiple homedirs, we need to which one an
@@ -92,7 +90,7 @@ class RequestLockHandler(object):
         """
         if self.lockfd is not None:
             self.release()
-            
+
         self.reqid = reqid
         try:
             lockfile = file(self.lockdir % reqid, "w")
@@ -128,9 +126,9 @@ class CyrusConnectError(Exception):
 
 def email_delivery_stopped(user):
     global ldapconns
-    # Delayed import so the script can run on machines without ldap
-    # module
-    import ldap, ldap.filter, ldap.ldapobject
+    import ldap
+    import ldap.filter
+    import ldap.ldapobject
     if ldapconns is None:
         ldapconns = [ldap.ldapobject.ReconnectLDAPObject("ldap://%s/" % server)
                      for server in cereconf.LDAP_SERVERS]
@@ -211,15 +209,17 @@ def connect_cyrus(host=None, username=None, as_admin=True):
     It is assumed the Cyrus server accepts SASL PLAIN and SSL.
     """
     def auth_plain_cb(response):
-        cyrus_pw = read_password(cereconf.CYRUS_ADMIN, cereconf.CYRUS_HOST)
+        cyrus_pw = Utils.read_password(cereconf.CYRUS_ADMIN,
+                                       cereconf.CYRUS_HOST)
         return "%s\0%s\0%s" % (username or cereconf.CYRUS_ADMIN,
                                cereconf.CYRUS_ADMIN, cyrus_pw)
 
     if as_admin:
         username = cereconf.CYRUS_ADMIN
     try:
-        imapconn = CerebrumIMAP4_SSL(host=host.name,
-                                     ssl_version=ssl.PROTOCOL_TLSv1)
+        imapconn = Utils.CerebrumIMAP4_SSL(
+            host=host.name,
+            ssl_version=ssl.PROTOCOL_TLSv1)
     except socket.gaierror, e:
         raise CyrusConnectError("%s@%s: %s" % (username, host.name, e))
     try:
@@ -241,7 +241,7 @@ def dependency_pending(dep_id, local_db=db, local_co=const):
 
 def process_requests(types):
     global max_requests
-    
+
     operations = {
         'quarantine':
         [(const.bofh_quarantine_refresh, proc_quarantine_refresh, 0)],
@@ -364,9 +364,10 @@ pwfile = os.path.join(cereconf.DB_AUTH_DIR,
                       'passwd-%s@%s' % (cereconf.CYRUS_ADMIN,
                                         cereconf.CYRUS_HOST))
 
+
 def email_move_child(host, r):
-    local_db = Factory.get('Database')()
-    local_co = Factory.get('Constants')(local_db)
+    local_db = Utils.Factory.get('Database')()
+    local_co = Utils.Factory.get('Constants')(local_db)
     r_id = r['request_id']
     if not is_valid_request(r_id, local_db=local_db, local_co=local_co):
         return
@@ -436,7 +437,7 @@ def email_move_child(host, r):
     if status == EXIT_SUCCESS:
         logger.debug("[%d] Completed successfully", pid)
     elif os.WIFSIGNALED(status):
-        # The process was killed by a signal.        
+        # The process was killed by a signal.
         sig = os.WTERMSIG(status)
         logger.warning('[%d] Command "%r" was killed by signal %d',
                        pid, cmd, sig)
@@ -451,10 +452,13 @@ def email_move_child(host, r):
     cmd = [cereconf.MANAGESIEVE_SCRIPT,
            '-v', '-a', cereconf.CYRUS_ADMIN, '-p', pwfile,
            acc.account_name, old_server.name, new_server.name]
-    if (spawn_and_log_output(cmd, connect_to=[old_server.name, new_server.name])) != 0:
+    if Utils.spawn_and_log_output(
+            cmd,
+            connect_to=[old_server.name, new_server.name]) != 0:
         logger.warning('%s: managesieve_sync failed!', acc.account_name)
         return
-    logger.info('%s: managesieve_sync completed successfully', acc.account_name)
+    logger.info('%s: managesieve_sync completed successfully',
+                acc.account_name)
     # The move was successful, update the user's server
     # Now set the correct quota.
     hq = get_email_hardquota(acc.entity_id, local_db=local_db)
@@ -475,14 +479,14 @@ def email_move_child(host, r):
     local_db.commit()
     logger.info("%s: move_email success.", acc.account_name)
     reqlock.release()
-    
-    
-def process_email_move_requests():    
+
+
+def process_email_move_requests():
     # Easy round robin to balance load on real mail servers
     round_robin = {}
     for i in cereconf.PROC_BOFH_REQ_MOVE_SERVERS:
         round_robin[i] = 0
-        
+
     def get_srv():
         srv = ""
         low = -1
@@ -569,7 +573,6 @@ def cyrus_create(user_id, host=None):
         logger.debug("cyrus_create: %s successful", uname)
     cyradm.logout()
     cyr.logout()
-    
     return status
 
 
@@ -598,8 +601,9 @@ def cyrus_delete(host, uname, generation):
         for line in listresp:
             m = re.match(r'^\(.*?\) ".*?" "?([^"]+)"?$', line)
             if not m:
-                logger.error("bofh_email_delete: invalid folder name: %s", line)
-            folders += [ m.group(1) ]
+                logger.error("bofh_email_delete: invalid folder name: %s",
+                             line)
+            folders += [m.group(1), ]
     # Make sure the subfolders are deleted first by reversing the
     # sorted list.
     folders.sort()
@@ -643,11 +647,18 @@ def cyrus_set_quota(user_id, hq, host=None, local_db=db):
 
 
 def archive_cyrus_data(uname, mail_server, generation):
-    args = [SUDO_CMD, cereconf.ARCHIVE_MAIL_SCRIPT,
-           mail_server, uname, str(generation)]
-    to_exec = " ".join(args)
-    cmd = SSH_CEREBELLUM + [to_exec,]
-    return spawn_and_log_output(cmd, connect_to=[mail_server]) == EXIT_SUCCESS
+    args = [
+        SUDO_CMD, cereconf.ARCHIVE_MAIL_SCRIPT,
+        '--server', mail_server,
+        '--user', uname,
+        '--gen', str(generation)
+    ]
+    if DEBUG:
+        args.append('--debug')
+    cmd = SSH_CEREBELLUM + [" ".join(args), ]
+    return (
+        Utils.spawn_and_log_output(cmd, connect_to=[mail_server]) ==
+        EXIT_SUCCESS)
 
 
 def proc_sympa_create(request):
@@ -671,8 +682,8 @@ def proc_sympa_create(request):
         logger.exception("Corrupt request state for sympa list=%s: %s",
                          listname, request["state_data"])
         return True
-    
-    try:    
+
+    try:
         host = state["runhost"]
         profile = state["profile"]
         description = state["description"]
@@ -686,9 +697,8 @@ def proc_sympa_create(request):
     # 2008-08-01 IVR FIXME: Safe quote everything fished out from state.
     cmd = [cereconf.SYMPA_SCRIPT, host, 'newlist',
            listname, admins, profile, description]
-    return spawn_and_log_output(cmd) == EXIT_SUCCESS
-# end proc_sympa_create
-        
+    return Utils.spawn_and_log_output(cmd) == EXIT_SUCCESS
+
 
 def proc_sympa_remove(request):
     """Execute the request for removing a sympa mailing list.
@@ -715,8 +725,7 @@ def proc_sympa_remove(request):
         return True
 
     cmd = [cereconf.SYMPA_SCRIPT, host, 'rmlist', listname]
-    return spawn_and_log_output(cmd) == EXIT_SUCCESS
-# end proc_sympa_remove
+    return Utils.spawn_and_log_output(cmd) == EXIT_SUCCESS
 
 
 def get_address(address_id):
@@ -730,10 +739,10 @@ def get_address(address_id):
 
 def is_ok_batch_time(now):
     times = cereconf.LEGAL_BATCH_MOVE_TIMES.split('-')
-    if times[0] > times[1]:   #  Like '20:00-08:00'
+    if times[0] > times[1]:  # Like '20:00-08:00'
         if now > times[0] or now < times[1]:
             return True
-    else:                     #  Like '08:00-20:00'
+    else:  # Like '08:00-20:00'
         if now > times[0] and now < times[1]:
             return True
     return False
@@ -744,7 +753,7 @@ def proc_move_user(r):
         account, uname, old_host, old_disk = \
                  get_account_and_home(r['entity_id'], type='PosixUser',
                                       spread=r['state_data'])
-        new_host, new_disk  = get_disk(r['destination_id'])
+        new_host, new_disk = get_disk(r['destination_id'])
     except Errors.NotFoundError:
         logger.error("move_request: user %i not found", r['entity_id'])
         return False
@@ -792,8 +801,8 @@ def process_move_student_requests():
 
     # Hent ut personens fødselsnummer + account_id
     fnr2move_student = {}
-    account = Factory.get('Account')(db)
-    person = Factory.get('Person')(db)
+    account = Utils.Factory.get('Account')(db)
+    person = Utils.Factory.get('Person')(db)
     for r in rows:
         if not is_valid_request(r['request_id']):
             continue
@@ -809,16 +818,15 @@ def process_move_student_requests():
             db.commit()
             continue
         fnr = fnr[0]['external_id']
-        if not fnr2move_student.has_key(fnr):
-            fnr2move_student[fnr] = []
-        fnr2move_student[fnr].append((
-            int(account.entity_id), int(r['request_id']),
-            int(r['requestee_id'])))
+        fnr2move_student.setdefault(fnr, []).append(
+            (int(account.entity_id),
+             int(r['request_id']),
+             int(r['requestee_id'])))
     logger.debug("Starting callbacks to find: %s" % fnr2move_student)
     autostud.start_student_callbacks(student_info_file, move_student_callback)
 
     # Move remaining users to pending disk
-    disk = Factory.get('Disk')(db)
+    disk = Utils.Factory.get('Disk')(db)
     disk.find_by_path(cereconf.AUTOSTUD_PENDING_DISK)
     logger.debug(str(fnr2move_student.values()))
     for tmp_stud in fnr2move_student.values():
@@ -849,11 +857,11 @@ def move_student_callback(person_info):
 
     fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
                                               int(person_info['personnr'])))
-    if not fnr2move_student.has_key(fnr):
+    if fnr not in fnr2move_student:
         return
     logger.debug("Callback for %s" % fnr)
-    account = Factory.get('Account')(db)
-    group = Factory.get('Group')(db)
+    account = Utils.Factory.get('Account')(db)
+    group = Utils.Factory.get('Group')(db)
     br = BofhdRequests(db, const)
     for account_id, request_id, requestee_id in fnr2move_student.get(fnr, []):
         account.clear()
@@ -883,14 +891,15 @@ def move_student_callback(person_info):
                         current_disk_id = ah['disk_id']
                     except Errors.NotFoundError:
                         homedir_id, current_disk_id = None, None
-                    if autostud.disk_tool.get_diskdef_by_diskid(int(current_disk_id)):
+                    if autostud.disk_tool.get_diskdef_by_diskid(
+                            int(current_disk_id)):
                         logger.debug("Already on a student disk")
                         br.delete_request(request_id=request_id)
                         db.commit()
                         # actually, we remove a bit too much data from
                         # the below dict, but remaining data will be
                         # rebuilt on next run.
-                        
+
                         del(fnr2move_student[fnr])
                         raise NextAccount
                     try:
@@ -900,18 +909,19 @@ def move_student_callback(person_info):
                             continue
                         disks.append((new_disk, d_spread))
                         if (autostud.disk_tool.using_disk_kvote and
-                            homedir_id is not None):
-                            # Delay import as non-uio people may use this script
+                                homedir_id is not None):
                             from Cerebrum.modules.no.uio import DiskQuota
-                            
                             disk_quota_obj = DiskQuota.DiskQuota(db)
                             try:
-                                cur_quota = disk_quota_obj.get_quota(homedir_id)
+                                cur_quota = disk_quota_obj.get_quota(
+                                    homedir_id)
                             except Errors.NotFoundError:
                                 cur_quota = None
                             quota = profile.get_disk_kvote(new_disk)
-                            if cur_quota is None or cur_quota['quota'] != int(quota):
-                                disk_quota_obj.set_quota(homedir_id, quota=int(quota))
+                            if (cur_quota is None or
+                                    cur_quota['quota'] != int(quota)):
+                                disk_quota_obj.set_quota(homedir_id,
+                                                         quota=int(quota))
                     except AutostudError, msg:
                         # Will end up on pending (since we only use one spread)
                         logger.debug("Error getting disk: %s" % msg)
@@ -929,6 +939,7 @@ def move_student_callback(person_info):
                                account_id, disk, state_data=spread)
                 db.commit()
 
+
 def proc_quarantine_refresh(r):
     """process_changes.py has added bofh_quarantine_refresh for the
     start/disable/end dates for the quarantines.  Register a
@@ -942,9 +953,9 @@ def proc_quarantine_refresh(r):
 
 
 def proc_archive_user(r):
-    spread = default_spread # TODO: check spread in r['state_data']
-    account, uname, old_host, old_disk = \
-             get_account_and_home(r['entity_id'], spread=spread)
+    spread = default_spread  # TODO: check spread in r['state_data']
+    account, uname, old_host, old_disk = get_account_and_home(r['entity_id'],
+                                                              spread=spread)
     operator = get_account(r['requestee_id']).account_name
     if delete_user(uname, old_host, '%s/%s' % (old_disk, uname),
                    operator, ''):
@@ -961,7 +972,7 @@ def proc_archive_user(r):
 
 
 def proc_delete_user(r):
-    spread = default_spread # TODO: check spread in r['state_data']
+    spread = default_spread  # TODO: check spread in r['state_data']
     #
     # IVR 2007-01-25 We do not care if it's a posix user or not.
     # TVL 2013-12-09 Except that if it's a POSIX user, it should retain a
@@ -1002,9 +1013,9 @@ def proc_delete_user(r):
         account.delete_spread(s['spread'])
 
     # Make sure the user's default file group is a personal group
-    group = Factory.get('Group')(db)
+    group = Utils.Factory.get('Group')(db)
     default_group = _get_default_group(account.entity_id)
-    pu = Factory.get('PosixUser')(db)
+    pu = Utils.Factory.get('PosixUser')(db)
     try:
         pu.find(account.entity_id)
     except Errors.NotFoundError:
@@ -1013,15 +1024,20 @@ def proc_delete_user(r):
         try:
             group.find_by_name(account.account_name)
         except Errors.NotFoundError:
-            ac = Factory.get('Account')(db)
+            ac = Utils.Factory.get('Account')(db)
             ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
             group.clear()
-            group.new(ac.entity_id, const.group_visibility_all, account.account_name,
-                      description='Personal file group for %s' % account.account_name)
+            group.new(
+                ac.entity_id,
+                const.group_visibility_all,
+                account.account_name,
+                description=(
+                    'Personal file group for {}'.format(account.account_name)))
             group.add_member(account.entity_id)
             group.write_db()
-            logger.debug("Created group: '%s'. Group ID = %d", group.group_name, group.entity_id)
-        pg = Factory.get('PosixGroup')(db)
+            logger.debug("Created group: '%s'. Group ID = %d",
+                         group.group_name, group.entity_id)
+        pg = Utils.Factory.get('PosixGroup')(db)
         try:
             pg.find(group.entity_id)
         except:
@@ -1047,7 +1063,7 @@ def proc_delete_user(r):
         if g['group_id'] == default_group:
             logger.debug("Skipping default group %s for user %s",
                          group.group_name, account.account_name)
-            continue        
+            continue
         group.remove_member(account.entity_id)
     return True
 
@@ -1055,7 +1071,7 @@ def proc_delete_user(r):
 def _get_default_group(account_id):
     try:
         # only posix_user-objects have a default group
-        account = Factory.get('PosixUser')(db)        
+        account = Utils.Factory.get('PosixUser')(db)
         account.clear()
         account.find(account_id)
     except Errors.NotFoundError:
@@ -1071,12 +1087,18 @@ def delete_user(uname, old_host, old_home, operator, mail_server):
     else:
         generation = 1
 
-    args = [SUDO_CMD, cereconf.RMUSER_SCRIPT, uname,
-           operator, old_home, str(generation), mail_server]
-    to_exec = " ".join(args)
-    cmd = SSH_CEREBELLUM + [to_exec,]
-    
-    if spawn_and_log_output(cmd, connect_to=[old_host]) == EXIT_SUCCESS:
+    args = [
+        SUDO_CMD, cereconf.RMUSER_SCRIPT,
+        '--username', account.account_name,
+        '--deleted-by', operator,
+        '--homedir', old_home,
+        '--generation', str(generation)
+    ]
+    if DEBUG:
+        args.append('--debug')
+    cmd = SSH_CEREBELLUM + [" ".join(args), ]
+
+    if Utils.spawn_and_log_output(cmd, connect_to=[old_host]) == EXIT_SUCCESS:
         account.populate_trait(const.trait_account_generation,
                                numval=generation)
         account.write_db()
@@ -1089,11 +1111,10 @@ def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk, spread,
     mailto = operator
     # Last argument is "on_mailspool?" and obsolete
     args = [SUDO_CMD, cereconf.MVUSER_SCRIPT, uname, uid, gid,
-           old_disk, new_disk, spread, mailto, 0]
+            old_disk, new_disk, spread, mailto, 0]
     args = ["%s" % x for x in args]
-    to_exec = " ".join(args)
-    cmd = SSH_CEREBELLUM + [to_exec,]
-    return (spawn_and_log_output(cmd, connect_to=[old_host, new_host]) ==
+    cmd = SSH_CEREBELLUM + [" ".join(args), ]
+    return (Utils.spawn_and_log_output(cmd, connect_to=[old_host, new_host]) ==
             EXIT_SUCCESS)
 
 
@@ -1105,10 +1126,10 @@ def set_operator(entity_id=None):
 
 
 def get_disk(disk_id):
-    disk = Factory.get('Disk')(db)
+    disk = Utils.Factory.get('Disk')(db)
     disk.clear()
     disk.find(disk_id)
-    host = Factory.get('Host')(db)
+    host = Utils.Factory.get('Host')(db)
     host.clear()
     host.find(disk.host_id)
     return host.name, disk.path
@@ -1116,7 +1137,7 @@ def get_disk(disk_id):
 
 def get_account(account_id=None, name=None, local_db=db):
     assert account_id or name
-    acc = Factory.get('Account')(local_db)
+    acc = Utils.Factory.get('Account')(local_db)
     if account_id:
         acc.find(account_id)
     elif name:
@@ -1126,9 +1147,9 @@ def get_account(account_id=None, name=None, local_db=db):
 
 def get_account_and_home(account_id, type='Account', spread=None):
     if type == 'Account':
-        account = Factory.get('Account')(db)
+        account = Utils.Factory.get('Account')(db)
     elif type == 'PosixUser':
-        account = Factory.get('PosixUser')(db)        
+        account = Utils.Factory.get('PosixUser')(db)
     account.clear()
     account.find(account_id)
     if spread is None:
@@ -1150,7 +1171,7 @@ def get_account_and_home(account_id, type='Account', spread=None):
 
 def get_group(id, grtype="Group"):
     if grtype == "Group":
-        group = Factory.get('Group')(db)
+        group = Utils.Factory.get('Group')(db)
     elif grtype == "PosixGroup":
         group = PosixGroup.PosixGroup(db)
     group.clear()
@@ -1167,16 +1188,21 @@ def is_valid_request(req_id, local_db=db, local_co=const):
 
 
 def main():
-    global max_requests
-    global ou_perspective, emne_info_file, studconfig_file, \
-           studieprogs_file, student_info_file
+    global max_requests, ou_perspective, DEBUG
+    global emne_info_file, studconfig_file, studieprogs_file, student_info_file
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dpt:m:',
-                                   ['debug', 'process', 'type=', 'max=',
-                                    'ou-perspective=',
-                                    'emne-info-file=','studconfig-file=',
-                                    'studie-progs-file=',
-                                    'student-info-file='])
+        opts, args = getopt.getopt(
+            sys.argv[1:],
+            'dpt:m:',
+            ['debug',
+             'process',
+             'type=',
+             'max=',
+             'ou-perspective=',
+             'emne-info-file=',
+             'studconfig-file=',
+             'studie-progs-file=',
+             'student-info-file='])
     except getopt.GetoptError:
         usage(1)
     if not opts:
@@ -1184,8 +1210,7 @@ def main():
     types = []
     for opt, val in opts:
         if opt in ('-d', '--debug'):
-            print "debug mode has not been implemented"
-            sys.exit(1)
+            DEBUG = True
         elif opt in ('-t', '--type',):
             types.append(val)
         elif opt in ('-m', '--max',):
@@ -1193,7 +1218,7 @@ def main():
         elif opt in ('-p', '--process'):
             if not types:
                 types = ['quarantine', 'delete', 'move',
-                         'email', 'sympa',]
+                         'email', 'sympa', ]
             process_requests(types)
         elif opt in ('--ou-perspective',):
             ou_perspective = const.OUPerspective(val)
@@ -1234,4 +1259,3 @@ def usage(exitcode=0):
 
 if __name__ == '__main__':
     main()
-
