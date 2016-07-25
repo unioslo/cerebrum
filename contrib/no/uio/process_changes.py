@@ -38,8 +38,8 @@ import sys
 import getopt
 import pickle
 
-import cerebrum_path
 import cereconf
+
 from Cerebrum.modules import CLHandler
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
@@ -58,6 +58,7 @@ host = Factory.get('Host')(db)
 disk = Factory.get('Disk')(db)
 debug_hostlist = None
 
+DEBUG = False
 SUDO_CMD = "sudo"
 SSH_CEREBELLUM = ["/usr/bin/ssh", "cerebrum@cerebellum"]
 
@@ -94,9 +95,10 @@ class EvtHandler(object):
 
         raise NotImplementedError
 
+
 class MakeUser(EvtHandler):
     # TODO: change if we decide to allow different homedirs for same user
-    home_spread = const.spread_uio_nis_user   
+    home_spread = const.spread_uio_nis_user
 
     def get_triggers(self):
         return ("account_home_added", "homedir_update")
@@ -110,7 +112,8 @@ class MakeUser(EvtHandler):
                 else:
                     status = const.home_status_create_failed
             except Errors.NotFoundError:
-                return True # A reserved user or similar that don't get a homedir
+                # A reserved user or similar that don't get a homedir
+                return True
             # posix_user was set by get_make_user_data
             home = posix_user.get_home(self.home_spread)
             posix_user.set_homedir(current_id=home['homedir_id'],
@@ -134,7 +137,7 @@ class MakeUser(EvtHandler):
         acc.find(accid)
         guest_trait = acc.get_trait(const.trait_uio_guest_owner)
         if (guest_trait and status == const.home_status_archived and
-            not acc.is_expired()):
+                not acc.is_expired()):
             logger.debug("Creating fresh home directory for guest %d" % accid)
             if not self._make_user(evt['subject_entity']):
                 return False
@@ -169,7 +172,8 @@ class MakeUser(EvtHandler):
         try:
             info = self._get_make_user_data(entity_id)
         except Errors.NotFoundError:
-            logger.warn("NotFound error for entity_id %s" % entity_id, exc_info=1)
+            logger.warn("NotFound error for entity_id %s",
+                        entity_id, exc_info=1)
             raise
         if int(info['home']['status']) == const.home_status_on_disk:
             logger.warn("User already on disk? %s" % entity_id)
@@ -178,15 +182,17 @@ class MakeUser(EvtHandler):
             logger.warn("No home for %s" % entity_id)
             return
 
-        args = [SUDO_CMD, cereconf.CREATE_USER_SCRIPT,
-               # info['host'],  # the mkhome script figures out the host
-               info['uname'], info['homedir'], info['uid'], info['gid'],
-               '"' + info['gecos'] + '"']
-
-        to_exec = " ".join(args)
-        cmd = SSH_CEREBELLUM + [to_exec,]
-        #cmd = cmd[1:]  # DEBUG
-
+        args = [
+            SUDO_CMD, cereconf.CREATE_USER_SCRIPT,
+            '--username', info['uname'],
+            '--homedir', info['homedir'],
+            '--uid', info['uid'],
+            '--gid', info['gid'],
+            '--gecos', '"' + info['gecos'] + '"'
+        ]
+        if DEBUG:
+            args.append('--debug')
+        cmd = SSH_CEREBELLUM + [" ".join(args), ]
         logger.debug("Doing: %s" % str(cmd))
         if debug_hostlist is None or info['host'] in debug_hostlist:
             errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
@@ -197,12 +203,13 @@ class MakeUser(EvtHandler):
         logger.error("%s returned %i" % (cmd, errnum))
         return 0
 
+
 class Quarantine2Request(EvtHandler):
     """When a quarantine has been added/updated/deleted, we register a
     bofh_quarantine_refresh bofhd_request on the apropriate
     start_date, end_date and disable_until dates.
     """
-    
+
     def __init__(self):
         self.br = BofhdRequests(db, const)
         self.eq = EntityQuarantine(db)
@@ -229,13 +236,15 @@ class Quarantine2Request(EvtHandler):
             return True
         for when in ('start_date', 'end_date', 'disable_until'):
             if qdata[when] is not None:
-                self.br.add_request(None, qdata[when] ,
+                self.br.add_request(None,
+                                    qdata[when],
                                     const.bofh_quarantine_refresh,
-                                    evt['subject_entity'], None,
+                                    evt['subject_entity'],
+                                    None,
                                     state_data=int(params['q_type']))
             db.commit()
         return True
-    
+
     def notify_quarantine_mod(self, evt, params):
         # Currently only disable_until is affected by quarantine_mod.
         qdata = self._get_quarantine(evt['subject_entity'], params['q_type'])
@@ -246,18 +255,19 @@ class Quarantine2Request(EvtHandler):
                                 const.bofh_quarantine_refresh,
                                 evt['subject_entity'], None,
                                 state_data=int(params['q_type']))
-            
+
         self.br.add_request(None, self.br.now, const.bofh_quarantine_refresh,
                             evt['subject_entity'], None,
                             state_data=int(params['q_type']))
         db.commit()
         return True
-    
+
     def notify_quarantine_del(self, evt, params):
         # Remove existing requests for this entity_id/quarantine_type
         # combination as they are no longer needed
-        for row in self.br.get_requests(entity_id=evt['subject_entity'],
-                                        operation=int(const.bofh_quarantine_refresh)):
+        for row in self.br.get_requests(
+                entity_id=evt['subject_entity'],
+                operation=int(const.bofh_quarantine_refresh)):
             if int(row['state_data']) == int(params['q_type']):
                 self.br.delete_request(request_id=row['request_id'])
         self.br.add_request(None, self.br.now, const.bofh_quarantine_refresh,
@@ -266,17 +276,18 @@ class Quarantine2Request(EvtHandler):
         db.commit()
         return True
 
+
 def process_changelog(evt_key, classes):
     """Process the entries from changelog identifying previous events
     by evt_key, and using events and callback methods in classes
     """
-    
+
     evt_id2call_back = {}
     for c in classes:
         for t in c.get_triggers():
             evt_id2call_back.setdefault(int(getattr(cl_const, t)), []).append(
                 getattr(c, "notify_%s" % t))
-        
+
     ei = CLHandler.CLHandler(Factory.get('Database')())
     for evt in ei.get_events(evt_key, evt_id2call_back.keys()):
         ok = []
@@ -288,9 +299,10 @@ def process_changelog(evt_key, classes):
             logger.debug2("Callback %i -> %s" % (evt['change_id'], call_back))
             ok.append(call_back(evt, params))
         # Only confirm if all call_backs returned true
-        if not filter(lambda t: t == False, ok):
+        if not filter(lambda t: not t, ok):
             ei.confirm_event(evt)
     ei.commit_confirmations()
+
 
 def process_changes():
     classes = (MakeUser(), Quarantine2Request())
@@ -298,20 +310,32 @@ def process_changes():
     for k in keys:
         process_changelog(k, filter(lambda c: c.evt_key == k, classes))
 
+
 def usage(exitcode=0):
     print """process_changes.py [options]
+
     -h | --help
     -i | --insert account_name
     -p | --process-changes
-    --debug-hosts <comma-serparated list> limit rsh targets to hosts in host_info"""
+    -d | --debug
+        Enable debugging in remote scripts, where avaliable
+    --debug-hosts <comma-serparated list>
+        limit rsh targets to hosts in host_info
+    """
     sys.exit(exitcode)
 
+
 def main():
-    global debug_hostlist
+    global debug_hostlist, DEBUG
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'hi:p',
-                                   ['help', 'insert=', 'process-changes',
-                                    'debug-hosts='])
+        opts, args = getopt.getopt(
+            sys.argv[1:],
+            'hdi:p',
+            ['help',
+             'debug',
+             'insert=',
+             'process-changes',
+             'debug-hosts='])
     except getopt.GetoptError:
         usage(1)
     if not opts:
@@ -319,13 +343,18 @@ def main():
     for opt, val in opts:
         if opt in ('-h', '--help'):
             usage()
+        elif opt in ('-d', '--debug'):
+            DEBUG = True
         elif opt in ('-i', '--insert'):
-            insert_account_in_cl(val)
+            # insert_account_in_cl doesn't exist?
+            raise NotImplementedError("gone")
+            # insert_account_in_cl(val)
         elif opt in ('-p', '--process-changes'):
             process_changes()
         elif opt == '--debug-hosts':
             debug_hostlist = val.split(",")
             print debug_hostlist
+
+
 if __name__ == '__main__':
     main()
-
