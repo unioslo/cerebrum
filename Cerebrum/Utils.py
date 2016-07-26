@@ -96,9 +96,8 @@ def this_module():
     return correct_mod
 
 
-# TODO: Use UTF-8 instead by default?
 def sendmail(toaddr, fromaddr, subject, body, cc=None,
-             charset='iso-8859-1', debug=False):
+             charset='utf-8', debug=False):
     """Sends e-mail, mime-encoding the subject.  If debug is set,
     message won't be send, and the encoded message will be
     returned."""
@@ -126,9 +125,8 @@ def sendmail(toaddr, fromaddr, subject, body, cc=None,
     smtp.quit()
 
 
-# TODO: Use UTF-8 instead by default?
 def mail_template(recipient, template_file, sender=None, cc=None,
-                  substitute={}, charset='iso-8859-1', debug=False):
+                  substitute={}, charset='utf-8', debug=False):
     """Read template from file, perform substitutions based on the
     dict, and send e-mail to recipient.  The recipient and sender
     e-mail address will be used as the defaults for the To and From
