@@ -96,9 +96,8 @@ def this_module():
     return correct_mod
 
 
-# TODO: Use UTF-8 instead by default?
 def sendmail(toaddr, fromaddr, subject, body, cc=None,
-             charset='iso-8859-1', debug=False):
+             charset='utf-8', debug=False):
     """Sends e-mail, mime-encoding the subject.  If debug is set,
     message won't be send, and the encoded message will be
     returned."""
