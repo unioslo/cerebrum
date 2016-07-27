@@ -438,7 +438,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         if cereconf.BOFHD_MOTD_FILE is not None:
             f = file(cereconf.BOFHD_MOTD_FILE)
             for line in f.readlines():
-                ret += line
+                ret += line.decode('utf8')
         if (client_id is not None and
                 cereconf.BOFHD_CLIENTS.get(client_id, '') > client_version):
             ret += "You do not seem to run the latest version of the client\n"
