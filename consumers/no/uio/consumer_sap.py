@@ -23,28 +23,34 @@
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.event.mapping import CallbackMap
 
-logger = Factory.get_logger('cronjob')
-callback_functions = CallbackMap()
-callback_filters = CallbackMap()
-
-
-filter_meta = lambda l: dict(
-    filter(lambda (k, _): k != u'__metadata', l.items()))
-translate_keys = lambda d, m: map(
-    lambda (k, v): (m.get(k, None), v), d.items())
-filter_elements = lambda d: filter(lambda (k, v): k and v, d)
-
-
-class RemoteSourceDown(Exception):
-    """Exception signaling that the remote system is out of service."""
-
 
 from Cerebrum.config.configuration import (ConfigDescriptor,
                                            Namespace,
                                            Configuration)
 from Cerebrum.config.settings import String
 from Cerebrum.config.loader import read, read_config
+
 from Cerebrum.modules.event_consumer.config import AMQPClientConsumerConfig
+
+logger = Factory.get_logger('cronjob')
+callback_functions = CallbackMap()
+callback_filters = CallbackMap()
+
+
+def filter_meta(l):
+    return dict(filter(lambda (k, _): k != u'__metadata', l.items()))
+
+
+def translate_keys(d, m):
+    return map(lambda (k, v): (m.get(k, None), v), d.items())
+
+
+def filter_elements(d):
+    return filter(lambda (k, v): k and v, d)
+
+
+class RemoteSourceDown(Exception):
+    """Exception signaling that the remote system is out of service."""
 
 
 class SAPWSConsumerConfig(Configuration):
