@@ -141,11 +141,9 @@ def parse_contacts(d):
     :type d: dict
     :param d: Data from SAP
 
-    :rtype: (ContactInfo('PHONE'), ''),
-             ContactInfo('MOBILE_PHONE'), ''),
-             ContactInfo('MOBILE'), ''),
-             ContactInfo('PRIVATEMOBILE'), ''),
-             ContactInfo('PRIVMOBVISIBLE'), '')
+    :rtype: ((ContactInfo('PHONE'), (('contact_pref', n),
+                                     ('contact_value', v),
+                                     ('description', None))),)
     :return: A tuple with the fields that should be updated"""
     co = Factory.get('Constants')
     work_contacts = d.get(u'contact')
@@ -157,8 +155,22 @@ def parse_contacts(d):
          u'mobilePrivate': co.contact_private_mobile,
          u'mobilePrivateWeb': co.contact_private_mobile_visible}
 
-    return (filter_elements(translate_keys(work_contacts, m)) +
-            filter_elements(translate_keys(private_contacts, m)))
+    def expand(l, pref=0):
+        if not l:
+            return tuple()
+        elif len(l) > 1:
+            n = l[1:]
+        else:
+            n = None
+
+        (k, v) = l[0]
+        return ((k,
+                (('contact_pref', pref),
+                 ('contact_value', v),
+                 ('description', None)),),) + expand(n, pref + 1)
+
+    return expand(filter_elements(translate_keys(work_contacts, m)) +
+                  filter_elements(translate_keys(private_contacts, m)))
 
 
 def parse_titles(d):
@@ -525,27 +537,26 @@ def update_contact_info(database, source_system, hr_person, cerebrum_person):
     contacts = row_transform(co.ContactInfo,
                              u'contact_type',
                              (u'entity_id', u'source_system',
-                              u'contact_type', u'contact_pref',
-                              u'contact_description', u'contact_alias'),
+                              u'contact_type', u'contact_description',
+                              u'contact_alias'),
                              cerebrum_person.get_contact_info(
-                                 source=source_system))
+                                     source=source_system))
 
-    # TODO: Combine row_transform and the following into something simpler
-    stripper = lambda s: set(map(
-        lambda (ck, cv): (ck, filter(
-            lambda e: e, map(
-                lambda (k, v): v if k == u'contact_value' else None,
-                cv)).pop()),
-        s))
+    for (k, v) in contacts - set(hr_person.get('contacts')):
+        (p, v, _d) = (value for (_, value) in v)
+        cerebrum_person.delete_contact_info(source_system, k, p)
+        logger.debug(
+            u'Removing contact ({}) type {} with preference {} for '
+            u'id:{}'.format(
+                v, _stringify_for_log(k), p, cerebrum_person.entity_id))
 
-    for (k, v) in set(hr_person.get(u'contacts')) - stripper(contacts):
-        cerebrum_person.populate_contact_info(source_system, k, v)
-        logger.debug(u'Adding contact {} for id:{}'.format(
-            (_stringify_for_log(k), v), cerebrum_person.entity_id))
-    for (k, v) in stripper(contacts) - set(hr_person.get('contacts')):
-        cerebrum_person.delete_contact_info(source_system, k)
-        logger.debug(u'Removing contact {} for id:{}'.format(
-            (_stringify_for_log(k), v), cerebrum_person.entity_id))
+    for (k, v) in set(hr_person.get(u'contacts')) - contacts:
+        (p, v, _d) = (value for (_, value) in v)
+        cerebrum_person.add_contact_info(source_system, k, v, p)
+        logger.debug(
+            u'Adding contact {} of type {} with preference {} for '
+            u'id:{}'.format(
+                v, _stringify_for_log(k), p, cerebrum_person.entity_id))
 
 
 def update_titles(database, source_system, hr_person, cerebrum_person):
