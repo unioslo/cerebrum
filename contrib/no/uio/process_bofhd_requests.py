@@ -770,11 +770,8 @@ def proc_move_user(r):
         operator = "cerebrum"
     group = get_group(account.gid_id, grtype='PosixGroup')
 
-    spread = ",".join([str(const.Spread(a['spread']))
-                       for a in account.get_spread()])
     if move_user(uname, int(account.posix_uid), int(group.posix_gid),
-                 old_host, old_disk, new_host, new_disk, spread,
-                 operator):
+                 old_host, old_disk, new_host, new_disk, operator):
         logger.debug('user %s moved from %s to %s',
                      uname, old_disk, new_disk)
         ah = account.get_home(default_spread)
@@ -1106,13 +1103,17 @@ def delete_user(uname, old_host, old_home, operator, mail_server):
     return False
 
 
-def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk, spread,
+def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk,
               operator):
-    mailto = operator
-    # Last argument is "on_mailspool?" and obsolete
-    args = [SUDO_CMD, cereconf.MVUSER_SCRIPT, uname, uid, gid,
-            old_disk, new_disk, spread, mailto, 0]
-    args = ["%s" % x for x in args]
+    args = [SUDO_CMD, cereconf.MVUSER_SCRIPT,
+            '--user', uname,
+            '--uid', str(uid),
+            '--gid', str(gid),
+            '--old-disk', old_disk,
+            '--new-disk', new_disk,
+            '--operator', operator]
+    if DEBUG:
+        args.append('--debug')
     cmd = SSH_CEREBELLUM + [" ".join(args), ]
     return (Utils.spawn_and_log_output(cmd, connect_to=[old_host, new_host]) ==
             EXIT_SUCCESS)
