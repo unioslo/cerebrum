@@ -657,10 +657,8 @@ def callback(database, source_system, routing_key, content_type, body,
     except RemoteSourceDown:
         message_processed = False
     except Exception as e:
-        if isinstance(e, IOError):
-            # IOError typically results from missing password files
-            message_processed = False
-        logger.error(u'Failed processing {}: {}'.format(identifier, e),
+        message_processed = False
+        logger.error(u'Failed processing {}:\n {}'.format(body, e),
                      exc_info=True)
 
     # Always rollback, since we do an implicit begin and we want to discard
