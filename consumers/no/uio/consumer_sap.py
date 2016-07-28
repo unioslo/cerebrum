@@ -296,6 +296,7 @@ def _parse_hr_person(database, source_system, data):
     co = Factory.get('Constants')
 
     return {
+        u'id': data.get(u'personId'),
         u'addresses': parse_address(data),
         u'names': parse_names(data),
         u'birth_date': DateTime.DateFrom(
@@ -311,13 +312,12 @@ def _parse_hr_person(database, source_system, data):
         u'reserved': not data.get(u'publicView')}
 
 
-def get_hr_person(config, database, source_system, url, identifier):
+def get_hr_person(config, database, source_system, url):
     """Collect a person entry from the remote source system, and parse the data.
 
     :param db: Database object
     :param source_system: The source system code
     :param url: The URL to contact for collection
-    :param identifier: The id of the object to collect
 
     :rtype: dict
     :return The parsed data from the remote source system
@@ -347,7 +347,7 @@ def get_hr_person(config, database, source_system, url, identifier):
         return _parse_hr_person(database, source_system, data)
     else:
         logger.error(u'Could not fetch {} from remote source: {}: {}'.format(
-            identifier, r.status_code, r.reason))
+            url, r.status_code, r.reason))
         raise RemoteSourceDown
 
 
@@ -611,15 +611,15 @@ def update_reservation(database, hr_person, cerebrum_person):
             cerebrum_person.entity_id))
 
 
-def handle_person(database, source_system, url, identifier,
-                  datasource=get_hr_person):
+def handle_person(database, source_system, url, datasource=get_hr_person):
     """Fetch info from the remote system, and perform changes.
 
     :param database: A database object
     :param source_system: The source system code
     :param url: The URL to the person object in the HR systems WS.
-    :param identifier: The updated identifier"""
-    hr_person = datasource(database, source_system, url, identifier)
+    :param datasource: The function used to fetch / parse the resource."""
+    hr_person = datasource(database, source_system, url)
+    identifier = hr_person.get(u'id')
     cerebrum_person = get_cerebrum_person(database, identifier)
 
     update_person(database, source_system, hr_person, cerebrum_person)
@@ -634,27 +634,26 @@ def handle_person(database, source_system, url, identifier,
     database.commit()
 
 
-def select_identifier(body):
-    """Excavate identifier from message body."""
+def get_resource_url(body):
+    """Excavate resource URL from message body."""
     import json
     d = json.loads(body)
-    return (d.get(u'url'), d.get(u'id'))
+    return d.get(u'sub')
 
 
 def callback(database, source_system, routing_key, content_type, body,
              datasource=get_hr_person):
     """Call appropriate handler functions."""
     try:
-        (url, identifier) = select_identifier(body)
+        url = get_resource_url(body)
     except Exception as e:
         logger.warn('Received malformed message "{}"'.format(body))
         return True
 
     message_processed = True
     try:
-        handle_person(database, source_system, url, identifier,
-                      datasource=datasource)
-        logger.info(u'Successfully processed {}'.format(identifier))
+        handle_person(database, source_system, url, datasource=datasource)
+        logger.info(u'Successfully processed {}'.format(body))
     except RemoteSourceDown:
         message_processed = False
     except Exception as e:
@@ -721,7 +720,7 @@ def main(args=None):
         parsed_mock_data = _parse_hr_person(database,
                                             source_system,
                                             mock_data)
-        body = json.dumps({u'id': mock_data.get(u'personId'), u'url': None})
+        body = json.dumps({u'sub': None})
         callback(database, source_system, u'', u'', body,
                  datasource=lambda *x: parsed_mock_data)
     else:
