@@ -130,10 +130,15 @@ class NewStudentHelper(object):
         affs on the owner (person).
         """
         # `any` returns `False` on an empty collection - just what we want!
-        return any(
-            aff['affiliation'] == self.co.affiliation_student
-            and aff['status'] == self.co.affiliation_status_student_ny
-            for aff in self.get_account_type_affs(account))
+        affs = self.get_account_type_affs(account)
+        return (
+            any(aff['affiliation'] == self.co.affiliation_student and
+                aff['status'] == self.co.affiliation_status_student_ny
+                for aff in affs) and
+            all(aff['affiliation'] == self.co.affiliation_student and
+                aff['status'] == self.co.affiliation_status_student_ny or
+                aff['status'] == self.co.affiliation_status_student_opptak
+                for aff in affs))
 
     def is_inactive_account(self, account):
         """ Check if account is inactive.
