@@ -884,7 +884,68 @@ class EntityContactInfo(Entity):
         %s   /* where clause, if any */
         ORDER BY ec.entity_id, ec.contact_pref""" % (join, where), binds)
     # end list_contact_info
-# end EntityContactInfo
+
+    def sort_contact_info(self, spec, contacts):
+        """Sort an entitys contact info according to a specification.
+
+            The following specification:
+                [(system_fs, mobile),
+                 (system_sap, home),
+                 (system_fs, None),
+                 (None, mobile),
+                 (None, None)]
+            Will order mobile numbers from FS before home numbers from SAP.
+            Then it will prefer all contact values from FS, before prefering
+            all mobile numbers from other systems. None is in this context
+            a wildcard. The (None, None) tuple matches all source systems
+            and contact types.
+
+            If a source_system and contact_type combination is not matched by
+            the specification, it will be filtered out from the sorted results.
+
+        :param spec: A list of tuples defining the specification contacts
+            should be sorted according to.
+        :param contacts: A list of db_row objects representing contacts.
+        :return: A list of db_row objects sorted according to spec.
+        """
+        from functools import total_ordering
+
+        # Term for elements that should be dropped
+        @total_ordering
+        class Exclude(object):
+            def __lt__(self, other):
+                return True
+
+            def __eq__(self, other):
+                return (self is other)
+
+        # Utility function for resolving order according to spec
+        def order_to_spec(spec, e):
+            key = (e['source_system'], e['contact_type'])
+            if key in spec:
+                return spec.index(key)
+
+            (s, t) = key
+            if (s, None) in spec:
+                return spec.index((s, None))
+            elif (None, t) in spec:
+                return spec.index((None, t))
+            elif (None, None) in spec:
+                return spec.index((None, None))
+            else:
+                return Exclude()
+
+        from operator import itemgetter
+        from functools import partial
+
+        # Sort by preference before sorting by spec
+        pref_sorted = sorted(contacts, key=itemgetter('contact_pref'))
+        spec_sorted = sorted(pref_sorted, key=partial(order_to_spec, spec))
+
+        # Filter out elements that are not defined in the spec
+        return filter(
+            lambda e: not isinstance(order_to_spec(spec, e), Exclude),
+            spec_sorted)
 
 
 class EntityAddress(Entity):
