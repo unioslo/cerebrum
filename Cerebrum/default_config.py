@@ -84,6 +84,15 @@ MAKE_PASSWORD_LENGTH = 8
 # Cerebrum.modules.pwcheck.confargs/CereconfMixin
 PASSWORD_TEST_ARGUMENTS = {}
 
+# Specification for selection of phone numbers for sending SMS.
+# I.e. SMS_NUMBER_SELECTOR = [
+#   (co.system_fs, co.contact_voip_extension),
+#   (None, co.contact_mobile),
+#   (co.system_sap, None),
+#   (None, None)]
+# None is to be regarded as a wildcard.
+SMS_NUMBER_SELECTOR = []
+
 # Look for things like person name by evaluating source systems in in
 # this order
 SYSTEM_LOOKUP_ORDER = ("system_manual",)

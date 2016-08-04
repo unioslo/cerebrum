@@ -171,3 +171,41 @@ def test_delete_entity_with_contact_info(entity, system_a, contact_foo):
     assert len(entity.list_contact_info(entity_id=entity_id)) == 0
     with pytest.raises(NotFoundError):
         entity.find(entity_id)
+
+
+def test_sort_contact_info(entity, contact_foo, contact_bar, system_a,
+                           system_b):
+    entity.add_contact_info(system_a, contact_foo, 'w', pref=2)
+    entity.add_contact_info(system_b, contact_foo, 'x', pref=4)
+    entity.add_contact_info(system_a, contact_bar, 'y', pref=3)
+    entity.add_contact_info(system_b, contact_foo, 'z', pref=1)
+    contacts = entity.get_contact_info()
+
+    spec = []
+    result = entity.sort_contact_info(spec, contacts)
+    assert len(result) == 0
+
+    spec = [(system_b, contact_foo), (system_a, contact_foo)]
+    result = entity.sort_contact_info(spec, contacts)
+    assert len(result) == 3
+    assert result[0]['source_system'] == system_b
+    assert result[0]['contact_pref'] == 1
+    assert result[2]['source_system'] == system_a
+
+    spec = [(None, contact_bar), (system_b, contact_foo)]
+    result = entity.sort_contact_info(spec, contacts)
+    assert len(result) == 3
+    assert (result[0]['source_system'] == system_a and
+            result[0]['contact_type'] == contact_bar)
+    assert (result[1]['contact_pref'] == 1)
+
+    spec = [(system_b, None)]
+    result = entity.sort_contact_info(spec, contacts)
+    assert all(map(lambda x: x['source_system'] == system_b, result))
+    assert len(result) == 2
+    assert result[0]['contact_pref'] == 1
+
+    spec = [(None, None)]
+    result = entity.sort_contact_info(spec, contacts)
+    assert len(result) == 4
+    assert result[0]['contact_pref'] == 1
