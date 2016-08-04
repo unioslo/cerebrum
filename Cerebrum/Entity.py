@@ -905,7 +905,8 @@ class EntityContactInfo(Entity):
             the specification, it will be filtered out from the sorted results.
 
         :param spec: A list of tuples defining the specification contacts
-            should be sorted according to.
+            should be sorted according to. The tuple members type must be
+            subclassed from CerebrumCode or NoneType.
         :param contacts: A list of db_row objects representing contacts.
         :return: A list of db_row objects sorted according to spec.
         """
