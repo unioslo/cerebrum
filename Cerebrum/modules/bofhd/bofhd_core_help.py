@@ -879,6 +879,10 @@ arg_help = {
     'string_from_to':
         ['from_to', 'Enter end date (YYYY-MM-DD) or ' +
          'begin and end date (YYYY-MM-DD--YYYY-MM-DD)'],
+    'string_sms':
+        ['string_sms',
+         'Enter SMS-message',
+         'Limitations: 160 7-bit characters, 140 8-bit characters'],
     'string_why':
         ['why', 'Why?',
          'You should type a text indicating why you perform the operation'],
