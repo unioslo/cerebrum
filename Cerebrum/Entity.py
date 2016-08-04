@@ -885,7 +885,8 @@ class EntityContactInfo(Entity):
         ORDER BY ec.entity_id, ec.contact_pref""" % (join, where), binds)
     # end list_contact_info
 
-    def sort_contact_info(self, spec, contacts):
+    @staticmethod
+    def sort_contact_info(spec, contacts):
         """Sort an entitys contact info according to a specification.
 
             The following specification:
