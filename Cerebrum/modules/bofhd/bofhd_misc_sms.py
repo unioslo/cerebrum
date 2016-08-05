@@ -50,6 +50,7 @@ class BofhdExtension(BofhdCommonMethods):
         fs=FormatSuggestion(
             'Message sent to %s.', ('number',)),
         perm_filter='is_superuser')
+
     def misc_sms_message(self, operator, account_name, message):
         """
         Sends SMS message(s)

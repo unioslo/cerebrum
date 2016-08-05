@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2015 University of Oslo, Norway
+# Copyright 2013-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -881,8 +881,7 @@ arg_help = {
          'begin and end date (YYYY-MM-DD--YYYY-MM-DD)'],
     'string_sms':
         ['string_sms',
-         'Enter SMS-message',
-         'Limitations: 160 7-bit characters, 140 8-bit characters'],
+         'Enter SMS-message'],
     'string_why':
         ['why', 'Why?',
          'You should type a text indicating why you perform the operation'],
