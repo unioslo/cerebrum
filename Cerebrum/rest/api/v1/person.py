@@ -1,3 +1,6 @@
+# coding: utf-8
+""" Person API. """
+
 from flask import url_for
 from flask_restplus import Namespace, Resource, abort
 
@@ -65,10 +68,7 @@ PersonAccount = api.model('PersonAccount', {
 })
 
 Person = api.model('Person', {
-    'href': fields.base.Url(
-        endpoint='.person',
-        absolute=True,
-        description='URL to this resource'),
+    'href': fields.href('.person'),
     'id': fields.base.Integer(
         default=None,
         description='Person entity ID'),

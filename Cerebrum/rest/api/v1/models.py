@@ -1,3 +1,5 @@
+# coding: utf-8
+""" API models. """
 from Cerebrum.rest.api import fields
 
 from . import api
@@ -41,7 +43,6 @@ EntityOwner = api.model('EntityOwner', {
         ctype='EntityType',
         description='Entity type'),
     'href': fields.UrlFromEntityType(
-        absolute=True,
         description='URL to resource'),
 })
 
@@ -102,10 +103,8 @@ EntityNameWithLanguage = api.model('EntityNameWithLanguage', {
 
 # Model for referencing OUs by ID
 OU = api.model('OU', {
-    'href': fields.base.Url(
-        endpoint='.ou',
-        absolute=True,
-        description='OU resource URL'),
+    'href': fields.href(
+        '.ou', description='OU resource URL'),
     'id': fields.base.Integer(
         description='OU entity ID'),
 })

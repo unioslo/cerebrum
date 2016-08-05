@@ -1,3 +1,5 @@
+# coding: utf-8
+""" OrgUnit API. """
 from flask_restplus import Namespace, Resource, abort
 
 from Cerebrum.rest.api import db, auth, fields
@@ -47,10 +49,7 @@ def format_ou(ou):
 
 
 OrganizationalUnit = api.model('OrganizationalUnit', {
-    'href': fields.base.Url(
-        endpoint='.ou',
-        absolute=True,
-        description='URL to this resource'),
+    'href': fields.href('.ou'),
     'id': fields.base.Integer(
         description='OU entity ID'),
     'contact': fields.base.List(

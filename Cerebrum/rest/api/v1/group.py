@@ -1,7 +1,9 @@
-from flask_restplus import Namespace, Resource, abort, reqparse
+# coding: utf-8
+""" Group API. """
+
+from flask_restplus import Namespace, Resource, abort
 
 from Cerebrum.rest.api import db, auth, fields, utils
-
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
@@ -39,10 +41,7 @@ GroupModerator = api.model('GroupModerator', {
 
 
 Group = api.model('Group', {
-    'href': fields.base.Url(
-        endpoint='.group',
-        absolute=True,
-        description='URL to this resource'),
+    'href': fields.href('.group'),
     'id': fields.base.Integer(
         description='Group entity ID'),
     'create_date': fields.DateTime(
@@ -58,9 +57,8 @@ Group = api.model('Group', {
     'moderators': fields.base.List(
         fields.base.Nested(GroupModerator),
         description='Group moderators'),
-    'members': fields.base.Url(
-        endpoint='.group-members',
-        absolute=True,
+    'members': fields.href(
+        '.group-members',
         description='URL to the resource containing group members'),
 })
 
@@ -87,10 +85,7 @@ class GroupResource(Resource):
 
 
 PosixGroup = api.model('PosixGroup', {
-    'href': fields.base.Url(
-        endpoint='.posixgroup',
-        absolute=True,
-        description='URL to this resource'),
+    'href': fields.href('.posixgroup'),
     'id': fields.base.Integer(
         description='Group entity ID'),
     'posix': fields.base.Boolean(
@@ -118,10 +113,7 @@ class PosixGroupResource(Resource):
 
 
 GroupListItem = api.model('GroupListItem', {
-    'href': fields.base.Url(
-        endpoint='.group',
-        absolute=True,
-        description='URL to this resource'),
+    'href': fields.href('.group'),
     'name': fields.base.String(
         description='Group name'),
     'id': fields.base.Integer(
@@ -200,7 +192,6 @@ class GroupListResource(Resource):
 
 GroupMember = api.model('GroupMember', {
     'href': fields.UrlFromEntityType(
-        absolute=True,
         type_field='member_type',
         description='URL to this resource'),
     'id': fields.base.Integer(
