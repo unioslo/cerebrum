@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 # encoding: utf-8
 u"""Application bootstrap"""
+from __future__ import absolute_import
 
 import logging
 import logging.config
 import time
 from flask import Flask, g, request
 from werkzeug.contrib.fixers import ProxyFix
-from database import Database
-from auth import Authentication
+from .database import Database
+from .auth import Authentication
 
 db = Database()
 auth = Authentication()
@@ -28,7 +29,7 @@ def create_app(config):
     auth.init_app(app, db)
 
     @app.before_request
-    def before_request():
+    def register_request_start():
         g.request_start = time.time()
 
     @app.after_request
