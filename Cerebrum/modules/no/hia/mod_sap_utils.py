@@ -33,8 +33,6 @@ TODO: This module should be profiled.
 
 import re
 import sys
-import cerebrum_path
-import cereconf
 from mx.DateTime import strptime
 from mx.DateTime import now
 
@@ -371,8 +369,8 @@ class _SAPPersonDataTuple(_SAPTupleBase):
                     'sap_fax': _with_strip(29),
                     'sap_address': (range(18, 22),
                                     lambda *rest: ", ".join(x.strip()
-                                                            for x in rest)
-                                    or None),
+                                                            for x in rest) or
+                                    None),
                     'sap_zip': _with_strip(23),
                     'sap_city': _with_strip(22),
                     'sap_country': _with_strip(24),
@@ -382,7 +380,8 @@ class _SAPPersonDataTuple(_SAPTupleBase):
 
     def expired(self):
         """Is this entry expired?"""
-        return self.sap_termination_date and (self.sap_termination_date < now())
+        return (self.sap_termination_date and
+                (self.sap_termination_date < now()))
 
     # TODO: Should this really just return True?
     def valid(self):
@@ -390,9 +389,10 @@ class _SAPPersonDataTuple(_SAPTupleBase):
         return True
 
     def reserved_for_export(self):
-        """Whether this person is reserved from export to catalogue services."""
+        """Whether this person is reserved from export to catalogue
+        services."""
         return (self.sap_publish_tag and
-               (self.sap_publish_tag != "Kan publiseres"))
+                (self.sap_publish_tag != "Kan publiseres"))
 
 
 class _SAPPersonDataTupleFok(_SAPPersonDataTuple):
@@ -417,7 +417,7 @@ class _SAPPersonDataTupleMGMU(_SAPPersonDataTuple):
     def valid(self):
         # TODO: Put the validation of the sap codes here
         return True
-        #"""The MG-MU combination must be set in cereconf for the person to be
+        # """The MG-MU combination must be set in cereconf for the person to be
         # valid."""
         # return (cereconf.SAP_MG_MU_CODES.has_key(self.sap_mg) and
         #       (self.sap_mu in cereconf.SAP_MG_MU_CODES[self.sap_mg]))
@@ -502,7 +502,8 @@ class _SAPUtvalgTuple(_SAPTupleBase):
 
     def expired(self):
         """Is this entry expired?"""
-        return self.sap_termination_date and (self.sap_termination_date < now())
+        return (self.sap_termination_date and
+                (self.sap_termination_date < now()))
 
     def valid(self):
         """Is this entry to be ignored?"""

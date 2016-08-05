@@ -27,7 +27,6 @@ from Cerebrum import Constants
 from Cerebrum.modules.no.Constants import SAPLonnsTittelKode
 
 
-
 class SAPConstants(Constants.Constants):
     """
     This class embodies all constants that we need to address HR-related
