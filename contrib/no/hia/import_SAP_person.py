@@ -448,7 +448,7 @@ def process_people(filename, use_fok):
 
     Each line in filename contains SAP information about one person.
     """
-
+    processed_persons = set()
     for p in make_person_iterator(
             file(filename, "r"), use_fok, logger):
         if not p.valid():
@@ -466,6 +466,10 @@ def process_people(filename, use_fok):
         # If the IDs are inconsistence with Cerebrum, skip the record
         person = populate_external_ids(p)
         if person is None:
+            logger.info(
+                "Ignoring person sap_id=%s, fnr=%s "
+                "(inconsistent IDs in Cerebrum)",
+                p.sap_ansattnr, p.sap_fnr)
             continue
 
         populate_names(person, p)
@@ -482,6 +486,26 @@ def process_people(filename, use_fok):
         populate_personal_title(person, p)
 
         # Sync person object with the database
+        person.write_db()
+        processed_persons.add(person.entity_id)
+    return processed_persons
+
+
+def clean_person_data(processed_persons):
+    """Removes information from person objects.
+
+    :param set processed_persons: Person ids which information should not be
+        removed from."""
+    person = Factory.get('Person')(database)
+    existing_persons = set(map(lambda x: x['person_id'],
+                               person.list_persons()))
+    for person_id in existing_persons - processed_persons:
+        person.clear()
+        person.find(person_id)
+        person.populate_contact_info(const.system_sap)
+        person.populate_address(const.system_sap)
+        person.delete_name_with_language(name_variant=const.personal_title,
+                                         name_language=const.language_nb)
         person.write_db()
 
 
@@ -511,7 +535,8 @@ def main():
     database = Factory.get("Database")()
     database.cl_init(change_program='import_SAP')
 
-    process_people(args.person_file, args.use_fok)
+    processed_persons = process_people(args.person_file, args.use_fok)
+    clean_person_data(processed_persons)
 
     if args.commit:
         database.commit()
