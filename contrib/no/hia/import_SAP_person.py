@@ -500,6 +500,8 @@ def clean_person_data(processed_persons):
     existing_persons = set(map(lambda x: x['person_id'],
                                person.list_persons()))
     for person_id in existing_persons - processed_persons:
+        logger.info('Clearing contact info, addresses and title '
+                    'for person_id:{}'.format(person_id))
         person.clear()
         person.find(person_id)
         person.populate_contact_info(const.system_sap)
