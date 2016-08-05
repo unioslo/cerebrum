@@ -272,50 +272,6 @@ def populate_personal_title(person, fields):
                      str(const.work_title), person.entity_id)
 
 
-def populate_medarbeidergruppe(person, fields):
-    """Register medarbeidergruppe (mg) and medarbeiderunderguppe (mu) for a
-    person."""
-
-    # TODO: Add support for mg/mu in the Cerebrum/Entity.py or
-    # Cerebrum/Person.py module?
-
-    pass
-
-    # import pdb; pdb.set_trace()
-
-    # source_mg = fields.sap_mg
-    # if source_mg:
-    #     person.add_mg_with_language(name_variant=const.trait_sap_mg,
-    #                                 name_language=const.language_mb,
-    #                                 mg=source_mg)
-    #     logger.debug(
-    #         "Added %s '%s' for person id=%s",
-    #         str(const.trait_sap_mg),
-    #         source_mg,
-    #         person.entity_id)
-    # else:
-    #     person.delete_with_language(name_variant=const.trait_sap_mg,
-    #                                 name_language=const.language_nb)
-    #     logger.debug("Removed %s for person id=%s",
-    #                  str(const.trait_sap_mg), person.entity_id)
-
-    # source_mu = fields.sap_mu
-    # if source_mu:
-    #     person.add_mu_with_language(name_variant=const.trait_sap_mu,
-    #                                 name_language=const.language_mb,
-    #                                 mg=source_mu)
-    #     logger.debug(
-    #         "Added %s '%s' for person id=%s",
-    #         str(const.trait_sap_mu),
-    #         source_mg,
-    #         person.entity_id)
-    # else:
-    #     person.delete_with_language(name_variant=const.trait_sap_mu,
-    #                                 name_language=const.language_nb)
-    #     logger.debug("Removed %s for person id=%s",
-    #                  str(const.trait_sap_mu), person.entity_id)
-
-
 def _remove_communication(person, comm_type):
     """Delete a person's given communication type."""
     logger.debug("Removing comm type %s", comm_type)
@@ -487,14 +443,14 @@ def add_person_to_group(person, fields):
         person.get_name(const.system_cached, const.name_full), group_name))
 
 
-def process_people(filename, use_fok, use_mgmu=False):
+def process_people(filename, use_fok):
     """Scan filename and perform all the necessary imports.
 
     Each line in filename contains SAP information about one person.
     """
 
     for p in make_person_iterator(
-            file(filename, "r"), use_fok, use_mgmu, logger):
+            file(filename, "r"), use_fok, logger):
         if not p.valid():
             logger.info("Ignoring person sap_id=%s, fnr=%s (invalid entry)",
                         p.sap_ansattnr, p.sap_fnr)
@@ -525,8 +481,6 @@ def process_people(filename, use_fok, use_mgmu=False):
 
         populate_personal_title(person, p)
 
-        populate_medarbeidergruppe(person, p)
-
         # Sync person object with the database
         person.write_db()
 
@@ -545,9 +499,6 @@ def main():
                         help='Do not use forretningsområdekode for checking '
                              'if a person should be imported. (default: use.)')
     parser.set_defaults(use_fok=True)
-    parser.add_argument('--with-mgmu', dest='use_mgmu', action='store_true',
-                        help='Import medarbeider- and medarbeiderundergrupper')
-    parser.set_defaults(use_mgmu=False)
     parser.add_argument('-c', '--commit', dest='commit', action='store_true',
                         help='Write changes to DB.')
     args = parser.parse_args()
@@ -560,7 +511,7 @@ def main():
     database = Factory.get("Database")()
     database.cl_init(change_program='import_SAP')
 
-    process_people(args.person_file, args.use_fok, args.use_mgmu)
+    process_people(args.person_file, args.use_fok)
 
     if args.commit:
         database.commit()
