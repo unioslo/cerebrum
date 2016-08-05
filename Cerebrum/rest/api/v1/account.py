@@ -86,6 +86,10 @@ class AccountResource(Resource):
     def get(self, id):
         """Get account information."""
         ac = find_account(id)
+        try:
+            primary_email = ac.get_primary_mailaddress()
+        except Errors.NotFoundError:
+            primary_email = None
         return {
             'name': ac.account_name,
             'id': ac.entity_id,
@@ -96,7 +100,7 @@ class AccountResource(Resource):
             'create_date': ac.create_date,
             'expire_date': ac.expire_date,
             'contexts': [row['spread'] for row in ac.get_spread()],
-            'primary_email': ac.get_primary_mailaddress(),
+            'primary_email': primary_email,
             'active': not (ac.is_expired() or ac.is_deleted()),
         }
 
