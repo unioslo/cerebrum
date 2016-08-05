@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import print_function
 
 
 # Current Cerebrum version as a (major, minor, micro) tuple.
@@ -30,4 +31,4 @@ if __name__ == '__main__':
     #
     # This can be useful for non-Python scripts that want to get at
     # the Cerebrum release number.
-    print __version__
+    print(__version__)
