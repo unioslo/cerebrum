@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2004-2015 University of Oslo, Norway
+# Copyright 2004-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,14 +19,19 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import cerebrum_path
-from Cerebrum.modules.PasswordNotifier import PasswordNotifier, _send_mail
+from Cerebrum.modules.PasswordNotifier import PasswordNotifier
+from Cerebrum.modules.PasswordNotifier import _send_mail
 
 
 class UiaPasswordNotifier(PasswordNotifier):
     """
     Mixin for passwordnotifier to record reminded users
     """
+
+    # Additional default settings for this class
+    defaults = {
+        'list_to': None,
+    }
 
     def __init__(self, db=None, logger=None, dryrun=None, *rest, **kw):
         """
@@ -41,12 +46,14 @@ class UiaPasswordNotifier(PasswordNotifier):
         @type dryrun: boolean
         @keyword dryrun: Refrain from side effects?
         """
-        super(UiaPasswordNotifier, self).__init__(db, logger, dryrun, *rest, **kw)
+        super(UiaPasswordNotifier, self).__init__(db, logger, dryrun,
+                                                  *rest, **kw)
         self.reminded_users = list()
 
     def inc_num_notifications(self, account):
         """
-        Increases the number for trait by one, and sets other interesting fields.
+        Increases the number for trait by one, and sets other interesting
+        fields.
         """
         traits = account.get_trait(self.config.trait)
         if traits is not None:
@@ -55,8 +62,9 @@ class UiaPasswordNotifier(PasswordNotifier):
 
     def process_accounts(self):
         super(UiaPasswordNotifier, self).process_accounts()
-        if (not self.dryrun and hasattr(self.config, 'list_to') and self.config.list_to
-                and self.config.summary_from):
+        if (not self.dryrun and
+                self.config.list_to and
+                self.config.summary_from):
             self.splatted_users.sort()
             self.reminded_users.sort()
             body = "Splatted users:\n{}\n\nReminded users:\n{}\n".format(
