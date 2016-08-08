@@ -43,6 +43,73 @@ class BofhdExtension(BofhdCommonMethods):
 
     authz = BofhdAuth
 
+    all_commands['misc_sms_password'] = Command(
+        ('misc', 'sms_password'),
+        AccountName(),
+        SimpleString(optional=True, default='no'),
+        fs=FormatSuggestion(
+            'Password sent to %s.', ('number',)),
+        perm_filter='is_superuser')
+
+    def misc_sms_password(self, operator, account_name, language='no'):
+        u""" Send last password set for account in cache. """
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Only superusers may send passwords by SMS")
+
+        # Select last password change state entry for the victim
+        try:
+            state = filter(
+                lambda k: account_name == k.get('account_id'),
+                filter(lambda e: e.get('operation') == 'user_passwd',
+                       self._get_cached_passwords(operator)))[-1]
+        except IndexError:
+            raise CerebrumError(
+                'No password for {} in session'.format(account_name))
+
+        # Get person object
+        person = self._get_person('account_name', account_name)
+
+        # Select phone number, filter out numbers from systems where we do not
+        # have an affiliation.
+        try:
+            spec = map(lambda (s, t): (self.const.human2constant(s),
+                                       self.const.human2constant(t)),
+                       cereconf.SMS_NUMBER_SELECTOR)
+            mobile = person.sort_contact_info(spec, person.get_contact_info())
+            person_in_systems = [int(af['source_system']) for af in
+                                 person.list_affiliations(
+                                     person_id=person.entity_id)]
+            mobile = filter(lambda x: x['source_system'] in person_in_systems,
+                            mobile)[0]['contact_value']
+
+        except IndexError:
+            raise CerebrumError(
+                'No applicable phone number for {}'.format(account_name))
+
+        # Load and fill template for chosen language
+        try:
+            from os import path
+            with open(path.join(cereconf.TEMPLATE_DIR,
+                                'password_sms_{}.template'.format(language)),
+                      'r') as f:
+                msg = f.read().format(account_name, state.get('password'))
+        except IOError:
+            raise CerebrumError(
+                'Could not load template for language {}'.format(language))
+
+        # Maybe send SMS
+        if getattr(cereconf, 'SMS_DISABLE', False):
+            self.logger.info(
+                'SMS disabled in cereconf, would have '
+                'sent password SMS to {}'.format(mobile))
+        else:
+            sms = SMSSender(logger=self.logger)
+            if not sms(mobile, msg, confirm=True):
+                raise CerebrumError(
+                    'Unable to send message to {}, aborting'.format(mobile))
+
+        return {'number': mobile}
+
     all_commands['misc_sms_message'] = Command(
         ('misc', 'sms_message'),
         AccountName(),
