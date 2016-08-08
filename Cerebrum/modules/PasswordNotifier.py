@@ -219,15 +219,27 @@ class PasswordNotifier(object):
                       else 'affiliation': aff_or_status}
             for row in person.list_affiliations(**lookup):
                 person_id = row['person_id']
-                if person_id in old_ids:
-                    continue
+                # if person_id in old_ids:
+                #     continue
                 person.clear()
                 person.find(person_id)
-                account_id = person.get_primary_account()
-                if account_id:
-                    history = [x['set_at'] for x in ph.get_history(account_id)]
-                    if history and (self.today - max(history) > max_age):
-                        old.add(account_id)
+                # account_id = person.get_primary_account()
+                for account_row in person.get_accounts():
+                    # consider all accounts belonging to this person
+                    account_id = account_row['account_id']
+                    if account_id:
+                        history = [x['set_at'] for x in ph.get_history(account_id)]
+                        if history and (self.today - max(history) > max_age):
+                            old.add(account_id)
+                        else:
+                            # The account does not have an expired password
+                            # according to the special rules.
+                            # Remove it from old_ids if it was put there
+                            # by the default rules.
+                            try:
+                                old_ids.remove(account_id)
+                            except KeyError:
+                                pass
             self.logger.info(
                 'Accounts with affiliation %s with old password: %s',
                 str(affiliation), len(old))
