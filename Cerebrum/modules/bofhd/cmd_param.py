@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -207,6 +207,10 @@ class QuarantineType(Parameter):
 class SimpleString(Parameter):
     _type = 'simpleString'
     _help_ref = 'string'
+
+class SMSString(Parameter):
+    _type = 'simpleString'
+    _help_ref = 'string_sms'
 
 class Spread(Parameter):
     _type = 'spread'

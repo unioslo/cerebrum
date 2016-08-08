@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2015 University of Oslo, Norway
+
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1427,7 +1428,6 @@ class Messages(dict):
 
 
 class SMSSender():
-
     """Communicates with a Short Messages Service (SMS) gateway for sending
     out SMS messages.
 
@@ -1435,7 +1435,6 @@ class SMSSender():
     HTTPS requests for communicating, and is also used by FS, but then through
     database links. This might not be the solution other institutions want to
     use if they have their own gateway.
-
     """
 
     def __init__(self, logger=None, url=None, user=None, system=None):

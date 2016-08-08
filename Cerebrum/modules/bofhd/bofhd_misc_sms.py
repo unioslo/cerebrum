@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright 2016 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" This module contains a command for sending passwords by SMS. """
+
+import cereconf
+
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import (
+    BofhdExtension as UiOBofhdExtension)
+from Cerebrum.modules.bofhd.cmd_param import (
+    Command, AccountName, FormatSuggestion, SimpleString, SMSString)
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func
+from Cerebrum.Utils import SMSSender
+from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
+
+uio_helpers = ['_get_cached_passwords']
+
+
+@copy_func(
+    UiOBofhdExtension,
+    methods=uio_helpers)
+class BofhdExtension(BofhdCommonMethods):
+    all_commands = {}
+
+    authz = BofhdAuth
+
+    all_commands['misc_sms_message'] = Command(
+        ('misc', 'sms_message'),
+        AccountName(),
+        SMSString(),
+        fs=FormatSuggestion(
+            'Message sent to %s.', ('number',)),
+        perm_filter='is_superuser')
+
+    def misc_sms_message(self, operator, account_name, message):
+        """
+        Sends SMS message(s)
+        """
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied('Only superusers may send messages by SMS')
+        # Get person object
+        person = self._get_person('account_name', account_name)
+        # Select phone number, filter out numbers from systems where we do not
+        # have an affiliation.
+        try:
+            spec = map(lambda (s, t): (self.const.human2constant(s),
+                                       self.const.human2constant(t)),
+                       cereconf.SMS_NUMBER_SELECTOR)
+            mobile = person.sort_contact_info(spec, person.get_contact_info())
+            person_in_systems = [int(af['source_system']) for af in
+                                 person.list_affiliations(
+                                     person_id=person.entity_id)]
+            mobile = filter(lambda x: x['source_system'] in person_in_systems,
+                            mobile)[0]['contact_value']
+        except IndexError:
+            raise CerebrumError(
+                'No applicable phone number for {}'.format(account_name))
+        # Send SMS
+        if getattr(cereconf, 'SMS_DISABLE', False):
+            self.logger.info(
+                'SMS disabled in cereconf, would have '
+                'sent password SMS to {}'.format(mobile))
+        else:
+            sms = SMSSender(logger=self.logger)
+            if not sms(mobile, message, confirm=True):
+                raise CerebrumError(
+                    'Unable to send message to {}. Aborting.'.format(mobile))
+        return {'number': mobile}
