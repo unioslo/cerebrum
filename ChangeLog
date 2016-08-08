@@ -1,3 +1,11 @@
+2016-08-08  Karen   <cerebrum@cleomedes.uit.no>
+
+    * process_students.py: 'default_shell' is now initially set to 'const.posix_shell_bash' 
+    instead of 'None'.
+
+    * process_students.py (AccountUtil.create_user): Changed call to account.suggest_unames() 
+    so first parameter is fnr instead of const.account_namespace.
+
 2016-06-29  Karen   <cerebrum@cleomedes.uit.no>
 
     * export_xml_fronter.py: Adapted so it runs with new cerebrum and removed hifm_stedkode things. 

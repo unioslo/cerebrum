@@ -86,7 +86,8 @@ fast_test = False
 
 # Other globals (to make pychecker happy)
 autostud = logger = accounts = persons = None
-default_creator_id = default_expire_date = default_shell = None
+default_creator_id = default_expire_date = None
+default_shell = const.posix_shell_bash
 
 def pformat(obj):
     return pformat.pp.pformat(obj)
@@ -164,8 +165,7 @@ class AccountUtil(object):
                 # but name_full will exist.
                 last_name = person.get_name(const.system_cached, const.name_full)
                 assert last_name.count(' ') == 0
-            uname = account.suggest_unames(const.account_namespace,
-                                           first_name, last_name)[0]
+            uname = account.suggest_unames(fnr, first_name, last_name)[0]
         logger.info("uname %s will be used", uname)
         account.populate(uname,
                          const.entity_person,
