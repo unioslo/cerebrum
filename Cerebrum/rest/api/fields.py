@@ -52,3 +52,11 @@ class UrlFromEntityType(base.Url):
             return super(UrlFromEntityType, self).output(key, obj)
         except BuildError:
             return None
+
+
+def href(endpoint, description="URL to this resource"):
+    """ Create a reference to another API resource. """
+    return base.Url(
+        endpoint=endpoint,
+        absolute=False,
+        description=description)

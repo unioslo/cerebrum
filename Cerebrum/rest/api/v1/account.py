@@ -1,3 +1,6 @@
+# coding: utf-8
+""" Account API. """
+
 from flask_restplus import Namespace, Resource, abort
 
 from Cerebrum.rest.api import db, auth, fields, utils
@@ -48,10 +51,7 @@ AccountAffiliationList = api.model('AccountAffiliationList', {
 
 
 Account = api.model('Account', {
-    'href': fields.base.Url(
-        endpoint='.account',
-        absolute=True,
-        description='URL to this resource'),
+    'href': fields.href('.account'),
     'name': fields.base.String(
         description='Account name'),
     'id': fields.base.Integer(
@@ -106,10 +106,7 @@ class AccountResource(Resource):
 
 
 PosixAccount = api.model('PosixAccount', {
-    'href': fields.base.Url(
-        endpoint='.posixaccount',
-        absolute=True,
-        description='URL to this resource'),
+    'href': fields.href('.posixaccount'),
     'name': fields.base.String(
         description='Account name'),
     'id': fields.base.Integer(
@@ -239,10 +236,7 @@ class AccountEmailAddressResource(Resource):
 
 
 AccountListItem = api.model('AccountListItem', {
-    'href': fields.base.Url(
-        endpoint='.account',
-        absolute=True,
-        description='URL to this resource'),
+    'href': fields.href('.account'),
     'name': fields.base.String(
         description='Account name'),
     'id': fields.base.Integer(
