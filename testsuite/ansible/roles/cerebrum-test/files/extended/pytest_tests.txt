@@ -1,3 +1,4 @@
 test_extended/test_bofhd_session.py
 test_extended/test_bofhd_utils.py
 test_extended/test_dns
+test_rest
