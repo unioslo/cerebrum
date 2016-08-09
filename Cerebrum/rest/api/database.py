@@ -22,8 +22,10 @@
 
 from __future__ import unicode_literals
 
-from flask import g
+from functools import wraps
 from Cerebrum.Utils import Factory
+from Cerebrum.ChangeLog import ChangeLog
+from . import context
 
 
 _CLS_DB = Factory.get(b'Database')
@@ -31,54 +33,112 @@ _CLS_CONST = Factory.get(b'Constants')
 
 
 def _connect():
-    return _CLS_DB(client_encoding='utf-8')
+    db = _CLS_DB(client_encoding='utf-8')
+    if isinstance(db, ChangeLog):
+        db.cl_init()
+    return db
 
 
 class DatabaseContext(object):
-    """Interface to the Cerebrum database."""
+    """ Interface to the Cerebrum database.
+
+    Example:
+        app = Flask('name')
+        db = DatabaseContext(app)
+        with app.app_context():
+            db.connection.query("SELECT 'foo' as bar")
+            db.rollback()
+
+        @db.autocommit
+        def foo():
+            db.connection.query("SELECT 'foo' as bar")
+            raise Exception('rollback')
+
+        with app.app_context():
+            foo()
+    """
+
+    _change_by = context.ContextValue('database_change_by')
+    _db_conn = context.ContextValue('database')
+    _const = context.ContextValue('constants')
 
     def __init__(self, app=None):
-        self.app = app
+        self.__change_program = None
         if app is not None:
             self.init_app(app)
 
     def init_app(self, app):
         """ Setup app context. """
+        self.__change_program = app.name
         self.dryrun = app.config.get('DRYRUN', False)
-        app.teardown_appcontext(self.teardown)
-
-    def teardown(self, exception):
-        """ Close the database connection.
-
-        This method should be called at the end of each request.
-        """
-        conn = getattr(g, '_database', None)
-        try:
-            if conn is not None:
-                if exception:
-                    conn.rollback()
-                elif self.dryrun:
-                    conn.rollback()
-                else:
-                    conn.commit()
-                conn.close()
-        finally:
-            for attr in ('_database', '_constants'):
-                if hasattr(g, attr):
-                    delattr(g, attr)
+        app.teardown_appcontext(self.close)
 
     @property
     def connection(self):
         """ database connection. """
-        db = getattr(g, '_database', None)
-        if db is None:
-            db = g._database = _connect()
-        return db
+        if self._db_conn is None:
+            self._db_conn = _connect()
+            self._update_changelog()
+        return self._db_conn
 
     @property
     def const(self):
         """ constants. """
-        const = getattr(g, '_constants', None)
-        if const is None:
-            const = g._constants = _CLS_CONST(self.connection)
-        return const
+        if self._const is None:
+            self._const = _CLS_CONST(self.connection)
+        return self._const
+
+    def commit(self):
+        """ Commit changes.
+
+        If 'DRYRUN' is set to true, this method will actaully perform a
+        rollback.
+        """
+        if self._db_conn is None:
+            return
+        if self.dryrun:
+            self._db_conn.rollback()
+        if self._db_conn is not None:
+            self._db_conn.commit()
+
+    def rollback(self):
+        """ Roll back changes. """
+        if self._db_conn is None:
+            return
+        self._db_conn.rollback()
+
+    def autocommit(self, func):
+        """ Auto commit if function succeeds. """
+        @wraps(func)
+        def handle(*args, **kwargs):
+            try:
+                result = func(*args, **kwargs)
+                self.commit()
+                return result
+            except Exception:
+                self.rollback()
+                raise
+        return handle
+
+    def _update_changelog(self):
+        """ Update ChangeLog with change attributes. """
+        if self._db_conn is None:
+            return
+        if not isinstance(self._db_conn, ChangeLog):
+            return
+        self._db_conn.change_by = self._change_by
+        self._db_conn.change_program = self.__change_program
+
+    def set_change_by(self, user_id):
+        """ Set ChangeLog.change_by. """
+        self._change_by = user_id
+        self._update_changelog()
+
+    def close(self, exception):
+        """ Close the database connection.
+
+        This method should be called at the end of each request.
+        """
+        if self._db_conn is not None:
+            self._db_conn.close()
+        context.ContextValue.clear_object(self)

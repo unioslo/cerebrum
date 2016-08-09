@@ -196,13 +196,13 @@ class Authentication(object):
                     self.logger.info(
                         "Successful auth with {}".format(self.ctx.module))
                     # TODO: Does this belong here?
-                    self.db.connection.cl_init(
-                        change_id=self.account.entity_id)
+                    self.db.set_change_by(self.account.entity_id)
                     return
                 else:
                     # Need to log failed login attempts
                     self.logger.debug(
                         "Failed auth with {}".format(self.ctx.module))
+                    # TODO: Should we render and return a response here?
                     raise self.ctx.module.error
 
     def require(auth_obj, *auth_args, **auth_kw):
