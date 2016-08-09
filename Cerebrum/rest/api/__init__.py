@@ -26,12 +26,12 @@ def create_app(config):
     from Cerebrum.rest.api import v1
     app.register_blueprint(v1.blueprint, url_prefix='/v1')
 
-    db.init_app(app)
-    auth.init_app(app, db)
-
     @app.before_request
     def register_request_start():
         g.request_start = time.time()
+
+    db.init_app(app)
+    auth.init_app(app, db)
 
     @app.after_request
     def log_request_data(response):
