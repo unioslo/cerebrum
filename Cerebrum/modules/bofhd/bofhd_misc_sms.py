@@ -92,7 +92,8 @@ class BofhdExtension(BofhdCommonMethods):
             with open(path.join(cereconf.TEMPLATE_DIR,
                                 'password_sms_{}.template'.format(language)),
                       'r') as f:
-                msg = f.read().format(account_name, state.get('password'))
+                msg = f.read().format(account_name=account_name,
+                                      password=state.get('password'))
         except IOError:
             raise CerebrumError(
                 'Could not load template for language {}'.format(language))
