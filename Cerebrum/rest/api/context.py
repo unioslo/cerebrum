@@ -31,7 +31,7 @@ class ContextValue(object):
     >>> from flask import Flask
     >>> app = Flask('doctest')
     >>> class Example(object):
-    ...     foo = RequestAttr('foo')
+    ...     foo = ContextValue('foo')
     >>> Example.foo
     ContextValue('foo')
 
