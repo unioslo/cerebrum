@@ -85,8 +85,11 @@ class PublishingAMQP091Client(BaseAMQP091Client):
             try:
                 err_msg = 'Could not generate routing key'
                 if isinstance(msg, dict):
-                    event_type = msg['routing-key']
-                    del msg['routing-key']
+                    if 'routing-key' in msg:
+                        event_type = msg['routing-key']
+                        del msg['routing-key']
+                    else:
+                        event_type = 'unknown'
                 else:
                     event_type = msg.key
                     msg = msg.get_payload()

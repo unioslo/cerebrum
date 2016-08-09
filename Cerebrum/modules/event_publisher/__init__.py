@@ -139,10 +139,8 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         if skip_publish:
             return
 
-        data = change_type_to_message(self, change_type_id,
-                                      subject_entity,
-                                      destination_entity,
-                                      change_params)
+        data = (change_type_id, subject_entity, destination_entity,
+                change_params)
         # Conversion can discard data by returning false value
         if not data:
             return
@@ -156,6 +154,15 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
     def publish_log(self):
         """ Publish messages. """
         super(EventPublisher, self).publish_log()
+
+        def convert(msg):
+            if isinstance(msg, tuple):
+                return change_type_to_message(self, *msg)
+            else:
+                return msg
+
+        self.__queue = scim.merge_payloads(
+            filter(None, map(convert, self.__queue)))
         if self.__queue:
             self.__try_send_messages()
 
@@ -177,10 +184,10 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                 for event in unsent:
                     client.publish(event['message'])
                     ue.delete_event(event['eventid'])
-                    while self.__queue:
-                        message = self.__queue[0]
-                        client.publish(message)
-                        del self.__queue[0]
+                while self.__queue:
+                    message = self.__queue[0]
+                    client.publish(message)
+                    del self.__queue[0]
         except Exception as e:
             Factory.get_logger("cronjob") \
                 .error("Could not write message: %s", e)
@@ -250,8 +257,11 @@ class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
         dumps = json.dumps
         for event in events:
             # From python docs: use separators to get compact encoding
-            pl = event.get_payload()
-            pl['routing-key'] = event.key
+            if isinstance(event, scim.Event):
+                pl = event.get_payload()
+                pl['routing-key'] = event.key
+            else:
+                pl = event
             self.execute(qry, {'event': dumps(pl,
                                               separators=(',', ':'),
                                               encoding=self._db.encoding)})

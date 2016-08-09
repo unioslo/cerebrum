@@ -148,22 +148,6 @@ def _rename_key(msg, field, new_field):
         del msg['data'][field]
 
 
-# Fix change, category and meta_object_type for all events (cleaning up
-# existing cruft).
-@dispatch('.*_.*')
-def fix_cat_for_entities(msg, *args):
-    if '_' in msg['category']:
-        (msg['category'], msg['meta_object_type']) = msg['category'].split(
-            '_', 1)
-    return msg
-
-
-@dispatch('.*', '.*_.*')
-def fix_change_for_all(msg, *args):
-    if '_' in msg['change']:
-        (msg['meta_object_type'], msg['change']) = msg['change'].rsplit('_', 1)
-    return msg
-
 """
 
     # Account changes
@@ -371,10 +355,10 @@ def entity_note(msg, *args):
 @dispatch('entity', 'ext_id.*')
 def entity_external_id(msg, subj, *args):
     c = Factory.get('Constants')(args[-1])
-    x = c.EntityExternalId(msg['data']['type'])
+    x = c.EntityExternalId(msg['data']['id_type'])
     attr = {
-        c.externalid_groupsid: 'sid',
-        c.externalid_accountsid: 'sid',
+        # c.externalid_groupsid: 'sid',
+        # c.externalid_accountsid: 'sid',
         c.externalid_fodselsnr: 'nationalIdNumber',
         c.externalid_pass_number: 'passNumber',
         c.externalid_social_security_number: 'socialSecurityNumber',

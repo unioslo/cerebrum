@@ -29,6 +29,7 @@ import itertools
 import mx.DateTime as dt
 from Cerebrum.config.configuration import Configuration, ConfigDescriptor
 from Cerebrum.config.settings import String
+from Cerebrum.Utils import Factory
 
 
 class EventType(object):
@@ -137,7 +138,7 @@ class Event(object):
     def load_config(cls):
         from Cerebrum.config.loader import read
         config = EventConfig()
-        read(config, 'scim_event')
+        read(config, 'scim-event')
         config.validate()
         cls.issuer = config.issuer
         cls.url = config.urltemplate
@@ -197,6 +198,9 @@ class Event(object):
         if self.event == DELETE:
             return other.event in (REMOVE, DEACTIVATE, ADD, ACTIVATE, MODIFY,
                                    PASSWORD)
+        if self.event == other.event and self.event in (ADD, REMOVE, ACTIVATE,
+                                                        DEACTIVATE):
+            return True
         if self.audience != other.audience:
             return False
         return True
@@ -221,6 +225,8 @@ class Event(object):
                 return [self]
         elif self.event == DELETE:
             return [self]
+        elif other.event == DELETE:
+            return [other]
         elif (ACTIVATE == self.event and DEACTIVATE == other.event and
               self.audience == other.audience):
             return []
@@ -228,6 +234,9 @@ class Event(object):
                 self.audience == other.audience:
             return []
         elif self.event == other.event:
+            if self.event in (ADD, REMOVE, ACTIVATE, DEACTIVATE):
+                self.audience.update(other.audience)
+                return [self]
             if self.audience != other.audience:
                 return [self, other]
             self.attributes.update(other.attributes)
@@ -284,13 +293,23 @@ def merge_payloads(payloads):
                 new = current.merge(rest[0])
                 if not new:
                     rest.pop(0)
-                    rest = merged + rest
+                    merged.extend(rest)
+                    rest = merged
+                    if not rest:
+                        return finished
+                    merged = []
                     current = rest.pop(0)
                 elif len(new) == 1:
-                    rest.pop(0)
+                    if new[0] is not current:
+                        merged.extend(rest)
+                        rest = merged
+                        current = rest.pop(0)
+                        merged = []
+                    else:
+                        rest.pop(0)
                 else:
                     merged.append(rest.pop(0))
-            else:
+            else:  # merged is not empty
                 finished.append(current)
                 rest = merged
                 merged = []
