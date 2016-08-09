@@ -2,9 +2,6 @@ from flask_restplus import fields as base
 from werkzeug.routing import BuildError
 
 from Cerebrum.rest.api import db
-from Cerebrum.Utils import Factory
-
-co = Factory.get('Constants')(db.connection)
 
 
 # FIXME: We should not need the constant type for this to work.
@@ -14,13 +11,18 @@ class Constant(base.String):
     """Gets the string representation of a Cerebrum constant by code."""
     def __init__(self, ctype=None, **kwargs):
         super(Constant, self).__init__(**kwargs)
-        self.ctype = getattr(co, ctype)
+        self._ctype = ctype
+
+    @property
+    def ctype(self):
+        return getattr(db.const, self._ctype)
 
     def format(self, code):
         return str(self.ctype(code)) if code else None
 
     def output(self, key, data):
-        code = base.get_value(key if self.attribute is None else self.attribute, data)
+        code = base.get_value(key if self.attribute is None
+                              else self.attribute, data)
         return self.format(code)
 
 

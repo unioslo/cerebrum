@@ -27,7 +27,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 api = Namespace('groups', description='Group operations')
-co = Factory.get('Constants')(db.connection)
 
 
 def find_group(identifier):
@@ -258,7 +257,7 @@ class GroupMemberListResource(Resource):
 
         if 'member_type' in filters:
             try:
-                member_type = co.EntityType(filters['member_type'])
+                member_type = db.const.EntityType(filters['member_type'])
                 filters['member_type'] = int(member_type)
             except Errors.NotFoundError:
                 abort(404, message=u'Unknown entity type for type={}'.format(
@@ -266,7 +265,7 @@ class GroupMemberListResource(Resource):
 
         if 'member_spread' in filters:
             try:
-                member_spread = co.Spread(filters['member_spread'])
+                member_spread = db.const.Spread(filters['member_spread'])
                 filters['member_spread'] = int(member_spread)
             except Errors.NotFoundError:
                 abort(404, message=u'Unknown context for context={}'.format(

@@ -8,11 +8,12 @@ import logging.config
 import time
 from flask import Flask, g, request
 from werkzeug.contrib.fixers import ProxyFix
-from .database import Database
-from .auth import Authentication
+from . import database as _database
+from . import auth as _auth
 
-db = Database()
-auth = Authentication()
+
+db = _database.DatabaseContext()
+auth = _auth.Authentication()
 
 
 def create_app(config):
@@ -42,7 +43,7 @@ def create_app(config):
                             method=request.method,
                             path=request.full_path,
                             code=response.status_code,
-                            auth=str(auth._module),
+                            auth=str(auth.ctx.module),
                             ip=request.remote_addr,
                             ua=request.user_agent,
                             req_time=req_time_millis))

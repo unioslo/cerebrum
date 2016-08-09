@@ -13,7 +13,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.QuarantineHandler import QuarantineHandler
 
 api = Namespace('accounts', description='Account operations')
-co = Factory.get('Constants')(db.connection)
 
 
 def find_account(identifier):
@@ -180,7 +179,7 @@ class AccountQuarantineListResource(Resource):
         spreads = None
         if args.context:
             try:
-                spreads = [int(co.Spread(args.context))]
+                spreads = [int(db.const.Spread(args.context))]
             except Errors.NotFoundError:
                 abort(404, message=u'Unknown context {!r}'.format(
                     args.context))
@@ -297,7 +296,7 @@ class AccountListResource(Resource):
 
         if 'owner_type' in filters:
             try:
-                owner_type = co.EntityType(filters['owner_type'])
+                owner_type = db.const.EntityType(filters['owner_type'])
                 filters['owner_type'] = int(owner_type)
             except Errors.NotFoundError:
                 abort(404,

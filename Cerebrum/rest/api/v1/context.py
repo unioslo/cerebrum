@@ -1,12 +1,10 @@
-from flask_restplus import Namespace, Resource, abort, reqparse
+from flask_restplus import Namespace, Resource, abort
 from Cerebrum.rest.api import db, auth, fields
 
 from Cerebrum import Errors
 from Cerebrum.Entity import EntitySpread
-from Cerebrum.Utils import Factory
 
 api = Namespace('contexts', description='Context operations')
-co = Factory.get('Constants')(db.connection)
 
 
 # Model for data from EntitySpread.list_spreads()
@@ -47,7 +45,7 @@ class ContextListResource(Resource):
             etypes = []
             for etype in filters['entity_types']:
                 try:
-                    entity_type = co.EntityType(etype)
+                    entity_type = db.const.EntityType(etype)
                     int(entity_type)
                     etypes.append(entity_type)
                 except Errors.NotFoundError:
