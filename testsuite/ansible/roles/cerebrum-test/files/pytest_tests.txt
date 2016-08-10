@@ -8,3 +8,5 @@ test_core/test_core_Group.py
 test_core/test_core_OU.py
 test_core/test_core_Utils.py
 test_core/test_utils
+test_rest
+

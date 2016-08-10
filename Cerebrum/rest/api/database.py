@@ -1,32 +1,144 @@
-from flask import _app_ctx_stack as stack
+#!/usr/bin/env python
+# coding: utf-8
+#
+# Copyright 2016 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Database context for a flask app. """
+
+from __future__ import unicode_literals
+
+from functools import wraps
 from Cerebrum.Utils import Factory
+from Cerebrum.ChangeLog import ChangeLog
+from . import context
 
 
-class Database(object):
-    """Interface to the Cerebrum database."""
+_CLS_DB = Factory.get(b'Database')
+_CLS_CONST = Factory.get(b'Constants')
+
+
+def _connect():
+    db = _CLS_DB(client_encoding='utf-8')
+    if isinstance(db, ChangeLog):
+        db.cl_init()
+    return db
+
+
+class DatabaseContext(object):
+    """ Interface to the Cerebrum database.
+
+    Example:
+        app = Flask('name')
+        db = DatabaseContext(app)
+        with app.app_context():
+            db.connection.query("SELECT 'foo' as bar")
+            db.rollback()
+
+        @db.autocommit
+        def foo():
+            db.connection.query("SELECT 'foo' as bar")
+            raise Exception('rollback')
+
+        with app.app_context():
+            foo()
+    """
+
+    _change_by = context.ContextValue('database_change_by')
+    _db_conn = context.ContextValue('database')
+    _const = context.ContextValue('constants')
+
     def __init__(self, app=None):
-        self.app = app
+        self.__change_program = None
         if app is not None:
             self.init_app(app)
 
     def init_app(self, app):
-        app.teardown_appcontext(self.teardown)
-
-    def connect(self):
-        return Factory.get('Database')(client_encoding='UTF-8')
-
-    def teardown(self, exception):
-        """Closes the database connection at the end of the request."""
-        ctx = stack.top
-        if hasattr(ctx, 'db'):
-            ctx.db.close()
+        """ Setup app context. """
+        self.__change_program = app.name
+        self.dryrun = app.config.get('DRYRUN', False)
+        app.teardown_appcontext(self.close)
 
     @property
     def connection(self):
-        """Returns a database connection.
-        Creates one if there is none for the current application context."""
-        ctx = stack.top
-        if ctx is not None:
-            if not hasattr(ctx, 'db'):
-                ctx.db = self.connect()
-            return ctx.db
+        """ database connection. """
+        if self._db_conn is None:
+            self._db_conn = _connect()
+            self._update_changelog()
+        return self._db_conn
+
+    @property
+    def const(self):
+        """ constants. """
+        if self._const is None:
+            self._const = _CLS_CONST(self.connection)
+        return self._const
+
+    def commit(self):
+        """ Commit changes.
+
+        If 'DRYRUN' is set to true, this method will actaully perform a
+        rollback.
+        """
+        if self._db_conn is None:
+            return
+        if self.dryrun:
+            self._db_conn.rollback()
+        if self._db_conn is not None:
+            self._db_conn.commit()
+
+    def rollback(self):
+        """ Roll back changes. """
+        if self._db_conn is None:
+            return
+        self._db_conn.rollback()
+
+    def autocommit(self, func):
+        """ Auto commit if function succeeds. """
+        @wraps(func)
+        def handle(*args, **kwargs):
+            try:
+                result = func(*args, **kwargs)
+                self.commit()
+                return result
+            except Exception:
+                self.rollback()
+                raise
+        return handle
+
+    def _update_changelog(self):
+        """ Update ChangeLog with change attributes. """
+        if self._db_conn is None:
+            return
+        if not isinstance(self._db_conn, ChangeLog):
+            return
+        self._db_conn.change_by = self._change_by
+        self._db_conn.change_program = self.__change_program
+
+    def set_change_by(self, user_id):
+        """ Set ChangeLog.change_by. """
+        self._change_by = user_id
+        self._update_changelog()
+
+    def close(self, exception):
+        """ Close the database connection.
+
+        This method should be called at the end of each request.
+        """
+        if self._db_conn is not None:
+            self._db_conn.close()
+        context.ContextValue.clear_object(self)

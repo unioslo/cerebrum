@@ -22,6 +22,6 @@ functools32
 nose
 pytest
 jinja2
-Flask
+Flask>=0.11.0
 flask-restplus
 gunicorn
