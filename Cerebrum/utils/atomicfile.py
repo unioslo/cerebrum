@@ -520,10 +520,6 @@ class MinimumSizeWriter(AtomicFileWriter):
     def min_size(self):
         del self.__limit
 
-    @deprecate("use `min_size = value`")
-    def set_minimum_size_limit(self, size):
-        self.min_size = size
-
     def validate_output(self):
         super(MinimumSizeWriter, self).validate_output()
 

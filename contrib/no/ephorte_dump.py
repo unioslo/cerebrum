@@ -109,13 +109,10 @@ def export_account(account_id):
     f.write("<contactinfo contacttype=\"email\">%s@%s</contactinfo>\n" % (mailuser, domain))
 
 
-
-
-
 def ephorte_export(spread_id, filename):
     global f
     f = MinimumSizeWriter(filename)
-    f.set_minimum_size_limit(1*MiB)
+    f.min_size = 1*MiB
     ou.clear()
     ou.find(int(ou.root()[0]['ou_id']))
     f.write(xml.xml_hdr + "<persons>\n")

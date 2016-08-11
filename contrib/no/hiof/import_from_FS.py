@@ -61,7 +61,7 @@ def write_edu_info(outfile):
 
     logger.info("Writing edu info for all students")
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(0)
+    f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
 
     for xml_tag, generator in (
@@ -83,7 +83,7 @@ def write_edu_info(outfile):
 def write_person_info(outfile):
     logger.info("Writing person info to '%s'" % outfile)
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(0)
+    f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
 
     # Aktive fagpersoner ved HiØf
@@ -108,7 +108,7 @@ def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
     logger.info("Writing ou info to '%s'" % outfile)
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(0)
+    f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
     cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR)) 
     for o in ouer:
@@ -158,7 +158,7 @@ def write_role_info(outfile):
     """Skriv data om alle registrerte roller"""
     logger.info("Writing role info to '%s'" % outfile)
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(1*KiB)
+    f.min_size = 1*KiB
     f.write(xml.xml_hdr + "<data>\n")
     cols, role = _ext_cols(fs.undervisning.list_alle_personroller())
     for r in role:
@@ -170,7 +170,7 @@ def write_undenh_metainfo(outfile):
     "Skriv metadata om undervisningsenheter for inneværende+neste semester."
     logger.info("Writing undenh_meta info to '%s'" % outfile)
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(1*KiB)
+    f.min_size = 1*KiB
     f.write(xml.xml_hdr + "<undervenhet>\n")
     for semester in ('current', 'next'):
         cols, undenh = _ext_cols(fs.undervisning.list_undervisningenheter(sem=semester))
@@ -184,7 +184,7 @@ def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
     logger.info("Writing studprog info to '%s'" % outfile)
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(1*KiB)
+    f.min_size = 1*KiB
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.info.list_studieprogrammer())
     for t in dta:

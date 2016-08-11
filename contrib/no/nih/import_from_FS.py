@@ -60,7 +60,7 @@ def _ext_cols(db_rows):
 
 def write_person_info(outfile):
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(0)
+    f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
 
     # Aktive fagpersoner ved NIH
@@ -86,7 +86,7 @@ def write_person_info(outfile):
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(0)
+    f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
     cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR)) 
     for o in ouer:
@@ -135,7 +135,7 @@ def write_ou_info(outfile):
 def write_evukurs_info(outfile):
     """Skriv data om alle EVU-kurs"""
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(1*KiB)
+    f.minsize = 1*KiB
     f.write(xml.xml_hdr + "<data>\n")
     cols, evukurs = _ext_cols(fs.evu.list_kurs())
     for ek in evukurs:
@@ -147,7 +147,7 @@ def write_evukurs_info(outfile):
 def write_role_info(outfile):
     """Skriv data om alle registrerte roller"""
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(KiB/4)
+    f.minsize = KiB/4
     f.write(xml.xml_hdr + "<data>\n")
     cols, role = _ext_cols(fs.undervisning.list_alle_personroller())
     for r in role:
@@ -158,7 +158,7 @@ def write_role_info(outfile):
 def write_undenh_metainfo(outfile):
     "Skriv metadata om undervisningsenheter for inneværende+neste semester."
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(5*KiB)
+    f.minsize = 5*KiB
     f.write(xml.xml_hdr + "<undervenhet>\n")
     for semester in ('current', 'next'):
         cols, undenh = _ext_cols(fs.undervisning.list_undervisningenheter(sem=semester))
@@ -173,7 +173,7 @@ def write_undenh_student(outfile):
     Tar med data for alle undervisingsenheter i inneværende+neste
     semester."""
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(5*KiB)
+    f.minsize = 5*KiB
     f.write(xml.xml_hdr + "<data>\n")
     for semester in ('current', 'next'):
         cols, undenh = _ext_cols(fs.undervisning.list_undervisningenheter(sem=semester))
@@ -203,7 +203,7 @@ def write_kull_info(outfile):
     """
 
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(0)
+    f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
 
     for xml_tag, generator in (
@@ -221,7 +221,7 @@ def write_kull_info(outfile):
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(10*KiB)
+    f.minsize = 10*KiB
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.info.list_studieprogrammer())
     for t in dta:

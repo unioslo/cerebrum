@@ -44,7 +44,7 @@ KiB=1024
 
 def write_role_info(outfile):
     stream = MinimumSizeWriter(outfile)
-    stream.set_minimum_size_limit(2*KiB)
+    stream.min_size = 2*KiB
     write_roles(stream,sys_y.list_roles())
     stream.close()
 
