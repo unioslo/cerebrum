@@ -9,7 +9,7 @@
 #   ansible-playbook <file> --ask-sudo-pass
 #
 - name: install postgres packages
-  dnf:
+  yum:
       name: "{{ item }}"
       state: present
   with_items:
