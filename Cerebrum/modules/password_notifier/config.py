@@ -24,15 +24,16 @@ from Cerebrum.config.configuration import (ConfigDescriptor,
                                            Configuration,
                                            Namespace)
 from Cerebrum.config.loader import read, read_config
-from Cerebrum.config.settings import (Boolean,
-                                      Integer,
-                                      String,
+from Cerebrum.config.settings import (Integer,
                                       Iterable,
+                                      Setting,
+                                      String,
                                       NotSet)
 
 
 class AffiliationBasedValue(Configuration):
     """
+    Not used yet
     """
     affiliation = ConfigDescriptor(
         String,
@@ -55,6 +56,7 @@ class AffiliationBasedValue(Configuration):
 
 class PasswordNotifierConfig(Configuration):
     """
+    Configuration for the PasswordNotifier
     """
     change_log_program = ConfigDescriptor(
         String,
@@ -104,12 +106,12 @@ class PasswordNotifierConfig(Configuration):
 
     trait = ConfigDescriptor(
         Setting,
-        default=PNConstants.trait_passwordnotifier_notifications,
+        default='pw_notifications',
         doc=u'The trait to be set for notification')
 
     except_trait = ConfigDescriptor(
         Setting,
-        default=PNConstants.trait_passwordnotifier_excepted,
+        default='autopass_except',
         doc=u'The trait used to prevent notification')
 
     summary_from = ConfigDescriptor(
@@ -137,6 +139,18 @@ class PasswordNotifierConfig(Configuration):
 
     affiliation_mappings = ConfigDescriptor(
         Iterable,
-        template=AffiliationBasedValue(),
+        # template=AffiliationBasedValue(),  # 
         default=[],
         doc=u'The affiliation mappings')
+
+
+def load_config(filepath=None):
+    """
+    """
+    config_cls = PasswordNotifierConfig()
+    if filepath:
+        config_cls.load_dict(read_config(filepath))
+    else:
+        read(config_cls, 'password_notifier')
+    config_cls.validate()
+    return config_cls
