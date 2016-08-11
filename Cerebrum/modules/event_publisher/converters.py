@@ -341,9 +341,10 @@ def entity_cinfo(msg, subject, *args):
 
 @dispatch('entity_addr')
 def entity_addr(msg, subj, *args):
-    return scim.Event(scim.MODIFY,
-                      subject=subj,
-                      attributes=['address'])
+    if subj:
+        return scim.Event(scim.MODIFY,
+                          subject=subj,
+                          attributes=['address'])
 
 
 @dispatch('entity_note')
@@ -354,6 +355,8 @@ def entity_note(msg, *args):
 
 @dispatch('entity', 'ext_id.*')
 def entity_external_id(msg, subj, *args):
+    if not subj:
+        return None
     c = Factory.get('Constants')(args[-1])
     x = c.EntityExternalId(msg['data']['id_type'])
     attr = {

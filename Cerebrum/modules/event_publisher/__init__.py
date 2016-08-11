@@ -188,9 +188,8 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                     message = self.__queue[0]
                     client.publish(message)
                     del self.__queue[0]
-        except Exception as e:
-            Factory.get_logger("cronjob") \
-                .error("Could not write message: %s", e)
+        except Exception:
+            Factory.get_logger("cronjob").exception("Could not write message")
             self.__save_queue()
 
     def __save_queue(self):

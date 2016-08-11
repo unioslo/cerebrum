@@ -53,7 +53,7 @@ class PublishingAMQP091Client(BaseAMQP091Client):
 
         self.exchange = config.exchange_name
         self.exchange_type = config.exchange_type
-        self.durable = config.exchange_durable
+        self.exchange_durable = config.exchange_durable
 
     def open(self):
         super(PublishingAMQP091Client, self).open()

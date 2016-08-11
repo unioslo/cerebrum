@@ -80,7 +80,7 @@ class BaseAMQP091Client(object):
         self.channel = self.connection.channel()
 
     def __enter__(self):
-        if self.channel is None:
+        if self.channel is None or not self.connection.is_open:
             self.open()
         return self
 
@@ -94,4 +94,3 @@ class BaseAMQP091Client(object):
     def __exit__(self, exc_type, exc, trace):
         if self.connection is not None and self.connection.is_open:
             self.close()
-        return self
