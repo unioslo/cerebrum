@@ -46,22 +46,26 @@ A trait is used for excepting specific users from being processed.
 
 """
 
-import time
-import mx.DateTime as dt
-import locale
-import smtplib
-import warnings
+import datetime
 import email
 import email.Header
+import locale
+import os
+import smtplib
+import time
+import warnings
 from functools import partial
+
+import mx.DateTime as dt
 
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import Utils
-from Cerebrum.modules.password_notifier.config import load_config
-from Cerebrum.modules.PasswordNotifierConstants import Constants as PNConstants
 from Cerebrum.QuarantineHandler import QuarantineHandler
+from Cerebrum.modules.PasswordNotifierConstants import Constants as PNConstants
+from Cerebrum.modules.password_notifier.config import load_config
+from Cerebrum.modules.pwcheck.history import PasswordHistory
 
 
 # Default date format (non-localized)
@@ -76,16 +80,15 @@ DATE_FORMATS = {
 }
 
 
-def _import_cls(spec):
-    mod, name = spec.split('/')
-    mod = Utils.dyn_import(mod)
-    cls = getattr(mod, name)
-    return cls
-
-
 def _get_notifier_classes(values):
     """
     """
+    def _import_cls(spec):
+        mod, name = spec.split('/')
+        mod = Utils.dyn_import(mod)
+        cls = getattr(mod, name)
+        return cls
+
     cls_list = []
     for idx, class_str in enumerate(values):
         cls_list.append(_import_cls(class_str))
@@ -136,8 +139,12 @@ class PasswordNotifier(object):
         self.splatted_users = []
 
         self.mail_info = []
-        for fn in self.config.template:
-            fp = open(fn, 'rb')
+        for fn in self.config.templates:
+            fp = open(os.path.join(cereconf.TEMPLATE_DIR,
+                                   'no_NO',
+                                   'email',
+                                   fn),
+                      'rb')
             msg = email.message_from_file(fp)
             fp.close()
             self.mail_info.append({
@@ -176,7 +183,8 @@ class PasswordNotifier(object):
                     # consider all accounts belonging to this person
                     account_id = account_row['account_id']
                     if account_id:
-                        history = [x['set_at'] for x in ph.get_history(account_id)]
+                        history = [x['set_at'] for x in ph.get_history(
+                            account_id)]
                         if history and (self.today - max(history) > max_age):
                             old.add(account_id)
                         else:
@@ -193,29 +201,31 @@ class PasswordNotifier(object):
                 str(affiliation), len(old))
             return old
 
-        from Cerebrum.modules.pwcheck.history import PasswordHistory
         ph = PasswordHistory(self.db)
 
         self.logger.info('Fetching accounts with password older than %d days',
-                         self.config.max_password_age.days)
+                         self.config.max_password_age)
         old_ids = set(
-            [int(x['account_id'])
-             for x in ph.find_old_password_accounts(
-                     (self.today -
-                      self.config.max_password_age).strftime(DATE_FORMAT))])
-
+            [int(x['account_id']) for x in ph.find_old_password_accounts((
+                self.today - dt.DateTimeDelta(
+                    self.config.max_password_age)).strftime(DATE_FORMAT))])
         self.logger.info('Fetching accounts with no password history')
         old_ids.update(
             set([int(x['account_id']) for x in ph.find_no_history_accounts()]))
-
         # Do we have special rules for certain person affiliations?
-        for aff, max_age in self.config.max_password_age_aff.items():
+        # We want to end with the smallest 'max_password_age'
+        aff_mappings = sorted(self.config.affiliation_mappings,
+                              key=lambda k: k['max_password_age'],
+                              reverse=True)
+        for aff_mapping in aff_mappings:
             self.logger.info(
                 'Fetching accounts with affiliation %s '
                 'with password older than %d days',
-                str(aff), max_age.days)
-            old_ids.update(_with_aff(affiliation=aff, max_age=max_age))
-
+                str(aff_mapping['affiliation']),
+                aff_mapping['max_password_age'])
+            old_ids.update(_with_aff(
+                affiliation=aff_mapping['affiliation'],
+                max_age=dt.DateTimeDelta(aff_mapping['max_password_age'])))
         self.logger.info('Fetching quarantines')
         # TODO: Select only autopassword quarantines?
         quarantined_ids = QuarantineHandler.get_locked_entities(
@@ -231,15 +241,15 @@ class PasswordNotifier(object):
         Returns a set of account_id's which have a password trait
         """
         account = Utils.Factory.get("Account")(self.db)
-        return set([x['entity_id']
-                    for x in account.list_traits(code=self.config.trait)])
+        return set([x['entity_id'] for x in account.list_traits(
+            code=self.constants.EntityTrait(self.config.trait))])
 
     def remove_trait(self, account):
         """
         Removes pw trait, if any, and logs it.
         """
         try:
-            account.delete_trait(self.config.trait)
+            account.delete_trait(self.constants.EntityTrait(self.config.trait))
             account.write_db()
             self.logger.info("Deleting passwd trait for %s",
                              account.account_name)
@@ -252,7 +262,8 @@ class PasswordNotifier(object):
         Returns the number of previous notifications
         """
         try:
-            traits = account.get_trait(self.config.trait)
+            traits = account.get_trait(
+                self.constants.EntityTrait(self.config.trait))
             return int(traits['numval'])
         except (Errors.NotFoundError, TypeError):
             return 0
@@ -262,10 +273,11 @@ class PasswordNotifier(object):
         If a notification fails, set a 0 value, and record a failed attempt.
         If a trait already exists, log it, it should not be used that way.
         """
-        traits = account.get_trait(self.config.trait)
+        traits = account.get_trait(
+            self.constants.EntityTrait(self.config.trait))
         if traits is None:
             account.populate_trait(
-                code=self.config.trait,
+                code=self.constants.EntityTrait(self.config.trait),
                 target_id=None,
                 date=self.now,
                 numval=0,
@@ -282,7 +294,8 @@ class PasswordNotifier(object):
         This increases the trait `intval` by one, and adds the date to the
         trait `strval`.
         """
-        traits = account.get_trait(self.config.trait)
+        traits = account.get_trait(
+            self.constants.EntityTrait(self.config.trait))
         if traits is not None:
             traits = dict(
                 [(x, traits[x])
@@ -300,7 +313,7 @@ class PasswordNotifier(object):
             self.logger.info("Adding passwd trait for %s",
                              account.account_name)
             traits = {
-                'code': self.config.trait,
+                'code': self.constants.EntityTrait(self.config.trait),
                 'target_id': None,
                 'date': self.now,
                 'numval': 1,
@@ -322,7 +335,8 @@ class PasswordNotifier(object):
             Returns the DateTime for the previous notification, or None if the
             account has not been notified.
         """
-        traits = account.get_trait(self.config.trait)
+        traits = account.get_trait(
+            self.constants.EntityTrait(self.config.trait))
         if traits is None:
             return None
         else:
@@ -342,13 +356,13 @@ class PasswordNotifier(object):
         d = self.get_notification_time(account)
         if d is None:
             d = self.today
-        return d + self.config.grace_period
+        return d + dt.DateTimeDelta(self.config.grace_period)
 
     def remind_ok(self, account):
         """Returns true if it is time to remind"""
         n = self.get_num_notifications(account)
-        if 0 < n <= len(self.config.reminder_delay):
-            delay = self.config.reminder_delay[n-1]
+        if 0 < n <= len(self.config.reminder_delay_values):
+            delay = dt.DateTimeDelta(self.config.reminder_delay_values[n-1])
             if self.get_notification_time(account) <= self.today - delay:
                 return True
         return False
@@ -360,8 +374,11 @@ class PasswordNotifier(object):
         if not account.get_entity_quarantine(
                 qtype=self.constants.quarantine_autopassord):
             account.add_entity_quarantine(
-                self.constants.quarantine_autopassord, self.splattee_id,
-                "password not changed", self.now, None)
+                self.constants.quarantine_autopassord,
+                self.splattee_id,
+                "password not changed",
+                self.now,
+                None)
             return True
         else:
             return False
@@ -475,15 +492,15 @@ class PasswordNotifier(object):
                      num_lifted)
 
         if self.dryrun:
-            print stats
+            print(stats)
         elif self.config.summary_to and self.config.summary_from:
             _send_mail(
-                mail_to=self.config.summary_to,
+                mail_to=', '.join(self.config.summary_to),
                 mail_from=self.config.summary_from,
-                subject="Statistics from password notifier",
+                subject='Statistics from password notifier',
                 body=stats,
                 logger=self.logger,
-                mail_cc=self.config.summary_cc)
+                mail_cc=', '.join(self.config.summary_cc))
 
         if self.dryrun:
             self.logger.info('Rolling back changes')
@@ -498,7 +515,8 @@ class PasswordNotifier(object):
         This could be overridden in a subclass to match different
         criteria.
         """
-        trait = account.get_trait(self.config.except_trait)
+        trait = account.get_trait(
+            self.constants.EntityTrait(self.config.except_trait))
         if trait:
             return "User is excepted by trait"
         return False
@@ -614,10 +632,8 @@ class PasswordNotifier(object):
         Secondary calls to get_notifier will always return the same class,
         regardless of the argument.
 
-        :param object config:
-            Any object with attributes from
-            `Cerebrum.modules.password_notifier.config`.
-
+        :param str config:
+            Pathname to the config file.
             If `None`, an object will be generated using the default config
 
         :return PasswordNotifier:
