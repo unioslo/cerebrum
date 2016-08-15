@@ -24,6 +24,7 @@ import string
 import cereconf
 
 from Cerebrum import Entity
+from Cerebrum.modules.feide.service import FeideService
 from Cerebrum.modules.OrgLDIF import OrgLDIF
 from Cerebrum.modules.LDIFutils import (
     ldapconf, normalize_string, verify_IA5String, normalize_IA5String, iso2utf,
@@ -55,8 +56,8 @@ class norEduLDIFMixin(OrgLDIF):
     cereconf.LDAP['use_extensibleObject'] = False disables this.
     """
 
-    extensibleObject = (cereconf.LDAP.get('use_extensibleObject', True)
-                        and 'extensibleObject') or None
+    extensibleObject = (cereconf.LDAP.get('use_extensibleObject', True) and
+                        'extensibleObject') or None
 
     FEIDE_schema_version = cereconf.LDAP.get('FEIDE_schema_version', '1.5')
     FEIDE_obsolete_version = cereconf.LDAP.get('FEIDE_obsolete_schema_version')
@@ -235,11 +236,14 @@ class norEduLDIFMixin(OrgLDIF):
         dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
         if not dn:
             return dn, entry, alias_info
-        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(person_id)
+        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(
+            person_id)
         if pri_edu_aff:
             entry['eduPersonPrimaryAffiliation'] = pri_edu_aff
-            entry['eduPersonPrimaryOrgUnitDN'] = self.ou2DN.get(int(pri_ou)) or self.dummy_ou_dn
-        if ldapconf('PERSON', 'entitlements_pickle_file') and person_id in self.person2entitlements:
+            entry['eduPersonPrimaryOrgUnitDN'] = (
+                self.ou2DN.get(int(pri_ou)) or self.dummy_ou_dn)
+        if (ldapconf('PERSON', 'entitlements_pickle_file') and
+                person_id in self.person2entitlements):
             entry['eduPersonEntitlement'] = self.person2entitlements[person_id]
 
         entry['objectClass'].append('schacContactLocation')
@@ -288,7 +292,8 @@ class norEduLDIFMixin(OrgLDIF):
 
         """
         def lookup_cereconf(aff, status):
-            selector = cereconf.LDAP_PERSON.get('eduPersonPrimaryAffiliation_selector')
+            selector = cereconf.LDAP_PERSON.get(
+                'eduPersonPrimaryAffiliation_selector')
             if selector and aff in selector and status in selector[aff]:
                 return selector[aff][status]
             return (None, None)
@@ -325,7 +330,8 @@ class norEduLDIFMixin(OrgLDIF):
                 pri_edu_aff = a
         if pri_aff is None:
             self.logger.warn(
-                "Person '%s' did not get eduPersonPrimaryAffiliation. Check his/her affiliations "
+                "Person '%s' did not get eduPersonPrimaryAffiliation. "
+                "Check his/her affiliations "
                 "and eduPersonPrimaryAffiliation_selector in cereconf.", p_id)
         return pri_edu_aff, pri_ou, pri_aff
 
@@ -465,6 +471,8 @@ class norEduLDIFMixin(OrgLDIF):
 
         """
         if not hasattr(self, '_person_authn_methods'):
+            timer = make_timer(self.logger,
+                               'Fetching authentication methods...')
             entity = Entity.EntityContactInfo(self.db)
             self._person_authn_methods = dict()
 
@@ -494,7 +502,33 @@ class norEduLDIFMixin(OrgLDIF):
                          'contact_type': c_type,
                          'source_system': system, })
                 count += 1
+            timer("...authentication methods done.")
         return self._person_authn_methods
+
+    @property
+    def person_authn_levels(self):
+        """ Returns a authentication level mapping for update_person_authn.
+
+        Initializes self.person_authn_levels with a dict that maps person
+        entity_id to a set of service authentication levels:
+
+            person_id: set([ (feide_service_id, authentication_level),
+                         ... ]),
+            ...
+
+        """
+        if not hasattr(self, '_person_authn_levels'):
+            supported = ldapconf('PERSON', 'norEduPersonAuthnMethod_selector',
+                                 {})
+            if not supported:
+                self._person_authn_levels = {}
+                return self._person_authn_levels
+            timer = make_timer(self.logger,
+                               'Fetching authentication levels...')
+            fse = FeideService(self.db)
+            self._person_authn_levels = fse.get_person_to_authn_level_map()
+            timer("...authentication levels done.")
+        return self._person_authn_levels
 
     def update_person_authn(self, entry, person_id):
         """ Add authentication info to the entry.
@@ -516,10 +550,31 @@ class norEduLDIFMixin(OrgLDIF):
         authn_methods = list()
         for authn_entry in self.person_authn_methods.get(person_id, []):
             for aff, selection in self.person_authn_selection.iteritems():
-                if (aff in person_affs
-                        and (authn_entry['source_system'],
-                             authn_entry['contact_type']) in selection):
+                if (aff in person_affs and
+                        (authn_entry['source_system'],
+                         authn_entry['contact_type']) in selection):
                     authn_methods.append(
                         template.substitute(authn_entry))
         entry['norEduPersonAuthnMethod'] = self.attr_unique(
             authn_methods, normalize=normalize_string)
+
+        authn_levels = self.person_authn_levels.get(person_id, [])
+
+        # At least one authentication method is required when setting
+        # service authentication levels
+        if authn_levels and not authn_methods:
+            return
+
+        # Add norEduPersonServiceAuthnLevel entries
+        authn_level_template = string.Template(
+            'urn:mace:feide.no:spid:${feide_id} '
+            'urn:mace:feide.no:auth:level:fad08:${level}')
+        authn_level_entries = []
+        for feide_id, level in authn_levels:
+            authn_level_entries.append(
+                authn_level_template.substitute({
+                    'feide_id': feide_id,
+                    'level': level
+                }))
+        entry['norEduPersonServiceAuthnLevel'] = self.attr_unique(
+            authn_level_entries, normalize=normalize_string)

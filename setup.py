@@ -492,6 +492,7 @@ setup(
         'Cerebrum/modules/dns',
         'Cerebrum/modules/event',
         'Cerebrum/modules/exchange',
+        'Cerebrum/modules/feide',
         'Cerebrum/modules/hostpolicy',
         'Cerebrum/modules/bofhd',
         'Cerebrum/modules/guest',
