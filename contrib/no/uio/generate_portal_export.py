@@ -217,7 +217,7 @@ def output_text(output_file):
     output_stream = MinimumSizeWriter(output_file, "w")
     # 1MB is the minimum allowed size for the portal dump.
     # The number is somewhat magic, but it seems sensible
-    output_stream.set_minimum_size_limit(1024*1024)
+    output_stream.min_size = 1024*1024
     db_cerebrum = Factory.get("Database")()
     logger.debug(cereconf.DB_AUTH_DIR)
     

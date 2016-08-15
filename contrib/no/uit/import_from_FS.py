@@ -65,7 +65,7 @@ def _ext_cols(db_rows):
 
 def write_uit_person_info(outfile):
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(500*KiB)
+    f.min_size = 500*KiB
     f.write(xml.xml_hdr + "<data>\n")
 
     # Studenter med opptak
@@ -112,7 +112,7 @@ def write_uit_person_info(outfile):
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(5*KiB)
+    f.min_size = 5*KiB
     f.write(xml.xml_hdr + "<data>\n")
     cols, ouer = uitfs.GetAlleOUer(cereconf.DEFAULT_INSTITUSJONSNR)  # TODO
     for o in ouer:
@@ -159,7 +159,7 @@ def write_ou_info(outfile):
 
 def write_role_info(outfile):
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(1)
+    f.min_size = 1
     f.write(xml.xml_hdr + "<data>\n")
     cols, role = uitfs.GetAllePersonRoller(cereconf.DEFAULT_INSTITUSJONSNR)
     for r in role:
@@ -170,7 +170,7 @@ def write_role_info(outfile):
 
 def  write_undakt_info(outfile):
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(1)
+    f.min_size = 1
     f.write(xml.xml_hdr + "<data>\n")
     
     this, next = access_FS.get_semester(uppercase=True)    
@@ -185,7 +185,7 @@ def  write_undakt_info(outfile):
 def write_undenh_metainfo(outfile):
     "Skriv metadata om undervisningsenheter for inneværende+neste semester."
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(150*KiB)
+    f.min_size = 150*KiB
     f.write(xml.xml_hdr + "<undervenhet>\n")
     for semester in access_FS.get_semester(uppercase=True):
         semester_aar, semester_sem = semester
@@ -204,7 +204,7 @@ def write_undenh_student(outfile):
     semester."""
     f = MinimumSizeWriter(outfile)
 
-    f.set_minimum_size_limit(600*KiB)
+    f.min_size = 600*KiB
     f.write(xml.xml_hdr + "<data>\n")
     
     for semester in access_FS.get_semester(uppercase=True):
@@ -237,7 +237,7 @@ def write_undakt_student(outfile):
     semester."""
     f = MinimumSizeWriter(outfile)
 
-    f.set_minimum_size_limit(2*KiB)
+    f.min_size = 2*KiB
     f.write(xml.xml_hdr + "<data>\n")
     
     this, next = access_FS.get_semester(uppercase=True)    
@@ -271,7 +271,7 @@ def write_undakt_student(outfile):
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(50*KiB)
+    f.min_size = 50*KiB
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = uitfs.GetStudieproginf()
     for t in dta:

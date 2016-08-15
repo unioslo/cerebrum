@@ -267,7 +267,7 @@ def test_append_close(AtomicFileWriter, text, text_file, more_text):
 def test_minimum_size_pass(MinimumSizeWriter, text, new_file):
 
     af = MinimumSizeWriter(new_file)
-    af.set_minimum_size_limit(len(text) - 1)
+    af.min_size = len(text) - 1
 
     af.write(text)
     af.close()
@@ -278,7 +278,7 @@ def test_minimum_size_pass(MinimumSizeWriter, text, new_file):
 def test_minimum_size_fail(MinimumSizeWriter, file_module, new_file, text):
 
     af = MinimumSizeWriter(new_file)
-    af.set_minimum_size_limit(len(text) + 1)
+    af.min_size = len(text) + 1
 
     af.write(text)
 

@@ -39,7 +39,7 @@ def _ext_cols(db_rows):
 
 def write_person_info(outfile):
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(0)
+    f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
 
     # Aktive ordinære studenter ved HIH
