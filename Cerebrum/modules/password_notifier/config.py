@@ -19,7 +19,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """This module defines all necessary config for the password notifier module"""
 
-from Cerebrum.modules.PasswordNotifierConstants import Constants as PNConstants
+from Cerebrum.modules.password_notifier.constants import (
+    Constants as PNConstants)
 from Cerebrum.config.configuration import (ConfigDescriptor,
                                            Configuration,
                                            Namespace)
@@ -79,7 +80,7 @@ class PasswordNotifierConfig(Configuration):
         default=365,
         minval=1,
         doc=u'The maximum age of a password in days')
-        
+
     max_new_notifications = ConfigDescriptor(
         Integer,
         default=0,
@@ -101,7 +102,8 @@ class PasswordNotifierConfig(Configuration):
     class_notifier_values = ConfigDescriptor(
         Iterable,
         template=String(),
-        default=['Cerebrum.modules.PasswordNotifier/PasswordNotifier'],
+        default=[
+            'Cerebrum.modules.password_notifier.notifier/PasswordNotifier'],
         doc=u'A list of notification classes')
 
     trait = ConfigDescriptor(
@@ -139,7 +141,7 @@ class PasswordNotifierConfig(Configuration):
 
     affiliation_mappings = ConfigDescriptor(
         Iterable,
-        # template=AffiliationBasedValue(),  # 
+        # template=AffiliationBasedValue(),  # Can't do this yet
         default=[],
         doc=u'The affiliation mappings')
 

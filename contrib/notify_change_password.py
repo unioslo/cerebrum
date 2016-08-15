@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2008-2015 University of Oslo, Norway
+# Copyright 2008-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,13 +21,14 @@
 
 import mx.DateTime as dt
 import getopt
+import re
 import sys
 
 import cerebrum_path
 import cereconf
 
 from Cerebrum import Utils
-from Cerebrum.modules.PasswordNotifier import PasswordNotifier
+from Cerebrum.modules.password_notifier.notifier import PasswordNotifier
 
 import changepassconf as config
 
@@ -41,22 +42,20 @@ def main():
         opts, args = getopt.getopt(
             sys.argv[1:],
             'ph',
-            [
-            'help',   # prints usage and exits successfully
-            'debug',  # enables debug-mode: no side effects
-            'to=',    # to address for status-mail
-            'cc=',    # cc address for status-mail
-            'bcc=',   # bcc address for status-mail
-            'from=',  # from address for status-mail
-            'config=',  # config module
-            'change-log-program=',  # send to cl_init
-            'template=',  # add to template list
-            'max-password-age=',  # max age before notification
-            'grace-period=',  # time after notification to chang pw
-            'reminder-delay=',  # times after notification to send reminders
-            'password-trait=',  # trait to use for password
-            'password-quarantine='  # quarantine to use for password
-            ])
+            ['help',  # prints usage and exits successfully
+             'debug',  # enables debug-mode: no side effects
+             'to=',  # to address for status-mail
+             'cc=',  # cc address for status-mail
+             'bcc=',  # bcc address for status-mail
+             'from=',  # from address for status-mail
+             'config=',  # config module
+             'change-log-program=',  # send to cl_init
+             'template=',  # add to template list
+             'max-password-age=',  # max age before notification
+             'grace-period=',  # time after notification to chang pw
+             'reminder-delay=',  # times after notification to send reminders
+             'password-trait=',   # trait to use for password
+             'password-quarantine='])  # quarantine to use for password
 
     except getopt.GetoptError:
         usage(1)
@@ -101,7 +100,9 @@ def main():
     for i in cfg.keys():
         setattr(config, i, cfg[i])
 
-    notifier = PasswordNotifier.get_notifier()(db=db, logger=logger, dryrun=debug_enabled)
+    notifier = PasswordNotifier.get_notifier()(db=db,
+                                               logger=logger,
+                                               dryrun=debug_enabled)
     notifier.process_accounts()
 
 
@@ -117,7 +118,8 @@ def parse_time(time):
     Units are years [short: y or year] (365 days),
         months [m|month] (30 days), weeks [w|week] and days [(no unit)|d|day]
     A time string is a sequence of integers followed by units, and units
-    must be given from largest to smallest. Whitespace can occur wherever natural.
+    must be given from largest to smallest. Whitespace can occur
+    wherever natural.
     examples:
     5 y 2 w => 5 years and 2 weeks
     5 years => 5 years
@@ -126,13 +128,17 @@ def parse_time(time):
     1 d 3w  => nothing, weeks must be before days
     1 3 d   => nothing, days given twice
     """
-    import re
-    year = r"(?P<year>\d+)\s*y(?:ears?)?"     # year  = num y | num year  | num years
-    month = r"(?P<month>\d+)\s*m(?:onths?)?"  # month = num m | num month | num months
-    week = r"(?P<week>\d+)\s*w(?:eeks?)?"     # week  = num w | num week  | num weeks
-    day = r"(?P<day>\d+)\s*(?:d(?:ays?)?)?"   # day   = num   | num d     | num day | num days
+    # year = num y | num year | num years
+    year = r"(?P<year>\d+)\s*y(?:ears?)?"
+    # month = num m | num month | num months
+    month = r"(?P<month>\d+)\s*m(?:onths?)?"
+    # week = num w | num week | num weeks
+    week = r"(?P<week>\d+)\s*w(?:eeks?)?"
+    # day = num | num d | num day | num days
+    day = r"(?P<day>\d+)\s*(?:d(?:ays?)?)?"
     match = re.match(
-        pattern="\s*(?:" + r")?\s*(?:".join((year, month, week, day)) + r")\s*",
+        pattern="\s*(?:" + r")?\s*(?:".join(
+            (year, month, week, day)) + r")\s*",
         string=time,
         flags=re.IGNORECASE)
 
