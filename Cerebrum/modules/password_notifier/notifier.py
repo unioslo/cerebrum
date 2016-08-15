@@ -733,3 +733,82 @@ def date2human(date, language_code=None):
     if language_code:
         locale.setlocale(locale.LC_TIME, previous)
     return ret
+
+
+class SMSPasswordNotifier(PasswordNotifier):
+    """ Send password notifications by SMS. """
+    def __init__(self, db=None, logger=None, dryrun=False, *rest, **kw):
+        """ Constructs a PasswordNotifier that notifies by SMS.
+
+        :param Cerebrum.Database db:
+            Database object to use. If `None`, this object will fetch a new db
+            connection with `Factory.get('Database')`. This is the default.
+
+        :param logging.Logger logger:
+            Logger object to use. If `None`, this object will fetch a new
+            logger with `Factory.get_logger('crontab')`. This is the default.
+
+        :param bool dryrun:
+            If this object should refrain from doing changes, and only print
+            debug info. Default is `False`.
+        """
+        super(SMSPasswordNotifier, self).__init__(db, logger, dryrun, rest, kw)
+
+        from os import path
+        with open(path.join(cereconf.TEMPLATE_DIR,
+                            'warn_before_splat_sms.template'),
+                  'r') as f:
+            self.template = f.read()
+
+        self.person = Utils.Factory.get('Person')(db)
+
+
+
+    def notify(self, account):
+        def sms(account, days_until_splat):
+            if not account.owner_type == self.constants.entity_person:
+                return
+            self.person.clear()
+            self.person.find(account.owner_id)
+            try:
+                spec = map(lambda (s, t): (self.constants.human2constant(s),
+                                           self.constants.human2constant(t)),
+                           cereconf.SMS_NUMBER_SELECTOR)
+                mobile = self.person.sort_contact_info(
+                    spec, self.person.get_contact_info())
+                person_in_systems = [int(af['source_system']) for af in
+                                     self.person.list_affiliations(
+                                         person_id=self.person.entity_id)]
+                mobile = filter(
+                    lambda x: x['source_system'] in person_in_systems,
+                    mobile)[0]['contact_value']
+            except IndexError:
+                self.logger.info(
+                    'No applicable phone number for {}'.format(
+                        account.account_name))
+                return
+
+            # Send SMS
+            if getattr(cereconf, 'SMS_DISABLE', False):
+                self.logger.info(
+                    'SMS disabled in cereconf, would have '
+                    'sent password SMS to {}'.format(mobile))
+            else:
+                from Cerebrum.Utils import SMSSender
+                sms = SMSSender(logger=self.logger)
+                if not sms(mobile,
+                           self.template.format(
+                               account_name=account.account_name,
+                               days_until_splat=days_until_splat)):
+                    self.logger.info(
+                        'Unable to send message to {}.'.format(mobile))
+
+        deadline = self.get_deadline(account)
+        self.logger.info(
+            "Notifying %s by SMS, number=%d, deadline=%s",
+            account.account_name,
+            self.get_num_notifications(account) + 1,
+            deadline.strftime(DATE_FORMAT))
+        return sms(
+            account=account,
+            days_until_splat=int(deadline - self.today))
