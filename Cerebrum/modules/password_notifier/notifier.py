@@ -71,14 +71,6 @@ from Cerebrum.modules.pwcheck.history import PasswordHistory
 # Default date format (non-localized)
 DATE_FORMAT = '%Y-%m-%d'
 
-# Localized date formats for date2human
-DATE_FORMATS = {
-    'nb_NO': '%A %d. %B %Y',
-    'nn_NO': '%x',
-    'en_US': '%A, %d %b %Y',
-    None:    '%x',  # default
-}
-
 
 def _get_notifier_classes(values):
     """
@@ -137,23 +129,6 @@ class PasswordNotifier(object):
         self.splattee_id = account.entity_id
         self.constants = Utils.Factory.get('Constants')(db)
         self.splatted_users = []
-
-        self.mail_info = []
-        for fn in self.config.templates:
-            fp = open(os.path.join(cereconf.TEMPLATE_DIR,
-                                   'no_NO',
-                                   'email',
-                                   fn),
-                      'rb')
-            msg = email.message_from_file(fp)
-            fp.close()
-            self.mail_info.append({
-                'Subject': email.Header.decode_header(msg['Subject'])[0][0],
-                'From': msg['From'],
-                'Cc': msg['Cc'],
-                'Reply-To': msg['Reply-To'],
-                'Body': msg.get_payload(decode=1)
-            })
 
     def get_old_account_ids(self):
         """ Returns the ID of candidate accounts with old affiliations.
@@ -604,6 +579,93 @@ class PasswordNotifier(object):
         return None
 
     def notify(self, account):
+        """Placeholder for sending notifications to a user.
+
+        This function does not implement notification. Appropriate classes
+        should be mixed in for notifications to be sent.
+
+        :param Cerebrum.Account account:
+            The account object to notify.
+
+        :return bool:
+            Returns whether the notification could be sent or not.
+        """
+        return True
+
+    @staticmethod
+    def get_notifier(config=None):
+        """ Factories a notifier class object.
+
+        Secondary calls to get_notifier will always return the same class,
+        regardless of the argument.
+
+        :param object config:
+            Any object with attributes from
+            `Cerebrum.modules.password_notifier.config`.
+
+            If `None`, an object will be generated using the default config
+
+        :return PasswordNotifier:
+            Configured PasswordNotifier class.
+        """
+        try:
+            # If called previously, the class has been cached in
+            # PasswordNotifier
+            return PasswordNotifier._notifier
+        except AttributeError:
+            pass
+
+        if config is None:
+            config = load_config()
+        else:
+            config = load_config(filepath=config)
+
+        comp_class = type(
+            '_dynamic_notifier',
+            tuple(_get_notifier_classes(config.class_notifier_values)),
+            {'config': config, })
+        PasswordNotifier._notifier = comp_class
+        return comp_class
+
+
+class EmailPasswordNotifier(PasswordNotifier):
+    """ Send password notifications by E-mail. """
+    def __init__(self, db=None, logger=None, dryrun=False, *rest, **kw):
+        """ Constructs a PasswordNotifier that notifies by E-mail.
+
+        :param Cerebrum.Database db:
+            Database object to use. If `None`, this object will fetch a new db
+            connection with `Factory.get('Database')`. This is the default.
+
+        :param logging.Logger logger:
+            Logger object to use. If `None`, this object will fetch a new
+            logger with `Factory.get_logger('crontab')`. This is the default.
+
+        :param bool dryrun:
+            If this object should refrain from doing changes, and only print
+            debug info. Default is `False`.
+        """
+        super(EmailPasswordNotifier,
+              self).__init__(db, logger, dryrun, rest, kw)
+
+        self.mail_info = []
+        for fn in self.config.templates:
+            fp = open(os.path.join(cereconf.TEMPLATE_DIR,
+                                   'no_NO',
+                                   'email',
+                                   fn),
+                      'rb')
+            msg = email.message_from_file(fp)
+            fp.close()
+            self.mail_info.append({
+                'Subject': email.Header.decode_header(msg['Subject'])[0][0],
+                'From': msg['From'],
+                'Cc': msg['Cc'],
+                'Reply-To': msg['Reply-To'],
+                'Body': msg.get_payload(decode=1)
+            })
+
+    def notify(self, account):
         def mail_user(account, mail_type, deadline, first_time=''):
             mail_type = min(mail_type, len(self.mail_info)-1)
             if mail_type == -1:
@@ -626,10 +688,11 @@ class PasswordNotifier(object):
             # add dates for different languages::
             for lang in ('nb_NO', 'nn_NO', 'en_US'):
                 tag = '${DEADLINE_%s}' % lang.upper()
-                body = body.replace(tag, date2human(deadline, lang))
+                body = body.replace(tag, self._date2human(deadline, lang))
                 if first_time:
                     tag = '${FIRST_TIME_%s}' % lang.upper()
-                    body = body.replace(tag, date2human(first_time, lang))
+                    body = body.replace(tag, self._date2human(first_time,
+                                                              lang))
             return _send_mail(
                 mail_to=to_email,
                 mail_from=self.mail_info[mail_type]['From'],
@@ -656,83 +719,28 @@ class PasswordNotifier(object):
                 deadline=deadline,
                 first_time=self.get_notification_time(account))
 
-    @staticmethod
-    def get_notifier(config=None):
-        """ Factories a notifier class object.
+    def _date2human(date, language_code=None):
+        """Return a human readable string of a given date, and in the correct
+        language. Making it easier for users to be sure of a deadline date."""
+        DATE_FORMATS = {
+            'nb_NO': '%A %d. %B %Y',
+            'nn_NO': '%x',
+            'en_US': '%A, %d %b %Y',
+            None:    '%x',  # default
+        }
+        if language_code:
+            previous = locale.getlocale(locale.LC_TIME)
+            try:
+                locale.setlocale(locale.LC_TIME, language_code)
+            except locale.Error, e:
+                warnings.warn('locale.setlocale failed: {}'.format(e),
+                              RuntimeWarning)
 
-        Secondary calls to get_notifier will always return the same class,
-        regardless of the argument.
-
-        :param str config:
-            Pathname to the config file.
-            If `None`, an object will be generated using the default config
-
-        :return PasswordNotifier:
-            Configured PasswordNotifier class.
-        """
-        try:
-            # If called previously, the class has been cached in
-            # PasswordNotifier
-            return PasswordNotifier._notifier
-        except AttributeError:
-            pass
-
-        if config is None:
-            config = load_config()
-        else:
-            config = load_config(filepath=config)
-
-        comp_class = type(
-            '_dynamic_notifier',
-            tuple(_get_notifier_classes(config.class_notifier_values)),
-            {'config': config, })
-        PasswordNotifier._notifier = comp_class
-        return comp_class
-
-
-def _send_mail(mail_to, mail_from, subject, body, logger,
-               mail_cc=None, debug_enabled=False):
-    if debug_enabled:
-        logger.debug("Sending mail to %s. Subject: %s", mail_to, subject)
-        # logger.debug("Body: %s" % body)
-        return True
-
-    try:
-        Utils.sendmail(
-            toaddr=mail_to,
-            fromaddr=mail_from,
-            subject=subject,
-            body=body,
-            cc=mail_cc,
-            debug=debug_enabled)
-    except smtplib.SMTPRecipientsRefused as e:
-        failed_recipients = e.recipients
-        for mail, condition in failed_recipients.iteritems():
-            logger.exception("Failed when notifying %s (%s): %s",
-                             mail_to, mail, condition)
-        return False
-    except Exception as e:
-        logger.error("Error when notifying %s: %s" % (mail_to, e))
-        return False
-    return True
-
-
-def date2human(date, language_code=None):
-    """Return a human readable string of a given date, and in the correct
-    language. Making it easier for users to be sure of a deadline date."""
-    if language_code:
-        previous = locale.getlocale(locale.LC_TIME)
-        try:
-            locale.setlocale(locale.LC_TIME, language_code)
-        except locale.Error, e:
-            warnings.warn('locale.setlocale failed: {}'.format(e),
-                          RuntimeWarning)
-
-    date_fmt = DATE_FORMATS.get(language_code) or DATE_FORMATS[None]
-    ret = date.strftime(date_fmt).capitalize()
-    if language_code:
-        locale.setlocale(locale.LC_TIME, previous)
-    return ret
+        date_fmt = DATE_FORMATS.get(language_code) or DATE_FORMATS[None]
+        ret = date.strftime(date_fmt).capitalize()
+        if language_code:
+            locale.setlocale(locale.LC_TIME, previous)
+        return ret
 
 
 class SMSPasswordNotifier(PasswordNotifier):
@@ -761,8 +769,6 @@ class SMSPasswordNotifier(PasswordNotifier):
             self.template = f.read()
 
         self.person = Utils.Factory.get('Person')(db)
-
-
 
     def notify(self, account):
         def sms(account, days_until_splat):
@@ -812,3 +818,30 @@ class SMSPasswordNotifier(PasswordNotifier):
         return sms(
             account=account,
             days_until_splat=int(deadline - self.today))
+
+
+def _send_mail(mail_to, mail_from, subject, body, logger,
+               mail_cc=None, debug_enabled=False):
+    if debug_enabled:
+        logger.debug("Sending mail to %s. Subject: %s", mail_to, subject)
+        # logger.debug("Body: %s" % body)
+        return True
+
+    try:
+        Utils.sendmail(
+            toaddr=mail_to,
+            fromaddr=mail_from,
+            subject=subject,
+            body=body,
+            cc=mail_cc,
+            debug=debug_enabled)
+    except smtplib.SMTPRecipientsRefused as e:
+        failed_recipients = e.recipients
+        for mail, condition in failed_recipients.iteritems():
+            logger.exception("Failed when notifying %s (%s): %s",
+                             mail_to, mail, condition)
+        return False
+    except Exception as e:
+        logger.error("Error when notifying %s: %s" % (mail_to, e))
+        return False
+    return True
