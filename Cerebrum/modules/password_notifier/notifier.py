@@ -257,7 +257,7 @@ class PasswordNotifier(object):
             # raised if account does not have trait
             pass
 
-    def get_num_notifications(self, account):
+    def get_num_notxreifications(self, account):
         """
         Returns the number of previous notifications
         """
@@ -358,11 +358,43 @@ class PasswordNotifier(object):
             d = self.today
         return d + dt.DateTimeDelta(self.config.grace_period)
 
+    def get_account_affiliation_mapping(self, account):
+        """
+        Returns the affiliation_mappings value for the given account,
+        based on the affiliations of the account's owner.
+
+        :return dict or None (if no matching mapping is found in the config)
+        """
+        if not self.config.affiliation_mappings:
+            # No mappings set
+            return None
+        # We want to start with the smallest 'max_password_age'
+        aff_mappings = sorted(self.config.affiliation_mappings,
+                              key=lambda k: k['max_password_age'])
+        person = Utils.Factory.get("Person")(self.db)
+        person.find(account.owner_id)
+        affiliations = person.get_affiliations()
+        for aff_mapping in aff_mappings:
+            try:
+                aff_code = int(self.constants.human2constant(
+                    aff_mapping['affiliation']))
+            except KeyError:
+                return None
+            for row in affiliations:
+                if row['affiliation'] == aff_code:
+                    return aff_mapping
+        return None
+
     def remind_ok(self, account):
         """Returns true if it is time to remind"""
         n = self.get_num_notifications(account)
-        if 0 < n <= len(self.config.reminder_delay_values):
-            delay = dt.DateTimeDelta(self.config.reminder_delay_values[n-1])
+        a_mapping = get_account_affiliation_mapping(account)
+        if a_mapping is not None:
+            reminder_delay_values = a_mapping['warn_before_expiration_days']
+        else:
+            reminder_delay_values = self.config.reminder_delay_values
+        if 0 < n <= len(reminder_delay_values):
+            delay = dt.DateTimeDelta(reminder_delay_values[n-1])
             if self.get_notification_time(account) <= self.today - delay:
                 return True
         return False
@@ -424,7 +456,6 @@ class PasswordNotifier(object):
                 continue
 
             # now, I know the password should be old,
-
             if self.get_deadline(account) <= self.today:
                 # Deadline given in notification is passed, splat.
                 if not self.dryrun:
