@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-
-# Copyright 2004-2010 University of Oslo, Norway
+#
+# Copyright 2004-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""This file is a SSØ-SAP extension of Cerebrum.
+"""This file is a DFØ-SAP extension of Cerebrum.
 
 It contains code which imports SAP-specific person/employee information into
 Cerebrum.
@@ -29,7 +29,6 @@ way, should an update process (touching IDs) run concurrently with this
 import.
 """
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
@@ -140,7 +139,8 @@ def match_external_ids(person, sap_id, fnr):
         if ((person_id_cerebrum is not None) and
                 person.entity_id != person_id_cerebrum):
             logger.error(
-                "Should update FNR for %s, but another person (%s) with FNR (%s) exists in Cerebrum",
+                "Should update FNR for %s, but another person (%s) with FNR "
+                "(%s) exists in Cerebrum",
                 person_id_cerebrum,
                 sap_id,
                 fnr)
@@ -272,48 +272,6 @@ def populate_personal_title(person, fields):
                      str(const.work_title), person.entity_id)
 
 
-def populate_medarbeidergruppe(person, fields):
-    """Register medarbeidergruppe (mg) and medarbeiderunderguppe (mu) for a person."""
-
-    # TODO: Add support for mg/mu in the Cerebrum/Entity.py or Cerebrum/Person.py module?
-
-    pass
-
-    #import pdb; pdb.set_trace()
-
-    #source_mg = fields.sap_mg
-    #if source_mg:
-    #    person.add_mg_with_language(name_variant=const.trait_sap_mg,
-    #                                name_language=const.language_mb,
-    #                                mg=source_mg)
-    #    logger.debug(
-    #        "Added %s '%s' for person id=%s",
-    #        str(const.trait_sap_mg),
-    #        source_mg,
-    #        person.entity_id)
-    #else:
-    #    person.delete_with_language(name_variant=const.trait_sap_mg,
-    #                                name_language=const.language_nb)
-    #    logger.debug("Removed %s for person id=%s",
-    #                 str(const.trait_sap_mg), person.entity_id)
-
-    #source_mu = fields.sap_mu
-    #if source_mu:
-    #    person.add_mu_with_language(name_variant=const.trait_sap_mu,
-    #                                name_language=const.language_mb,
-    #                                mg=source_mu)
-    #    logger.debug(
-    #        "Added %s '%s' for person id=%s",
-    #        str(const.trait_sap_mu),
-    #        source_mg,
-    #        person.entity_id)
-    #else:
-    #    person.delete_with_language(name_variant=const.trait_sap_mu,
-    #                                name_language=const.language_nb)
-    #    logger.debug("Removed %s for person id=%s",
-    #                 str(const.trait_sap_mu), person.entity_id)
-
-
 def _remove_communication(person, comm_type):
     """Delete a person's given communication type."""
     logger.debug("Removing comm type %s", comm_type)
@@ -337,8 +295,10 @@ def populate_communication(person, fields):
         logger.debug("Populated comm type %s with «%s»", comm_type, comm_value)
 
     # some communication types need extra care
-    comm_types = ((const.contact_mobile_phone, fields.sap_phone_mobile),
-                  (const.contact_private_mobile, fields.sap_phone_mobile_private))
+    comm_types = ((const.contact_mobile_phone,
+                   fields.sap_phone_mobile),
+                  (const.contact_private_mobile,
+                   fields.sap_phone_mobile_private))
     for comm_type, comm_value in comm_types:
         if not comm_value:
             _remove_communication(person, comm_type)
@@ -386,15 +346,15 @@ def populate_office(person, fields):
                                  alias=fields.sap_roomnumber or None)
 
     country = None
-    if address.has_key('country_street'):
+    if 'country_street' in address:
         try:
             country = int(const.Country(address['country_street']))
         except Errors.NotFoundError:
             logger.warn("Could not find country code for «%s», "
                         "please define country in Constants.py",
                         address['country_street'])
-        # TBD: should we return here if country is not correct, or is it okay to
-        # just set it to None?
+        # TBD: should we return here if country is not correct, or is it okay
+        # to just set it to None?
     try:
         person.populate_address(source_system=const.system_sap,
                                 type=const.address_street,
@@ -407,7 +367,9 @@ def populate_office(person, fields):
                     fields.sap_building_code, e)
         return
     logger.debug('Populated office address for %s: building="%s", room="%s"',
-                 person.entity_id, fields.sap_building_code, fields.sap_roomnumber)
+                 person.entity_id,
+                 fields.sap_building_code,
+                 fields.sap_roomnumber)
 
 
 def populate_address(person, fields):
@@ -481,13 +443,14 @@ def add_person_to_group(person, fields):
         person.get_name(const.system_cached, const.name_full), group_name))
 
 
-def process_people(filename, use_fok, use_mgmu=False):
+def process_people(filename, use_fok):
     """Scan filename and perform all the necessary imports.
 
     Each line in filename contains SAP information about one person.
     """
-
-    for p in make_person_iterator(file(filename, "r"), use_fok, use_mgmu, logger):
+    processed_persons = set()
+    for p in make_person_iterator(
+            file(filename, "r"), use_fok, logger):
         if not p.valid():
             logger.info("Ignoring person sap_id=%s, fnr=%s (invalid entry)",
                         p.sap_ansattnr, p.sap_fnr)
@@ -503,6 +466,10 @@ def process_people(filename, use_fok, use_mgmu=False):
         # If the IDs are inconsistence with Cerebrum, skip the record
         person = populate_external_ids(p)
         if person is None:
+            logger.info(
+                "Ignoring person sap_id=%s, fnr=%s "
+                "(inconsistent IDs in Cerebrum)",
+                p.sap_ansattnr, p.sap_fnr)
             continue
 
         populate_names(person, p)
@@ -518,9 +485,29 @@ def process_people(filename, use_fok, use_mgmu=False):
 
         populate_personal_title(person, p)
 
-        populate_medarbeidergruppe(person, p)
-
         # Sync person object with the database
+        person.write_db()
+        processed_persons.add(person.entity_id)
+    return processed_persons
+
+
+def clean_person_data(processed_persons):
+    """Removes information from person objects.
+
+    :param set processed_persons: Person ids which information should not be
+        removed from."""
+    person = Factory.get('Person')(database)
+    existing_persons = set(map(lambda x: x['person_id'],
+                               person.list_persons()))
+    for person_id in existing_persons - processed_persons:
+        logger.info('Clearing contact info, addresses and title '
+                    'for person_id:{}'.format(person_id))
+        person.clear()
+        person.find(person_id)
+        person.populate_contact_info(const.system_sap)
+        person.populate_address(const.system_sap)
+        person.delete_name_with_language(name_variant=const.personal_title,
+                                         name_language=const.language_nb)
         person.write_db()
 
 
@@ -538,9 +525,6 @@ def main():
                         help='Do not use forretningsområdekode for checking '
                              'if a person should be imported. (default: use.)')
     parser.set_defaults(use_fok=True)
-    parser.add_argument('--with-mgmu', dest='use_mgmu', action='store_true',
-                        help='Import medarbeider- and medarbeiderundergrupper')
-    parser.set_defaults(use_mgmu=False)
     parser.add_argument('-c', '--commit', dest='commit', action='store_true',
                         help='Write changes to DB.')
     args = parser.parse_args()
@@ -553,7 +537,8 @@ def main():
     database = Factory.get("Database")()
     database.cl_init(change_program='import_SAP')
 
-    process_people(args.person_file, args.use_fok, args.use_mgmu)
+    processed_persons = process_people(args.person_file, args.use_fok)
+    clean_person_data(processed_persons)
 
     if args.commit:
         database.commit()

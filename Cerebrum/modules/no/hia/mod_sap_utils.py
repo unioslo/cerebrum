@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -33,8 +33,6 @@ TODO: This module should be profiled.
 
 import re
 import sys
-import cerebrum_path
-import cereconf
 from mx.DateTime import strptime
 from mx.DateTime import now
 
@@ -42,7 +40,7 @@ from mx.DateTime import now
 #
 # Public interface for this module
 #
-def make_person_iterator(source, fok=False, mgmu=False, logger=None):
+def make_person_iterator(source, fok=False, logger=None):
     """Iterator for grokking SSØ-SAP person data.
 
     @param source:
@@ -51,14 +49,7 @@ def make_person_iterator(source, fok=False, mgmu=False, logger=None):
     @param fok:
       boolean determining whether to respect forretningsområdekode field.
     """
-
-    if mgmu and fok:
-        # TODO: should it be possible to use both MG/MU and fok?
-        # getattr(cereconf, 'SAP_MG_MU_CODES', None):
-        kls = _SAPPersonDataTupleMGMU
-    elif mgmu:
-        kls = _SAPPersonDataTupleMGMU
-    elif fok:
+    if fok:
         kls = _SAPPersonDataTupleFok
     else:
         kls = _SAPPersonDataTuple
@@ -106,10 +97,10 @@ def make_utvalg_iterator(source, fok, logger=None):
         yield kls(tpl, logger)
 
 
-def load_expired_employees(source, fok, mgmu=False, logger=None):
+def load_expired_employees(source, fok, logger=None):
     """Collect SAP IDs for all expired employees from source."""
 
-    it = make_person_iterator(source, fok, mgmu, logger)
+    it = make_person_iterator(source, fok, logger)
     result = set()
     for tpl in it:
         if tpl.expired():
@@ -371,8 +362,8 @@ class _SAPPersonDataTuple(_SAPTupleBase):
                     'sap_fax': _with_strip(29),
                     'sap_address': (range(18, 22),
                                     lambda *rest: ", ".join(x.strip()
-                                                            for x in rest)
-                                    or None),
+                                                            for x in rest) or
+                                    None),
                     'sap_zip': _with_strip(23),
                     'sap_city': _with_strip(22),
                     'sap_country': _with_strip(24),
@@ -382,7 +373,8 @@ class _SAPPersonDataTuple(_SAPTupleBase):
 
     def expired(self):
         """Is this entry expired?"""
-        return self.sap_termination_date and (self.sap_termination_date < now())
+        return (self.sap_termination_date and
+                (self.sap_termination_date < now()))
 
     # TODO: Should this really just return True?
     def valid(self):
@@ -390,9 +382,10 @@ class _SAPPersonDataTuple(_SAPTupleBase):
         return True
 
     def reserved_for_export(self):
-        """Whether this person is reserved from export to catalogue services."""
+        """Whether this person is reserved from export to catalogue
+        services."""
         return (self.sap_publish_tag and
-               (self.sap_publish_tag != "Kan publiseres"))
+                (self.sap_publish_tag != "Kan publiseres"))
 
 
 class _SAPPersonDataTupleFok(_SAPPersonDataTuple):
@@ -404,23 +397,6 @@ class _SAPPersonDataTupleFok(_SAPPersonDataTuple):
     def valid(self):
         """Everything tagged with fok"""
         return self.sap_fokode != '9999'
-
-
-class _SAPPersonDataTupleMGMU(_SAPPersonDataTuple):
-
-    """This one makes use of medarbeidergrupper (MG) and medarbeiderundergrupper
-    (MU) to filter out persons."""
-
-    _field_rules = {'sap_mg': (37, int),
-                    'sap_mu': (38, int), }
-
-    def valid(self):
-        # TODO: Put the validation of the sap codes here
-        return True
-        #"""The MG-MU combination must be set in cereconf for the person to be
-        # valid."""
-        # return (cereconf.SAP_MG_MU_CODES.has_key(self.sap_mg) and
-        #       (self.sap_mu in cereconf.SAP_MG_MU_CODES[self.sap_mg]))
 
 
 class _SAPEmploymentTuple(_SAPTupleBase):
@@ -502,7 +478,8 @@ class _SAPUtvalgTuple(_SAPTupleBase):
 
     def expired(self):
         """Is this entry expired?"""
-        return self.sap_termination_date and (self.sap_termination_date < now())
+        return (self.sap_termination_date and
+                (self.sap_termination_date < now()))
 
     def valid(self):
         """Is this entry to be ignored?"""
