@@ -257,7 +257,7 @@ class PasswordNotifier(object):
             # raised if account does not have trait
             pass
 
-    def get_num_notxreifications(self, account):
+    def get_num_notifications(self, account):
         """
         Returns the number of previous notifications
         """
