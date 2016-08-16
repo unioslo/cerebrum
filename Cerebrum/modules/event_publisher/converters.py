@@ -29,9 +29,11 @@ If filter_message returns some value that is boolean true, it is used as the
 message, otherwise it is discarded.
 """
 
+import re
 from collections import OrderedDict
 from Cerebrum.Utils import Factory
-import re
+
+from . import scim
 
 """
 General fixes:
@@ -93,12 +95,14 @@ def filter_message(msg, subject, dest, change_type, db):
     :type change_type: Code ChangeType
     """
     category, change = msg['category'], msg['change']
+    payload = None
     for key in _dispatch.keys():
         if re.match('^%s$' % key,
                     '%s:%s' % (category, change) if change else category):
-            msg = _dispatch.get(key)(
+            payload = _dispatch.get(key)(
                 msg, subject, dest, change_type, db)
-    return msg
+            msg['payload'] = payload
+    return payload
 
 
 # Holds the mapping of names, as registred by dispatch().
@@ -144,22 +148,6 @@ def _rename_key(msg, field, new_field):
         del msg['data'][field]
 
 
-# Fix change, category and meta_object_type for all events (cleaning up
-# existing cruft).
-@dispatch('.*_.*')
-def fix_cat_for_entities(msg, *args):
-    if '_' in msg['category']:
-        (msg['category'], msg['meta_object_type']) = msg['category'].split(
-            '_', 1)
-    return msg
-
-
-@dispatch('.*', '.*_.*')
-def fix_change_for_all(msg, *args):
-    if '_' in msg['change']:
-        (msg['meta_object_type'], msg['change']) = msg['change'].rsplit('_', 1)
-    return msg
-
 """
 
     # Account changes
@@ -202,62 +190,57 @@ def fix_change_for_all(msg, *args):
 """
 
 
-@dispatch('e_account')
-def account(msg, *args):
-    """
-    Change e_account to account
-    """
-    msg['category'] = 'account'
-    return msg
-
-
 @dispatch('e_account', 'password')
-def account_password(msg, *args):
-    """Remove actual password"""
-    del msg['data']['password']
-    return msg
+def account_password(msg, subject, *args):
+    """Issue a password message."""
+    return scim.Event(scim.PASSWORD,
+                      subject=subject,
+                      attributes=['password'])
 
 
-@dispatch('e_account', 'password_token')
-def password_token(*args):
-    return None
+# @dispatch('e_account', 'password_token')
+# def password_token(*args):
+#    return None
 
 
 @dispatch('e_account', 'create')
-def account_create(msg, *args):
+def account_create(msg, subject, *args):
     """account create (by write_db)
     attributes other than _auth_info, _acc_affect_auth_types, password
     """
-    # TODO: Fix docstring
-    return msg
+    return scim.Event(scim.CREATE,
+                      subject=subject,
+                      attributes=['npType', 'expireDate', 'createDate'])
+
+
+@dispatch('e_account', 'destroy')
+def account_delete(msg, subject, *args):
+    return scim.Event(scim.DELETE,
+                      subject=subject)
 
 
 @dispatch('e_account', 'mod')
-def account_mod(msg, *kws):
+def account_mod(msg, subject, *kws):
     """account mod (by write_db)
     attributes that have been changed
     """
-    return msg
+    return scim.Event(scim.MODIFY,
+                      subject=subject,
+                      attributes=['npType', 'expireDate', 'createDate'])
 
 
-@dispatch('spread')
-def spread(msg, *args):
-    msg['category'] = 'context'
-    return msg
+@dispatch('spread', 'add')
+def spread_add(msg, subject, *args):
+    return scim.Event(scim.ADD,
+                      subject=subject,
+                      spreads=[msg['context']])
 
-"""
-    account_type_add = _ChangeTypeCode(
-        'ac_type', 'add', 'ac_type add for account %(subject)s',
-        ('ou=%(ou:ou_id)s, aff=%(affiliation:affiliation)s,
-        pri=%(int:priority)s',))
-    account_type_mod = _ChangeTypeCode(
-        'ac_type', 'mod', 'ac_type mod for account %(subject)s',
-        ('old_pri=%(int:old_pri)s, old_pri=%(int:new_pri)s',))
-    account_type_del = _ChangeTypeCode(
-        'ac_type', 'del', 'ac_type del for account %(subject)s',
-        ('ou=%(ou:ou_id)s, aff=%(affiliation:affiliation)s',))
 
-"""
+@dispatch('spread', 'del')
+def spread_del(msg, subject, *args):
+    return scim.Event(scim.REMOVE,
+                      subject=subject,
+                      spreads=[msg['context']])
 
 
 def _ou(msg, db):
@@ -269,25 +252,19 @@ def _ou(msg, db):
 
 
 @dispatch('ac_type')
-def account_type(msg, *args):
-    msg['category'] = 'account_type'
-    _ou(msg, args[-1])
-    return msg
+def account_type(msg, subject, *args):
+    return scim.Event(scim.MODIFY,
+                      subject=subject,
+                      attributes=['accountType'])  # TODO: better name?
+
+
+@dispatch('homedir')
+def homedir(msg, subj, *args):
+    return scim.Event(scim.MODIFY,
+                      subject=subj,
+                      attributes=['home'])
 
 """
-    # AccountHomedir changes
-
-    homedir_remove = _ChangeTypeCode(
-        'homedir', 'del', 'homedir del for account %(subject)s',
-        ('id=%(int:homedir_id)s',))
-    homedir_add = _ChangeTypeCode(
-        'homedir', 'add', 'homedir add for account %(subject)s',
-        ('id=%(int:homedir_id)s', 'home=%(string:home)s'))
-    homedir_update = _ChangeTypeCode(
-        'homedir', 'update', 'homedir update for account %(subject)s',
-        ('id=%(int:homedir_id)s',
-         'home=%(string:home)s', 'status=%(home_status:status)s'))
-
     # Disk changes
 
     disk_add = _ChangeTypeCode('disk', 'add', 'new disk %(subject)s')
@@ -328,77 +305,143 @@ def entity(*args):
 # (not conflicting with other names)
 # TODO: map to account, group, etc?
 @dispatch('entity_name')
-def entity_name(msg, *args):
-    msg['meta_object_type'] = 'identifier'
-    co = Factory.get('Constants')(args[-1])
-    _stringify_code(msg, 'name_variant', co.EntityNameCode)
-    _stringify_code(msg, 'name_language', co.LanguageCode)
-    return msg
+def entity_name(msg, subject, *args):
+    attr = None
+    if msg['subjecttype'] in ('account', 'group'):
+        attr = ['identifier']
+    elif msg['subjecttype'] == 'person':
+        attr = ['title']
+    if attr:
+        return scim.Event(scim.MODIFY,
+                          subject=subject,
+                          attributes=attr)
 
 
 @dispatch('entity_cinfo')
-def entity_cinfo(msg, *args):
+def entity_cinfo(msg, subject, *args):
     """Convert address type and source constants."""
-    msg['meta_object_type'] = 'contact_info'
-    co = Factory.get('Constants')(args[-1])
-    _stringify_code(msg, 'type', co.ContactInfo)
-    _stringify_code(msg, 'src', co.AuthoritativeSystem)
-    return msg
+    c = Factory.get('Constants')(args[-1])
+
+    x = c.ContactInfo(msg['data']['type'])
+    attr = {
+        c.contact_phone: 'phone',
+        c.contact_phone_private: 'privatePhone',
+        c.contact_fax: 'fax',
+        c.contact_email: 'externalEmail',
+        c.contact_url: 'homePage',
+        c.contact_mobile_phone: 'cellPhone',
+        c.contact_private_mobile: 'cellPhone',
+        c.contact_private_mobile_visible: 'cellPhone'
+    }.get(x) or str(x.capitalize())
+
+    return scim.Event(scim.MODIFY,
+                      subject=subject,
+                      attributes=[attr])
 
 
 @dispatch('entity_addr')
-def entity_addr(msg, *args):
-    msg['meta_object_type'] = 'address'
-    return msg
+def entity_addr(msg, subj, *args):
+    if subj:
+        return scim.Event(scim.MODIFY,
+                          subject=subj,
+                          attributes=['address'])
 
 
 @dispatch('entity_note')
 def entity_note(msg, *args):
     # TODO: Should we get the actual note, and send it?
-    return msg
+    return None
 
 
 @dispatch('entity', 'ext_id.*')
-def entity_external_id(msg, *args):
-    msg['meta_object_type'] = 'external-id'
-    co = Factory.get('Constants')(args[-1])
-    _stringify_code(msg, 'src', co.AuthoritativeSystem)
-    _stringify_code(msg, 'id_type', co.EntityExternalId)
-    return msg
+def entity_external_id(msg, subj, *args):
+    if not subj:
+        return None
+    c = Factory.get('Constants')(args[-1])
+    x = c.EntityExternalId(msg['data']['id_type'])
+    attr = {
+        # c.externalid_groupsid: 'sid',
+        # c.externalid_accountsid: 'sid',
+        c.externalid_fodselsnr: 'nationalIdNumber',
+        c.externalid_pass_number: 'passNumber',
+        c.externalid_social_security_number: 'socialSecurityNumber',
+        c.externalid_tax_identification_number: 'taxIdNumber',
+        c.externalid_value_added_tax_number: 'vatNumber',
+        c.externalid_studentnr: 'studentNumber',
+        c.externalid_sap_ansattnr: 'employeeNumber',
+        c.externalid_sap_ou: 'sapOu',
+        c.externalid_uname: 'externalUsername',
+        c.externalid_stedkode: 'OuCode',
+    }.get(x) or str(x.capitalize())
+
+    return scim.Event(scim.MODIFY,
+                      subject=subj,
+                      attributes=[attr])
 
 
 @dispatch('person')
 def person(msg, subject, dest, change_type, db):
-    return msg
+    return None
+
+
+@dispatch('person', 'create')
+def person_create(msg, subj, *rest):
+    return scim.Event(scim.CREATE,
+                      subject=subj,
+                      attributes='exportID birthDate gender '
+                      'description deseasedDate'.split())
+
+
+@dispatch('person', 'update')
+def person_update(msg, subj, *rest):
+    return scim.Event(scim.MODIFY,
+                      subject=subj,
+                      attributes='exportID birthDate gender '
+                      'description deseasedDate'.split())
 
 
 @dispatch('person', 'name_.*')
 def person_name_ops(msg, *args):
     co = Factory.get('Constants')(args[-1])
-    _stringify_code(msg, 'name_variant', co.PersonName)
-    _stringify_code(msg, 'src', co.AuthoritativeSystem)
-    return msg
+    if msg['data']['src'] == co.system_cached:
+        return scim.Event(scim.MODIFY,
+                          subject=args[0],
+                          attributes=['name'])
+    return None
 
 
 @dispatch('person', 'aff_(add|mod|del)')
-def person_affiliation_ops(msg, *args):
-    msg['meta_object_type'] = 'affiliation'
-    return msg
+def person_affiliation_ops(msg, subj, *args):
+    return scim.Event(scim.MODIFY,
+                      subject=subj,
+                      attributes=['affiliation'])
 
 
 @dispatch('person', 'aff_src.*')
 def person_affiliation_source_ops(msg, *args):
-    msg['meta_object_type'] = 'affiliation-source'
-    return msg
+    # TODO: Calculate changes
+    return None
 
 
-@dispatch('quarantine')
-def quarantine(msg, *args):
-    # TODO: What should we call quarantines?
-    co = Factory.get('Constants')(args[-1])
-    _stringify_code(msg, 'q_type', co.Quarantine)
-    _rename_key(msg, 'q_type', 'type')
-    return msg
+@dispatch('quarantine', 'add')
+def quarantine_add(msg, subj, *args):
+    # co = Factory.get('Constants')(args[-1])
+    # tp = msg['data']['q_type']
+    # TODO: Quarantine handler
+    return scim.Event(scim.ACTIVATE,
+                      subject=subj)
+
+
+@dispatch('quarantine', 'del')
+def quarantine_del(msg, subj, *args):
+    return scim.Event(scim.DEACTIVATE,
+                      subject=subj)
+
+
+@dispatch('quarantine', 'mod')
+def quarantine_mod(msg, subj, *args):
+    return scim.Event(scim.DEACTIVATE,
+                      subject=subj)
 
 # TODO: What to translate to?
 
@@ -458,26 +501,38 @@ def quarantine(msg, *args):
 
 @dispatch('e_group')
 def group(msg, *rest):
-    msg['category'] = 'group'
-    del msg['meta_object_type']
-    return msg
+    return None
 
 
-@dispatch('entity_name')
-def group_name(msg, *args):
-    if msg.get('subjecttype') == 'group' and msg.get('data').get('domain'):
-        del msg['data']['domain']
-    return msg
+@dispatch('e_group', 'create')
+def group_create(msg, subj, *rest):
+    return scim.Event(scim.CREATE,
+                      subject=subj,
+                      attributes=['description'])
+
+
+@dispatch('e_group', 'add')
+def group_add(msg, subj, dest, *rest):
+    # TODO: Use dest?
+    return scim.Event(scim.MODIFY,
+                      subject=subj,
+                      attributes=['member'])
+
+
+@dispatch('e_group', 'rem')
+def group_rem(msg, subj, dest, *rest):
+    # TODO: Use dest?
+    return scim.Event(scim.MODIFY,
+                      subject=subj,
+                      attributes=['member'])
 
 
 @dispatch('ad_attr')
 def ad_attr(msg, *rest):
-    msg['category'] = 'ad_attribute'
-    return msg
+    return None
 
 
 @dispatch('dlgroup')
 def dlgroup(msg, *rest):
     """distribution group roomlist"""
-    msg['category'] = 'distribution_group'
-    return msg
+    return None

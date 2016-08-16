@@ -31,6 +31,7 @@ import Cerebrum.ChangeLog
 import Cerebrum.DatabaseAccessor
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+from . import scim
 
 __version__ = '1.0'
 
@@ -87,7 +88,7 @@ def change_type_to_message(db, change_type_code, subject,
     else:
         destid = desttype = None
     if 'spread' in change_params:
-        context = str(constants.Spread(change_params['spread']))
+        context = constants.Spread(change_params['spread'])
         del change_params['spread']
     else:
         context = None
@@ -103,6 +104,7 @@ def change_type_to_message(db, change_type_code, subject,
         'objecttype': desttype,
         'objectname': get_entity_name(destid),
         'data': change_params,
+        'payload': None
     },
         subject, dest, change_type_code, db)
 
@@ -137,10 +139,8 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         if skip_publish:
             return
 
-        data = change_type_to_message(self, change_type_id,
-                                      subject_entity,
-                                      destination_entity,
-                                      change_params)
+        data = (change_type_id, subject_entity, destination_entity,
+                change_params)
         # Conversion can discard data by returning false value
         if not data:
             return
@@ -154,6 +154,15 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
     def publish_log(self):
         """ Publish messages. """
         super(EventPublisher, self).publish_log()
+
+        def convert(msg):
+            if isinstance(msg, tuple):
+                return change_type_to_message(self, *msg)
+            else:
+                return msg
+
+        self.__queue = scim.merge_payloads(
+            filter(None, map(convert, self.__queue)))
         if self.__queue:
             self.__try_send_messages()
 
@@ -169,30 +178,32 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
 
     def __try_send_messages(self):
         try:
-            client = self.__get_client()
-            ue = self.__get_unpublished_events()
-            unsent = ue.query_events(lock=True, parse_json=True)
-            for event in unsent:
-                client.publish(event['message'])
-                ue.delete_event(event['eventid'])
-            while self.__queue:
-                message = self.__queue[0]
-                client.publish(message)
-                del self.__queue[0]
-        except Exception as e:
-            Factory.get_logger("cronjob") \
-                .error("Could not write message: %s", e)
+            with self.__get_client() as client:
+                ue = self.__get_unpublished_events()
+                unsent = ue.query_events(lock=True, parse_json=True)
+                for event in unsent:
+                    client.publish(event['message'])
+                    ue.delete_event(event['eventid'])
+                while self.__queue:
+                    message = self.__queue[0]
+                    client.publish(message)
+                    del self.__queue[0]
+        except Exception:
+            Factory.get_logger("cronjob").exception("Could not write message")
             self.__save_queue()
-        finally:
-            client.close()
 
     def __save_queue(self):
         """Save queue to event queue"""
         if self.__queue:
-            ue = self.__get_unpublished_events()
-            ue.add_events(self.__queue)
-            self.__queue = []
-            self._db.commit()
+            try:
+                ue = self.__get_unpublished_events()
+                ue.add_events(self.__queue)
+                self.__queue = []
+                self._db.commit()
+            except:
+                log = Factory.get_logger('cronjob')
+                for i in self.__queue:
+                    log.error("Didn't write event: %s", i)
 
 
 class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
@@ -245,7 +256,12 @@ class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
         dumps = json.dumps
         for event in events:
             # From python docs: use separators to get compact encoding
-            self.execute(qry, {'event': dumps(event,
+            if isinstance(event, scim.Event):
+                pl = event.get_payload()
+                pl['routing-key'] = event.key
+            else:
+                pl = event
+            self.execute(qry, {'event': dumps(pl,
                                               separators=(',', ':'),
                                               encoding=self._db.encoding)})
 

@@ -45,6 +45,7 @@ from stompest.sync import Stomp
 from stompest import error
 
 from Cerebrum.modules.event_publisher import ClientErrors
+from . import scim
 
 
 class StompClient(object):
@@ -115,11 +116,19 @@ class StompClient(object):
         else:
             header = None
 
-        if isinstance(messages, (basestring, dict)):
+        if isinstance(messages, (basestring, dict, scim.Event)):
             messages = [messages]
         for msg in messages:
             try:
-                self.client.send(self.queue, json.dumps(msg), header)
+                if isinstance(msg, dict):
+                    del msg['routing-key']
+                    msg = json.dumps(msg)
+                elif isinstance(msg, scim.Event):
+                    msg = json.dumps(msg.get_payload())
+
+                self.client.send(self.queue,
+                                 msg,
+                                 header)
             except error.StompConnectionError as e:
                 raise ClientErrors.ConnectionError(
                     "Could not publish '%s' to broker: %s" % (msg, e))
