@@ -491,6 +491,7 @@ setup(
         'Cerebrum/modules/cim',
         'Cerebrum/modules/dns',
         'Cerebrum/modules/event',
+        'Cerebrum/modules/event/clients',
         'Cerebrum/modules/event_publisher',
         'Cerebrum/modules/exchange',
         'Cerebrum/modules/hostpolicy',
