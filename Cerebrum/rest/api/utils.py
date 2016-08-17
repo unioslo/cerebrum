@@ -4,11 +4,7 @@ from Cerebrum.rest.api import db
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-
-
-from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
-                                         BofhdAuthOpTarget,
-                                         BofhdAuthRole)
+import Cerebrum.modules.bofhd.auth as bofhd_auth
 
 
 class EntityLookupError(Exception):
@@ -102,7 +98,7 @@ def get_group(identifier, idtype=None, grtype='Group'):
                 "Invalid identifier type '{}'".format(idtype))
     except Errors.NotFoundError:
         raise EntityLookupError("Could not find a {} with {}={}".format(
-            grtype, idtype, identifier))
+            grtype, idtype, repr(identifier)))
 
     return group
 
@@ -141,7 +137,12 @@ def get_entity(identifier=None, entype=None, idtype=None):
         except ValueError:
             raise EntityLookupError(u"Expected numeric identifier")
         en = Factory.get(b'Entity')(db.connection)
-        return en.get_subclassed_object(identifier)
+        try:
+            return en.get_subclassed_object(identifier)
+        except Errors.NotFoundError:
+            raise EntityLookupError(
+                "Could not find an Entity with {}={}".format(idtype,
+                                                             identifier))
     raise EntityLookupError(u"Invalid entity type {}".format(entype))
 
 
@@ -174,28 +175,105 @@ def get_entity_name(entity):
 # Used to find auth role owners. Should probably be moved somewhere else.
 # For example (entity_id=group_id, target_type='group') will find group
 # moderators.
-def get_auth_owners(entity, target_type):
-    aot = BofhdAuthOpTarget(db.connection)
-    ar = BofhdAuthRole(db.connection)
-    aos = BofhdAuthOpSet(db.connection)
+def get_auth_roles(entity, target_type, role_map=None):
+    aot = bofhd_auth.BofhdAuthOpTarget(db.connection)
+    ar = bofhd_auth.BofhdAuthRole(db.connection)
+    aos = bofhd_auth.BofhdAuthOpSet(db.connection)
     targets = []
     for row in aot.list(target_type=target_type, entity_id=entity.entity_id):
         targets.append(int(row['op_target_id']))
-
-    data = []
+    roles = dict()
+    names = dict()
     for row in ar.list_owners(targets):
         aos.clear()
         aos.find(row['op_set_id'])
+        if role_map and aos.name not in role_map:
+            continue
         entity_id = int(row['entity_id'])
-        en = get_entity(identifier=entity_id)
-        if en.entity_type == db.const.entity_account:
-            owner_id = en.account_name
-        elif en.entity_type == db.const.entity_group:
-            owner_id = en.group_name
-        else:
-            owner_id = entity_id
+        en = Factory.get('Entity')(db.connection).get_subclassed_object(entity_id)
+        names[en.entity_id] = get_entity_name(en)
+        roles.setdefault((en.entity_id, en.entity_type), []).append(aos.name)
+
+    data = []
+    for (entity_id, entity_type), r in roles.iteritems():
         data.append({
-            'type': en.entity_type,
-            'owner_id': owner_id,
-            'operation_name': aos.name
+            'id': entity_id,
+            'type': entity_type,
+            'name': names[entity_id],
+            'roles': [role_map[r_] for r_ in r] if role_map else r,
         })
+    return data
+
+
+def get_opset(opset_name):
+    aos = bofhd_auth.BofhdAuthOpSet(db.connection)
+    aos.find_by_name(opset_name)
+    return aos
+
+
+def get_op_target(entity, create=True):
+    tt_lut = {
+        # TODO: More
+        # FIXME: Make sure constants exist
+        db.const.entity_group: db.const.auth_target_type_group,
+        db.const.entity_account: db.const.auth_target_type_group,
+        db.const.entity_person: db.const.auth_target_type_person,
+    }
+    entity_id = entity.entity_id
+    target_type = tt_lut[entity.entity_type]
+    aot = bofhd_auth.BofhdAuthOpTarget(db.connection)
+
+    op_targets = [t for t in aot.list(entity_id=entity_id,
+                                      target_type=target_type)]
+
+    # No target exists, create one
+    if not op_targets and create:
+        aot.populate(entity_id, target_type)
+        aot.write_db()
+        return aot
+
+    assert len(op_targets) == 1  # This method will never create more than one
+    assert op_targets[0]['attr'] is None  # ... and never populates attr
+
+    # Target exists, return it
+    aot.find(op_targets[0]['op_target_id'])
+    return aot
+
+
+def grant_auth(sub, opset, obj):
+    """
+    :param Entity sub:
+        Subject granted auth.
+    :param BofhdAuthOpSet opset:
+        The opset (role) that is granted.
+    :param Entity obj:
+        The object that is being controlled.
+    """
+    ar = bofhd_auth.BofhdAuthRole(db.connection)
+    aot = get_op_target(obj)
+    ar.grant_auth(sub.entity_id, opset.op_set_id, aot.op_target_id)
+
+
+def revoke_auth(sub, opset, obj):
+    """
+    :param Entity sub:
+        Subject losing auth.
+    :param BofhdAuthOpSet opset:
+        The opset (role) that is revoked.
+    :param Entity obj:
+        The object that is no longer being controlled.
+    """
+    ar = bofhd_auth.BofhdAuthRole(db.connection)
+    aot = get_op_target(obj, create=False)
+    roles = list(ar.list(sub.entity_id, opset.op_set_id, aot.op_target_id))
+
+    if len(roles) == 0:
+        return False
+
+    ar.revoke_auth(sub.entity_id, opset.op_set_id, aot.op_target_id)
+
+    # If that was the last permission for this op_target, kill op_target
+    if len(list(ar.list(op_target_id=aot.op_target_id))) == 0:
+        aot.delete()
+
+    return True

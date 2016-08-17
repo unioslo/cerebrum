@@ -334,7 +334,7 @@ account_groups_filter.add_argument(
 @api.route('/<string:id>/groups')
 class AccountGroupListResource(Resource):
     """Resource for account group memberships."""
-    @api.marshal_with(group.GroupList)
+    @api.marshal_with(group.GroupListItem, as_list=True, envelope='groups')
     @api.doc(params={'id': 'Account name or ID'})
     @auth.require()
     def get(self, id):
@@ -354,7 +354,7 @@ class AccountGroupListResource(Resource):
                 'id': group['name'],
             })
             groups.append(group)
-        return {'groups': groups}
+        return groups
 
 
 @api.route('/<string:id>/contacts')

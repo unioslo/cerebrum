@@ -9,16 +9,28 @@ from Cerebrum.rest.api import db
 # TBD: Maybe this is a bad idea, but it seems convenient.
 class Constant(base.String):
     """Gets the string representation of a Cerebrum constant by code."""
-    def __init__(self, ctype=None, **kwargs):
+
+    def __init__(self, ctype=None, transform=None, **kwargs):
+        """
+        :param str ctype:
+            The constant type, e.g. 'EntityType'.
+        :param callable transform:
+            A callable that takes the constant strval, and returns a mapped
+            value.
+        """
         super(Constant, self).__init__(**kwargs)
         self._ctype = ctype
+        self.transform = transform
 
     @property
     def ctype(self):
         return getattr(db.const, self._ctype)
 
     def format(self, code):
-        return str(self.ctype(code)) if code else None
+        strval = str(self.ctype(code)) if code else None
+        if strval is not None and callable(self.transform):
+            return self.transform(strval)
+        return strval
 
     def output(self, key, data):
         code = base.get_value(key if self.attribute is None
@@ -28,9 +40,11 @@ class Constant(base.String):
 
 class DateTime(base.DateTime):
     """Converts an mx.DateTime to a Python datetime object if needed."""
-    def format(self, dt, **kwargs):
+    def format(self, dt):
         value = dt.pydatetime() if hasattr(dt, 'pydatetime') else dt
-        return super(DateTime, self).format(value=value, **kwargs)
+        if value is None:
+            return None
+        return super(DateTime, self).format(value)
 
 
 # FIXME: This is horrible and we want entity names in the URIs when applicable.
