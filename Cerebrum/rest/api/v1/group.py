@@ -585,7 +585,7 @@ class GroupMemberResource(Resource):
         group = find_group(name)
         member = find_entity(member_id)
         if group.has_member(member.entity_id):
-            group.delete_member(member.entity_id)
+            group.remove_member(member.entity_id)
 
 
 @api.route('/<string:name>/posix', endpoint='posixgroup')
