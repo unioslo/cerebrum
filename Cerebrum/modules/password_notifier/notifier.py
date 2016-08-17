@@ -767,6 +767,34 @@ class SMSPasswordNotifier(PasswordNotifier):
 
         self.person = Utils.Factory.get('Person')(db)
 
+    def get_notification_date(self, account):
+        try:
+            trait = account.get_trait(
+                self.constants.EntityTrait(self.config.trait))
+        except (Errors.NotFoundError, TypeError):
+            return None
+        else:
+            return trait['date'] if trait else None
+
+    def remind_ok(self, account):
+        """Returns true if it is time to remind"""
+        a_mapping = self.get_account_affiliation_mapping(account)
+        if a_mapping is not None:
+            reminder_delay_values = a_mapping['warn_before_expiration_days']
+        else:
+            reminder_delay_values = self.config.reminder_delay_values
+
+        if (self.get_notification_date(account) == self.today or
+                (self.get_num_notifications(account) >=
+                 len(reminder_delay_values))):
+            return False
+
+        for days_before in reminder_delay_values:
+            if ((self.get_deadline(account) -
+                 dt.DateTimeDelta(days_before)) == self.today):
+                return True
+        return False
+
     def notify(self, account):
         def sms(account, days_until_splat):
             if not account.owner_type == self.constants.entity_person:
