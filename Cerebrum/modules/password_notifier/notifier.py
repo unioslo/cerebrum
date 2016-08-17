@@ -45,7 +45,6 @@ module:
 A trait is used for excepting specific users from being processed.
 """
 
-import datetime
 import email
 import email.Header
 import locale
@@ -62,8 +61,6 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.modules.password_notifier.constants import (
-    Constants as PNConstants)
 from Cerebrum.modules.password_notifier.config import load_config
 from Cerebrum.modules.pwcheck.history import PasswordHistory
 
