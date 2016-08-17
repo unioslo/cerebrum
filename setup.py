@@ -513,6 +513,7 @@ setup(
         'Cerebrum/modules/no/nih',
         'Cerebrum/modules/no/hine',
         'Cerebrum/modules/no/notur',
+        'Cerebrum/modules/password_notifier',
         'Cerebrum/modules/posix',
         'Cerebrum/modules/pwcheck',
         'Cerebrum/modules/printutils',
