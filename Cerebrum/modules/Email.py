@@ -2755,6 +2755,16 @@ class AccountEmailMixin(Account.Account):
         if len(res) > 0:
             raise Errors.TooManyRowsError('Account is used in email targets')
 
+    def get_delete_blockers(self):
+        """Return list of conflicting email targets"""
+        ret = super(AccountEmailMixin, self).get_delete_blockers()
+        res = self.query("""
+            SELECT * FROM [:table schema=cerebrum name=email_target]
+            WHERE using_uid = :eid AND target_entity <> :eid""",
+                         {'eid': self.entity_id})
+        ret.extend(['Email target {}'.format(x['target_id']) for x in res])
+        return ret
+
     def delete(self):
         """Delete the account's email addresses and email target, so that the
         entity could be fully deleted from the database.

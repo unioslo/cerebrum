@@ -95,6 +95,12 @@ def process_delete_requests():
             continue
         logger.info("Trying to delete account %s", account.account_name)
 
+        blockers = account.get_delete_blockers()
+        if blockers:
+            logger.error('Manual cleaning required: '
+                         'Deleting account %s is blocked by: %s',
+                         account.account_name, ', '.join(blockers))
+            continue
         set_operator(r['requestee_id'])
         # Set expire_date (do not export data about this account)
         account.expire_date = br.now

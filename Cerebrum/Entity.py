@@ -214,6 +214,22 @@ class Entity(DatabaseAccessor):
         self._db.log_change(self.entity_id, self.const.entity_del, None)
         self.clear()
 
+    def get_delete_blockers(self):
+        """Returns a list of resources blocking deletion of item.
+        Not required to be exhaustive, but if empty, delete should work
+        for properly constructed subclass.
+
+        :rtype: List of strings
+        :return: Every item a string representing the blocking item. Human
+        readable
+        """
+        import Cerebrum.Group
+        # No factory, as we only want the core functionality
+        gr = Cerebrum.Group.Group(self._db)
+        rows = gr.search_members(member_id=self.entity_id,
+                                 member_filter_expired=False)
+        return ['Group {}'.format(x['group_name']) for x in rows]
+
     def list_all_with_type(self, entity_type):
         """Return sequence of all 'entity_id's that has ``type``."""
         return self.query("""
