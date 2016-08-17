@@ -19,8 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cerebrum.modules.PasswordNotifier import PasswordNotifier
-from Cerebrum.modules.PasswordNotifier import _send_mail
+from Cerebrum.modules.password_notifier.notifier import PasswordNotifier
+from Cerebrum.modules.password_notifier.notifier import _send_mail
 
 
 class UiaPasswordNotifier(PasswordNotifier):
@@ -55,7 +55,8 @@ class UiaPasswordNotifier(PasswordNotifier):
         Increases the number for trait by one, and sets other interesting
         fields.
         """
-        traits = account.get_trait(self.config.trait)
+        traits = account.get_trait(self.constants.EntityTrait(
+            self.config.trait))
         if traits is not None:
             self.reminded_users.append(account.account_name)
         super(UiaPasswordNotifier, self).inc_num_notifications(account)
@@ -63,7 +64,7 @@ class UiaPasswordNotifier(PasswordNotifier):
     def process_accounts(self):
         super(UiaPasswordNotifier, self).process_accounts()
         if (not self.dryrun and
-                self.config.list_to and
+                self.config.summary_to and
                 self.config.summary_from):
             self.splatted_users.sort()
             self.reminded_users.sort()
@@ -71,7 +72,7 @@ class UiaPasswordNotifier(PasswordNotifier):
                 "\n".join(self.splatted_users),
                 "\n".join(self.reminded_users))
             _send_mail(
-                mail_to=self.config.list_to,
+                mail_to=', '.join(self.config.summary_to),
                 mail_from=self.config.summary_from,
                 subject="List from password notifier",
                 body=body,

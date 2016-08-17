@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 u""" Cerebrum configuration module.
 
 This module contains the core of the Cerebrum configuration framework. It

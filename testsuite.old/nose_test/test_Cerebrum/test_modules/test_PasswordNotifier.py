@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2008-2009 University of Oslo, Norway
+# Copyright 2008-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,12 +32,12 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.PasswordNotifier import PasswordNotifier
+from Cerebrum.modules.password_notifier.notifier import PasswordNotifier
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
 import pickle
 
 now = dt.today()
-age = PasswordNotifier.default_config.max_password_age
+age = 365
 w2 = 2 * dt.oneWeek
 w3 = 3* dt.oneWeek
 w5 = 5 * dt.oneWeek
@@ -108,7 +108,7 @@ class sendmail(object):
     Collect mails instead of sending them away.
 
     An object of this class should replace the _send_mail function
-    in Cerebrum.modules.PasswordNotifier, to make the PasswordNotifier
+    in Cerebrum.modules.password_notifier.notifier, to make the PasswordNotifier
     module not to send mails.
 
     In stead the mails are collected in a list called `mails` in
@@ -175,7 +175,7 @@ First:     ${FIRST_TIME}
 """)
     os.close(fil)
     config.template = [name]
-    import Cerebrum.modules.PasswordNotifier as pn
+    import Cerebrum.modules.password_notifier.notifier as pn
     pn._send_mail = sendmail()
     import sys
     from Cerebrum import Utils
@@ -297,7 +297,7 @@ class test_PasswordNotifier(object):
         self.account = Factory.get("Account")(self.db)
         logger = Factory.get_logger("console")
         self.notifier = PasswordNotifier.get_notifier(config=config)(db=self.db, logger=logger)
-        from Cerebrum.modules.PasswordNotifier import _send_mail
+        from Cerebrum.modules.password_notifier.notifier import _send_mail
         _send_mail.mails = []
         _send_mail.returnvalue = True
 
@@ -465,7 +465,7 @@ class test_PasswordNotifier(object):
         Process the accounts and check the results.
         This doesn't have any cool side effects other than a mail sent.
         """
-        from Cerebrum.modules.PasswordNotifier import _send_mail
+        from Cerebrum.modules.password_notifier.notifier import _send_mail
         self.notifier.process_accounts()
         self.account.clear()
         self.account.find_by_name('alice')
@@ -508,7 +508,7 @@ class test_PasswordNotifier(object):
         """
         Process the accounts, but now make sendmail fail
         """
-        import Cerebrum.modules.PasswordNotifier as pn
+        import Cerebrum.modules.password_notifier.notifier as pn
         pn._send_mail.returnvalue = False
         self.notifier.process_accounts()
         self.account.clear()

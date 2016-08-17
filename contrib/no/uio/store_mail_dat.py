@@ -21,20 +21,27 @@ Resultatet skal være:
 """
 
 import cerebrum_path
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.PasswordNotifier import PasswordNotifier
-import sys, cPickle, mx.DateTime as dt
 
+import cPickle
 import locale
+import sys
+import time
+
+import mx.DateTime as dt
+
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.password_notifier.notifier import PasswordNotifier
+
 locale.setlocale(locale.LC_ALL, "")
+
 
 def usage(progname):
     print progname, " file"
     print __doc__.encode(locale.getpreferredencoding())
     sys.exit(1)
 
+
 def main():
-    import time
     try:
         progname, arg = sys.argv
     except ValueError:
@@ -49,12 +56,13 @@ def main():
         logger.exception("Could not read file")
         usage(progname)
 
-    db = Factory.get("Database")()
-    account = Factory.get("Account")(db)
-    #account.find_by_name("bootstrap_account")
+    db = Factory.get('Database')()
+    co = Factory.get('Constants')(db)
+    account = Factory.get('Account')(db)
+    # account.find_by_name("bootstrap_account")
     db.cl_init(change_program="pw_migrate")
     pw = PasswordNotifier.get_notifier()
-    trait = pw.config.trait
+    trait = co.EntityTrait(pw.config.trait)
     for account_id, info in m.iteritems():
         account.clear()
         account.find(account_id)
@@ -64,7 +72,8 @@ def main():
         if 'reminder' in info:
             times.append(time.localtime(info['reminder'])[:3])
             logger.info(" rem   = %4d-%2d-%2d", *times[0])
-        strval = ", ".join([ dt.DateTime(*x).strftime("%Y-%m-%d") for x in times ])
+        strval = ", ".join(
+            [dt.DateTime(*x).strftime("%Y-%m-%d") for x in times])
         logger.info(" str   = %s", strval)
         t = {
             'code': trait,
@@ -76,7 +85,7 @@ def main():
         account.write_db()
     db.commit()
 
+
 if __name__ == '__main__':
     import cereconf
     main()
-

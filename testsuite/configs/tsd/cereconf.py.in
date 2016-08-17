@@ -39,7 +39,7 @@ CLASS_CONSTANTS = [
     'Cerebrum.modules.EntityTrait/TraitConstants',
     'Cerebrum.modules.PosixUser/Constants',
     'Cerebrum.modules.bofhd.utils/Constants',
-    'Cerebrum.modules.PasswordNotifier/Constants',
+    'Cerebrum.modules.password_notifier.constants/Constants',
     'Cerebrum.modules.dns.DnsConstants/Constants',
     'Cerebrum.modules.dns.bofhd_dns_cmds/Constants',
     'Cerebrum.modules.hostpolicy.HostPolicyConstants/Constants',

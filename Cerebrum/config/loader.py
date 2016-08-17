@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 u""" Cerebrum module for loading configuration files.
 
 This module contains functionality for finding and loading config files from
