@@ -795,6 +795,87 @@ class SMSPasswordNotifier(PasswordNotifier):
                 return True
         return False
 
+    def process_accounts(self):
+        self.logger.info("process_accounts started")
+        if self.dryrun:
+            self.logger.info("Running dry")
+
+        old_ids = self.get_old_account_ids()
+        all_ids = self.get_notified_ids().union(old_ids)
+        self.logger.debug("Found %d users with old passwords", len(old_ids))
+
+        # variables for statistics
+        num_excepted = 0
+        num_smsed = 0
+        num_lifted = 0
+
+        account = Utils.Factory.get("Account")(self.db)
+        if self.config.change_log_account:
+            account.find_by_name(self.config.change_log_account)
+            cl_acc = account.entity_id
+        else:
+            cl_acc = None
+        self.db.cl_init(change_by=cl_acc,
+                        change_program=self.config.change_log_program)
+        for account_id in all_ids:
+            account.clear()
+            account.find(account_id)
+            reason = self.except_user(account)
+            if reason:
+                num_excepted += 1
+                self.logger.info("Skipping %s -- %s",
+                                 account.account_name, reason)
+                continue
+            if account_id not in old_ids:
+                # Has new password, but may have notify trait
+                num_lifted += 1
+                if not self.dryrun:
+                    self.remove_trait(account)
+                else:
+                    self.logger.info("Removing trait for %s",
+                                     account.account_name)
+                continue
+            if self.remind_ok(account):
+                if self.notify(account):
+                    if not self.dryrun:
+                        self.inc_num_notifications(account)
+                    else:
+                        self.logger.info(
+                            "Remind %d for %s",
+                            self.get_num_notifications(account),
+                            account.account_name)
+                    num_smsed += 1
+                else:
+                    self.logger.info("User %s not notified",
+                                     account.account_name)
+
+        stats = ("Users with old passwords: {}\n"
+                 "Excepted users: {}\n"
+                 "SMSed users: {}\n"
+                 "Users with new passwords: {}\n").format(
+                     len(old_ids),
+                     num_excepted,
+                     num_smsed,
+                     num_lifted)
+
+        if self.dryrun:
+            print(stats)
+        elif self.config.summary_to and self.config.summary_from:
+            _send_mail(
+                mail_to=', '.join(self.config.summary_to),
+                mail_from=self.config.summary_from,
+                subject='Statistics from SMS password notifier',
+                body=stats,
+                logger=self.logger,
+                mail_cc=', '.join(self.config.summary_cc))
+
+        if self.dryrun:
+            self.logger.info('Rolling back changes')
+            self.db.rollback()
+        else:
+            self.logger.info('Committing changes')
+            self.db.commit()
+
     def notify(self, account):
         def sms(account, days_until_splat):
             if not account.owner_type == self.constants.entity_person:
