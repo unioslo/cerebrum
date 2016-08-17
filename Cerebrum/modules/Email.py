@@ -173,7 +173,8 @@ class EmailConstants(Constants.Constants):
 
     email_domain_category_uidaddr = _EmailDomainCategoryCode(
         'uidaddr',
-        'Primary user addresses in these domains will be in the format username@domain.')
+        'Primary user addresses in these domains will be in the format'
+        'username@domain.')
 
     email_domain_category_include_all_uids = _EmailDomainCategoryCode(
         'all_uids',
@@ -255,7 +256,8 @@ class EmailConstants(Constants.Constants):
 
     email_server_type_cyrus = _EmailServerTypeCode(
         'cyrus_IMAP',
-        "Server is a Cyrus IMAP server, which keeps mailboxes in a Cyrus-specific format.")
+        "Server is a Cyrus IMAP server, which keeps mailboxes in a "
+        "Cyrus-specific format.")
 
     email_server_type_sympa = _EmailServerTypeCode(
         'sympa',
@@ -293,10 +295,12 @@ class CLConstants(CLConstants.CLConstants):
         ('name=%(string:new_domain_name)',
          'desc=%(string:new_domain_desc'))
     email_dom_addcat = CLConstants._ChangeTypeCode(
-        'email_domain', 'addcat_domain', 'add category in email domain %(subject)s',
+        'email_domain', 'addcat_domain', 'add category in email domain'
+        ' %(subject)s',
         ('cat=%(int:cat)'))
     email_dom_remcat = CLConstants._ChangeTypeCode(
-        'email_domain', 'remcat_domain', 'remove category in email domain %(subject)s',
+        'email_domain', 'remcat_domain', 'remove category in email domain'
+        ' %(subject)s',
         ('cat=%(int:cat)'))
 
     # email target
@@ -403,18 +407,19 @@ class CLConstants(CLConstants.CLConstants):
     email_vacation_enable = CLConstants._ChangeTypeCode(
         'email_vacation', 'enable_vaca', 'enable vacation msg for %(subject)s')
     email_vacation_disable = CLConstants._ChangeTypeCode(
-        'email_vacation', 'disable_vaca', 'disable vacation msg for %(subject)s')
+        'email_vacation', 'disable_vaca',
+        'disable vacation msg for %(subject)s')
 
     # email primary address target (subject here is an email_target)
     email_primary_address_add = CLConstants._ChangeTypeCode(
-        'email_primary_address', 'add_primary', 'add primary address for %(subject)s',
-        ('primary=%(int:addr_id)'))
+        'email_primary_address', 'add_primary',
+        'add primary address for %(subject)s', ('primary=%(int:addr_id)'))
     email_primary_address_rem = CLConstants._ChangeTypeCode(
-        'email_primary_address', 'rem_primary', 'remove primary address for %(subject)s',
-        ('primary=%(int:addr_id)'))
+        'email_primary_address', 'rem_primary',
+        'remove primary address for %(subject)s', ('primary=%(int:addr_id)'))
     email_primary_address_mod = CLConstants._ChangeTypeCode(
-        'email_primary_address', 'mod_primary', 'modify primary address for %(subject)s',
-        ('primary=%(int:addr_id)'))
+        'email_primary_address', 'mod_primary',
+        'modify primary address for %(subject)s', ('primary=%(int:addr_id)'))
     # email server (subject here is an e-mail server)
     email_server_add = CLConstants._ChangeTypeCode(
         'email_server', 'add_server', 'add email server %(subject)s',
@@ -493,7 +498,8 @@ class EmailDomain(Entity_class):
         # exchange-relatert-jazz
         # requires cl-use!
         self._db.log_change(self.entity_id, self.const.email_dom_rem, None,
-                            change_params={'del_domain': self.email_domain_name})
+                            change_params={
+                                'del_domain': self.email_domain_name})
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_domain]
         WHERE domain_id=:e_id""", {'e_id': self.entity_id})
@@ -512,10 +518,12 @@ class EmailDomain(Entity_class):
                          {'d_id': self.entity_id,
                           'name': self.email_domain_name,
                           'descr': self.email_domain_description})
-            #exchange-relatert-jazz
+            # exchange-relatert-jazz
             self._db.log_change(self.entity_id, self.const.email_dom_add, None,
-                                change_params={'new_domain_name': self.email_domain_name,
-                                               'new_domain_desc': self.email_domain_description})
+                                change_params={
+                                    'new_domain_name': self.email_domain_name,
+                                    'new_domain_desc':
+                                    self.email_domain_description})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=email_domain]
@@ -524,10 +532,12 @@ class EmailDomain(Entity_class):
                          {'d_id': self.entity_id,
                           'name': self.email_domain_name,
                           'descr': self.email_domain_description})
-            #exchange-relatert-jazz
+            # exchange-relatert-jazz
             self._db.log_change(self.entity_id, self.const.email_dom_mod, None,
-                                change_params={'mod_domain_name': self.email_domain_name,
-                                               'mod_domain_desc': self.email_domain_description})
+                                change_params={
+                                    'mod_domain_name': self.email_domain_name,
+                                    'mod_domain_desc':
+                                    self.email_domain_description})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -711,7 +721,8 @@ class EmailTarget(Entity_class):
             self.email_target_entity_id = target_entity_id
             self.email_target_entity_type = target_entity_type
         else:
-            raise ValueError('Must set both or none of (target_entity_id, target_entity_type).')
+            raise ValueError('Must set both or none of (target_entity_id, '
+                             'target_entity_type).')
 
     def write_db(self):
         # conv
@@ -727,7 +738,8 @@ class EmailTarget(Entity_class):
             INSERT INTO [:table schema=cerebrum name=email_target]
               (target_id, target_type, target_entity_id, target_entity_type,
                alias_value, using_uid, server_id)
-            VALUES (:t_id, :t_type, :e_id, :e_type, :alias, :uid, :server_id)""",
+            VALUES (:t_id, :t_type, :e_id, :e_type, :alias, :uid, :server_id)
+                         """,
                          {'t_id': self.entity_id,
                           't_type': int(self.email_target_type),
                           'e_id': self.email_target_entity_id,
@@ -739,7 +751,8 @@ class EmailTarget(Entity_class):
             self._db.log_change(self.entity_id,
                                 self.const.email_target_add,
                                 self.email_target_entity_id,
-                                change_params={'target_type': int(self.email_target_type)})
+                                change_params={
+                                    'target_type': int(self.email_target_type)})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=email_target]
@@ -763,8 +776,9 @@ class EmailTarget(Entity_class):
             self._db.log_change(self.entity_id,
                                 self.const.email_target_mod,
                                 self.email_target_entity_id,
-                                change_params={'target_type': int(self.email_target_type),
-                                               'server_id': self.email_server_id})
+                                change_params={
+                                    'target_type': int(self.email_target_type),
+                                    'server_id': self.email_server_id})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -815,13 +829,15 @@ class EmailTarget(Entity_class):
         self._db.log_change(self.entity_id,
                             self.const.email_target_rem,
                             self.email_target_entity_id,
-                            change_params={'target_type': int(self.email_target_type)})
+                            change_params={
+                                'target_type': int(self.email_target_type)})
         self.__super.delete()
 
     def find_by_email_target_attrs(self, **kwargs):
         # NA
         if not kwargs:
-            raise Errors.ProgrammingError('Need at least one column argument to find target')
+            raise Errors.ProgrammingError(
+                'Need at least one column argument to find target')
         where = []
         binds = {}
         for column in ('target_type', 'target_entity_id', 'alias_value',
@@ -835,7 +851,8 @@ class EmailTarget(Entity_class):
                     binds[column] = int(binds[column])
                 del kwargs[column]
         if kwargs:
-            raise Errors.ProgrammingError('Unrecognized argument(s): %r' % kwargs)
+            raise Errors.ProgrammingError('Unrecognized argument(s): %r'
+                                          % kwargs)
         where = " AND ".join(where)
         # This might find no rows, and it might find more than one
         # row.  In those cases, query_1() will raise an exception.
@@ -884,8 +901,11 @@ class EmailTarget(Entity_class):
 
     def get_addresses(self, special=True):
         # conv
-        """Return all email_addresses associated with this email_target as row objects.
-        If special is False, rewrite the magic domain names into working domain names."""
+        """
+        Return all email_addresses associated with this email_target as row
+        objects.
+        If special is False, rewrite the magic domain names into
+        working domain names."""
         ret = self.query("""
         SELECT ea.local_part, ed.domain, ea.address_id
         FROM [:table schema=cerebrum name=email_address] ea
@@ -917,9 +937,12 @@ class EmailTarget(Entity_class):
     # production og mail-ldif is very slow, trying to make it possible
     # to optimize targets listing a little bit
     def list_email_targets_ext(self, target_entity_id=None, target_type=None):
-        """Return an iterator over all email_target rows.  If target_entity_id is specified,
-        only return email_targets with the given target_entity. If target_type is specified,
-        return all email_target_rows with the conforming target_type.
+        """
+        Return an iterator over all email_target rows.
+        If target_entity_id is specified,
+        only return email_targets with the given target_entity. If target_type
+        is specified, return all email_target_rows with the conforming
+        target_type.
 
         For each row, the following columns are included:
         target_id, target_type, target_entity_type, target_entity_id,
@@ -931,10 +954,10 @@ class EmailTarget(Entity_class):
         if target_entity_id and target_type:
             raise Errors.ProgrammingError, \
                 "Cannot use both entity_id and target_type!"
-        if not target_entity_id is None:
+        if target_entity_id is not None:
             where_str = " WHERE %s" % argument_to_sql(
                 target_entity_id, "target_entity_id", binds, int)
-        if not target_type is None:
+        if target_type is not None:
             where_str = " WHERE %s" % argument_to_sql(
                 target_type, "target_type", binds, int)
         return self.query("""
@@ -944,7 +967,8 @@ class EmailTarget(Entity_class):
         FROM [:table schema=cerebrum name=email_target]%s
         """ % where_str, binds, fetchall=False)
 
-    def list_email_target_primary_addresses(self, target_type=None, target_entity_id=None):
+    def list_email_target_primary_addresses(self, target_type=None,
+                                            target_entity_id=None):
         # conv
         """Return an iterator over primary email-addresses belonging to email_target.
         Returns target_id, target_entity_id, local_part and domain.
