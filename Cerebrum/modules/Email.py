@@ -2747,6 +2747,14 @@ class AccountEmailMixin(Account.Account):
         self.update_email_addresses()
         return ret
 
+    def delete_posixuser(self):
+        """Email target has a foreign key with posix user"""
+        res = self.query("""
+            SELECT * FROM [:table schema=cerebrum name=email_target]
+            WHERE using_uid = :eid""", {'eid': self.entity_id})
+        if len(res) > 0:
+            raise Errors.TooManyRowsError('Account is used in email targets')
+
     def delete(self):
         """Delete the account's email addresses and email target, so that the
         entity could be fully deleted from the database.

@@ -104,6 +104,8 @@ class PosixUser(Account_class):
         if self.entity_id is None:
             raise Errors.NoEntityAssociationError(
                 "Unable to determine which entity to delete.")
+        if hasattr(super(PosixUser, self), 'delete_posixuser'):
+            super(PosixUser, self).delete_posixuser()
         self._db.log_change(self.entity_id, self.const.posix_demote,
                             None, change_params={'uid': int(self.posix_uid),
                                                  'gid': int(self.gid_id),
