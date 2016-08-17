@@ -38,3 +38,8 @@ class Constants(_c.Constants):
         'pw_notifications',
         _c.Constants.entity_account,
         "Trait for PasswordNotifier's bookkeeping.")
+
+    trait_passwordnotifier_sms_notifications = _EntityTraitCode(
+        'pw_sms_notificat',
+        _c.Constants.entity_account,
+        "Trait for bookkeeping number of SMSes sent by PasswordNotifier.")
