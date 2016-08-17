@@ -1106,6 +1106,10 @@ class BofhdExtension(
         self.ba.can_delete_user(operator.get_entity_id(), account)
         if account.is_deleted():
             raise CerebrumError("User is already deleted")
+        blockers = account.get_delete_blockers()
+        if blockers:
+            return('There are still references to account that has to be '
+                   'cleaned up:\n * ' + '\n * '.join(blockers))
         br = BofhdRequests(self.db, self.const)
         br.add_request(operator.get_entity_id(), br.now,
                        self.const.bofh_delete_user,
