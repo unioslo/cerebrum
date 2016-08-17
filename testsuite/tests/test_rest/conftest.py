@@ -18,7 +18,7 @@ def app():
 def db_ctx(app, database):
     u""" DatabaseContext. """
     from Cerebrum.rest.api import database as _db_module
-    _db_module._connect = lambda: database
+    _db_module._connect = lambda encoding: database
     return _db_module.DatabaseContext(app)
 
 
