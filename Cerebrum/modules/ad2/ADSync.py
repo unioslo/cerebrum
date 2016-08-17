@@ -190,6 +190,8 @@ class BaseSync(object):
         self.config = dict()
         # Where the entities to work on should go. Keys should be entity_names:
         self.entities = dict()
+        # Where entity_ids of entities currently exempt from a sync should go.
+        self.exempt_entities = list()
         # A mapping from entity_id to the entities.
         self.id2entity = dict()
         # A mapping from AD-id to the entities. AD-id is per default
@@ -1124,6 +1126,11 @@ class BaseSync(object):
         ent = self.adid2entity.get(name.lower())
         if ent:
             ent.in_ad = True
+            if ent.entity_id in self.exempt_entities:
+                self.logger.debug3(
+                    'Entity {0} marked as exempt, ignoring'.format(
+                        ent.entity_id))
+                return False
             ent.ad_data['dn'] = dn
 
         # Don't touch others than from the subset, if set:
@@ -1348,6 +1355,13 @@ class BaseSync(object):
         i = 0
         for ent in self.entities.itervalues():
             if ent.in_ad:
+                continue
+
+            if ent.entity_id in self.exempt_entities:
+                self.logger.debug3(
+                    'Entity {0} marked as exempt, ignoring'.format(
+                        ent.entity_id))
+                i += 1
                 continue
             try:
                 self.process_entity_not_in_ad(ent)
@@ -1902,23 +1916,16 @@ class UserSync(BaseSync):
         self.logger.debug("Fetching users with spread %s" %
                           (self.config['target_spread'],))
         subset = self.config.get('subset')
-        account_exempt_traits = list()
-        # not all instances define co.trait_account_exempt
         if hasattr(self.co, 'trait_account_exempt'):
-            for tr in self._entity_trait.list_traits(
+            for row in self._entity_trait.list_traits(
                     self.co.trait_account_exempt):
-                account_exempt_traits.append(int(tr['entity_id']))
+                self.exempt_entities.append(int(row['entity_id']))
         for row in self.ac.search(spread=self.config['target_spread']):
             uname = row["name"]
             # For testing or special cases where we only want to sync a subset
             # of entities. The subset should contain the entity names, e.g.
             # usernames or group names.
             if subset and uname not in subset:
-                continue
-            if int(row['account_id']) in account_exempt_traits:
-                self.logger.info(
-                    'Account %s (%d) has trait "account_exempt" and '
-                    'will not be exported to AD' % (uname, row['account_id']))
                 continue
             self.entities[uname] = self.cache_entity(
                 int(row['account_id']),
@@ -2525,7 +2532,6 @@ class UserSync(BaseSync):
             try:
                 password = self.uname2pasw[ent.entity_name]
             except KeyError:
-                password = ''
                 self.logger.warn('No password set for %s' % ent.entity_name)
                 return ad_object
 
@@ -2569,10 +2575,19 @@ class UserSync(BaseSync):
         # TODO: Should we create a new account instance per call, to support
         # threading?
         self.ac.clear()
+        try:
+            self.ac.find(row['subject_entity'])
+        except Errors.NotFoundError:
+            pass
+        else:
+            if hasattr(self.co, 'trait_account_exempt') and \
+               self.co.trait_account_exempt in self.ac.get_traits():
+                self.logger.warn('Account {0} has trait {1}, ignoring'.format(
+                    self.ac.entity_id, str(self.co.trait_account_exempt)))
+            return False
 
         # TODO: clean up code when more functionality is added!
         if row['change_type_id'] == self.co.account_password:
-            self.ac.find(row['subject_entity'])
             if self.ac.is_expired():
                 self.logger.debug("Account %s is expired, ignoring",
                                   row['subject_entity'])
@@ -2603,9 +2618,7 @@ class UserSync(BaseSync):
                                        self.co.quarantine_refresh):
             change = self.co.ChangeType(row['change_type_id'])
 
-            try:
-                self.ac.find(row['subject_entity'])
-            except Errors.NotFoundError:
+            if not hasattr(self.ac, 'entity_id'):
                 self.logger.debug(
                     "Can only handle %s for accounts, entity_id: %s",
                     change, row['subject_entity'])
@@ -2725,23 +2738,16 @@ class GroupSync(BaseSync):
         self.logger.debug("Fetching groups with spread %s" %
                           (self.config['target_spread'],))
         subset = self.config.get('subset')
-        group_exempt_traits = list()
-        # not all instances define co.trait_group_exempt
         if hasattr(self.co, 'trait_group_exempt'):
-            for tr in self._entity_trait.list_traits(
+            for row in self._entity_trait.list_traits(
                     self.co.trait_group_exempt):
-                group_exempt_traits.append(int(tr['entity_id']))
+                self.exempt_entities.append(int(row['entity_id']))
         for row in self.gr.search(spread=self.config['target_spread']):
             name = row["name"]
             # For testing or special cases where we only want to sync a subset
             # of entities. The subset should contain the entity names, e.g.
             # usernames or group names.
             if subset and name not in subset:
-                continue
-            if int(row['group_id']) in group_exempt_traits:
-                self.logger.info(
-                    'Group %s (%d) has trait "group_exempt" and '
-                    'will not be exported to AD' % (name, row['group_id']))
                 continue
             self.entities[name] = self.cache_entity(
                 int(row['group_id']),
