@@ -770,7 +770,7 @@ class SMSPasswordNotifier(PasswordNotifier):
     def notify(self, account):
         def sms(account, days_until_splat):
             if not account.owner_type == self.constants.entity_person:
-                return
+                return False
             self.person.clear()
             self.person.find(account.owner_id)
             try:
@@ -789,22 +789,25 @@ class SMSPasswordNotifier(PasswordNotifier):
                 self.logger.info(
                     'No applicable phone number for {}'.format(
                         account.account_name))
-                return
+                return False
 
             # Send SMS
             if getattr(cereconf, 'SMS_DISABLE', False):
                 self.logger.info(
                     'SMS disabled in cereconf, would have '
                     'sent password SMS to {}'.format(mobile))
+                return True
             else:
                 from Cerebrum.Utils import SMSSender
                 sms = SMSSender(logger=self.logger)
-                if not sms(mobile,
-                           self.template.format(
-                               account_name=account.account_name,
-                               days_until_splat=days_until_splat)):
+                if sms(mobile, self.template.format(
+                        account_name=account.account_name,
+                        days_until_splat=days_until_splat)):
+                    return True
+                else:
                     self.logger.info(
                         'Unable to send message to {}.'.format(mobile))
+                    return False
 
         deadline = self.get_deadline(account)
         self.logger.info(
