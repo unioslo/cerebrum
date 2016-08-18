@@ -2584,7 +2584,7 @@ class UserSync(BaseSync):
                self.co.trait_account_exempt in self.ac.get_traits():
                 self.logger.warn('Account {0} has trait {1}, ignoring'.format(
                     self.ac.entity_id, str(self.co.trait_account_exempt)))
-            return False
+                return False
 
         # TODO: clean up code when more functionality is added!
         if row['change_type_id'] == self.co.account_password:
