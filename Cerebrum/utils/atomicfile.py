@@ -107,8 +107,16 @@ class FileWriterWarning(RuntimeWarning):
     pass
 
 
-def _fwarn(msg, stacklevel=1):
-    _warn(msg, FileWriterWarning, stacklevel=2 + stacklevel)
+def _fwarn(msg):
+    """ Issue a FileWriterWarning with message `msg`. """
+    # count consecutive stackframes from this module to find stacklevel
+    frame = inspect.currentframe()
+    this_filename = frame.f_code.co_filename
+    local_stackframes = 0
+    while frame and frame.f_code.co_filename == this_filename:
+        local_stackframes += 1
+        frame = frame.f_back
+    _warn(msg, FileWriterWarning, stacklevel=local_stackframes+1)
 
 
 class AtomicFileWriter(object):
@@ -330,15 +338,16 @@ class AtomicFileWriter(object):
             # the temporary file's contents.  If that doesn't raise
             # any exceptions rename() to the real file name.
             if getattr(cereconf, 'FILE_CHECKS_DISABLED', False):
-                _fwarn("File checks are disabled by global setting"
+                _fwarn("All file checks are disabled by global setting"
                        " 'cereconf.FILE_CHECKS_DISABLED'")
             elif not self.validate:
-                _fwarn("File checks are disabled")
+                _fwarn("All file checks are disabled")
             else:
                 self.validate_output()
 
-            if ((not self.__replace_equal) and os.path.exists(self.name)
-                    and filecmp.cmp(self.tmpname, self.name, shallow=0)):
+            if ((not self.__replace_equal) and
+                    os.path.exists(self.name) and
+                    filecmp.cmp(self.tmpname, self.name, shallow=0)):
                 os.unlink(self.tmpname)
                 self.__discarded = True
             elif self.replace:
@@ -425,11 +434,11 @@ class SimilarSizeWriter(AtomicFileWriter):
         super(SimilarSizeWriter, self).validate_output()
 
         if getattr(cereconf, 'SIMILARSIZE_CHECK_DISABLED', False):
-            _fwarn("SimilarSizeWriter: Check disabled by global setting"
+            _fwarn("Similar size check disabled by global setting"
                    " 'cereconf.SIMILARSIZE_CHECK_DISABLED'")
             return
         if self.max_pct_change is None:
-            _fwarn("SimilarSizeWriter: No limit set.")
+            _fwarn("No limit for similar size check set")
             return
         if not os.path.exists(self.name):
             return
@@ -478,7 +487,7 @@ class SimilarLineCountWriter(AtomicFileWriter):
         super(SimilarLineCountWriter, self).validate_output()
 
         if self.max_line_change is None:
-            _fwarn("SimilarLineCountWriter: No limit set.")
+            _fwarn("No limit for similar line count check set")
             return
         if not os.path.exists(self.name):
             return
@@ -528,7 +537,7 @@ class MinimumSizeWriter(AtomicFileWriter):
         super(MinimumSizeWriter, self).validate_output()
 
         if not self.min_size:
-            _fwarn("MinimumSizeWriter: No min_size set")
+            _fwarn("No limit for minimum size check set")
             return
 
         new_size = os.path.getsize(self.tmpname)
