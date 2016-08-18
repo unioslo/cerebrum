@@ -1106,7 +1106,7 @@ class BofhdExtension(
         self.ba.can_delete_user(operator.get_entity_id(), account)
         if account.is_deleted():
             raise CerebrumError("User is already deleted")
-        blockers = account.get_delete_blockers()
+        blockers = account.get_delete_blockers(ignore_group_memberships=True)
         if blockers:
             return('There are still references to account that has to be '
                    'cleaned up:\n * ' + '\n * '.join(blockers))

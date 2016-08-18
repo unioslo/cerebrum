@@ -95,7 +95,7 @@ def process_delete_requests():
             continue
         logger.info("Trying to delete account %s", account.account_name)
 
-        blockers = account.get_delete_blockers()
+        blockers = account.get_delete_blockers(ignore_group_memberships=True)
         if blockers:
             logger.error('Manual cleaning required: '
                          'Deleting account %s is blocked by: %s',

@@ -214,7 +214,7 @@ class Entity(DatabaseAccessor):
         self._db.log_change(self.entity_id, self.const.entity_del, None)
         self.clear()
 
-    def get_delete_blockers(self):
+    def get_delete_blockers(self, ignore_group_memberships=False, **kw):
         """Returns a list of resources blocking deletion of item.
         Not required to be exhaustive, but if empty, delete should work
         for properly constructed subclass.
@@ -223,6 +223,8 @@ class Entity(DatabaseAccessor):
         :return: Every item a string representing the blocking item. Human
         readable
         """
+        if ignore_group_memberships:
+            return []
         import Cerebrum.Group
         # No factory, as we only want the core functionality
         gr = Cerebrum.Group.Group(self._db)
