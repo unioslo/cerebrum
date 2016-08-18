@@ -376,9 +376,16 @@ class PasswordNotifier(object):
         affiliations = person.get_affiliations()
         for aff_mapping in aff_mappings:
             try:
-                aff_code = int(self.constants.human2constant(
-                    aff_mapping['affiliation']))
+                person_aff_code_str = self.constants.human2constant(
+                    aff_mapping['affiliation'])
+                if person_aff_code_str is None:
+                    self.logger.error('Unknown affiliation-string "%s"',
+                                      aff_mapping['affiliation'])
+                    continue
+                aff_code = int(person_aff_code_str)
             except KeyError:
+                self.logger.error('Key "affiliation" not found in the '
+                                  '"affiliation_mappings" list')
                 return None
             for row in affiliations:
                 if row['affiliation'] == aff_code:
