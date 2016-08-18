@@ -1059,32 +1059,27 @@ class ConstantsBase(DatabaseAccessor):
         @return:
           Suitable constant object, or None, if no object is found.
         """
-
         obj = None
         if isinstance(human_repr, (int, long)):
             obj = self.map_const(human_repr)
-        elif isinstance(human_repr, str):
-
+        elif isinstance(human_repr, (str, unicode)):
+            human_repr = str(human_repr)  # in case of unicode
             # ok, that failed, so assume this is a constant name ...
             if hasattr(self, human_repr):
                 obj = getattr(self, human_repr)
-
             # ok, that failed too, we can only compare stringified version of
             # all proper constants with the parameter...
             if obj is None:
                 for const_obj in self.__iterate_constants(const_type):
                     if str(const_obj) == human_repr:
                         obj = const_obj
-
             # assume it's a textual representation of the code int...
             if obj is None and human_repr.isdigit():
                 obj = self.map_const(int(human_repr))
-
         # Make sure it's of the right type...
         if obj is not None and const_type is not None:
             if not isinstance(obj, const_type):
                 obj = None
-
         return obj
     # end human2constant
 # end ConstantsBase
