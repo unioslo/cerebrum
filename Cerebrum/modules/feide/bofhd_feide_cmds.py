@@ -149,7 +149,7 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['feide_service_list'] = Command(
         ('feide', 'service_list'),
         fs=FormatSuggestion(
-            '%-12d %-12s %s', ('service_id', 'feide_id', 'name'),
+            '%-12d %-12d %s', ('service_id', 'feide_id', 'name'),
             hdr='%-12s %-12s %s' % ('Entity ID', 'Feide ID', 'Name')),
         perm_filter='is_superuser')
 
@@ -166,9 +166,6 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(help_ref='feide_service_name'),
         SimpleString(help_ref='feide_authn_entity_target'),
         Integer(help_ref='feide_authn_level'),
-        fs=FormatSuggestion(
-            'Added authentication level %s for %s for %s',
-            ('level', 'target', 'service_name')),
         perm_filter='is_superuser')
 
     def feide_authn_level_add(self, operator, service_name, target, level):
@@ -192,9 +189,8 @@ class BofhdExtension(BofhdCommonMethods):
                 'already enabled'.format(level, target, service_name))
         entity.add_authn_level(service_id=fse.entity_id,
                                level=level)
-        return {'service_name': service_name,
-                'target': target,
-                'level': level}
+        return 'Added authentication level {} for {} for {}'.format(
+            level, target, service_name)
 
     # feide authn_level_remove
     all_commands['feide_authn_level_remove'] = Command(
@@ -202,9 +198,6 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(help_ref='feide_service_name'),
         SimpleString(help_ref='feide_authn_entity_target'),
         Integer(help_ref='feide_authn_level'),
-        fs=FormatSuggestion(
-            'Removed authentication level %s for %s for %s',
-            ('level', 'target', 'service_name')),
         perm_filter='is_superuser')
 
     def feide_authn_level_remove(self, operator, service_name, target, level):
@@ -212,8 +205,8 @@ class BofhdExtension(BofhdCommonMethods):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied(
                 'Only superusers may remove Feide authentication levels')
-        if not level.isdigit() or int(level) != 3:
-            raise CerebrumError('Only authentication level 3 is supported')
+        if not level.isdigit() or int(level) not in (3, 4):
+            raise CerebrumError('Authentication level must be 3 or 4')
         service_name = service_name.strip()
         fse = self._find_service(service_name)
         # Allow authentication levels for persons and groups
@@ -228,16 +221,15 @@ class BofhdExtension(BofhdCommonMethods):
                     level, target, service_name))
         entity.remove_authn_level(service_id=fse.entity_id,
                                   level=level)
-        return {'service_name': service_name,
-                'target': target,
-                'level': level}
+        return 'Removed authentication level {} for {} for {}'.format(
+            level, target, service_name)
 
     # feide authn_level_search
     all_commands['feide_authn_level_list'] = Command(
         ('feide', 'authn_level_list'),
         SimpleString(help_ref='feide_service_name'),
         fs=FormatSuggestion(
-            '%-20s %-6s %s', ('service_name', 'level', 'entity'),
+            '%-20s %-6d %s', ('service_name', 'level', 'entity'),
             hdr='%-20s %-6s %s' % ('Service', 'Level', 'Entity')),
         perm_filter='is_superuser')
 
