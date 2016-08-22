@@ -275,9 +275,11 @@ def process_affiliations(employment_file, person_file, use_fok,
             ret = person_cache[empid] = get_person(empid)
         return ret
 
-    for tpl in make_employment_iterator(file(employment_file), use_fok, logger):
+    for tpl in make_employment_iterator(
+            file(employment_file), use_fok, logger):
         if not tpl.valid():
-            logger.debug("Ignored invalid entry for person: «%s»",
+            logger.debug("Ignored invalid entry for person while "
+                         "processing affiliation: «%s»",
                          tpl.sap_ansattnr)
             continue
 
@@ -293,7 +295,8 @@ def process_affiliations(employment_file, person_file, use_fok,
 
         # is the entry within a valid time frame?
         # The shift by 180 days has been requested by UiA around 2007-03-27
-        if not (tpl.start_date - DateTimeDelta(180) <= today() <= tpl.end_date):
+        if not (tpl.start_date - DateTimeDelta(180) <= today() <=
+                tpl.end_date):
             logger.debug("Entry %s has wrong timeframe (start: %s, end: %s)",
                          tpl, tpl.start_date, tpl.end_date)
             continue
@@ -429,8 +432,13 @@ def process_employments(employment_file, use_fok, people_to_ignore=None):
 
     logger.debug("processing employments")
     employment_cache = cache_db_employments()
-    for tpl in make_employment_iterator(file(employment_file), use_fok, logger):
-        # TODO: shouldn't we skip entry if not tpl.valid() here?
+    for tpl in make_employment_iterator(
+            file(employment_file), use_fok, logger):
+        if not tpl.valid():
+            logger.debug("Ignored invalid entry for person while "
+                         "processing employment: «%s»",
+                         tpl.sap_ansattnr)
+            continue
 
         if people_to_ignore and tpl.sap_ansattnr in people_to_ignore:
             # e.g. those with wrong MG/MU
