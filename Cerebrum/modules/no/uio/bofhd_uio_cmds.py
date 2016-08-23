@@ -8829,7 +8829,7 @@ Addresses and settings:
                                                ou_id=ou_id)
         status_blob = ', '.join(map(str,VALID_STATUS))
         if valid_aff == []:
-            raise CerebrumError('Person has no % affiliation' % status_blob)
+            raise CerebrumError('Person has no %s affiliation' % status_blob)
         elif len(valid_aff) > 1:
             raise CerebrumError('More than than one %s affiliation, '
                                 'add stedkode as argument' % status_blob)
