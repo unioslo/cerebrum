@@ -196,7 +196,7 @@ class BofhdExtension(BofhdCommandBase):
     # event force_all
     all_commands['event_force_all'] = Command(
         ('event', 'force_all',), TargetSystem(),
-        fs=FormatSuggestion('Forced %s events', ('rowcount',)),
+        fs=FormatSuggestion('Forced %d events', ('rowcount',)),
         perm_filter='is_postmaster')
 
     def event_force_all(self, operator, ts):
