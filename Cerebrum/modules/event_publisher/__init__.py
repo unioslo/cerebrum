@@ -190,8 +190,9 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                     del self.__queue[0]
                 if unsent:
                     self._db.commit()
-        except Exception:
-            Factory.get_logger("cronjob").exception("Could not write message")
+        except Exception as e:
+            Factory.get_logger("cronjob").exception(
+                'Could not write message: {err}'.format(err=e))
             self.__save_queue()
 
     def __save_queue(self):
