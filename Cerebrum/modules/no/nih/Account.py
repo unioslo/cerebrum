@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2010 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2010, 2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -51,7 +51,7 @@ class AccountNIHMixin(Account.Account):
         spreads = [int(r['spread']) for r in self.get_spread()]
         if not spread in spreads:  # user doesn't have this spread
             return
-                
+
         # (Try to) perform the actual spread removal.
         ret = self.__super.delete_spread(spread)
         # Post-removal clean up
@@ -67,7 +67,7 @@ class AccountNIHMixin(Account.Account):
                 et.email_target_type = self.const.email_target_deleted
                 et.write_db()
             except Errors.NotFoundError:
-                pass        
+                pass
         return ret
 
 
@@ -80,7 +80,7 @@ class AccountNIHMixin(Account.Account):
             return "too long (%s); max 10 chars allowed" % name
         if re.search("[^a-z0-9._-]", name):
             return "contains illegal characters (%s); only a-z allowed" % name
-                
+
         return False
 
 
@@ -231,7 +231,7 @@ class AccountNIHMixin(Account.Account):
                         epat.populate(ea.entity_id, parent = et)
                     epat.write_db()
                     primary_set = True
-                    
+
     def _autopick_homeMDB(self):
         mdb_choice = None
         person = Factory.get("Person")(self._db)
@@ -243,11 +243,11 @@ class AccountNIHMixin(Account.Account):
                 'No personal owner found'
             return
         if self.is_employee(person) or self.is_affiliate(person):
-            mdb_choice = 'Ansatte-Vanlige'
+            mdb_choice = 'DB03-Ansatt'
         elif self.is_student(person):
-            mdb_choice = 'Studenter-Vanlige'
+            mdb_choice = 'DB02-Student'
         else:
-            mdb_choice = 'Ansatte-Vanlige'            
+            mdb_choice = 'DB03-Ansatt'
         if mdb_choice is None:
             raise self._db.IntegrityError, \
                   "Cannot assign mdb"
@@ -262,7 +262,7 @@ class AccountNIHMixin(Account.Account):
             f = file(fname, 'r')
             for l in f:
                 words.append(l.rstrip())
-        while(1): 
+        while(1):
             pwd.append(words[random.randint(0, len(words)-1)])
             passwd = ' '.join([a for a in pwd])
             if len(passwd) >= 12 and len(pwd) > 1:
