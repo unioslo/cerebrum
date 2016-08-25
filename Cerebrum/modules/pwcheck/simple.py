@@ -198,7 +198,7 @@ class CheckSimpleCharacterGroups(PasswordChecker):
                                  string.digits,
                                  string.punctuation)
         self._requirement = _(
-            'Must contain at least {min_chars_per_group} characters from at '
+            'Must contain at least {min_chars_per_group} characters for each of at '
             'least {min_groups} of the following character groups: Uppercase '
             'letters, lowercase letters, numbers and special '
             'characters').format(
@@ -217,7 +217,7 @@ class CheckSimpleCharacterGroups(PasswordChecker):
                counters.values()).count(True) < self.min_groups:
             return [_(
                 'Password must contain at least {min_chars_per_group} '
-                'characters from at least {min_groups} '
+                'characters for each of at least {min_groups} '
                 'of the following character groups: Uppercase letters, '
                 'lowercase letters, numbers and special characters').format(
                     min_chars_per_group=self.min_chars_per_group,
