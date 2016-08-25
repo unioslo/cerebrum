@@ -905,13 +905,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
         return success and not failed
 
-    def add_student_to_server_group(self):
-        """add a student account to a file server group to create
-        homedir. this method shoud be removed as soon as AutoStud is
-        no longer in use. no changes to the base method definition
-        should be made without consulting Jazz"""
-        pass
-
     def illegal_name(self, name):
         """Return a string with error message if username is illegal"""
         return False

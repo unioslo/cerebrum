@@ -429,18 +429,6 @@ class AccountHiAMixin(Account.Account):
             et.write_db()
         return et
 
-    def add_student_to_server_group(self):
-        """add a student account at UiA to an AD file server group to
-           create homedirectory"""
-        # TODO: check that the account is not already a member of any of the
-        # groups
-        group = Utils.Factory.get("Group")(self._db)
-        group_choice = random.choice(cereconf.AD_STUDENT_FILEGROUPS)
-        group.clear()
-        group.find_by_name(group_choice)
-        if not group.has_member(self.entity_id):
-            group.add_member(self.entity_id)
-
 
     def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=None,
                        prefix=""):

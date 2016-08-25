@@ -1328,20 +1328,9 @@ class BofhdExtension(
         operator.store_state(
             "new_account_passwd", {'account_id': int(posix_user.entity_id),
                                    'password': passwd})
-        self._meld_inn_i_server_gruppe(int(posix_user.entity_id), operator)
         self._add_radiusans_spread(int(posix_user.entity_id), operator)
 
         return "Ok, create %s" % {'uid': uid}
-
-    # helper func, let new account join a random AD-server group
-    #
-    def _meld_inn_i_server_gruppe(self, acc_id, operator):
-        import random
-        grp_choice = random.choice(cereconf.AD_OTHERS_FILEGROUPS)
-        grp = Utils.Factory.get("Group")(self.db)
-        grp.clear()
-        grp.find_by_name(grp_choice)
-        grp.add_member(acc_id)
 
     # helper func, set radius-ans spread for employees
     def _add_radiusans_spread(self, acc_id, operator):
