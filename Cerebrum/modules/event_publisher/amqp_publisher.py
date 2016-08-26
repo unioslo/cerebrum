@@ -122,4 +122,4 @@ class PublishingAMQP091Client(BaseAMQP091Client):
                     raise Exception('Broker did not confirm message delivery')
             except Exception as e:
                 raise ClientErrors.MessagePublishingError(
-                    'Unable to publish message: {0}'.format(e))
+                    'Unable to publish message: {0!r}'.format(e))
