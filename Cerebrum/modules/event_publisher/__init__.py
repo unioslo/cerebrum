@@ -189,7 +189,7 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                     client.publish(message)
                     del self.__queue[0]
                 if unsent:
-                    self._db.commit()
+                    ue.release_lock(commit=True)
         except Exception as e:
             Factory.get_logger("cronjob").exception(
                 'Could not write message: {err}'.format(err=e))
@@ -202,7 +202,7 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                 ue = self.__get_unpublished_events()
                 ue.add_events(self.__queue)
                 self.__queue = []
-                self._db.commit()
+                ue.release_lock(commit=True)
             except:
                 log = Factory.get_logger('cronjob')
                 for i in self.__queue:
@@ -225,6 +225,11 @@ class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
         if lock and self._lock is None:
             self._lock = self._db.cursor().acquire_lock(
                 table='[:table schema=cerebrum name=unpublished_events]')
+
+    def release_lock(self, commit=True):
+        if self._lock:
+            self._lock = None
+            self._db.commit()
 
     def query_events(self, lock=False, parse_json=False):
         self._acquire_lock(lock)
