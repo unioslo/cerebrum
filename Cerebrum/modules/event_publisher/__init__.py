@@ -151,9 +151,31 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         super(EventPublisher, self).clear_log()
         self.__queue = []
 
+    def write_log(self):
+        super(EventPublisher, self).write_log()
+        try:
+            with self.__get_client() as client:
+                ue = self.__get_unpublished_events()
+                unsent = ue.query_events(lock=True, parse_json=True)
+                for event in unsent:
+                    client.publish(event['message'])
+                    ue.delete_event(event['eventid'])
+        except:
+            # Could not write log
+            pass
+        # If called by CLDatabase.commit(), next in line is Database.commit,
+        # and that will release lock.
+
+    def unpublish_log(self):
+        super(EventPublisher, self).unpublish_log()
+        # Tidy after commit()
+        self.__get_unpublished_events().release_lock(commit=False)
+
     def publish_log(self):
         """ Publish messages. """
         super(EventPublisher, self).publish_log()
+        # tidy after commit()
+        self.__get_unpublished_events().release_lock(commit=False)
 
         def convert(msg):
             if isinstance(msg, tuple):
@@ -179,17 +201,10 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
     def __try_send_messages(self):
         try:
             with self.__get_client() as client:
-                ue = self.__get_unpublished_events()
-                unsent = ue.query_events(lock=True, parse_json=True)
-                for event in unsent:
-                    client.publish(event['message'])
-                    ue.delete_event(event['eventid'])
                 while self.__queue:
                     message = self.__queue[0]
                     client.publish(message)
                     del self.__queue[0]
-                if unsent:
-                    ue.release_lock(commit=True)
         except Exception as e:
             Factory.get_logger("cronjob").exception(
                 'Could not write message: {err}'.format(err=e))
@@ -200,16 +215,16 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         if self.__queue:
             try:
                 ue = self.__get_unpublished_events()
+                ue._aquire_lock()
                 ue.add_events(self.__queue)
-                self.__queue = []
             except:
-                try:
-                    ue.release_lock(commit=True)
-                except:
-                    pass
                 log = Factory.get_logger('cronjob')
+                log.exception('event publisher: Lost events!')
                 for i in self.__queue:
-                    log.error("Didn't write event: %s", i)
+                    log.error("Lost event: %s", i)
+            finally:
+                self.__queue = []
+                ue.release_lock(commit=True)
 
 
 class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
@@ -232,7 +247,8 @@ class UnpublishedEvents(Cerebrum.DatabaseAccessor.DatabaseAccessor):
     def release_lock(self, commit=True):
         if self._lock:
             self._lock = None
-            self._db.commit()
+            if commit:
+                self._db.commit()
 
     def query_events(self, lock=False, parse_json=False):
         self._acquire_lock(lock)
