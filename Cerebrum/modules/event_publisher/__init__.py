@@ -202,8 +202,11 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                 ue = self.__get_unpublished_events()
                 ue.add_events(self.__queue)
                 self.__queue = []
-                ue.release_lock(commit=True)
             except:
+                try:
+                    ue.release_lock(commit=True)
+                except:
+                    pass
                 log = Factory.get_logger('cronjob')
                 for i in self.__queue:
                     log.error("Didn't write event: %s", i)
