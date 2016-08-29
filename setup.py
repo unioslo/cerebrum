@@ -494,6 +494,7 @@ setup(
         'Cerebrum/modules/event/clients',
         'Cerebrum/modules/event_publisher',
         'Cerebrum/modules/exchange',
+        'Cerebrum/modules/feide',
         'Cerebrum/modules/hostpolicy',
         'Cerebrum/modules/bofhd',
         'Cerebrum/modules/guest',
