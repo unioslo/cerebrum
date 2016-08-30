@@ -162,7 +162,8 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                     ue.delete_event(event['eventid'])
         except:
             # Could not write log
-            pass
+            log = Factory.get_logger()
+            log.exception('Could not write unpublished event to MQ')
         # If called by CLDatabase.commit(), next in line is Database.commit,
         # and that will release lock.
 
@@ -206,7 +207,7 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                     client.publish(message)
                     del self.__queue[0]
         except Exception as e:
-            Factory.get_logger("cronjob").exception(
+            Factory.get_logger().exception(
                 'Could not write message: {err}'.format(err=e))
             self.__save_queue()
 
@@ -218,7 +219,7 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                 ue._aquire_lock()
                 ue.add_events(self.__queue)
             except:
-                log = Factory.get_logger('cronjob')
+                log = Factory.get_logger()
                 log.exception('event publisher: Lost events!')
                 for i in self.__queue:
                     log.error("Lost event: %s", i)
