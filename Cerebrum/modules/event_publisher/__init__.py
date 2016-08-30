@@ -216,7 +216,7 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         if self.__queue:
             try:
                 ue = self.__get_unpublished_events()
-                ue._aquire_lock()
+                ue._acquire_lock()
                 ue.add_events(self.__queue)
             except:
                 log = Factory.get_logger()
