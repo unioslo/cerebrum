@@ -39,7 +39,7 @@ class CodeValuePresentError(RuntimeError):
     """Error raised when an already existing code value is inserted."""
     pass
 
-Database_class = Factory.get("Database")
+Database_class = Factory.get("DBDriver")  # Don't need changelog and stuff
 
 
 class SynchronizedDatabase(Database_class):
