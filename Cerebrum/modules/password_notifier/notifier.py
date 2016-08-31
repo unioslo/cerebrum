@@ -45,7 +45,6 @@ module:
 A trait is used for excepting specific users from being processed.
 """
 
-import datetime
 import email
 import email.Header
 import locale
@@ -62,22 +61,12 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.modules.password_notifier.constants import (
-    Constants as PNConstants)
 from Cerebrum.modules.password_notifier.config import load_config
 from Cerebrum.modules.pwcheck.history import PasswordHistory
 
 
 # Default date format (non-localized)
 DATE_FORMAT = '%Y-%m-%d'
-
-# Localized date formats for date2human
-DATE_FORMATS = {
-    'nb_NO': '%A %d. %B %Y',
-    'nn_NO': '%x',
-    'en_US': '%A, %d %b %Y',
-    None:    '%x',  # default
-}
 
 
 def _get_notifier_classes(values):
@@ -137,23 +126,6 @@ class PasswordNotifier(object):
         self.splattee_id = account.entity_id
         self.constants = Utils.Factory.get('Constants')(db)
         self.splatted_users = []
-
-        self.mail_info = []
-        for fn in self.config.templates:
-            fp = open(os.path.join(cereconf.TEMPLATE_DIR,
-                                   'no_NO',
-                                   'email',
-                                   fn),
-                      'rb')
-            msg = email.message_from_file(fp)
-            fp.close()
-            self.mail_info.append({
-                'Subject': email.Header.decode_header(msg['Subject'])[0][0],
-                'From': msg['From'],
-                'Cc': msg['Cc'],
-                'Reply-To': msg['Reply-To'],
-                'Body': msg.get_payload(decode=1)
-            })
 
     def get_old_account_ids(self):
         """ Returns the ID of candidate accounts with old affiliations.
@@ -611,6 +583,93 @@ class PasswordNotifier(object):
         return None
 
     def notify(self, account):
+        """Placeholder for sending notifications to a user.
+
+        This function does not implement notification. Appropriate classes
+        should be mixed in for notifications to be sent.
+
+        :param Cerebrum.Account account:
+            The account object to notify.
+
+        :return bool:
+            Returns whether the notification could be sent or not.
+        """
+        return True
+
+    @staticmethod
+    def get_notifier(config=None):
+        """ Factories a notifier class object.
+
+        Secondary calls to get_notifier will always return the same class,
+        regardless of the argument.
+
+        :param object config:
+            Any object with attributes from
+            `Cerebrum.modules.password_notifier.config`.
+
+            If `None`, an object will be generated using the default config
+
+        :return PasswordNotifier:
+            Configured PasswordNotifier class.
+        """
+        try:
+            # If called previously, the class has been cached in
+            # PasswordNotifier
+            return PasswordNotifier._notifier
+        except AttributeError:
+            pass
+
+        if config is None:
+            config = load_config()
+        else:
+            config = load_config(filepath=config)
+
+        comp_class = type(
+            '_dynamic_notifier',
+            tuple(_get_notifier_classes(config.class_notifier_values)),
+            {'config': config, })
+        PasswordNotifier._notifier = comp_class
+        return comp_class
+
+
+class EmailPasswordNotifier(PasswordNotifier):
+    """ Send password notifications by E-mail. """
+    def __init__(self, db=None, logger=None, dryrun=False, *rest, **kw):
+        """ Constructs a PasswordNotifier that notifies by E-mail.
+
+        :param Cerebrum.Database db:
+            Database object to use. If `None`, this object will fetch a new db
+            connection with `Factory.get('Database')`. This is the default.
+
+        :param logging.Logger logger:
+            Logger object to use. If `None`, this object will fetch a new
+            logger with `Factory.get_logger('crontab')`. This is the default.
+
+        :param bool dryrun:
+            If this object should refrain from doing changes, and only print
+            debug info. Default is `False`.
+        """
+        super(EmailPasswordNotifier,
+              self).__init__(db, logger, dryrun, rest, kw)
+
+        self.mail_info = []
+        for fn in self.config.templates:
+            fp = open(os.path.join(cereconf.TEMPLATE_DIR,
+                                   'no_NO',
+                                   'email',
+                                   fn),
+                      'rb')
+            msg = email.message_from_file(fp)
+            fp.close()
+            self.mail_info.append({
+                'Subject': email.Header.decode_header(msg['Subject'])[0][0],
+                'From': msg['From'],
+                'Cc': msg['Cc'],
+                'Reply-To': msg['Reply-To'],
+                'Body': msg.get_payload(decode=1)
+            })
+
+    def notify(self, account):
         def mail_user(account, mail_type, deadline, first_time=''):
             mail_type = min(mail_type, len(self.mail_info)-1)
             if mail_type == -1:
@@ -633,10 +692,11 @@ class PasswordNotifier(object):
             # add dates for different languages::
             for lang in ('nb_NO', 'nn_NO', 'en_US'):
                 tag = '${DEADLINE_%s}' % lang.upper()
-                body = body.replace(tag, date2human(deadline, lang))
+                body = body.replace(tag, self._date2human(deadline, lang))
                 if first_time:
                     tag = '${FIRST_TIME_%s}' % lang.upper()
-                    body = body.replace(tag, date2human(first_time, lang))
+                    body = body.replace(tag, self._date2human(first_time,
+                                                              lang))
             return _send_mail(
                 mail_to=to_email,
                 mail_from=self.mail_info[mail_type]['From'],
@@ -663,38 +723,217 @@ class PasswordNotifier(object):
                 deadline=deadline,
                 first_time=self.get_notification_time(account))
 
-    @staticmethod
-    def get_notifier(config=None):
-        """ Factories a notifier class object.
+    def _date2human(date, language_code=None):
+        """Return a human readable string of a given date, and in the correct
+        language. Making it easier for users to be sure of a deadline date."""
+        DATE_FORMATS = {
+            'nb_NO': '%A %d. %B %Y',
+            'nn_NO': '%x',
+            'en_US': '%A, %d %b %Y',
+            None:    '%x',  # default
+        }
+        if language_code:
+            previous = locale.getlocale(locale.LC_TIME)
+            try:
+                locale.setlocale(locale.LC_TIME, language_code)
+            except locale.Error, e:
+                warnings.warn('locale.setlocale failed: {}'.format(e),
+                              RuntimeWarning)
 
-        Secondary calls to get_notifier will always return the same class,
-        regardless of the argument.
+        date_fmt = DATE_FORMATS.get(language_code) or DATE_FORMATS[None]
+        ret = date.strftime(date_fmt).capitalize()
+        if language_code:
+            locale.setlocale(locale.LC_TIME, previous)
+        return ret
 
-        :param str config:
-            Pathname to the config file.
-            If `None`, an object will be generated using the default config
 
-        :return PasswordNotifier:
-            Configured PasswordNotifier class.
+class SMSPasswordNotifier(PasswordNotifier):
+    """ Send password notifications by SMS. """
+    def __init__(self, db=None, logger=None, dryrun=False, *rest, **kw):
+        """ Constructs a PasswordNotifier that notifies by SMS.
+
+        :param Cerebrum.Database db:
+            Database object to use. If `None`, this object will fetch a new db
+            connection with `Factory.get('Database')`. This is the default.
+
+        :param logging.Logger logger:
+            Logger object to use. If `None`, this object will fetch a new
+            logger with `Factory.get_logger('crontab')`. This is the default.
+
+        :param bool dryrun:
+            If this object should refrain from doing changes, and only print
+            debug info. Default is `False`.
         """
+        super(SMSPasswordNotifier, self).__init__(db, logger, dryrun, rest, kw)
+
+        from os import path
+        with open(path.join(cereconf.TEMPLATE_DIR,
+                            'warn_before_splat_sms.template'),
+                  'r') as f:
+            self.template = f.read()
+
+        self.person = Utils.Factory.get('Person')(db)
+
+    def get_notification_date(self, account):
         try:
-            # If called previously, the class has been cached in
-            # PasswordNotifier
-            return PasswordNotifier._notifier
-        except AttributeError:
-            pass
-
-        if config is None:
-            config = load_config()
+            trait = account.get_trait(
+                self.constants.EntityTrait(self.config.trait))
+        except (Errors.NotFoundError, TypeError):
+            return None
         else:
-            config = load_config(filepath=config)
+            return trait['date'] if trait else None
 
-        comp_class = type(
-            '_dynamic_notifier',
-            tuple(_get_notifier_classes(config.class_notifier_values)),
-            {'config': config, })
-        PasswordNotifier._notifier = comp_class
-        return comp_class
+    def remind_ok(self, account):
+        """Returns true if it is time to remind"""
+        a_mapping = self.get_account_affiliation_mapping(account)
+        if a_mapping is not None:
+            reminder_delay_values = a_mapping['warn_before_expiration_days']
+        else:
+            reminder_delay_values = self.config.reminder_delay_values
+
+        if (self.get_notification_date(account) == self.today or
+                (self.get_num_notifications(account) >=
+                 len(reminder_delay_values))):
+            return False
+
+        for days_before in reminder_delay_values:
+            if ((self.get_deadline(account) -
+                 dt.DateTimeDelta(days_before)) == self.today):
+                return True
+        return False
+
+    def process_accounts(self):
+        self.logger.info("process_accounts started")
+        if self.dryrun:
+            self.logger.info("Running dry")
+
+        old_ids = self.get_old_account_ids()
+        all_ids = self.get_notified_ids().union(old_ids)
+        self.logger.debug("Found %d users with old passwords", len(old_ids))
+
+        # variables for statistics
+        num_excepted = 0
+        num_smsed = 0
+        num_lifted = 0
+
+        account = Utils.Factory.get("Account")(self.db)
+        if self.config.change_log_account:
+            account.find_by_name(self.config.change_log_account)
+            cl_acc = account.entity_id
+        else:
+            cl_acc = None
+        self.db.cl_init(change_by=cl_acc,
+                        change_program=self.config.change_log_program)
+        for account_id in all_ids:
+            account.clear()
+            account.find(account_id)
+            reason = self.except_user(account)
+            if reason:
+                num_excepted += 1
+                self.logger.info("Skipping %s -- %s",
+                                 account.account_name, reason)
+                continue
+            if account_id not in old_ids:
+                # Has new password, but may have notify trait
+                num_lifted += 1
+                if not self.dryrun:
+                    self.remove_trait(account)
+                else:
+                    self.logger.info("Removing trait for %s",
+                                     account.account_name)
+                continue
+            if self.remind_ok(account):
+                if self.notify(account):
+                    if not self.dryrun:
+                        self.inc_num_notifications(account)
+                    else:
+                        self.logger.info(
+                            "Remind %d for %s",
+                            self.get_num_notifications(account),
+                            account.account_name)
+                    num_smsed += 1
+                else:
+                    self.logger.info("User %s not notified",
+                                     account.account_name)
+
+        stats = ("Users with old passwords: {}\n"
+                 "Excepted users: {}\n"
+                 "SMSed users: {}\n"
+                 "Users with new passwords: {}\n").format(
+                     len(old_ids),
+                     num_excepted,
+                     num_smsed,
+                     num_lifted)
+
+        if self.dryrun:
+            print(stats)
+        elif self.config.summary_to and self.config.summary_from:
+            _send_mail(
+                mail_to=', '.join(self.config.summary_to),
+                mail_from=self.config.summary_from,
+                subject='Statistics from SMS password notifier',
+                body=stats,
+                logger=self.logger,
+                mail_cc=', '.join(self.config.summary_cc))
+
+        if self.dryrun:
+            self.logger.info('Rolling back changes')
+            self.db.rollback()
+        else:
+            self.logger.info('Committing changes')
+            self.db.commit()
+
+    def notify(self, account):
+        def sms(account, days_until_splat):
+            if not account.owner_type == self.constants.entity_person:
+                return False
+            self.person.clear()
+            self.person.find(account.owner_id)
+            try:
+                spec = map(lambda (s, t): (self.constants.human2constant(s),
+                                           self.constants.human2constant(t)),
+                           cereconf.SMS_NUMBER_SELECTOR)
+                mobile = self.person.sort_contact_info(
+                    spec, self.person.get_contact_info())
+                person_in_systems = [int(af['source_system']) for af in
+                                     self.person.list_affiliations(
+                                         person_id=self.person.entity_id)]
+                mobile = filter(
+                    lambda x: x['source_system'] in person_in_systems,
+                    mobile)[0]['contact_value']
+            except IndexError:
+                self.logger.info(
+                    'No applicable phone number for {}'.format(
+                        account.account_name))
+                return False
+
+            # Send SMS
+            if getattr(cereconf, 'SMS_DISABLE', False):
+                self.logger.info(
+                    'SMS disabled in cereconf, would have '
+                    'sent password SMS to {}'.format(mobile))
+                return True
+            else:
+                from Cerebrum.Utils import SMSSender
+                sms = SMSSender(logger=self.logger)
+                if sms(mobile, self.template.format(
+                        account_name=account.account_name,
+                        days_until_splat=days_until_splat)):
+                    return True
+                else:
+                    self.logger.info(
+                        'Unable to send message to {}.'.format(mobile))
+                    return False
+
+        deadline = self.get_deadline(account)
+        self.logger.info(
+            "Notifying %s by SMS, number=%d, deadline=%s",
+            account.account_name,
+            self.get_num_notifications(account) + 1,
+            deadline.strftime(DATE_FORMAT))
+        return sms(
+            account=account,
+            days_until_splat=int(deadline - self.today))
 
 
 def _send_mail(mail_to, mail_from, subject, body, logger,
@@ -722,21 +961,3 @@ def _send_mail(mail_to, mail_from, subject, body, logger,
         logger.error("Error when notifying %s: %s" % (mail_to, e))
         return False
     return True
-
-
-def date2human(date, language_code=None):
-    """Return a human readable string of a given date, and in the correct
-    language. Making it easier for users to be sure of a deadline date."""
-    if language_code:
-        previous = locale.getlocale(locale.LC_TIME)
-        try:
-            locale.setlocale(locale.LC_TIME, language_code)
-        except locale.Error, e:
-            warnings.warn('locale.setlocale failed: {}'.format(e),
-                          RuntimeWarning)
-
-    date_fmt = DATE_FORMATS.get(language_code) or DATE_FORMATS[None]
-    ret = date.strftime(date_fmt).capitalize()
-    if language_code:
-        locale.setlocale(locale.LC_TIME, previous)
-    return ret
