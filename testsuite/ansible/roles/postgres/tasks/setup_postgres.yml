@@ -56,7 +56,7 @@
 
 - name: add ident mapping for same-username
   lineinfile:
-      line: "{{ pg_mapname }}  /^(.*)$  \\\\1"
+      line: "{{ pg_mapname }}  /^(.*)$  \\1"
       dest: "{{ pg_confdir }}/pg_ident.conf"
       backup: yes
       owner: postgres
@@ -70,6 +70,11 @@
   tags:
     - pg
     - pg-conf
+
+# Manually restart postgresql to make the above changes take effect
+- meta: flush_handlers
+  tags:
+    - always
 
 # TODO: Beef up the 'create users' and 'create databases' tasks – and move them
 #       to separate files?
