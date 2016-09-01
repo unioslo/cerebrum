@@ -183,36 +183,44 @@ class CheckIllegalCharacters(PasswordChecker):
 class CheckSimpleCharacterGroups(PasswordChecker):
     """Check for character groups."""
 
-    def __init__(self, min_groups=3):
+    def __init__(self, min_groups=3, min_chars_per_group=1):
         """
         A password should contain characters from at least `min_groups`
         of the defined groups 'lowercase letters', 'uppercase letters',
         'digits' and string.punctuation characters.
+        In addition, there should be at least `min_chars_per_group` characters
+        from each group.
         """
         self.min_groups = min_groups
+        self.min_chars_per_group = min_chars_per_group
         self.character_groups = (string.ascii_lowercase,
                                  string.ascii_uppercase,
                                  string.digits,
                                  string.punctuation)
         self._requirement = _(
-            'Must contain characters from at least {min_groups} of the '
-            'following character groups: Uppercase letters, lowercase '
-            'letters, numbers and special characters').format(
-                min_groups=min_groups)
+            'Must contain at least {min_chars_per_group} character(s) '
+            'for each of at least {min_groups} of the following character '
+            'groups: Uppercase letters, lowercase letters, numbers and '
+            'special characters').format(
+                min_groups=min_groups,
+                min_chars_per_group=min_chars_per_group)
 
     def check_password(self, password, account=None):
         """
-        Make sure that the password contains characters from different groups.
+        Make sure that the password contains certain amount of characters
+        from different groups.
         """
-        character_groups_detected = 0
+        counters = {}
         for group in self.character_groups:
-            if any(map(lambda x: x in group, password)):
-                character_groups_detected += 1
-        if character_groups_detected < self.min_groups:
+            counters[group] = map(lambda x: x in group, password).count(True)
+        if map(lambda x: x >= self.min_chars_per_group,
+               counters.values()).count(True) < self.min_groups:
             return [_(
-                'Password must contain characters from at least {min_groups} '
+                'Password must contain at least {min_chars_per_group} '
+                'character(s) for each of at least {min_groups} '
                 'of the following character groups: Uppercase letters, '
                 'lowercase letters, numbers and special characters').format(
+                    min_chars_per_group=self.min_chars_per_group,
                     min_groups=self.min_groups)]
 
 
