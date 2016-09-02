@@ -2582,7 +2582,7 @@ class UserSync(BaseSync):
         else:
             if hasattr(self.co, 'trait_account_exempt') and \
                self.co.trait_account_exempt in self.ac.get_traits():
-                self.logger.debug3('Account {0} has trait {1}, ignoring'.format(
+                self.logger.debug('Account {0} has trait {1}, ignoring'.format(
                     self.ac.entity_id, str(self.co.trait_account_exempt)))
                 return False
 
