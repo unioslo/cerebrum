@@ -513,17 +513,17 @@ def group_create(msg, subj, *rest):
 
 @dispatch('e_group', 'add')
 def group_add(msg, subj, dest, *rest):
-    # TODO: Use dest?
     return scim.Event(scim.MODIFY,
                       subject=subj,
+                      obj=dest,
                       attributes=['member'])
 
 
 @dispatch('e_group', 'rem')
 def group_rem(msg, subj, dest, *rest):
-    # TODO: Use dest?
     return scim.Event(scim.MODIFY,
                       subject=subj,
+                      obj=dest,
                       attributes=['member'])
 
 

@@ -29,7 +29,6 @@ import itertools
 import mx.DateTime as dt
 from Cerebrum.config.configuration import Configuration, ConfigDescriptor
 from Cerebrum.config.settings import String
-from Cerebrum.Utils import Factory
 
 
 class EventType(object):
@@ -98,7 +97,8 @@ class Event(object):
     """Represent a SCIM message payload."""
 
     def __init__(self, event, time=None, issuer=None, spreads=None,
-                 subject=None, attributes=None, expire=None):
+                 subject=None, attributes=None, expire=None,
+                 obj=None, **extra):
         """Initialize.
 
         :event: EventType object
@@ -118,6 +118,7 @@ class Event(object):
         self.expire = expire
         self.const = subject.const
         self.clconst = subject.clconst
+        self.extra = extra
         from Cerebrum.Person import Person
         from Cerebrum.Account import Account
         from Cerebrum.Group import Group
@@ -132,6 +133,21 @@ class Event(object):
         elif isinstance(subject, OU):
             entity_type = 'ou'
         self.entity_type = entity_type
+        if obj:
+            self.obj = [obj.entity_id]
+            entity_type = 'entity'
+            if isinstance(obj, Person):
+                entity_type = 'person'
+            elif isinstance(obj, Account):
+                entity_type = 'account'
+            elif isinstance(obj, Group):
+                entity_type = 'group'
+            elif isinstance(obj, OU):
+                entity_type = 'ou'
+            self.obj_entity_type = [entity_type]
+        else:
+            self.obj = []
+            self.obj_entity_type = []
         self.key = self.make_key()
 
     @classmethod
@@ -169,6 +185,12 @@ class Event(object):
         return self.url.format(entity_type=self.entity_type,
                                entity_id=self.subject)
 
+    def make_obj(self):
+        """Return obj in dict for payload"""
+        return [self.url.format(entity_type=et,
+                                entity_id=o)
+                for o, et in zip(self.obj, self.obj_entity_type)]
+
     def get_event_uris(self):
         """Get list of event uris."""
         return [str(self.event)]
@@ -183,10 +205,13 @@ class Event(object):
             'aud': list(str(x) for x in self.audience),
             'sub': self.make_sub()
         }
+        args = self.extra.copy()
         if self.attributes:
-            ret[str(self.event)] = {
-                'attributes': list(self.attributes)
-            }
+            args['attributes'] = list(self.attributes)
+        if self.obj:
+            args['object'] = self.make_obj()
+        if args:
+            ret[str(self.event)] = args
         return ret
 
     def mergeable(self, other):
@@ -207,6 +232,11 @@ class Event(object):
 
     def merge(self, other):
         """Merge messages."""
+        def ret_self():
+            self.obj.extend(other.obj)
+            self.obj_entity_type.extend(other.obj_entity_type)
+            return [self]
+
         if not self.mergeable(other):
             return [self, other]
         if self.event == CREATE:
@@ -214,17 +244,17 @@ class Event(object):
                 return []
             if other.event == ADD:
                 self.audience.update(other.audience)
-                return [self]
+                return ret_self()
             if other.event == ACTIVATE:
-                return [self]  # TODO: if quarantine is an attr, delete it
+                return ret_self()  # TODO: if quarantine is an attr, delete it
             if other.event == MODIFY:
                 self.attributes.update(other.attributes)
-                return [self]
+                return ret_self()
             if other.event == PASSWORD:
                 self.attributes.add('password')
-                return [self]
+                return ret_self()
         elif self.event == DELETE:
-            return [self]
+            return ret_self()
         elif other.event == DELETE:
             return [other]
         elif (ACTIVATE == self.event and DEACTIVATE == other.event and
@@ -236,11 +266,11 @@ class Event(object):
         elif self.event == other.event:
             if self.event in (ADD, REMOVE, ACTIVATE, DEACTIVATE):
                 self.audience.update(other.audience)
-                return [self]
+                return ret_self()
             if self.audience != other.audience:
                 return [self, other]
             self.attributes.update(other.attributes)
-            return [self]
+            return ret_self()
         return [self, other]
 
 
