@@ -20,7 +20,6 @@ AUTH = [
     {
         'name': 'BasicAuth',
         'realm': cereconf.INSTITUTION_DOMAIN_NAME,
-        'challenge': True,
         'whitelist': [],
     },
     # {
