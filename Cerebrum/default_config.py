@@ -617,6 +617,8 @@ AUTH_HA1_REALM = ""
 # (or if it evaluates to False).
 # PASSWORD_GNUPGHOME = '~/.cerebrum_gnupg'
 
+GNUPGHOME = pj(prefix, 'var', 'gnupghome')
+
 # The path (str) where encrypted passwords are temporary stored on the
 # AD (Windows) server. 'C:\passwords' will be used if this attribute is not set
 # (or if it evaluates to False).

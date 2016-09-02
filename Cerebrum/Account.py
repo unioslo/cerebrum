@@ -42,8 +42,8 @@ from Cerebrum.Entity import (EntityName,
 from Cerebrum import Errors
 from Cerebrum.Utils import (NotSet,
                             argument_to_sql,
-                            prepare_string,
-                            gpgme_encrypt)
+                            prepare_string)
+from Cerebrum.utils.gpg import gpgme_encrypt
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough)
 
@@ -998,7 +998,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             if hasattr(cereconf, 'PASSWORD_GPG_RECIPIENT_ID'):
                 password_str = 'GPG:{encrypted_password}'.format(
                     encrypted_password=base64.b64encode(
-                        gpgme_encrypt(self.__plaintext_password)))
+                        gpgme_encrypt(
+                            message=self.__plaintext_password,
+                            recipient_key_id=cereconf.PASSWORD_GPG_RECIPIENT_ID)))
         except AttributeError:
             # TODO: this is meant to catch that self.__plaintext_password is
             # unset
