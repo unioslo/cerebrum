@@ -1,6 +1,7 @@
 # coding: utf-8
 """ Account API. """
 
+from flask import make_response
 from flask_restplus import Namespace, Resource, abort
 
 from Cerebrum.rest.api import db, auth, fields, utils
@@ -435,3 +436,25 @@ class AccountHomeListResource(Resource):
             homes.append(home)
 
         return {'homes': homes}
+
+
+@api.route('/<string:id>/gpg/<string:tag>/<string:key_id>/latest', doc=False)
+@api.doc(params={'id': 'Account name or ID',
+                 'tag': 'GPG data tag',
+                 'key_id': 'Public key fingerprint (40-bit)'})
+class AccountGPGResource(Resource):
+    """Resource for GPG data for accounts."""
+    @auth.require()
+    def get(self, id, tag, key_id):
+        """Get latest GPG data for an account."""
+        ac = find_account(id)
+        gpg_data = ac.search_gpg_data(entity_id=ac.entity_id,
+                                      tag=tag,
+                                      recipient=key_id,
+                                      latest=True)
+        if not gpg_data:
+            abort(404, "No GPG messages found")
+        message = gpg_data[0].get('message')
+        response = make_response(message)
+        response.headers['Content-Type'] = 'text/plain'
+        return response
