@@ -105,11 +105,23 @@ class PersonResource(Resource):
     def get(self, id):
         """Get person information"""
         pe = find_person(id)
+
+        name_keys = [PersonName.get(k).attribute or k for k in PersonName]
+
+        # Filter out appropriate fields from db_row objects
+        names = [filter(lambda (k, _): k in name_keys, e.items()) for
+                 e in pe.get_all_names()]
+
+        # decode name into unicode-object
+        names = [dict(map(lambda (k, v):
+                          (k, utils._db_decode(v) if k == 'name' else v), e))
+                 for e in names]
+
         return {
             'id': pe.entity_id,
             'contexts': [row['spread'] for row in pe.get_spread()],
             'birth_date': pe.birth_date,
-            'names': pe.get_all_names(),
+            'names': names
         }
 
 

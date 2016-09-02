@@ -190,7 +190,8 @@ def get_auth_roles(entity, target_type, role_map=None):
         if role_map and aos.name not in role_map:
             continue
         entity_id = int(row['entity_id'])
-        en = Factory.get('Entity')(db.connection).get_subclassed_object(entity_id)
+        en = Factory.get('Entity')(db.connection).get_subclassed_object(
+            entity_id)
         names[en.entity_id] = get_entity_name(en)
         roles.setdefault((en.entity_id, en.entity_type), []).append(aos.name)
 
@@ -277,3 +278,10 @@ def revoke_auth(sub, opset, obj):
         aot.delete()
 
     return True
+
+
+def _db_decode(text):
+    # hack to decode db-strings in utf-8
+    if text is None:
+        return None
+    return text.decode(db.encoding, 'replace')

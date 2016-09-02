@@ -56,13 +56,6 @@ def find_entity(entity_id):
     return entity
 
 
-def _db_decode(text):
-    # hack to decode db-strings in utf-8
-    if text is None:
-        return None
-    return text.decode(db.encoding, 'replace')
-
-
 class GroupVisibility(object):
     """ Group visibility translation. """
 
@@ -208,12 +201,12 @@ class GroupResource(Resource):
     @staticmethod
     def group_info(group):
         return {
-            'name': _db_decode(group.group_name),
+            'name': utils._db_decode(group.group_name),
             'id': group.entity_id,
             'create_date': group.create_date,
             'expire_date': group.expire_date,
             'visibility': group.visibility,
-            'description': _db_decode(group.description),
+            'description': utils._db_decode(group.description),
             'contexts': [row['spread'] for row in group.get_spread()],
         }
 
@@ -670,9 +663,9 @@ class GroupListResource(Resource):
         for row in gr.search(**filters):
             group = dict(row)
             group.update({
-                'id': _db_decode(group['name']),
-                'name': _db_decode(group['name']),
+                'id': utils._db_decode(group['name']),
+                'name': utils._db_decode(group['name']),
             })
-            group['description'] = _db_decode(group['description'])
+            group['description'] = utils._db_decode(group['description'])
             groups.append(group)
         return groups
