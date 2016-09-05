@@ -123,27 +123,28 @@ class Event(object):
         from Cerebrum.Account import Account
         from Cerebrum.Group import Group
         from Cerebrum.OU import OU
-        entity_type = 'entity'
+        # TODO: Could these be gotten from REST API? Or as an attribute of type?
+        entity_type = 'entities'
         if isinstance(subject, Person):
-            entity_type = 'person'
+            entity_type = 'persons'
         elif isinstance(subject, Account):
-            entity_type = 'account'
+            entity_type = 'accounts'
         elif isinstance(subject, Group):
-            entity_type = 'group'
+            entity_type = 'groups'
         elif isinstance(subject, OU):
-            entity_type = 'ou'
+            entity_type = 'ous'
         self.entity_type = entity_type
         if obj:
             self.obj = [obj.entity_id]
-            entity_type = 'entity'
+            entity_type = 'entities'
             if isinstance(obj, Person):
-                entity_type = 'person'
+                entity_type = 'persons'
             elif isinstance(obj, Account):
-                entity_type = 'account'
+                entity_type = 'accounts'
             elif isinstance(obj, Group):
-                entity_type = 'group'
+                entity_type = 'groups'
             elif isinstance(obj, OU):
-                entity_type = 'ou'
+                entity_type = 'ous'
             self.obj_entity_type = [entity_type]
         else:
             self.obj = []
