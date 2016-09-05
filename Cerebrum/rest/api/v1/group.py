@@ -602,6 +602,7 @@ class PosixGroupResource(Resource):
         name = name.encode(db.encoding)
         gr = find_group(name)
         return {
+            'name': name,
             'id': gr.entity_id,
             'posix': hasattr(gr, 'posix_gid'),
             'posix_gid': getattr(gr, 'posix_gid', None)
