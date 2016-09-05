@@ -219,6 +219,13 @@ class GroupResource(Resource):
         }
         return lut[vis.lower()]
 
+    # Either this or import undecorated other places
+    @staticmethod
+    def _get(name, idtype='name'):
+        """ Undecorated get(). """
+        group = find_group(name, idtype)
+        return GroupResource.group_info(group)
+
     # GET /<group>
     #
     @auth.require()
@@ -227,9 +234,7 @@ class GroupResource(Resource):
     @api.marshal_with(Group)
     def get(self, name):
         """ Get group information. """
-        name = name.encode(db.encoding)
-        group = find_group(name)
-        return self.group_info(group)
+        return self._get(name)
 
     # PUT /<group>
     #

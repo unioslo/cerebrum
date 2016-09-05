@@ -144,9 +144,9 @@ class PosixAccountResource(Resource):
             'posix_shell': getattr(ac, 'shell', None),
             'gecos': getattr(ac, 'gecos', None),
             'default_file_group': (
-                group.GroupResource.get(
-                    group.GroupResource(), getattr(ac, 'gid_id', None)) if
-                hasattr(ac, 'gid_id') else None),
+                group.GroupResource._get(getattr(ac, 'gid_id'),
+                                         idtype='entity_id')
+                if hasattr(ac, 'gid_id') else None)
         }
 
 
