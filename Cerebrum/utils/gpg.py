@@ -34,12 +34,23 @@ def _unicode2str(obj, encoding='utf-8'):
 
 
 def get_gpgme_context(ascii_armor=True, gnupghome=None):
+    """Creates a gpgme context.
+
+    :param ascii_armor: use ascii armor
+    :type ascii_armor: bool
+
+    :param gnupghome: GnuPG home directory
+    :type gnupghome: str
+
+    :returns: a gpgme context
+    :rtype: gpgme.Context
+    """
     home = gnupghome or cereconf.GNUPGHOME
     ctx = gpgme.Context()
     ctx.set_engine_info(gpgme.PROTOCOL_OpenPGP, None, home)
     if ascii_armor:
         ctx.armor = True
-        ctx.textmode = True  # do we need this?
+        ctx.textmode = True
     return ctx
 
 
@@ -47,17 +58,14 @@ def gpgme_encrypt(message, recipient_key_id=None, context=None):
     """
     Encrypts a message using GnuPG (pygpgme).
 
-    Keyword arguments:
     :param message: the message that is to be encrypted
     :type message: str or unicode
     :param recipient_key_id: the private key id
     :type recipient_key_id: str or unicode
-    :param ascii_armor: use ascii armor
-    :type ascii_armor: bool
+    :param context: set to use alternative gpgme context
+    :type context: gpgme.Context or None
 
-    :returns: the encrypted message (ciphertext).
-              If ascii_armor is defined True, ASCII armor will be returned,
-              otherwise a regular byte string will be returned
+    :returns: the encrypted message (ciphertext)
     :rtype: str
 
     May throw a gpgme.GpgmeError. Should be handled by the caller.
@@ -83,9 +91,11 @@ def gpgme_decrypt(ciphertext, context=None):
     """
     Decrypts a ciphertext using GnuPG (pygpgme).
 
-    Keyword arguments:
     :param ciphertext: the ciphertext that is to be decrypted
     :type ciphertext: str
+
+    :param context: set to use alternative gpgme context
+    :type context: gpgme.Context or None
 
     :returns: the decrypted ciphertext (message)
     :rtype: str
@@ -94,7 +104,7 @@ def gpgme_decrypt(ciphertext, context=None):
 
     Just like GnuPG, pygpgme extracts the private key corresponding to the
     ciphertext (encrypted message) automatically from the local
-    GnuPG keydatabase situated in $GNUPGHOME of the active (Cerebrum) user.
+    GnuPG key database situated in cereconf.GNUPGHOME or the provided context.
     """
     context = context or get_gpgme_context()
     ciphertext = BytesIO(ciphertext)
