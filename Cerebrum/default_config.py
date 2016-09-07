@@ -611,12 +611,8 @@ AUTH_HA1_REALM = ""
 # fingerprint (recommended!): (f.i. '78D9E8FEB39594D4EAB7A9B85B17D23FFEAC69E4')
 # PASSWORD_GPG_RECIPIENT_ID = 'DE2801BE77377C124091142819368B5CB341836F'
 
-# The path (str) of an alternative GnuPG home-directory.
-# The default GNUPGHOME is usually: ~/.gnupg
-# The default GNUPGHOME will be used if this attribute is not set
-# (or if it evaluates to False).
-# PASSWORD_GNUPGHOME = '~/.cerebrum_gnupg'
-
+# The path (str) to our GnuPG home directory.
+# Must be a valid path if overriden.
 GNUPGHOME = pj(prefix, 'var', 'gnupghome')
 
 # The path (str) where encrypted passwords are temporary stored on the
