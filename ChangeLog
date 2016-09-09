@@ -1,3 +1,8 @@
+2016-09-09  Karen   <cerebrum@cleomedes.uit.no>
+
+    * account_bridge.py: Added to repo. Contains class to use for getting information about accounts 
+    from the existing Cerebrum database on Caesar.
+
 2016-07-01  Karen   <cerebrum@cleomedes.uit.no>
 
     * access_FS.py: Added get_semester(), class underv_enhet_xml_parser and class undakt_xml_parser.
