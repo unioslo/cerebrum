@@ -170,12 +170,12 @@ def process_files(locations, dryrun, archive=None):
                     db.commit()
                     logger.info("Commited changes")
                 if archive:
-                    archive_file(location, dryrun, archive)
+                    archive_file(file, dryrun, archive)
         except BadInputError, e:
-            logger.warn("Bad input in file %s: %s", location, e)
+            logger.warn("Bad input in file %s: %s", file, e)
             db.rollback()
         except InvalidFileError, e:
-            logger.warn("Problems with file %s: %s", location, e)
+            logger.warn("Problems with file %s: %s", file, e)
             db.rollback()
         except Errors.CerebrumError, e:
             logger.exception(e)
