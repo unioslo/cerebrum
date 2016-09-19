@@ -673,6 +673,17 @@ def should_export_person(person):
                       list(person.iterids()))
         return False
 
+    # All employments that are *NOT* MG/MUG 8;50 of types other than 'Gjest'
+    # Filters out persons that *only* has 8;50 employment records and are
+    # not guests
+    employments = filter(lambda x: not (x.mg == 8 and x.mug == 50 and
+                                        x.kind != x.GJEST),
+                         person.iteremployment())
+    if not employments:
+        logger.debug2("Skipping, person_id %s only has MG/MUG 850 records and "
+                      "is not a guest", list(person.iterids()))
+        return False
+
     # Filters out persons that has no *active* employment of types
     # 'Hovedstilling', 'Bistilling' or 'Gjest'.
     active = filter(lambda x: (x.is_active() and x.kind in (x.HOVEDSTILLING,
