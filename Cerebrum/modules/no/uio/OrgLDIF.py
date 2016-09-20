@@ -224,11 +224,11 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
         # Add or extend entitlements
         if person_id in self.ownerid2urnlist:
+            urnlist = self.ownerid2urnlist[person_id]
             if 'eduPersonEntitlement' in entry:
-                entry['eduPersonEntitlement'].extend(
-                    self.ownerid2urnlist[person_id])
+                entry['eduPersonEntitlement'].update(urnlist)
             else:
-                entry['eduPersonEntitlement'] = self.ownerid2urnlist[person_id]
+                entry['eduPersonEntitlement'] = set(urnlist)
 
         # Add person ID
         entry['uioPersonID'] = str(person_id)
