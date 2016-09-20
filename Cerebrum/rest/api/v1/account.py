@@ -48,7 +48,6 @@ AccountAffiliationList = api.model('AccountAffiliationList', {
         description='Account affiliations'),
 })
 
-
 Account = api.model('Account', {
     'href': fields.href('.account'),
     'name': fields.base.String(
@@ -74,12 +73,96 @@ Account = api.model('Account', {
         description='Is this account active, i.e. not deleted or expired?'),
 })
 
+PosixAccount = api.model('PosixAccount', {
+    'href': fields.href('.posixaccount'),
+    'name': fields.base.String(
+        description='Account name'),
+    'id': fields.base.Integer(
+        default=None,
+        description='Entity ID'),
+    'posix': fields.base.Boolean(
+        description='Is this a POSIX account?'),
+    'posix_uid': fields.base.Integer(
+        default=None,
+        description='POSIX UID'),
+    'posix_shell': fields.Constant(
+        ctype='PosixShell',
+        description='POSIX shell'),
+    'default_file_group': fields.base.Nested(
+        group.Group,
+        allow_null=True,
+        description='Default file group')
+})
+
+AccountQuarantineList = api.model('AccountQuarantineList', {
+    'locked': fields.base.Boolean(
+        description='Is this account locked?'),
+    'quarantines': fields.base.List(
+        fields.base.Nested(models.EntityQuarantine),
+        description='List of quarantines'),
+    })
+
+AccountEmailAddress = api.model('AccountEmailAddress', {
+    'primary': fields.base.String(
+        description='Primary email address for this account'),
+    'addresses': fields.base.List(
+        fields.base.Nested(emailaddress.EmailAddress),
+        description='All addresses targeting this account'),
+})
+
+AccountListItem = api.model('AccountListItem', {
+    'href': fields.href('.account'),
+    'name': fields.base.String(
+        description='Account name'),
+    'id': fields.base.Integer(
+        default=None,
+        attribute='account_id',
+        description='Account entity ID'),
+    'owner': fields.base.Nested(
+        models.EntityOwner,
+        description='Account owner'),
+    'expire_date': fields.DateTime(
+        dt_format='iso8601',
+        description='Expiration date'),
+    'np_type': fields.Constant(
+        ctype='Account',
+        description='Non-personal account type (null if personal)'),
+})
+
+AccountList = api.model('AccountList', {
+    'accounts': fields.base.List(
+        fields.base.Nested(AccountListItem),
+        description='List of accounts'),
+})
+
+AccountHome = api.model('AccountHome', {
+    'homedir_id': fields.base.Integer(
+        description='Home directory entity ID'),
+    'home': fields.base.String(
+        description='Home directory path'),
+    'context': fields.Constant(
+        ctype='Spread',
+        attribute='spread',
+        description='Context'),
+    'status': fields.Constant(
+        ctype='AccountHomeStatus',
+        description='Home status'),
+    'disk_id': fields.base.Integer(
+        description='Disk entity ID'),
+})
+
+AccountHomeList = api.model('AccountHomeList', {
+    'homes': fields.base.List(
+        fields.base.Nested(AccountHome),
+        description='Home directories'),
+})
+
 
 @api.route('/<string:id>', endpoint='account')
+@api.doc(params={'id': 'Account name or ID'})
 class AccountResource(Resource):
     """Resource for a single account."""
     @api.marshal_with(Account)
-    @api.doc(params={'id': 'Account name or ID'})
     @api.response(404, 'Not Found')
     @auth.require()
     def get(self, id):
@@ -104,33 +187,11 @@ class AccountResource(Resource):
         }
 
 
-PosixAccount = api.model('PosixAccount', {
-    'href': fields.href('.posixaccount'),
-    'name': fields.base.String(
-        description='Account name'),
-    'id': fields.base.Integer(
-        default=None,
-        description='Entity ID'),
-    'posix': fields.base.Boolean(
-        description='Is this a POSIX account?'),
-    'posix_uid': fields.base.Integer(
-        default=None,
-        description='POSIX UID'),
-    'posix_shell': fields.Constant(
-        ctype='PosixShell',
-        description='POSIX shell'),
-    'default_file_group': fields.base.Nested(
-        group.Group,
-        allow_null=True,
-        description='Default file group')
-})
-
-
 @api.route('/<string:id>/posix', endpoint="posixaccount")
+@api.doc(params={'id': 'Account name or ID'})
 class PosixAccountResource(Resource):
     """Resource for a single POSIX account."""
     @api.marshal_with(PosixAccount)
-    @api.doc(params={'id': 'Account name or ID'})
     @auth.require()
     def get(self, id):
         """Get POSIX account information."""
@@ -150,31 +211,22 @@ class PosixAccountResource(Resource):
         }
 
 
-AccountQuarantineList = api.model('AccountQuarantineList', {
-    'locked': fields.base.Boolean(
-        description='Is this account locked?'),
-    'quarantines': fields.base.List(
-        fields.base.Nested(models.EntityQuarantine),
-        description='List of quarantines'),
-    })
-
-
-account_quarantines_filter = api.parser()
-account_quarantines_filter.add_argument(
-    'context', type=str,
-    help='Consider locked status based on context.')
-
-
 @api.route('/<string:id>/quarantines', endpoint='account-quarantines')
 @api.doc(params={'id': 'Account name or ID'})
 class AccountQuarantineListResource(Resource):
     """Quarantines for a single account."""
+
+    account_quarantines_filter = api.parser()
+    account_quarantines_filter.add_argument(
+        'context', type=str,
+        help='Consider locked status based on context.')
+
     @api.marshal_with(AccountQuarantineList)
     @api.doc(parser=account_quarantines_filter)
     @auth.require()
     def get(self, id):
         """Get account quarantines."""
-        args = account_quarantines_filter.parse_args()
+        args = self.account_quarantines_filter.parse_args()
 
         spreads = None
         if args.context:
@@ -208,20 +260,11 @@ class AccountQuarantineListResource(Resource):
         }
 
 
-AccountEmailAddress = api.model('AccountEmailAddress', {
-    'primary': fields.base.String(
-        description='Primary email address for this account'),
-    'addresses': fields.base.List(
-        fields.base.Nested(emailaddress.EmailAddress),
-        description='All addresses targeting this account'),
-})
-
-
 @api.route('/<string:id>/emailaddresses', endpoint='account-emailaddresses')
+@api.doc(params={'id': 'Account name or ID'})
 class AccountEmailAddressResource(Resource):
     """Resource for the email addresses of a single account."""
     @api.marshal_with(AccountEmailAddress)
-    @api.doc(params={'id': 'Account name or ID'})
     @auth.require()
     def get(self, id):
         """Get the email addresses for an account."""
@@ -234,63 +277,36 @@ class AccountEmailAddressResource(Resource):
         }
 
 
-AccountListItem = api.model('AccountListItem', {
-    'href': fields.href('.account'),
-    'name': fields.base.String(
-        description='Account name'),
-    'id': fields.base.Integer(
-        default=None,
-        attribute='account_id',
-        description='Account entity ID'),
-    'owner': fields.base.Nested(
-        models.EntityOwner,
-        description='Account owner'),
-    'expire_date': fields.DateTime(
-        dt_format='iso8601',
-        description='Expiration date'),
-    'np_type': fields.Constant(
-        ctype='Account',
-        description='Non-personal account type (null if personal)'),
-})
-
-
-AccountList = api.model('AccountList', {
-    'accounts': fields.base.List(
-        fields.base.Nested(AccountListItem),
-        description='List of accounts'),
-})
-
-
-account_search_filter = api.parser()
-account_search_filter.add_argument(
-    'name', type=str,
-    help='Filter by account name. Accepts * and ? as wildcards.')
-account_search_filter.add_argument(
-    'context', type=str, dest='spread',
-    help='Filter by context. Accepts * and ? as wildcards.')
-account_search_filter.add_argument(
-    'owner_id', type=int,
-    help='Filter by owner entity ID.')
-account_search_filter.add_argument(
-    'owner_type', type=str,
-    help='Filter by owner entity type.')
-account_search_filter.add_argument(
-    'expire_start', type=str,
-    help='Filter by expiration start date.')
-account_search_filter.add_argument(
-    'expire_stop', type=str,
-    help='Filter by expiration end date.')
-
-
 @api.route('/', endpoint='accounts')
 class AccountListResource(Resource):
     """Resource for list of accounts."""
+
+    account_search_filter = api.parser()
+    account_search_filter.add_argument(
+        'name', type=str,
+        help='Filter by account name. Accepts * and ? as wildcards.')
+    account_search_filter.add_argument(
+        'context', type=str, dest='spread',
+        help='Filter by context. Accepts * and ? as wildcards.')
+    account_search_filter.add_argument(
+        'owner_id', type=int,
+        help='Filter by owner entity ID.')
+    account_search_filter.add_argument(
+        'owner_type', type=str,
+        help='Filter by owner entity type.')
+    account_search_filter.add_argument(
+        'expire_start', type=str,
+        help='Filter by expiration start date.')
+    account_search_filter.add_argument(
+        'expire_stop', type=str,
+        help='Filter by expiration end date.')
+
     @api.marshal_with(AccountList)
     @api.doc(parser=account_search_filter)
     @auth.require()
     def get(self):
         """List accounts."""
-        args = account_search_filter.parse_args()
+        args = self.account_search_filter.parse_args()
         filters = {key: value for (key, value) in args.items()
                    if value is not None}
 
@@ -319,28 +335,28 @@ class AccountListResource(Resource):
         return {'accounts': accounts}
 
 
-account_groups_filter = api.parser()
-account_groups_filter.add_argument(
-    'indirect_memberships', type=bool, dest='indirect_members',
-    help='If true, include indirect group memberships.')
-account_groups_filter.add_argument(
-    'filter_expired', type=bool,
-    help='If false, include expired groups.')
-account_groups_filter.add_argument(
-    'expired_only', type=bool,
-    help='If true, only include expired groups.')
-
-
 @api.route('/<string:id>/groups')
+@api.doc(params={'id': 'Account name or ID'})
 class AccountGroupListResource(Resource):
     """Resource for account group memberships."""
+
+    account_groups_filter = api.parser()
+    account_groups_filter.add_argument(
+        'indirect_memberships', type=bool, dest='indirect_members',
+        help='If true, include indirect group memberships.')
+    account_groups_filter.add_argument(
+        'filter_expired', type=bool,
+        help='If false, include expired groups.')
+    account_groups_filter.add_argument(
+        'expired_only', type=bool,
+        help='If true, only include expired groups.')
+
     @api.marshal_with(group.GroupListItem, as_list=True, envelope='groups')
-    @api.doc(params={'id': 'Account name or ID'})
     @auth.require()
     def get(self, id):
         """List groups an account is a member of."""
         ac = find_account(id)
-        args = account_groups_filter.parse_args()
+        args = self.account_groups_filter.parse_args()
         filters = {key: value for (key, value) in args.items()
                    if value is not None}
         filters['member_id'] = ac.entity_id
@@ -358,10 +374,10 @@ class AccountGroupListResource(Resource):
 
 
 @api.route('/<string:id>/contacts')
+@api.doc(params={'id': 'Account name or ID'})
 class AccountContactInfoListResource(Resource):
     """Resource for account contact information."""
     @api.marshal_with(models.EntityContactInfoList)
-    @api.doc(params={'id': 'Account name or ID'})
     @auth.require()
     def get(self, id):
         """Lists contact information for an account."""
@@ -371,10 +387,10 @@ class AccountContactInfoListResource(Resource):
 
 
 @api.route('/<string:id>/affiliations')
+@api.doc(params={'id': 'Account name or ID'})
 class AccountAffiliationListResource(Resource):
     """Resource for account affiliations."""
     @api.marshal_with(AccountAffiliationList)
-    @api.doc(params={'id': 'Account name or ID'})
     @auth.require()
     def get(self, id):
         """List affiliations for an account."""
@@ -390,35 +406,11 @@ class AccountAffiliationListResource(Resource):
         return {'affiliations': affiliations}
 
 
-AccountHome = api.model('AccountHome', {
-    'homedir_id': fields.base.Integer(
-        description='Home directory entity ID'),
-    'home': fields.base.String(
-        description='Home directory path'),
-    'context': fields.Constant(
-        ctype='Spread',
-        attribute='spread',
-        description='Context'),
-    'status': fields.Constant(
-        ctype='AccountHomeStatus',
-        description='Home status'),
-    'disk_id': fields.base.Integer(
-        description='Disk entity ID'),
-})
-
-
-AccountHomeList = api.model('AccountHomeList', {
-    'homes': fields.base.List(
-        fields.base.Nested(AccountHome),
-        description='Home directories'),
-})
-
-
 @api.route('/<string:id>/homes')
+@api.doc(params={'id': 'Account name or ID'})
 class AccountHomeListResource(Resource):
     """Resource for account home directories."""
     @api.marshal_with(AccountHomeList)
-    @api.doc(params={'id': 'Account name or ID'})
     @auth.require()
     def get(self, id):
         """List home directories for an account."""

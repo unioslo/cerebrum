@@ -21,21 +21,21 @@ Context = api.model('Context', {
 })
 
 
-context_search_filter = api.parser()
-context_search_filter.add_argument(
-    'entity_types', type=str, action='append',
-    help='Filter by entity type(s)')
-
-
 @api.route('/', endpoint='contexts')
 class ContextListResource(Resource):
     """Resource for contexts."""
+
+    context_search_filter = api.parser()
+    context_search_filter.add_argument(
+        'entity_types', type=str, action='append',
+        help='Filter by entity type(s)')
+
     @api.marshal_list_with(Context)
     @api.doc(parser=context_search_filter)
     @auth.require()
     def get(self):
         """List contexts"""
-        args = context_search_filter.parse_args()
+        args = self.context_search_filter.parse_args()
         filters = {key: value for (key, value) in args.items() if
                    value is not None}
 

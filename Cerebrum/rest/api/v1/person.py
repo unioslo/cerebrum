@@ -97,11 +97,11 @@ PersonAccountList = api.model('PersonAccountList', {
 
 
 @api.route('/<int:id>', endpoint='person')
+@api.doc(params={'id': 'Person entity ID'})
 class PersonResource(Resource):
     """Resource for a single person."""
     @auth.require()
     @api.marshal_with(Person)
-    @api.doc(params={'id': 'Person entity ID'})
     def get(self, id):
         """Get person information"""
         pe = find_person(id)
@@ -126,11 +126,11 @@ class PersonResource(Resource):
 
 
 @api.route('/<int:id>/affiliations', endpoint='person-affiliations')
+@api.doc(params={'id': 'Person entity ID'})
 class PersonAffiliationListResource(Resource):
     """Resource for person affiliations."""
     @auth.require()
     @api.marshal_with(PersonAffiliationList)
-    @api.doc(params={'id': 'Person entity ID'})
     def get(self, id):
         """List person affiliations."""
         pe = find_person(id)
@@ -145,11 +145,11 @@ class PersonAffiliationListResource(Resource):
 
 
 @api.route('/<int:id>/contacts', endpoint='person-contacts')
+@api.doc(params={'id': 'Person entity ID'})
 class PersonContactInfoListResource(Resource):
     """Resource for person contact information."""
     @auth.require()
     @api.marshal_with(models.EntityContactInfoList)
-    @api.doc(params={'id': 'Person entity ID'})
     def get(self, id):
         """Get person contact information."""
         pe = find_person(id)
@@ -157,11 +157,11 @@ class PersonContactInfoListResource(Resource):
 
 
 @api.route('/<int:id>/external-ids', endpoint='person-externalids')
+@api.doc(params={'id': 'Person entity ID'})
 class PersonExternalIdListResource(Resource):
     """Resource for person external IDs."""
     @auth.require()
     @api.marshal_with(models.EntityExternalIdList)
-    @api.doc(params={'id': 'Person entity ID'})
     def get(self, id):
         """Get external IDs of a person."""
         pe = find_person(id)
@@ -169,11 +169,11 @@ class PersonExternalIdListResource(Resource):
 
 
 @api.route('/<int:id>/accounts', endpoint='person-accounts')
+@api.doc(params={'id': 'Person entity ID'})
 class PersonAccountListResource(Resource):
     """Resource for person accounts."""
     @auth.require()
     @api.marshal_with(PersonAccountList)
-    @api.doc(params={'id': 'Person entity ID'})
     def get(self, id):
         """Get the accounts of a person."""
         pe = find_person(id)
