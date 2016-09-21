@@ -141,19 +141,8 @@ def main():
         const.affiliation_tilknyttet  # TILKNYTTET
     ]
     EXEMPT_AFFILIATION_STATUSES = [
-        const.affiliation_manuell_cicero,  # MANUELL/cicero
-        const.affiliation_manuell_ekst_person,  # MANUELL/ekst_person
-        const.affiliation_manuell_gjest,  # MANUELL/gjest
-        const.affiliation_manuell_gjesteforsker,  # MANUELL/gjesteforsker
-        const.affiliation_manuell_inaktiv_ansatt,  # MANUELL/inaktiv_ansatt
-        const.affiliation_manuell_inaktiv_student,  # MANUELL/inaktiv_student
-        const.affiliation_manuell_konsulent,  # MANUELL/konsulent
-        const.affiliation_manuell_radium,  # MANUELL/radium
-        const.affiliation_manuell_unirand,  # MANUELL/unirand
-        const.affiliation_manuell_universitas,  # MANUELL/universitas
-        const.affiliation_manuell_frisch,  # MANUELL/frisch
-        const.affiliation_manuell_alumni,  # MANUELL/alumni
-        const.affiliation_manuell_sio  # MANUELL/sio
+        const.affiliation_manuell_ekstern,  # MANUELL/ekstern
+        const.affiliation_manuell_alumni  # MANUELL/alumni
     ]
 
     manual_users = list()
