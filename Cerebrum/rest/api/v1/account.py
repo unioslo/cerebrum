@@ -351,7 +351,9 @@ class AccountGroupListResource(Resource):
         for row in gr.search(**filters):
             group = dict(row)
             group.update({
-                'id': group['name'],
+                'id': utils._db_decode(group['name']),
+                'name': utils._db_decode(group['name']),
+                'description': utils._db_decode(group['description'])
             })
             groups.append(group)
         return groups
