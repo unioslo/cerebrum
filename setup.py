@@ -515,6 +515,7 @@ setup(
         'Cerebrum/modules/no/hine',
         'Cerebrum/modules/no/notur',
         'Cerebrum/modules/password_notifier',
+        'Cerebrum/modules/password_generator',
         'Cerebrum/modules/posix',
         'Cerebrum/modules/pwcheck',
         'Cerebrum/modules/printutils',

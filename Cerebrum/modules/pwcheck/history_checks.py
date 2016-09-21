@@ -24,8 +24,8 @@
 from .checker import pwchecker, PasswordChecker
 
 
-@pwchecker('history')
-class CheckPasswordHistory(PasswordChecker):
+@pwchecker('brute_history')
+class BruteCheckPasswordHistory(PasswordChecker):
     """ Match the password against PasswordHistory. """
 
     def __init__(self):
@@ -35,8 +35,26 @@ class CheckPasswordHistory(PasswordChecker):
     def check_password(self, password, account=None):
         if not account:
             return
+        if not hasattr(account, '_bruteforce_check_password_history'):
+            return
+        if (account._bruteforce_check_password_history(password) or
+                account._bruteforce_check_password_history(password[0:8])):
+            return [_('Password too similar to an old password')]
+
+
+@pwchecker('history')
+class CheckPasswordHistory(PasswordChecker):
+    """ Match the password against PasswordHistory. """
+
+    def __init__(self):
+        self._requirement = _(
+            'Must not be the same as an old password')
+
+    def check_password(self, password, account=None):
+        if not account:
+            return
         if not hasattr(account, '_check_password_history'):
             return
         if (account._check_password_history(password) or
                 account._check_password_history(password[0:8])):
-            return [_('Password too similar to an old password')]
+            return [_('Password is the same as an old password')]
