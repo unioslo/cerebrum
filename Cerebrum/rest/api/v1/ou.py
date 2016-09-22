@@ -69,11 +69,11 @@ OrganizationalUnit = api.model('OrganizationalUnit', {
 
 
 @api.route('/<string:id>', endpoint='ou')
+@api.doc(params={'id': 'OU ID'})
 class OrganizationalUnitResource(Resource):
     """Resource for organizational units."""
     @auth.require()
     @api.marshal_with(OrganizationalUnit)
-    @api.doc(params={'id': 'OU ID'})
     def get(self, id):
         """Get organizational unit information."""
         ou = find_ou(id)
