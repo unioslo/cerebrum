@@ -24,7 +24,7 @@ import os
 
 from Cerebrum.config.configuration import ConfigDescriptor, Configuration
 from Cerebrum.config.loader import read, read_config, default_dir
-from Cerebrum.config.settings import Integer, FilePath, String
+from Cerebrum.config.settings import Integer, FilePath, String, NotSet
 
 
 class PasswordGeneratorConfig(Configuration):
@@ -54,7 +54,8 @@ class PasswordGeneratorConfig(Configuration):
         permission_read=True,
         # the current user should not be able to write to this file
         # permission_write=False,
-        default=os.path.join(default_dir, 'passphrase_dictionary.txt'),
+        # default=os.path.join(default_dir, 'passphrase_dictionary.txt'),
+        default=NotSet,
         doc=u'File-path for the passphrase-dictionary')
 
 

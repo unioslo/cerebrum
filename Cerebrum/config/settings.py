@@ -18,7 +18,6 @@ from collections import OrderedDict
 
 
 class NotSetType(object):
-
     u""" A NotSet type that indicates that nothing has been set. """
 
     def __nonzero__(self):
@@ -32,6 +31,7 @@ class NotSetType(object):
 
     def __repr__(self):
         return str(self)
+
 
 NotSet = NotSetType()
 u""" Singleton that indicates that a setting has not been set. """
@@ -322,6 +322,7 @@ class FilePath(String):
     """
     A file-path setting
     """
+    _valid_types = (basestring, NotSetType)
     _lazy_validate_defaults = True
 
     def __init__(self,
@@ -355,7 +356,7 @@ class FilePath(String):
         Validates a value.
 
         :see: Setting.validate
-        
+
         :return:
             return True to stop all further validations, otherwise False
         :rtype: bool
@@ -366,6 +367,9 @@ class FilePath(String):
         """
         if super(FilePath, self).validate(value):
             return True
+        if value is None or value is NotSet:
+            # one should be able to set an empty (non existent) path
+            return False
         if not os.path.isfile(value):
             raise ValueError(
                 u'Invalid value {!r}. No such file-path exists'.format(value))

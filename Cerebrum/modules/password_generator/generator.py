@@ -58,13 +58,15 @@ class PasswordGenerator(object):
             self.lrandom = random.SystemRandom()
             self.logger = logger or Utils.Factory.get_logger('console')
             self.dict_words = []
-            with open(self.config.passphrase_dictionary) as fp:
-                for line in fp:
-                    try:
-                        # assume UTF-8 encoded text-file
-                        self.dict_words.append(line.strip().decode('utf-8'))
-                    except:
-                        continue
+            if self.config.passphrase_dictionary:
+                with open(self.config.passphrase_dictionary) as fp:
+                    for line in fp:
+                        try:
+                            # assume UTF-8 encoded text-file
+                            self.dict_words.append(
+                                line.strip().decode('utf-8'))
+                        except:
+                            continue
             self.logger.debug('PasswordGenerator initialized')
         except Exception as e:
             raise Errors.CerebrumError('Unable to create a PasswordGenerator '
@@ -94,5 +96,9 @@ class PasswordGenerator(object):
             return a random passphrase
         :rtype: unicode
         """
+        if not self.config.passphrase_dictionary:
+            raise Errors.CerebrumError('Missing passphrase-dictionary')
+        if len(self.dict_words) < self.config.amount_words:
+            raise Errors.CerebrumError('Passphrase-dictionary not long enough')
         return u' '.join(self.lrandom.sample(self.dict_words,
                                              self.config.amount_words))
