@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from __future__ import unicode_literals
 """ Generic search API. """
 
 from flask import url_for
@@ -101,11 +100,12 @@ class ExternalIdResource(Resource):
     extid_search_filter.add_argument(
         'external_id',
         type=str,
-        help='Filter by external ID. Accepts * and ? as wildcards.')
+        required=True,
+        help='Filter by external ID.')
 
     @auth.require()
     @api.doc(parser=extid_search_filter)
-    @api.marshal_with(ExternalIdItem, as_list=True)
+    @api.marshal_with(ExternalIdItem, as_list=True, envelope='external-ids')
     def get(self):
         """Get external IDs"""
         args = self.extid_search_filter.parse_args()
@@ -143,6 +143,10 @@ class ExternalIdResource(Resource):
                           message=u'Unknown external ID type for id_type={}'.format(
                               entry))
             filters['id_type'] = id_types
+
+        if 'external_id' in filters:
+            filters['external_id'] = filters['external_id'].translate(
+                None, '*?%_')
 
         results = list()
         for row in eei.search_external_ids(**filters):
