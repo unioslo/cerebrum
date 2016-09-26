@@ -12,7 +12,8 @@ from Cerebrum.rest.api.v1 import emailaddress
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.modules.pwcheck.checker import check_password
+from Cerebrum.modules.pwcheck.checker import (check_password,
+                                              PasswordNotGoodEnough)
 
 api = Namespace('accounts', description='Account operations')
 
@@ -437,6 +438,40 @@ PasswordPayload = api.model('PasswordPayload', {
         required=True),
 })
 
+PasswordChanged = api.model('PasswordChanged', {
+    'new_password': fields.base.String(
+        description='New password')
+})
+
+PasswordVerification = api.model('PasswordVerification', {
+    'verified': fields.base.Boolean(
+        description='Did the password match?')
+})
+
+
+@db.autocommit
+@api.route('/<string:id>/password')
+@api.doc(params={'id': 'Account name or ID'})
+class AccountPasswordResource(Resource):
+    """Resource for account password change."""
+    @auth.require()
+    @api.expect(PasswordPayload)
+    @api.response(200, 'Password changed', PasswordChanged)
+    @api.response(400, 'Invalid password')
+    def post(self, id):
+        """Change the password for this account."""
+        ac = find_account(id)
+        data = request.json
+        plaintext = data.get('password', None)
+        if plaintext is None:
+            plaintext = ac.make_passwd(ac.account_name)
+        try:
+            check_password(plaintext, account=ac, structured=False)
+        except PasswordNotGoodEnough as err:
+            abort(400, 'Bad password: {}'.format(err))
+        ac.set_password(plaintext)
+        return {'new_password': plaintext}
+
 
 @api.route('/<string:id>/password/verify')
 @api.doc(params={'id': 'Account name or ID'})
@@ -444,6 +479,8 @@ class AccountPasswordVerifierResource(Resource):
     """Resource for account password verification."""
     @auth.require()
     @api.expect(PasswordPayload)
+    @api.response(200, 'Password verification', PasswordVerification)
+    @api.response(400, 'Password missing')
     def post(self, id):
         """Verify the password for this account."""
         ac = find_account(id)
@@ -461,6 +498,8 @@ class AccountPasswordCheckerResource(Resource):
     """Resource for account password checking."""
     @auth.require()
     @api.expect(PasswordPayload)
+    @api.response(200, 'Password check result')
+    @api.response(400, 'Password missing')
     def post(self, id):
         """Check if a password is valid according to rules."""
         ac = find_account(id)
