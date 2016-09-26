@@ -166,6 +166,11 @@ PasswordPayload = api.model('PasswordPayload', {
         required=True),
 })
 
+PasswordChangePayload = api.model('PasswordChangePayload', {
+    'password': fields.base.String(
+        description='Password, leave empty to generate one'),
+})
+
 PasswordChanged = api.model('PasswordChanged', {
     'password': fields.base.String(
         description='New password')
@@ -455,7 +460,7 @@ class AccountHomeListResource(Resource):
 class AccountPasswordResource(Resource):
     """Resource for account password change."""
     @auth.require()
-    @api.expect(PasswordPayload)
+    @api.expect(PasswordChangePayload)
     @api.response(200, 'Password changed', PasswordChanged)
     @api.response(400, 'Invalid password')
     def post(self, id):
