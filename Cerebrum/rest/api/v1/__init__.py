@@ -17,6 +17,7 @@ from Cerebrum.rest.api.v1.emailaddress import api as emailaddress_ns
 from Cerebrum.rest.api.v1.context import api as context_ns
 from Cerebrum.rest.api.v1.ou import api as ou_ns
 from Cerebrum.rest.api.v1.person import api as person_ns
+from Cerebrum.rest.api.v1.search import api as search_ns
 
 api.add_namespace(account_ns)
 api.add_namespace(group_ns)
@@ -24,3 +25,4 @@ api.add_namespace(emailaddress_ns)
 api.add_namespace(context_ns)
 api.add_namespace(ou_ns)
 api.add_namespace(person_ns)
+api.add_namespace(search_ns)
