@@ -1,6 +1,7 @@
 # coding: utf-8
 """ Account API. """
 
+from flask import request
 from flask_restplus import Namespace, Resource, abort
 
 from Cerebrum.rest.api import db, auth, fields, utils
@@ -11,6 +12,7 @@ from Cerebrum.rest.api.v1 import emailaddress
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.QuarantineHandler import QuarantineHandler
+from Cerebrum.modules.pwcheck.checker import check_password
 
 api = Namespace('accounts', description='Account operations')
 
@@ -427,3 +429,43 @@ class AccountHomeListResource(Resource):
             homes.append(home)
 
         return {'homes': homes}
+
+
+PasswordPayload = api.model('PasswordPayload', {
+    'password': fields.base.String(
+        description='Password',
+        required=True),
+})
+
+
+@api.route('/<string:id>/password/verify')
+@api.doc(params={'id': 'Account name or ID'})
+class AccountPasswordVerifierResource(Resource):
+    """Resource for account password verification."""
+    @auth.require()
+    @api.expect(PasswordPayload)
+    def post(self, id):
+        """Verify the password for this account."""
+        ac = find_account(id)
+        data = request.json
+        plaintext = data.get('password', None)
+        if plaintext is None:
+            abort(400, 'No password specified')
+        verified = bool(ac.verify_auth(plaintext))
+        return {'verified': verified}
+
+
+@api.route('/<string:id>/password/check')
+@api.doc(params={'id': 'Account name or ID'})
+class AccountPasswordCheckerResource(Resource):
+    """Resource for account password checking."""
+    @auth.require()
+    @api.expect(PasswordPayload)
+    def post(self, id):
+        """Check if a password is valid according to rules."""
+        ac = find_account(id)
+        data = request.json
+        plaintext = data.get('password', None)
+        if plaintext is None:
+            abort(400, 'No password specified')
+        return check_password(plaintext, account=ac, structured=True)
