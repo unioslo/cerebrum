@@ -55,7 +55,7 @@ class ExternalIdType(object):
 
     @classmethod
     def unserialize(cls, input_):
-        return db.const.EntityExternalId(cls._rev_map[input_.lower()])
+        return db.const.EntityExternalId(cls._rev_map[input_])
 
 
 ExternalIdItem = api.model('ExternalIdItem', {
@@ -110,7 +110,33 @@ class ExternalIdResource(Resource):
         filters['entity_type'] = db.const.entity_person
         eei = EntityExternalId(db.connection)
 
-        # entity_id, entity_type, id_type, source_system, external_id
+        if 'source_system' in filters:
+            source_systems = []
+            if not isinstance(filters['source_system'], list):
+                filters['source_system'] = [filters['source_system']]
+            for entry in filters['source_system']:
+                try:
+                    code = int(db.const.AuthoritativeSystem(entry))
+                    source_systems.append(code)
+                except Errors.NotFoundError:
+                    abort(404,
+                          message=u'Unknown source system for source_system={}'.format(
+                              entry))
+            filters['source_system'] = source_systems
+
+        if 'id_type' in filters:
+            id_types = []
+            if not isinstance(filters['id_type'], list):
+                filters['id_type'] = [filters['id_type']]
+            for entry in filters['id_type']:
+                try:
+                    code = int(ExternalIdType.unserialize(entry))
+                    id_types.append(code)
+                except Errors.NotFoundError:
+                    abort(404,
+                          message=u'Unknown external ID type for id_type={}'.format(
+                              entry))
+            filters['id_type'] = id_types
 
         results = list()
         for row in eei.search_external_ids(**filters):
