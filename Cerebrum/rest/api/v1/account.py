@@ -160,6 +160,22 @@ AccountHomeList = api.model('AccountHomeList', {
         description='Home directories'),
 })
 
+PasswordPayload = api.model('PasswordPayload', {
+    'password': fields.base.String(
+        description='Password',
+        required=True),
+})
+
+PasswordChanged = api.model('PasswordChanged', {
+    'password': fields.base.String(
+        description='New password')
+})
+
+PasswordVerification = api.model('PasswordVerification', {
+    'verified': fields.base.Boolean(
+        description='Did the password match?')
+})
+
 
 @api.route('/<string:id>', endpoint='account')
 @api.doc(params={'id': 'Account name or ID'})
@@ -433,23 +449,6 @@ class AccountHomeListResource(Resource):
         return {'homes': homes}
 
 
-PasswordPayload = api.model('PasswordPayload', {
-    'password': fields.base.String(
-        description='Password',
-        required=True),
-})
-
-PasswordChanged = api.model('PasswordChanged', {
-    'new_password': fields.base.String(
-        description='New password')
-})
-
-PasswordVerification = api.model('PasswordVerification', {
-    'verified': fields.base.Boolean(
-        description='Did the password match?')
-})
-
-
 @db.autocommit
 @api.route('/<string:id>/password')
 @api.doc(params={'id': 'Account name or ID'})
@@ -471,7 +470,7 @@ class AccountPasswordResource(Resource):
         except PasswordNotGoodEnough as err:
             abort(400, 'Bad password: {}'.format(err))
         ac.set_password(plaintext)
-        return {'new_password': plaintext}
+        return {'password': plaintext}
 
 
 @api.route('/<string:id>/password/verify')
