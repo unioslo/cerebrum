@@ -57,6 +57,10 @@ class ExternalIdType(object):
     def unserialize(cls, input_):
         return db.const.EntityExternalId(cls._rev_map[input_])
 
+    @classmethod
+    def valid_types(cls):
+        return cls._rev_map.keys()
+
 
 ExternalIdItem = api.model('ExternalIdItem', {
     'href': crb_fields.href(
@@ -130,6 +134,8 @@ class ExternalIdResource(Resource):
                 filters['id_type'] = [filters['id_type']]
             for entry in filters['id_type']:
                 try:
+                    if entry not in ExternalIdType.valid_types():
+                        raise Errors.NotFoundError
                     code = int(ExternalIdType.unserialize(entry))
                     id_types.append(code)
                 except Errors.NotFoundError:
