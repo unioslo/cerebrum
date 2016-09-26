@@ -1829,7 +1829,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         pe.write_db()
 
         # Update the account's affiliation:
-        ac.del_account_type(ou.entity_id, self.const.affiliation_pending)
+        try:
+            ac.del_account_type(ou.entity_id, self.const.affiliation_pending)
+        except Errors.NotFoundError:
+            pass
         ac.set_account_type(ou.entity_id, self.const.affiliation_project)
         ac.write_db()
 
