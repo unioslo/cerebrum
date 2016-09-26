@@ -355,6 +355,7 @@ class AccountGroupListResource(Resource):
         help='If true, only include expired groups.')
 
     @api.marshal_with(group.GroupListItem, as_list=True, envelope='groups')
+    @api.doc(parser=account_groups_filter)
     @auth.require()
     def get(self, id):
         """List groups an account is a member of."""
