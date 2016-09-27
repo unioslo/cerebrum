@@ -105,7 +105,7 @@ class ExternalIdResource(Resource):
 
     @auth.require()
     @api.doc(parser=extid_search_filter)
-    @api.marshal_with(ExternalIdItem, as_list=True, envelope='external-ids')
+    @api.marshal_with(ExternalIdItem, as_list=True, envelope='external_ids')
     def get(self):
         """Get external IDs"""
         args = self.extid_search_filter.parse_args()
