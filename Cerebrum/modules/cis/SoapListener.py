@@ -287,16 +287,35 @@ class TwistedSoapStarter(BasicSoapStarter):
         if type(applications) not in (list, tuple, dict):
             applications = [applications]
 
-        # Set the encoding for SOAP data, converting it from unicode to some str
-        # encoding. We could instead use the Unicode classes, but Cerebrum
+        # Set the encoding for SOAP data, converting it from unicode to some
+        # str encoding. We could instead use the Unicode classes, but Cerebrum
         # doesn't support unicode natively quite yet.
         String.Attributes.encoding = 'latin1'
 
-        self.service = rpclib.application.Application(applications,
-                                    tns=self.namespace,
-                                    interface=Wsdl11(),
-                                    in_protocol=Soap11(validator='lxml'),
-                                    out_protocol=Soap11())
+        # Ignore unencodable characters
+        # The following function does the same as String.from_string, except
+        # that it supplies 'ignore' as an argument to encode()
+        from rpclib.model import nillable_string
+
+        @classmethod
+        @nillable_string
+        def from_string(cls, value):
+            retval = value
+            if isinstance(value, unicode):
+                if cls.Attributes.encoding is None:
+                    raise Exception("You need to define an encoding to "
+                                    "convert the incoming unicode values to.")
+                else:
+                    retval = value.encode(cls.Attributes.encoding, 'ignore')
+            return retval
+        String.from_string = from_string
+
+        self.service = rpclib.application.Application(
+            applications,
+            tns=self.namespace,
+            interface=Wsdl11(),
+            in_protocol=Soap11(validator='lxml'),
+            out_protocol=Soap11())
         self.wsgi_application = WsgiApplication(self.service)
 
     def setup_twisted(self):
