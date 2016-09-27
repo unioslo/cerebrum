@@ -26,7 +26,6 @@ default username is stored in is yet to be determined.
 """
 
 import crypt
-import random
 import string
 import re
 import mx
@@ -46,6 +45,7 @@ from Cerebrum.Utils import (NotSet,
                             gpgme_encrypt)
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough)
+from Cerebrum.modules.password_generator.generator import PasswordGenerator
 
 import cereconf
 
@@ -1291,16 +1291,15 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def get_account_name(self):
         return self.account_name
 
-    def make_passwd(self, uname):
-        """Generate a random password with 8 characters"""
-        pot = string.ascii_letters + string.digits + '-+?=*()/&%#"_!,;.:'
-        for i in ['O', 'l']:
-            pot = pot.replace(i, '')
+    def make_passwd(self, uname, phrase=False):
+        """Generate a random password"""
+        password_generator = PasswordGenerator()
         for attempt in range(10):
             # try with 10 random passwords before giving up
-            r = ''
-            while len(r) < cereconf.MAKE_PASSWORD_LENGTH:
-                r += pot[random.randint(0, len(pot) - 1)]
+            if phrase:
+                r = password_generator.generate_dictionary_passphrase()
+            else:
+                r = password_generator.generate_password()
             try:
                 check_password(r, self)
                 return r

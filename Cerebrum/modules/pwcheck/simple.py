@@ -224,6 +224,86 @@ class CheckSimpleCharacterGroups(PasswordChecker):
                     min_groups=self.min_groups)]
 
 
+@pwchecker('simple_entropy_calculator')
+class CheckSimpleEntropyCalculator(PasswordChecker):
+    """Calculate password entropy using the NIST 800-63 recommendations"""
+
+    def __init__(self,
+                 min_required_entropy=33,
+                 min_groups=3,
+                 min_chars_per_group=2):
+        """
+        Keyword Arguments:
+        :param min_required_entropy: The entropy points required for a password
+            to pass
+        :type min_required_entropy: int
+        (default 33)
+
+        :param min_groups: The amount of character groups that must be present
+            in the password in order to award 6 additional entropy points
+        :type min_groups: int
+        (default 3)
+
+        :param min_chars_per_group: The minimum amount of characters of each
+            of the above groups that have to be present in the password string
+            in order to award 8 additional entropy points
+        :type min_chars_per_group: object
+        (default 2)
+        """
+        self.min_required_entropy = min_required_entropy
+        self.min_groups = min_groups
+        self.min_chars_per_group = min_chars_per_group
+        self._requirement = _(
+            'Password must evaluate to at least {min_required_entropy} '
+            'entropy points').format(
+                min_required_entropy=min_required_entropy)
+
+    def check_password(self, password, account=None):
+        """
+        Make sure that the password contains enough entropy points
+        """
+        plength = len(password)
+        entropy_value = 0
+        # "The entropy of the first character is four bits"
+        entropy_value += len(password[0:1]) * 4
+        # "The entropy of the next seven characters are two bits per character"
+        entropy_value += len(password[1:8]) * 2
+        # "The ninth through the twentieth character has 1.5 bits of entropy
+        # per character"
+        entropy_value += int(len(password[8:20]) * 1.5)  # use only the int
+        # "Characters 21 and above have one bit of entropy per character."
+        if plength > 20:
+            entropy_value += (plength - 20)
+        different_groups, chars_per_group = self.__character_groups(password)
+        if different_groups >= self.min_groups:
+            if chars_per_group >= self.min_chars_per_group:
+                entropy_value += 8
+            else:
+                entropy_value += 6
+        if entropy_value < self.min_required_entropy:
+            return [
+                _('Password has only {entropy_value} '
+                  'entropy points out of {min_required_entropy}').format(
+                      entropy_value=entropy_value,
+                      min_required_entropy=self.min_required_entropy)]
+
+    def __character_groups(self, basestring_sequence):
+        """
+        Returns a (character groups used,
+        min. amount of characters for each of those groups)-tuple
+        """
+        counters = {string.ascii_lowercase: 0,
+                    string.ascii_uppercase: 0,
+                    string.digits: 0,
+                    string.punctuation: 0}
+        for character in basestring_sequence:
+            for group in counters.keys():
+                if character in group:
+                    counters[group] += 1
+        different_groups = [value for value in counters.values() if value > 0]
+        return (len(different_groups), min(different_groups))
+
+
 @pwchecker('length')
 class CheckLengthMixin(PasswordChecker):
     """Check for minimum and maximum password length."""

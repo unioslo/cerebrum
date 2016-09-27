@@ -100,17 +100,14 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
             pass
         super(PasswordHistoryMixin, self).clear()
 
-    def _check_password_history(self, password):
-        """ Check if entity had this password earlier.
+    def _bruteforce_check_password_history(self, password):
+        """ Check if entity had this or a similar password earlier.
 
         :param str password: The plaintext password.
 
-        :return: Returns on success
-
-        :raise PasswordNotGoodEnough:
-            Raises an exception if the password, or a similar password has been
-            used before.
-
+        :return: Returns True if the password has been used before or
+            if it is too similar to an old one. Return False or None
+            otherwise
         """
         ph = PasswordHistory(self._db)
         name = getattr(self, 'account_name', None)
@@ -144,6 +141,28 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
         for r in ph.get_history(entity_id):
             if r['md5base64'] in variants:
                 return True
+
+    def _check_password_history(self, password):
+        """
+        Check if entity had this password earlier.
+
+        :param str password: The plaintext password.
+
+        :return: Returns on success
+
+        :return: Returns True if the password has been used before or
+            if it is too similar to an old one. Return False or None
+            otherwise
+        """
+        ph = PasswordHistory(self._db)
+        name = getattr(self, 'account_name', None)
+        entity_id = getattr(self, 'entity_id', None)
+        if not name or not entity_id:
+            return
+        encoded_password = ph.encode_for_history(name, password)
+        old_passwords = [r['md5base64'] for r in ph.get_history(entity_id)]
+        if encoded_password in old_passwords:
+            return True
 
 
 class PasswordHistory(DatabaseAccessor):

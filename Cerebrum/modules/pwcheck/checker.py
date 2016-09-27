@@ -60,6 +60,7 @@ _checkers = {}
 
 _checkers_loaded = False
 
+
 def load_checkers():
     global _checkers_loaded
     if not _checkers_loaded:
