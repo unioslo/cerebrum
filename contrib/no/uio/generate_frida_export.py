@@ -219,7 +219,7 @@ def output_OU(writer, ou):
         <navnEngelsk>...</...>         <!-- LT.STED.STEDLANGNAVN_ENGELSK
                                                     STEDKORTNAVN_ENGELSK -->
         <akronym>...</...>             <!-- LT.STED.AKRONYM -->
-        <postadresse>...</...>    <!-- LT.STED.ADDRESSELINJE{1+2}_INTERN_ADR -->
+        <postadresse>...</...>   <!-- LT.STED.ADDRESSELINJE{1+2}_INTERN_ADR -->
         <postnrOgPoststed>...</...>    <!-- LT.STED.POSTSTEDNR_INTERN_ADR +
                                             LT.STED.POSTSTEDNAVN_INTERN_ADR -->
         <land>...</...>                <!-- LT.STED.LANDNAVN_INTERN_ADR -->
@@ -673,11 +673,14 @@ def should_export_person(person):
                       list(person.iterids()))
         return False
 
-    # All employments that are *NOT* MG/MUG 8;50 of types other than 'Gjest'
+    # All employments that are *NOT* MG/MUG 8;50 of an accepted guest type
     # Filters out persons that *only* has 8;50 employment records and are
-    # not guests
+    # not guests, or are guests of a non-relevant type
     employments = filter(lambda x: not (x.mg == 8 and x.mug == 50 and
-                                        x.kind != x.GJEST),
+                                        (x.kind != x.GJEST or
+                                         (x.kind == x.GJEST and x.code not in
+                                          (x.EF-FORSKER, x.EF-STIP, x.EMERITUS,
+                                           x.ASSOSIERT, x.GJ-FORSKER)))),
                          person.iteremployment())
     if not employments:
         logger.debug2("Skipping, person_id %s only has MG/MUG 850 records and "
