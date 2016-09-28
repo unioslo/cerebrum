@@ -1,3 +1,9 @@
+2016-09-28    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Account.py (AccountUiTMixin.suggest_unames): username needs to
+	be returned in a list so as not to break code in
+	process_students.py (now stolen from uio)
+
 2016-09-09  Karen   <cerebrum@cleomedes.uit.no>
 
     * account_bridge.py: Added to repo. Contains class to use for getting information about accounts 

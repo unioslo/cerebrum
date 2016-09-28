@@ -93,7 +93,7 @@ class AccountUiTMixin(Account.Account):
     def suggest_unames(self, ssn, fname, lname):
         full_name = "%s %s" % (fname, lname)
         username = self.get_uit_uname(ssn,full_name)
-        return username
+        return [username]
 
 
     def encrypt_password(self, method, plaintext, salt=None):
