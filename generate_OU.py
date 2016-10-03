@@ -33,10 +33,10 @@ import os
 import time
 import cerebrum_path
 import cereconf
-from Cerebrum.Utils import Factory #KEB: this is imported 3 lines below here...
+from Cerebrum.Utils import Factory
 from Cerebrum import Database
 from Cerebrum.modules.no.uit.access_FS import FS
-from Cerebrum.Utils import Factory, AtomicFileWriter
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
 
 #pp = pprint.PrettyPrinter(indent=4)

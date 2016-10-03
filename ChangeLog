@@ -2,6 +2,9 @@
 
     * generate_paga_persons.py: Removed ekstra import of Cerebrum.Utils.Factory.
 
+    * generate_OU.py: Updated import of AtomicFileWriter and removed ekstra import of 
+    Cerebrum.Utils.Factory.
+
 2016-09-28    <cerebrum@cleomedes.uit.no-cleomedes>
 
     * generate_paga_persons.py: AtomicFileWriter has been moved to its
