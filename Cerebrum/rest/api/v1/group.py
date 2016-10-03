@@ -83,7 +83,7 @@ class GroupAuthRoles(object):
     # to prevent clients from granting superuser rights, we need to
     # limit the valid opsets to a hard-coded list of names here.
     _map = {
-        'Group-admin': 'admin',
+        # 'Group-admin': 'admin',
         'Group-owner': 'owner',
     }
 
@@ -96,6 +96,10 @@ class GroupAuthRoles(object):
     @classmethod
     def unserialize(cls, input_):
         return cls._rev_map[input_.lower()]
+
+    @classmethod
+    def valid_roles(cls):
+        return cls._rev_map.keys()
 
 
 _group_fields = {
@@ -360,9 +364,11 @@ class GroupModeratorListResource(Resource):
 
 @api.route('/<string:name>/moderators/<string:role>/<int:moderator_id>',
            endpoint='group-moderator')
-@api.doc(params={'name': 'group name',
-                 'role': 'role to modify',
-                 'moderator_id': 'id of the moderator'})
+@api.doc(params={
+    'name': 'group name',
+    'role': 'role to modify ({!s})'.format(
+        ','.join(GroupAuthRoles.valid_roles())),
+    'moderator_id': 'id of the moderator'})
 class GroupModeratorResource(Resource):
     """ Alter group moderator. """
 
@@ -371,7 +377,7 @@ class GroupModeratorResource(Resource):
             return utils.get_opset(GroupAuthRoles.unserialize(role))
         except (Errors.NotFoundError, KeyError):
             pass
-        abort(400, 'invalid role', roles=self.valid_roles.keys())
+        abort(400, 'invalid role', roles=GroupAuthRoles.valid_roles())
 
     @db.autocommit
     @auth.require()
