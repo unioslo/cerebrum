@@ -1,11 +1,15 @@
+2016-10-03  Karen   <cerebrum@cleomedes.uit.no>
+
+    * generate_paga_persons.py: Removed ekstra import of Cerebrum.Utils.Factory.
+
 2016-09-28    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* generate_paga_persons.py: AtomicFileWriter has been moved to its
-	own filw. updating imports
+    * generate_paga_persons.py: AtomicFileWriter has been moved to its
+    own file. updating imports
 
 2016-08-12    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* export_ldap.py (ldap_export): Added kurs_ldif to the files concatenated into temp_uit_ldif
+    * export_ldap.py (ldap_export): Added kurs_ldif to the files concatenated into temp_uit_ldif
 
 2016-08-08  Karen   <cerebrum@cleomedes.uit.no>
 
@@ -25,22 +29,22 @@
 
 2016-06-15    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* import_sito.py (import_person): removed debug line
+    * import_sito.py (import_person): removed debug line
 
-	* process_paga.py (_handle_changes): removed debug line
+    * process_paga.py (_handle_changes): removed debug line
 
 2016-06-09    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* process_systemx.py (Build._CreateAccount): fnr need to be processed as string, not int
+    * process_systemx.py (Build._CreateAccount): fnr need to be processed as string, not int
 
-	* process_students.py: removed debug line
-	(AccountUtil._handle_user_changes): removed debug line
+    * process_students.py: removed debug line
+    (AccountUtil._handle_user_changes): removed debug line
 
 2016-06-08    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* import_sito.py (generate_person_list): Removed old debug line
-	(import_OU): added ou.write_db after ou.populate. this is needed
-	to get ou.entity_id in the add_name_with_language on the next line.
+    * import_sito.py (generate_person_list): Removed old debug line
+    (import_OU): added ou.write_db after ou.populate. this is needed
+    to get ou.entity_id in the add_name_with_language on the next line.
 
 2016-05-30  Karen   <cerebrum@cleomedes.uit.no>
 
@@ -52,9 +56,9 @@
 
 2016-05-26    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* process_sito.py (_handle_changes): we will no longer set account homedir
-	sito does not use stedkoder. as such the OU class cannot use the OU_CLASS. instead we will
-	import the uit.OUMixin class directly
+    * process_sito.py (_handle_changes): we will no longer set account homedir
+    sito does not use stedkoder. as such the OU class cannot use the OU_CLASS. instead we will
+    import the uit.OUMixin class directly
 
 2016-05-25  Karen   <cerebrum@cleomedes.uit.no>
 
@@ -69,11 +73,11 @@
 
 2016-05-12    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* import_sito.py (import_OU): removed call to
-	set_expire_date(). This because we're trying to get as close to
-	uio code as possible. We may have to revert this later on, if
-	expire_date becomes a problem
-	(determine_affiliations): All sito persons now get affiliation_sito. sterk/svak is no longer used
+    * import_sito.py (import_OU): removed call to
+    set_expire_date(). This because we're trying to get as close to
+    uio code as possible. We may have to revert this later on, if
+    expire_date becomes a problem
+    (determine_affiliations): All sito persons now get affiliation_sito. sterk/svak is no longer used
 
 2016-05-10  Karen   <cerebrum@cleomedes.uit.no>
 
@@ -81,8 +85,8 @@
 
 2016-05-10    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* process_systemx.py (_handle_changes): removed call
-	toset_home(). We do not use this
+    * process_systemx.py (_handle_changes): removed call
+    toset_home(). We do not use this
 
 2016-05-10  Karen   <cerebrum@cleomedes.uit.no>
 
@@ -96,24 +100,24 @@
 
 2016-05-10    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* process_systemx.py: replaced all spread references to frida with
-	cristin.
+    * process_systemx.py: replaced all spread references to frida with
+    cristin.
 
 2016-05-06    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* process_students.py: Added process_students.py to repo. This
-	file was stolen from the contrib/uio directory. Appart from a few
-	spread updates, no changes were needed
+    * process_students.py: Added process_students.py to repo. This
+    file was stolen from the contrib/uio directory. Appart from a few
+    spread updates, no changes were needed
 
 2016-05-04    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* process_paga.py (get_existing_accounts): Setting homedir when
-	creating accounts is not needed. AD handles these things
-	internally
+    * process_paga.py (get_existing_accounts): Setting homedir when
+    creating accounts is not needed. AD handles these things
+    internally
 
 2015-06-24    <cerebrum@cleomedes.uit.no>
 
-	* generate_groups_ldif.py (dump_ldif_uit): Added uit function to add account owners into groups
+    * generate_groups_ldif.py (dump_ldif_uit): Added uit function to add account owners into groups
 
 2015-06-09  Karen   <cerebrum@cleomedes.uit.no>
 
@@ -135,7 +139,7 @@
 
 2015-04-20    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* process_flyt.py: updated all references to sko to no longer use Factory 
+    * process_flyt.py: updated all references to sko to no longer use Factory 
 
 2015-02-26  Karen   <cerebrum@cleomedes.uit.no>
 
@@ -222,68 +226,68 @@
 
 2014-12-16    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* import_sito.py (import_OU): now ou is populated with
-	_withouth_sko to make it call correct populate function
+    * import_sito.py (import_OU): now ou is populated with
+    _withouth_sko to make it call correct populate function
 
-	* export_cristin.py (LTPersonParser.startElement): added to repo. did a few minor changes to get it to run on new cerebrum.
-	mor spesific how we build dict items now also with langauge code.
+    * export_cristin.py (LTPersonParser.startElement): added to repo. did a few minor changes to get it to run on new cerebrum.
+    mor spesific how we build dict items now also with langauge code.
 
 2014-12-09    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* process_students.py (AccountUtil.create_user): set account expire_date the uit way
-	(get_existing_accounts): make sure to also include expired accounts when setting new expire_date
+    * process_students.py (AccountUtil.create_user): set account expire_date the uit way
+    (get_existing_accounts): make sure to also include expired accounts when setting new expire_date
 
 2014-12-04    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* generate_OU.py (ou.__init__): fixed typo in servername used in cx_oracle.connect() command
+    * generate_OU.py (ou.__init__): fixed typo in servername used in cx_oracle.connect() command
 
 2014-11-28    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* process_uit_email.py: added to repository
+    * process_uit_email.py: added to repository
 
 2014-11-20    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* generate_OU.py: updated sourcepath
-	(ou.__init__): updated username and server to uio standard
+    * generate_OU.py: updated sourcepath
+    (ou.__init__): updated username and server to uio standard
 
 2014-11-18    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* process_students.py: replaced old process_students.py with new from uio
+    * process_students.py: replaced old process_students.py with new from uio
 
 2014-11-12    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* import_system_accounts.py: updated source path. also fixed file encoding
+    * import_system_accounts.py: updated source path. also fixed file encoding
 
-	* import_tlf.py: commented function which notifies phone-admin whenever new persons are added
+    * import_tlf.py: commented function which notifies phone-admin whenever new persons are added
 
 2014-11-04    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* generate_OU.py (ou.get_fs_ou): updated function to get uit ou and FS username
+    * generate_OU.py (ou.get_fs_ou): updated function to get uit ou and FS username
 
 2014-11-03    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* import_OU.py (send_notify_email): updated sender email
+    * import_OU.py (send_notify_email): updated sender email
 
 2014-10-31    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* import_exchange_email.py: Need to use uit email module.
+    * import_exchange_email.py: Need to use uit email module.
 
-	* import_OU.py: replaced old uit import_OU.py with uio import_OU.py
+    * import_OU.py: replaced old uit import_OU.py with uio import_OU.py
 
-	* import_FS.py: Updated filepaths to reflect uit installation
+    * import_FS.py: Updated filepaths to reflect uit installation
 
 2014-10-30    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* import_flyt.py: sko will now be derived from ou class. we no longer have a stedkode class
+    * import_flyt.py: sko will now be derived from ou class. we no longer have a stedkode class
 
 2014-10-28    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* generate_OU_V2.py (ou.__init__): updated connection type to use xc_Oracle instead of DCOracle
+    * generate_OU_V2.py (ou.__init__): updated connection type to use xc_Oracle instead of DCOracle
 
 2014-10-27    <cerebrum@cleomedes.uit.no-cleomedes>
 
-	* import_sito.py: oppdaterte source path to use the dumps dir (which it should have been all along)
-	Also updated some import paths
+    * import_sito.py: oppdaterte source path to use the dumps dir (which it should have been all along)
+    Also updated some import paths
 
 2014-10-02  Karen   <cerebrum@metius.uit.no>
 
