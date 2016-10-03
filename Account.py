@@ -28,11 +28,10 @@ import crypt
 
 # UIT imports
 # added by: kennethj 20050308
-import md5
+import hashlib
 import base64
-import sha
-import mx
-import traceback
+import mx               # kbj005: is this needed?
+import traceback        # kbj005: is this needed?
 # UIT end
 
 
@@ -132,7 +131,7 @@ class AccountUiTMixin(Account.Account):
     # Added by: kennethj 20050803
     def enc_auth_type_md5_crypt_hex(self,plaintext,salt = None):
         plaintext = plaintext.rstrip("\n")
-        m = md5.new()
+        m = hashlib.md5()
         m.update(plaintext)
         encrypted = m.hexdigest()
         #print "plaintext %s = %s" % (plaintext,encrypted)
@@ -142,7 +141,7 @@ class AccountUiTMixin(Account.Account):
     #UIT: added encryption method
     # Added by: kennethj 20050803
     def enc_auth_type_md5_b64(self,plaintext,salt = None):
-        m = md5.new()
+        m = hashlib.md5()
         m.update(plaintext)
         foo = m.digest()
         encrypted = base64.encodestring(foo)

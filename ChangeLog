@@ -1,3 +1,8 @@
+2016-10-03  Karen   <cerebrum@metius.uit.no>
+
+    * Account.py (AccountUiTMixin): Now using md5 from the hashlib library instead of the deprecated md5 library.
+    Also removed import of sha, which isn't used.
+
 2016-09-28    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* Account.py (AccountUiTMixin.suggest_unames): username needs to
