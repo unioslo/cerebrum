@@ -59,8 +59,8 @@ from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.xmlutils import GeneralXMLParser
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
-
-
+from mx.DateTime import now
+    
 
 #init variables
 db = Factory.get('Database')()
@@ -79,7 +79,7 @@ person_list = []
 TODAY=mx.DateTime.today().strftime("%Y-%m-%d")
 default_filename='paga_persons_%s.xml' % (TODAY,)
 default_person_file=os.path.join(cereconf.DUMPDIR,'employees',default_filename)
-
+dryrun = False
 
 class PagaDataParser(xml.sax.ContentHandler):
     """
@@ -474,7 +474,7 @@ def _promote_posix(acc_obj):
 
 
 def create_employee_account(fnr):
-    
+
     owner=persons.get(fnr)
     if not owner:
         logger.error("Cannot create account to person %s, not from paga" % fnr)
@@ -487,7 +487,7 @@ def create_employee_account(fnr):
     last_name=p_obj.get_name(const.system_cached, const.name_last)    
 
     acc_obj = Factory.get('Account')(db)    
-    uname = acc_obj.suggest_unames(fnr, first_name, last_name)
+    uname = acc_obj.suggest_unames(fnr, first_name, last_name)[0]
     acc_obj.populate(uname,
                      const.entity_person,
                      p_obj.entity_id,
@@ -509,7 +509,6 @@ def create_employee_account(fnr):
 
     #register new account obj in existing accounts list
     accounts[acc_obj.entity_id]=ExistingAccount(fnr, uname, None)
-
     return acc_obj.entity_id
 
 
@@ -694,7 +693,8 @@ class Build:
                 fnr, 
                 repr(changes)))
             _handle_changes(acc_id,changes)
-
+        if(dryrun == False):
+            db.commit()
 
 def main():
     global persons,accounts

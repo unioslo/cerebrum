@@ -1,3 +1,9 @@
+2016-10-04    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_paga.py: updated how dryrun is used. also fixed
+	suggest_unames to return first element in list. this because uio
+	changes in their release
+
 2016-10-03  Karen   <cerebrum@cleomedes.uit.no>
 
     * generate_paga_persons.py: Removed ekstra import of Cerebrum.Utils.Factory.
