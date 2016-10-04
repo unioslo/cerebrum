@@ -19,11 +19,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cerebrum.modules.password_notifier.notifier import PasswordNotifier
+from Cerebrum.modules.password_notifier.notifier import EmailPasswordNotifier
 from Cerebrum.modules.password_notifier.notifier import _send_mail
 
 
-class UiaPasswordNotifier(PasswordNotifier):
+class UiaPasswordNotifier(EmailPasswordNotifier):
     """
     Mixin for passwordnotifier to record reminded users
     """
