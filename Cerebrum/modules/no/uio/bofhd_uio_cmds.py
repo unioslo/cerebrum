@@ -1042,10 +1042,14 @@ class BofhdExtension(BofhdCommonMethods):
         rows = ar.list(entity_id, opset.op_set_id, op_target_id)
         if len(rows) == 0:
             ar.grant_auth(entity_id, opset.op_set_id, op_target_id)
-            return "OK, granted %s %s to %s" % (entity_name, opset.name,
-                                                target_name)
-        return "%s already has %s access to %s" % (entity_name, opset.name,
-                                                   target_name)
+            return "OK, granted %s access %s to %s %s" % (entity_name,
+                                                          opset.name,
+                                                          target_type,
+                                                          target_name)
+        return "%s already has %s access to %s %s" % (entity_name,
+                                                      opset.name,
+                                                      target_type,
+                                                      target_name)
 
     def _revoke_auth(self, entity_id, opset, target_id, target_type, attr,
                      entity_name, target_name):
@@ -1056,8 +1060,10 @@ class BofhdExtension(BofhdCommonMethods):
         ar = BofhdAuthRole(self.db)
         rows = ar.list(entity_id, opset.op_set_id, op_target_id)
         if len(rows) == 0:
-            return "%s don't have %s access to %s" % (entity_name, opset.name,
-                                                      target_name)
+            return "%s doesn't have %s access to %s %s" % (entity_name,
+                                                           opset.name,
+                                                           target_type,
+                                                           target_name)
         ar.revoke_auth(entity_id, opset.op_set_id, op_target_id)
         # See if the op_target has any references left, delete it if not.
         rows = ar.list(op_target_id=op_target_id)
@@ -1065,8 +1071,10 @@ class BofhdExtension(BofhdCommonMethods):
             aot = BofhdAuthOpTarget(self.db)
             aot.find(op_target_id)
             aot.delete()
-        return "OK, revoked %s for %s from %s" % (opset.name, entity_name,
-                                                  target_name)
+        return "OK, revoked %s access for %s from %s %s" % (opset.name,
+                                                            entity_name,
+                                                            target_type,
+                                                            target_name)
 
     #
     # email commands
