@@ -189,7 +189,7 @@ class Authentication(object):
         """ Check if account is OK. """
         if account is None:
             return False
-        if account.expire_date < DateTime.now():
+        if account.expire_date and account.expire_date < DateTime.now():
             return False
         return True
 
