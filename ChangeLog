@@ -1,3 +1,10 @@
+2016-10-10    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_systemx.py (Build._CreateAccount): suggest_uname returns
+	array. Although this is not needed what creating uit usernames, we
+	make sure to select the first element. This ensures that we can
+	use the uio code withouth any other changes
+
 2016-10-04    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_paga.py: updated how dryrun is used. also fixed

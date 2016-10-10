@@ -545,7 +545,7 @@ class Build(object):
 
         account=PosixUser.PosixUser(db)
         fnr = str(fnr)
-        uname=account.suggest_unames(fnr, first_name, last_name)
+        uname=account.suggest_unames(fnr, first_name, last_name)[0]
         account.populate(name=uname,
             owner_id=person_id,
             owner_type=co.entity_person,
