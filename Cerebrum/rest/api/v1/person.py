@@ -59,8 +59,7 @@ PersonName = api.model('PersonName', {
 })
 
 PersonAccount = api.model('PersonAccount', {
-    'href': fields.base.String(
-        description='URL to this resource'),
+    'href': fields.href('.account'),
     'id': fields.base.String(
         description='Account ID'),
     'primary': fields.base.Boolean(
@@ -183,7 +182,7 @@ class PersonAccountListResource(Resource):
         for row in pe.get_accounts():
             account_name = utils.get_entity_name(row['account_id'])
             accounts.append({
-                'href': url_for('.account', id=account_name, _external=True),
+                'href': url_for('.account', id=account_name),
                 'id': account_name,
                 'primary': (row['account_id'] == primary_account_id),
             })
