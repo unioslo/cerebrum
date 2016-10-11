@@ -729,12 +729,12 @@ def main(args=None):
                                                       get_hr_person,
                                                       config.ws)),
                                 config=config.consumer)
-
-        try:
-            consumer.start()
-        except KeyboardInterrupt:
-            consumer.stop()
-        consumer.close()
+        with consumer:
+            try:
+                consumer.start()
+            except KeyboardInterrupt:
+                consumer.stop()
+            consumer.close()
         logger.info('Stopping {}'.format(prog_name))
 
 if __name__ == "__main__":

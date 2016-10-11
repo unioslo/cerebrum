@@ -60,17 +60,22 @@ class ConsumingAMQP091Client(BaseAMQP091Client):
             the message (default: True).
         """
         super(ConsumingAMQP091Client, self).__init__(config)
-
-        self.channel.add_on_cancel_callback(_cancel_callback)
-        self.channel.basic_consume(functools.partial(_wrap_callback,
-                                                     callback_func,
-                                                     requeue),
-                                   queue=config.queue,
-                                   no_ack=config.no_ack,
-                                   consumer_tag=config.consumer_tag)
+        self.config = config
+        self.callback_func = callback_func
+        self.requeue = requeue
 
     def start(self):
+        """Start consuming messages."""
+        self.channel.add_on_cancel_callback(_cancel_callback)
+        self.channel.basic_consume(functools.partial(_wrap_callback,
+                                                     self.callback_func,
+                                                     self.requeue),
+                                   queue=self.config.queue,
+                                   no_ack=self.config.no_ack,
+                                   consumer_tag=self.config.consumer_tag)
+
         self.channel.start_consuming()
 
     def stop(self):
+        """Stop consuming messages."""
         self.channel.stop_consuming()
