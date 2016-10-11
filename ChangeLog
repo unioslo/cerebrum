@@ -1,3 +1,8 @@
+2016-10-11  Karen   <cerebrum@cleomedes.uit.no>
+
+    * process_sito_email.py: Changed import of simple_memoize to import of memoize and updated 
+    code where simple_memoize was used.
+
 2016-10-10    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_systemx.py (Build._CreateAccount): suggest_uname returns

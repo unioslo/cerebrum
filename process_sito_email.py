@@ -44,7 +44,8 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, simple_memoize
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.Email import EmailDomain,EmailAddress
@@ -90,7 +91,7 @@ def get_domainid(domain_part):
     domain = EmailDomain(db)
     domain.find_by_domain(domain_part)
     return domain.entity_id
-get_domainid=simple_memoize(get_domainid)
+get_domainid=memoize(get_domainid)
 
 
 def is_cnaddr_free(local_part,domain_part):
