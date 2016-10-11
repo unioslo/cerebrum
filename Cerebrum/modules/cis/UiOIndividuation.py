@@ -38,10 +38,10 @@ class Individuation(Individuation.Individuation):
             {'en': u'You are either reserved or have the given wrong information.',
              'no': u'Du er reservert eller har oppgitt feil informasjon.'},
         'person_miss_info':
-            {'en': u'Not all your information is available. Please contact your'
-                   u' local student office.',
+            {'en': u'Not all your information is available. Please contact'
+                   u' your HR department or student office.',
              'no': u'Ikke all din informasjon er tilgjengelig. Vennligst ta'
-                   u' kontakt med ditt lokale studentkontor.'},
+                   u' kontakt med din personalavdeling eller studentkontor.'},
         'account_blocked':
             {'en': u'This account is inactive. Please contact your local IT.',
              'no': u'Denne brukerkontoen er ikke aktiv. Vennligst ta kontakt'
