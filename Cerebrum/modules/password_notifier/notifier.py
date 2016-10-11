@@ -723,7 +723,7 @@ class EmailPasswordNotifier(PasswordNotifier):
                 deadline=deadline,
                 first_time=self.get_notification_time(account))
 
-    def _date2human(date, language_code=None):
+    def _date2human(self, date, language_code=None):
         """Return a human readable string of a given date, and in the correct
         language. Making it easier for users to be sure of a deadline date."""
         DATE_FORMATS = {
