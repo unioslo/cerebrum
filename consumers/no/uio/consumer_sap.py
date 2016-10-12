@@ -289,10 +289,10 @@ def _parse_hr_person(database, source_system, data):
         u'addresses': parse_address(data),
         u'names': parse_names(data),
         u'birth_date': DateTime.DateFrom(
-            data.get(u'personalDetails').get(u'dateOfBirth')),
+            data.get(u'dateOfBirth')),
         u'gender': {u'Kvinne': co.gender_female,
                     u'Mann': co.gender_male}.get(
-                        data.get(u'personalDetails').get(u'gender'),
+                        data.get(u'gender'),
                         co.gender_unknown),
         u'external_ids': parse_external_ids(data),
         u'contacts': parse_contacts(data),
