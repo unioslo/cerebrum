@@ -323,32 +323,46 @@ def get_hr_person(config, database, source_system, url):
     :return The parsed data from the remote source system
 
     :raises: RemoteSourceDown if the remote system can't be contacted"""
-    import requests
-    import json
-    from Cerebrum.Utils import read_password
 
-    auth = (config.auth_user, read_password(user=config.auth_user,
-                                            system=config.auth_system))
-    headers = {'Accept': 'application/json'}
+    def _get_data(config, url):
+        import requests
+        import json
+        from Cerebrum.Utils import read_password
 
-    try:
-        r = requests.get('{}?$expand=employments'.format(url),
-                         auth=auth,
-                         headers=headers)
-    except Exception as e:
-        # Be polite on connection errors. Conenction errors seldom fix
-        # themselves quickly.
-        import time
-        time.sleep(1)
-        raise e
+        auth = (config.auth_user, read_password(user=config.auth_user,
+                                                system=config.auth_system))
+        headers = {'Accept': 'application/json'}
 
-    if r.status_code == 200:
-        data = json.loads(r.text).get(u'd', None)
-        return _parse_hr_person(database, source_system, data)
-    else:
-        logger.error(u'Could not fetch {} from remote source: {}: {}'.format(
-            url, r.status_code, r.reason))
-        raise RemoteSourceDown
+        try:
+            r = requests.get(url, auth=auth, headers=headers)
+        except Exception as e:
+            # Be polite on connection errors. Conenction errors seldom fix
+            # themselves quickly.
+            import time
+            time.sleep(1)
+            raise e
+
+        if r.status_code == 200:
+            data = json.loads(r.text).get(u'd', None)
+
+            for k in data:
+                if (isinstance(data.get(k), dict) and
+                        '__deferred' in data.get(k) and
+                        'uri' in data.get(k).get('__deferred')):
+                    # Fetch, unpack and store data
+                    r = _get_data(config,
+                                  data.get(k).get('__deferred').get('uri'))
+                    if r.keys() == [u'results']:
+                        r = r[u'results']
+                    data.update({k: r})
+            return data
+        else:
+            logger.error(
+                u'Could not fetch {} from remote source: {}: {}'.format(
+                    url, r.status_code, r.reason))
+            raise RemoteSourceDown
+
+    return _parse_hr_person(database, source_system, _get_data(config, url))
 
 
 def get_cerebrum_person(database, identifier):
