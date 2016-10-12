@@ -367,7 +367,7 @@ def get_cerebrum_person(database, identifier):
         logger.debug(u'Found existing person with id:{}'.format(pe.entity_id))
     except Errors.NotFoundError:
         logger.debug(
-            u'Could not find existing person for external_id:{}'.format(
+            u'Could not find existing person for sap id:{}'.format(
                 identifier))
         pe.clear()
     return pe
