@@ -94,7 +94,7 @@ def parse_address(d):
     :return: A tuple with the fields that should be updated"""
     co = Factory.get('Constants')
 
-    m = {u'residentialAddress': co.address_post_private,
+    m = {u'homeAddress': co.address_post_private,
          u'postalAddress': co.address_post,
          u'visitingAddress': co.address_street,
 
@@ -102,18 +102,14 @@ def parse_address(d):
          u'postalCode': u'postal_number',
          u'streetAndHouseNumber': u'address_text'}
 
-    r = {
-        u'postalAddress': d.get(u'contact').get(u'postalAddress'),
-        u'visitingAddress': d.get(u'contact').get(u'visitingAddress'),
-        u'residentialAddress': d.get(u'personalDetails'
-                                     ).get(u'contact').get(u'address')
-    }
+    r = {x.get('type'): x for x in d.get('addresses', [])}
 
     # Visiting address should be a concoction of real address and a
     # meta-location
-    r[u'visitingAddress'][u'streetAndHouseNumber'] = u'{}\n{}'.format(
-        r.get(u'visitingAddress').get(u'streetAndHouseNumber'),
-        r.get(u'visitingAddress').get(u'location'))
+    if u'visitingAddress' in r:
+        r[u'visitingAddress'][u'streetAndHouseNumber'] = u'{}\n{}'.format(
+            r.get(u'visitingAddress').get(u'streetAndHouseNumber'),
+            r.get(u'visitingAddress').get(u'location'))
 
     return tuple([(k, tuple(sorted(filter_elements(translate_keys(v, m))))) for
                   (k, v) in filter_elements(
