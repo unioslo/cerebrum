@@ -187,25 +187,25 @@ def parse_titles(d):
         return ((u'name_variant', variant),
                 (u'name_language', lang),
                 (u'name', name))
-    titles = filter(lambda ((vk, vn), (lk, lv), (nk, nv)): nv, [
-        make_tuple(co.personal_title,
-                   co.language_en,
-                   d.get(u'title').get(u'en'))] +
-        map(lambda lang: make_tuple(co.personal_title,
-                                    lang,
-                                    d.get(u'title').get(u'no')),
-            [co.language_nb, co.language_nn]))
+
+    titles = ([make_tuple(co.personal_title,
+                          co.language_en,
+                          d.get(u'title').get(u'english'))] +
+              map(lambda lang: make_tuple(co.personal_title,
+                                          lang,
+                                          d.get(u'title').get(u'norwegian')),
+                  [co.language_nb, co.language_nn]))
 
     # Select appropriate work title.
     work_title = None
-    for e in d.get(u'employments').get(u'results', []):
-        if e.get(u'IsMain'):
+    for e in d.get(u'assignments', []):
+        if e.get(u'type') == u'primary':
             work_title = e
             break
         if not work_title:
             work_title = e
-        elif (e.get(u'employmentPercentage') >
-                work_title.get(u'employmentPercentage') or
+        elif (float(e.get(u'percentage')) >
+                float(work_title.get(u'percentage')) or
                 not work_title):
             work_title = e
 
@@ -214,11 +214,11 @@ def parse_titles(d):
             co.work_title,
             lang_code,
             work_title.get(u'job').get(u'title').get(lang_str)),
-            [(co.language_nb, u'no'),
-             (co.language_nn, u'no'),
-             (co.language_en, u'en')]))
+            [(co.language_nb, u'norwegian'),
+             (co.language_nn, u'norwegian'),
+             (co.language_en, u'english')]))
 
-    return titles
+    return filter(lambda ((vk, vn), (lk, lv), (nk, nv)): nv, titles)
 
 
 def parse_external_ids(d):
