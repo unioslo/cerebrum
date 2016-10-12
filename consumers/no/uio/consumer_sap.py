@@ -221,7 +221,7 @@ def parse_titles(d):
     return titles
 
 
-def parse_external_ids(source_system, d):
+def parse_external_ids(d):
     """Parse data from SAP and return external ids (i.e. passnr).
 
     :type d: dict
@@ -232,26 +232,17 @@ def parse_external_ids(source_system, d):
     :return: A list of tuples with the external_ids"""
     co = Factory.get('Constants')
 
-    def make_tuple(id_type, value):
-        return (id_type, value)
+    def make_tuple(x):
+        return {
+            u'internationalId': (co.externalid_pass_number,
+                                 (x.get(u'country') + x.get(u'value'))),
+            u'nationalIdentityNumber': (co.externalid_fodselsnr,
+                                        x.get(u'value'))}.get(x.get('type'))
 
-    external_ids = [
-        make_tuple(co.externalid_sap_ansattnr,
-                   unicode(d.get(u'personId')))]
+    external_ids = [(co.externalid_sap_ansattnr, unicode(d.get(u'id')))]
 
-    passport = (
-        d.get(u'personalDetails').get(u'internationalId'))
-    if (passport and passport.get(u'countryOfId') and
-            passport.get(u'identityNumber')):
-        external_ids.append(
-            make_tuple(co.externalid_pass_number,
-                       (passport.get(u'countryOfId') +
-                        passport.get(u'identityNumber'))))
-
-    if d.get(u'personalDetails').get(u'nationalId'):
-        external_ids.append(
-            make_tuple(co.externalid_fodselsnr,
-                       d.get(u'personalDetails').get(u'nationalId')))
+    external_ids.extend(
+        [make_tuple(x) for x in d.get('identities')])
 
     return external_ids
 
@@ -294,7 +285,7 @@ def _parse_hr_person(database, source_system, data):
     co = Factory.get('Constants')
 
     return {
-        u'id': data.get(u'personId'),
+        u'id': data.get(u'id'),
         u'addresses': parse_address(data),
         u'names': parse_names(data),
         u'birth_date': DateTime.DateFrom(
@@ -303,7 +294,7 @@ def _parse_hr_person(database, source_system, data):
                     u'Mann': co.gender_male}.get(
                         data.get(u'personalDetails').get(u'gender'),
                         co.gender_unknown),
-        u'external_ids': parse_external_ids(source_system, data),
+        u'external_ids': parse_external_ids(data),
         u'contacts': parse_contacts(data),
         u'affiliations': parse_affiliations(database, data),
         u'titles': parse_titles(data),
