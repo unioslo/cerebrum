@@ -142,8 +142,7 @@ def parse_contacts(d):
                                      ('description', None))),)
     :return: A tuple with the fields that should be updated"""
     co = Factory.get('Constants')
-    work_contacts = d.get(u'contact')
-    private_contacts = d.get(u'personalDetails').get(u'contact')
+
     # TODO: Validate/clean numbers with phonenumbers?
     m = {u'phone1': co.contact_phone,
          u'phone2': co.contact_phone,
@@ -164,9 +163,12 @@ def parse_contacts(d):
                 (('contact_pref', pref),
                  ('contact_value', v),
                  ('description', None)),),) + expand(n, pref + 1)
-
-    return expand(filter_elements(translate_keys(work_contacts, m)) +
-                  filter_elements(translate_keys(private_contacts, m)))
+    return expand(
+        filter_elements(
+            translate_keys(
+                {c.get('type'): c.get('value') for
+                 c in d.get(u'phoneNumbers')},
+                m)))
 
 
 def parse_titles(d):
