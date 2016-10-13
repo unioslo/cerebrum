@@ -306,6 +306,8 @@ def rem_old_aff():
         # We want to check all existing FS affiliations
         # We remove existing reservation consent if all FS-affiliations
         # are about to be removed (if there is not a single active FS aff.)
+        logger.debug('Checking for consent removal for person: '
+                     '{person_id}'.format(person_id=ent_id))
         fs_affiliations = person.list_affiliations(
             person_id=ent_id,
             source_system=co.system_fs)
@@ -314,6 +316,9 @@ def rem_old_aff():
                 person_id=fs_aff['person_id'],
                 ou_id=fs_aff['ou_id'],
                 affiliation_id=fs_aff['affiliation'])
+            logger.debug('Processing affiliation: {aff}={avalue}'.format(
+                aff=aff_str,
+                avalue=str(old_aff[aff_str])))
             if aff_str not in old_aff:
                 # should not happen
                 logger.warn('Affiliation {affiliation_id} for person-id '
@@ -327,9 +332,9 @@ def rem_old_aff():
                 break
         else:
             # we didn't find any active FS affiliations
-            logger.info('Removing publsih consent for person {person_id} with '
+            logger.info('Removing publish consent for person {person_id} with '
                         'expired FS affiliations'.format(person_id=ent_id))
-            _rem_res(ent_id)
+            # _rem_res(ent_id)
         # Check date, do not remove affiliation for active students until end
         # of grace period. EVU affiliations should be removed at once.
         grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
