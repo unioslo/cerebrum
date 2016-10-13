@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2007 University of Oslo, Norway
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -45,8 +45,8 @@ fnr2person_id = {}
 
 # List of affiliations in Cerebrum, and whether the aff has been seen in this
 # import. Maps 'entity_id:ou_id:aff_code' -> bool. Use:
-# 1. Load: `_load_cere_affs` populates existing affiliations with `False`
-# 2. Update: `_process_student_callback` sets seen affiliations to `True`
+# 1. Load: `_load_cere_affs` populates existing affiliations with `True`
+# 2. Update: `_process_student_callback` sets seen affiliations to `False`
 # 3. Use: `rem_old_aff` cleans up old affiliations
 old_aff = {}
 
@@ -287,6 +287,7 @@ def rem_old_aff():
     person = Factory.get("Person")(db)
     for k in old_aff:
         if not old_aff[k]:
+            # The affiliation is still present
             continue
         ent_id, ou, affi = (int(x) for x in k.split(':'))
         aff = person.list_affiliations(person_id=ent_id,
@@ -301,7 +302,39 @@ def rem_old_aff():
             # if more than one aff we should probably just remove both/all
             continue
         aff = aff[0]
-
+        # Consent removal:
+        # We want to check all existing FS affiliations
+        # We remove existing reservation consent if all FS-affiliations
+        # are about to be removed (if there is not a single active FS aff.)
+        logger.debug('Checking for consent removal for person: '
+                     '{person_id}'.format(person_id=ent_id))
+        fs_affiliations = person.list_affiliations(
+            person_id=ent_id,
+            source_system=co.system_fs)
+        for fs_aff in fs_affiliations:
+            aff_str = '{person_id}:{ou_id}:{affiliation_id}'.format(
+                person_id=fs_aff['person_id'],
+                ou_id=fs_aff['ou_id'],
+                affiliation_id=fs_aff['affiliation'])
+            logger.debug('Processing affiliation: {aff}={avalue}'.format(
+                aff=aff_str,
+                avalue=str(old_aff[aff_str])))
+            if aff_str not in old_aff:
+                # should not happen
+                logger.warn('Affiliation {affiliation_id} for person-id '
+                            '{person_id} not found in affiliation list'.format(
+                                affiliation_id=fs_aff['affiliation'],
+                                person_id=fs_aff['person_id']))
+                break  # we keep existing consent
+            if not old_aff[aff_str]:
+                # we found at least one active FS affiliation for this person
+                # we will not make any consent changes
+                break
+        else:
+            # we didn't find any active FS affiliations
+            logger.info('Removing publish consent for person {person_id} with '
+                        'expired FS affiliations'.format(person_id=ent_id))
+            # _rem_res(ent_id)
         # Check date, do not remove affiliation for active students until end
         # of grace period. EVU affiliations should be removed at once.
         grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
@@ -309,7 +342,6 @@ def rem_old_aff():
                 int(aff['status']) != int(co.affiliation_status_student_evu)):
             logger.info("Too fresh aff for person %s, skipping", ent_id)
             continue
-
         person.clear()
         try:
             person.find(ent_id)
