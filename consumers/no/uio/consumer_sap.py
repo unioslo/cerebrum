@@ -262,18 +262,18 @@ def parse_affiliations(database, d):
     co = Factory.get('Constants')
     ou = Factory.get('OU')(database)
 
-    for x in d.get(u'employments').get(u'results'):
+    for x in d.get(u'assignments'):
         status = {u'T/A': co.affiliation_status_ansatt_tekadm,
                   u'Vit': co.affiliation_status_ansatt_vitenskapelig}.get(
-                      x.get(u'job').get(u'category'))
+                      x.get(u'job').get(u'category').get('uio'))
 
         ou.clear()
         ou.find_stedkode(
             *map(u''.join,
                  zip(*[iter(str(
-                     x.get(u'organizationalUnit').get(u'code')))]*2)) +
+                     x.get(u'organizationalUnit')))]*2)) +
             [cereconf.DEFAULT_INSTITUSJONSNR])
-        main = x.get(u'IsMain')
+        main = x.get(u'type') == u'primary'
         yield {u'ou_id': ou.entity_id,
                u'affiliation': co.affiliation_ansatt,
                u'status': status,
