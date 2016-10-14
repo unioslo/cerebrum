@@ -334,7 +334,7 @@ def rem_old_aff():
             # we didn't find any active FS affiliations
             logger.info('Removing publish consent for person {person_id} with '
                         'expired FS affiliations'.format(person_id=ent_id))
-            # _rem_res(ent_id)
+            _rem_res(ent_id)
         # Check date, do not remove affiliation for active students until end
         # of grace period. EVU affiliations should be removed at once.
         grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
