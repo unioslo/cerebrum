@@ -111,11 +111,15 @@ def init_reservation_group():
         """ add person to reservation group """
         if not group.has_member(entity_id):
             group.add_member(entity_id)
+            return True
+        return False
 
     def remove_member(entity_id):
         """ remove person from reservation group """
         if group.has_member(entity_id):
             group.remove_member(entity_id)
+            return True
+        return False
 
     return add_member, remove_member
 
@@ -332,9 +336,13 @@ def rem_old_aff():
                 break
         else:
             # we didn't find any active FS affiliations
-            logger.info('Removing publish consent for person {person_id} with '
-                        'expired FS affiliations'.format(person_id=ent_id))
-            # _rem_res(ent_id)
+            logger.debug(
+                'No active FS affiliations for person {person_id}'.format(
+                    person_id=ent_id))
+            if _rem_res(ent_id):
+                logger.info(
+                    'Removing publish consent for person {person_id} with '
+                    'expired FS affiliations'.format(person_id=ent_id))
         # Check date, do not remove affiliation for active students until end
         # of grace period. EVU affiliations should be removed at once.
         grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
