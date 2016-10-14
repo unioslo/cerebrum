@@ -913,18 +913,22 @@ class SMSPasswordNotifier(PasswordNotifier):
                     'SMS disabled in cereconf, would have '
                     'sent password SMS to {}'.format(mobile))
                 return True
+            if self.dryrun:
+                self.logger.info(
+                    'Running in drymode. '
+                    'Would have sent password SMS to {mobile}'.format(
+                        mobile=mobile))
+                return True
+            from Cerebrum.Utils import SMSSender
+            sms = SMSSender(logger=self.logger)
+            if sms(mobile, self.template.format(
+                    account_name=account.account_name,
+                    days_until_splat=days_until_splat)):
+                return True
             else:
-                from Cerebrum.Utils import SMSSender
-                sms = SMSSender(logger=self.logger)
-                if sms(mobile, self.template.format(
-                        account_name=account.account_name,
-                        days_until_splat=days_until_splat)):
-                    return True
-                else:
-                    self.logger.info(
-                        'Unable to send message to {}.'.format(mobile))
-                    return False
-
+                self.logger.info(
+                    'Unable to send message to {}.'.format(mobile))
+                return False
         deadline = self.get_deadline(account)
         self.logger.info(
             "Notifying %s by SMS, number=%d, deadline=%s",
