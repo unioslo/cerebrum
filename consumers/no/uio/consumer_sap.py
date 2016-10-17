@@ -38,14 +38,32 @@ callback_filters = CallbackMap()
 
 
 def filter_meta(l):
+    """Filter out the __metadata key of a dict."""
     return dict(filter(lambda (k, _): k != u'__metadata', l.items()))
 
 
 def translate_keys(d, m):
+    """Translate keys in accordance to a LUT.
+
+    :type d: dict
+    :param d: The dict whose keys to convert.
+
+    :type m: dict
+    :param m: A lookup table.
+
+    :rtype: dict
+    :return: The converted dict."""
     return map(lambda (k, v): (m.get(k, None), v), d.items())
 
 
 def filter_elements(d):
+    """Filter out all elements that do not evaluate to True.
+
+    :type d: list(tuple(k, v))
+    :param d: A list of tuples to filter.
+
+    :rtype: list(tuple(k, v))
+    :return: The filtered list."""
     return filter(lambda (k, v): k and v, d)
 
 
@@ -54,6 +72,7 @@ class RemoteSourceDown(Exception):
 
 
 class SAPWSConsumerConfig(Configuration):
+    """Configuration of the WebService connectivity."""
     auth_user = ConfigDescriptor(
         String,
         default=u"webservice",
@@ -66,11 +85,13 @@ class SAPWSConsumerConfig(Configuration):
 
 
 class SAPConsumerConfig(Configuration):
+    """Config combining class."""
     ws = ConfigDescriptor(Namespace, config=SAPWSConsumerConfig)
     consumer = ConfigDescriptor(Namespace, config=AMQPClientConsumerConfig)
 
 
 def load_config(filepath=None):
+    """Load config for this consumer."""
     config_cls = SAPConsumerConfig()
     if filepath:
         config_cls.load_dict(read_config(filepath))
@@ -248,6 +269,7 @@ def parse_external_ids(d):
 
 
 def _get_ou(database, placecode):
+    """Populate a Cerebrum-OU-object from the DB."""
     import cereconf
     ou = Factory.get('OU')(database)
     ou.clear()
@@ -321,6 +343,7 @@ def parse_roles(database, data):
 
 
 def _parse_hr_person(database, source_system, data):
+    """Collects parsed information from SAP."""
     from mx import DateTime
     co = Factory.get('Constants')
 
@@ -415,6 +438,7 @@ def get_cerebrum_person(database, identifier):
 
 
 def _stringify_for_log(data):
+    """Convert data to appropriate types for logging."""
     from Cerebrum.Constants import _CerebrumCode
     import collections
     if isinstance(data, _CerebrumCode):
