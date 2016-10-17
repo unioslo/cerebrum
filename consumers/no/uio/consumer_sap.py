@@ -660,7 +660,7 @@ def callback(database, source_system, routing_key, content_type, body,
     except RemoteSourceDown:
         message_processed = False
     except Exception as e:
-        message_processed = False
+        message_processed = True
         logger.error(u'Failed processing {}:\n {}'.format(body, e),
                      exc_info=True)
 
