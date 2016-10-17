@@ -248,7 +248,7 @@ def parse_external_ids(d):
 
 
 def parse_affiliations(database, d):
-    """Parse data from SAP and return names.
+    """Parse data from SAP and return affiliations.
 
     :type d: dict
     :param d: Data from SAP
