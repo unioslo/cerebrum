@@ -247,6 +247,18 @@ def parse_external_ids(d):
     return external_ids
 
 
+def _get_ou(database, placecode):
+    import cereconf
+    ou = Factory.get('OU')(database)
+    ou.clear()
+    ou.find_stedkode(
+        *map(u''.join,
+             zip(*[iter(str(
+                 placecode))]*2)) +
+        [cereconf.DEFAULT_INSTITUSJONSNR])
+    return ou
+
+
 def parse_affiliations(database, d):
     """Parse data from SAP and return affiliations.
 
@@ -258,26 +270,54 @@ def parse_affiliations(database, d):
                    ('status', PersonAffStatus('ANSATT', 'tekadm')),
                    (precedence', (50, 50)))]
     :return: A list of tuples with the fields that should be updated"""
-    import cereconf
     co = Factory.get('Constants')
-    ou = Factory.get('OU')(database)
 
     for x in d.get(u'assignments'):
         status = {u'T/A': co.affiliation_status_ansatt_tekadm,
                   u'Vit': co.affiliation_status_ansatt_vitenskapelig}.get(
                       x.get(u'job').get(u'category').get('uio'))
-
-        ou.clear()
-        ou.find_stedkode(
-            *map(u''.join,
-                 zip(*[iter(str(
-                     x.get(u'organizationalUnit')))]*2)) +
-            [cereconf.DEFAULT_INSTITUSJONSNR])
+        ou = _get_ou(database, x.get(u'organizationalUnit'))
         main = x.get(u'type') == u'primary'
         yield {u'ou_id': ou.entity_id,
                u'affiliation': co.affiliation_ansatt,
                u'status': status,
                u'precedence': (50L, 50L) if main else None}
+
+
+def parse_roles(database, data):
+    """Parse data from SAP and return existing roles.
+
+    :type d: dict
+    :param d: Data from SAP
+
+    :rtype: [tuple(('ou_id': 3),
+                   ('affiliation', PersonAffiliation('TILKNYTTET')),
+                   ('status', PersonAffStatus('TILKNYTTET', 'pcvakt')),
+                   (precedence', None))]
+    :return: A list of tuples representing them roles."""
+    co = Factory.get('Constants')
+
+    role2aff = {u'EF-FORSKER': co.affiliation_tilknyttet_ekst_forsker,
+                u'EMERITUS': co.affiliation_tilknyttet_emeritus,
+                u'BILAGSLØNN': co.affiliation_tilknyttet_bilag,
+                u'GJ-FORSKER': co.affiliation_tilknyttet_gjesteforsker,
+                u'ASSOSIERT': co.affiliation_tilknyttet_assosiert_person,
+                u'EF-STIP': co.affiliation_tilknyttet_ekst_stip,
+                u'INNKJØPER': co.affiliation_tilknyttet_innkjoper,
+                u'GRP-LÆRER': co.affiliation_tilknyttet_grlaerer,
+                u'EKST-KONS': co.affiliation_tilknyttet_ekst_partner,
+                u'PCVAKT': co.affiliation_tilknyttet_pcvakt,
+                u'EKST-PART': co.affiliation_tilknyttet_ekst_partner,
+                u'STEDOPPLYS': None,
+                u'POLS-ANSAT': None}
+
+    for role in data.get(u'roles'):
+        ou = _get_ou(database, role.get(u'organizationalUnit'))
+        if role2aff.get(role.get(u'type')):
+            yield {u'ou_id': ou.entity_id,
+                   u'affiliation': role2aff.get(role.get(u'type')).affiliation,
+                   u'status': role2aff.get(role.get(u'type')),
+                   u'precedence': None}
 
 
 def _parse_hr_person(database, source_system, data):
@@ -297,6 +337,7 @@ def _parse_hr_person(database, source_system, data):
         u'external_ids': parse_external_ids(data),
         u'contacts': parse_contacts(data),
         u'affiliations': parse_affiliations(database, data),
+        u'roles': parse_roles(database, data),
         u'titles': parse_titles(data),
         u'reserved': not data.get(u'publicView')}
 
@@ -417,6 +458,22 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
         cerebrum_person.populate_affiliation(source_system, **affiliation)
         logger.debug(u'Adding affiliation {} for id:{}'.format(
             _stringify_for_log(affiliation), cerebrum_person.entity_id))
+
+
+def update_roles(database, source_system, hr_person, cerebrum_person):
+    """Update a person in Cerebrum with the latest roles.
+
+    :param database: A database object
+    :param source_system: The source system code
+    :param hr_person: The parsed data from the remote source system
+    :param cerebrum_person: The Person object to be updated.
+    """
+    for role in hr_person.get(u'roles'):
+        cerebrum_person.populate_affiliation(source_system, **role)
+        logger.debug(
+            u'Ensuring role {} for id:{}'.format(
+                _stringify_for_log(role),
+                cerebrum_person.entity_id))
 
 
 def update_names(database, source_system, hr_person, cerebrum_person):
@@ -632,6 +689,7 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
     update_contact_info(database, source_system, hr_person, cerebrum_person)
     update_titles(database, source_system, hr_person, cerebrum_person)
     update_affiliations(database, source_system, hr_person, cerebrum_person)
+    update_roles(database, source_system, hr_person, cerebrum_person)
     update_reservation(database, hr_person, cerebrum_person)
     cerebrum_person.write_db()
     database.commit()
