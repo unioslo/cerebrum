@@ -454,11 +454,11 @@ class AccountHomeListResource(Resource):
         return {'homes': homes}
 
 
-@db.autocommit
 @api.route('/<string:id>/password')
 @api.doc(params={'id': 'Account name or ID'})
 class AccountPasswordResource(Resource):
     """Resource for account password change."""
+    @db.autocommit
     @auth.require()
     @api.expect(PasswordChangePayload)
     @api.response(200, 'Password changed', PasswordChanged)
