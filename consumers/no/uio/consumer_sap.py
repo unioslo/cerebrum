@@ -165,11 +165,10 @@ def parse_contacts(d):
     co = Factory.get('Constants')
 
     # TODO: Validate/clean numbers with phonenumbers?
-    m = {u'phone1': co.contact_phone,
-         u'phone2': co.contact_phone,
-         u'mobile': co.contact_mobile_phone,
-         u'mobilePrivate': co.contact_private_mobile,
-         u'mobilePrivateWeb': co.contact_private_mobile_visible}
+    m = {u'workPhone': co.contact_phone,
+         u'workMobile': co.contact_mobile_phone,
+         u'privateMobile': co.contact_private_mobile,
+         u'privateMobileWeb': co.contact_private_mobile_visible}
 
     def expand(l, pref=0):
         if not l:
