@@ -602,14 +602,8 @@ AUTH_PGP = {}
 # Realm for HA1 md5 crypt, used by const.auth_type_ha1_md5
 AUTH_HA1_REALM = ""
 
-# A string representing the recipient's ID.
-# The ID is used by pygpgme to determine which public key to use for encryption
-# 'gpg2 -k --fingerprint' can be used to list all available public keys in the
-# current GnuPG database, along with their fingerprints. Possible values:
-# uid: (f.i. "Cerebrum Test <cerebrum@uio.no>")
-# key-id: (f.i. "FEAC69E4")
-# fingerprint (recommended!): (f.i. '78D9E8FEB39594D4EAB7A9B85B17D23FFEAC69E4')
-# PASSWORD_GPG_RECIPIENT_ID = 'DE2801BE77377C124091142819368B5CB341836F'
+# Should passwords be stored as plaintext in password change events?
+PASSWORD_PLAINTEXT_IN_CHANGE_LOG = True
 
 # The path (str) to our GnuPG home directory.
 # Must be a valid path if overriden.

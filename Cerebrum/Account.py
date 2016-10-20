@@ -995,23 +995,20 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         # criteria.
         try:
             password_str = self.__plaintext_password
-            if hasattr(cereconf, 'PASSWORD_GPG_RECIPIENT_ID'):
-                password_str = 'GPG:{encrypted_password}'.format(
-                    encrypted_password=base64.b64encode(
-                        gpgme_encrypt(
-                            message=self.__plaintext_password,
-                            recipient_key_id=cereconf.PASSWORD_GPG_RECIPIENT_ID)))
         except AttributeError:
             # TODO: this is meant to catch that self.__plaintext_password is
-            # unset
+            # unset, trying to use hasattr() instead will surprise you
             pass
         else:
             # self.__plaintext_password is set.  Put the value in the
-            # changelog.
+            # changelog if the configuration tells us to.
+            change_params = None
+            if cereconf.PASSWORD_PLAINTEXT_IN_CHANGE_LOG:
+                change_params = {'password': self.__plaintext_password}
             self._db.log_change(self.entity_id,
                                 self.const.account_password,
                                 None,
-                                change_params={'password': password_str})
+                                change_params=change_params)
         # Store the authentication data.
         for k in self._acc_affect_auth_types:
             k = int(k)
