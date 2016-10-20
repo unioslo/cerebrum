@@ -1,3 +1,9 @@
+2016-10-20  Karen   <cerebrum@cleomedes.uit.no>
+
+    * process_sito.py (parse): Removed percentage check when creating sito accounts.
+
+    * import_sito.py (generate_person_list): Removed percentage check when creating sito accounts.
+
 2016-10-11  Karen   <cerebrum@cleomedes.uit.no>
 
     * process_sito_email.py: Changed import of simple_memoize to import of memoize and updated 

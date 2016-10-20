@@ -429,10 +429,10 @@ class Build:
 
             # only append to list if person is NOT deactivated
             logger.info("positionpercent:%s" % (PositionPercent))
-            if ((person_dict['isDeactivated'] == 'false') and (float(PositionPercent) >= float(cereconf.SITO_AFFILIATION_PERCENTAGE))):
+            if (person_dict['isDeactivated'] == 'false'):
                 self.source_personlist.append(ssn)
-            if (float(PositionPercent) < float(cereconf.SITO_AFFILIATION_PERCENTAGE)):
-                logger.info("SSN:%s has a PositionPercent:%s which is lower than %s percent. No account created for this person"% (ssn,PositionPercent,cereconf.SITO_AFFILIATION_PERCENTAGE))
+            #if (float(PositionPercent) < float(cereconf.SITO_AFFILIATION_PERCENTAGE)):
+            #    logger.info("SSN:%s has a PositionPercent:%s which is lower than %s percent. No account created for this person"% (ssn,PositionPercent,cereconf.SITO_AFFILIATION_PERCENTAGE))
             if person_dict['isDeactivated'] == 'true':
                 logger.warning("person:%s is deactivated" % ssn)
                                 

@@ -403,7 +403,7 @@ def get_ou(a,person):
 #
 def determine_affiliations(person):
     ret = {}
-    percentage = []
+    # percentage = []
     aff = const.affiliation_ansatt_sito
     aff_stat =''
     #pprint(person['Affiliation'])
@@ -596,64 +596,64 @@ def generate_person_list(personfile,person_list):
         # need to get all affiliations for this person
         for aff in person.xpathEval('EmploymentInfo/Employee/Employment/Employment'):
             unit = aff.xpathEval('EmploymentDistributionList/EmploymentDistribution/Unit/Value')[0].getContent() 
-            pp_from_xml = aff.xpathEval('EmploymentDistributionList/EmploymentDistribution/PositionPercent')[0].getContent()
+            #pp_from_xml = aff.xpathEval('EmploymentDistributionList/EmploymentDistribution/PositionPercent')[0].getContent()
             #logger.debug("now processing employment towards unit:%s") % unit
-            logger.debug("unit:%s" % unit)
-            if(float(pp_from_xml) >= (float(cereconf.SITO_AFFILIATION_PERCENTAGE))):
-                # position percentage is more (or equal) than what is defined in cereconf.SITO_AFFILIATION_PERCENTAGE.
-                # Check if this affiliation is valid:
-                # if from_date < TODAY and to_date > TODAY:
-                #    aff is valid
-                # else:
-                # aff is NOT valid
-                #
-                person_dict['PositionPercent'] = pp_from_xml
-                from_date = aff.xpathEval('FromDate')[0].getContent()
-                to_date = aff.xpathEval('ToDate')[0].getContent()
+            #logger.debug("unit:%s" % unit)
+            #if(float(pp_from_xml) >= (float(cereconf.SITO_AFFILIATION_PERCENTAGE))):
+            # position percentage is more (or equal) than what is defined in cereconf.SITO_AFFILIATION_PERCENTAGE.
+            # Check if this affiliation is valid:
+            # if from_date < TODAY and to_date > TODAY:
+            #    aff is valid
+            # else:
+            # aff is NOT valid
+            #
+            #person_dict['PositionPercent'] = pp_from_xml
+            from_date = aff.xpathEval('FromDate')[0].getContent()
+            to_date = aff.xpathEval('ToDate')[0].getContent()
 
-                # convert dates so they are easier to compare
-                TODAY_conv = "%s%s%s" % (TODAY[0:4],TODAY[5:7],TODAY[8:10])
-                try:
-                    from_date_conv = "%s%s%s" %(from_date[0:4],from_date[5:7],from_date[8:10])
-                except:
-                    logger.debug("\t has no from date")
+            # convert dates so they are easier to compare
+            TODAY_conv = "%s%s%s" % (TODAY[0:4],TODAY[5:7],TODAY[8:10])
+            try:
+                from_date_conv = "%s%s%s" %(from_date[0:4],from_date[5:7],from_date[8:10])
+            except:
+                logger.debug("\t has no from date")
 
-                try:
-                    to_date_conv = "%s%s%s" %(to_date[0:4],to_date[5:7],to_date[8:10])
-                except:
-                    logger.debug("\t has no To date")
+            try:
+                to_date_conv = "%s%s%s" %(to_date[0:4],to_date[5:7],to_date[8:10])
+            except:
+                logger.debug("\t has no To date")
 
-                logger.debug("\t has %s percentage on:%s" % (pp_from_xml,unit))                    
-                if to_date !='':
-                    if from_date_conv <= TODAY_conv < to_date_conv:
-                        logger.debug("\t Today %s is in range from:%s  to %s" %(TODAY_conv,from_date_conv, to_date_conv))
-                        #logger.debug("\t TODAY_CONV:%s, FROM_DATE_CONV:%s, TO_DATE_CONV:%s" % (TODAY_conv,from_date_conv,to_date_conv))
-                        logger.debug("\t appending: %s to aff_list" % (unit))
-                        if unit not in afflist:
-                            afflist.append(unit)
-                        else:
-                            logger.debug("\t %s is already in this list" % (unit))
+            #logger.debug("\t has %s percentage on:%s" % (pp_from_xml,unit))                    
+            if to_date !='':
+                if from_date_conv <= TODAY_conv < to_date_conv:
+                    logger.debug("\t Today %s is in range from:%s  to %s" %(TODAY_conv,from_date_conv, to_date_conv))
+                    #logger.debug("\t TODAY_CONV:%s, FROM_DATE_CONV:%s, TO_DATE_CONV:%s" % (TODAY_conv,from_date_conv,to_date_conv))
+                    logger.debug("\t appending: %s to aff_list" % (unit))
+                    if unit not in afflist:
+                        afflist.append(unit)
                     else:
-                        logger.debug("\t Today:%s is NOT in range from:%s to:%s" % (TODAY_conv,from_date_conv,to_date_conv))
-                        logger.debug("\t NOT appending this affiliation. it is out of date.")
-                if to_date == '':
-                    if from_date_conv <= TODAY_conv:
-                        logger.debug("\t Today:%s is in range from:%s to: infinite" % (TODAY_conv,from_date_conv))
-                        logger.debug("\t appending: %s to aff_list" % (unit))
-                        if unit not in afflist:
-                            logger.debug("I am actually appending ")
-                            afflist.append(unit)
-                        else:
-                            logger.debug("\t %s is already in this list" % (unit))
-                            #afflist.append(unit)
+                        logger.debug("\t %s is already in this list" % (unit))
+                else:
+                    logger.debug("\t Today:%s is NOT in range from:%s to:%s" % (TODAY_conv,from_date_conv,to_date_conv))
+                    logger.debug("\t NOT appending this affiliation. it is out of date.")
+            if to_date == '':
+                if from_date_conv <= TODAY_conv:
+                    logger.debug("\t Today:%s is in range from:%s to: infinite" % (TODAY_conv,from_date_conv))
+                    logger.debug("\t appending: %s to aff_list" % (unit))
+                    if unit not in afflist:
+                        logger.debug("I am actually appending ")
+                        afflist.append(unit)
                     else:
-                        #logger.debug("\t Today is NOT in range from:%s to: infinite" % (TODAY_conv,from_date_conv))
-                        logger.debug("\t NOT appending this affiliation. it is out of date.")
-                #print "afflist length=:%i" % len(afflist)
-                if len(afflist) > 0:
-                    person_dict['Affiliation'] =",".join(afflist)
-            else:
-                logger.warning("\t Employee:%s does not have a position percentage over 20percent on unit:%s" % (person_dict['EmploymentNumber'],unit))
+                        logger.debug("\t %s is already in this list" % (unit))
+                        #afflist.append(unit)
+                else:
+                    #logger.debug("\t Today is NOT in range from:%s to: infinite" % (TODAY_conv,from_date_conv))
+                    logger.debug("\t NOT appending this affiliation. it is out of date.")
+            #print "afflist length=:%i" % len(afflist)
+            if len(afflist) > 0:
+                person_dict['Affiliation'] =",".join(afflist)
+            #else:
+            #    logger.warning("\t Employee:%s does not have a position percentage over 20percent on unit:%s" % (person_dict['EmploymentNumber'],unit))
 
         #
         # if a person has no active affiliations. continue with next person
