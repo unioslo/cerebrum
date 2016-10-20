@@ -139,23 +139,22 @@ class nmhOrgLDIFMixin(OrgLDIF):
         pages."""
         dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
         if dn:
+            urns = entry.setdefault('eduPersonEntitlement', set())
             # Add fagomrade/fagfelt, if registered for the person:
             fagf = self.pe2fagomr.get(person_id, [])
             for f in fagf:
-                urn = 'urn:mace:feide.no:nmh.no:fagomrade:{}'.format(f)
-                entry.setdefault('eduPersonEntitlement', []).append(urn)
+                urns.add('urn:mace:feide.no:nmh.no:fagomrade:{}'.format(f))
             # Add fagmiljø:
             fagm = self.pe2fagmiljo.get(person_id)
             if fagm:
-                urn = 'urn:mace:feide.no:nmh.no:fagmiljo:{}'.format(fagm)
-                entry.setdefault('eduPersonEntitlement', []).append(urn)
+                urns.add('urn:mace:feide.no:nmh.no:fagmiljo:{}'.format(fagm))
             # Add study programs
             study_programs = self.pe2study_program.get(person_id, [])
             for program in study_programs:
                 urn = 'urn:mace:feide.no:nmh.no:studies/studyprogram/{}/{}'.format(
                     program['studieprogramkode'],
                     program['arstall_kull'])
-                entry.setdefault('eduPersonEntitlement', []).append(iso2utf(urn))
+                urns.add(iso2utf(urn))
         return dn, entry, alias_info
 
     # Fetch mail addresses from entity_contact_info of accounts, not persons.

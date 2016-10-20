@@ -236,7 +236,7 @@ def spread_add(msg, subject, *args):
                       spreads=[msg['context']])
 
 
-@dispatch('spread', 'del')
+@dispatch('spread', 'delete')
 def spread_del(msg, subject, *args):
     return scim.Event(scim.REMOVE,
                       subject=subject,

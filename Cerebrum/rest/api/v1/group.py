@@ -56,13 +56,6 @@ def find_entity(entity_id):
     return entity
 
 
-def _db_decode(text):
-    # hack to decode db-strings in utf-8
-    if text is None:
-        return None
-    return text.decode(db.encoding, 'replace')
-
-
 class GroupVisibility(object):
     """ Group visibility translation. """
 
@@ -90,7 +83,7 @@ class GroupAuthRoles(object):
     # to prevent clients from granting superuser rights, we need to
     # limit the valid opsets to a hard-coded list of names here.
     _map = {
-        'Group-admin': 'admin',
+        # 'Group-admin': 'admin',
         'Group-owner': 'owner',
     }
 
@@ -103,6 +96,10 @@ class GroupAuthRoles(object):
     @classmethod
     def unserialize(cls, input_):
         return cls._rev_map[input_.lower()]
+
+    @classmethod
+    def valid_roles(cls):
+        return cls._rev_map.keys()
 
 
 _group_fields = {
@@ -208,12 +205,12 @@ class GroupResource(Resource):
     @staticmethod
     def group_info(group):
         return {
-            'name': _db_decode(group.group_name),
+            'name': utils._db_decode(group.group_name),
             'id': group.entity_id,
             'create_date': group.create_date,
             'expire_date': group.expire_date,
             'visibility': group.visibility,
-            'description': _db_decode(group.description),
+            'description': utils._db_decode(group.description),
             'contexts': [row['spread'] for row in group.get_spread()],
         }
 
@@ -226,6 +223,13 @@ class GroupResource(Resource):
         }
         return lut[vis.lower()]
 
+    # Either this or import undecorated other places
+    @staticmethod
+    def _get(name, idtype='name'):
+        """ Undecorated get(). """
+        group = find_group(name, idtype)
+        return GroupResource.group_info(group)
+
     # GET /<group>
     #
     @auth.require()
@@ -234,9 +238,7 @@ class GroupResource(Resource):
     @api.marshal_with(Group)
     def get(self, name):
         """ Get group information. """
-        name = name.encode(db.encoding)
-        group = find_group(name)
-        return self.group_info(group)
+        return self._get(name)
 
     # PUT /<group>
     #
@@ -362,9 +364,11 @@ class GroupModeratorListResource(Resource):
 
 @api.route('/<string:name>/moderators/<string:role>/<int:moderator_id>',
            endpoint='group-moderator')
-@api.doc(params={'name': 'group name',
-                 'role': 'role to modify',
-                 'moderator_id': 'id of the moderator'})
+@api.doc(params={
+    'name': 'group name',
+    'role': 'role to modify ({!s})'.format(
+        ','.join(GroupAuthRoles.valid_roles())),
+    'moderator_id': 'id of the moderator'})
 class GroupModeratorResource(Resource):
     """ Alter group moderator. """
 
@@ -373,7 +377,7 @@ class GroupModeratorResource(Resource):
             return utils.get_opset(GroupAuthRoles.unserialize(role))
         except (Errors.NotFoundError, KeyError):
             pass
-        abort(400, 'invalid role', roles=self.valid_roles.keys())
+        abort(400, 'invalid role', roles=GroupAuthRoles.valid_roles())
 
     @db.autocommit
     @auth.require()
@@ -604,6 +608,7 @@ class PosixGroupResource(Resource):
         name = name.encode(db.encoding)
         gr = find_group(name)
         return {
+            'name': name,
             'id': gr.entity_id,
             'posix': hasattr(gr, 'posix_gid'),
             'posix_gid': getattr(gr, 'posix_gid', None)
@@ -670,9 +675,9 @@ class GroupListResource(Resource):
         for row in gr.search(**filters):
             group = dict(row)
             group.update({
-                'id': _db_decode(group['name']),
-                'name': _db_decode(group['name']),
+                'id': utils._db_decode(group['name']),
+                'name': utils._db_decode(group['name']),
             })
-            group['description'] = _db_decode(group['description'])
+            group['description'] = utils._db_decode(group['description'])
             groups.append(group)
         return groups

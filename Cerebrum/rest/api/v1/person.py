@@ -59,8 +59,7 @@ PersonName = api.model('PersonName', {
 })
 
 PersonAccount = api.model('PersonAccount', {
-    'href': fields.base.String(
-        description='URL to this resource'),
+    'href': fields.href('.account'),
     'id': fields.base.String(
         description='Account ID'),
     'primary': fields.base.Boolean(
@@ -97,28 +96,40 @@ PersonAccountList = api.model('PersonAccountList', {
 
 
 @api.route('/<int:id>', endpoint='person')
+@api.doc(params={'id': 'Person entity ID'})
 class PersonResource(Resource):
     """Resource for a single person."""
     @auth.require()
     @api.marshal_with(Person)
-    @api.doc(params={'id': 'Person entity ID'})
     def get(self, id):
         """Get person information"""
         pe = find_person(id)
+
+        name_keys = [PersonName.get(k).attribute or k for k in PersonName]
+
+        # Filter out appropriate fields from db_row objects
+        names = [filter(lambda (k, _): k in name_keys, e.items()) for
+                 e in pe.get_all_names()]
+
+        # decode name into unicode-object
+        names = [dict(map(lambda (k, v):
+                          (k, utils._db_decode(v) if k == 'name' else v), e))
+                 for e in names]
+
         return {
             'id': pe.entity_id,
             'contexts': [row['spread'] for row in pe.get_spread()],
             'birth_date': pe.birth_date,
-            'names': pe.get_all_names(),
+            'names': names
         }
 
 
 @api.route('/<int:id>/affiliations', endpoint='person-affiliations')
+@api.doc(params={'id': 'Person entity ID'})
 class PersonAffiliationListResource(Resource):
     """Resource for person affiliations."""
     @auth.require()
     @api.marshal_with(PersonAffiliationList)
-    @api.doc(params={'id': 'Person entity ID'})
     def get(self, id):
         """List person affiliations."""
         pe = find_person(id)
@@ -133,11 +144,11 @@ class PersonAffiliationListResource(Resource):
 
 
 @api.route('/<int:id>/contacts', endpoint='person-contacts')
+@api.doc(params={'id': 'Person entity ID'})
 class PersonContactInfoListResource(Resource):
     """Resource for person contact information."""
     @auth.require()
     @api.marshal_with(models.EntityContactInfoList)
-    @api.doc(params={'id': 'Person entity ID'})
     def get(self, id):
         """Get person contact information."""
         pe = find_person(id)
@@ -145,11 +156,11 @@ class PersonContactInfoListResource(Resource):
 
 
 @api.route('/<int:id>/external-ids', endpoint='person-externalids')
+@api.doc(params={'id': 'Person entity ID'})
 class PersonExternalIdListResource(Resource):
     """Resource for person external IDs."""
     @auth.require()
     @api.marshal_with(models.EntityExternalIdList)
-    @api.doc(params={'id': 'Person entity ID'})
     def get(self, id):
         """Get external IDs of a person."""
         pe = find_person(id)
@@ -157,11 +168,11 @@ class PersonExternalIdListResource(Resource):
 
 
 @api.route('/<int:id>/accounts', endpoint='person-accounts')
+@api.doc(params={'id': 'Person entity ID'})
 class PersonAccountListResource(Resource):
     """Resource for person accounts."""
     @auth.require()
     @api.marshal_with(PersonAccountList)
-    @api.doc(params={'id': 'Person entity ID'})
     def get(self, id):
         """Get the accounts of a person."""
         pe = find_person(id)
@@ -171,7 +182,7 @@ class PersonAccountListResource(Resource):
         for row in pe.get_accounts():
             account_name = utils.get_entity_name(row['account_id'])
             accounts.append({
-                'href': url_for('.account', id=account_name, _external=True),
+                'href': url_for('.account', id=account_name),
                 'id': account_name,
                 'primary': (row['account_id'] == primary_account_id),
             })

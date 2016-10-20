@@ -26,6 +26,7 @@ from flask import request, g
 from werkzeug.exceptions import Unauthorized as _Unauthorized
 from werkzeug.exceptions import Forbidden
 from functools import wraps
+from mx import DateTime
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -103,8 +104,11 @@ class AuthContext(object):
         """ the authenticated user, if available. """
         if self.authenticated:
             ac = self.OP_CLS(db_ctx.connection)
-            ac.find_by_name(self.username)
-            return ac
+            try:
+                ac.find_by_name(self.username)
+                return ac
+            except Errors.NotFoundError:
+                pass
         return None
 
 
@@ -169,6 +173,9 @@ class Authentication(object):
             Keyword arguments for the module.
         """
         module = self.load_module(name)
+        # TODO: Implement auth module priority:
+        #       - which module to try first, which to try last?
+        #       - which module to use for challenge, when multiple?
         self._modules.append(tuple((module, mod_args, mod_kw)))
 
     @staticmethod
@@ -178,32 +185,62 @@ class Authentication(object):
             return getattr(sys.modules[__name__], name)
         raise Exception("Unknown authentication module " + name)
 
+    def check_account(self, account):
+        """ Check if account is OK. """
+        if account is None:
+            return False
+        if account.expire_date and account.expire_date < DateTime.now():
+            return False
+        return True
+
     def authenticate(self, *auth_args, **auth_kwargs):
         """ Perform authentication with first matched method.
 
         If no module succeeds auth, then the last module will be selected as
         active (e.g. for challenge / error).
+
+        This method loops through all the authentication modules. For each
+        module:
+
+        Calling this method has four possible outcomes:
+
+          1. No auth data in request: no user is authenticated
+          2. Valid auth data in request: user is authenticated
+          3. Invalid auth data in request: A Forbidden (HTTPError) is raised
+          4. An unexpected exception is raised (auth fails hard, HTTP 500)
+
+        :raise Forbidden: When an auth module fails.
         """
         for module, mod_args, mod_kw in self._modules:
             self.ctx.module = module(app=self.app, db=self.db,
                                      *mod_args, **mod_kw)
             if self.ctx.module.detect():
                 # Need to log auth attempts
-                self.logger.info(
+                self.logger.debug(
                     "Attempting auth with {}".format(type(self.ctx.module)))
-                if self.ctx.module.do_authenticate():
-                    # Need to log successful login attempts
-                    self.logger.info(
-                        "Successful auth with {}".format(self.ctx.module))
-                    # TODO: Does this belong here?
-                    self.db.set_change_by(self.account.entity_id)
-                    return
-                else:
+                if not self.ctx.module.do_authenticate():
                     # Need to log failed login attempts
-                    self.logger.debug(
+                    self.logger.info(
                         "Failed auth with {}".format(self.ctx.module))
                     # TODO: Should we render and return a response here?
                     raise self.ctx.module.error
+
+                if not self.check_account(self.account):
+                    self.logger.debug(
+                        "Authenticated account not valid {}".format(
+                            self.ctx.module))
+                    # Not authenticated
+                    raise self.ctx.module.error
+
+                # TODO: Check quarantined?
+                # TODO: Should we be able to whitelist certain quarantines
+
+                # done
+                self.logger.info(
+                    "Successful auth with {}".format(self.ctx.module))
+                # TODO: Does this belong here?
+                self.db.set_change_by(self.account.entity_id)
+                return
 
     def require(auth_obj, *auth_args, **auth_kw):
         """Wrap flask routes to require authentication.
@@ -231,6 +268,8 @@ class Authentication(object):
                 if auth_obj.ctx.module is None:
                     auth_obj.authenticate(*auth_args, **auth_kw)
                 if auth_obj.authenticated:
+                    # TODO: Check additional requirements from auth_args
+                    # TODO: Should we have some sort of plugin system here?
                     return function(*args, **kwargs)
                 # not authenticated.
                 if auth_obj.ctx.module.challenge is not None:
@@ -258,6 +297,14 @@ class Authentication(object):
         del self.ctx
         del self.username
         del self.account
+
+
+def build_error(exc_type, message, **custom):
+    """ Build an HTTP exception with data.  """
+    custom['message'] = message
+    exc = exc_type(message)
+    exc.data = custom
+    return exc
 
 
 class AuthModule(object):
@@ -300,9 +347,32 @@ class AuthModule(object):
 
 
 class BasicAuth(AuthModule):
-    """HTTP-Basic-Auth"""
+    """ HTTP Basic Auth
+
+    Parses basic-auth parameters and validates username and password with users
+    in Cerebrum.
+
+    Configuration:
+
+        {
+            'name': 'BasicAuth',
+            'realm': 'foo',
+            'whitelist': ['foo', 'bar', ]
+        },
+
+    """
 
     def __init__(self, realm=None, whitelist=None, **kwargs):
+        """ Set up basic auth
+
+        :param str realm:
+            The realm to respond with in HTTP 401 challenges (default: None, no
+            realm)
+        :param list whitelist:
+            A list of usernames allowed to log in using basic auth (default:
+            None, everyone allowed)
+        """
+
         super(BasicAuth, self).__init__(**kwargs)
         self.realm = realm
         self.whitelist = whitelist
@@ -337,14 +407,17 @@ class BasicAuth(AuthModule):
     def challenge(self):
         if self.detect():
             return None
-        ch = Unauthorized("Log in")
-        ch.realm = self.realm
-        return ch
+        message = "Missing credentials"
+        data = {'basic-realm': self.realm, }
+        exc = build_error(Unauthorized, message, **data)
+        exc.realm = self.realm
+        return exc
 
     @property
     def error(self):
-        """Respond with 401 Unauthorized in case of invalid credentials."""
-        return Forbidden("Invalid credentials")
+        message = "Invalid credentials"
+        data = {'basic-realm': self.realm, }
+        return build_error(Forbidden, message, **data)
 
 
 class SslProxyAuth(AuthModule):
@@ -356,34 +429,124 @@ class SslProxyAuth(AuthModule):
       - X-Ssl-Cert-Verfied: (SUCCESS|)
       - X-Ssl-Cert-Fingerprint: <fingerprint>
 
-    The proxy also needs to prevent the client from sending the same headers.
+    The proxy also needs to prevent a client from sending the same headers.
+
+    Configuration:
+
+        {
+            'name': 'SslProxyAuth',
+            'verified_header': 'X-Ssl-Cert-Verfied',
+            'verified_value': 'SUCCESS',
+            'fingerprint_header': 'X-Ssl-Cert-Fingerprint',
+            'certs': {
+                '5dd915c1584ce9f30cd2f867365603eac35d68b0': 'foo',
+                ...
+            },
+        }
     """
 
-    def __init__(self, certs=None, **kwargs):
+    def __init__(self,
+                 fingerprint_header='X-Ssl-Cert-Fingerprint',
+                 verified_header='X-Ssl-Cert-Verified',
+                 verified_value='SUCCESS',
+                 certs=None,
+                 **kwargs):
+        """ Set up SSL fingerprint authentication.
+
+        To pass validation, a request must have the `verified_header` header,
+        and the header value must be `verified_value`. In addition, the
+        request must have the `fingerprint_header` and the value must be
+        mapped to a username in `certs`.
+
+        :param str fingerprint_header:
+            Name of a header to look for the SSL fingerprint in. Default is
+            'X-Ssl-Cert-Fingerprint'.
+        :param str verified_header:
+            Name of a header to look for the SSL validation result in. Default
+            is 'X-Ssl-Cert-Verified'.
+        :param str fingerprint_header:
+            Required value of the `verified_header` header. Default is
+            'SUCCESS'.
+        :param str fingerprint_header:
+            Which header to look for SSL fingerprint in. Default is
+            'X-Ssl-Cert-Fingerprint'.
+        :param dict certs:
+            A dictionary-like object that maps fingerprints to usernames.
+        """
         super(SslProxyAuth, self).__init__(**kwargs)
-        self.certs = certs
+        if fingerprint_header:
+            self.header_fingerprint_name = fingerprint_header
+        else:
+            raise ValueError("Empty fingerprint header value")
+        if verified_header:
+            self.header_verified_name = verified_header
+        else:
+            raise ValueError("Empty verified header value")
+        if verified_value:
+            self.header_verified_value = verified_value
+        else:
+            raise ValueError("Empty verified value")
+        self.certs = certs or dict()
 
     def detect(self):
         """Detect verified client certificate."""
-        return request.headers.get('X-Ssl-Cert-Verified') == 'SUCCESS'
+        return self.header_verified_name in request.headers
 
     def do_authenticate(self):
-        fingerprint = request.headers.get('X-Ssl-Cert-Fingerprint')
+        if self.header_verified_value != request.headers.get(
+                self.header_verified_name):
+            # client key failed proxy ca-check
+            return False
+        fingerprint = request.headers.get(self.header_fingerprint_name)
         self.user = self.certs.get(fingerprint)
         return self.is_authenticated()
 
+    @property
+    def challenge(self):
+        """ 401 error with SSL hint. """
+        if self.detect():
+            return None
+        message = "Unsigned request, please use valid client certificate"
+        return build_error(Unauthorized, message)
+
+    @property
+    def error(self):
+        """ 403 error. """
+        message = "Invalid SSL certificate or signature in request"
+        return build_error(Forbidden, message)
+
 
 class HeaderAuth(AuthModule):
-    """Pass authentication if header contains a constant."""
+    """ Pass authentication if header contains a given value.
+
+    Configuration:
+
+        {
+            'name': 'HeaderAuth',
+            'header': 'X-Auth-Key',  # default value, optional
+            'keys': {
+                "06c48667-f1e6-4bd5-87b3-76b210e88bb0": "foo",
+                ...
+            },
+        }
+
+    """
 
     def __init__(self, header='X-Auth-Key', keys=None, **kwargs):
+        """ Set up API key authentication.
+
+        :param str header:
+            Which header to look for API keys in. Default is 'X-Auth-Key'.
+        :param dict keys:
+            A dictionary-like object that maps keys to usernames.
+        """
         super(HeaderAuth, self).__init__(**kwargs)
         self.header = header
-        self.keys = keys
+        self.keys = keys or dict()
 
     def detect(self):
         """Detect if header is present."""
-        return bool(request.headers.get(self.header))
+        return self.header and self.header in request.headers
 
     def do_authenticate(self):
         """Verify key and map to user."""
@@ -396,6 +559,16 @@ class HeaderAuth(AuthModule):
 
     @property
     def challenge(self):
+        """ 401 error. """
         if self.detect():
             return None
-        return Unauthorized("No header '{!s}'".format(self.header))
+        message = "Missing API key in header"
+        data = {'api-key-header': self.header, }
+        return build_error(Forbidden, message, **data)
+
+    @property
+    def error(self):
+        """ 403 error. """
+        message = "Invalid API key in header"
+        data = {'api-key-header': self.header, }
+        return build_error(Forbidden, message, **data)

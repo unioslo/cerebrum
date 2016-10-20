@@ -154,12 +154,13 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
     def write_log(self):
         super(EventPublisher, self).write_log()
         try:
-            with self.__get_client() as client:
-                ue = self.__get_unpublished_events()
-                unsent = ue.query_events(lock=True, parse_json=True)
-                for event in unsent:
-                    client.publish(event['message'])
-                    ue.delete_event(event['eventid'])
+            ue = self.__get_unpublished_events()
+            unsent = ue.query_events(lock=True, parse_json=True)
+            if unsent:
+                with self.__get_client() as client:
+                    for event in unsent:
+                        client.publish(event['message'])
+                        ue.delete_event(event['eventid'])
         except:
             # Could not write log
             log = Factory.get_logger()

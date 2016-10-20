@@ -11,12 +11,13 @@ In addition, all settings contains a `doc` attribute that should contain a
 string that describes the behavior of the setting and its uses.
 
 """
+import os
 import re
+
 from collections import OrderedDict
 
 
 class NotSetType(object):
-
     u""" A NotSet type that indicates that nothing has been set. """
 
     def __nonzero__(self):
@@ -30,6 +31,7 @@ class NotSetType(object):
 
     def __repr__(self):
         return str(self)
+
 
 NotSet = NotSetType()
 u""" Singleton that indicates that a setting has not been set. """
@@ -89,6 +91,9 @@ class Setting(object):
 
     Either None (accept all classes), a type or a tuple of types. """
 
+    # do not validate defaults before they are actually
+    _lazy_validate_defaults = False
+
     def __init__(self, default=NotSet, doc=""):
         u""" Configure a new Setting.
 
@@ -103,7 +108,11 @@ class Setting(object):
         self.default = default
         self._doc = doc
         self._value = NotSet
-        if default is not NotSet and default is not None:
+        if (
+                default is not NotSet and
+                default is not None and
+                not self._lazy_validate_defaults
+        ):
             self.validate(default)
 
     @property
@@ -250,7 +259,7 @@ class Integer(Numeric):
 class String(Setting):
     u""" A String setting. """
 
-    _valid_types = (str, unicode)
+    _valid_types = (basestring, )
 
     def __init__(self, regex=None, minlen=None, maxlen=None, **kw):
         u""" Configure a string setting.
@@ -309,6 +318,90 @@ class String(Setting):
         return doc
 
 
+class FilePath(String):
+    """
+    A file-path setting
+    """
+    _valid_types = (basestring, NotSetType)
+    _lazy_validate_defaults = True
+
+    def __init__(self,
+                 permission_read=None,
+                 permission_write=None,
+                 permission_execute=None,
+                 **kw):
+        """
+        Configure a file-path setting.
+
+        Keyword Arguments:
+        :param permission_read: Enforce file read permission
+        :type permission_read: (bool, None)
+        (default None)
+
+        :param permission_write: Enforce file write permission
+        :type permission_write: (bool, None)
+        (default None)
+
+        :param permission_execute: Enforce file execute permission
+        :type permission_execute: (bool, None)
+        (default None)
+        """
+        self._permission_read = permission_read
+        self._permission_write = permission_write
+        self._permission_execute = permission_execute
+        super(FilePath, self).__init__(**kw)
+
+    def validate(self, value):
+        """
+        Validates a value.
+
+        :see: Setting.validate
+
+        :return:
+            return True to stop all further validations, otherwise False
+        :rtype: bool
+
+        :raises ValueError:
+            If the file-path value does not point to an existing file, or
+            if the permissions do not match.
+        """
+        if super(FilePath, self).validate(value):
+            return True
+        if value is None or value is NotSet:
+            # one should be able to set an empty (non existent) path
+            return False
+        if not os.path.isfile(value):
+            raise ValueError(
+                u'Invalid value {!r}. No such file-path exists'.format(value))
+        if self._permission_read is not None:
+            if os.access(value, os.R_OK) != bool(self._permission_read):
+                raise ValueError(u'Invalid value {!r}. '
+                                 u'Read permission does not match'.format(
+                                     value))
+        if self._permission_write is not None:
+            if os.access(value, os.W_OK) != bool(self._permission_write):
+                raise ValueError(u'Invalid value {!r}. '
+                                 u'Write permission does not match'.format(
+                                     value))
+        if self._permission_execute is not None:
+            if os.access(value, os.X_OK) != bool(self._permission_execute):
+                raise ValueError(u'Invalid value {!r}. '
+                                 u'Execute permission does not match'.format(
+                                     value))
+        return False
+
+    @property
+    def doc_struct(self):
+        doc = super(FilePath, self).doc_struct
+        if self._permission_read is not None:
+            doc['permission_read'] = self._permission_read
+        if self._permission_write is not None:
+            doc['permission_write'] = self._permission_write
+        if self._permission_execute is not None:
+            doc['permission_execute'] = self._permission_execute
+        return doc
+
+
 class Choice(Setting):
     u""" Choice setting with limited options. """
 
@@ -361,7 +454,11 @@ class Iterable(Setting):
 
     _valid_types = (list, set, tuple)
 
-    def __init__(self, template=Setting(), min_items=None, max_items=None, **kw):
+    def __init__(self,
+                 template=Setting(),
+                 min_items=None,
+                 max_items=None,
+                 **kw):
         u""" Configure a list setting.
 
         :param Setting template:

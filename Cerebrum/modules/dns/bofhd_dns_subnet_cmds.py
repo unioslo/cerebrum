@@ -79,7 +79,7 @@ class BofhdExtension(BofhdCommandBase):
             return self.__find_util
         except AttributeError:
             from Cerebrum.modules.dns import Utils
-            self.__find_util = Utils.find(self.db, self.default_zone)
+            self.__find_util = Utils.Find(self.db, self.default_zone)
             return self.__find_util
 
     @classmethod

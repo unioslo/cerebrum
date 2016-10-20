@@ -64,7 +64,7 @@ class Constants(Constants.Constants):
     affiliation_status_ansatt_vit = _PersonAffStatusCode(
         affiliation_ansatt, 'vitenskapelig', 'Vitenskapelig ansatt')
     affiliation_status_ansatt_bil = _PersonAffStatusCode(
-        affiliation_ansatt, 'bilag', 'Bilagsl�nnet')
+        affiliation_ansatt, 'bilag', 'Bilagslønnet')
     affiliation_status_ansatt_ltreg = _PersonAffStatusCode(
         affiliation_ansatt, 'ltreg', 'Registert som gjest, utdatert')
     affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
@@ -75,7 +75,7 @@ class Constants(Constants.Constants):
     affiliation_student = _PersonAffiliationCode(
         'STUDENT', 'Student ved UiO, registrert i FS')
     affiliation_status_student_soker = _PersonAffStatusCode(
-        affiliation_student, 'soker', 'Registrert med s�knad i FS')
+        affiliation_student, 'soker', 'Registrert med søknad i FS')
     affiliation_status_student_tilbud = _PersonAffStatusCode(
         affiliation_student, 'tilbud', 'Registrert tilbud om opptak i FS')
     affiliation_status_student_opptak = _PersonAffStatusCode(
@@ -100,33 +100,33 @@ class Constants(Constants.Constants):
         affiliation_student, 'permisjon',
         'Registrert med gyldig permisjon i FS')
     affiliation_status_student_alumni = _PersonAffStatusCode(
-        affiliation_student, 'alumni', 'Har fullf�rt studieprogram i FS')
+        affiliation_student, 'alumni', 'Har fullført studieprogram i FS')
 
     affiliation_tilknyttet = _PersonAffiliationCode(
-        'TILKNYTTET', 'Tilknyttet UiO uten � v�re student eller ansatt')
+        'TILKNYTTET', 'Tilknyttet UiO uten å være student eller ansatt')
     affiliation_tilknyttet_fagperson = _PersonAffStatusCode(
         affiliation_tilknyttet, 'fagperson', 'Registrert som fagperson i FS')
     affiliation_tilknyttet_emeritus = _PersonAffStatusCode(
         affiliation_tilknyttet, 'emeritus',
-        'Registrert med EMERITUS rolle i SAPUiO')
+        'Registrert med rolle EMERITUS i SAPUiO')
     affiliation_tilknyttet_bilag = _PersonAffStatusCode(
         affiliation_tilknyttet, 'bilag',
-        'Registrert med BILAGSL�N rolle i SAPUiO')
+        'Registrert med rolle BILAGSLØN i SAPUiO')
     affiliation_tilknyttet_ekst_forsker = _PersonAffStatusCode(
         affiliation_tilknyttet, 'ekst_forsker',
-        'Registrert med EF-FORSKER eller SENIORFORS rolle i SAPUiO')
+        'Registrert med rolle EF-FORSKER eller SENIORFORS i SAPUiO')
     affiliation_tilknyttet_gjesteforsker = _PersonAffStatusCode(
         affiliation_tilknyttet, 'gjesteforsker',
-        'Registrert med GJ-FORSKER rolle i SAPUiO')
+        'Registrert med rolle GJ-FORSKER i SAPUiO')
     affiliation_tilknyttet_assosiert_person = _PersonAffStatusCode(
         affiliation_tilknyttet, 'assosiert_person',
-        'Registrert med ASSOSIERT rolle i SAPUiO')
+        'Registrert med rolle ASSOSIERT i SAPUiO')
     affiliation_tilknyttet_frida_reg = _PersonAffStatusCode(
         affiliation_tilknyttet, 'frida_reg',
-        'Registrert med REGANSV og REG-ANSV rolle i SAPUiO')
+        'Registrert med rolle REGANSV og REG-ANSV i SAPUiO')
     affiliation_tilknyttet_ekst_stip = _PersonAffStatusCode(
         affiliation_tilknyttet, 'ekst_stip',
-        'Registrert med EF-STIP rolle i SAPUiO')
+        'Registrert med rolle EF-STIP i SAPUiO')
     affiliation_tilknyttet_sivilarbeider = _PersonAffStatusCode(
         affiliation_tilknyttet, 'sivilarbeider',
         'Personer registrert i LT med gjestetypekode=SIVILARB')
@@ -141,7 +141,7 @@ class Constants(Constants.Constants):
         'Personer registrert i LT med gjestetypekode=UNIRAND')
     affiliation_tilknyttet_grlaerer = _PersonAffStatusCode(
         affiliation_tilknyttet, 'grlaerer',
-        'Personer registrert i LT med gjestetypekode=GRUPPEL�RER')
+        'Personer registrert i LT med gjestetypekode=GRUPPELÆRER')
     affiliation_tilknyttet_ekst_partner = _PersonAffStatusCode(
         affiliation_tilknyttet, 'ekst_partner',
         'Personer registrert i LT med gjestetypekode=EKST. PART')
@@ -155,7 +155,7 @@ class Constants(Constants.Constants):
         ' med gjestetypekode=ST-ORG FRI eller ST-ORG UTV')
     affiliation_tilknyttet_innkjoper = _PersonAffStatusCode(
         affiliation_tilknyttet, 'innkjoper',
-        'Registrert med INNKJ�PER rolle i SAPUiO')
+        'Registrert med rolle INNKJØPER i SAPUiO')
     affiliation_tilknyttet_isf = _PersonAffStatusCode(
         affiliation_tilknyttet, 'isf',
         'Person tilknyttet Institutt for samfunnsforskning')
@@ -174,7 +174,7 @@ class Constants(Constants.Constants):
     affiliation_manuell_rikshospital = _PersonAffStatusCode(
         affiliation_manuell, 'rikshospital', 'Rikshospitalet')
     affiliation_manuell_ulleval = _PersonAffStatusCode(
-        affiliation_manuell, 'ulleval', 'Ullev�l')
+        affiliation_manuell, 'ulleval', 'Ullevål')
     affiliation_manuell_ahus = _PersonAffStatusCode(
         affiliation_manuell, 'ahus', 'Ahus')
     affiliation_manuell_notam2 = _PersonAffStatusCode(
@@ -189,7 +189,7 @@ class Constants(Constants.Constants):
         affiliation_manuell, 'notur', 'Notur')
     affiliation_manuell_nikk = _PersonAffStatusCode(
         affiliation_manuell, 'nikk',
-        'Norsk senter for kj�nn- og kvinneforskning')
+        'Norsk senter for kjønn- og kvinneforskning')
     affiliation_manuell_gjest = _PersonAffStatusCode(
         affiliation_manuell, 'gjest', 'Gjest')
     affiliation_manuell_unirand = _PersonAffStatusCode(
@@ -398,26 +398,26 @@ class Constants(Constants.Constants):
 
     quarantine_generell = _QuarantineCode('generell', 'Generell splatt')
     quarantine_teppe = _QuarantineCode('teppe',
-                                       'Kallt inn p� teppet til drift')
+                                       'Kalt inn på teppet til drift')
     quarantine_slutta = _QuarantineCode('slutta', 'Personen har slutta')
     quarantine_system = _QuarantineCode('system', 'Systembrukar som ikke'
                                         ' skal logge inn')
     quarantine_permisjon = _QuarantineCode('permisjon',
                                            'Brukeren har permisjon')
     quarantine_svakt_passord = _QuarantineCode('svakt_passord',
-                                               'For d�rlig passord')
+                                               'For dårlig passord')
     quarantine_autopassord = _QuarantineCode(
         'autopassord',
-        'Passord ikke skiftet trass p�legg')
+        'Passord ikke skiftet trass pålegg')
     quarantine_auto_emailonly = _QuarantineCode(
         'auto_kunepost',
-        'Ikke ordin�r student, tilgang til bare e-post')
+        'Ikke ordinær student, tilgang til bare e-post')
     quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv',
                                               'Ikke aktiv student, utestengt')
     quarantine_autoekstern = _QuarantineCode('autoekstern',
-                                             'Ekstern konto g�tt ut p� dato')
+                                             'Ekstern konto gått ut på dato')
     quarantine_autointsomm = _QuarantineCode('autointsomm',
-                                             'Sommerskolen er ferdig for i �r')
+                                             'Sommerskolen er ferdig for i år')
     quarantine_nologin = _QuarantineCode('nologin',
                                          'Gammel ureg karantene nologin')
     quarantine_nologin_brk = _QuarantineCode(
@@ -444,9 +444,9 @@ class Constants(Constants.Constants):
         'Guest user is released but not available.')
     quarantine_oppringt = _QuarantineCode(
         'oppringt',
-        'Brukeren er sperret for oppringt tjenesten.')
+        'Brukeren er sperret for oppringt-tjenesten.')
     quarantine_vpn = _QuarantineCode('vpn',
-                                     'Brukeren er sperret for VPN tjenesten.')
+                                     'Brukeren er sperret for VPN-tjenesten.')
     quarantine_equant = _QuarantineCode(
         'equant',
         'Brukeren er sperret for Equant tjenesten.')

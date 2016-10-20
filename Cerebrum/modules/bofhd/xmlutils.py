@@ -76,7 +76,7 @@ def xmlrpc_to_native(obj):
     # but then the Java client would have trouble
     # encoding/decoding requests/responses.
     if isinstance(obj, unicode):
-        obj = obj.encode('ISO-8859-1')
+        obj = obj.encode('ISO-8859-1', 'ignore')
     if isinstance(obj, str):
         if obj == ':None':
             return None
