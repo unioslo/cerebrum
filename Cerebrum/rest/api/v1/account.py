@@ -1,6 +1,7 @@
 # coding: utf-8
 """ Account API. """
 
+from flask import request
 from flask_restplus import Namespace, Resource, abort
 
 from Cerebrum.rest.api import db, auth, fields, utils
@@ -11,6 +12,8 @@ from Cerebrum.rest.api.v1 import emailaddress
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.QuarantineHandler import QuarantineHandler
+from Cerebrum.modules.pwcheck.checker import (check_password,
+                                              PasswordNotGoodEnough)
 
 api = Namespace('accounts', description='Account operations')
 
@@ -155,6 +158,27 @@ AccountHomeList = api.model('AccountHomeList', {
     'homes': fields.base.List(
         fields.base.Nested(AccountHome),
         description='Home directories'),
+})
+
+PasswordPayload = api.model('PasswordPayload', {
+    'password': fields.base.String(
+        description='Password',
+        required=True),
+})
+
+PasswordChangePayload = api.model('PasswordChangePayload', {
+    'password': fields.base.String(
+        description='Password, leave empty to generate one'),
+})
+
+PasswordChanged = api.model('PasswordChanged', {
+    'password': fields.base.String(
+        description='New password')
+})
+
+PasswordVerification = api.model('PasswordVerification', {
+    'verified': fields.base.Boolean(
+        description='Did the password match?')
 })
 
 
@@ -352,6 +376,7 @@ class AccountGroupListResource(Resource):
         help='If true, only include expired groups.')
 
     @api.marshal_with(group.GroupListItem, as_list=True, envelope='groups')
+    @api.doc(parser=account_groups_filter)
     @auth.require()
     def get(self, id):
         """List groups an account is a member of."""
@@ -429,3 +454,64 @@ class AccountHomeListResource(Resource):
             homes.append(home)
 
         return {'homes': homes}
+
+
+@api.route('/<string:id>/password')
+@api.doc(params={'id': 'Account name or ID'})
+class AccountPasswordResource(Resource):
+    """Resource for account password change."""
+    @db.autocommit
+    @auth.require()
+    @api.expect(PasswordChangePayload)
+    @api.response(200, 'Password changed', PasswordChanged)
+    @api.response(400, 'Invalid password')
+    def post(self, id):
+        """Change the password for this account."""
+        ac = find_account(id)
+        data = request.json
+        plaintext = data.get('password', None)
+        if plaintext is None:
+            plaintext = ac.make_passwd(ac.account_name)
+        try:
+            check_password(plaintext, account=ac, structured=False)
+        except PasswordNotGoodEnough as err:
+            abort(400, 'Bad password: {}'.format(err))
+        ac.set_password(plaintext)
+        return {'password': plaintext}
+
+
+@api.route('/<string:id>/password/verify')
+@api.doc(params={'id': 'Account name or ID'})
+class AccountPasswordVerifierResource(Resource):
+    """Resource for account password verification."""
+    @auth.require()
+    @api.expect(PasswordPayload)
+    @api.response(200, 'Password verification', PasswordVerification)
+    @api.response(400, 'Password missing')
+    def post(self, id):
+        """Verify the password for this account."""
+        ac = find_account(id)
+        data = request.json
+        plaintext = data.get('password', None)
+        if plaintext is None:
+            abort(400, 'No password specified')
+        verified = bool(ac.verify_auth(plaintext))
+        return {'verified': verified}
+
+
+@api.route('/<string:id>/password/check')
+@api.doc(params={'id': 'Account name or ID'})
+class AccountPasswordCheckerResource(Resource):
+    """Resource for account password checking."""
+    @auth.require()
+    @api.expect(PasswordPayload)
+    @api.response(200, 'Password check result')
+    @api.response(400, 'Password missing')
+    def post(self, id):
+        """Check if a password is valid according to rules."""
+        ac = find_account(id)
+        data = request.json
+        plaintext = data.get('password', None)
+        if plaintext is None:
+            abort(400, 'No password specified')
+        return check_password(plaintext, account=ac, structured=True)
