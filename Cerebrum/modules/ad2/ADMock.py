@@ -517,7 +517,7 @@ class ADclientMock(ADUtils.ADclient):
         # TODO: Update state in cache.
         return True
 
-    def set_password(self, ad_id, password):
+    def set_password(self, ad_id, password, gpg_encrypted):
         """Send a new password for a given object.
 
         This only works for Accounts.

@@ -1414,30 +1414,28 @@ class ADclient(PowershellClient):
         out = self.run(cmd)
         return not out.get('stderr')
 
-    def set_password(self, ad_id, password):
+    def set_password(self, ad_id, password, gpg_encrypted):
         """Send a new password for a given object.
 
         This only works for Accounts.
 
-        @param ad_id: The Id for the object. Could be the SamAccountName,
+        :param str ad_id: The Id for the object. Could be the SamAccountName,
             DistinguishedName, SID, UUID and probably some other identifiers.
 
-        @type password: string
-        @param password: The new passord for the object. Must be in plaintext,
-            as that is how AD requires it to be, for now.
+        :param str password: The new passord for the object, in plaintext
+            or as a GPG message.
+
+        :param bool gpg_encrypted: Is this a GPG message?
         """
         self.logger.info('Setting password for: %s', ad_id)
         # Would like to be able to give AD a hash/crypt in some format that is
         # not readable for others. We convert it to base64 only to avoid any
         # trouble with string escape characters - this is not for security
         # reasons.
-        # We would like to check if 'password' is a GPG-encrypted password or
-        # an old-style plaintext password before converting it to base64.
         # Encrypted passwords will be handled differently (decrypted) on the
         # AD-side (Windows server - side).
-        # Encrypted passwords will be of the format: 'GPG:<base64 encoded bytes>'
-        if password.startswith('GPG:'):
-            password = password[4:]
+        if gpg_encrypted:
+            password = base64.b64encode(password)
             enc_passwd_dir = """C:\passwords"""  # paranoia
             if (
                     hasattr(cereconf, 'PASSWORD_TMP_STORE_DIR') and

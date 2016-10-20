@@ -143,6 +143,7 @@ class BaseSync(object):
                              ('store_sid', False),
                              ('handle_unknown_objects', ('ignore', None)),
                              ('handle_deactivated_objects', ('ignore', None)),
+                             ('gpg_recipient_id', None),
                              ('language', ('nb', 'nn', 'en')),
                              ('changes_too_old_seconds', 60*60*24*365),  # 1 year
                              # TODO: move these to GroupSync when we have a
@@ -2461,6 +2462,7 @@ class UserSync(BaseSync):
         newest password is used.
 
         """
+        self.logger.debug("Fetching passwords for accounts not in AD")
         self.uname2pasw = {}
         for row in reversed(
                 tuple(self.db.get_log_events(types=self.co.account_password))):
@@ -2476,12 +2478,29 @@ class UserSync(BaseSync):
             if ent.in_ad:
                 # Account is already in AD
                 continue
-            try:
-                self.uname2pasw[ent.entity_name] = pickle.loads(
-                    str(row['change_params']))['password']
-            except (KeyError, TypeError, IndexError):
-                self.logger.debug2('No plaintext loadable for %s',
-                                   ent.entity_name)
+
+            # If a GPG recipient ID is set, we fetch the encrypted password
+            if self.config.get('gpg_recipient_id', None):
+                gpg_data = self.ac.search_gpg_data(
+                    entity_id=ent.entity_id,
+                    tag='password',
+                    recipient=self.config['gpg_recipient_id'],
+                    latest=True)
+                if not gpg_data:
+                    self.logger.debug2(
+                        'No GPG encrypted password found for %s',
+                        ent.entity_name)
+                    continue
+                password = gpg_data[0].get('message')
+                self.uname2pasw[ent.entity_name] = (password, True)
+            else:  # we fetch the plaintext from the changelog
+                try:
+                    password = pickle.loads(
+                        str(row['change_params']))['password']
+                    self.uname2pasw[ent.entity_name] = (password, False)
+                except (KeyError, TypeError, IndexError):
+                    self.logger.debug2('No plaintext loadable for %s',
+                                       ent.entity_name)
 
     def process_ad_object(self, ad_object):
         """Compare a User object retrieved from AD with Cerebrum.
@@ -2530,13 +2549,15 @@ class UserSync(BaseSync):
             # fetch_passwords(). If there is no plaintext available for
             # the user, set an empty one.
             try:
-                password = self.uname2pasw[ent.entity_name]
+                password, gpg_encrypted = self.uname2pasw[ent.entity_name]
             except KeyError:
                 self.logger.warn('No password set for %s' % ent.entity_name)
                 return ad_object
 
             self.logger.debug('Trying to set pw for %s', ent.entity_name)
-            if self.server.set_password(ad_object['DistinguishedName'], password):
+            if self.server.set_password(ad_object['DistinguishedName'],
+                                        password,
+                                        gpg_encrypted=gpg_encrypted):
                 # As a security feature, you have to explicitly enable the
                 # account after a valid password has been set.
                 if ent.active:
@@ -2599,18 +2620,35 @@ class UserSync(BaseSync):
 
             name = self._format_name(self.ac.account_name)
 
-            try:
-                pw = pickle.loads(str(row['change_params']))['password']
-            except (KeyError, TypeError, IndexError):
-                self.logger.warn("Account %s missing plaintext password",
-                                 row['subject_entity'])
-                return False
+            # If a GPG recipient ID is set, we fetch the encrypted password
+            if self.config.get('gpg_recipient_id', None):
+                gpg_data = self.ac.search_gpg_data(
+                    entity_id=self.ac.entity_id,
+                    tag='password',
+                    recipient=self.config['gpg_recipient_id'],
+                    latest=True)
+                if not gpg_data:
+                    self.logger.warn(
+                        'Account %s missing GPG encrypted password',
+                        row['subject_entity'])
+                    return False
+                pw = gpg_data[0].get('message')
+                gpg_encrypted = True
+            else:  # we fetch the plaintext from the changelog
+                try:
+                    pw = pickle.loads(str(row['change_params']))['password']
+                    gpg_encrypted = False
+                except (KeyError, TypeError, IndexError):
+                    self.logger.warn("Account %s missing plaintext password",
+                                     row['subject_entity'])
+                    return False
+
             if not isinstance(pw, unicode):
                 try:
                     pw = unicode(pw, 'UTF-8')
                 except UnicodeDecodeError:
                     pw = unicode(pw, 'ISO-8859-1')
-            return self.server.set_password(name, pw)
+            return self.server.set_password(name, pw, gpg_encrypted)
 
         elif row['change_type_id'] in (self.co.quarantine_add,
                                        self.co.quarantine_del,
