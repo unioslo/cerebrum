@@ -489,7 +489,7 @@ class EntityNameWithLanguage(Entity):
                                 int))
         if name is not None:
             if exact_match:
-                where.append(argument_to_sql(name, "eln.name", binds, unicode))
+                where.append(argument_to_sql(name, "eln.name", binds, str))
             else:
                 name_pattern = prepare_string(name)
                 if name_pattern.count('%') == 0:

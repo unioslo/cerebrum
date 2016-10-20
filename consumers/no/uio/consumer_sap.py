@@ -666,7 +666,10 @@ def update_titles(database, source_system, hr_person, cerebrum_person):
             _stringify_for_log(e), cerebrum_person.entity_id))
 
     for e in titles - set(hr_person.get(u'titles')):
-        cerebrum_person.delete_name_with_language(**dict(e))
+        # TODO: Un-WTF-o-rama-this after/during the unicode epic
+        kwargs = dict(e)
+        kwargs[u'name'] = kwargs.get(u'name').encode(u'UTF-8')
+        cerebrum_person.delete_name_with_language(**kwargs)
         logger.debug(u'Removing title {} for id:{}'.format(
             _stringify_for_log(e), cerebrum_person.entity_id))
 
