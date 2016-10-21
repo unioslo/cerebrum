@@ -111,6 +111,11 @@ class PasswordNotifierConfig(Configuration):
         default='pw_notifications',
         doc=u'The trait to be set for notification')
 
+    follow_trait = ConfigDescriptor(
+        Setting,
+        default='pw_notifications',
+        doc=u'The trait to base deadlines on')
+
     except_trait = ConfigDescriptor(
         Setting,
         default='autopass_except',
