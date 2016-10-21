@@ -428,19 +428,21 @@ def quarantine_add(msg, subj, *args):
     # co = Factory.get('Constants')(args[-1])
     # tp = msg['data']['q_type']
     # TODO: Quarantine handler
-    return scim.Event(scim.ACTIVATE,
+    return scim.Event(scim.DEACTIVATE,
                       subject=subj)
 
 
 @dispatch('quarantine', 'del')
 def quarantine_del(msg, subj, *args):
-    return scim.Event(scim.DEACTIVATE,
+    return scim.Event(scim.ACTIVATE,
                       subject=subj)
 
 
 @dispatch('quarantine', 'mod')
 def quarantine_mod(msg, subj, *args):
-    return scim.Event(scim.DEACTIVATE,
+    # TBD: Is this really ACTIVATE? Or is it DEACTIVATE? Is this relative to
+    # the point in time the quarantine should be enforced?
+    return scim.Event(scim.ACTIVATE,
                       subject=subj)
 
 # TODO: What to translate to?
