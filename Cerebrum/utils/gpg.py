@@ -50,7 +50,6 @@ def get_gpgme_context(ascii_armor=True, gnupghome=None):
     ctx.set_engine_info(gpgme.PROTOCOL_OpenPGP, None, home)
     if ascii_armor:
         ctx.armor = True
-        ctx.textmode = True
     return ctx
 
 
