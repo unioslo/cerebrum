@@ -21,9 +21,10 @@
 """Mixin for saving account passwords as GPG data."""
 
 from Cerebrum.Account import Account
+from Cerebrum.modules.gpg.data import EntityGPGData
 
 
-class AccountPasswordEncrypterMixin(Account):
+class AccountPasswordEncrypterMixin(Account, EntityGPGData):
     """Mixin for saving passwords as GPG data."""
     def set_password(self, plaintext):
         super(AccountPasswordEncrypterMixin, self).set_password(plaintext)
