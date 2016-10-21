@@ -41,8 +41,8 @@ from Cerebrum.Entity import (EntityName,
 from Cerebrum import Errors
 from Cerebrum.Utils import (NotSet,
                             argument_to_sql,
-                            prepare_string,
-                            gpgme_encrypt)
+                            prepare_string)
+from Cerebrum.utils.gpg import gpgme_encrypt
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough)
 from Cerebrum.modules.password_generator.generator import PasswordGenerator
@@ -995,21 +995,20 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         # criteria.
         try:
             password_str = self.__plaintext_password
-            if hasattr(cereconf, 'PASSWORD_GPG_RECIPIENT_ID'):
-                password_str = 'GPG:{encrypted_password}'.format(
-                    encrypted_password=base64.b64encode(
-                        gpgme_encrypt(self.__plaintext_password)))
         except AttributeError:
             # TODO: this is meant to catch that self.__plaintext_password is
-            # unset
+            # unset, trying to use hasattr() instead will surprise you
             pass
         else:
             # self.__plaintext_password is set.  Put the value in the
-            # changelog.
+            # changelog if the configuration tells us to.
+            change_params = None
+            if cereconf.PASSWORD_PLAINTEXT_IN_CHANGE_LOG:
+                change_params = {'password': self.__plaintext_password}
             self._db.log_change(self.entity_id,
                                 self.const.account_password,
                                 None,
-                                change_params={'password': password_str})
+                                change_params=change_params)
         # Store the authentication data.
         for k in self._acc_affect_auth_types:
             k = int(k)

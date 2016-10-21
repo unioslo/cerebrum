@@ -38,7 +38,8 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import Constants
-from Cerebrum.Utils import Factory, read_password, gpgme_decrypt
+from Cerebrum.Utils import Factory, read_password
+from Cerebrum.utils.gpg import gpgme_decrypt
 from datasource import BasicAccountSource, BasicPersonSource
 from dbtools import DatabaseTools
 from datasource import expired_filter, nonexpired_filter

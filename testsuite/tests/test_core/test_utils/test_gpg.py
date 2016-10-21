@@ -27,14 +27,9 @@ import unittest
 
 import cerebrum_path
 import cereconf
-from Cerebrum import Errors
-from Cerebrum import Utils
-from Cerebrum import Constants
-from Cerebrum.Utils import Factory, read_password, gpgme_encrypt, gpgme_decrypt
+from Cerebrum.utils.gpg import gpgme_encrypt, gpgme_decrypt
 
 
-@unittest.skipIf(not hasattr(cereconf, 'PASSWORD_GPG_RECIPIENT_ID'),
-                 'GnuPG encryption not enabled for this instance')
 class GnuPGPasswordTest(unittest.TestCase):
     """
     Test cases for GPG-passwords
@@ -47,16 +42,24 @@ class GnuPGPasswordTest(unittest.TestCase):
         random_prefix = u''.join(random.choice(uni_chars) for _ in range(32))
         self.rnd_password_unicode = random_prefix + 'æøå'.decode('utf-8')
         self.rnd_password_str = self.rnd_password_unicode.encode('utf-8')
+        # our test key
+        self.recipient_key_id = '06B0A991A41F3955F1DFD524D04D25F75D4C1CC4'
 
     def test_gnupg_encrypt_decrypt(self):
         """
         Tests GnuPG encryption and decryption
         """
         # test for unicode input
-        ciphertext_for_unicode = gpgme_encrypt(self.rnd_password_unicode)
-        ciphertext_for_unicode2 = gpgme_encrypt(self.rnd_password_unicode)
+        ciphertext_for_unicode = gpgme_encrypt(
+            message=self.rnd_password_unicode,
+            recipient_key_id=self.recipient_key_id)
+        ciphertext_for_unicode2 = gpgme_encrypt(
+            message=self.rnd_password_unicode,
+            recipient_key_id=self.recipient_key_id)
         # test for bytestring input
-        ciphertext_for_str = gpgme_encrypt(self.rnd_password_str)
+        ciphertext_for_str = gpgme_encrypt(
+            message=self.rnd_password_str,
+            recipient_key_id=self.recipient_key_id)
         # test for decrypt of unicode
         self.assertEqual(self.rnd_password_unicode,
                          gpgme_decrypt(ciphertext_for_unicode).decode('utf-8'),

@@ -78,6 +78,8 @@ CLASS_ACCOUNT = (
     'Cerebrum.modules.AuthPGP/AuthPGPAccountMixin',
     'Cerebrum.modules.Email/AccountEmailMixin',
     'Cerebrum.modules.Email/AccountEmailQuotaMixin',
+    'Cerebrum.modules.gpg.data/EntityGPGData',
+    'Cerebrum.modules.gpg.password/AccountPasswordEncrypterMixin',
 )
 
 CLASS_GROUP = (
@@ -103,7 +105,6 @@ CLASS_POSIXLDIF = ('Cerebrum.modules.no.uio.PosixLDIF/PosixLDIF_UiOMixin',
                    'Cerebrum.modules.PosixLDIF/PosixLDIF')
 
 {% if gnupgtest is defined %}
-#PASSWORD_GPG_RECIPIENT_ID = 'cerebrum-test-{{ config }}@uio.no'
-PASSWORD_GPG_RECIPIENT_ID = 'cerebrum-test@uio.no'
-PASSWORD_GNUPGHOME = '{{ gnupg_home_dir }}'
+PASSWORD_GPG_RECIPIENT_ID = '06B0A991A41F3955F1DFD524D04D25F75D4C1CC4'
+GNUPGHOME = '{{ gnupg_home_dir }}'
 {% endif %}

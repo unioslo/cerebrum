@@ -3,7 +3,6 @@ test_core/test_core_Account.py
 test_core/test_core_Constants.py
 test_core/test_core_Database.py
 test_core/test_core_Entity
-test_core/test_core_GnuPG.py
 test_core/test_core_Group.py
 test_core/test_core_OU.py
 test_core/test_core_Utils.py
@@ -12,4 +11,5 @@ test_extended/test_bofhd_session.py
 test_extended/test_bofhd_utils.py
 test_extended/test_dns
 test_event
+test_gpg
 test_rest

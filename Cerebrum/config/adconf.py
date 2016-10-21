@@ -233,6 +233,11 @@ SYNCS = dict()
 #       ('ignore', None)
 #       ('move', 'OU=Deleted,OU=Cerebrum,DC=kaos,DC=local')
 #
+# - gpg_recipient_id (str):
+#   If passwords are stored using the Cerebrum.modules.gpg.data module, this
+#   must be set to the 40-bit recipient ID of the key that can be used
+#   for decryption on the AD server.
+#
 # - language (list):
 #   The different languages to use, ordered by priority. Used for instance for
 #   the Title attribute.
