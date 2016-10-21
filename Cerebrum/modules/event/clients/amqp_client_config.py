@@ -43,7 +43,7 @@ class BaseAMQPClientConfig(Configuration):
                             doc=u"Portnumber of broker")
 
     virtual_host = ConfigDescriptor(String,
-                                    default=u"no/uio/cerebrum",
+                                    default=u"/no/uio/cerebrum",
                                     doc=u"Vhost that queues and exchanges "
                                         "reside on")
 

@@ -26,6 +26,21 @@ import Cerebrum.ChangeLog
 __version__ = '1.0'
 
 
+def _pickle_change_params(encoding, cp):
+    """Utility function for converting unicode objects in pickled data."""
+    def encode(value):
+        if isinstance(value, unicode):
+            return value.encode(encoding)
+        else:
+            return value
+
+    if isinstance(cp, dict):
+        return pickle.dumps(
+            dict(map(lambda (k, v): (k, encode(v)), cp.items())))
+    else:
+        return pickle.dumps(cp)
+
+
 class EventLog(Cerebrum.ChangeLog.ChangeLog):
     """Class used for registring and managing events."""
     # TODO: Fix everything. The entire module is a hack. log_change()
@@ -68,11 +83,12 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
 
         if skip_event:
             return
-        # TODO: We call dumps.. UTF?
+
         self.events.append({'change_type_id': change_type_id,
                             'subject_entity': subject_entity,
                             'destination_entity': destination_entity,
-                            'change_params': pickle.dumps(change_params)})
+                            'change_params': _pickle_change_params(
+                                self.encoding, change_params)})
 
     def clear_log(self):
         """ Remove events in queue for writing. """

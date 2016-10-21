@@ -30,10 +30,11 @@ def consumer_callback(route, content_type, body):
     return True
 
 
-def _wrap_callback(callback_func, channel, method, header, body):
-    callback_func(method.routing_key, header.content_type, body)
-    # TODO: Always ack the message?
-    channel.basic_ack(delivery_tag=method.delivery_tag)
+def _wrap_callback(callback_func, requeue, channel, method, header, body):
+    if callback_func(method.routing_key, header.content_type, body):
+        channel.basic_ack(delivery_tag=method.delivery_tag)
+    else:
+        channel.basic_nack(delivery_tag=method.delivery_tag, requeue=requeue)
 
 
 def _cancel_callback(method_frame):
@@ -45,7 +46,7 @@ def _cancel_callback(method_frame):
 class ConsumingAMQP091Client(BaseAMQP091Client):
     """AMQP 0.9.1 consuming client."""
 
-    def __init__(self, config, callback_func=consumer_callback):
+    def __init__(self, config, callback_func=consumer_callback, requeue=True):
         """Init the consuming Pika AMQP 0.9.1 wrapper client.
 
         :type config: AMQPClientConsumerConfig
@@ -53,18 +54,28 @@ class ConsumingAMQP091Client(BaseAMQP091Client):
 
         :type callback_func: function
         :param callback_func: Routing key, content type and message body.
+
+        :type requeue: bool
+        :param requeue: If failed processing should result in requeueing of
+            the message (default: True).
         """
         super(ConsumingAMQP091Client, self).__init__(config)
-
-        self.channel.add_on_cancel_callback(_cancel_callback)
-        self.channel.basic_consume(functools.partial(_wrap_callback,
-                                                     callback_func),
-                                   queue=config.queue,
-                                   no_ack=config.no_ack,
-                                   consumer_tag=config.consumer_tag)
+        self.config = config
+        self.callback_func = callback_func
+        self.requeue = requeue
 
     def start(self):
+        """Start consuming messages."""
+        self.channel.add_on_cancel_callback(_cancel_callback)
+        self.channel.basic_consume(functools.partial(_wrap_callback,
+                                                     self.callback_func,
+                                                     self.requeue),
+                                   queue=self.config.queue,
+                                   no_ack=self.config.no_ack,
+                                   consumer_tag=self.config.consumer_tag)
+
         self.channel.start_consuming()
 
     def stop(self):
+        """Stop consuming messages."""
         self.channel.stop_consuming()
