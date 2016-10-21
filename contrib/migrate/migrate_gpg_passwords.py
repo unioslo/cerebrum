@@ -59,8 +59,7 @@ def migrate_passwords(db):
         password_str = params.get('password', '')
         if password_str.startswith('GPG:'):
             stats['gpg-password'] += 1
-            gpg_b64 = password_str[4:]
-            gpg_message = base64.b64decode(gpg_b64)
+            gpg_message = password_str[4:]
         else:
             stats['non-gpg-password'] = 1
             continue
