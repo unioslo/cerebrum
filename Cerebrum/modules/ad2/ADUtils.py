@@ -1435,7 +1435,7 @@ class ADclient(PowershellClient):
         # Encrypted passwords will be handled differently (decrypted) on the
         # AD-side (Windows server - side).
         if gpg_encrypted:
-            if not password.startswith('-----BEGIN PGP MESSAGE-----\n'):
+            if password.startswith('-----BEGIN PGP MESSAGE-----\n'):
                 password = base64.b64encode(password)
             enc_passwd_dir = """C:\passwords"""  # paranoia
             if (
