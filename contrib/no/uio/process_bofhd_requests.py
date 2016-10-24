@@ -672,8 +672,8 @@ def proc_sympa_create(request):
     try:
         listname = get_address(request["entity_id"])
     except Errors.NotFoundError:
-        logger.warn("Sympa list address %s is deleted! No need to create",
-                    listname)
+        logger.warn("Sympa list address id:%s is deleted! No need to create",
+                    request["entity_id"])
         return True
 
     try:
