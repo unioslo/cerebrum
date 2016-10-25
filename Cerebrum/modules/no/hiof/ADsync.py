@@ -293,8 +293,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             if not dry_run:
                 self.logger.info("created user %s", ret)
 
-            pw = unicode(self.ac.make_passwd(chg['sAMAccountName']),
-                         'iso-8859-1')
+            pw = self.ac.make_passwd(chg['sAMAccountName'])
             ret = self.run_cmd('setPassword', dry_run, pw)
             if not ret[0]:
                 self.logger.warning(

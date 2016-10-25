@@ -548,8 +548,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     chg['sAMAccountName'],
                     ret[2],
                     dry_run)
-            pw = unicode(self.ac.make_passwd(chg['sAMAccountName']),
-                         'iso-8859-1')
+            pw = self.ac.make_passwd(chg['sAMAccountName'])
             ret = self.run_cmd('setPassword', dry_run, pw)
             if not ret[0]:
                 self.logger.warning("setPassword on %s failed: %s",
