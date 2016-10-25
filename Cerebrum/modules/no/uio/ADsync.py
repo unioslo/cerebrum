@@ -441,7 +441,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             params = pickle.loads(row["change_params"])
             passwd = params["password"]
         except (StopIteration, AttributeError, KeyError, TypeError):
-            passwd = unicode(self.ac.make_passwd(uname), "iso-8859-1")
+            passwd = self.ac.make_passwd(uname)
         return passwd
         
     

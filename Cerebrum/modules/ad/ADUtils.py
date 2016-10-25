@@ -346,7 +346,12 @@ class ADUserUtils(ADUtils):
         self.logger.info("created user %s with sid %s", uname, sid)
 
         # Set password
-        pw = unicode(self.ac.make_passwd(uname), cereconf.ENCODING)
+        try:
+            # For most instances self.ac.make_passwd(uname) will return
+            # unicode
+            pw = unicode(self.ac.make_passwd(uname), cereconf.ENCODING)
+        except (TypeError, UnicodeDecodeError):
+            pw = self.ac.make_passwd(uname)
         self.run_cmd("setPassword", pw)
 
         # Set properties. First remove any properties that cannot be set like this

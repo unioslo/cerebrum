@@ -315,7 +315,7 @@ def create_user(elem):
     # temporary password is registered for all created accounts
     # this password wil be overridden by adpwdsync
     #
-    pw = unicode(ac.make_passwd(elem['sAMAccountName']), 'iso-8859-1')
+    pw = ac.make_passwd(elem['sAMAccountName'])
     ret = run_cmd('setPassword', pw)
     if ret[0]:
         del elem['type']
