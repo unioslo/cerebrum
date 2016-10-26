@@ -581,7 +581,7 @@ def process_person_callback(person_info):
                     subtype = co.affiliation_status_student_evu
                 elif row['studierettstatkode'] == 'FULLFØRT':
                     subtype = co.affiliation_status_student_alumni
-                elif int(row['studienivakode']) >= 980:
+                elif int(row['studienivakode']) >= 900:
                     subtype = co.affiliation_status_student_drgrad
                 elif _is_new_admission(row.get('dato_studierett_tildelt')):
                     subtype = co.affiliation_status_student_ny
