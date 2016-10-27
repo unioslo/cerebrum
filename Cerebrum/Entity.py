@@ -1561,21 +1561,3 @@ class EntityExternalId(Entity):
         except Errors.NotFoundError:
             if value is not None:
                 self._set_external_id(sys_cache, variant, value)
-
-
-# TODO: OBSOLETE.  use Entity.get_subclassed_object()
-def object_by_entityid(id, database):
-    """Instanciates and returns a object of the proper class
-       based on the entity's type."""
-    entity = Entity(database)
-    entity.find(id)
-    # nice - convert from almost-int to int to EntityTypeCode to str
-    type = str(_EntityTypeCode(int(entity.entity_type)))
-    try:
-        component = Factory.type_component_map.get(type)
-    except KeyError:
-        raise ValueError("No component for type %s" % type)
-    Class = Factory.get(component)
-    object = Class(database)
-    object.find(id)
-    return object
