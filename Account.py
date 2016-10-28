@@ -95,6 +95,36 @@ class AccountUiTMixin(Account.Account):
         return [username]
 
 
+    # kbj005/H2016
+    # Temporary addition to use while running old and new Cerebrum in parallel.
+    # Based on code in Cerebrum.Account/Account.set_password()
+    # 
+    # TODO: revert/remove all things "labelled" with kbj005/H2016 when we no longer need this.
+    def set_auth_data(self, auth_data):
+        # auth_data contains rows with the password in different encryptions
+        # each row contains ['method' : <method code>, 'auth_data' : <auth_data>]
+        for row in auth_data:
+            method = self.const.human2constant(int(row["method"]))
+            if method not in self._acc_affect_auth_types:
+                self._acc_affect_auth_types.append(method)
+            if not self.wants_auth_type(method):
+                # affect_auth_types is set above, so existing entries
+                # which are unwanted for this account will be removed.
+                #
+                # HOWEVER, removing a method from AUTH_CRYPT_METHODS
+                # will not cause deletion of the associated auth_data
+                # upon next password change, the auth_data for that
+                # method will stick around as stale data.
+                #
+                # So to stop storing a method, you'll either have to
+                # clean it out from the database manually, or you'll
+                # have to decline it in wants_auth_data until it's all
+                # gone.
+                continue
+            enc = row["auth_data"]
+            self.populate_authentication_type(method, enc)
+    # kbj005/H2016
+
     def encrypt_password(self, method, plaintext, salt=None):
         """
         Support UiT added encryption methods, for other methods call super()
