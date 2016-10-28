@@ -1,3 +1,8 @@
+2016-10-28  Karen   <cerebrum@metius.uit.no>
+
+    * Account.py (AccountUiTMixin.set_auth_data): Added temporarily. For use while running old 
+    and new Cerebrum in parallel.
+
 2016-10-03  Karen   <cerebrum@metius.uit.no>
 
     * Account.py (AccountUiTMixin): Now using md5 from the hashlib library instead of the deprecated md5 library.
