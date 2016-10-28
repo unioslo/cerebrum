@@ -1,3 +1,7 @@
+2016-10-28  Karen   <cerebrum@cleomedes.uit.no>
+    
+    * process_sito_email.py (process_mail): Now using correct spread constant for account search.
+
 2016-10-20  Karen   <cerebrum@cleomedes.uit.no>
     
     * process_sito.py (create_sito_account): Made temporary changes to use while running old and 
