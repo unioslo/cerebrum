@@ -15,7 +15,7 @@ host = "caesar.uit.no"
 # class AccountBridge
 # 
 # Class to use for getting information about accounts from the existing 
-# Cerebrum database on Caesar for use when adding accounts to the new Cerebrum
+# Cerebrum database on Caesar. For use when adding accounts to the new Cerebrum
 # database on Clavius.
 #
 # Use 'with' to instantiate the class, thus avoiding the need to close the database connection explicitly.
@@ -198,3 +198,56 @@ class AccountBridge:
             logger.error("Couldn't get email address, no connection to %s database on %s." % (database, host))
 
         return email
+
+    # get_email_aliases(self, username)
+    # 
+    # Gets email aliases for account with the given username and returns them as a list.
+    # Returns an empty list if something goes wrong, or no aliases are found.
+    # 
+    # Note: the returned list will not contain primary email address.
+    # 
+    def get_email_aliases(self, username):
+        aliases = list()
+        if self._db_conn:
+            cur = self._db_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            query = "SELECT address_id, local_part, domain_id FROM email_address \
+                     WHERE target_id = \
+                        (SELECT target_id FROM email_target \
+                         WHERE target_entity_id = \
+                            (SELECT entity_id FROM entity_name \
+                             WHERE entity_name = '%s'));" % username
+            cur.execute(query)
+            rows = cur.fetchall()
+
+            if len(rows) > 0:
+                # get address_id of primary email address
+                query = "SELECT address_id FROM email_primary_address \
+                         WHERE target_id = \
+                            (SELECT target_id FROM email_target \
+                             WHERE target_entity_id = \
+                                (SELECT entity_id FROM entity_name \
+                                 WHERE entity_name = '%s'));" % username
+                cur.execute(query)
+                primary_row = cur.fetchone()
+                primary_id = primary_row['address_id']
+
+                for row in rows:
+                    if row['address_id'] != primary_id: # Don't add primary address
+                        # get domain for this email address from Caesar database
+                        query = "SELECT domain FROM email_domain WHERE domain_id = %s;" % row["domain_id"]
+                        cur.execute(query)
+                        dom_row = cur.fetchone()
+
+                        if dom_row != None:
+                            email = row['local_part'] + "@" + dom_row["domain"]
+                            aliases.append(email)
+            else:
+                logger.warn("Email information not found for %s" % username)
+
+            cur.close()
+        else:
+            logger.error("Couldn't get email aliases, no connection to %s database on %s." % (database, host))
+
+        return aliases
+
+

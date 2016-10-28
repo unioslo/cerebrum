@@ -1,5 +1,7 @@
 2016-10-28  Karen   <cerebrum@metius.uit.no>
 
+    * account_bridge.py: Added get_email_aliases().
+
     * Account.py (AccountUiTMixin.set_auth_data): Added temporarily. For use while running old 
     and new Cerebrum in parallel.
 
