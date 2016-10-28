@@ -1,5 +1,8 @@
 2016-10-28  Karen   <cerebrum@cleomedes.uit.no>
     
+    * process_sito_email.py: Made temporary changes to use while running old and new Cerebrum 
+    in parallel: email and email aliases for new accounts are copied from old Cerebrum.
+
     * process_sito_email.py (process_mail): Now using correct spread constant for account search.
 
 2016-10-20  Karen   <cerebrum@cleomedes.uit.no>
