@@ -831,6 +831,7 @@ class Factory(object):
         'email_target': 'EmailTarget',
     }
 
+    @staticmethod
     def get(comp):
         components = {'Entity': 'CLASS_ENTITY',
                       'OU': 'CLASS_OU',
@@ -938,6 +939,7 @@ class Factory(object):
             raise ValueError("Invalid import spec for component %s: %r" %
                              (name, import_spec))
 
+    @staticmethod
     def get_logger(name=None):
         """Return THE cerebrum logger.
 
@@ -949,61 +951,6 @@ class Factory(object):
         cerelog.setup_warnings(getattr(cereconf, 'PYTHONWARNINGS', None) or [])
 
         return cerelog.get_logger(cereconf.LOGGING_CONFIGFILE, name)
-
-    def get_module(comp):
-        components = {'ClientAPI': 'MODULE_CLIENTAPI'}
-
-        if comp in Factory.class_cache:
-            return Factory.class_cache[comp]
-
-        try:
-            conf_var = components[comp]
-        except KeyError:
-            raise ValueError("Unknown component %r" % comp)
-
-        import_spec = getattr(cereconf, conf_var)
-        if isinstance(import_spec, (tuple, list)):
-            bases = []
-            for mod_name in import_spec:
-                mod = dyn_import(mod_name)
-                bases.append(mod)
-            if len(bases) == 1:
-                comp_module = bases[0]
-            else:
-                # Dynamically construct a new module that inherits from
-                # all the specified modules.  The name of the created
-                # module is the same as the component name with a
-                # prefix of "_dynamic_"
-                comp_module = new.module('_dynamic_' + comp)
-                # Join namespaces, latest first
-                for module in bases:
-                    for (key, value) in module.__dict__:
-                        # Only set it if it isn't there already
-                        comp_module.setdefault(key, value)
-
-            Factory.class_cache[comp] = comp_module
-            return comp_module
-        else:
-            raise ValueError("Invalid import spec for component %s: %r" %
-                             (comp, import_spec))
-
-    # static methods
-    get = staticmethod(get)
-    get_logger = staticmethod(get_logger)
-    get_module = staticmethod(get_module)
-
-
-# TODO: Track down the author, ask what the comment means and update it
-class fool_auto_super(object):
-
-    """auto_super's .__super attribute should never continue beyond this class.
-    self.__super = fool_auto_super()
-    """
-
-    def __getattr__(self, attr):
-        def no_op(*args, **kws):
-            pass
-        return no_op
 
 
 def random_string(length, characters=ascii_lowercase + digits):
