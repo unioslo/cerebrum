@@ -151,7 +151,7 @@ def main(args=None):
         'name',
         help="Generate report on differences in names.")
     name_command.set_defaults(func=compare_names)
-    name_command.set_defaults(check_system=co.system_cached)
+    name_command.set_defaults(check_system=co.system_sap)
     name_command.add_argument(
         'source_system',
         type=partial(argparse_const, db, co.AuthoritativeSystem))
