@@ -445,9 +445,6 @@ data_files = [
     ({'path': bindir,
       'owner': cerebrum_user,
       'mode': 0755}, bin_files),
-    ({'path': "%s/cerebrum/client" % sharedir,
-      'owner': cerebrum_user,
-      'mode': 0755}, share_files),
     ({'path': sysconfdir,
       'owner': cerebrum_user,
       'mode': 0755},
@@ -526,7 +523,6 @@ setup(
         'Cerebrum/modules/abcenterprise',
         'Cerebrum/modules/process_entity',
         'Cerebrum/lib',
-        'Cerebrum/client',
         'Cerebrum/modules/LMS',
         'Cerebrum/modules/virthome',
         'Cerebrum/modules/cis',
@@ -542,7 +538,7 @@ setup(
     # 'install_dir': '/dddddddd' # prefix on no-slash
     #                            }},
     # data_files doesn't seem to handle wildcards
-    data_files = data_files,
+    data_files=data_files,
 
     # Overridden command classes
     cmdclass={

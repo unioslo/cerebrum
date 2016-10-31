@@ -199,10 +199,6 @@ CLASS_ALLOCATION_PERIOD = ['Cerebrum.modules.Hpc/AllocationPeriod']
 # here need to be strings too.
 OUS_WITHOUT_PARENT = []
 
-# Which module(s) to use as ClientAPI
-# (use Cerebrum.Utils.Factory.get_module("ClientAPI")
-MODULE_CLIENTAPI = ['Cerebrum.client.BofhModel']
-
 # URL to bofh server
 BOFH_URL = 'http://127.0.0.1:8000'
 
