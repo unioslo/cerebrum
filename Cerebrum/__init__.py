@@ -21,7 +21,7 @@ from __future__ import print_function
 
 
 # Current Cerebrum version as a (major, minor, micro) tuple.
-_version = (0, 9, 17)
+_version = (0, 9, 18)
 
 __version__ = ".".join(map(str, _version))
 

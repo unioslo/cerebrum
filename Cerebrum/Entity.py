@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2009 University of Oslo, Norway
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,14 +35,12 @@ from Cerebrum.Utils import to_unicode
 
 
 class Entity(DatabaseAccessor):
-
     """Class for generic access to Cerebrum entities.
 
     An instance of this class (or any of its subclasses) can associate
     with a Cerebrum entity.  Some of the methods defined here are not
     meaningful before such an association has been performed (TODO:
     raise exception?).
-
     """
 
     __metaclass__ = Utils.mark_update
@@ -142,7 +140,6 @@ class Entity(DatabaseAccessor):
 
         If you want to populate instances with data found in the
         Cerebrum database, use the .find() method.
-
         """
         if not self.__updated:
             return
@@ -254,7 +251,6 @@ class Entity(DatabaseAccessor):
 
 
 class EntitySpread(Entity):
-
     "Mixin class, usable alongside Entity for entities having spreads."
 
     def delete(self):
@@ -351,7 +347,6 @@ class EntitySpread(Entity):
 
 
 class EntityName(Entity):
-
     "Mixin class, usable alongside Entity for entities having names."
 
     def delete(self):
@@ -443,7 +438,6 @@ class EntityName(Entity):
 
 
 class EntityNameWithLanguage(Entity):
-
     """Mixin class for dealing with name-with-language data in Cerebrum.
 
     This mixin adds support for adorning entities with (potentially) non-unique
@@ -645,7 +639,6 @@ class EntityNameWithLanguage(Entity):
         @rtype: db-rows
         @return: Each row contains the element L{entity_id}, L{entity_type},
             L{name_variant}, L{name_language}, L{name}.
-
         """
         where = ["ei.entity_id = eln.entity_id", ]
         where2, binds = self._query_builder(entity_id, name_variant,
@@ -702,7 +695,6 @@ class EntityNameWithLanguage(Entity):
 
 
 class EntityContactInfo(Entity):
-
     "Mixin class, usable alongside Entity for entities having contact info."
 
     __read_attr__ = ('__data',)
