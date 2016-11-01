@@ -367,7 +367,12 @@ class PasswordNotifier(object):
     def remind_ok(self, account):
         """Returns true if it is time to remind"""
         n = self.get_num_notifications(account)
-        a_mapping = self.get_account_affiliation_mapping(account)
+
+        try:
+            a_mapping = self.get_account_affiliation_mapping(account)
+        except Errors.NotFoundError:
+            a_mapping = None
+
         if a_mapping is not None:
             reminder_delay_values = a_mapping['warn_before_expiration_days']
         else:
@@ -794,7 +799,11 @@ class SMSPasswordNotifier(PasswordNotifier):
 
     def remind_ok(self, account):
         """Returns true if it is time to remind"""
-        a_mapping = self.get_account_affiliation_mapping(account)
+        try:
+            a_mapping = self.get_account_affiliation_mapping(account)
+        except Errors.NotFoundError:
+            a_mapping = None
+
         if a_mapping is not None:
             reminder_delay_values = a_mapping['warn_before_expiration_days']
         else:
