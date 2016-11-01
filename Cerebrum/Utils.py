@@ -816,7 +816,7 @@ class Factory(object):
     module_cache = {}
 
     # mapping between entity type codes and Factory.get() components
-    # (user by Entity.object_by_entityid)
+    # used by Entity.get_subclassed_object
     type_component_map = {
         'ou': 'OU',
         'person': 'Person',
@@ -824,10 +824,6 @@ class Factory(object):
         'group': 'Group',
         'host': 'Host',
         'disk': 'Disk',
-        # exchange-relatert-jazz
-        # we would like to be able to do entity history on
-        # email_target-entities and therefore have to
-        # introduce a factory object representation of email_target
         'email_target': 'EmailTarget',
     }
 
@@ -845,13 +841,6 @@ class Factory(object):
                       'ChangeLog': 'CLASS_CHANGELOG',
                       'DBDriver': 'CLASS_DBDRIVER',
                       'EmailLDAP': 'CLASS_EMAILLDAP',
-                      # exchange-relatert-jazz we would like to be
-                      # able to do entity history on
-                      # email_target-entities and therefore have to
-                      # introduce a factory object representation of
-                      # email_target.
-                      # exchange-related-jsama Defined CLASS_EMAILTARGET
-                      # since I want to have the quota mixin functionality :)
                       'EmailTarget': 'CLASS_EMAILTARGET',
                       'OrgLDIF': 'CLASS_ORGLDIF',
                       'PosixExport': 'CLASS_POSIXEXPORT',

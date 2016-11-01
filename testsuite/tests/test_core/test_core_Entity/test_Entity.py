@@ -124,22 +124,3 @@ def test_get_subclassed_object(database, factory, Entity, entity_type):
     entity = base.get_subclassed_object()
     assert type(entity) != type(base)
     assert type(entity) == Entity
-
-
-def test_object_by_id(database, factory, Entity, entity_type):
-    from Cerebrum.Entity import object_by_entityid
-
-    # patch class into factory class cache
-    factory_name = 'e3dc9cb2d58bdbda'
-    factory.class_cache[factory_name] = Entity
-    factory.type_component_map[str(entity_type)] = factory_name
-
-    # Make entity of entity_type
-    en = Entity(database)
-    en.populate(entity_type)
-    en.write_db()
-
-    # test
-    entity = object_by_entityid(en.entity_id, database)
-    assert type(entity) == Entity
-    assert entity.entity_id == en.entity_id
