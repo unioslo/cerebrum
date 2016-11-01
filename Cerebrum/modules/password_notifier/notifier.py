@@ -774,14 +774,23 @@ class SMSPasswordNotifier(PasswordNotifier):
 
         self.person = Utils.Factory.get('Person')(db)
 
-    def get_notification_date(self, account):
-        try:
-            trait = account.get_trait(
-                self.constants.EntityTrait(self.config.trait))
-        except (Errors.NotFoundError, TypeError):
-            return None
-        else:
-            return trait['date'] if trait else None
+    def get_deadline(self, account):
+        """ Calculates the deadline for password change.
+
+        The returned datetime is when the account should be terminated.
+
+        :param Cerebrum.Account account:
+            The account to fetch a deadline time for.
+
+        :return DateTime:
+            Returns the deadline datetime.
+        """
+        trait = account.get_trait(
+            self.constants.EntityTrait(self.config.follow_trait))
+        d = trait['date'] if trait else None
+        if d is None:
+            d = self.today
+        return d + dt.DateTimeDelta(self.config.grace_period)
 
     def remind_ok(self, account):
         """Returns true if it is time to remind"""
@@ -791,7 +800,7 @@ class SMSPasswordNotifier(PasswordNotifier):
         else:
             reminder_delay_values = self.config.reminder_delay_values
 
-        if (self.get_notification_date(account) == self.today or
+        if (self.get_notification_time(account) == self.today or
                 (self.get_num_notifications(account) >=
                  len(reminder_delay_values))):
             return False
