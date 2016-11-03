@@ -22,7 +22,7 @@
 category:metainfo;
 name=email;
 category:metainfo;
-version=1.4;
+version=1.5;
 
 category:code/Oracle;
 CREATE ROLE read_mod_email NOT IDENTIFIED;
