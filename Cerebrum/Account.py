@@ -335,7 +335,10 @@ class AccountHome(object):
     def clear_home(self, spread):
         """Clears home for a spread. Removes homedir if no other
         home uses it."""
-        ah = self.get_home(spread)
+        try:
+            ah = self.get_home(spread)
+        except Errors.NotFoundError:
+            return
         old_home = self.resolve_homedir(disk_id=ah['disk_id'],
                                         home=ah['home'],
                                         spread=spread)
