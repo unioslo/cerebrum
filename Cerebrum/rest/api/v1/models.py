@@ -1,5 +1,6 @@
-# coding: utf-8
+# -*- coding: utf-8 -*-
 """ API models. """
+
 from Cerebrum.rest.api import fields
 
 from . import api
@@ -26,6 +27,8 @@ EntityContactInfo = api.model('EntityContactInfo', {
     'source_system': fields.Constant(
         ctype='AuthoritativeSystem',
         description='Source system'),
+    'last_modified': fields.DateTime(dt_format='iso8601',
+                                     description='Last modified timestamp'),
 })
 
 EntityContactInfoList = api.model('EntityContactInfoList', {
