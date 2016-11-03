@@ -662,6 +662,8 @@ def migrate_to_rel_0_9_18():
                              {'change_type_id': int(co.entity_cinfo_add)})
     print('Processing {count} CL-entries'.format(count=len(cl_entry_rows)))
     for row in cl_entry_rows:
+        if not row.get('change_params'):
+            continue
         params = cPickle.loads(row['change_params'])
         update_query = (
             'UPDATE [:table schema=cerebrum name=entity_contact_info] '
