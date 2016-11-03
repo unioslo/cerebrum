@@ -71,7 +71,6 @@ class DistributionGroup(Group_class):
                  visibility=None,
                  name=None,
                  description=None,
-                 create_date=None,
                  expire_date=None,
                  roomlist=None,
                  hidden=None,
@@ -93,9 +92,6 @@ class DistributionGroup(Group_class):
         :type description:
         :param description:
 
-        :type create_date:
-        :param create_date:
-
         :type expire_date:
         :param expire_date:
 
@@ -111,10 +107,12 @@ class DistributionGroup(Group_class):
         if parent is not None:
             self.__xerox__(parent)
         else:
-            super(DistributionGroup, self).populate(creator_id, visibility,
-                                                    name, description,
-                                                    create_date,
-                                                    expire_date)
+            super(DistributionGroup, self).populate(
+                creator_id=creator_id,
+                visibility=visibility,
+                name=name,
+                description=description,
+                expire_date=expire_date)
         self.__in_db = False
         self.roomlist = roomlist
         self.hidden = hidden
@@ -167,21 +165,19 @@ class DistributionGroup(Group_class):
             visibility,
             name,
             description=None,
-            create_date=None,
             expire_date=None,
             roomlist=None,
             hidden=None):
         """
         """
         DistributionGroup.populate(self,
-                                   creator_id,
-                                   visibility,
-                                   name,
-                                   description,
-                                   create_date,
-                                   expire_date,
-                                   roomlist,
-                                   hidden)
+                                   creator_id=creator_id,
+                                   visibility=visibility,
+                                   name=name,
+                                   description=description,
+                                   expire_date=expire_date,
+                                   roomlist=roomlist,
+                                   hidden=hidden)
         DistributionGroup.write_db(self)
 
     def find(self, group_id):

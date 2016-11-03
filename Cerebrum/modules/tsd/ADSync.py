@@ -467,7 +467,7 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
         ent = CerebrumGroup(self.logger, self.config, entity_id, entity_name,
                             data['description'])
         # Feed the entity with the given data:
-        for key in ('entity_type', 'create_date', 'foundation',
+        for key in ('entity_type', 'created_at', 'foundation',
                     'foundation_date'):
             setattr(ent, key, data[key])
         if data['entity_type'] == self.co.entity_hostpolicy_atom:

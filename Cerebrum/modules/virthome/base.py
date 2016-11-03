@@ -303,7 +303,7 @@ class VirthomeUtils:
         @rtype: list 
         @return: A list with dictionaries, one dict per group membership.
                  Contain keys 'group_id', 'name', 'description', 'visibility',
-                 'creator_id', 'create_date', 'expire_date'
+                 'creator_id', 'created_at', 'expire_date'
         """
         gr = self.group_class(self.db)
         assert hasattr(account, 'entity_id')

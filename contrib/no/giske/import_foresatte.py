@@ -231,8 +231,7 @@ def register_group_memberships(acc_id, grpl):
             logger.debug("Could not find group %s, will try to create", i)
             group.clear()
             group.populate(default_creator_id, constants.group_visibility_all,
-                           i, description='Gruppe for foresatte',
-                           create_date='2008-08-17')
+                           i, description='Gruppe for foresatte')
             group.write_db()
             group.add_spread(constants.spread_ad_grp)
             logger.info("Created new group %s", i)

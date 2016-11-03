@@ -71,7 +71,7 @@ from Cerebrum import Errors
 
 import cereconf
 
-__version__ = "1.4"
+__version__ = "1.5"
 
 
 class _EmailTargetCode(Constants._CerebrumCode):
@@ -1071,8 +1071,8 @@ class EmailAddress(Entity_class):
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=email_address]
               (address_id, local_part, domain_id, target_id,
-               create_date, change_date, expire_date)
-            VALUES (:a_id, :lp, :d_id, :t_id, [:now], [:now], :expire)""",
+               change_date, expire_date)
+            VALUES (:a_id, :lp, :d_id, :t_id, [:now], :expire)""",
                          {'a_id': self.entity_id,
                           'lp': self.email_addr_local_part,
                           'd_id': self.email_addr_domain_id,

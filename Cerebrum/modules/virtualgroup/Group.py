@@ -33,15 +33,14 @@ def populator(*types):
     def fn(meth):
         def make_populator(cls):
             def populate(self, creator_id=None, visibility=None, name=None,
-                         description=None, create_date=None, expire_date=None,
-                         parent=None, group_type='normal_group', **kw):
+                         description=None, expire_date=None, parent=None,
+                         group_type='normal_group', **kw):
                 """Populate group instance's attributes without database access
                 """
                 super(cls, self).populate(creator_id=creator_id,
                                           visibility=visibility,
                                           name=name,
                                           description=description,
-                                          create_date=create_date,
                                           expire_date=expire_date,
                                           group_type=group_type,
                                           parent=parent)
@@ -81,15 +80,14 @@ class VirtualGroup(Group):
         self.__updated = []
 
     def populate(self, creator_id=None, visibility=None, name=None,
-                 description=None, create_date=None, expire_date=None,
-                 parent=None, group_type='normal_group', **kw):
+                 description=None, expire_date=None, parent=None,
+                 group_type='normal_group', **kw):
         """Populate group instance's attributes without database access
         """
         super(VirtualGroup, self).populate(creator_id=creator_id,
                                            visibility=visibility,
                                            name=name,
                                            description=description,
-                                           create_date=create_date,
                                            expire_date=expire_date,
                                            parent=parent, **kw)
         if isinstance(group_type, self.const.VirtualGroup):

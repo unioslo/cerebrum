@@ -25,19 +25,19 @@ in Cfengine-configuration.
 
 import re
 
-import cerebrum_path, cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, prepare_string, argument_to_sql
 from Cerebrum.Entity import EntityName
 
 Entity_class = Factory.get("Entity")
 
+
 class PolicyComponent(EntityName, Entity_class):
     """Base class for policy component, i.e. roles and atoms."""
 
-    __read_attr__ = ('__in_db',)
+    __read_attr__ = ('__in_db', 'created_at')
     __write_attr__ = ('component_name', 'description', 'foundation',
-                      'create_date', 'foundation_date')
+                      'foundation_date')
 
     def __init__(self, db):
         super(PolicyComponent, self).__init__(db)
@@ -89,7 +89,8 @@ class PolicyComponent(EntityName, Entity_class):
         if 'component_name' in self.__updated:
             tmp = self.illegal_name(self.component_name)
             if tmp:
-                raise self._db.IntegrityError("Illegal component name: %s" % tmp)
+                raise self._db.IntegrityError(
+                    "Illegal component name: %s" % tmp)
         if 'description' in self.__updated:
             tmp = self.illegal_attr(self.description)
             if tmp:
@@ -98,7 +99,6 @@ class PolicyComponent(EntityName, Entity_class):
             tmp = self.illegal_attr(self.foundation)
             if tmp:
                 raise self._db.IntegrityError("Illegal foundation: %s" % tmp)
-        # TODO: should create_date and policy_date be validated?
 
         is_new = not self.__in_db
 
@@ -113,21 +113,18 @@ class PolicyComponent(EntityName, Entity_class):
             cols = [('entity_type', ':e_type'),
                     ('component_id', ':component_id'),
                     ('description', ':description'),
-                    ('foundation', ':foundation'),]
+                    ('foundation', ':foundation'), ]
             if self.foundation_date is not None:
                 cols.append(('foundation_date', ':foundation_date'))
             self.execute("""
-            INSERT INTO [:table schema=cerebrum name=hostpolicy_component] (%(tcols)s)
+            INSERT INTO [:table schema=cerebrum name=hostpolicy_component]
+                (%(tcols)s)
             VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                      'binds': ", ".join([x[1] for x in cols])},
                                     {'e_type': int(self.entity_type),
                                      'component_id': self.entity_id,
                                      'description': self.description,
                                      'foundation': self.foundation,
-                                     # The foundation_date might not be included
-                                     # in the binds, but it's safe to put it
-                                     # here in any case. If it's not in binds,
-                                     # it's not included from here.
                                      'foundation_date': self.foundation_date})
             self._db.log_change(self.entity_id, event, None)
             self.add_entity_name(self.const.hostpolicy_component_namespace,
@@ -141,29 +138,28 @@ class PolicyComponent(EntityName, Entity_class):
                 raise RuntimeError('Unknown entity_type=%s for entity_id=%s' %
                                    (self.entity_type, self.entity_id))
             cols = [('description', ':description'),
-                    ('foundation', ':foundation'),]
+                    ('foundation', ':foundation'), ]
             if self.foundation_date is not None:
                 cols.append(('foundation_date', ':foundation_date'))
-            if self.create_date is not None:
-                cols.append(('create_date', ':create_date'))
             self.execute("""
             UPDATE [:table schema=cerebrum name=hostpolicy_component]
             SET %(defs)s
             WHERE component_id=:component_id""" %
-                    {'defs': ", ".join(["%s=%s" % x for x in cols])},
-                    {'component_id': self.entity_id,
-                     'description': self.description,
-                     'create_date': self.create_date,
-                     'foundation': self.foundation,
-                     'foundation_date': self.foundation_date})
-            self._db.log_change(self.entity_id, event, None, change_params={
-                                    'description': self.description,
-                                    'foundation': self.foundation,
-                                    'foundation_date': str(self.foundation_date),
-                                    })
+                         {'defs': ", ".join(["%s=%s" % x for x in cols])},
+                         {'component_id': self.entity_id,
+                          'description': self.description,
+                          'foundation': self.foundation,
+                          'foundation_date': self.foundation_date})
+            self._db.log_change(
+                self.entity_id, event, None, change_params={
+                    'description': self.description,
+                    'foundation': self.foundation,
+                    'foundation_date': str(self.foundation_date),
+                })
             if 'component_name' in self.__updated:
-                self.update_entity_name(self.const.hostpolicy_component_namespace,
-                                        self.component_name)
+                self.update_entity_name(
+                    self.const.hostpolicy_component_namespace,
+                    self.component_name)
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -173,32 +169,33 @@ class PolicyComponent(EntityName, Entity_class):
         """Deletes this policy component from DB."""
         if self.__in_db:
             # TODO: if component is in any relationship or is used as a policy,
-            # what should be done? 
+            # what should be done?
             #
             #  1. raise exception self._db.IntegrityError
             #
             #  2. Delete the relationships and/or connection to host
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=hostpolicy_component]
-            WHERE component_id=:component_id""", 
-                                        {'component_id': self.entity_id})
+            WHERE component_id=:component_id""",
+                         {'component_id': self.entity_id})
             if self.entity_type == self.const.entity_hostpolicy_atom:
                 event = self.const.hostpolicy_atom_delete
             elif self.entity_type == self.const.entity_hostpolicy_role:
                 event = self.const.hostpolicy_role_delete
             else:
-                raise RuntimeError("Unknown entity_type=%s for entity_id=%s" %
-                                    (self.entity_type, self.entity_id))
+                raise RuntimeError(
+                    "Unknown entity_type=%s for entity_id=%s" % (
+                        self.entity_type, self.entity_id))
             self._db.log_change(self.entity_id, event, None)
         self.__super.delete()
 
     def find(self, component_id):
         """Fill this component instance with data from the database."""
         self.__super.find(component_id)
-        (self.description, self.create_date, self.foundation,
+        (self.description, self.foundation,
          self.foundation_date, self.component_name) = self.query_1(
-            """SELECT 
-                co.description, co.create_date, co.foundation,
+            """SELECT
+                co.description, co.foundation,
                 co.foundation_date, en.entity_name
             FROM
                 [:table schema=cerebrum name=hostpolicy_component] co,
@@ -208,7 +205,7 @@ class PolicyComponent(EntityName, Entity_class):
                 en.value_domain = :domain AND
                 co.component_id = :component_id
             """, {'component_id': component_id,
-                  'domain': self.const.hostpolicy_component_namespace,})
+                  'domain': self.const.hostpolicy_component_namespace, })
         try:
             del self.__in_db
         except AttributeError:
@@ -218,7 +215,8 @@ class PolicyComponent(EntityName, Entity_class):
         self.__updated = []
 
     def find_by_name(self, component_name):
-        self.__super.find_by_name(component_name, self.const.hostpolicy_component_namespace)
+        self.__super.find_by_name(
+            component_name, self.const.hostpolicy_component_namespace)
 
     def illegal_name(self, name):
         """Validate if a component's name is valid.
@@ -253,8 +251,8 @@ class PolicyComponent(EntityName, Entity_class):
             INSERT INTO [:table schema=cerebrum name=hostpolicy_host_policy]
               (dns_owner_id, policy_id)
             VALUES (:dns_owner, :policy_id)""",
-                {'dns_owner': int(dns_owner_id),
-                 'policy_id': self.entity_id})
+                     {'dns_owner': int(dns_owner_id),
+                      'policy_id': self.entity_id})
         self._db.log_change(dns_owner_id, self.const.hostpolicy_policy_add,
                             self.entity_id)
 
@@ -263,15 +261,17 @@ class PolicyComponent(EntityName, Entity_class):
         # TODO: anything to check before executing the change?
         self.execute("""
             DELETE FROM [:table schema=cerebrum name=hostpolicy_host_policy]
-            WHERE 
-                policy_id = :policy AND 
-                dns_owner_id = :dns_owner""", {'policy': self.entity_id, 
-                                               'dns_owner': dns_owner_id})
+            WHERE
+                policy_id = :policy AND
+                dns_owner_id = :dns_owner""",
+                     {'policy': self.entity_id,
+                      'dns_owner': dns_owner_id})
         self._db.log_change(dns_owner_id, self.const.hostpolicy_policy_remove,
                             self.entity_id)
 
     def search_hostpolicies(self, policy_id=None, policy_type=None,
-            dns_owner_id=None, host_name=None, indirect_relations=False):
+                            dns_owner_id=None, host_name=None,
+                            indirect_relations=False):
         """Search for hostpolicy relationships matching given criterias. By
         relationships we here mean policies "attached" to hosts.
 
@@ -281,8 +281,8 @@ class PolicyComponent(EntityName, Entity_class):
 
         @type policy_id: int or a sequence of ints
         @param policy_id:
-            The policy component IDs to search for. Only hostpolicies related to
-            the given policies will be returned.
+            The policy component IDs to search for. Only hostpolicies related
+            to the given policies will be returned.
 
             Note that if indirect_relations is True, the given policies' parent
             policies are included in the search, since the given policies could
@@ -298,9 +298,9 @@ class PolicyComponent(EntityName, Entity_class):
             Filter the search to only return hostpolicies related to the given
             host IDs.
 
-            Note that if indirect_relations is set to True, the hosts' policies'
-            children are also searched through, since these are indirectly
-            related to the given hosts.
+            Note that if indirect_relations is set to True, the hosts'
+            policies' children are also searched through, since these are
+            indirectly related to the given hosts.
 
         @type host_name: string
         @param host_name:
@@ -333,7 +333,7 @@ class PolicyComponent(EntityName, Entity_class):
         where = ['co.component_id = hp.policy_id',
                  'hp.dns_owner_id = dnso.dns_owner_id',
                  'en1.entity_id = hp.dns_owner_id',
-                 'en2.entity_id = hp.policy_id',]
+                 'en2.entity_id = hp.policy_id', ]
         binds = dict()
 
         if policy_id is not None:
@@ -346,11 +346,13 @@ class PolicyComponent(EntityName, Entity_class):
                 # making it a set to avoid searching for same policy twice
                 policy_id = set(policy_id)
 
-                policy_id.update(row['source_id'] for row in
-                                 self.search_relations(target_id=policy_id,
-                                    relationship_code=self.const.hostpolicy_contains,
-                                    indirect_relations=True))
-            where.append(argument_to_sql(policy_id, 'hp.policy_id', binds, int))
+                policy_id.update(
+                    row['source_id'] for row in self.search_relations(
+                        target_id=policy_id,
+                        relationship_code=self.const.hostpolicy_contains,
+                        indirect_relations=True))
+            where.append(
+                argument_to_sql(policy_id, 'hp.policy_id', binds, int))
         if dns_owner_id is not None:
             if indirect_relations:
                 # One way to do this is to fetch all the policies directly
@@ -359,13 +361,15 @@ class PolicyComponent(EntityName, Entity_class):
                 #
                 # TODO: How to do this recursively?
                 #
-                raise Exception('Recursive search by host is not implemented yet')
-            where.append(argument_to_sql(dns_owner_id, 'hp.dns_owner_id', binds,
-                                         int))
+                raise Exception(
+                    'Recursive search by host is not implemented yet')
+            where.append(
+                argument_to_sql(dns_owner_id, 'hp.dns_owner_id', binds, int))
         if host_name is not None:
             if indirect_relations:
                 # TODO: How to do this recursively?
-                raise Exception('Recursive search by host is not implemented yet')
+                raise Exception(
+                    'Recursive search by host is not implemented yet')
             where.append('(LOWER(en1.entity_name) LIKE :host_name)')
             binds['host_name'] = prepare_string(host_name)
         if policy_type is not None:
@@ -384,8 +388,8 @@ class PolicyComponent(EntityName, Entity_class):
               [:table schema=cerebrum name=dns_owner] dnso,
               [:table schema=cerebrum name=entity_name] en1,
               [:table schema=cerebrum name=entity_name] en2
-            WHERE 
-                %(where)s""" %  {'where': ' AND '.join(where)}, binds)
+            WHERE
+                %(where)s""" % {'where': ' AND '.join(where)}, binds)
 
     def search(self, entity_id=None, entity_type=None, description=None,
                name=None, create_start=None, create_end=None, foundation=None,
@@ -418,6 +422,7 @@ class PolicyComponent(EntityName, Entity_class):
         """
         # TODO: add fetchall as an option?
         where = ['en.entity_id = co.component_id']
+        where.append('ei.entity_id = co.component_id')
         binds = dict()
 
         # TODO: what about the namespace?
@@ -435,10 +440,10 @@ class PolicyComponent(EntityName, Entity_class):
             where.append('(LOWER(en.entity_name) LIKE :name)')
             binds['name'] = prepare_string(name)
         if create_start is not None:
-            where.append("(co.create_date >= :create_start)")
+            where.append("(ei.created_at >= :create_start)")
             binds['create_start'] = create_start
         if create_end is not None:
-            where.append("(co.create_date <= :create_end)")
+            where.append("(ei.created_at <= :create_end)")
             binds['create_end'] = create_end
         if foundation_start is not None:
             where.append("(co.foundation_date >= :foundation_start)")
@@ -451,12 +456,13 @@ class PolicyComponent(EntityName, Entity_class):
                             co.component_id AS component_id,
                             co.description AS description,
                             co.foundation AS foundation,
-                            co.create_date AS create_date,
+                            ei.created_at AS created_at,
                             co.foundation_date AS foundation_date,
                             en.entity_name AS name
-            FROM 
+            FROM
               [:table schema=cerebrum name=hostpolicy_component] co,
-              [:table schema=cerebrum name=entity_name] en
+              [:table schema=cerebrum name=entity_name] en,
+              [:table schema=cerebrum name=entity_info] ei
             WHERE
               %(where)s
             """ % {'where': ' AND '.join(where)}, binds)
@@ -488,8 +494,8 @@ class PolicyComponent(EntityName, Entity_class):
         @type indirect_relations: bool
         @param indirect_relations:
             If True, relationships will be search for recursively, either their
-            parents or their children, depending on if source_id or target_id is
-            given.
+            parents or their children, depending on if source_id or target_id
+            is given.
 
             Note that if indirect_relations is True and both source_id and
             target_id is specified, you will not necessarily get what you
@@ -514,7 +520,8 @@ class PolicyComponent(EntityName, Entity_class):
         # An effective helper function, copied from Cerebrum/Group.py
         def search_transitive_closure(start_id_set, searcher, field):
             """Collect the transitive closure of L{ids} by using the search
-            strategy specified by L{searcher}. Relation loops are not a problem.
+            strategy specified by L{searcher}. Relation loops are not
+            a problem.
 
             L{searcher} is simply a tailored search-call which should not go
             recursively.
@@ -536,12 +543,13 @@ class PolicyComponent(EntityName, Entity_class):
         # end search_transitive_closure
 
         binds = dict()
-        tables = ['[:table schema=cerebrum name=hostpolicy_component] co1',
-                  '[:table schema=cerebrum name=hostpolicy_component] co2',
-                  '[:table schema=cerebrum name=entity_name] en1',
-                  '[:table schema=cerebrum name=entity_name] en2',
-                  '[:table schema=cerebrum name=hostpolicy_relationship] re',
-                  '[:table schema=cerebrum name=hostpolicy_relationship_code] rc']
+        tables = [
+            '[:table schema=cerebrum name=hostpolicy_component] co1',
+            '[:table schema=cerebrum name=hostpolicy_component] co2',
+            '[:table schema=cerebrum name=entity_name] en1',
+            '[:table schema=cerebrum name=entity_name] en2',
+            '[:table schema=cerebrum name=hostpolicy_relationship] re',
+            '[:table schema=cerebrum name=hostpolicy_relationship_code] rc']
         where = ['(re.relationship = rc.code)',
                  '(en1.entity_id = re.source_policy)',
                  '(en2.entity_id = re.target_policy)',
@@ -549,22 +557,30 @@ class PolicyComponent(EntityName, Entity_class):
                  '(co2.component_id = re.target_policy)']
         if source_id is not None:
             if indirect_relations:
-                source_id = search_transitive_closure(source_id,
-                        lambda ids: self.search_relations(source_id=ids,
-                            indirect_relations=False,
-                            relationship_code=relationship_code),
-                        'target_id')
-            where.append(argument_to_sql(source_id, 're.source_policy', binds, int))
+                source_id = search_transitive_closure(
+                    source_id,
+                    lambda ids: self.search_relations(
+                        source_id=ids,
+                        indirect_relations=False,
+                        relationship_code=relationship_code),
+                    'target_id')
+            where.append(
+                argument_to_sql(source_id, 're.source_policy', binds, int))
         if target_id is not None:
             if indirect_relations:
-                target_id = search_transitive_closure(target_id,
-                        lambda ids: self.search_relations(target_id=ids,
-                            indirect_relations=False,
-                            relationship_code=relationship_code),
-                        'source_id')
-            where.append(argument_to_sql(target_id, 're.target_policy', binds, int))
+                target_id = search_transitive_closure(
+                    target_id,
+                    lambda ids: self.search_relations(
+                        target_id=ids,
+                        indirect_relations=False,
+                        relationship_code=relationship_code),
+                    'source_id')
+            where.append(
+                argument_to_sql(target_id, 're.target_policy', binds, int))
         if relationship_code is not None:
-            where.append(argument_to_sql(relationship_code, 're.relationship', binds, int))
+            where.append(
+                argument_to_sql(
+                    relationship_code, 're.relationship', binds, int))
         return self.query("""
             SELECT DISTINCT co1.entity_type AS source_entity_type,
                             co2.entity_type AS target_entity_type,
@@ -580,13 +596,15 @@ class PolicyComponent(EntityName, Entity_class):
                    'tables': ', '.join(tables)},
                 binds)
 
+
 class Role(PolicyComponent):
     """A PolicyComponent that is a Role. Roles can, in contrast to atoms, have
     members."""
     def populate(self, component_name, description, foundation,
                  foundation_date=None):
-        self.__super.populate(self.const.entity_hostpolicy_role, component_name,
-                              description, foundation, foundation_date)
+        self.__super.populate(
+            self.const.entity_hostpolicy_role, component_name,
+            description, foundation, foundation_date)
 
     def find_by_name(self, component_name):
         self.__super.find_by_name(component_name)
@@ -596,12 +614,13 @@ class Role(PolicyComponent):
                                        component_name)
 
     def _illegal_membership_loop(self, source_id, member_id):
-        """Check that the given member doesn't have the active role as a source,
-        which would cause infinite loops. This does not affect atoms, since they
-        can't have members."""
-        for row in self.search_relations(source_id=member_id,
-                               relationship_code=self.const.hostpolicy_contains,
-                               indirect_relations=True):
+        """Check that the given member doesn't have the active role as a
+        source, which would cause infinite loops. This does not affect atoms,
+        since they can't have members."""
+        for row in self.search_relations(
+                source_id=member_id,
+                relationship_code=self.const.hostpolicy_contains,
+                indirect_relations=True):
             if row['target_id'] == source_id:
                 return True
         return False
@@ -613,7 +632,7 @@ class Role(PolicyComponent):
         mem = Entity_class(self._db)
         mem.find(member_id)
         if (mem.entity_type == self.const.entity_hostpolicy_role and
-            self._illegal_membership_loop(self.entity_id, member_id)):
+                self._illegal_membership_loop(self.entity_id, member_id)):
                 return True
         # TODO: mutex checks are not ready yet...
         return False
@@ -635,9 +654,9 @@ class Role(PolicyComponent):
             INSERT INTO [:table schema=cerebrum name=hostpolicy_relationship]
               (source_policy, relationship, target_policy)
             VALUES (:source, :rel, :target)""",
-                {'source': self.entity_id,
-                 'rel': int(relationship_code),
-                 'target': target_id})
+                     {'source': self.entity_id,
+                      'rel': int(relationship_code),
+                      'target': target_id})
         self._db.log_change(self.entity_id,
                             self.const.hostpolicy_relationship_add, target_id)
 
@@ -648,26 +667,30 @@ class Role(PolicyComponent):
         # doesn't do that, so don't know what's correcty for the API.
         self.execute("""
             DELETE FROM [:table schema=cerebrum name=hostpolicy_relationship]
-            WHERE 
-                source_policy = :source AND 
+            WHERE
+                source_policy = :source AND
                 target_policy = :target AND
-                relationship  = :rel""", {'source': self.entity_id, 
+                relationship  = :rel""", {'source': self.entity_id,
                                           'target': target_id,
                                           'rel': relationship_code})
         self._db.log_change(self.entity_id,
-                            self.const.hostpolicy_relationship_remove, target_id)
+                            self.const.hostpolicy_relationship_remove,
+                            target_id)
 
     def search(self, *args, **kwargs):
         """Sarch for roles by different criterias."""
-        return self.__super.search(entity_type=self.const.entity_hostpolicy_role,
-                                   *args, **kwargs)
+        return self.__super.search(
+            entity_type=self.const.entity_hostpolicy_role,
+            *args, **kwargs)
+
 
 class Atom(PolicyComponent):
     """A Component that is an Atom."""
     def populate(self, component_name, description, foundation,
                  foundation_date=None):
-        self.__super.populate(self.const.entity_hostpolicy_atom, component_name,
-                              description, foundation, foundation_date)
+        self.__super.populate(
+            self.const.entity_hostpolicy_atom, component_name,
+            description, foundation, foundation_date)
 
     def find_by_name(self, component_name):
         self.__super.find_by_name(component_name)
@@ -678,6 +701,7 @@ class Atom(PolicyComponent):
 
     def search(self, *args, **kwargs):
         """Search for atoms by different criterias."""
-        return self.__super.search(entity_type=self.const.entity_hostpolicy_atom,
-                                   *args, **kwargs)
+        return self.__super.search(
+            entity_type=self.const.entity_hostpolicy_atom,
+            *args, **kwargs)
 

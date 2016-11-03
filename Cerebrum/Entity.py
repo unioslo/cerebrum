@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -59,7 +59,8 @@ class Entity(DatabaseAccessor):
                      # So, until someone comes up with a compelling
                      # reason for why they really need to update it,
                      # let's keep it write-once.
-                     'entity_id')
+                     'entity_id',
+                     'created_at',)
     __write_attr__ = ('entity_type',)
     dontclear = ('const', 'clconst')
 
@@ -189,8 +190,8 @@ class Entity(DatabaseAccessor):
         NotFoundError is raised.
 
         """
-        self.entity_id, self.entity_type = self.query_1("""
-        SELECT entity_id, entity_type
+        self.entity_id, self.entity_type, self.created_at = self.query_1("""
+        SELECT entity_id, entity_type, created_at
         FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:e_id""", {'e_id': entity_id})
         try:
@@ -201,10 +202,10 @@ class Entity(DatabaseAccessor):
         self.__updated = []
 
     def delete(self):
-        "Completely remove an entity."
+        """Completely remove an entity."""
         if self.entity_id is None:
-            raise Errors.NoEntityAssociationError, \
-                "Unable to determine which entity to delete."
+            raise Errors.NoEntityAssociationError(
+                "Unable to determine which entity to delete.")
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:e_id""", {'e_id': self.entity_id})
@@ -351,12 +352,9 @@ class EntityName(Entity):
 
     def delete(self):
         """Remove name traces of this entity from the database"""
-
         for n in self.get_names():
             self.delete_entity_name(n['domain_code'])
-
         self.__super.delete()
-    # end delete
 
     def get_name(self, domain):
         return self.query_1("""
@@ -399,8 +397,8 @@ class EntityName(Entity):
                                            'name': name})
         if int(domain) in [int(self.const.ValueDomain(code_str)) for code_str in
                            cereconf.NAME_DOMAINS_THAT_DENY_CHANGE]:
-            raise self._db.IntegrityError, \
-                "Name change illegal for the domain: %s" % domain
+            raise self._db.IntegrityError(
+                "Name change illegal for the domain: %s" % domain)
         self.execute("""
         UPDATE [:table schema=cerebrum name=entity_name]
         SET entity_name=:name
@@ -496,7 +494,6 @@ class EntityNameWithLanguage(Entity):
             where = " WHERE " + where
 
         return where, binds
-    # end _query_builder
 
     def find_by_name_with_language(self, name_variant=None, name_language=None,
                                    name=None):
@@ -508,7 +505,6 @@ class EntityNameWithLanguage(Entity):
         FROM [:table schema=cerebrum name=entity_language_name] eln
         %s""" % where, binds)
         return self.find(entity_id)
-    # end find_by_name_with_language
 
     def add_name_with_language(self, name_variant, name_language, name):
         """Add or update a specific language name."""
@@ -549,7 +545,6 @@ class EntityNameWithLanguage(Entity):
                 self.entity_id, self.const.entity_name_add, None,
                 change_params=change_params)
             return rv
-    # end add_name_with_language
 
     def delete_name_with_language(self, name_variant=None, name_language=None,
                                   name=None):
@@ -587,7 +582,6 @@ class EntityNameWithLanguage(Entity):
             self._db.log_change(self.entity_id, self.const.entity_name_del,
                                 None, change_params=change_params)
         return rv
-    # end delete_name_with_language
 
     def delete(self):
         """Remove all known names for self from the database."""
@@ -601,7 +595,6 @@ class EntityNameWithLanguage(Entity):
         DELETE FROM [:table schema=cerebrum name=entity_language_name] eln
         """ + where, binds)
         return self.__super.delete()
-    # end delete
 
     def search_name_with_language(self, entity_id=None, entity_type=None,
                                   name_variant=None, name_language=None,
@@ -660,7 +653,6 @@ class EntityNameWithLanguage(Entity):
         FROM [:table schema=cerebrum name=entity_language_name] eln,
              [:table schema=cerebrum name=entity_info] ei
         WHERE """ + " AND ".join(where), binds)
-    # end search_name_with_language
 
     def get_name_with_language(
             self, name_variant, name_language, default=NotSet):
@@ -690,8 +682,6 @@ class EntityNameWithLanguage(Entity):
                  self.const.LanguageCode(name_language),
                  len(names)))
         assert False, "NOTREACHED"
-    # end get_name_with_language
-# end EntityNameWithLanguage
 
 
 class EntityContactInfo(Entity):

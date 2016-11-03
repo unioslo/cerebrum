@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -43,7 +43,6 @@ assert issubclass(Group_class, PosixGroupMixin)
 
 
 class PosixGroup(Group_class):
-
     """ Implementation of posix group.
 
     A Posix group contains an additional attribute that only applies to Posix
@@ -67,14 +66,13 @@ class PosixGroup(Group_class):
     # is not proper for PosixGroup, one might define a _new_
     # PosixGroup and add the Group as its only (union) member.
     def populate(self, creator_id=None, visibility=None, name=None,
-                 description=None, create_date=None, expire_date=None,
-                 gid=None, parent=None):
+                 description=None, expire_date=None, gid=None, parent=None):
         if parent is not None:
             self.__xerox__(parent)
         else:
-            super(PosixGroup, self).populate(creator_id, visibility,
-                                             name, description, create_date,
-                                             expire_date)
+            super(PosixGroup, self).populate(
+                creator_id=creator_id, visibility=visibility, name=name,
+                description=description, expire_date=expire_date)
         self.__in_db = False
         if gid is None:
             gid = self._get_gid()
@@ -112,9 +110,14 @@ class PosixGroup(Group_class):
         return False
 
     def new(self, creator_id, visibility, name, description=None,
-            create_date=None, expire_date=None, gid=None):
-        PosixGroup.populate(self, creator_id, visibility, name, description,
-                            create_date, expire_date, gid)
+            expire_date=None, gid=None):
+        PosixGroup.populate(self,
+                            creator_id=creator_id,
+                            visibility=visibility,
+                            name=name,
+                            description=description,
+                            expire_date=expire_date,
+                            gid=gid)
         PosixGroup.write_db(self)
         PosixGroup.find(self, self.entity_id)
 
@@ -160,5 +163,3 @@ class PosixGroup(Group_class):
                 WHERE posix_gid=:gid""", locals())
             except Errors.NotFoundError:
                 return gid
-
-    # TODO: Implement search

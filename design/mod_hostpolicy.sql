@@ -23,7 +23,7 @@
 category:metainfo;
 name=hostpolicy;
 category:metainfo;
-version=1.0;
+version=1.1;
 
 
 category:main;
@@ -37,9 +37,6 @@ CREATE TABLE hostpolicy_component
    component_id     NUMERIC(12,0)
                     NOT NULL
                     CONSTRAINT hostpolicy_component_pk PRIMARY KEY,
-   create_date      DATE
-                    DEFAULT [:now]
-                    NOT NULL,
    description      CHAR VARYING(512)
                     NOT NULL
                     DEFAULT '',

@@ -109,8 +109,8 @@ _group_fields = {
                                       transform=GroupVisibility.serialize,
                                       description='group visibility'),
     'description': base_fields.String(description='group description'),
-    'create_date': crb_fields.DateTime(dt_format='iso8601',
-                                       description='create date'),
+    'created_at': crb_fields.DateTime(dt_format='iso8601',
+                                      description='creation timestamp'),
     'expire_date': crb_fields.DateTime(dt_format='iso8601',
                                        description='expire date'),
 }
@@ -123,7 +123,7 @@ Group = api.model('Group', {
 
     'visibility': _group_fields['visibility'],
     'description': _group_fields['description'],
-    'create_date': _group_fields['create_date'],
+    'created_at': _group_fields['created_at'],
     'expire_date': _group_fields['expire_date'],
 
     'contexts': base_fields.List(
@@ -159,7 +159,7 @@ GroupListItem = api.model('GroupListItem', {
 
     'visibility': _group_fields['visibility'],
     'description': _group_fields['description'],
-    'create_date': _group_fields['create_date'],
+    'created_at': _group_fields['created_at'],
     'expire_date': _group_fields['expire_date'],
 })
 
@@ -207,7 +207,7 @@ class GroupResource(Resource):
         return {
             'name': utils._db_decode(group.group_name),
             'id': group.entity_id,
-            'create_date': group.create_date,
+            'created_at': group.created_at,
             'expire_date': group.expire_date,
             'visibility': group.visibility,
             'description': utils._db_decode(group.description),

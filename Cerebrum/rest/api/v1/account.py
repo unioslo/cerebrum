@@ -61,9 +61,9 @@ Account = api.model('Account', {
     'owner': fields.base.Nested(
         models.EntityOwner,
         description='Entity owner'),
-    'create_date': fields.DateTime(
+    'created_at': fields.DateTime(
         dt_format='iso8601',
-        description='Account creation date'),
+        description='Account creation timestamp'),
     'expire_date': fields.DateTime(
         dt_format='iso8601',
         description='Expiration date'),
@@ -203,7 +203,7 @@ class AccountResource(Resource):
                 'id': ac.owner_id,
                 'type': ac.owner_type,
             },
-            'create_date': ac.create_date,
+            'created_at': ac.created_at,
             'expire_date': ac.expire_date,
             'contexts': [row['spread'] for row in ac.get_spread()],
             'primary_email': primary_email,

@@ -74,6 +74,9 @@ Person = api.model('Person', {
     'birth_date': fields.DateTime(
         dt_format='iso8601',
         description='Birth date'),
+    'created_at': fields.DateTime(
+        dt_format='iso8601',
+        description='Creation timestamp'),
     'names': fields.base.List(
         fields.base.Nested(PersonName),
         description='Names'),
@@ -120,6 +123,7 @@ class PersonResource(Resource):
             'id': pe.entity_id,
             'contexts': [row['spread'] for row in pe.get_spread()],
             'birth_date': pe.birth_date,
+            'created_at': pe.created_at,
             'names': names
         }
 
