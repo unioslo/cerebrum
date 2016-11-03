@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002 - 2014 University of Oslo, Norway
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,9 +19,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import cPickle
 import getopt
-import sys
 import os
+import sys
+
 from time import time as now
 
 import cerebrum_path
@@ -40,7 +42,8 @@ targets = {
     'core': ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5',
              'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9',
              'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
-             'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',),
+             'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',
+             'rel_0_9_18'),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3',),
     'changelog': ('changelog_1_2', 'changelog_1_3'),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4'),
@@ -179,7 +182,8 @@ def migrate_to_rel_0_9_2():
     spread = str2const[spreads[0]]
     for row in db.query(
             """SELECT account_id, home, disk_id
-            FROM [:table schema=cerebrum name=account_info]""", fetchall=False):
+            FROM [:table schema=cerebrum name=account_info]""",
+            fetchall=False):
         if int(row['account_id']) in processed:
             continue
         if not row['disk_id'] and not row['home']:
@@ -646,6 +650,38 @@ def migrate_to_rel_0_9_17():
     db.commit()
 
 
+def migrate_to_rel_0_9_18():
+    """Migrate from 0.9.17 database to the 0.9.18 database schema."""
+    assert_db_version("0.9.17")
+    makedb('0_9_18', 'pre', False)
+    print('Migrating contact_info data from ChangeLog')
+    query = ('SELECT tstamp, subject_entity, change_params '
+             'FROM [:table schema=cerebrum name=change_log] '
+             'WHERE change_type_id = :change_type_id')
+    cl_entry_rows = db.query(query,
+                             {'change_type_id': int(co.entity_cinfo_add)})
+    print('Processing {count} CL-entries'.format(count=len(cl_entry_rows)))
+    for row in cl_entry_rows:
+        params = cPickle.loads(row['change_params'])
+        update_query = (
+            'UPDATE [:table schema=cerebrum name=entity_contact_info] '
+            'SET last_modified=:cl_timestamp '
+            'WHERE entity_id=:cl_subject_entity '
+            'AND source_system=:cl_source_system '
+            'AND contact_type=:cl_type')
+        db.execute(update_query, {'cl_timestamp': row['tstamp'],
+                                  'cl_subject_entity': row['subject_entity'],
+                                  'cl_source_system': params['src'],
+                                  'cl_type': params['type']})
+    db.commit()
+    makedb('0_9_18', 'post')
+    print "\ndone."
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 18))
+    print "Migration to 0.9.18 completed successfully"
+    db.commit()
+
+
 def migrate_to_bofhd_1_1():
     print "\ndone."
     assert_db_version("1.0", component='bofhd')
@@ -948,7 +984,8 @@ def migrate_to_email_1_3():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_email", "1.3")
     db.commit()
-    print "Migration to email 1.3 completed successfully %s" % time_spent(start)
+    print('Migration to email 1.3 completed successfully %s' % time_spent(
+        start))
 
 
 def migrate_to_email_1_4():
@@ -1007,7 +1044,10 @@ def migrate_to_email_1_4():
         local_forwards = set(forwards[target_id]) & set(addrs[account_id])
         remote_forwards = set(forwards[target_id]) - set(addrs[account_id])
         if local_forwards:
-            todo_list.append((target_id, account_id, local_forwards, remote_forwards))
+            todo_list.append((target_id,
+                              account_id,
+                              local_forwards,
+                              remote_forwards))
 
     print 'Found', len(todo_list), 'targets with old-style local delivery'
 
@@ -1018,7 +1058,8 @@ def migrate_to_email_1_4():
         ef.clear()
         ef.find(target_id)
         for forward in local_forwards:
-            print 'Deleting forward address', forward, 'for', (target_id, account_id)
+            print 'Deleting forward address', forward, 'for', (target_id,
+                                                               account_id)
             ef.delete_forward(forward)
         if remote_forwards:
             print 'Enabling local delivery for', (target_id, account_id)
@@ -1036,7 +1077,6 @@ def migrate_to_email_1_4():
     db.commit()
     db.log_change = old_log_change
     print "Migration to email 1.4 completed successfully"
-
 
 
 def migrate_to_ephorte_1_1():
