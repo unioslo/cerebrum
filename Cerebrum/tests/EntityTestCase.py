@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,11 +19,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import datetime
 import unittest
+
 import cereconf
+
 from Cerebrum import Errors
-from Cerebrum.Entity import \
-     Entity, EntityName, EntityContactInfo, EntityAddress
+from Cerebrum.Entity import (Entity,
+                             EntityName,
+                             EntityContactInfo,
+                             EntityAddress)
 from Cerebrum.Utils import Factory
 from Cerebrum import Constants
 import traceback
@@ -75,10 +80,10 @@ class EntityTestCase(Entity_createTestCase):
         self._myPopulateEntity(new_entity)
 
         self.failIf(new_entity != entity, "Error: should be equal")
-##         new_entity.entity_type = 'foobar' # TBD: Is this even legal?
-##         self.failIf(new_entity == entity,
-##                     "Error: should be different if it is legal to"
-##                     " change entity_type")
+        # new_entity.entity_type = 'foobar' # TBD: Is this even legal?
+        # self.failIf(new_entity == entity,
+        #             "Error: should be different if it is legal to"
+        #             " change entity_type")
 
     def testDeleteEntity(self):
         "Delete the Entity"
@@ -88,6 +93,7 @@ class EntityTestCase(Entity_createTestCase):
         entity = self.entity_class(self.Cerebrum)
         self.assertRaises(Errors.NotFoundError, entity.find, self.entity_id)
 
+
 class EntityName_createTestCase(Entity_createTestCase):
     entity_class = EntityName
     m_test_name = "foobar3"
@@ -95,9 +101,10 @@ class EntityName_createTestCase(Entity_createTestCase):
     def setUp(self):
         super(EntityName_createTestCase, self).setUp()
         try:
-            self.entity.add_entity_name(self.co.account_namespace, self.m_test_name)
+            self.entity.add_entity_name(self.co.account_namespace,
+                                        self.m_test_name)
         except:
-            print "Error: unable to create EntityName"
+            print('Error: unable to create EntityName')
             traceback.print_exc()
             raise
 
@@ -105,8 +112,9 @@ class EntityName_createTestCase(Entity_createTestCase):
         try:
             self.entity.delete_entity_name(self.co.account_namespace)
         except Errors.NotFoundError:
-            pass # Already deleted.
+            pass  # Already deleted.
         super(EntityName_createTestCase, self).tearDown()
+
 
 class EntityNameTestCase(EntityName_createTestCase):
     def testEntityGetName(self):
@@ -129,11 +137,14 @@ class EntityNameTestCase(EntityName_createTestCase):
         self.assertRaises(Errors.NotFoundError,
                           self.entity.get_name, self.co.account_namespace)
 
+
 class EntityContactInfo_createTestCase(Entity_createTestCase):
     entity_class = EntityContactInfo
-    m_test_ci = {'src': 'system_manual', 'type': 'contact_phone',
-               'pref': 10, 'value': '+47 12345678',
-               'desc': 'some description'}
+    m_test_ci = {'src': 'system_manual',
+                 'type': 'contact_phone',
+                 'pref': 10,
+                 'value': '+47 12345678',
+                 'desc': 'some description'}
 
     def setUp(self):
         super(EntityContactInfo_createTestCase, self).setUp()
@@ -156,15 +167,21 @@ class EntityContactInfo_createTestCase(Entity_createTestCase):
                                         self.m_test_ci['type'])
         super(EntityContactInfo_createTestCase, self).tearDown()
 
+
 class EntityContactInfoTestCase(EntityContactInfo_createTestCase):
     def testEntityGetContactInfo(self):
         "Test that one can get the created EntityContactInfo"
         ci = self.entity.get_contact_info(self.m_test_ci['src'],
                                           self.m_test_ci['type'])
         ci = ci[0]
-        self.failIf(ci['contact_value'] != self.m_test_ci['value'] or \
-                    ci['description'] != self.m_test_ci['desc'],
-                    "EntityContactInfo should be equal")
+        lm_date = datetime.date(day=ci['last_modified'].day,
+                                month=ci['last_modified'].month,
+                                year=ci['last_modified'].year)
+        self.failIf((ci['contact_value'] != self.m_test_ci['value'] or
+                     ci['description'] != self.m_test_ci['desc'] or
+                     lm is None or
+                     lm_date != datetime.date.today()),
+                    'EntityContactInfo should be equal')
 
     def testEntityDeleteContactInfo(self):
         "Test that the EntityContactInfo can be deleted"
@@ -174,15 +191,16 @@ class EntityContactInfoTestCase(EntityContactInfo_createTestCase):
                                                  self.m_test_ci['type']),
                     "EntityContactInfo won't go away.")
 
+
 class EntityAddress_createTestCase(Entity_createTestCase):
     entity_class = EntityAddress
     m_test_a = {'src': 'system_manual',
-              'type': 'address_post',
-              'address_text': 'some address',
-              'p_o_box': 'some pb',
-              'postal_number': 'some pn',
-              'city': 'some city',
-              'country': None}
+                'type': 'address_post',
+                'address_text': 'some address',
+                'p_o_box': 'some pb',
+                'postal_number': 'some pn',
+                'city': 'some city',
+                'country': None}
 
     def setUp(self):
         super(EntityAddress_createTestCase, self).setUp()
@@ -207,6 +225,7 @@ class EntityAddress_createTestCase(Entity_createTestCase):
                                           self.m_test_a['type'])
         super(EntityAddress_createTestCase, self).tearDown()
 
+
 class EntityAddressTestCase(EntityAddress_createTestCase):
     def testEntityGetAddress(self):
         "Test that one can get the created EntityAddress"
@@ -230,4 +249,3 @@ class EntityAddressTestCase(EntityAddress_createTestCase):
 if __name__ == '__main__':
     # When this module is executed from the command-line, run all its tests
     unittest.main()
-
