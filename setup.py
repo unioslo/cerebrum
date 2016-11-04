@@ -491,7 +491,6 @@ setup(
         'Cerebrum/modules/no/nmh',
         'Cerebrum/modules/no/nih',
         'Cerebrum/modules/no/hine',
-        'Cerebrum/modules/no/notur',
         'Cerebrum/modules/password_notifier',
         'Cerebrum/modules/password_generator',
         'Cerebrum/modules/posix',
