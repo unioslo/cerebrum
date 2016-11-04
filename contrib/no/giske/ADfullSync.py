@@ -175,9 +175,14 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
             e_name = row['entity_name']
             if accinfo.has_key(row['entity_id']):
                 retur[e_name] = accinfo[row['entity_id']]
+                if retur[e_name]['OU'].startswith('OU=Tilsette'):
+                    upn_suffix = 'giske.kommune.no'
+                else:
+                    upn_suffix = 'gs.giske.kommune.no'
                 retur[e_name]['company'] = 'Giske kommune'
                 retur[e_name]['co'] = 'Norway'
-                retur[e_name]['userPrincipalName'] = '%s@giske.eks.lan' % e_name
+                retur[e_name]['userPrincipalName'] = '%s@%s' % (e_name,
+                                                                upn_suffix)
                 retur[e_name]['mailNickname'] = e_name
                 retur[e_name]['mDBUseDefaults'] = True
                 #Constraint in AD, must be a valid dn in AD.
