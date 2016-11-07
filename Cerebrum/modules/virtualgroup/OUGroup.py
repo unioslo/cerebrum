@@ -521,8 +521,7 @@ class OUGroup(VirtualGroup):
                 LEFT OUTER JOIN
                      [:table schema=cerebrum name=entity_info] ei
                 ON
-                    ei.entity_id = gi.group_id AND
-                    ei.entity_type = :entity_type
+                    ei.entity_id = gi.group_id
                 {tables}
                 {where}
                     """.format(tables=tables_str, where=where_str)
