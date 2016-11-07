@@ -255,7 +255,8 @@ def parse_external_ids(d):
     def make_tuple(x):
         return {
             u'passportNumber': (co.externalid_pass_number,
-                                (x.get(u'country') + x.get(u'value'))),
+                                co.make_passport_number(
+                                    x.get(u'country'), x.get(u'value'))),
             u'nationalIdentityNumber': (co.externalid_fodselsnr,
                                         x.get(u'value'))}.get(x.get('type'))
 

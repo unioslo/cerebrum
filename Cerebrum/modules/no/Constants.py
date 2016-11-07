@@ -80,6 +80,10 @@ class ConstantsCommon(Constants.Constants):
         'NO_BIRTHNO', Constants.Constants.entity_person,
         'Norwegian national ID number')
 
+    @staticmethod
+    def make_passport_number(country, passport_number):
+        return '{}-{}'.format(country, passport_number)
+
     # External IDs related to A-melding.
     externalid_pass_number = _EntityExternalIdCode(
         'PASSNR', Constants.Constants.entity_person,
