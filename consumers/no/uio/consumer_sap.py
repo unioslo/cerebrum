@@ -619,7 +619,7 @@ def update_contact_info(database, source_system, hr_person, cerebrum_person):
                              u'contact_type',
                              (u'entity_id', u'source_system',
                               u'contact_type', u'contact_description',
-                              u'contact_alias'),
+                              u'contact_alias', u'last_modified'),
                              cerebrum_person.get_contact_info(
                                      source=source_system))
 
