@@ -1713,56 +1713,6 @@ Data assosiert direkte med en enkelt konto:
 
  * Brukernavn						1..N
 
-   NoTuR vil, så vidt jeg har skjønt, at vi skal ta
-   høyde for følgende rariteter:
-
-   * Enhver konto får tildelt minst ett
-     "hjemme"-brukernavn ved opprettelse.  Dette
-     brukernavnet er til bruk internt på brukerens
-     egen institusjon.
-
-   * Internt på brukerens egen institusjon (altså
-     _ikke_ i NoTuR-sammenheng) har
-     hjemme-brukernavnet en Unix UID det står
-     hjemme-institusjonen helt fritt å velge.
-
-   * I det kontoen skal inn i en NoTuR-sammenheng
-     skjer følgende:
-
-     * Kontoen bruker en egen NoTuR-spesifikk Unix
-       UID.  Denne er den samme uansett hvilken
-       NoTuR-site man opererer på.
-
-     * Kontoen _kan_ måtte bruke andre brukernavn
-       for å autentisere seg, da man pre-NoTuR hadde
-       opprettet separate sett med brukernavn ved
-       hver enkelt NoTuR-site.
-
-    Site	Brukernavn	UID
-	"Hjemme"
-    UiO		hmeland		29158
-	Noen andre ble NoTuR-bruker med
-	UiO-brukernavn "hmeland" før hmeland.
-    NoTuR/UiO	hameland	51073
-	Brukeren som har fått NoTur-brukernavn
-	"hmeland" ved UiO har kanskje fått sitt
-	ønskede hjemme-brukernavn, "haraldme", på
-	NTNU -- men dette var opptatt ved NoTuR/UiO.
-    NoTuR/NTNU	hmeland		51073
-    NoTuR/UiB
-    NoTuR/UiT
-
-   Foreslår at dette løses ved:
-
-   * Mulighet til å reservere brukernavn i kjernen
-     (uten at de nødvendigvis er tilknyttet noen
-     bruker i ureg2000).
-
-   * Egen modul for NoTuR-opplegget, som sørger for
-     å mappe fra "hjemme"-brukernavn til
-     NoTuR-brukernavn for riktig site i de
-     situasjonenen dette trengs.
-
  * Autentiseringsdata					0..N
 
    Om det ikke finnes _noen_ autentiseringsentries
@@ -1785,11 +1735,6 @@ Data assosiert direkte med en enkelt konto:
    sammenhenger bør det kunne knyttes separate
    hjemmeområder til hver av de brukernavnene
    kontoen har.
-
-   (I NoTuR-sammenheng kan også samme brukernavn ha
-   forskjellig hjemmeområde, alt etter hvilken site
-   brukernavnet brukes ved, men dette tas hånd om i
-   den NoTuR-spesifikke modulen)
 
  * Sperring (potensielt flere samtidige, potensielt	0..N
    med forskjellig prioritet)
