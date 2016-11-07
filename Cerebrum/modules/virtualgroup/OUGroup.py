@@ -511,13 +511,18 @@ class OUGroup(VirtualGroup):
                                    gi.description AS description,
                                    gi.visibility AS visibility,
                                    gi.creator_id AS creator_id,
-                                   gi.create_date AS create_date,
+                                   ei.created_at AS created_at,
                                    gi.expire_date AS expire_date
                 FROM [:table schema=cerebrum name=group_info] gi
                 LEFT OUTER JOIN
                      [:table schema=cerebrum name=entity_name] en
                 ON
                     en.entity_id = gi.group_id AND en.value_domain = :vdomain
+                LEFT OUTER JOIN
+                     [:table schema=cerebrum name=entity_info] ei
+                ON
+                    ei.entity_id = gi.group_id AND
+                    ei.entity_type = :entity_type
                 {tables}
                 {where}
                     """.format(tables=tables_str, where=where_str)

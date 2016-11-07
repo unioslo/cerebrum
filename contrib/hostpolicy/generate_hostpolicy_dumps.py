@@ -98,7 +98,7 @@ def process_atoms(stream):
         stream.write(';'.join((row['name'],
                                row['description'],
                                row['foundation'] or '',
-                               row['create_date'].strftime('%Y-%m-%d'))))
+                               row['created_at'].strftime('%Y-%m-%d'))))
         stream.write('\n')
     logger.info('process_atoms done')
 
@@ -115,7 +115,7 @@ def process_roles(stream):
         stream.write(';'.join((row['name'],
                                row['description'],
                                row['foundation'] or '',
-                               row['create_date'].strftime('%Y-%m-%d'),
+                               row['created_at'].strftime('%Y-%m-%d'),
                                ','.join(m['target_name'] for m in
                                         role.search_relations(
                                             source_id=row['component_id'])))))

@@ -58,7 +58,7 @@ class BofhdExtension(base.BofhdExtension):
         if account.owner_type == self.const.entity_group:
             grp = self._get_group(account.owner_id, idtype='id')
             mapping['fullname'] = 'group:%s' % grp.group_name
-            mapping['birthdate'] = account.create_date.strftime('%Y-%m-%d')
+            mapping['birthdate'] = account.created_at.strftime('%Y-%m-%d')
         elif account.owner_type == self.const.entity_person:
             person = self._get_person('entity_id', account.owner_id)
             mapping['fullname'] = person.get_name(self.const.system_cached,

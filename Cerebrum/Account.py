@@ -520,15 +520,15 @@ Entity_class = Utils.Factory.get("Entity")
 class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
               EntityExternalId, EntityContactInfo, EntitySpread, Entity_class):
 
-    __read_attr__ = ('__in_db', '__plaintext_password'
+    __read_attr__ = ('__in_db', '__plaintext_password', 'created_at'
                      # TODO: Get rid of these.
                      )
     __write_attr__ = ('account_name', 'owner_type', 'owner_id',
-                      'np_type', 'creator_id', 'expire_date', 'create_date',
+                      'np_type', 'creator_id', 'expire_date',
                       '_auth_info', '_acc_affect_auth_types')
 
-    def create(self, name, owner_id,
-               creator_id, expire_date=None, parent=None):
+    def create(self, name, owner_id, creator_id,
+               expire_date=None, parent=None):
         """Method for creating a new, regular account with default settings.
 
         Creates a standard account with the spreads defined in
@@ -606,7 +606,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         # have their respective delete()s called with __super/super() in this
         # particular case.
         super(AccountHome, self).delete()
-    # end delete
 
     def terminate(self):
         """Deletes the account and all data related to it. The different
@@ -949,8 +948,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     ('np_type', ':np_type'),
                     ('creator_id', ':c_id')]
             # Columns that have default values through DDL.
-            if self.create_date is not None:
-                cols.append(('create_date', ':create_date'))
             if self.expire_date is not None:
                 cols.append(('expire_date', ':exp_date'))
             self.execute("""
@@ -963,8 +960,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                           'c_id': self.creator_id,
                           'o_id': self.owner_id,
                           'np_type': np_type,
-                          'exp_date': self.expire_date,
-                          'create_date': self.create_date})
+                          'exp_date': self.expire_date})
             self._db.log_change(self.entity_id, self.const.account_create,
                                 None, change_params=newvalues)
             self.add_entity_name(
@@ -1069,9 +1065,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         self.__super.find(account_id)
 
         (self.owner_type, self.owner_id,
-         self.np_type, self.create_date, self.creator_id,
+         self.np_type, self.creator_id,
          self.expire_date) = self.query_1("""
-        SELECT owner_type, owner_id, np_type, create_date,
+        SELECT owner_type, owner_id, np_type,
                creator_id, expire_date
         FROM [:table schema=cerebrum name=account_info]
         WHERE account_id=:a_id""", {'a_id' : account_id})
@@ -1165,8 +1161,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         the search-result when filtering on home_spread.  Should not
         be used in combination with filter on disk/host."""
 
-        where = ["en.entity_id=ai.account_id"]
+        where = ['en.entity_id=ai.account_id']
+        where.append('ei.entity_id=ai.account_id')
         tables = ['[:table schema=cerebrum name=entity_name] en']
+        tables.append(', [:table schema=cerebrum name=entity_info] ei')
         if account_spread is not None:
             # Add this table before account_info for correct left-join syntax
             where.append("es.entity_id=ai.account_id")
@@ -1214,7 +1212,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return self.query("""
         SELECT ai.account_id, en.entity_name, hd.home,
                ah.spread AS home_spread, d.path, hd.homedir_id, ai.owner_id,
-               hd.status, ai.expire_date, ai.create_date, d.disk_id, d.host_id
+               hd.status, ai.expire_date, ei.created_at, d.disk_id, d.host_id
         FROM %s
         WHERE %s""" % (tables, where), {
             'home_spread': int(home_spread or 0),

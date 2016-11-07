@@ -42,9 +42,9 @@ Entity_class = Utils.Factory.get("Entity")
 class Group(EntityQuarantine, EntityExternalId, EntityName,
             EntitySpread, EntityNameWithLanguage, Entity_class):
 
-    __read_attr__ = ('__in_db',)
+    __read_attr__ = ('__in_db', 'created_at')
     __write_attr__ = ('description', 'visibility', 'creator_id',
-                      'create_date', 'expire_date', 'group_name')
+                      'expire_date', 'group_name')
 
     def clear(self):
         super(Group, self).clear()
@@ -52,11 +52,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         self.__updated = []
 
     def populate(self, creator_id=None, visibility=None, name=None,
-                 description=None, create_date=None, expire_date=None,
-                 parent=None):
+                 description=None, expire_date=None, parent=None):
         """Populate group instance's attributes without database access."""
-        # TBD: Should this method call self.clear(), or should that be
-        # the caller's responsibility?
         if parent is not None:
             self.__xerox__(parent)
         else:
@@ -74,13 +71,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         self.creator_id = creator_id
         self.visibility = int(visibility)
         self.description = description
-        if not self.__in_db or create_date is not None:
-            # If the previous operation was find, self.create_date will
-            # have a value, while populate usually is not called with
-            # a create_date argument.  This check avoids a group_mod
-            # change-log entry caused when this is the only change to the
-            # entity
-            self.create_date = create_date
         self.expire_date = expire_date
         # TBD: Should this live in EntityName, and not here?  If yes,
         # the attribute should probably have a more generic name than
@@ -140,8 +130,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                     ('visibility', ':visib'),
                     ('creator_id', ':creator_id')]
             # Columns that have default values through DDL.
-            if self.create_date is not None:
-                cols.append(('create_date', ':create_date'))
             if self.expire_date is not None:
                 cols.append(('expire_date', ':exp_date'))
             self.execute("""
@@ -153,22 +141,14 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                           'desc': self.description,
                           'visib': int(self.visibility),
                           'creator_id': self.creator_id,
-                          # Even though the following two bind
-                          # variables will only be used in the query
-                          # when their values aren't None, there's no
-                          # reason we should take extra steps to avoid
-                          # including them here.
-                          'create_date': self.create_date,
                           'exp_date': self.expire_date})
             self._db.log_change(self.entity_id, self.const.group_create, None)
             self.add_entity_name(self.const.group_namespace, self.group_name)
         else:
             cols = [('description', ':desc'),
                     ('visibility', ':visib'),
-                    ('creator_id', ':creator_id')]
-            if self.create_date is not None:
-                cols.append(('create_date', ':create_date'))
-            cols.append(('expire_date', ':exp_date'))
+                    ('creator_id', ':creator_id'),
+                    ('expire_date', ':exp_date')]
             self.execute("""
             UPDATE [:table schema=cerebrum name=group_info]
             SET %(defs)s
@@ -178,12 +158,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                  'desc': self.description,
                  'visib': int(self.visibility),
                  'creator_id': self.creator_id,
-                 # Even though the following two bind
-                 # variables will only be used in the query
-                 # when their values aren't None, there's no
-                 # reason we should take extra steps to avoid
-                 # including them here.
-                 'create_date': self.create_date,
                  'exp_date': self.expire_date})
             self._db.log_change(self.entity_id, self.const.group_mod, None)
             self.update_entity_name(
@@ -244,19 +218,19 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
     # instances properly keep track of their __updated attributes?
     def __eq__(self, other):
         assert isinstance(other, Group)
-        if (self.creator_id == other.creator_id
-            and self.entity_type == other.entity_type
-            and self.visibility == other.visibility
-            and self.group_name == other.group_name
-            and self.description == other.description
-            # The 'create_date' attributes should only be included in
+        if (self.creator_id == other.creator_id and
+            self.entity_type == other.entity_type and
+            self.visibility == other.visibility and
+            self.group_name == other.group_name and
+            self.description == other.description and
+            # The 'created_at' attributes should only be included in
             # the comparison of it is set in both objects.
-            and (self.create_date is None
-                 or other.create_date is None
-                 or self.create_date == other.create_date)
-            and (self.expire_date is None
-                 or other.expire_date is None
-                 or self.expire_date == other.expire_date)):
+            (self.created_at is None or
+             other.created_at is None or
+             self.created_at == other.created_at) and
+            (self.expire_date is None or
+             other.expire_date is None or
+             self.expire_date == other.expire_date)):
             # TBD: Should this compare member sets as well?
             return self.__super.__eq__(other)
         return False
@@ -265,10 +239,10 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         """Connect object to group with ``group_id`` in database."""
         self.__super.find(group_id)
         (self.description, self.visibility, self.creator_id,
-         self.create_date, self.expire_date, self.group_name) = \
+         self.expire_date, self.group_name) = \
             self.query_1("""
         SELECT gi.description, gi.visibility, gi.creator_id,
-               gi.create_date, gi.expire_date, en.entity_name
+               gi.expire_date, en.entity_name
         FROM [:table schema=cerebrum name=group_info] gi
         LEFT OUTER JOIN
              [:table schema=cerebrum name=entity_name] en
@@ -322,12 +296,10 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
     def add_member(self, member_id):
         """Add L{member_id} to this group.
 
-        @type member_id: int
-        @param member_id:
+        :param int member_id:
           Member (id) to add to this group. This must be an entity
           (i.e. registered in entity_info).
         """
-
         # First, locate the member's type (it's silly to require the client
         # code to supply it, even though it costs one lookup extra in the
         # database).
@@ -345,17 +317,15 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                       'm_type': int(member_type),
                       'm_id': member_id})
         self._db.log_change(member_id, self.const.group_add, self.entity_id)
-    # end add_member
 
     def has_member(self, member_id):
         """Check whether L{member_id} is a member of this group.
 
-        @type member_id: int
-        @param member_id:
+        :param int member_id:
           Member (id) to check for membership.
 
-        @rtype: L{db_row} instance or False
-        @return:
+        :rtype: L{db_row} instance or False
+        :return:
           A db_row with the membership in question (from group_member) when a
           suitable membership exists; False otherwise.
         """
@@ -370,7 +340,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             WHERE """ + " AND ".join(where), binds)
         except Errors.NotFoundError:
             return False
-    # end has_member
 
     def remove_member(self, member_id):
         """Remove L{member_id}'s membership from this group.
@@ -387,7 +356,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           member_id=:m_id""", {'g_id': self.entity_id,
                                'm_id': member_id})
         self._db.log_change(member_id, self.clconst.group_rem, self.entity_id)
-    # end remove_member
 
     def search(self,
                group_id=None,
@@ -531,7 +499,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                                     gi.description AS description,
                                     gi.visibility AS visibility,
                                     gi.creator_id AS creator_id,
-                                    gi.create_date AS create_date,
+                                    ei.created_at AS created_at,
                                     gi.expire_date AS expire_date
                  """
         tables = ["""[:table schema=cerebrum name=group_info] gi
@@ -540,9 +508,15 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                      ON
                         en.entity_id = gi.group_id AND
                         en.value_domain = :vdomain
+                     LEFT OUTER JOIN
+                         [:table schema=cerebrum name=entity_info] ei
+                     ON
+                        ei.entity_id = gi.group_id AND
+                        ei.entity_type = :entity_type
                   """, ]
         where = list()
-        binds = {"vdomain": int(self.const.group_namespace)}
+        binds = {"vdomain": int(self.const.group_namespace),
+                 "entity_type": int(self.const.entity_group)}
 
         #
         # group_id filter
@@ -613,7 +587,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         # causes an ungodly amount of sql statement reparsing, which leads to
         # an abysmal perfomance penalty.
         return self.query(query_str, binds, fetchall=True)
-    # end search
 
     def search_members(self, group_id=None, spread=None,
                        member_id=None, member_type=None,

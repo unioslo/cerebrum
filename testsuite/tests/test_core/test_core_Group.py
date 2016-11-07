@@ -184,7 +184,7 @@ def test_search_result(gr, groups):
     if len(groups) < 2:
         pytest.skip('Test needs at least two groups')
     attributes = ('group_id', 'name', 'description', 'visibility',
-                  'creator_id', 'create_date', 'expire_date')
+                  'creator_id', 'created_at', 'expire_date')
     rows = list(gr.search(group_id=[g['entity_id'] for g in groups],
                           filter_expired=False))
     assert len(rows) == len(groups)

@@ -22,7 +22,7 @@
 category:metainfo;
 name=email;
 category:metainfo;
-version=1.4;
+version=1.5;
 
 category:code/Oracle;
 CREATE ROLE read_mod_email NOT IDENTIFIED;
@@ -286,8 +286,6 @@ CREATE TABLE email_address
 		NOT NULL
 		CONSTRAINT email_address_target_id
 		  REFERENCES email_target(target_id),
-  create_date	DATE
-		NOT NULL,
   change_date	DATE,
   expire_date	DATE,
   CONSTRAINT email_address_entity_id

@@ -1002,7 +1002,7 @@ Example:
                # format_day doesn't work as first argument, so put in an empty
                # dummy
                {'dummy': '', 'foundation_date': comp.foundation_date},
-               {'dummy2': '', 'create_date': comp.create_date},
+               {'dummy2': '', 'create_date': comp.created_at},
                ]
         # check what this component is in relationship with
         for row in comp.search_relations(target_id=comp.entity_id):

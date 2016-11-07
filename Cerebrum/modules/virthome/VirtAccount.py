@@ -139,7 +139,6 @@ class BaseVirtHomeAccount(Account,
                          expire_date)
         self.extend_expire_date(expire_date)
         
-        self.create_date = mx.DateTime.now()
         self.populate_contact_info(self.const.system_virthome)
         self.populate_contact_info(self.const.system_virthome,      
                                    self.const.virthome_contact_email,
@@ -324,7 +323,7 @@ class VirtAccount(BaseVirtHomeAccount):
 
     These are the accounts that we have the least amount of control over.
     Every VirtAccount has en e-mail (EntityContactInfo), an account_name, a
-    create_date and an expire_date. Optionally, a human-like name may be
+    created_at and an expire_date. Optionally, a human-like name may be
     specified to help identify the human owner of the account.
     """
 

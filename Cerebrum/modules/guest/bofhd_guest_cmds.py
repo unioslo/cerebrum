@@ -256,7 +256,7 @@ class BofhdExtension(BofhdCommonMethods):
             status = 'expired'
 
         return {'username':     account.account_name,
-                'created':      account.create_date,
+                'created':      account.created_at,
                 'expires':      end_date,
                 'name':         guest_name,
                 'responsible':  self._get_account_name(responsible_id),

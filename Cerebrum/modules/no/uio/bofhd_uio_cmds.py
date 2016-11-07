@@ -4855,7 +4855,7 @@ Addresses and settings:
         if entity.entity_type in \
             (co.entity_group, co.entity_account):
             result['creator_id'] = entity.creator_id
-            result['create_date'] = entity.create_date
+            result['create_date'] = entity.created_at
             result['expire_date'] = entity.expire_date
             # FIXME: Should be a list instead of a string, but text
             # clients doesn't know how to view such a list

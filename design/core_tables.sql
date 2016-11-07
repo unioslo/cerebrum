@@ -23,7 +23,7 @@
 category:metainfo;
 name=cerebrum_database_schema_version;
 category:metainfo;
-version=0.9.18;
+version=0.9.19;
 
 /* Define role hierarchy used for granting access to various database
    objects.
@@ -206,6 +206,9 @@ CREATE TABLE entity_info
 		NOT NULL
 		CONSTRAINT entity_info_entity_type
 		  REFERENCES entity_type_code(code),
+  created_at TIMESTAMP
+    DEFAULT [:now]
+    NULL,
   CONSTRAINT entity_info_type_unique
     UNIQUE (entity_type, entity_id)
 );
@@ -791,9 +794,6 @@ CREATE TABLE account_info
   np_type	NUMERIC(6,0)
 		CONSTRAINT account_info_np_type
 		  REFERENCES account_code(code),
-  create_date	DATE
-		DEFAULT [:now]
-		NOT NULL,
   creator_id	NUMERIC(12,0)
 		NOT NULL
 		CONSTRAINT account_info_creator_id
@@ -1563,9 +1563,6 @@ CREATE TABLE group_info
 		NOT NULL
 		CONSTRAINT group_info_creator_id
 		  REFERENCES account_info(account_id),
-  create_date	DATE
-		DEFAULT [:now]
-		NOT NULL,
 /* expire_date kan brukes for å slette grupper, f.eks. ved at gruppen
    ikke lenger eksporteres etter at datoen er passert, men først
    slettes fra tabellen N måneder senere.  Det innebærer at man ikke

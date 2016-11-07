@@ -43,10 +43,11 @@ targets = {
              'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9',
              'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
              'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',
-             'rel_0_9_18'),
+             'rel_0_9_18', 'rel_0_9_19', ),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3',),
     'changelog': ('changelog_1_2', 'changelog_1_3'),
-    'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4'),
+    'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4',
+              'email_1_5',),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
     'stedkode': ('stedkode_1_1', ),
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
@@ -54,6 +55,7 @@ targets = {
     'sap': ('sap_1_0', 'sap_1_1',),
     'printer_quota': ('printer_quota_1_1', 'printer_quota_1_2',),
     'entity_trait': ('entity_trait_1_1',),
+    'hostpolicy': ('hostpolicy_1_1',),
 }
 
 # Global variables
@@ -67,10 +69,10 @@ def time_spent(start):
     seconds = spent % 60
     txt = ""
     if hours:
-        txt = "h:%d, " % hours
+        txt = "%dh " % hours
     if minutes:
-        txt += "m:%d, " % minutes
-    txt += "s:%d" % seconds
+        txt += "%dm " % minutes
+    txt += "%ds" % seconds
     return txt
 
 
@@ -117,7 +119,8 @@ def get_db_version(component='core'):
 def assert_db_version(wanted, component="core"):
     version = get_db_version(component=component)
     if wanted != version:
-        print "Your database is %s, not %s, aborting" % (version, wanted)
+        print "Your '{}' version is {}, not {}, aborting".format(
+            component, version, wanted)
         sys.exit(1)
 
 
@@ -684,6 +687,96 @@ def migrate_to_rel_0_9_18():
     db.commit()
 
 
+def migrate_to_rel_0_9_19():
+    """Migrate from 0.9.18 database to the 0.9.19 database schema."""
+    assert_db_version("0.9.18")
+    makedb('0_9_19', 'pre', False)
+    db.commit()
+
+    change_map = {
+        'accounts': {
+            'schema': 'account_info',
+            'identifier': 'account_id',
+            'change_type': 'account_create'
+        },
+        'groups': {
+            'schema': 'group_info',
+            'identifier': 'group_id',
+            'change_type': 'group_create'
+        },
+        'persons': {
+            'schema': 'person_info',
+            'identifier': 'person_id',
+            'change_type': 'person_create'
+        },
+        'OUs': {
+            'schema': 'ou_info',
+            'identifier': 'ou_id',
+            'change_type': 'ou_create'
+        },
+        'DNS owners': {  ### mod_dns
+            'schema': 'dns_owner',
+            'identifier': 'dns_owner_id',
+            'change_type': 'dns_owner_add'
+        },
+        'DNS subnets': {  ### mod_dns
+            'schema': 'dns_subnet',
+            'identifier': 'entity_id',
+            'change_type': 'subnet_create'
+        },
+    }
+
+    basic_template = """
+    UPDATE entity_info ei
+    SET created_at = x.create_date
+    FROM {schema} x
+    WHERE ei.entity_id = x.{identifier}"""
+
+    cl_template = """
+    UPDATE entity_info ei
+    SET created_at = cl.tstamp
+    FROM change_log cl, {schema} x
+    WHERE ei.entity_id = x.{identifier}
+    AND cl.subject_entity = x.{identifier}
+    AND cl.change_type_id = {change_type_id}"""
+
+    for name, config in change_map.items():
+        try:
+            change_type = getattr(co, config['change_type'])
+            change_type_id = int(change_type)
+        except AttributeError:
+            print "No change type {}, skipping {}".format(
+                config['change_type'], name)
+            continue
+        if config['schema'] in ('account_info', 'group_info'):
+            sql = basic_template.format(schema=config['schema'],
+                                        identifier=config['identifier'])
+            print "Migrating change_date from {}...".format(
+                config['schema'])
+            curr = now()
+            db.execute(sql)
+            print "Migrated {} change_dates from {} in {}".format(
+                db.rowcount, config['schema'], time_spent(curr))
+        sql = cl_template.format(schema=config['schema'],
+                                 identifier=config['identifier'],
+                                 change_type_id=change_type_id)
+        print "Setting creation timestamps for {} from change_log...".format(
+            name)
+        curr = now()
+        db.execute(sql)
+        print "Processed {} change log rows for {} in {}".format(
+            db.rowcount, name, time_spent(curr))
+
+    print "\ncommitting..."
+    db.commit()
+    makedb('0_9_19', 'post')
+    print "\ndone."
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 19))
+    print "Migration to 0.9.19 completed successfully"
+    db.commit()
+
+
 def migrate_to_bofhd_1_1():
     print "\ndone."
     assert_db_version("1.0", component='bofhd')
@@ -1081,6 +1174,27 @@ def migrate_to_email_1_4():
     print "Migration to email 1.4 completed successfully"
 
 
+def migrate_to_email_1_5():
+    assert_db_version("0.9.19")
+    assert_db_version("1.4", component="email")
+
+    print "Moving change_date from email_address to entity_info"
+    db.execute("""
+        UPDATE entity_info ei
+        SET created_at = ea.create_date
+        FROM email_address ea
+        WHERE ea.address_id = ei.entity_id""")
+    print "Affected {} rows".format(db.rowcount)
+    db.commit()
+
+    makedb("email_1_5", "post")
+
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_email", "1.5")
+    print "Migration to email 1.5 completed successfully"
+    db.commit()
+
+
 def migrate_to_ephorte_1_1():
     print "\ndone."
     assert_db_version("1.0", component='ephorte')
@@ -1232,6 +1346,70 @@ def migrate_to_entity_trait_1_1():
     meta.set_metainfo("sqlmodule_entity_trait", "1.1")
     print "Migration to entity_trait 1.1 completed successfully"
     db.commit()
+
+
+def migrate_to_hostpolicy_1_1():
+    assert_db_version("0.9.19")
+    assert_db_version("1.0", component="hostpolicy")
+    makedb("hostpolicy_1_1", "pre")
+
+    change_map = {
+        'hostpolicy atoms': {
+            'schema': 'hostpolicy_component',
+            'identifier': 'component_id',
+            'change_type': 'hostpolicy_atom_create'
+        },
+        'hostpolicy roles': {
+            'schema': 'hostpolicy_component',
+            'identifier': 'component_id',
+            'change_type': 'hostpolicy_role_create'
+        },
+    }
+
+
+    sql = """
+    UPDATE entity_info ei
+    SET created_at = hpc.create_date
+    FROM hostpolicy_component hpc
+    WHERE ei.entity_id = hpc.component_id"""
+
+    print "Migrating change_date from hostpolicy_component..."
+    curr = now()
+    db.execute(sql)
+    print "Migrated {} change_dates from hostpolicy_component in {}".format(
+        db.rowcount, time_spent(curr))
+
+    cl_template = """
+    UPDATE entity_info ei
+    SET created_at = cl.tstamp
+    FROM change_log cl, {schema} x
+    WHERE ei.entity_id = x.{identifier}
+    AND cl.subject_entity = x.{identifier}
+    AND cl.change_type_id = {change_type_id}"""
+
+    for name, config in change_map.items():
+        try:
+            change_type = getattr(co, config['change_type'])
+            change_type_id = int(change_type)
+        except AttributeError:
+            print "No change type {}".format(config['change_type'])
+            raise
+        sql = cl_template.format(schema=config['schema'],
+                                 identifier=config['identifier'],
+                                 change_type_id=change_type_id)
+        print "Setting creation timestamps for {} from change_log...".format(
+            name)
+        curr = now()
+        db.execute(sql)
+        print "Processed {} change log rows for {} in {}".format(
+            db.rowcount, name, time_spent(curr))
+
+    db.commit()
+    makedb("hostpolicy_1_1", "post")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_hostpolicy", "1.1")
+    db.commit()
+    print "Migration to hostpolicy 1.1 completed successfully"
 
 
 def init():

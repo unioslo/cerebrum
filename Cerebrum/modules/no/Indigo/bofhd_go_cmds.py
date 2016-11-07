@@ -305,7 +305,7 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
 
     def get_create_date(self, operator, entity_id):
         account = self._get_account(entity_id)
-        return account.create_date
+        return account.created_at
 
     #
     # user_get_pwd
