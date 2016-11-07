@@ -316,6 +316,7 @@ sbin_files = [
     ('servers/cis/SoapPostmasterServer.py', 0755),
     ('servers/cis/SoapGroupServer.py', 0755),
     ('servers/cis/SoapServer.py', 0755),
+    ('consumers/no/uio/consumer_sap.py', 0755)
 ]
 
 bin_files = []
@@ -469,6 +470,7 @@ setup(
         'Cerebrum/modules/dns',
         'Cerebrum/modules/event',
         'Cerebrum/modules/event/clients',
+        'Cerebrum/modules/event_consumer',
         'Cerebrum/modules/event_publisher',
         'Cerebrum/modules/exchange',
         'Cerebrum/modules/feide',
