@@ -254,8 +254,8 @@ def parse_external_ids(d):
 
     def make_tuple(x):
         return {
-            u'internationalId': (co.externalid_pass_number,
-                                 (x.get(u'country') + x.get(u'value'))),
+            u'passportNumber': (co.externalid_pass_number,
+                                (x.get(u'country') + x.get(u'value'))),
             u'nationalIdentityNumber': (co.externalid_fodselsnr,
                                         x.get(u'value'))}.get(x.get('type'))
 
@@ -264,7 +264,7 @@ def parse_external_ids(d):
     external_ids.extend(
         [make_tuple(x) for x in d.get('identities')])
 
-    return external_ids
+    return filter_elements(external_ids)
 
 
 def _get_ou(database, placecode):
@@ -554,8 +554,6 @@ def update_external_ids(database, source_system, hr_person, cerebrum_person):
     :param cerebrum_person: The Person object to be updated.
     """
     co = Factory.get('Constants')(database)
-
-    hr_person.get(u'external_ids')
 
     external_ids = set(map(lambda e: (e[u'id_type'], e[u'external_id']),
                        cerebrum_person.get_external_id(
