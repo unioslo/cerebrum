@@ -45,6 +45,12 @@ from Cerebrum.modules.no.uit import DiskQuota
 from Cerebrum.modules.no.uit import PrinterQuotas
 from Cerebrum.modules.templates.letters import TemplateHandler
 
+# kbj005/H2016
+# Temporary addition to use while running old and new Cerebrum in parallel.
+# TODO: revert/remove all things "labelled" with kbj005/H2016 when we no longer need this.
+from Cerebrum.modules.no.uit.account_bridge import AccountBridge
+# kbj005/H2016
+
 db = Factory.get('Database')()
 db.cl_init(change_program='process_students')
 const = Factory.get('Constants')(db)
@@ -99,7 +105,51 @@ class AccountUtil(object):
     """Collection of methods that operate on a single account to make
     it conform to a profile """
 
+# kbj005/H2016
+# Temporary addition to use while running old and new Cerebrum in parallel.
+# TODO: revert/remove all things "labelled" with kbj005/H2016 when we no longer need this.
+    def restore_uname_tmp(account_id, profile):
+        logger.info("RESTORE")
+        account = Factory.get('Account')(db)
+        account.find(account_id)
+
+        homes = account.get_homes()
+
+        for h in homes:
+            disk_quota_obj.clear(h['homedir_id'])
+            account.clear_home(h['spread'])
+        account.expire_date = None
+
+        with AccountBridge() as bridge:
+            auth_data = bridge.get_auth_data(account.account_name)
+        if auth_data == None:
+            # This account isn't in old Cerebrum yet, ignore it for now
+            logger.warn("Cannot refresh password for %s. Couldn't find auth_data for this account in Caesar database." % account.account_name)
+            return
+        account.set_auth_data(auth_data)
+        logger.debug("refreshing password for %s" % account.account_name)
+        account.write_db()
+        
+        account.populate_trait(code=const.trait_student_new, date=now())
+        account.write_db()
+        # hack, accomodating UiAs need to assign server-groups to
+        # students an add_student_to_server_group is defined in
+        # Cerebrum/Account.py and may be overridden in institution
+        # specific Account-classes the reason we need this hack is
+        # that AutoStud does not support assigning a group membership
+        # in a random group out of pre-defined pool
+        account.add_student_to_server_group()
+        password = 'Password collected from Caesar. Not available here.'
+        all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
+    restore_uname_tmp=staticmethod(restore_uname_tmp)
+# kbj005/H2016
+
     def restore_uname(account_id, profile):
+# kbj005/H2016
+        AccountUtil.restore_uname_tmp(account_id, profile)
+        return
+# kbj005/H2016
+
         logger.info("RESTORE")
         account = Factory.get('Account')(db)
         account.find(account_id)
@@ -126,7 +176,91 @@ class AccountUtil(object):
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
     restore_uname=staticmethod(restore_uname)
 
+# kbj005/H2016
+# Temporary addition to use while running old and new Cerebrum in parallel.
+# TODO: revert/remove all things "labelled" with kbj005/H2016 when we no longer need this.
+    def create_user_tmp(fnr, profile):
+        # dryrunning this method is unfortunately a bit tricky
+        assert not dryrun
+        uname = None
+        logger.info("CREATE")
+        person = Factory.get('Person')(db)
+        try:
+            person.find_by_external_id(const.externalid_fodselsnr, fnr,
+                                       const.system_fs)
+        except Errors.NotFoundError:
+            logger.warn("OUCH! person %s not found" % fnr)
+            return None
+
+        account = Factory.get('Account')(db)
+
+        if not persons[fnr].get_affiliations():
+            logger.error("The person %s has no student affiliations" % fnr)
+            return None
+
+        with AccountBridge() as bridge:
+            uname = bridge.get_uit_uname(fnr)
+        if uname == None:
+            # This account isn't in old Cerebrum yet, ignore it for now
+            logger.warn("Cannot create account for %s. Couldn't find uname for this account in Caesar database." % fnr)
+            return None
+        # Test
+        else:
+            logger.warn("KB, uname from Caesar: %s" % uname)
+        # Test end
+
+        logger.info("uname %s will be used", uname)
+        account.populate(uname,
+                         const.entity_person,
+                         person.entity_id,
+                         None,
+                         default_creator_id, default_expire_date)
+        try:
+            tmp = account.write_db()
+            logger.debug("new Account, write_db=%s" % tmp)
+        except Exception,m:
+            logger.error("Failed create for %s, uname=%s, reason: %s" % \
+                (fnr, uname, m))
+        else:
+            with AccountBridge() as bridge:
+                auth_data = bridge.get_auth_data(uname)
+            if auth_data == None:
+                # This account isn't in old Cerebrum yet, ignore it for now
+                logger.warn("Cannot create account for %s. Couldn't find auth_data for this account in Caesar database." % fnr)
+                return None
+            account.set_auth_data(auth_data)
+
+
+        tmp = account.write_db()
+        logger.debug("Created account %s(%s), write_db=%s" % (uname,account.entity_id,tmp))
+
+        account.populate_trait(code=const.trait_student_new, date=now())
+        account.write_db()
+
+        # hack, accomodating UiAs need to assign server-groups to
+        # students an add_student_to_server_group is defined in
+        # Cerebrum/Account.py and may be overridden in institution
+        # specific Account-classes the reason we need this hack is
+        # that AutoStud does not support assigning a group membership
+        # in a random group out of pre-defined pool
+        account.add_student_to_server_group()
+        password = 'Password collected from Caesar, so not available here.'
+        all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
+        as_posix = False
+        for spread in profile.get_spreads():
+            if int(spread) in posix_spreads:
+                as_posix = True
+        accounts[int(account.entity_id)] = ExistingAccount(fnr, None)
+        AccountUtil.update_account(account.entity_id, fnr, profile, as_posix)
+        return account.entity_id
+    create_user_tmp=staticmethod(create_user_tmp)
+# kbj005/H2016
+
     def create_user(fnr, profile):
+# kbj005/H2016
+        return AccountUtil.create_user_tmp(fnr, profile)
+# kbj005/H2016
+
         # dryruning this method is unfortunately a bit tricky
         assert not dryrun
         uname = None

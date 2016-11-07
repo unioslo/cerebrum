@@ -1,3 +1,8 @@
+2016-11-07  Karen   <cerebrum@cleomedes.uit.no>
+
+    * process_students.py: Made temporary changes to use while running old and 
+    new Cerebrum in parallel: username and password for new accounts are copied from old Cerebrum.
+    
 2016-10-28  Karen   <cerebrum@cleomedes.uit.no>
     
     * process_sito_email.py: Made temporary changes to use while running old and new Cerebrum 
