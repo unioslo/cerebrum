@@ -299,10 +299,11 @@ def parse_affiliations(database, d):
                       x.get(u'job').get(u'category').get('uio'))
         ou = _get_ou(database, x.get(u'organizationalUnit'))
         main = x.get(u'type') == u'primary'
-        yield {u'ou_id': ou.entity_id,
-               u'affiliation': co.affiliation_ansatt,
-               u'status': status,
-               u'precedence': (50L, 50L) if main else None}
+        if status:
+            yield {u'ou_id': ou.entity_id,
+                   u'affiliation': co.affiliation_ansatt,
+                   u'status': status,
+                   u'precedence': (50L, 50L) if main else None}
 
 
 def parse_roles(database, data):
