@@ -392,7 +392,9 @@ def get_hr_person(config, database, source_system, url):
         headers = {'Accept': 'application/json'}
 
         try:
+            logger.debug4(u'Fetching {}'.format(url))
             r = requests.get(url, auth=auth, headers=headers)
+            logger.debug4(u'Fetch completed')
         except Exception as e:
             # Be polite on connection errors. Conenction errors seldom fix
             # themselves quickly.
