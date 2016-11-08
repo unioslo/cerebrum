@@ -361,6 +361,13 @@ class PosixLDIF(object):
         for row in self.grp.search(spread=self.spread_d['filegroup'],
                                    filter_expired=False):
             group_id = row['group_id']
+            if group_id not in self.group2gid:
+                self.logger.warn(
+                    "Group id:{} has one of {} but no GID, skipping".format(
+                        group_id,
+                        getattr(cereconf,
+                                'LDAP_FILEGROUP').get('spread'), []))
+                continue
             self.create_group_object(group_id, row['name'],
                                      row['description'])
             self.create_filegroup_object(group_id)
@@ -513,7 +520,7 @@ class PosixLDIF(object):
     def init_netgroup(self):
         """Initiate modules, constants and cache"""
         self.ngrp_dn = LDIFutils.ldapconf('NETGROUP', 'dn')
-        self.cache_account2name() 
+        self.cache_account2name()
         self.cache_groups_and_users()
         self.cache_group2persons()
         self.netgroupcache = defaultdict(dict)
