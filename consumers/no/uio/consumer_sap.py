@@ -75,6 +75,10 @@ class RemoteSourceError(Exception):
     """An error occured in the source system."""
 
 
+class ErroneousSourceData(Exception):
+    """An error occured in the source system data."""
+
+
 class SAPWSConsumerConfig(Configuration):
     """Configuration of the WebService connectivity."""
     auth_user = ConfigDescriptor(
@@ -303,6 +307,9 @@ def parse_affiliations(database, d):
                   u'Vit': co.affiliation_status_ansatt_vitenskapelig}.get(
                       x.get(u'job').get(u'category').get('uio'))
         ou = _get_ou(database, x.get(u'organizationalUnit'))
+        if not ou:
+            raise ErroneousSourceData(
+                u'organizationalUnit is {} for {}'.format(ou, d.get(u'id')))
         main = x.get(u'type') == u'primary'
         if status:
             yield {u'ou_id': ou.entity_id,
@@ -748,7 +755,7 @@ def callback(database, source_system, routing_key, content_type, body,
         logger.info(u'Successfully processed {}'.format(body))
     except RemoteSourceUnavailable:
         message_processed = False
-    except RemoteSourceError as e:
+    except (RemoteSourceError, ErroneousSourceData) as e:
         logger.error(u'Failed processing {}:\n {}'.format(body, e))
         message_processed = True
     except Exception as e:
