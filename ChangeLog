@@ -1,3 +1,11 @@
+2016-11-08    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_paga.py (create_employee_account_tmp): Added sanity
+	check when collecting username from old cerebrum. If the username
+	is already taken in new cerebrum (which normally shouldnt
+	happend.. but it does if join_person is executed on old cerebrum
+	only), return error message and continue to next user
+
 2016-11-07  Karen   <cerebrum@cleomedes.uit.no>
 
     * process_students.py: Made temporary changes to use while running old and 
