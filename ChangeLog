@@ -1,3 +1,8 @@
+2016-11-08  Karen   <cerebrum@cleomedes.uit.no>
+
+    * process_systemx.py: Made temporary changes to use while running old and 
+    new Cerebrum in parallel: username and password for new accounts are copied from old Cerebrum.
+
 2016-11-08    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_paga.py (create_employee_account_tmp): Added sanity
