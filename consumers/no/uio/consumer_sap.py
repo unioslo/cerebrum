@@ -67,8 +67,16 @@ def filter_elements(d):
     return filter(lambda (k, v): k and v, d)
 
 
-class RemoteSourceDown(Exception):
+class RemoteSourceUnavailable(Exception):
     """Exception signaling that the remote system is out of service."""
+
+
+class RemoteSourceError(Exception):
+    """An error occured in the source system."""
+
+
+class ErroneousSourceData(Exception):
+    """An error occured in the source system data."""
 
 
 class SAPWSConsumerConfig(Configuration):
@@ -254,8 +262,9 @@ def parse_external_ids(d):
 
     def make_tuple(x):
         return {
-            u'internationalId': (co.externalid_pass_number,
-                                 (x.get(u'country') + x.get(u'value'))),
+            u'passportNumber': (co.externalid_pass_number,
+                                co.make_passport_number(
+                                    x.get(u'country'), x.get(u'value'))),
             u'nationalIdentityNumber': (co.externalid_fodselsnr,
                                         x.get(u'value'))}.get(x.get('type'))
 
@@ -264,7 +273,7 @@ def parse_external_ids(d):
     external_ids.extend(
         [make_tuple(x) for x in d.get('identities')])
 
-    return external_ids
+    return filter_elements(external_ids)
 
 
 def _get_ou(database, placecode):
@@ -298,11 +307,15 @@ def parse_affiliations(database, d):
                   u'Vit': co.affiliation_status_ansatt_vitenskapelig}.get(
                       x.get(u'job').get(u'category').get('uio'))
         ou = _get_ou(database, x.get(u'organizationalUnit'))
+        if not ou:
+            raise ErroneousSourceData(
+                u'organizationalUnit is {} for {}'.format(ou, d.get(u'id')))
         main = x.get(u'type') == u'primary'
-        yield {u'ou_id': ou.entity_id,
-               u'affiliation': co.affiliation_ansatt,
-               u'status': status,
-               u'precedence': (50L, 50L) if main else None}
+        if status:
+            yield {u'ou_id': ou.entity_id,
+                   u'affiliation': co.affiliation_ansatt,
+                   u'status': status,
+                   u'precedence': (50L, 50L) if main else None}
 
 
 def parse_roles(database, data):
@@ -374,7 +387,7 @@ def get_hr_person(config, database, source_system, url):
     :rtype: dict
     :return The parsed data from the remote source system
 
-    :raises: RemoteSourceDown if the remote system can't be contacted"""
+    :raises: RemoteSourceUnavailable if the remote system can't be contacted"""
 
     def _get_data(config, url):
         import requests
@@ -386,13 +399,15 @@ def get_hr_person(config, database, source_system, url):
         headers = {'Accept': 'application/json'}
 
         try:
+            logger.debug4(u'Fetching {}'.format(url))
             r = requests.get(url, auth=auth, headers=headers)
+            logger.debug4(u'Fetch completed')
         except Exception as e:
             # Be polite on connection errors. Conenction errors seldom fix
             # themselves quickly.
             import time
             time.sleep(1)
-            raise e
+            raise RemoteSourceUnavailable(str(e))
 
         if r.status_code == 200:
             data = json.loads(r.text).get(u'd', None)
@@ -409,10 +424,9 @@ def get_hr_person(config, database, source_system, url):
                     data.update({k: r})
             return data
         else:
-            logger.error(
+            raise RemoteSourceError(
                 u'Could not fetch {} from remote source: {}: {}'.format(
                     url, r.status_code, r.reason))
-            raise RemoteSourceDown
 
     return _parse_hr_person(database, source_system, _get_data(config, url))
 
@@ -555,8 +569,6 @@ def update_external_ids(database, source_system, hr_person, cerebrum_person):
     """
     co = Factory.get('Constants')(database)
 
-    hr_person.get(u'external_ids')
-
     external_ids = set(map(lambda e: (e[u'id_type'], e[u'external_id']),
                        cerebrum_person.get_external_id(
                            source_system=source_system)))
@@ -621,7 +633,7 @@ def update_contact_info(database, source_system, hr_person, cerebrum_person):
                              u'contact_type',
                              (u'entity_id', u'source_system',
                               u'contact_type', u'contact_description',
-                              u'contact_alias'),
+                              u'contact_alias', u'last_modified'),
                              cerebrum_person.get_contact_info(
                                      source=source_system))
 
@@ -741,8 +753,11 @@ def callback(database, source_system, routing_key, content_type, body,
     try:
         handle_person(database, source_system, url, datasource=datasource)
         logger.info(u'Successfully processed {}'.format(body))
-    except RemoteSourceDown:
+    except RemoteSourceUnavailable:
         message_processed = False
+    except (RemoteSourceError, ErroneousSourceData) as e:
+        logger.error(u'Failed processing {}:\n {}'.format(body, e))
+        message_processed = True
     except Exception as e:
         message_processed = True
         logger.error(u'Failed processing {}:\n {}'.format(body, e),
