@@ -204,10 +204,14 @@ class AccountUtil(object):
             # This account isn't in old Cerebrum yet, ignore it for now
             logger.warn("Cannot create account for %s. Couldn't find uname for this account in Caesar database." % fnr)
             return None
-        # Test
         else:
             logger.warn("KB, uname from Caesar: %s" % uname)
-        # Test end
+
+            # Sanity check. Is username already used in new cerebrum?
+            validate_uname = account.validate_new_uname(const.account_namespace, uname)
+            if validate_uname == False:
+                logger.warn("Cannot create account for %s. Username is already used in Clavius database." % fnr)
+                return None
 
         logger.info("uname %s will be used", uname)
         account.populate(uname,

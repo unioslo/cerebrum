@@ -1,3 +1,11 @@
+2016-11-09  Karen   <cerebrum@cleomedes.uit.no>
+
+    * process_students.py (create_user_tmp): Now checks if username is free in Clavius database. If not a
+    warning is logged and the user is ignored.
+
+    * process_sito.py (create_sito_account_tmp): Now checks if username is free in Clavius database. If not a
+    warning is logged and the user is ignored.
+
 2016-11-09    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_uit_email.py (process_mail): Collect email addresses (primary and alies) from caesar, instead of creating

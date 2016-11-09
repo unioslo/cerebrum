@@ -635,6 +635,8 @@ def create_sito_account_tmp(fnr):
     first_name=p_obj.get_name(co.system_cached, co.name_first)
     last_name=p_obj.get_name(co.system_cached, co.name_last)    
 
+    acc_obj = Factory.get('Account')(db)
+
     with AccountBridge() as bridge:
         uname = bridge.get_sito_uname(fnr)
     if uname == None:
@@ -644,7 +646,12 @@ def create_sito_account_tmp(fnr):
     else:
         logger.warn("KB, uname from Caesar: %s" % uname)
 
-    acc_obj = Factory.get('Account')(db)
+        # Sanity check. Is username already used in new cerebrum?
+        validate_uname = acc_obj.validate_new_uname(co.account_namespace, uname)
+        if validate_uname == False:
+            logger.warn("Cannot create account for %s. Username is already used in Clavius database." % fnr)
+            return -1
+
     acc_obj.populate(uname,
                      co.entity_person,
                      p_obj.entity_id,
