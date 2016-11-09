@@ -756,7 +756,8 @@ def callback(database, source_system, routing_key, content_type, body,
     except RemoteSourceUnavailable:
         message_processed = False
     except (RemoteSourceError, ErroneousSourceData) as e:
-        logger.error(u'Failed processing {}:\n {}'.format(body, e))
+        logger.error(u'Failed processing {}:\n {}: {}'.format(
+            body, type(e).__name__, e))
         message_processed = True
     except Exception as e:
         message_processed = True
