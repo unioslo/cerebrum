@@ -90,6 +90,22 @@ EntityQuarantine = api.model('EntityQuarantine', {
 })
 
 
+EntityTrait = api.model('EntityTrait', {
+    'trait': fields.Constant(
+        ctype='EntityTrait',
+        attribute='code',
+        description='Trait type'),
+    'string': fields.base.String(
+        attribute='strval',
+        description='Trait string value'),
+    'number': fields.base.Integer(
+        attribute='numval',
+        description='Trait number value'),
+    'date': fields.DateTime(
+        description='Trait date value'),
+})
+
+
 # Model for data from entity.search_name_with_language()
 EntityNameWithLanguage = api.model('EntityNameWithLanguage', {
     'variant': fields.Constant(
