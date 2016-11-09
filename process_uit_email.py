@@ -38,18 +38,21 @@ import getopt
 import sys
 import os
 from sets import Set
+from pprint import pprint
 
 import cerebrum_path
 import cereconf
+from Cerebrum.utils.funcwrap import memoize
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, simple_memoize
+from Cerebrum.Utils import Factory
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.Email import EmailDomain,EmailAddress
 from  Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 from Cerebrum.modules.no.Stedkode import Stedkode
+from Cerebrum.modules.no.uit.account_bridge import AccountBridge
 db = Factory.get('Database')()
 ac = Factory.get('Account')(db)
 p = Factory.get('Person')(db)
@@ -79,7 +82,7 @@ def get_sko(ou_id):
     return "%s%s%s" % (str(sko.fakultet).zfill(2),
                        str(sko.institutt).zfill(2),
                        str(sko.avdeling).zfill(2))
-get_sko=simple_memoize(get_sko)
+get_sko=memoize(get_sko)
 
 
 def _get_alternatives(account_name):
@@ -117,7 +120,7 @@ def get_domainid(domain_part):
     domain = EmailDomain(db)
     domain.find_by_domain(domain_part)
     return domain.entity_id
-get_domainid=simple_memoize(get_domainid)
+get_domainid=memoize(get_domainid)
 
 tmp_ac=Factory.get('Account')(db)
 
@@ -300,7 +303,26 @@ def process_mail():
         old_addrs=uit_mails.get(uname,None)
         logger.debug("old addrs=%s" % (old_addrs,))
         old_addrs_set=Set(old_addrs)
-        should_have_addrs,new_primary_addr=calculate_uit_emails(uname,uit_account_affs.get(account_id))
+
+        # kaj000/H2016
+        # collect email addresses from caesar instead of creating new ones
+        #should_have_addrs,new_primary_addr=calculate_uit_emails(uname,uit_account_affs.get(account_id))
+
+        with AccountBridge() as bridge:            
+            new_primary_addr = bridge.get_email(uname)
+            should_have_addrs = bridge.get_email_aliases(uname)
+                                                         
+                                                    
+        # Need to restructure the data a bit so we can compare correctly
+        if new_primary_addr not in should_have_addrs:
+            should_have_addrs.append(new_primary_addr)
+        
+        #pprint("primary email from clavius: %s" % new_primary_addr)
+        #pprint("primary email from caesar:%s" % old_primary_addr)
+        #pprint("all emails from clavius: %s" % should_have_addrs)
+        #pprint("all emails from caesar:%s" % old_should_have_addrs)
+        # kaj000/H2016
+
         new_primaryemail[account_id]=new_primary_addr
 
         logger.debug("should have addrs=%s" % 

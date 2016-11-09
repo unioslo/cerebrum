@@ -1,3 +1,8 @@
+2016-11-09    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_uit_email.py (process_mail): Collect email addresses (primary and alies) from caesar, instead of creating
+	new ones in new cerebrum. Once old cerebrum is offline, this will have to be changed back
+
 2016-11-08  Karen   <cerebrum@cleomedes.uit.no>
 
     * process_systemx.py: Made temporary changes to use while running old and 
