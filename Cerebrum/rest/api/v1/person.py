@@ -192,3 +192,37 @@ class PersonAccountListResource(Resource):
             })
 
         return {'accounts': accounts}
+
+
+@api.route('/<int:id>/consents', endpoint='person-consents')
+@api.doc(params={'id': 'Person entity ID'})
+class PersonConsentListResource(Resource):
+    """Resource for person consents."""
+    @auth.require()
+    @api.marshal_with(models.EntityConsent, as_list=True, envelope='consents')
+    def get(self, id):
+        """Get the consents of a person."""
+        pe = find_person(id)
+        consents = []
+        if not hasattr(pe, 'list_consents'):
+            abort(501, message='Consent module not enabled')
+        for c in pe.list_consents(entity_id=pe.entity_id):
+            consent = db.const.EntityConsent(c['consent_code'])
+            consent_type = db.const.ConsentType(consent.consent_type)
+            consents.append({
+                'name': str(consent),
+                'description': consent.description,
+                'type': str(consent_type),
+                'set_at': c.time_set,
+                'expires': c.expiry,
+            })
+        # Hack to represent publication reservation
+        if hasattr(pe, 'has_e_reservation') and pe.has_e_reservation():
+            consents.append({
+                'name': 'publication',
+                'description': 'Hide from public catalogs?',
+                'type': 'opt-out',
+                'set_at': None,
+                'expires': None,
+            })
+        return consents

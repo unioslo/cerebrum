@@ -120,6 +120,23 @@ EntityNameWithLanguage = api.model('EntityNameWithLanguage', {
         description='Name'),
 })
 
+
+EntityConsent = api.model('EntityConsent', {
+    'name': fields.base.String(
+        description='Consent name'),
+    'description': fields.base.String(
+        description='Consent description'),
+    'type': fields.base.String(
+        description='Consent type'),
+    'set_at': fields.DateTime(
+        dt_format='iso8601',
+        description='Consent set at'),
+    'expires': fields.DateTime(
+        dt_format='iso8601',
+        description='Consent expires at'),
+})
+
+
 # Model for referencing OUs by ID
 OU = api.model('OU', {
     'href': fields.href(
