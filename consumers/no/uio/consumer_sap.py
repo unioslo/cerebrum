@@ -276,8 +276,11 @@ def parse_external_ids(d):
     return filter_elements(external_ids)
 
 
-def _get_ou(database, placecode):
+def _get_ou(database, sap_id, placecode):
     """Populate a Cerebrum-OU-object from the DB."""
+    if not placecode:
+        raise ErroneousSourceData(
+            u'organizationalUnit is {} for {}'.format(placecode, sap_id))
     import cereconf
     ou = Factory.get('OU')(database)
     ou.clear()
@@ -306,10 +309,7 @@ def parse_affiliations(database, d):
         status = {u'T/A': co.affiliation_status_ansatt_tekadm,
                   u'Vit': co.affiliation_status_ansatt_vitenskapelig}.get(
                       x.get(u'job').get(u'category').get('uio'))
-        ou = _get_ou(database, x.get(u'organizationalUnit'))
-        if not ou:
-            raise ErroneousSourceData(
-                u'organizationalUnit is {} for {}'.format(ou, d.get(u'id')))
+        ou = _get_ou(database, x.get('id'), x.get(u'organizationalUnit'))
         main = x.get(u'type') == u'primary'
         if status:
             yield {u'ou_id': ou.entity_id,
@@ -346,7 +346,7 @@ def parse_roles(database, data):
                 u'POLS-ANSAT': None}
 
     for role in data.get(u'roles'):
-        ou = _get_ou(database, role.get(u'organizationalUnit'))
+        ou = _get_ou(database, role.get('id'), role.get(u'organizationalUnit'))
         if role2aff.get(role.get(u'type')):
             yield {u'ou_id': ou.entity_id,
                    u'affiliation': role2aff.get(role.get(u'type')).affiliation,
