@@ -374,7 +374,7 @@ def _parse_hr_person(database, source_system, data):
         u'affiliations': parse_affiliations(database, data),
         u'roles': parse_roles(database, data),
         u'titles': parse_titles(data),
-        u'reserved': not data.get(u'publicView')}
+        u'reserved': not data.get(u'publish')}
 
 
 def get_hr_person(config, database, source_system, url):
@@ -699,11 +699,11 @@ def update_reservation(database, hr_person, cerebrum_person):
     gr.find_by_name(u'SAP-elektroniske-reservasjoner')
     in_reserved_group = gr.has_member(cerebrum_person.entity_id)
 
-    if not hr_person.get(u'publish') and not in_reserved_group:
+    if hr_person.get(u'reserved') and not in_reserved_group:
         gr.add_member(cerebrum_person.entity_id)
         logger.debug(u'Adding id:{} to reservation group'.format(
             cerebrum_person.entity_id))
-    elif hr_person.get(u'publish') and in_reserved_group:
+    elif not hr_person.get(u'reserved') and in_reserved_group:
         gr.remove_member(cerebrum_person.entity_id)
         logger.debug(u'Removing id:{} from reservation group'.format(
             cerebrum_person.entity_id))
