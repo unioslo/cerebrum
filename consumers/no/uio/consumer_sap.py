@@ -699,11 +699,11 @@ def update_reservation(database, hr_person, cerebrum_person):
     gr.find_by_name(u'SAP-elektroniske-reservasjoner')
     in_reserved_group = gr.has_member(cerebrum_person.entity_id)
 
-    if hr_person.get(u'reserved') and not in_reserved_group:
+    if not hr_person.get(u'publish') and not in_reserved_group:
         gr.add_member(cerebrum_person.entity_id)
         logger.debug(u'Adding id:{} to reservation group'.format(
             cerebrum_person.entity_id))
-    elif not hr_person.get(u'reserved') and in_reserved_group:
+    elif hr_person.get(u'publish') and in_reserved_group:
         gr.remove_member(cerebrum_person.entity_id)
         logger.debug(u'Removing id:{} from reservation group'.format(
             cerebrum_person.entity_id))
