@@ -49,6 +49,8 @@ class Latin1:
 
     def to_iso646_60(self, s, substitute=''):
         """Wash known accented letters and some common charset confusions."""
+        if isinstance(s, unicode):
+            s = s.encode('latin-1', 'ignore')
         try:
             xlate_match = self.lat1_646_cache[substitute]
         except KeyError:
