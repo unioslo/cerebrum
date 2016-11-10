@@ -39,9 +39,8 @@ module:
    password, if the password trait has not already been set. The password trait
    gets set for logging this, with numval 1.
 
-5. Sends accounts another e-mail and/or SMS when closer to the deadline, if the
-   password trait has not already been set to 2. The trait's numval gets
-   incremented.
+5. Sends accounts another e-mail when closer to the deadline, if the password
+   trait has not already been set to 2. The trait's numval gets incremented.
 
 A trait is used for excepting specific users from being processed.
 """
