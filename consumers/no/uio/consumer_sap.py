@@ -374,7 +374,7 @@ def _parse_hr_person(database, source_system, data):
         u'affiliations': parse_affiliations(database, data),
         u'roles': parse_roles(database, data),
         u'titles': parse_titles(data),
-        u'reserved': not data.get(u'publicView')}
+        u'reserved': not data.get(u'publish')}
 
 
 def get_hr_person(config, database, source_system, url):
