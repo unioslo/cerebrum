@@ -79,6 +79,10 @@ class ErroneousSourceData(Exception):
     """An error occured in the source system data."""
 
 
+class DataError(Exception):
+    """An error occured in the data."""
+
+
 class SAPWSConsumerConfig(Configuration):
     """Configuration of the WebService connectivity."""
     auth_user = ConfigDescriptor(
@@ -431,22 +435,25 @@ def get_hr_person(config, database, source_system, url):
     return _parse_hr_person(database, source_system, _get_data(config, url))
 
 
-def get_cerebrum_person(database, identifier):
+def get_cerebrum_person(database, ids):
     """Get a person object from Cerebrum.
 
     If the person does not exist in Cerebrum, the returned object is
     clear()'ed"""
     pe = Factory.get('Person')(database)
-    co = Factory.get('Constants')(database)
     from Cerebrum import Errors
     try:
-        pe.find_by_external_id(co.externalid_sap_ansattnr, str(identifier))
+        pe.find_by_external_ids(*ids)
         logger.debug(u'Found existing person with id:{}'.format(pe.entity_id))
     except Errors.NotFoundError:
         logger.debug(
-            u'Could not find existing person for sap id:{}'.format(
-                identifier))
+            u'Could not find existing person with one of ids:{}'.format(ids))
         pe.clear()
+    except Errors.TooManyRowsError as e:
+        raise DataError(
+            u'Person in source system maps to multiple persons in Cerebrum. '
+            u'Manual intervention required: {}'.format(e))
+
     return pe
 
 
@@ -717,8 +724,11 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
     :param url: The URL to the person object in the HR systems WS.
     :param datasource: The function used to fetch / parse the resource."""
     hr_person = datasource(database, source_system, url)
-    identifier = hr_person.get(u'id')
-    cerebrum_person = get_cerebrum_person(database, identifier)
+    cerebrum_person = get_cerebrum_person(database,
+                                          map(lambda (k, v): (k,
+                                                              v,
+                                                              source_system),
+                                              hr_person.get(u'external_ids')))
 
     update_person(database, source_system, hr_person, cerebrum_person)
     update_external_ids(database, source_system, hr_person, cerebrum_person)
@@ -755,7 +765,7 @@ def callback(database, source_system, routing_key, content_type, body,
         logger.info(u'Successfully processed {}'.format(body))
     except RemoteSourceUnavailable:
         message_processed = False
-    except (RemoteSourceError, ErroneousSourceData) as e:
+    except (RemoteSourceError, ErroneousSourceData, DataError) as e:
         logger.error(u'Failed processing {}:\n {}: {}'.format(
             body, type(e).__name__, e))
         message_processed = True
