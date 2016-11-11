@@ -30,7 +30,8 @@ from Cerebrum.config.configuration import ConfigDescriptor
 
 
 from Cerebrum.config.settings import (Boolean,
-                                      String)
+                                      String,
+                                      Numeric)
 
 
 class AMQPClientConsumerConfig(BaseAMQPClientConfig):
@@ -46,6 +47,17 @@ class AMQPClientConsumerConfig(BaseAMQPClientConfig):
     consumer_tag = ConfigDescriptor(String,
                                     default=unicode(uuid.uuid4()),
                                     doc=u"A tag representing this consumer")
+
+    prefetch_count = ConfigDescriptor(Numeric,
+                                      default=1,
+                                      minval=0,
+                                      doc=(u"Size of the prefetch window"))
+
+    qos_per_channel = ConfigDescriptor(Boolean,
+                                       default=False,
+                                       doc=(u"Enforce QOS by channel. If "
+                                            u"False, QOS is enforced "
+                                            u"per-consumer"))
 
 
 def load_config(filepath=None, consumer_name=None):
