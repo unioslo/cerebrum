@@ -64,6 +64,12 @@ class ConsumingAMQP091Client(BaseAMQP091Client):
         self.callback_func = callback_func
         self.requeue = requeue
 
+    def open(self):
+        super(ConsumingAMQP091Client, self).open()
+        self.channel.basic_qos(
+            **{'prefetch_count': self.config.prefetch_count,
+               'all_channels': self.config.qos_per_channel})
+
     def start(self):
         """Start consuming messages."""
         self.channel.add_on_cancel_callback(_cancel_callback)
