@@ -1130,8 +1130,8 @@ SMS_ACCEPT_REGEX = (r'^\d{8}$', r'^\+47\d{8}$')
 # An additional security setting that prevents sending SMS via Bofh or through
 # the 'autopassord' service daemon.
 # Type: Nullable object
-# Default: None (or 0 or False)
-SMS_DISABLE = None
+# Default: False (or 0 or False)
+SMS_DISABLE = False
 
 #
 # Certificates
