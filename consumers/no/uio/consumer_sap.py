@@ -270,7 +270,8 @@ def parse_external_ids(d):
                                 co.make_passport_number(
                                     x.get(u'country'), x.get(u'value'))),
             u'nationalIdentityNumber': (co.externalid_fodselsnr,
-                                        x.get(u'value'))}.get(x.get('type'))
+                                        x.get(u'value'))}.get(x.get('type'),
+                                                              (None, None))
 
     external_ids = [(co.externalid_sap_ansattnr, unicode(d.get(u'id')))]
 
