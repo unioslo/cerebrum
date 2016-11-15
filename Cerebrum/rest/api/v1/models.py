@@ -90,6 +90,22 @@ EntityQuarantine = api.model('EntityQuarantine', {
 })
 
 
+EntityTrait = api.model('EntityTrait', {
+    'trait': fields.Constant(
+        ctype='EntityTrait',
+        attribute='code',
+        description='Trait type'),
+    'string': fields.base.String(
+        attribute='strval',
+        description='Trait string value'),
+    'number': fields.base.Integer(
+        attribute='numval',
+        description='Trait number value'),
+    'date': fields.DateTime(
+        description='Trait date value'),
+})
+
+
 # Model for data from entity.search_name_with_language()
 EntityNameWithLanguage = api.model('EntityNameWithLanguage', {
     'variant': fields.Constant(
@@ -103,6 +119,23 @@ EntityNameWithLanguage = api.model('EntityNameWithLanguage', {
     'name': fields.base.String(
         description='Name'),
 })
+
+
+EntityConsent = api.model('EntityConsent', {
+    'name': fields.base.String(
+        description='Consent name'),
+    'description': fields.base.String(
+        description='Consent description'),
+    'type': fields.base.String(
+        description='Consent type'),
+    'set_at': fields.DateTime(
+        dt_format='iso8601',
+        description='Consent set at'),
+    'expires': fields.DateTime(
+        dt_format='iso8601',
+        description='Consent expires at'),
+})
+
 
 # Model for referencing OUs by ID
 OU = api.model('OU', {

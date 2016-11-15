@@ -537,3 +537,15 @@ class AccountGPGResource(Resource):
         response = make_response(message)
         response.headers['Content-Type'] = 'text/plain'
         return response
+
+
+@api.route('/<string:id>/traits', doc=False)
+@api.doc(params={'id': 'Account name or ID'})
+class AccountTraitResource(Resource):
+    """Resource for account traits."""
+    @auth.require()
+    @api.marshal_with(models.EntityTrait, as_list=True, envelope='traits')
+    def get(self, id):
+        ac = find_account(id)
+        traits = ac.get_traits()
+        return traits.values()
