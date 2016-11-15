@@ -726,9 +726,7 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
     :param datasource: The function used to fetch / parse the resource."""
     hr_person = datasource(database, source_system, url)
     cerebrum_person = get_cerebrum_person(database,
-                                          map(lambda (k, v): (k,
-                                                              v,
-                                                              source_system),
+                                          map(lambda (k, v): (k, v),
                                               hr_person.get(u'external_ids')))
 
     update_person(database, source_system, hr_person, cerebrum_person)
