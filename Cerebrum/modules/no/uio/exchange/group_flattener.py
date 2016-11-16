@@ -27,11 +27,16 @@ from Cerebrum import Errors
 from functools import partial
 
 
+def destination_criterion(db, group_spread):
+    return partial(for_exchange, db, group_spread=group_spread)
+
+
+def member_criterion(db, account_spread):
+    return partial(for_exchange, db, account_spread=account_spread)
+
+
 def remove_operations(db, co, member, dest, group_spread, account_spread):
     """Generate a map of removal operations."""
-
-    crit = partial(for_exchange, db, group_spread=group_spread,
-                   account_spread=account_spread)
 
     # Search downwards, locate candidates for removal
     if member.entity_type == co.entity_person:
@@ -43,9 +48,8 @@ def remove_operations(db, co, member, dest, group_spread, account_spread):
         to_rem = [(member.entity_id, member.account_name)]
     elif member.entity_type == co.entity_group:
         to_rem = get_children(db, member)
-        to_rem.add((member.entity_id, member.group_name))
 
-        to_rem = criteria_sieve(to_rem, crit)
+        to_rem = criteria_sieve(to_rem, member_criterion(db, account_spread))
     else:
         return {}
 
@@ -57,7 +61,8 @@ def remove_operations(db, co, member, dest, group_spread, account_spread):
 
     destination_groups = dict(map(lambda x: (x, destination_groups[x]),
                                   criteria_sieve(destination_groups.keys(),
-                                                 crit)))
+                                                 destination_criterion(
+                                                     db, group_spread))))
 
     # Calculate if members should be removed from group-candidates or not
     if destination_groups:
@@ -76,7 +81,6 @@ def add_operations(db, co, member, dest, group_spread, account_spread):
         destination_groups = []
     if member.entity_type == co.entity_group:
         to_add = get_children(db, member)
-        to_add.add((member.entity_id, member.group_name))
 
     elif member.entity_type == co.entity_person:
         primary_account = get_primary_account(member)
@@ -87,10 +91,10 @@ def add_operations(db, co, member, dest, group_spread, account_spread):
         to_add = [(member.entity_id, member.account_name)]
     else:
         to_add = []
-    crit = partial(for_exchange, db, group_spread=group_spread,
-                   account_spread=account_spread)
-    return (criteria_sieve(destination_groups, crit),
-            criteria_sieve(to_add, crit))
+    return (criteria_sieve(destination_groups,
+                           destination_criterion(db, group_spread)),
+            criteria_sieve(to_add,
+                           member_criterion(db, account_spread)))
 
 
 def get_destination_groups(gr, group_spread=None):
