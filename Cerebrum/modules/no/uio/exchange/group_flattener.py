@@ -43,7 +43,6 @@ def remove_operations(db, co, member, dest, group_spread, account_spread):
         to_rem = [(member.entity_id, member.account_name)]
     elif member.entity_type == co.entity_group:
         to_rem = get_children(db, member)
-        to_rem.add((member.entity_id, member.group_name))
 
         to_rem = criteria_sieve(to_rem, crit)
     else:
@@ -76,7 +75,6 @@ def add_operations(db, co, member, dest, group_spread, account_spread):
         destination_groups = []
     if member.entity_type == co.entity_group:
         to_add = get_children(db, member)
-        to_add.add((member.entity_id, member.group_name))
 
     elif member.entity_type == co.entity_person:
         primary_account = get_primary_account(member)
