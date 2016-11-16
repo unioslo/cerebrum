@@ -1281,7 +1281,7 @@ class ExchangeEventHandler(evhandlers.EventConsumer):
         (_, candidates) = group_flattener.add_operations(
             self.db, self.co,
             member, None,
-            self.group_spread, self.mb_spread)
+            None, self.mb_spread)
         for (entity_id, entity_name) in candidates:
             ev_mod = event.copy()
             ev_mod['dest_entity'] = ev_mod['subject_entity']
