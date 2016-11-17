@@ -287,14 +287,18 @@ def _get_ou(database, sap_id, placecode):
         raise ErroneousSourceData(
             u'organizationalUnit is {} for {}'.format(placecode, sap_id))
     import cereconf
+    from Cerebrum import Errors
     ou = Factory.get('OU')(database)
     ou.clear()
-    ou.find_stedkode(
-        *map(u''.join,
-             zip(*[iter(str(
-                 placecode))]*2)) +
-        [cereconf.DEFAULT_INSTITUSJONSNR])
-    return ou
+    try:
+        ou.find_stedkode(
+            *map(u''.join,
+                 zip(*[iter(str(
+                     placecode))]*2)) +
+            [cereconf.DEFAULT_INSTITUSJONSNR])
+        return ou
+    except Errors.NotFoundError:
+        return None
 
 
 def parse_affiliations(database, d):
@@ -316,7 +320,12 @@ def parse_affiliations(database, d):
                       x.get(u'job').get(u'category').get('uio'))
         ou = _get_ou(database, x.get('id'), x.get(u'organizationalUnit'))
         main = x.get(u'type') == u'primary'
-        if status:
+        if not ou:
+            logger.warn(
+                'OU {} does not exist, '
+                'cannot parse affiliation {} for {}'.format(
+                    x.get(u'organizationalUnit'), status, d.get(u'id')))
+        elif status:
             yield {u'ou_id': ou.entity_id,
                    u'affiliation': co.affiliation_ansatt,
                    u'status': status,
@@ -352,7 +361,14 @@ def parse_roles(database, data):
 
     for role in data.get(u'roles'):
         ou = _get_ou(database, role.get('id'), role.get(u'organizationalUnit'))
-        if role2aff.get(role.get(u'type')):
+        if not ou:
+            logger.warn(
+                'OU {} does not exist, '
+                'cannot parse affiliation {} for {}'.format(
+                    role.get(u'organizationalUnit'),
+                    role2aff.get(role.get(u'type')),
+                    data.get(u'id')))
+        elif role2aff.get(role.get(u'type')):
             yield {u'ou_id': ou.entity_id,
                    u'affiliation': role2aff.get(role.get(u'type')).affiliation,
                    u'status': role2aff.get(role.get(u'type')),
