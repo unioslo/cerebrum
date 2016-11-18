@@ -25,3 +25,4 @@ jinja2
 Flask>=0.11.0
 flask-restplus
 gunicorn
+celery

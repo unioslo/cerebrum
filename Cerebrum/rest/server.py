@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from Cerebrum.rest.api import create_app
 
 app = create_app('restconfig')
