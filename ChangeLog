@@ -1,3 +1,8 @@
+2016-11-21  Karen   <cerebrum@metius.uit.no>
+
+    * OU.py: Commented out populate_withouth_sko() and get_stedkoder(). This was done in the 
+    /cerebrum version of the file in May, but not copied to the /home/cerebrum version.
+
 2016-10-28  Karen   <cerebrum@metius.uit.no>
 
     * account_bridge.py: Added get_email_aliases().

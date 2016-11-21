@@ -37,9 +37,9 @@ class OUMixin(OU):
     behaviour is to exclude all entitites that are expired at the
     time of the query."""
     
-    def populate_withouth_sko(self):
-        logger.warn("ui.uo calling real ou.populate")
-        super(OUEntityExpireMixin,self).populate()
+    #def populate_withouth_sko(self):
+    #    logger.warn("ui.uo calling real ou.populate")
+    #    super(OUEntityExpireMixin,self).populate()
 
 
 
@@ -57,34 +57,34 @@ class OUMixin(OU):
     # Overrides of Stedkode.py functions. Move to Stedkode.py if EntityExpire is ever moved to core.
     #
     
-    def get_stedkoder(self, landkode=0,
-                      institusjon=cereconf.DEFAULT_INSTITUSJONSNR,
-                      fakultet=None, institutt=None, avdeling=None, expired_before=None):
-        """
-        Overridden method. See L{Stedkode} for functionality.
+    # def get_stedkoder(self, landkode=0,
+    #                   institusjon=cereconf.DEFAULT_INSTITUSJONSNR,
+    #                   fakultet=None, institutt=None, avdeling=None, expired_before=None):
+    #     """
+    #     Overridden method. See L{Stedkode} for functionality.
         
-        @param expired_before: See L{EntityExpire.is_expired}.
-       
-        """        
-        sql = """
-        SELECT sk.ou_id, sk.landkode, sk.institusjon, sk.fakultet, sk.institutt, sk.avdeling
-        FROM [:table schema=cerebrum name=stedkode] sk
-        LEFT JOIN [:table schema=cerebrum name=entity_expire] ee
-          ON sk.ou_id = ee.entity_id
-        WHERE
-          sk.landkode = :landkode AND
-          sk.institusjon = :institusjon """
-        if fakultet is not None:
-            sql += "AND sk.fakultet = :fakultet "
-        if institutt is not None:
-            sql += "AND sk.institutt = :institutt "
-        if avdeling is not None:
-            sql += "AND sk.avdeling = :avdeling "
-        if expired_before is None:
-            sql += "AND (ee.expire_date >= [:now] OR \
-                         ee.expire_date IS NULL)"
-        elif expired_before is not None:
-            sql += "AND (ee.expire_date >= :expired_before OR \
-                         ee.expire_date IS NULL)"
+    #     @param expired_before: See L{EntityExpire.is_expired}.
+    
+    #     """        
+    #     sql = """
+    #     SELECT sk.ou_id, sk.landkode, sk.institusjon, sk.fakultet, sk.institutt, sk.avdeling
+    #     FROM [:table schema=cerebrum name=stedkode] sk
+    #     LEFT JOIN [:table schema=cerebrum name=entity_expire] ee
+    #       ON sk.ou_id = ee.entity_id
+    #     WHERE
+    #       sk.landkode = :landkode AND
+    #       sk.institusjon = :institusjon """
+    #     if fakultet is not None:
+    #         sql += "AND sk.fakultet = :fakultet "
+    #     if institutt is not None:
+    #         sql += "AND sk.institutt = :institutt "
+    #     if avdeling is not None:
+    #         sql += "AND sk.avdeling = :avdeling "
+    #     if expired_before is None:
+    #         sql += "AND (ee.expire_date >= [:now] OR \
+    #                      ee.expire_date IS NULL)"
+    #     elif expired_before is not None:
+    #         sql += "AND (ee.expire_date >= :expired_before OR \
+    #                      ee.expire_date IS NULL)"
             
-        return self.query(sql, locals())
+    #     return self.query(sql, locals())
