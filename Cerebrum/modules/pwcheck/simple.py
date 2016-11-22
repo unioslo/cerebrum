@@ -350,7 +350,8 @@ class CheckMultipleCharacterSets(PasswordChecker):
         """
         self._requirement = _(
             'Must contain characters from at least 3 of the '
-            'following character groups: Uppercase letters, lowercase '
+            'following character groups in the first 8 characters: '
+            'Uppercase letters, lowercase '
             'letters, numbers and special characters. If the password only '
             'contains one uppercase letter, it cannot be the first character.'
             ' If the password only contains one number or special character, '
