@@ -132,14 +132,25 @@ class PersonResource(Resource):
 @api.doc(params={'id': 'Person entity ID'})
 class PersonAffiliationListResource(Resource):
     """Resource for person affiliations."""
+
+    person_affiliations_filter = api.parser()
+    person_affiliations_filter.add_argument(
+        'include_deleted', type=utils.str_to_bool, dest='include_deleted',
+        help='If true, deleted affiliations are included.')
+
     @auth.require()
     @api.marshal_with(PersonAffiliationList)
+    @api.doc(parser=person_affiliations_filter)
     def get(self, id):
         """List person affiliations."""
+        args = self.person_affiliations_filter.parse_args()
+        filters = {key: value for (key, value) in args.items()
+                   if value is not None}
+
         pe = find_person(id)
         affiliations = list()
 
-        for row in pe.get_affiliations():
+        for row in pe.get_affiliations(**filters):
             aff = dict(row)
             aff['ou'] = {'id': aff.pop('ou_id', None), }
             affiliations.append(aff)

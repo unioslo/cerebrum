@@ -280,6 +280,13 @@ def revoke_auth(sub, opset, obj):
     return True
 
 
+def str_to_bool(value):
+    """ Convert string bool to bool. """
+    if value not in ('true', 'false'):
+        raise ValueError('Need true or false; got {}'.format(value))
+    return value == 'true'
+
+
 def _db_decode(text):
     # hack to decode db-strings in utf-8
     if text is None:
