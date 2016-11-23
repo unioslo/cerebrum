@@ -25,12 +25,16 @@ Queue or Message Broker.
 
 """
 
+import datetime
 import json
 
 import Cerebrum.ChangeLog
 import Cerebrum.DatabaseAccessor
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+
+import mx.DateTime
+
 from . import scim
 
 __version__ = '1.0'
@@ -48,8 +52,11 @@ def get_client():
     return client(conf)
 
 
-def change_type_to_message(db, change_type_code, subject,
-                           dest, change_params):
+def change_type_to_message(db,
+                           change_type_code,
+                           subject,
+                           dest,
+                           change_params):
     """Convert change type to message dicts."""
     constants = Factory.get("Constants")(db)
 
@@ -135,12 +142,31 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
             destination_entity,
             change_params=change_params,
             **kw)
-
+        # handle scheduling #
+        schedule = kw.get('schedule')
+        if schedule is not None:
+            if isinstance(schedule, mx.DateTime.DateTimeType):
+                # convert to datetime.datetime
+                schedule = datetime.datetime(schedule.year,
+                                             schedule.month,
+                                             schedule.day,
+                                             schedule.hour,
+                                             schedule.minute,
+                                             int(schedule.second))
+                if schedule < datetime.datetime.now():
+                    schedule = None
+            elif isinstance(schedule, datetime.datetime):
+                if schedule < datetime.datetime.now():
+                    schedule = None
+            else:
+                schedule = None
         if skip_publish:
             return
-
-        data = (change_type_id, subject_entity, destination_entity,
-                change_params)
+        data = (change_type_id,
+                subject_entity,
+                destination_entity,
+                change_params,
+                schedule)
         # Conversion can discard data by returning false value
         if not data:
             return
@@ -184,9 +210,16 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                 return change_type_to_message(self, *msg)
             else:
                 return msg
-
-        self.__queue = scim.merge_payloads(
-            filter(None, map(convert, self.__queue)))
+        # handle scheduled tasks #
+        legal_events = list()
+        for element in self.__queue:
+            event = convert(element[:-1])
+            if event:
+                if isinstance(element[-1], datatime.datetime):
+                    event.scheduled = element[-1]
+                legal_events.append(event)
+        ###########################
+        self.__queue = scim.merge_payloads(legal_events)
         if self.__queue:
             self.__try_send_messages()
 
@@ -205,6 +238,16 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
             with self.__get_client() as client:
                 while self.__queue:
                     message = self.__queue[0]
+                    if (
+                            isinstance(message, scim.Event) and
+                            isinstance(message.scheduled, datetime.datetime)
+                    ):
+                        task_ticket = client.schedule(message)
+                        Factory.get_logger().exception(
+                            'Message {msg_id} was scheduled for {eta} with id '
+                            '{ticket_id}'.format(msg_id=message.jti,
+                                                 eta=message.scheduled,
+                                                 ticket_id=task_ticket.id))
                     client.publish(message)
                     del self.__queue[0]
         except Exception as e:

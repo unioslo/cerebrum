@@ -39,6 +39,8 @@ from Cerebrum.modules.event.clients import ClientErrors
 from Cerebrum.modules.event.clients.amqp_client import BaseAMQP091Client
 from . import scim
 
+from Cerebrum.modules.celery_tasks.apps.scheduler import schedule_message
+
 
 class PublishingAMQP091Client(BaseAMQP091Client):
     """AMQP 0.9.1 client wrapper usable for publishing messages."""
@@ -65,11 +67,39 @@ class PublishingAMQP091Client(BaseAMQP091Client):
         # Ensure that messages are recieved by the broker
         self.channel.confirm_delivery()
 
+    def schedule(self, message):
+        """
+        Schedule a message using celery and set ETA = message.schedule
+
+        :type message: scim.Event
+        :param message: The message(s) to schedule.
+
+        :rtype: celery.result.AsyncResult
+        :return: Result object
+        """
+        if not isinstance(message, scim.Event):
+            raise TypeError('messages must be scim.Event objects')
+        try:
+            err_msg = 'Could not get routing-key'
+            routing_key = message.key
+            err_msg = 'Could not produce message-body'
+            body = json.dumps(message.get_payload())
+            err_msg = 'Could not schedule / produce task'
+            return schedule_message.apply_async(
+                kwargs={'exchange': self.exchange,
+                        'routing_key': routing_key,
+                        'body': body},
+                eta=message.schedule)
+        except Exception as e:
+            raise ClientErrors.MessageFormatError('{0}: {1}'.format(
+                err_msg,
+                e))
+
     def publish(self, messages, durable=True):
         """Publish a message to the exchange.
 
-        :type message: dict or list of dicts.
-        :param message: The message(s) to publish.
+        :type messages: dict or list of dicts.
+        :param messages: The message(s) to publish.
 
         :type durable: bool
         :param durable: If this message should be durable.

@@ -1099,7 +1099,6 @@ class EntityAddress(Entity):
 
 
 class EntityQuarantine(Entity):
-
     "Mixin class, usable alongside Entity for entities we can quarantine."
 
     def delete(self):
@@ -1108,8 +1107,15 @@ class EntityQuarantine(Entity):
             self.delete_entity_quarantine(r['quarantine_type'])
         self.__super.delete()
 
-    def add_entity_quarantine(self, qtype, creator, description=None,
-                              start=None, end=None):
+    def add_entity_quarantine(self,
+                              qtype,
+                              creator,
+                              description=None,
+                              start=None,
+                              end=None):
+        """
+        Add quarantine for this entity
+        """
         qtype = int(qtype)
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=entity_quarantine]
@@ -1122,8 +1128,11 @@ class EntityQuarantine(Entity):
                       'description': description,
                       'start_date': start,
                       'end_date': end})
-        self._db.log_change(self.entity_id, self.const.quarantine_add,
-                            None, change_params={'q_type': qtype})
+        self._db.log_change(self.entity_id,
+                            self.const.quarantine_add,
+                            None,
+                            change_params={'q_type': qtype},
+                            schedule=start)
 
     def get_entity_quarantine(self,
                               qtype=None,

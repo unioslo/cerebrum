@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# encoding: utf-8
+# -*- coding: utf-8 -*-
 #
 # Copyright 2003-2015 University of Oslo, Norway
 #
@@ -70,12 +70,10 @@ The behaviour of ChangeLog implementations should be:
 
 Note that not all ChangeLog implementations will want to use both
 write_log/clear_log AND publish_log/unpublish_log.
-
 """
 
 
 class ChangeLog(object):
-
     """ API for Events. """
 
     def cl_init(self, **kw):
@@ -87,7 +85,6 @@ class ChangeLog(object):
 
         Note that the change may not be final when this function is called. Any
         changes that are logged must also be commited to be persistent.
-
         """
         pass
 
