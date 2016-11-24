@@ -332,7 +332,7 @@ def entity_cinfo(msg, subject, *args):
         c.contact_mobile_phone: 'cellPhone',
         c.contact_private_mobile: 'cellPhone',
         c.contact_private_mobile_visible: 'cellPhone'
-    }.get(x) or str(x.capitalize())
+    }.get(x) or str(x).capitalize()
 
     return scim.Event(scim.MODIFY,
                       subject=subject,
@@ -372,7 +372,7 @@ def entity_external_id(msg, subj, *args):
         c.externalid_sap_ou: 'sapOu',
         c.externalid_uname: 'externalUsername',
         c.externalid_stedkode: 'OuCode',
-    }.get(x) or str(x.capitalize())
+    }.get(x) or str(x).capitalize()
 
     return scim.Event(scim.MODIFY,
                       subject=subj,
