@@ -94,6 +94,24 @@ class OrgLDIFUiTMixin(OrgLDIF):
         # ?? Are these needed?
         # entry['objectClass'].append('eduOrg')
         # entry['objectClass'].append('norEduObsolete')
+
+    # 
+    # override of OrgLDIF.init_ou_structure() with filtering of expired ous
+    # 
+    def init_ou_structure(self):
+        # Set self.ou_tree = dict {parent ou_id: [child ou_id, ...]}
+        # where the root OUs have parent id None.
+        timer = make_timer(self.logger, "Fetching OU tree...")
+        self.ou.clear()
+        ou_list = self.ou.get_structure_mappings(
+            self.const.OUPerspective(cereconf.LDAP_OU['perspective']), filter_expired = True)
+        self.logger.debug("OU-list length: %d", len(ou_list))
+        self.ou_tree = {None: []}  # {parent ou_id or None: [child ou_id...]}
+        for ou_id, parent_id in ou_list:
+            if parent_id is not None:
+                parent_id = int(parent_id)
+            self.ou_tree.setdefault(parent_id, []).append(int(ou_id))
+        timer("...OU tree done.")
     
     def generate_person(self, outfile, alias_outfile, use_mail_module):
         """Output person tree and aliases if cereconf.LDAP_PERSON['dn'] is set.

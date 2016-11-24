@@ -1,7 +1,15 @@
+2016-11-24  Karen   <cerebrum@metius.uit.no>
+
+    * OU.py: Added get_structure_mappings(). Overrides OU.get_structure_mappings() with added 
+    option to filter away expired ous.
+
+    * OrgLDIF.py: Added init_ou_structure(). Overrides OrgLDIF.init_ou_structure(), calling 
+    OU.get_structure_mappings() with the added filtering of expired ous.
+
 2016-11-21  Karen   <cerebrum@metius.uit.no>
 
     * OU.py: Commented out populate_withouth_sko() and get_stedkoder(). This was done in the 
-    /cerebrum version of the file in May, but not copied to the /home/cerebrum version.
+    /cerebrum version of the file in May, but not copied to the /home/cerebrum version until now.
 
 2016-10-28  Karen   <cerebrum@metius.uit.no>
 

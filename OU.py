@@ -88,3 +88,31 @@ class OUMixin(OU):
     #                      ee.expire_date IS NULL)"
             
     #     return self.query(sql, locals())
+
+    # 
+    # override of OU.get_structure_mappings() with added option to filter away expired ous
+    # 
+    def get_structure_mappings(self, perspective, filter_expired=False):
+        """Return list of ou_id -> parent_id connections in ``perspective`` optionally filtering the
+        results on expiry."""
+        ou_list = super(OUMixin, self).get_structure_mappings(perspective)
+
+        if filter_expired:
+            # get list of expired ou_ids
+            res = self.query("""SELECT entity_id
+                                FROM [:table schema=cerebrum name=entity_expire]""")
+            expired_ous = []
+            for entry in res:
+                expired_ous.append(entry['entity_id'])
+
+            # need to work on a copy of ou_list so that we don't mess up the for-loop
+            ou_list_filtered = list(ou_list)
+            for ou in ou_list:
+                if ou['ou_id'] in expired_ous:
+                    # remove expired ou from the list
+                    ou_list_filtered.remove(ou)
+
+            return ou_list_filtered
+        else:
+            return ou_list
+    # end get_structure_mappings
