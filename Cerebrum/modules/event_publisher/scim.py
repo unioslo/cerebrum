@@ -23,9 +23,10 @@
 https://tools.ietf.org/html/draft-hunt-idevent-scim-00#section-2.2
 """
 
-import uuid
-import time
+import calendar
 import itertools
+import time
+import uuid
 
 import mx.DateTime as dt
 
@@ -221,6 +222,10 @@ class Event(object):
             args['object'] = self.make_obj()
         if args:
             ret[str(self.event)] = args
+        if self.scheduled is not None:
+            # assume datetime.datetime, although mx.DateTime will also work
+            # .strftime('%s') is not official and it will not work in Windows
+            ret['nbf'] = calendar.timegm(self.scheduled.timetuple())
         return ret
 
     def mergeable(self, other):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,6 +31,7 @@
 >>> c.close()
 """
 
+import datetime
 import json
 
 import pika
@@ -67,34 +68,6 @@ class PublishingAMQP091Client(BaseAMQP091Client):
         # Ensure that messages are recieved by the broker
         self.channel.confirm_delivery()
 
-    def schedule(self, message):
-        """
-        Schedule a message using celery and set ETA = message.schedule
-
-        :type message: scim.Event
-        :param message: The message(s) to schedule.
-
-        :rtype: celery.result.AsyncResult
-        :return: Result object
-        """
-        if not isinstance(message, scim.Event):
-            raise TypeError('messages must be scim.Event objects')
-        try:
-            err_msg = 'Could not get routing-key'
-            routing_key = message.key
-            err_msg = 'Could not produce message-body'
-            body = json.dumps(message.get_payload())
-            err_msg = 'Could not schedule / produce task'
-            return schedule_message.apply_async(
-                kwargs={'exchange': self.exchange,
-                        'routing_key': routing_key,
-                        'body': body},
-                eta=message.schedule)
-        except Exception as e:
-            raise ClientErrors.MessageFormatError('{0}: {1}'.format(
-                err_msg,
-                e))
-
     def publish(self, messages, durable=True):
         """Publish a message to the exchange.
 
@@ -108,25 +81,26 @@ class PublishingAMQP091Client(BaseAMQP091Client):
             messages = [messages]
         elif not isinstance(messages, list):
             raise TypeError('messages must be a dict, event or a list thereof')
-        for msg in messages:
-            if not isinstance(msg, (dict, scim.Event)):
+        for message in messages:
+            if not isinstance(message, (dict, scim.Event)):
                 raise TypeError('messages must be a dict, '
                                 'Event or a list thereof')
             try:
                 err_msg = 'Could not generate routing key'
-                if isinstance(msg, dict):
-                    if 'routing-key' in msg:
-                        event_type = msg['routing-key']
-                        del msg['routing-key']
+                if isinstance(message, dict):
+                    if 'routing-key' in message:
+                        event_type = message['routing-key']
                     else:
                         event_type = 'unknown'
+                    payload = message
                 else:
-                    event_type = msg.key
-                    msg = msg.get_payload()
-
+                    event_type = message.key
+                    payload = message.get_payload()
+                msg_body = dict(filter(lambda x: x[0] != 'routing-key',
+                                       payload.items()))
                 err_msg = ('Could not generate'
                            ' application/json content from message')
-                msg_body = json.dumps(msg)
+                msg_body = json.dumps(msg_body)
             except Exception as e:
                 raise ClientErrors.MessageFormatError('{0}: {1}'.format(
                     err_msg,
@@ -153,3 +127,71 @@ class PublishingAMQP091Client(BaseAMQP091Client):
             except Exception as e:
                 raise ClientErrors.MessagePublishingError(
                     'Unable to publish message: {0!r}'.format(e))
+
+
+class SchedulingAndPublishingAMQP091Client(PublishingAMQP091Client):
+    """
+    Client with scheduling (celery) capabilities
+    """
+
+    def publish(self, messages, durable=True):
+        """
+        Publish a message to the exchange after scheduling it
+        in case it is marked for scheduling
+
+        :type messages: dict, scim.Event or list of dicts and / or scim.Event
+        :param messages: The message(s) to publish
+
+        :type durable: bool
+        :param durable: If this message should be durable
+
+        :rtype: dict
+        :return: A dict of jti:celery.result.AsyncResult
+        """
+        if isinstance(messages, (dict, scim.Event)):
+            messages = [messages]
+        elif not isinstance(messages, list):
+            raise TypeError('messages must be a dict, event or a list thereof')
+        result_tickets = dict()
+        for message in messages:
+            if not isinstance(message, (dict, scim.Event)):
+                raise TypeError('messages must be a dict, '
+                                'Event or a list thereof')
+            try:
+                if isinstance(message, dict):
+                    err_msg = 'Could not extract schedule time'
+                    if 'nbf' not in message:
+                        continue
+                    eta = datetime.datetime.fromtimestamp(int(message['nbf']))
+                    jti = message.get('jti', 'invalid')
+                    err_msg = 'Could not get routing-key'
+                    routing_key = message.get('routing-key', 'unknown')
+                    err_msg = 'Could not produce message-body'
+                    body = json.dumps(dict(
+                        filter(lambda x: x[0] != 'routing-key',
+                               message.items())))
+                else:
+                    # scim.Event
+                    err_msg = 'Could not extract schedule time'
+                    if not isinstance(message.schedule, datetime.datetime):
+                        continue
+                    eta = message.schedule
+                    jti = message.jti or 'invalid'
+                    err_msg = 'Could not get routing-key'
+                    routing_key = message.key
+                    err_msg = 'Could not produce message-body'
+                    body = json.dumps(message.get_payload())
+                err_msg = 'Could not schedule / produce task'
+                result_tickets[jti] = schedule_message.apply_async(
+                    kwargs={'exchange': self.exchange,
+                            'routing_key': routing_key,
+                            'body': body},
+                    eta=eta)
+            except Exception as e:
+                raise ClientErrors.MessageFormatError('{0}: {1}'.format(
+                    err_msg,
+                    e))
+        super(SchedulingAndPublishingAMQP091Client, self).publish(
+            messages,
+            durable)
+        return result_tickets

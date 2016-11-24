@@ -238,16 +238,6 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
             with self.__get_client() as client:
                 while self.__queue:
                     message = self.__queue[0]
-                    if (
-                            isinstance(message, scim.Event) and
-                            isinstance(message.scheduled, datetime.datetime)
-                    ):
-                        task_ticket = client.schedule(message)
-                        Factory.get_logger().exception(
-                            'Message {msg_id} was scheduled for {eta} with id '
-                            '{ticket_id}'.format(msg_id=message.jti,
-                                                 eta=message.scheduled,
-                                                 ticket_id=task_ticket.id))
                     client.publish(message)
                     del self.__queue[0]
         except Exception as e:

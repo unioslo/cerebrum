@@ -28,5 +28,7 @@ def create_celery_app(app_name):
                       hostname=app.conf['CELERY_TASKS_HOSTNAME'],
                       port=app.conf['CELERY_TASKS_PORT'],
                       vhost=app.conf['CELERY_TASKS_VHOST'])
-    app.conf['BROKER_URL'] = broker_url
+    app.conf['broker_url'] = app.conf['result_backend'] = broker_url
+    # deprecated Celery 3.x format...
+    app.conf['BROKER_URL'] = app.conf['CELERY_RESULT_BACKEND'] = broker_url
     return app
