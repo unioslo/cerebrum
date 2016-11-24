@@ -366,13 +366,14 @@ class AccountGroupListResource(Resource):
 
     account_groups_filter = api.parser()
     account_groups_filter.add_argument(
-        'indirect_memberships', type=bool, dest='indirect_members',
+        'indirect_memberships', type=utils.str_to_bool,
+        dest='indirect_members',
         help='If true, include indirect group memberships.')
     account_groups_filter.add_argument(
-        'filter_expired', type=bool,
+        'filter_expired', type=utils.str_to_bool,
         help='If false, include expired groups.')
     account_groups_filter.add_argument(
-        'expired_only', type=bool,
+        'expired_only', type=utils.str_to_bool,
         help='If true, only include expired groups.')
 
     @api.marshal_with(group.GroupListItem, as_list=True, envelope='groups')
