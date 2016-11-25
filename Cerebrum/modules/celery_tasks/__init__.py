@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from Cerebrum.Utils import read_password
-
 from celery import Celery
+
+from Cerebrum.Utils import read_password
+from Cerebrum.config.loader import read, read_config
+from Cerebrum.modules.event_publisher.config import AMQPClientPublisherConfig
 
 
 def create_celery_app(app_name):
@@ -32,3 +34,18 @@ def create_celery_app(app_name):
     # deprecated Celery 3.x format...
     app.conf['BROKER_URL'] = app.conf['CELERY_RESULT_BACKEND'] = broker_url
     return app
+
+
+def load_amqp_client_config(celery_task, filepath=None):
+    """
+    Loads the Cerebrum.config for the AMQPClient
+
+    defaults to sys.prefix/etc/config/`celery_task`.json
+    """
+    config = AMQPClientPublisherConfig()
+    if filepath:
+        config.load_dict(read_config(filepath))
+    else:
+        read(config, celery_task)
+    config.validate()
+    return config

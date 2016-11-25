@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -46,7 +46,7 @@ def get_client():
     Instantiated trough the defined config."""
     from Cerebrum.modules.event_publisher.config import load_config
     from Cerebrum.modules.event_publisher.amqp_publisher import (
-        PublishingAMQP091Client as client)
+        PublishingAMQP091Client as client)  # TODO: Should this be hardcoded?
 
     conf = load_config()
     return client(conf)
@@ -179,17 +179,26 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
 
     def write_log(self):
         super(EventPublisher, self).write_log()
+        log = Factory.get_logger()
         try:
             ue = self.__get_unpublished_events()
             unsent = ue.query_events(lock=True, parse_json=True)
             if unsent:
                 with self.__get_client() as client:
                     for event in unsent:
-                        client.publish(event['message'])
+                        result_tickets = client.publish(event['message'])
+                        if result_tickets and isinstance(result_tickets, dict):
+                            # Only for scheduled publishing
+                            for jti, data in result_tickets.items():
+                                # Do some logging...
+                                # data = (ticket, eta)
+                                log.info('Message {jti} schedules for {eta} '
+                                         'with id: {id}'.format(jti=jti,
+                                                                eta=data[1],
+                                                                id=data[0].id))
                         ue.delete_event(event['eventid'])
         except:
             # Could not write log
-            log = Factory.get_logger()
             log.exception('Could not write unpublished event to MQ')
         # If called by CLDatabase.commit(), next in line is Database.commit,
         # and that will release lock.
@@ -234,14 +243,23 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         return self.__unpublished_events
 
     def __try_send_messages(self):
+        logger = Factory.get_logger()
         try:
             with self.__get_client() as client:
                 while self.__queue:
                     message = self.__queue[0]
-                    client.publish(message)
+                    result_tickets = client.publish(message)
+                    if result_tickets and isinstance(result_tickets, dict):
+                        # Only for scheduled publishing
+                        for jti, data in result_tickets.items():
+                            # data = (ticket, eta)
+                            logger.info('Message {jti} schedules for {eta} '
+                                        'with id: {id}'.format(jti=jti,
+                                                               eta=data[1],
+                                                               id=data[0].id))
                     del self.__queue[0]
         except Exception as e:
-            Factory.get_logger().exception(
+            logger.exception(
                 'Could not write message: {err}'.format(err=e))
             self.__save_queue()
 

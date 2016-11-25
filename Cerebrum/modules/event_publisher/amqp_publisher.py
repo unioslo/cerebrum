@@ -146,7 +146,7 @@ class SchedulingAndPublishingAMQP091Client(PublishingAMQP091Client):
         :param durable: If this message should be durable
 
         :rtype: dict
-        :return: A dict of jti:celery.result.AsyncResult
+        :return: A dict of jti:(celery.result.AsyncResult, eta)
         """
         if isinstance(messages, (dict, scim.Event)):
             messages = [messages]
@@ -182,11 +182,10 @@ class SchedulingAndPublishingAMQP091Client(PublishingAMQP091Client):
                     err_msg = 'Could not produce message-body'
                     body = json.dumps(message.get_payload())
                 err_msg = 'Could not schedule / produce task'
-                result_tickets[jti] = schedule_message.apply_async(
-                    kwargs={'exchange': self.exchange,
-                            'routing_key': routing_key,
+                result_tickets[jti] = (schedule_message.apply_async(
+                    kwargs={'routing_key': routing_key,
                             'body': body},
-                    eta=eta)
+                    eta=eta), eta)
             except Exception as e:
                 raise ClientErrors.MessageFormatError('{0}: {1}'.format(
                     err_msg,
