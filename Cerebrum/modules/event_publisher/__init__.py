@@ -32,6 +32,7 @@ import Cerebrum.ChangeLog
 import Cerebrum.DatabaseAccessor
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+from Cerebrum.modules.event_publisher.config import load_config
 
 import mx.DateTime
 
@@ -41,15 +42,16 @@ __version__ = '1.0'
 
 
 def get_client():
-    """Instantiate publishing client.
+    """
+    Instantiate publishing client.
 
-    Instantiated trough the defined config."""
-    from Cerebrum.modules.event_publisher.config import load_config
-    from Cerebrum.modules.event_publisher.amqp_publisher import (
-        PublishingAMQP091Client as client)  # TODO: Should this be hardcoded?
-
+    Instantiated trough the defined config.
+    """
     conf = load_config()
-    return client(conf)
+    publisher_class = Factory.make_class(
+        'Publisher',
+        conf.publisher_class)
+    return publisher_class(conf)
 
 
 def change_type_to_message(db,

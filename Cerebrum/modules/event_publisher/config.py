@@ -28,6 +28,7 @@ from Cerebrum.config.loader import read, read_config
 from Cerebrum.config.configuration import ConfigDescriptor
 
 from Cerebrum.config.settings import (Boolean,
+                                      Iterable,
                                       String)
 
 
@@ -45,6 +46,13 @@ class AMQPClientPublisherConfig(BaseAMQPClientConfig):
     exchange_name = ConfigDescriptor(String,
                                      default=u"api_events",
                                      doc=u"The name of the exchange")
+
+    publisher_class = ConfigDescriptor(
+        Iterable,
+        template=String(),
+        default=['Cerebrum.modules.event_publisher.amqp_publisher/'
+                 'PublishingAMQP091Client'],
+        doc=u'The event publisher class(es) to be used / mixed')
 
 
 def load_config(filepath=None):

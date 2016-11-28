@@ -2,10 +2,9 @@
 
 import json
 
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.celery_tasks import (create_celery_app,
                                            load_amqp_client_config)
-from Cerebrum.modules.event_publisher.amqp_publisher import (
-    PublishingAMQP091Client)
 
 app = create_celery_app('scheduler')
 
@@ -26,8 +25,10 @@ def schedule_message(self, routing_key, body):
     try:
         message = json.loads(body)
         message['routing-key'] = routing_key
-        amqp_client = PublishingAMQP091Client(
-            load_amqp_client_config('schedule_message'))
+        conf = load_amqp_client_config('schedule_message')
+        publisher_class = Factory.make_class('SchedulerPublisher',
+                                             conf.publisher_class)
+        amqp_client = publisher_class(conf)
         amqp_client.publish(message)
     except Exception as e:
         # we want to log and retry sending indefinitely...
