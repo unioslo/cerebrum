@@ -1,3 +1,7 @@
+2016-11-28  Karen   <cerebrum@cleomedes.uit.no>
+    
+    * process_sito_email.py (get_cn_addr_tmp): Fixed a small bug.
+
 2016-11-09  Karen   <cerebrum@cleomedes.uit.no>
 
     * process_students.py (create_user_tmp): Now checks if username is free in Clavius database. If not a

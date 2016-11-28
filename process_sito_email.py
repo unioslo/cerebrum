@@ -135,7 +135,7 @@ def get_cn_addr_tmp(username):
     with AccountBridge() as bridge:
         email = bridge.get_email(username)
     if email == None:
-        logger.warn("Cannot add email for sito account %s. Couldn't find email for this account in Caesar database." % uname)
+        logger.warn("Cannot add email for sito account %s. Couldn't find email for this account in Caesar database." % username)
         return None, None
 
     split_email = email.split('@')
