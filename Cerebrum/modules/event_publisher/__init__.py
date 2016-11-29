@@ -191,13 +191,12 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                         result_tickets = client.publish(event['message'])
                         if result_tickets and isinstance(result_tickets, dict):
                             # Only for scheduled publishing
-                            for jti, data in result_tickets.items():
+                            for jti, (ticket, eta) in result_tickets.items():
                                 # Do some logging...
-                                # data = (ticket, eta)
                                 log.info('Message {jti} schedules for {eta} '
                                          'with id: {id}'.format(jti=jti,
-                                                                eta=data[1],
-                                                                id=data[0].id))
+                                                                eta=eta,
+                                                                id=ticket.id))
                         ue.delete_event(event['eventid'])
         except:
             # Could not write log
@@ -253,12 +252,11 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                     result_tickets = client.publish(message)
                     if result_tickets and isinstance(result_tickets, dict):
                         # Only for scheduled publishing
-                        for jti, data in result_tickets.items():
-                            # data = (ticket, eta)
+                        for jti, (ticket, eta) in result_tickets.items():
                             logger.info('Message {jti} schedules for {eta} '
                                         'with id: {id}'.format(jti=jti,
-                                                               eta=data[1],
-                                                               id=data[0].id))
+                                                               eta=eta,
+                                                               id=ticket.id))
                     del self.__queue[0]
         except Exception as e:
             logger.exception(
