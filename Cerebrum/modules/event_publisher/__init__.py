@@ -225,7 +225,7 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         for element in self.__queue:
             event = convert(element[:-1])
             if event:
-                if isinstance(element[-1], datatime.datetime):
+                if isinstance(element[-1], datetime.datetime):
                     event.scheduled = element[-1]
                 legal_events.append(event)
         ###########################

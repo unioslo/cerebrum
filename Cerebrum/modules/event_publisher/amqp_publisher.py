@@ -53,7 +53,6 @@ class PublishingAMQP091Client(BaseAMQP091Client):
         :param config: The configuration for the AMQP client.
         """
         super(PublishingAMQP091Client, self).__init__(config)
-
         self.exchange = config.exchange_name
         self.exchange_type = config.exchange_type
         self.exchange_durable = config.exchange_durable
@@ -117,8 +116,8 @@ class PublishingAMQP091Client(BaseAMQP091Client):
                             delivery_mode=2,
                             content_type='application/json'),
                         # Makes publish return false if
-                        # message not published
-                        mandatory=True,
+                        # the message is not routed / published
+                        mandatory=False,
                         # TODO: Should we enable immediate?
                 ):
                     return True
@@ -148,6 +147,9 @@ class SchedulingAndPublishingAMQP091Client(PublishingAMQP091Client):
         :rtype: dict
         :return: A dict of jti:(celery.result.AsyncResult, eta)
         """
+        super(SchedulingAndPublishingAMQP091Client, self).publish(
+            messages,
+            durable)
         if isinstance(messages, (dict, scim.Event)):
             messages = [messages]
         elif not isinstance(messages, list):
@@ -173,9 +175,9 @@ class SchedulingAndPublishingAMQP091Client(PublishingAMQP091Client):
                 else:
                     # scim.Event
                     err_msg = 'Could not extract schedule time'
-                    if not isinstance(message.schedule, datetime.datetime):
+                    if not isinstance(message.scheduled, datetime.datetime):
                         continue
-                    eta = message.schedule
+                    eta = message.scheduled
                     jti = message.jti or 'invalid'
                     err_msg = 'Could not get routing-key'
                     routing_key = message.key
@@ -190,7 +192,4 @@ class SchedulingAndPublishingAMQP091Client(PublishingAMQP091Client):
                 raise ClientErrors.MessageFormatError('{0}: {1}'.format(
                     err_msg,
                     e))
-        super(SchedulingAndPublishingAMQP091Client, self).publish(
-            messages,
-            durable)
         return result_tickets
