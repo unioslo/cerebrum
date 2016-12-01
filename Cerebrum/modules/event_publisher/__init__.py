@@ -155,12 +155,7 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                                              schedule.hour,
                                              schedule.minute,
                                              int(schedule.second))
-                if schedule < datetime.datetime.now():
-                    schedule = None
-            elif isinstance(schedule, datetime.datetime):
-                if schedule < datetime.datetime.now():
-                    schedule = None
-            else:
+            elif not isinstance(schedule, datetime.datetime):
                 schedule = None
         if skip_publish:
             return
