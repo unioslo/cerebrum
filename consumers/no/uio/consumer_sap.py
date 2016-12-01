@@ -158,10 +158,36 @@ def parse_names(d):
     :rtype: tuple((PersonName('FIRST'), 'first'),
                   (PersonName('FIRST'), 'last'))
     :return: A tuple with the fields that should be updated"""
+    # TODO: This is a ULTRA-UGLY hack. Remove this when Cerebrum can Unicode in
+    # an appropriate manner.
+    import unicodedata
+
+    def clense(string):
+        def stripper(char):
+            try:
+                char.encode('ISO-8859-1')
+                return char
+            except UnicodeEncodeError:
+                return unicode(
+                    unicodedata.normalize('NFD', char).encode('ISO-8859-1',
+                                                              'ignore'))
+
+        return u''.join(map(stripper, unicodedata.normalize('NFC', string)))
+
+    def cleanse_and_maybe_log(ident, name):
+        cleansed_name = clense(name)
+
+        if name != cleansed_name:
+            logger.info(
+                u'Cleansed name of {} from {} to {}'.format(
+                    ident, name, cleansed_name))
+        return cleansed_name
 
     co = Factory.get('Constants')
-    return ((co.name_first, d.get(u'firstName')),
-            (co.name_last, d.get(u'lastName')))
+    return ((co.name_first,
+             cleanse_and_maybe_log(d.get(u'id'), d.get(u'firstName'))),
+            (co.name_last,
+             cleanse_and_maybe_log(d.get(u'id'), d.get(u'lastName'))))
 
 
 def parse_contacts(d):
