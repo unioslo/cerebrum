@@ -46,8 +46,8 @@ def schedule_message(self, routing_key, body):
         conf = load_amqp_client_config('schedule_message')
         publisher_class = Factory.make_class('SchedulerPublisher',
                                              conf.publisher_class)
-        amqp_client = publisher_class(conf)
-        amqp_client.publish(message)
+        with publisher_class(conf) as amqp_client:
+            amqp_client.publish(message)
     except Exception as e:
         # we want to log and retry sending indefinitely...
         # TODO logger... use Cerebrum's??
