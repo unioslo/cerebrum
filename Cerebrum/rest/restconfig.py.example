@@ -10,6 +10,9 @@ HOST = 'localhost'
 
 APPNAME = u"cerebrum-rest"
 
+# Flask-RESTful 404 suggestions
+ERROR_404_HELP = False
+
 AUTH = [
     # {
     #     'name': 'CertAuth',
@@ -48,6 +51,10 @@ LOGGING = {
             'filename': '/tmp/cerebrum-rest.log',
             'encoding': 'UTF-8'
         },
+        # 'console': {
+        #     'class': 'logging.StreamHandler',
+        #     'formatter': 'fmt',
+        # },
     },
     'loggers': {
         '': {

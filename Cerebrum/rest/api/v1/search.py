@@ -20,11 +20,9 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Generic search API. """
 
-from flask import url_for
 from flask_restplus import Namespace, Resource, abort
 from flask_restplus import fields as base_fields
 
-from Cerebrum.Utils import Factory
 from Cerebrum.Entity import EntityExternalId
 from Cerebrum import Errors
 
@@ -33,32 +31,6 @@ from Cerebrum.rest.api import fields as crb_fields
 from Cerebrum.rest.api.v1 import models
 
 api = Namespace('search', description='Search operations')
-
-
-class ExternalIdType(object):
-    """ External ID type translation. """
-
-    _map = {
-        'NO_BIRTHNO': 'norwegianNationalId',
-        'PASSNR': 'passportNumber',
-        'NO_SAPNO': 'employeeNumber',
-        'SSN': 'socialSecurityNumber',
-        'NO_STUDNO': 'studentNumber',
-    }
-
-    _rev_map = dict((v, k) for k, v in _map.iteritems())
-
-    @classmethod
-    def serialize(cls, strval):
-        return cls._map.get(strval, strval)
-
-    @classmethod
-    def unserialize(cls, input_):
-        return db.const.EntityExternalId(cls._rev_map[input_])
-
-    @classmethod
-    def valid_types(cls):
-        return cls._rev_map.keys()
 
 
 ExternalIdItem = api.model('ExternalIdItem', {
@@ -72,8 +44,7 @@ ExternalIdItem = api.model('ExternalIdItem', {
         description='Source system'),
     'id_type': crb_fields.Constant(
         ctype='EntityExternalId',
-        transform=ExternalIdType.serialize,
-        attribute='id_type',
+        transform=models.ExternalIdType.serialize,
         description='External ID type'),
     'external_id': base_fields.String(
         description='External ID value')
@@ -134,9 +105,9 @@ class ExternalIdResource(Resource):
                 filters['id_type'] = [filters['id_type']]
             for entry in filters['id_type']:
                 try:
-                    if entry not in ExternalIdType.valid_types():
+                    if entry not in models.ExternalIdType.valid_types():
                         raise Errors.NotFoundError
-                    code = int(ExternalIdType.unserialize(entry))
+                    code = int(models.ExternalIdType.unserialize(entry))
                     id_types.append(code)
                 except Errors.NotFoundError:
                     abort(404,
