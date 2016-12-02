@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """ API models. """
 
-from Cerebrum.rest.api import fields
+from Cerebrum.rest.api import db, fields
 
 from . import api
 
@@ -50,24 +50,42 @@ EntityOwner = api.model('EntityOwner', {
 })
 
 
+class ExternalIdType(object):
+    """ External ID type translation. """
+
+    _map = {
+        'NO_BIRTHNO': 'norwegianNationalId',
+        'PASSNR': 'passportNumber',
+        'NO_SAPNO': 'employeeNumber',
+        'SSN': 'socialSecurityNumber',
+        'NO_STUDNO': 'studentNumber',
+    }
+
+    _rev_map = dict((v, k) for k, v in _map.iteritems())
+
+    @classmethod
+    def serialize(cls, strval):
+        return cls._map.get(strval, strval)
+
+    @classmethod
+    def unserialize(cls, input_):
+        return db.const.EntityExternalId(cls._rev_map[input_])
+
+    @classmethod
+    def valid_types(cls):
+        return cls._rev_map.keys()
+
 # Model for data from entity.get_external_id()
 EntityExternalId = api.model('EntityExternalId', {
-    'id': fields.base.String(
-        attribute='external_id',
+    'external_id': fields.base.String(
         description='External ID'),
-    'type': fields.Constant(
+    'id_type': fields.Constant(
         ctype='EntityExternalId',
-        attribute='id_type',
-        description='ID type'),
+        transform=ExternalIdType.serialize,
+        description='External ID type'),
     'source_system': fields.Constant(
         ctype='AuthoritativeSystem',
         description='Source system'),
-})
-
-EntityExternalIdList = api.model('EntityExternalIdList', {
-    'external_ids': fields.base.List(
-        fields.base.Nested(EntityExternalId),
-        description='External IDs'),
 })
 
 

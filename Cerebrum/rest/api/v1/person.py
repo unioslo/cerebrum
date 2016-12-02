@@ -175,11 +175,12 @@ class PersonContactInfoListResource(Resource):
 class PersonExternalIdListResource(Resource):
     """Resource for person external IDs."""
     @auth.require()
-    @api.marshal_with(models.EntityExternalIdList)
+    @api.marshal_with(models.EntityExternalId,
+                      as_list=True, envelope='external_ids')
     def get(self, id):
         """Get external IDs of a person."""
         pe = find_person(id)
-        return {'external_ids': pe.get_external_id()}
+        return pe.get_external_id()
 
 
 @api.route('/<int:id>/accounts', endpoint='person-accounts')
