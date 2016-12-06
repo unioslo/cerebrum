@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # 
-# Copyright 2012 University of Oslo, Norway
+# Copyright 2012-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -62,6 +62,10 @@ def usage(exitcode=0):
     --affiliations  A comma separated list of affiliations. If set, the person
                     must have at least one affiliation of these types.
 
+    --skip-if-password-set Do not send SMS if the account has had a password
+                    set after the account recieved the trait defined by
+                    --trait.
+
     --message-cereconf If the message is located in cereconf, this is its
                     variable name. Default: AUTOADMIN_WELCOME_SMS
 
@@ -90,7 +94,7 @@ def usage(exitcode=0):
 
 
 def process(trait, message, phone_types, affiliations, too_old, min_attempts,
-            commit=False):
+            commit=False, filters=[]):
     """Go through the given trait type and send out welcome SMSs to the users.
     Remove the traits, and set a new message-is-sent-trait, to avoid spamming
     the users."""
@@ -133,6 +137,25 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
         if ac.is_expired():
             logger.debug('New user %s is expired, skipping', ac.account_name)
             # TODO: remove trait?
+            continue
+
+        # Apply custom filters that deem if this user should be processed
+        # further.
+        def apply_filters(filter_name, filter_func):
+            if isinstance(filter_func, list):
+                result = all(map(lambda fun: fun(ac, row), filter_func))
+            else:
+                result = filter_func(ac, row)
+
+            if result:
+                remove_trait(ac, row['entity_id'], trait, commit)
+                logger.info(
+                    'New user filtered out by {} function, '
+                    'removing trait {}'.format(filter_name, row))
+                return True
+            return False
+
+        if all(map(lambda (k, v): apply_filters(k, v), filters)):
             continue
 
         # check person affiliations
@@ -240,11 +263,20 @@ def send_sms(phone, message, commit=False):
         return True
     return sms(phone, message)
 
+
+def skip_if_password_set(ac, trait):
+    return True if [x for x in db.get_log_events(
+        subject_entity=ac.entity_id,
+        sdate=trait['date'],
+        types=co.account_password)] else False
+
+
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h',
                 ['trait=', 'phone-types=', 'affiliations=', 'message=',
-                 'too-old=', 'message-cereconf=', 'commit', 'min-attempts='])
+                 'too-old=', 'message-cereconf=', 'commit', 'min-attempts=',
+                 'skip-if-password-set'])
     except getopt.GetoptError, e:
         print e
         usage(1)
@@ -255,6 +287,7 @@ def main():
     commit = False
     too_old = 180
     min_attempts = None
+    filters = []
 
     for opt, arg in opts:
         if opt in ('-h', '--help'):
@@ -275,6 +308,8 @@ def main():
             affiliations.extend(co.human2constant(a, (co.PersonAffiliation,
                                                       co.PersonAffStatus)) 
                                 for a in arg.split(','))
+        elif opt == '--skip-if-password-set':
+            filters.append(('skip-if-password-set', skip_if_password_set))
         elif opt == '--message':
             if message:
                 print 'Message already set'
@@ -301,7 +336,8 @@ def main():
 
     process(trait=trait, message=message, phone_types=phone_types,
             affiliations=affiliations, too_old=too_old, min_attempts=min_attempts,
-            commit=commit)
+            commit=commit,
+            filters=filters)
 
 if __name__ == '__main__':
     main()
