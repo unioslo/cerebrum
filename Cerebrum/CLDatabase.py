@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# encoding: utf-8
+# -*- coding: utf-8 -*-
 #
 # Copyright 2003-2015 University of Oslo, Norway
 #
@@ -26,7 +26,6 @@ commit/rollback with the ChangeLog commit/rollback.
 When using the ChangeLog, you'll want to replace the `cereconf.CLASS_DATABASE'
 with this class, or use this class as a mixin for the
 `cereconf.CLASS_DATABASE'.
-
 """
 from Cerebrum.Utils import Factory
 db = Factory.get('DBDriver')

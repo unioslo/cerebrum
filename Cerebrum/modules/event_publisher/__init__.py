@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,31 +25,40 @@ Queue or Message Broker.
 
 """
 
+import datetime
 import json
 
 import Cerebrum.ChangeLog
 import Cerebrum.DatabaseAccessor
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+from Cerebrum.modules.event_publisher.config import load_config
+
+import mx.DateTime
+
 from . import scim
 
 __version__ = '1.0'
 
 
 def get_client():
-    """Instantiate publishing client.
+    """
+    Instantiate publishing client.
 
-    Instantiated trough the defined config."""
-    from Cerebrum.modules.event_publisher.config import load_config
-    from Cerebrum.modules.event_publisher.amqp_publisher import (
-        PublishingAMQP091Client as client)
-
+    Instantiated trough the defined config.
+    """
     conf = load_config()
-    return client(conf)
+    publisher_class = Factory.make_class(
+        'Publisher',
+        conf.publisher_class)
+    return publisher_class(conf)
 
 
-def change_type_to_message(db, change_type_code, subject,
-                           dest, change_params):
+def change_type_to_message(db,
+                           change_type_code,
+                           subject,
+                           dest,
+                           change_params):
     """Convert change type to message dicts."""
     constants = Factory.get("Constants")(db)
 
@@ -135,12 +144,26 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
             destination_entity,
             change_params=change_params,
             **kw)
-
+        # handle scheduling #
+        schedule = kw.get('schedule')
+        if schedule is not None:
+            if isinstance(schedule, mx.DateTime.DateTimeType):
+                # convert to datetime.datetime
+                schedule = datetime.datetime(schedule.year,
+                                             schedule.month,
+                                             schedule.day,
+                                             schedule.hour,
+                                             schedule.minute,
+                                             int(schedule.second))
+            elif not isinstance(schedule, datetime.datetime):
+                schedule = None
         if skip_publish:
             return
-
-        data = (change_type_id, subject_entity, destination_entity,
-                change_params)
+        data = (change_type_id,
+                subject_entity,
+                destination_entity,
+                change_params,
+                schedule)
         # Conversion can discard data by returning false value
         if not data:
             return
@@ -153,17 +176,25 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
 
     def write_log(self):
         super(EventPublisher, self).write_log()
+        log = Factory.get_logger()
         try:
             ue = self.__get_unpublished_events()
             unsent = ue.query_events(lock=True, parse_json=True)
             if unsent:
                 with self.__get_client() as client:
                     for event in unsent:
-                        client.publish(event['message'])
+                        result_tickets = client.publish(event['message'])
+                        if result_tickets and isinstance(result_tickets, dict):
+                            # Only for scheduled publishing
+                            for jti, (ticket, eta) in result_tickets.items():
+                                # Do some logging...
+                                log.info('Message {jti} schedules for {eta} '
+                                         'with id: {id}'.format(jti=jti,
+                                                                eta=eta,
+                                                                id=ticket.id))
                         ue.delete_event(event['eventid'])
         except:
             # Could not write log
-            log = Factory.get_logger()
             log.exception('Could not write unpublished event to MQ')
         # If called by CLDatabase.commit(), next in line is Database.commit,
         # and that will release lock.
@@ -184,9 +215,16 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                 return change_type_to_message(self, *msg)
             else:
                 return msg
-
-        self.__queue = scim.merge_payloads(
-            filter(None, map(convert, self.__queue)))
+        # handle scheduled tasks #
+        legal_events = list()
+        for element in self.__queue:
+            event = convert(element[:-1])
+            if event:
+                if isinstance(element[-1], datetime.datetime):
+                    event.scheduled = element[-1]
+                legal_events.append(event)
+        ###########################
+        self.__queue = scim.merge_payloads(legal_events)
         if self.__queue:
             self.__try_send_messages()
 
@@ -201,14 +239,22 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
         return self.__unpublished_events
 
     def __try_send_messages(self):
+        logger = Factory.get_logger()
         try:
             with self.__get_client() as client:
                 while self.__queue:
                     message = self.__queue[0]
-                    client.publish(message)
+                    result_tickets = client.publish(message)
+                    if result_tickets and isinstance(result_tickets, dict):
+                        # Only for scheduled publishing
+                        for jti, (ticket, eta) in result_tickets.items():
+                            logger.info('Message {jti} schedules for {eta} '
+                                        'with id: {id}'.format(jti=jti,
+                                                               eta=eta,
+                                                               id=ticket.id))
                     del self.__queue[0]
         except Exception as e:
-            Factory.get_logger().exception(
+            logger.exception(
                 'Could not write message: {err}'.format(err=e))
             self.__save_queue()
 

@@ -1,11 +1,13 @@
 #!/usr/bin/env python
-# encoding: utf-8
+# -*- coding: utf-8 -*-
 u"""Application bootstrap"""
+
 from __future__ import absolute_import, unicode_literals
 
 import logging
 import logging.config
 import time
+
 from flask import Flask, g, request
 from werkzeug.contrib.fixers import ProxyFix
 from . import database as _database

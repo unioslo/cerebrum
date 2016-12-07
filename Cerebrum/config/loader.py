@@ -1,5 +1,24 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# Copyright 2015-2016 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 u""" Cerebrum module for loading configuration files.
 
 This module contains functionality for finding and loading config files from
@@ -20,15 +39,18 @@ import sys
 import os
 from . import parsers as _parsers
 
+# Make it possible to override sys.prefix for configuration path purposes
+sys_prefix = os.getenv('CEREBRUM_SYSTEM_PREFIX', sys.prefix)
 
-default_dir = os.path.join(sys.prefix, 'etc', 'cerebrum', 'config')
-u""" Default directory for global configuration files. """
+# Default directory for global configuration files.
+default_dir = os.getenv('CEREBRUM_CONFIG_ROOT',
+                        os.path.join(sys_prefix, 'etc', 'cerebrum', 'config'))
 
+# Default directory for user configuration files.
 user_dir = os.path.join('~', '.cerebrum', 'config')
-u""" Default directory for user configuration files. """
 
+# Default name of the root configuration file.
 default_root_ns = None
-u""" Default name of the root configuration file. """
 
 
 _f2key = lambda f: os.path.splitext(os.path.basename(f))[0]
@@ -47,8 +69,8 @@ def is_readable_dir(path):
     :return bool:
         True if `path` is a readable and listable directory.
     """
-    return (bool(path) and os.path.isdir(path)
-            and os.access(path, os.R_OK | os.X_OK))
+    return (bool(path) and os.path.isdir(path) and
+            os.access(path, os.R_OK | os.X_OK))
 
 
 def lookup_dirs(additional_dirs=[]):

@@ -8165,7 +8165,7 @@ Addresses and settings:
         except AttributeError:
             raise CerebrumError("Quarantines cannot be set on %s" % entity_type)
         return "OK, set quarantine %s for %s" % (
-            qconst, self._get_name_from_object (entity))
+            qconst, self._get_name_from_object(entity))
 
     # quarantine show
     all_commands['quarantine_show'] = Command(

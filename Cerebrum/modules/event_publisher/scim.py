@@ -23,16 +23,18 @@
 https://tools.ietf.org/html/draft-hunt-idevent-scim-00#section-2.2
 """
 
-import uuid
-import time
+import calendar
 import itertools
+import time
+import uuid
+
 import mx.DateTime as dt
+
 from Cerebrum.config.configuration import Configuration, ConfigDescriptor
 from Cerebrum.config.settings import String
 
 
 class EventType(object):
-
     """Holds an event type."""
 
     def __init__(self, verb, description):
@@ -70,7 +72,6 @@ PASSWORD = EventType('password', 'Subject has changed password')
 
 
 class EventConfig(Configuration):
-
     """Configuration for scim events"""
 
     issuer = ConfigDescriptor(String,
@@ -84,21 +85,26 @@ class EventConfig(Configuration):
                                    '{entity_type} and {entity_id} as '
                                    'placeholders')
 
-    keytemplate = ConfigDescriptor(String,
-                                   default=u'no.uio.cerebrum.scim.{entity_type}'
-                                   '.{event}',
-                                   doc=u'Format string for routing key (use '
-                                   '{entity_type} and {event} as '
-                                   'placeholders')
+    keytemplate = ConfigDescriptor(
+        String,
+        default=u'no.uio.cerebrum.scim.{entity_type}.{event}',
+        doc=(u'Format string for routing key (use {entity_type} and {event} '
+             u'as placeholders'))
 
 
 class Event(object):
-
     """Represent a SCIM message payload."""
 
-    def __init__(self, event, time=None, issuer=None, spreads=None,
-                 subject=None, attributes=None, expire=None,
-                 obj=None, **extra):
+    def __init__(self,
+                 event,
+                 time=None,
+                 issuer=None,
+                 spreads=None,
+                 subject=None,
+                 attributes=None,
+                 expire=None,
+                 obj=None,
+                 **extra):
         """Initialize.
 
         :event: EventType object
@@ -119,11 +125,14 @@ class Event(object):
         self.const = subject.const
         self.clconst = subject.clconst
         self.extra = extra
+        self.jti = str(uuid.uuid4())
+        self.scheduled = None
         from Cerebrum.Person import Person
         from Cerebrum.Account import Account
         from Cerebrum.Group import Group
         from Cerebrum.OU import OU
-        # TODO: Could these be gotten from REST API? Or as an attribute of type?
+        # TODO: Could these be gotten from REST API?
+        # Or as an attribute of type?
         entity_type = 'entities'
         if isinstance(subject, Person):
             entity_type = 'persons'
@@ -165,9 +174,9 @@ class Event(object):
         """Convert arg to a timestamp."""
         if timestamp is None:
             return int(time.time())
-        if isinstance(timestamp, dt.DateTime):
+        if isinstance(timestamp, dt.DateTimeType):
             return int(time.mktime(timestamp.timetuple()))
-        return int(time)
+        return int(timestamp)
 
     def make_key(self):
         """Return routing key"""
@@ -199,7 +208,7 @@ class Event(object):
     def get_payload(self):
         """Create and return payload as jsonable dict."""
         ret = {
-            'jti': str(uuid.uuid4()),
+            'jti': self.jti,
             'eventUris': self.get_event_uris(),
             'iat': self.time,
             'iss': self.issuer,
@@ -213,10 +222,16 @@ class Event(object):
             args['object'] = self.make_obj()
         if args:
             ret[str(self.event)] = args
+        if self.scheduled is not None:
+            # assume datetime.datetime, although mx.DateTime will also work
+            # .strftime('%s') is not official and it will not work in Windows
+            ret['nbf'] = calendar.timegm(self.scheduled.timetuple())
         return ret
 
     def mergeable(self, other):
         """Can this be merged with other."""
+        if isinstance(self.schedule, datetime.datetime):
+            return False
         if self.subject != other.subject:
             return False
         if self.event == CREATE:
