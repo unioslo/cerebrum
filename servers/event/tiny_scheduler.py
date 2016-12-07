@@ -48,34 +48,34 @@ class ConsumerCallback(collections.Callable):
     def __call__(self, channel, method, header, body):
         """
         """
-        # or maybe ack after execution? ....
-        channel.basic_ack(delivery_tag=method.delivery_tag)
-        self._handle_scim_data(method, body)
+        try:
+            self._handle_scim_data(method, body)
+            channel.basic_ack(delivery_tag=method.delivery_tag)
+        except Exception as e:
+            self._logger.error('Consumer-callback error: {0}\n'.format(e))
 
     def _handle_scim_data(self, method, body):
         """
         """
-        try:
-            data_dict = json.loads(body)
-            jti = data_dict.get('jti', 'unknown-jti')
-            nbf = data_dict.get('nbf')
-            if nbf is None:
-                self._logger.debug(
-                    'Message {jti} contains no scheduling data'.format(
-                        jti=jti))
-                return False
-            eta = datetime.datetime.fromtimestamp(int(nbf))
-            result_ticket = schedule_message.apply_async(
-                kwargs={'routing_key': method.routing_key,
-                        'body': body},
-                eta=eta)
-            self._logger.info(
-                'Scheduled {jti} for {eta} as {ticket_id}'.format(
-                    jti=jti,
-                    eta=eta,
-                    ticket_id=result_ticket.id))
-        except Exception as e:
-            self._logger.error('Consumer-callback error: {0}\n'.format(e))
+        data_dict = json.loads(body)
+        jti = data_dict.get('jti', 'unknown-jti')
+        nbf = data_dict.get('nbf')
+        if nbf is None:
+            self._logger.debug(
+                'Message {jti} contains no scheduling data'.format(
+                    jti=jti))
+            return False
+        eta = datetime.datetime.fromtimestamp(int(nbf))
+        result_ticket = schedule_message.apply_async(
+            kwargs={'routing_key': method.routing_key,
+                    'body': body},
+            eta=eta)
+        self._logger.info(
+            'Scheduled {jti} for {eta} as {ticket_id}'.format(
+                jti=jti,
+                eta=eta,
+                ticket_id=result_ticket.id))
+        return True
 
 
 def main():
