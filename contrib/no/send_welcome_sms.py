@@ -165,7 +165,7 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
                 return True
             return False
 
-        if all(map(lambda (k, v): apply_filters(k, v), filters)):
+        if any(map(lambda (k, v): apply_filters(k, v), filters)):
             continue
 
         # check person affiliations
