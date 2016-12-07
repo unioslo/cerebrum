@@ -230,7 +230,7 @@ class Event(object):
 
     def mergeable(self, other):
         """Can this be merged with other."""
-        if isinstance(self.schedule, datetime.datetime):
+        if self.scheduled is not None:
             return False
         if self.subject != other.subject:
             return False
