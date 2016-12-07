@@ -320,7 +320,7 @@ def register_spread_groups_evu(row, group, evukurs_info, entity2name):
             parent_suffix = "kursdeltaker"
         elif category == "foreleser":
             title = "Forelesere"
-            permission = fronter_lib.Fronter.ROLE_DELETE
+            permission = fronter_lib.Fronter.ROLE_CHANGE
             parent_suffix = "foreleser"
         else:
             raise ValueError, "ukjent kategori '%s' for %s" % (category,
@@ -464,10 +464,10 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                     rettighet = fronter_lib.Fronter.ROLE_WRITE
                 elif kategori == 'foreleser':
                     title = 'Forelesere på '
-                    rettighet = fronter_lib.Fronter.ROLE_DELETE
+                    rettighet = fronter_lib.Fronter.ROLE_CHANGE
                 elif kategori == 'studieleder':
                     title = 'Studieledere for '
-                    rettighet = fronter_lib.Fronter.ROLE_DELETE
+                    rettighet = fronter_lib.Fronter.ROLE_CHANGE
                 else:
                     raise RuntimeError, "Ukjent kategori: %r" % (kategori,)
                 title += '%s (ver %s, %d. termin, %s %s)' % (
