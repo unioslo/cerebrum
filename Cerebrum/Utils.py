@@ -1393,6 +1393,11 @@ class SMSSender():
             self._logger.warning("Unable to send SMS: %s" % str(e))
             return False
 
+        if getattr(cereconf, 'SMS_DISABLE', True):
+            self._logger.info('Would have sent \'{}\' to {}'.format(message,
+                                                                    phone_to))
+            return True
+
         hostname = urlparse.urlparse(self._url).hostname
         password = read_password(user=self._user, system=hostname)
         postdata = urllib.urlencode({'b': self._user,
