@@ -312,11 +312,11 @@ sbin_files = [
     ('servers/bofhd/bofhd.py', 0755),
     ('servers/event/exchange_daemon.py', 0755),
     ('servers/event/cim_daemon.py', 0755),
-    ('servers/event/tiny_scheduler.py', 0755),
     ('servers/cis/SoapIndividuationServer.py', 0755),
     ('servers/cis/SoapPostmasterServer.py', 0755),
     ('servers/cis/SoapGroupServer.py', 0755),
     ('servers/cis/SoapServer.py', 0755),
+    ('consumers/no/uio/tiny_scheduler.py', 0755),
     ('consumers/no/uio/consumer_sap.py', 0755)
 ]
 
