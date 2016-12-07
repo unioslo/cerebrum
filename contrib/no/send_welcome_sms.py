@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
+#
 # Copyright 2012-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -18,14 +18,17 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""A script for sending out SMS to new users. Originally created for sending out
-usernames to student accounts created by process_students.py, but it could
+"""A script for sending out SMS to new users. Originally created for sending
+out usernames to student accounts created by process_students.py, but it could
 hopefully be used by other user groups if necessary."""
 
-import sys, os, getopt
+import sys
+import os
+import getopt
+
 from mx.DateTime import now
 
-import cerebrum_path, cereconf
+import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, SMSSender
 
@@ -34,6 +37,7 @@ db = Factory.get('Database')()
 db.cl_init(change_program='send_welcome_sms')
 co = Factory.get('Constants')(db)
 sms = SMSSender(logger=logger)
+
 
 def usage(exitcode=0):
     print """Usage: %(scriptname)s [--commit] [options...]
@@ -45,7 +49,8 @@ def usage(exitcode=0):
     Note that we will not send out an SMS to the same account twice in a period
     of 180 days. We don't want to spam the users.
 
-    --trait TRAIT   The trait that defines new accounts. Default: trait_student_new
+    --trait TRAIT   The trait that defines new accounts. Default:
+                    trait_student_new
 
     --phone-types   The phone types and source systems to get phone numbers
                     from. Can be a comma separated list, and its format is:
@@ -81,8 +86,9 @@ def usage(exitcode=0):
                     Default: 180 days.
 
     --min-attempts ATTEMPTS
-                    The minimum number of attempts per account. If this option is
-                    set, the trait will be removed if these two conditions apply:
+                    The minimum number of attempts per account. If this option
+                    is set, the trait will be removed if these two conditions
+                    apply:
                         1) the trait is too old
                     and 2) number of attempts > minimum number of attempts
 
@@ -123,15 +129,19 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
             remove_trait(ac, row['entity_id'], trait, commit)
             continue
 
-        # remove trait if more than min_attempts attempts have been made and trait is too old
+        # remove trait if more than min_attempts attempts have been made and
+        # trait is too old
         if (min_attempts and is_too_old and min_attempts < attempt):
-            logger.warn('Too old trait and too many attempts (%s) for entity_id=%s, giving up',
-                        attempt, row['entity_id'])
+            logger.warn(
+                'Too old trait and too many attempts (%s) for '
+                'entity_id=%s, giving up',
+                attempt, row['entity_id'])
             remove_trait(ac, row['entity_id'], trait, commit)
             continue
 
         if ac.owner_type != co.entity_person:
-            logger.warn('Tagged new user %s not personal, skipping', ac.account_name)
+            logger.warn('Tagged new user %s not personal, skipping',
+                        ac.account_name)
             # TODO: remove trait?
             continue
         if ac.is_expired():
@@ -167,7 +177,8 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
             if not any(a in affs for a in affiliations):
                 logger.debug('No required person affiliation for %s, skipping',
                              ac.account_name)
-                # TODO: Doesn't remove trait, in case the person gets it later on.
+                # TODO: Doesn't remove trait, in case the person gets it later
+                # on.
                 #       Should the trait be removed?
                 continue
         pe.clear()
@@ -199,7 +210,9 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
         msg = message % {'username': ac.account_name,
                          'email': email}
         if not send_sms(phone, msg, commit):
-            logger.warn('Could not send SMS to %s (%s)', ac.account_name, phone)
+            logger.warn('Could not send SMS to %s (%s)',
+                        ac.account_name,
+                        phone)
             continue
 
         # sms sent, now update the traits
@@ -215,6 +228,7 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
         logger.debug('Changes rolled back')
     logger.info('send_welcome_sms done')
 
+
 def remove_trait(ac, ac_id, trait, commit=False):
     """Remove a given trait from an account."""
     ac.clear()
@@ -227,6 +241,7 @@ def remove_trait(ac, ac_id, trait, commit=False):
     else:
         db.rollback()
 
+
 def inc_attempt(ac, ac_id, trait, commit=False):
     """Increase the attempt counter (stored in trait) for a given account."""
     ac.clear()
@@ -236,7 +251,7 @@ def inc_attempt(ac, ac_id, trait, commit=False):
     if not attempt:
         attempt = 1
     else:
-        attempt = int(attempt) +1
+        attempt = int(attempt) + 1
 
     logger.debug("Attempt number %s for account %s", attempt, ac.account_name)
 
@@ -248,12 +263,15 @@ def inc_attempt(ac, ac_id, trait, commit=False):
         db.rollback()
     return attempt
 
+
 def get_phone_number(pe, phone_types):
     """Search through a person's contact info and return the first found info
     value as defined by the given types and source systems."""
-    for sys, type in phone_types:
-        for row in pe.get_contact_info(source=sys, type=type):
+    for source_system, contact_type in phone_types:
+        for row in pe.get_contact_info(source=source_system,
+                                       type=contact_type):
             return row['contact_value']
+
 
 def send_sms(phone, message, commit=False):
     """Send an SMS to a given phone number"""
@@ -273,10 +291,12 @@ def skip_if_password_set(ac, trait):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'h',
-                ['trait=', 'phone-types=', 'affiliations=', 'message=',
-                 'too-old=', 'message-cereconf=', 'commit', 'min-attempts=',
-                 'skip-if-password-set'])
+        opts, args = getopt.getopt(
+            sys.argv[1:],
+            'h',
+            ['trait=', 'phone-types=', 'affiliations=', 'message=',
+             'too-old=', 'message-cereconf=', 'commit', 'min-attempts=',
+             'skip-if-password-set'])
     except getopt.GetoptError, e:
         print e
         usage(1)
@@ -299,14 +319,16 @@ def main():
             assert 0 < too_old, "--too_old must be a positive integer"
         elif opt == '--min-attempts':
             min_attempts = int(arg)
-            assert 0 < min_attempts, "--min-attempts must be a positive integer"
+            assert 0 < min_attempts, ("--min-attempts must be a positive "
+                                      "integer")
         elif opt == '--phone-types':
-            phone_types.extend((co.human2constant(t[0], co.AuthoritativeSystem),
-                                co.human2constant(t[1], co.ContactInfo)) 
-                                for t in (a.split(':') for a in arg.split(',')))
+            phone_types.extend(
+                (co.human2constant(t[0], co.AuthoritativeSystem),
+                 co.human2constant(t[1], co.ContactInfo))
+                for t in (a.split(':') for a in arg.split(',')))
         elif opt == '--affiliations':
             affiliations.extend(co.human2constant(a, (co.PersonAffiliation,
-                                                      co.PersonAffStatus)) 
+                                                      co.PersonAffStatus))
                                 for a in arg.split(','))
         elif opt == '--skip-if-password-set':
             filters.append(('skip-if-password-set', skip_if_password_set))
@@ -334,8 +356,12 @@ def main():
     if not trait:
         trait = co.trait_student_new
 
-    process(trait=trait, message=message, phone_types=phone_types,
-            affiliations=affiliations, too_old=too_old, min_attempts=min_attempts,
+    process(trait=trait,
+            message=message,
+            phone_types=phone_types,
+            affiliations=affiliations,
+            too_old=too_old,
+            min_attempts=min_attempts,
             commit=commit,
             filters=filters)
 
