@@ -467,6 +467,7 @@ setup(
         'Cerebrum/modules/ad',
         'Cerebrum/modules/ad2',
         'Cerebrum/modules/celery_tasks',
+        'Cerebrum/modules/celery_tasks/apps',
         'Cerebrum/modules/consent',
         'Cerebrum/modules/cim',
         'Cerebrum/modules/dns',
