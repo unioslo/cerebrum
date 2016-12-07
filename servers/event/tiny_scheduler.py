@@ -26,13 +26,13 @@ import argparse
 import collections
 import datetime
 import errno
-import getpass
 import json
 import os
 import sys
 
 import pika
 
+from Cerebrum.Utils import Factory, read_password
 from Cerebrum.modules.celery_tasks.apps.scheduler import schedule_message
 
 
@@ -43,6 +43,7 @@ class ConsumerCallback(collections.Callable):
         """
         """
         self._args = args
+        self._logger = args.logger
 
     def __call__(self, channel, method, header, body):
         """
@@ -56,27 +57,31 @@ class ConsumerCallback(collections.Callable):
         """
         try:
             data_dict = json.loads(body)
+            jti = data_dict.get('jti', 'unknown-jti')
             nbf = data_dict.get('nbf')
             if nbf is None:
-                print('DEBUG: Message contains no scheduling data')
+                self._logger.debug(
+                    'Message {jti} contains no scheduling data'.format(
+                        jti=jti))
                 return False
             eta = datetime.datetime.fromtimestamp(int(nbf))
             result_ticket = schedule_message.apply_async(
                 kwargs={'routing_key': method.routing_key,
                         'body': body},
                 eta=eta)
-            print('DEBUG: Scheduled {jti} for {eta} as {ticket_id}'.format(
-                jti=data_dict.get('jti', 'unknown-jti'),
-                eta=eta,
-                ticket_id=result_ticket.id))
+            self._logger.info(
+                'Scheduled {jti} for {eta} as {ticket_id}'.format(
+                    jti=jti,
+                    eta=eta,
+                    ticket_id=result_ticket.id))
         except Exception as e:
-            sys.stderr.write('consumer_callback error: {0}\n'.format(e))
-            sys.stderr.flush()
+            self._logger.error('Consumer-callback error: {0}\n'.format(e))
 
 
 def main():
     """
     """
+    logger = Factory.get_logger('cronjob')
     parser = argparse.ArgumentParser(
         description='The following options are available')
     parser.add_argument(
@@ -86,6 +91,12 @@ def main():
         dest='hostname',
         default='localhost',
         help='MQ hostname / IP address (default: localhost)')
+    parser.add_argument(
+        '-d', '--dryrun',
+        action='store_true',
+        dest='dryrun',
+        default=False,
+        help='Do not actually schedule the tasks. Just logg and be happy')
     parser.add_argument(
         '-e', '--target-exchange',
         metavar='EXCHANGE',
@@ -121,8 +132,8 @@ def main():
         metavar='TAG',
         type=str,
         dest='consumer_tag',
-        default='tiny_consumer',
-        help='Consumer tag (default: tiny_consumer)')
+        default='tiny_scheduler',
+        help='Consumer tag (default: tiny_scheduler)')
     parser.add_argument(
         '-u', '--username',
         metavar='USERNAME',
@@ -138,11 +149,15 @@ def main():
         default='/no/uio/integration',
         help='Vhost (default: /no/uio/integration)')
     args = parser.parse_args()
+    args.logger = logger
+    logger.info('tiny_scheduler started')
     if not args.password:
         try:
-            args.password = getpass.getpass()
+            args.password = read_password(args.username, args.hostname)
         except Exception as e:
-            sys.stderr.write('Prompt terminated\n')
+            logger.error(
+                'Unable to retrieve password for user {username}: '
+                '{error}'.format(username=args.username, error=e))
             sys.exit(errno.EACCES)
     elif os.path.isfile(args.password):
         try:
@@ -151,7 +166,7 @@ def main():
                 if passwd.strip():
                     args.password = passwd.strip()
         except Exception as e:
-            sys.stderr.write('Unable to open password file: {0}'.format(e))
+            logger.error('Unable to open password file: {0}'.format(e))
             sys.exit(1)
     creds_broker = pika.PlainCredentials(args.username, args.password)
     conn_params = pika.ConnectionParameters(args.hostname,
@@ -166,11 +181,11 @@ def main():
                           queue=args.queue,
                           no_ack=False,
                           consumer_tag=args.consumer_tag)
-    print('Consumer active!')
+    logger.info('Consumer active!')
     try:
         channel.start_consuming()
     except KeyboardInterrupt:
-        print('Terminating...')
+        logger.info('Terminating...')
 
 
 if __name__ == '__main__':
