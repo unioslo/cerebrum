@@ -102,4 +102,20 @@ class BofhdExtension(base.BofhdExtension):
             mapping['country'] = address['country']
             mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
 
+        def unicodify(value):
+            """ Attempt to turn a str into unicode. We guess it's either
+            UTF-8 or ISO-8859-1. """
+            if isinstance(value, str):
+                try:
+                    value = value.decode('UTF-8')
+                except UnicodeDecodeError:
+                    value = value.decode('ISO-8859-1')
+            return value
+
+        # latex template expects UTF-8
+        for k, v in mapping.items():
+            if not v:
+                continue
+            mapping[k] = unicodify(v).encode('UTF-8')
+
         return mapping
