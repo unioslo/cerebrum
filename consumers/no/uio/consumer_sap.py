@@ -248,10 +248,10 @@ def parse_titles(d):
 
     titles = ([make_tuple(co.personal_title,
                           co.language_en,
-                          d.get(u'title').get(u'english'))] +
+                          d.get(u'title').get(u'en'))] +
               map(lambda lang: make_tuple(co.personal_title,
                                           lang,
-                                          d.get(u'title').get(u'norwegian')),
+                                          d.get(u'title').get(u'nb')),
                   [co.language_nb, co.language_nn]))
 
     # Select appropriate work title.
@@ -272,9 +272,9 @@ def parse_titles(d):
             co.work_title,
             lang_code,
             work_title.get(u'job').get(u'title').get(lang_str)),
-            [(co.language_nb, u'norwegian'),
-             (co.language_nn, u'norwegian'),
-             (co.language_en, u'english')]))
+            [(co.language_nb, u'nb'),
+             (co.language_nn, u'nb'),
+             (co.language_en, u'en')]))
 
     return filter(lambda ((vk, vn), (lk, lv), (nk, nv)): nv, titles)
 
