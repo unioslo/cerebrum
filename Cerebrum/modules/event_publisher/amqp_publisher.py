@@ -40,8 +40,6 @@ from Cerebrum.modules.event.clients import ClientErrors
 from Cerebrum.modules.event.clients.amqp_client import BaseAMQP091Client
 from . import scim
 
-from Cerebrum.modules.celery_tasks.apps.scheduler import schedule_message
-
 
 class PublishingAMQP091Client(BaseAMQP091Client):
     """AMQP 0.9.1 client wrapper usable for publishing messages."""
@@ -147,6 +145,7 @@ class SchedulingAndPublishingAMQP091Client(PublishingAMQP091Client):
         :rtype: dict
         :return: A dict of jti:(celery.result.AsyncResult, eta)
         """
+        from Cerebrum.modules.celery_tasks.apps.scheduler import schedule_message
         super(SchedulingAndPublishingAMQP091Client, self).publish(
             messages,
             durable)
