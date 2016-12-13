@@ -1205,7 +1205,9 @@ class BofhdExtension(
                 return {'prompt': "Shell", 'default': 'bash'}
             shell = all_args.pop(0)
             if not all_args:
-                return {'prompt': 'E-mail spread', 'help_ref': 'string_spread'}
+                return {'prompt': 'E-mail spread',
+                        'help_ref': 'string_spread',
+                        'default': 'acc@office365'}
             email_spread = all_args.pop(0)
         if not all_args:
             ret = {'prompt': "Username", 'last_arg': True}
