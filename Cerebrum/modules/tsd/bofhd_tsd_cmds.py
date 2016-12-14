@@ -1879,6 +1879,34 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         account.write_db()
         return "User %s is deactivated" % account.account_name
 
+    all_commands['user_unapproved'] = cmd.Command(
+        ('user', 'unapproved'),
+        fs=cmd.FormatSuggestion(
+            '%-10s %-16s %-10s', ('entity_id', 'username', 'created'),
+            hdr='%-10s %-16s %-10s' % ('Entity-Id', 'Username', 'Created')),
+        perm_filter='is_superuser')
+
+    @superuser
+    def user_unapproved(self, operator):
+        """
+        List all users with the 'not_approved' quarantine
+        """
+        ac = Factory.get('Account')(self.db)
+        q_list = ac.list_entity_quarantines(
+            entity_types=self.const.entity_account,
+            quarantine_types=self.const.quarantine_not_approved,
+            only_active=True)
+        unapproved_users = list()
+        for q_element in q_list:
+            ac.clear()
+            ac.find(q_element['entity_id'])
+            unapproved_users.append([q_element['entity_id'],
+                                     ac.account_name,
+                                     ac.created_at])
+        # sort by account name
+        unapproved_users.sort(key=lambda x: x[1])
+        return unapproved_users
+
     #
     # Group commands
 
