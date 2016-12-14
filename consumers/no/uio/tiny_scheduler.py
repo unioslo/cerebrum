@@ -65,6 +65,11 @@ class ConsumerCallback(collections.Callable):
                 'Message {jti} contains no scheduling data'.format(
                     jti=jti))
             return False
+        if not nbf or not str(nbf).isdigit():
+            self._logger.warn(
+                'Message {jti} contains invalid or empty "nbf" field'.format(
+                    jti=jti))
+            return False
         eta = datetime.datetime.fromtimestamp(int(nbf))
         result_ticket = schedule_message.apply_async(
             kwargs={'routing_key': method.routing_key,
