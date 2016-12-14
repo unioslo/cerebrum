@@ -341,20 +341,43 @@ class AccountUtil(object):
 
         changes = []
         remove_idx = 1     # Do not remove last account affiliation
+
+        #
+        # kennethj:20161214
+        # UiT need to create fagperson accounts in this script. therefore we also
+        # need to collect fs persons with tilknyttet affiliation
+        #
         account_ous = [ou for aff, ou in accounts[account_id].get_affiliations()
-                       if aff == const.affiliation_student]
+                       if aff in [const.affiliation_student,const.affiliation_tilknyttet]]
+
+        save_fagperson = False
         for aff, ou, status in persons[fnr].get_affiliations():
-            assert aff == const.affiliation_student
+            fagperson = False
+            assert aff in [const.affiliation_student,const.affiliation_tilknyttet]
+            if aff == const.affiliation_tilknyttet:
+                #logger.debug("populate account affiliation = fagperson")
+                fagperson = True
+                save_fagperson = True
             if not ou in account_ous:
-                changes.append(('set_ac_type', (ou, const.affiliation_student)))
+                if fagperson:
+                    changes.append(('set_ac_type', (ou, const.affiliation_tilknyttet)))
+                else:
+                    changes.append(('set_ac_type', (ou, const.affiliation_student)))
             else:
                 account_ous.remove(ou)
                 # The account has at least one valid affiliation, so
                 # we can delete everything left in account_ous.
                 remove_idx = 0
 
+        #
+        # kennethj:20161214
+        # Do not delete tilknyttet affiliation if its the last account affiliation
+        #
         for ou in account_ous[remove_idx:]:
-            changes.append(('del_ac_type', (ou, const.affiliation_student)))
+            if save_fagperson:
+                changes.append(('del_ac_type', (ou, const.affiliation_student)))
+            else:
+                changes.append(('del_ac_type', (ou, const.affiliation_tilknyttet)))
         return changes
     _populate_account_affiliations=staticmethod(_populate_account_affiliations)
 
@@ -1069,6 +1092,21 @@ def get_existing_accounts():
             pid2fnr[int(row['entity_id'])] = row['external_id']
             tmp_persons[row['external_id']] = ExistingPerson()
 
+
+    # kennethj: 20161213
+    # UiT: need to collect fagpersoner from FS as well
+    #
+    for row in person_obj.list_affiliations(
+        source_system=const.system_fs,
+        affiliation=const.affiliation_tilknyttet,
+        fetchall=False):
+        tmp = pid2fnr.get(int(row['person_id']), None)
+        if tmp is not None:
+            tmp_persons[tmp].append_affiliation(
+                int(row['affiliation']), int(row['ou_id']), int(row['status']))
+
+
+
     for row in person_obj.list_affiliations(
         source_system=const.system_fs,
         affiliation=const.affiliation_student,
@@ -1133,12 +1171,28 @@ def get_existing_accounts():
                     pid2fnr.get(int(row['entity_id']), None), None)
             if tmp is not None:
                 tmp.append_spread(spread_id)
+                
+    #
+    # kennethj: UiT is unable to set_home on account object withouth disk_id
+    # UiO sets this in an UiO spesific Account.py. UiT needs to either copy UiO Account.py
+    # or do it slightly different here..
+    # All student accounts use the same (fake) disk 'fakeserver/nodisk/'
+    #
+    disk_obj = Factory.get('Disk')(db)
+    disk_obj.clear()
+    disk_path = '/fakeserver/nodisk'
+    student_disk_retval = disk_obj.search(path = disk_path)
+    logger.debug(pformat(student_disk_retval[0]['disk_id']))
+    student_disk = str(student_disk_retval[0]['disk_id'])
+    logger.debug("student disk id:%s" % student_disk)
+
+
     # Account homes
-    for row in account_obj.list_account_home():
+    for row in account_obj.list_account_home(filter_expired = False,disk_id = None):
         tmp = tmp_ac.get(int(row['account_id']), None)
-        if tmp is not None and row['disk_id']:
-            tmp.set_home(int(row['home_spread']), int(row['disk_id']),
-                         int(row['homedir_id']))
+        if tmp is not None and student_disk:
+            # replaced row['disk_id'] with student_disk
+            tmp.set_home(int(row['home_spread']),int(student_disk),int(row['homedir_id']))
 
     # Group memberships
     for group_id in autostud.pc.group_defs.keys():
@@ -1162,6 +1216,18 @@ def get_existing_accounts():
         if tmp is not None:
             tmp.append_affiliation(int(row['affiliation']), int(row['ou_id']))
 
+    #
+    # kennethj: 20161213
+    # UiT: We also need to collect fagpersoner from fs
+    # UiO does not create accounts based on fagperson affiliation from FS (they use SAP?)
+    #
+    for row in account_obj.list_accounts_by_type(
+            affiliation = const.affiliation_tilknyttet, status=const.affiliation_tilknyttet_fagperson, fetchall=False):
+        tmp = tmp_ac.get(int(row['account_id']), None)
+        if tmp is not None:
+            tmp.append_affiliation(int(row['affiliation']), int(row['ou_id']))
+
+
     for ac_id, tmp in tmp_ac.items():
         fnr = tmp_ac[ac_id].get_fnr()
         if tmp.is_reserved():
@@ -1170,14 +1236,21 @@ def get_existing_accounts():
             tmp_persons[fnr].append_deleted_ac(ac_id)
         elif tmp.has_affiliation(int(const.affiliation_student)):
             tmp_persons[fnr].append_stud_ac(ac_id)
+        elif tmp.has_affiliation(int(const.affiliation_tilknyttet)):
+            tmp_persons[fnr].append_stud_ac(ac_id)            
         elif tmp_persons[fnr].get_affiliations():
             # get_affiliations() only returns STUDENT affiliations.
             # Accounts on student disks are handled as if they were
             # students if the person has at least one STUDENT
             # affiliation.  The STUDENT affiliation(s) will be added
             # later during this run.
+            logger.debug("affiliations = :%s" % tmp_persons[fnr].get_affiliations())
             for s in tmp.get_home_spreads():
+                logger.debug("home spreads:%s" % s)
                 disk_id = tmp.get_home(s)[0]
+                logger.debug("disk id:%s" % disk_id)
+                foo = autostud.disk_tool.get_diskdef_by_diskid(disk_id)
+                logger.debug("foo:%s" % foo)
                 if autostud.disk_tool.get_diskdef_by_diskid(disk_id):
                     tmp_persons[fnr].append_stud_ac(ac_id)
                     break

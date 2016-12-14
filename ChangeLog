@@ -1,3 +1,7 @@
+2016-12-14    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_students.py: Updated script to also handle fagpersoner from FS
+
 2016-11-28  Karen   <cerebrum@cleomedes.uit.no>
     
     * process_sito_email.py (get_cn_addr_tmp): Fixed a small bug.
