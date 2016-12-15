@@ -477,7 +477,13 @@ class AccountPasswordResource(Resource):
             check_password(plaintext, account=ac, structured=False)
         except PasswordNotGoodEnough as err:
             abort(400, 'Bad password: {}'.format(err))
+        if isinstance(plaintext, unicode):
+            try:
+                plaintext = plaintext.encode('ISO-8859-1')
+            except UnicodeEncodeError:
+                abort(400, 'Bad password: Contains illegal characters')
         ac.set_password(plaintext)
+        ac.write_db()
         return {'password': plaintext}
 
 
