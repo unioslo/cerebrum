@@ -494,7 +494,7 @@ class AccountPasswordVerifierResource(Resource):
     @auth.require()
     @api.expect(PasswordPayload)
     @api.response(200, 'Password verification', PasswordVerification)
-    @api.response(400, 'Password missing')
+    @api.response(400, 'Password missing or contains unsupported characters')
     def post(self, id):
         """Verify the password for this account."""
         ac = find_account(id)
@@ -502,6 +502,11 @@ class AccountPasswordVerifierResource(Resource):
         plaintext = data.get('password', None)
         if plaintext is None:
             abort(400, 'No password specified')
+        if isinstance(plaintext, unicode):
+            try:
+                plaintext = plaintext.encode('ISO-8859-1')
+            except UnicodeEncodeError:
+                abort(400, 'Bad password: Contains illegal characters')
         verified = bool(ac.verify_auth(plaintext))
         return {'verified': verified}
 
@@ -513,7 +518,7 @@ class AccountPasswordCheckerResource(Resource):
     @auth.require()
     @api.expect(PasswordPayload)
     @api.response(200, 'Password check result')
-    @api.response(400, 'Password missing')
+    @api.response(400, 'Password missing or contains unsupported characters')
     def post(self, id):
         """Check if a password is valid according to rules."""
         ac = find_account(id)
@@ -521,6 +526,11 @@ class AccountPasswordCheckerResource(Resource):
         plaintext = data.get('password', None)
         if plaintext is None:
             abort(400, 'No password specified')
+        if isinstance(plaintext, unicode):
+            try:
+                plaintext = plaintext.encode('ISO-8859-1')
+            except UnicodeEncodeError:
+                abort(400, 'Bad password: Contains illegal characters')
         return check_password(plaintext, account=ac, structured=True)
 
 
