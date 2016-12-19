@@ -64,13 +64,13 @@ OEPAPRD         [9], [10], [11], [12]                   basware-*
       WHERE GROUP_NAME = 'BasWareBrukere' AND upper(DOMAIN) = 'UIO'
 [10]  basware-masters:
       SELECT USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'      
+      WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'
 [11]  basware-monitor:
       SELECT USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'Monitorbrukere' AND upper(DOMAIN) = 'UIO'      
+      WHERE GROUP_NAME = 'Monitorbrukere' AND upper(DOMAIN) = 'UIO'
 [12]  basware-useradmin:
       SELECT USER_NETWORK_NAME FROM basware.ip_group_user
-      WHERE GROUP_NAME = 'UserAdminbrukere' AND upper(DOMAIN) = 'UIO'      
+      WHERE GROUP_NAME = 'UserAdminbrukere' AND upper(DOMAIN) = 'UIO'
 
 After the update, each group in cerebrum contains only the members listed in
 the corresponding external database. That is, if
@@ -98,6 +98,7 @@ import sys
 import string
 import getopt
 import traceback
+import StringIO
 
 import cerebrum_path
 import cereconf
@@ -111,6 +112,11 @@ from Cerebrum.modules.no.uio.access_AJ import AJ
 from Cerebrum.modules.no.uio.access_OA import OA
 from Cerebrum.modules.no.uio.access_OEP import OEP
 
+del cerebrum_path
+logger = """Global variable for logger."""
+dryrun = """Global flag for dryrun."""
+account2name = """Global variable mapping account ids to usernames."""
+
 
 def sanitize_group(cerebrum_group, constants):
     """This helper function removes 'unwanted' members of CEREBRUM_GROUP.
@@ -120,19 +126,17 @@ def sanitize_group(cerebrum_group, constants):
     """
 
     removed_count = 0
-    for row in cerebrum_group.search_members(group_id=cerebrum_group.entity_id,
-                                             member_type=
-                                             constants.entity_group):
+    for row in cerebrum_group.search_members(
+            group_id=cerebrum_group.entity_id,
+            member_type=constants.entity_group):
         member_id = int(row["member_id"])
         logger.error("Aiee! Group id=%s is a member of group %s",
                      member_id, cerebrum_group.group_name)
         cerebrum_group.remove_member(member_id)
         removed_count += 1
-        
+
     logger.info("%d entity(ies) was(were) sanitized from %s",
                 removed_count, cerebrum_group.group_name)
-# end sanitize_group
-
 
 
 def synchronize_group(external_group, cerebrum_group_name):
@@ -153,17 +157,14 @@ def synchronize_group(external_group, cerebrum_group_name):
               # Here, the account exists in Cerebrum, but it is not a member
               # of the required group. Therefore we add it.
               <add m to the group>
-          # fi
 
           # This marks m as processed
           <remove m from G_c>
-      # od
 
     * At this step, everything still in G_c exists in Cerebrum, but not in
       the external source. Such entries must be removed from Cerebrum.
       for each n in G_c:
           <remove n from group>
-      # od
 
     Adding an account to a group means:
       1. adding it as a direct 'union'-member.
@@ -193,13 +194,12 @@ def synchronize_group(external_group, cerebrum_group_name):
         logger.error("Aiee! Group %s not found in cerebrum. " +
                      "We will not be able to synchronize it")
         return
-    # yrt
 
     try:
-        rows = list(external_group())
+        list(external_group())
     except:
         logger.exception("Failed synchronizing group=%s", cerebrum_group_name)
-        return 
+        return
 
     sanitize_group(cerebrum_group, constants)
 
@@ -231,7 +231,7 @@ def synchronize_group(external_group, cerebrum_group_name):
             # Here we now that the account exists in Cerebrum.
             # Is it a member of CEREBRUM_GROUP_NAME already?
             if ((account_name not in current) and
-                (not cerebrum_account.get_account_expired())):
+                    (not cerebrum_account.get_account_expired())):
                 # New member for the group! Add it to Cerebrum
                 add_to_cerebrum_group(cerebrum_account, cerebrum_group,
                                       constants)
@@ -240,10 +240,6 @@ def synchronize_group(external_group, cerebrum_group_name):
                 # Mark this account as processed
                 if account_name in current:
                     del current[account_name]
-                # fi
-            # fi
-        # yrt
-    # od
 
     # Now, all that is left in CURRENT does NOT exist in EXTERNAL_GROUP.
     logger.info("Added %d new account(s) to %s",
@@ -256,24 +252,19 @@ def synchronize_group(external_group, cerebrum_group_name):
             cerebrum_account.clear()
             cerebrum_account.find_by_name(account_name)
         except Cerebrum.Errors.NotFoundError:
-            logger.error("Aiee! account (%s, %s) spontaneously disappeared " + 
+            logger.error("Aiee! account (%s, %s) spontaneously disappeared "
                          "from (%s, %s)?",
                          account_name, account_id,
                          cerebrum_group.group_name, cerebrum_group.entity_id)
         else:
-            remove_from_cerebrum_group(cerebrum_account, cerebrum_group, constants)
-        # yrt
-    # od
-
+            remove_from_cerebrum_group(cerebrum_account, cerebrum_group,
+                                       constants)
     if dryrun:
         cerebrum_db.rollback()
         logger.info("All changes rolled back")
     else:
         cerebrum_db.commit()
         logger.info("Commited all changes")
-    # fi
-# end synchronize_group
-
 
 
 def remove_from_cerebrum_group(account, group, constants):
@@ -292,9 +283,6 @@ def remove_from_cerebrum_group(account, group, constants):
                      group.group_name,
                      str(type), str(value),
                      string.join(traceback.format_tb(tb)))
-    # yrt
-# end remove_from_cerebrum_group
-        
 
 
 def add_to_cerebrum_group(account, group, constants):
@@ -320,10 +308,6 @@ def add_to_cerebrum_group(account, group, constants):
                      group.group_name,
                      str(type), str(value),
                      string.join(traceback.format_tb(tb)))
-        
-    # yrt
-# end 
-
 
 
 def construct_group(group):
@@ -350,10 +334,7 @@ def construct_group(group):
 
     logger.info("Fetched %d entries for group %s",
                 len(result), group.group_name)
-    
     return result
-# end
-    
 
 
 def perform_synchronization(services):
@@ -373,8 +354,8 @@ def perform_synchronization(services):
                      service, user)
 
         try:
-            db = Database.connect(user = user, service = service,
-                                  DB_driver = cereconf.DB_DRIVER_ORACLE)
+            db = Database.connect(user=user, service=service,
+                                  DB_driver=cereconf.DB_DRIVER_ORACLE)
             if db_charset:
                 obj = klass(db, db_charset)
             else:
@@ -386,11 +367,8 @@ def perform_synchronization(services):
                          service,
                          type, value,
                          string.join(traceback.format_tb(tb)))
-            
         else:
             synchronize_group(accessor, cerebrum_group)
-# end perform_synchronization
-
 
 
 def check_owner_status(person, constants, owner_id, username):
@@ -409,16 +387,14 @@ def check_owner_status(person, constants, owner_id, username):
     # bilag => ANSATT-affiliation
     # gjest => TILKNYTTET-affiliation
     # As long as there is at least one such affiliation, we are good to go.
-    if not person.list_affiliations(person_id=owner_id,
-                                    affiliation=(constants.affiliation_ansatt,
-                                                 constants.affiliation_tilknyttet),
-                                    include_deleted=False):
+    if not person.list_affiliations(
+            person_id=owner_id, affiliation=(constants.affiliation_ansatt,
+                                             constants.affiliation_tilknyttet),
+            include_deleted=False):
         return (("Owner of account %s has no tilsetting/bilag/gjest " +
                  "records in POLS\n") % username)
 
     return ""
-# end check_owner_status
-
 
 
 def check_expired(account):
@@ -428,11 +404,7 @@ def check_expired(account):
 
     if account.get_account_expired():
         return "Account expired: %s\n" % account.account_name
-    # fi
-
     return ""
-# end check_expired
-
 
 
 def check_spread(account, sprd):
@@ -445,17 +417,12 @@ def check_spread(account, sprd):
         if int(spread["spread"]) == int(sprd):
             is_nis = True
             break
-        # fi
-    # od
 
     if not is_nis:
         return "No spread NIS_user@uio for %s\n" % account.account_name
-    # fi
 
     return ""
-# end check_nis_spread
 
-    
 
 def report_users(stream_name, external_dbs):
     """
@@ -464,13 +431,13 @@ def report_users(stream_name, external_dbs):
     
     def report_no_exc(user, report_missing, item, acc_name, *func_list):
         """We don't want to bother with ignore/'"""
-        
+
         try:
             return make_report(user, report_missing, item, acc_name, *func_list)
         except:
             logger.exception("Failed accessing db=%s (accessor=%s):",
                              item["dbname"], acc_name)
-            
+
     db_cerebrum = Factory.get("Database")()
     person = Factory.get("Person")(db_cerebrum)
     constants = Factory.get("Constants")(db_cerebrum)
@@ -488,10 +455,7 @@ def report_users(stream_name, external_dbs):
                                 item["dbname"])
             report_stream.write(message)
             report_stream.write("\n")
-        # fi
-    # od
         
-    #
     # Report NIS spread / owner's work record
     for dbname in ("oaprd", "fsprod", "fssbkurs",
                    "basware-users", "basware-masters"):
@@ -510,15 +474,9 @@ def report_users(stream_name, external_dbs):
                                 item["dbname"])
             report_stream.write(message)
             report_stream.write("\n")
-        # fi
-    # od
-
     report_stream.close()
-# end report_users
 
 
-
-import StringIO
 def make_report(user, report_missing, item, acc_name, *func_list):
     """
     Help function to generate report stats.
@@ -527,8 +485,8 @@ def make_report(user, report_missing, item, acc_name, *func_list):
     db_cerebrum = Factory.get("Database")()
     account = Factory.get("Account")(db_cerebrum)
     service = item["dbname"]
-    db = Database.connect(user = user, service = service,
-                          DB_driver =  cereconf.DB_DRIVER_ORACLE)
+    db = Database.connect(user=user, service=service,
+                          DB_driver=cereconf.DB_DRIVER_ORACLE)
     source = item["class"](db)
     accessor = getattr(source, acc_name)
     stream = StringIO.StringIO()
@@ -537,7 +495,7 @@ def make_report(user, report_missing, item, acc_name, *func_list):
         #
         # NB! This is not quite what we want. See comments in sanitize_group
         username = string.lower(db_row["username"])
-                
+
         try:
             account.clear()
             account.find_by_name(username)
@@ -545,21 +503,15 @@ def make_report(user, report_missing, item, acc_name, *func_list):
             if report_missing:
                 stream.write("No such account in Cerebrum: %s\n" % username)
             continue
-        # yrt
 
         for function in func_list:
             message = function(account)
             if message:
                 stream.write(message)
-            # fi
-        # od
-    # od
 
     report_data = stream.getvalue()
     stream.close()
     return report_data
-# end make_report
-
 
 
 def usage():
@@ -590,13 +542,11 @@ information about certain kind of expired accounts
 -h, --help                  Show this and quit.
 """
     print message
-# end usage
-                
-    
+
 
 def main():
     """
-    Start method for this script. 
+    Start method for this script.
     """
     global logger
 
