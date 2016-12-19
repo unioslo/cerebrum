@@ -1452,9 +1452,15 @@ class BofhdExtension(BofhdCommandBase):
             owner_id, int(self.const.field_type_txt), txt)
         return "OK, %s TXT record for %s" % (operation, host_name)
 
-
+    #
+    # dhcp assoc <ip_or_hostname> <mac> [y|n]
+    #
     all_commands['dhcp_assoc'] = Command(
-        ("dhcp", "assoc"), HostId(), MACAdr(), Force(optional=True))
+        ("dhcp", "assoc"),
+        HostId(),
+        MACAdr(),
+        Force(optional=True))
+
     def dhcp_assoc(self, operator, host_id, mac_adr, force=False):
         """Assign/reassign which MAC-address the given host/IP should
         be associated with.
@@ -1463,7 +1469,7 @@ class BofhdExtension(BofhdCommandBase):
         the change must be forced.
 
         """
-
+        force = self.dns_parser.parse_force(force)
         if host_id.count(':') > 1:
             ipnumber = IPv6Number.IPv6Number(self.db)
             arecord = AAAARecord.AAAARecord(self.db)
@@ -1481,17 +1487,17 @@ class BofhdExtension(BofhdCommandBase):
 
         # Identify the host we are dealing with, and retrieve the A-records
         tmp = host_id.split(".")
-        if (host_id.find(":") == -1 and tmp[-1].isdigit()) \
-                or host_id.count(':') > 2:
+        if ((host_id.find(":") == -1 and tmp[-1].isdigit()) or
+                host_id.count(':') > 2):
             owner_id = self._find.find_target_by_parsing(host_id, ip_type)
             arecords = arecord.list_ext(ip_number_id=owner_id)
         else:
-            owner_id = self._find.find_target_by_parsing(host_id, \
-                    dns.DNS_OWNER)
+            owner_id = self._find.find_target_by_parsing(host_id,
+                                                         dns.DNS_OWNER)
             arecords = arecord.list_ext(dns_owner_id=owner_id)
 
         if not arecords:
-            raise CerebrumError('You can\'t assoc. a MAC-address with a CNAME')
+            raise CerebrumError("You can't assoc. a MAC-address with a CNAME")
 
         # Retrive IPNumber-interface
         ipnumber.clear()
@@ -1501,15 +1507,15 @@ class BofhdExtension(BofhdCommandBase):
         # to do this
         if not self.ba.can_do_lita_dns_by_ip(operator.get_entity_id(),
                                              arecords[0][record_key]):
-            raise PermissionDenied("You are not allowed to do this for '%s'"
-                                   % host_id)
+            raise PermissionDenied("No access to host '{!s}'".format(host_id))
 
         res = ipnumber.find_by_mac(mac_adr.lower())
         ips = [x[record_key] for x in res]
         in_sub = filter(lambda x: ipu.in_subnet(x), ips)
         not_in_sub = list(set(ips) - set(in_sub))
-        in_same_sub = filter(lambda x: ipu.same_subnet(x, arecords[0][record_key]),
-                                ips)
+        in_same_sub = filter(
+            lambda x: ipu.same_subnet(x, arecords[0][record_key]),
+            ips)
 
         if not_in_sub or in_same_sub:
             raise CerebrumError("MAC-adr '%s' already in use by '%s'" %
@@ -1527,27 +1533,32 @@ class BofhdExtension(BofhdCommandBase):
             raise CerebrumError("%s already associated with %s, use force to "
                                 "re-assign" % (host_id, ipnumber.mac_adr))
         ipnumber.mac_adr = mac_adr
-        ipnumber.write_db() # Will raise DNSError if malformed MAC
+        ipnumber.write_db()  # Will raise DNSError if malformed MAC
 
-        return "MAC-adr '%s' associated with host '%s'" % \
-                (ipnumber.mac_adr, host_id)
+        return "MAC-adr '{!s}' associated with host '{!s}'".format(
+            ipnumber.mac_adr, host_id)
 
-
+    #
+    # dhcp assoc <ip_or_hostname> [y|n]
+    #
     all_commands['dhcp_disassoc'] = Command(
-        ("dhcp", "disassoc"), HostId(), Force(optional=True))
+        ("dhcp", "disassoc"),
+        HostId(),
+        Force(optional=True))
+
     def dhcp_disassoc(self, operator, host_id, force=False):
         """Remove any MAC-addresses registred for the given host/IP.
 
         If the host has multiple IPs, the removal must be forced.
-
         """
+        force = self.dns_parser.parse_force(force)
         if host_id.count(':') > 1:
             ipnumber = IPv6Number.IPv6Number(self.db)
             arecord = AAAARecord.AAAARecord(self.db)
             ip_type = dns.IPv6_NUMBER
             ip_key = 'ipv6_number_id'
             record_key = 'aaaa_ip'
-            compress = lambda x: IPv6Utils.compress(x)
+            compress = IPv6Utils.compress
         else:
             arecord = ARecord.ARecord(self.db)
             ipnumber = IPNumber.IPNumber(self.db)
@@ -1558,8 +1569,8 @@ class BofhdExtension(BofhdCommandBase):
 
         # Identify the host we are dealing with, and retrieve the A-records
         tmp = host_id.split(".")
-        if (host_id.find(":") == -1 and tmp[-1].isdigit()) \
-                or host_id.count(':') > 2:
+        if ((host_id.find(":") == -1 and tmp[-1].isdigit()) or
+                host_id.count(':') > 2):
             owner_id = self._find.find_target_by_parsing(host_id, ip_type)
             arecords = arecord.list_ext(ip_number_id=owner_id)
 
@@ -1573,8 +1584,7 @@ class BofhdExtension(BofhdCommandBase):
         # permissions to do this
         if not self.ba.can_do_lita_dns_by_ip(operator.get_entity_id(),
                                              arecords[0][record_key]):
-            raise PermissionDenied("You are not allowed to do this for '%s'" %
-                                    host_id)
+            raise PermissionDenied("No access to host '{!s}'".format(host_id))
 
         if len(arecords) != 1 and not force:
             raise CerebrumError("Host has multiple A-records, must force (y)")
@@ -1586,17 +1596,17 @@ class BofhdExtension(BofhdCommandBase):
             if ipnumber.mac_adr is None:
                 continue
 
-            old_macs.add(ipnumber.mac_adr) # For informational purposes only
+            old_macs.add(ipnumber.mac_adr)  # For informational purposes only
             ipnumber.mac_adr = None
             ipnumber.write_db()
 
         if not old_macs:
-            # Why would someone run this command for a host with no
-            # MACs? Better let them know something's weird
-            raise CerebrumError("No MAC-adr found for host '%s'" % host_id)
+            # Nothing to do
+            raise CerebrumError(
+                "No MAC-adr found for host '{!s}'".format(host_id))
 
-        return ("MAC-adr '%s' " % "','".join(old_macs) +
-                "no longer associated with %s" % host_id)
+        return "MAC-adr '{!s}' no longer associated with '{!s}'".format(
+            "','".join(old_macs), host_id)
 
 
 if __name__ == '__main__':
