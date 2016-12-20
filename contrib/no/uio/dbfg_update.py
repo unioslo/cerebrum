@@ -124,6 +124,15 @@ dryrun = """Global flag for dryrun."""
 account2name = """Global variable mapping account ids to usernames."""
 
 
+def get_accessor(acc):
+    return dict(
+        FSvpd=FSvpd,
+        FS=FS,
+        AJ=AJ,
+        OA=OA,
+        OEP=OEP)[acc]
+
+
 class DbConfig(Configuration):
 
     """Settings for one DB."""
@@ -379,7 +388,7 @@ def perform_synchronization(services):
 
     for item in services:
         service = item["dbname"]
-        klass = item["class"]
+        klass = get_accessor(item["accessor"])
         accessor_name = item["sync_accessor"]
         cerebrum_group = item["ceregroup"]
         user = item["dbuser"]
@@ -513,7 +522,7 @@ def make_report(user, report_missing, item, acc_name, *func_list):
     service = item["dbname"]
     db = Database.connect(user=user, service=service,
                           DB_driver=cereconf.DB_DRIVER_ORACLE)
-    source = item["class"](db)
+    source = get_accessor(item["accessor"])(db)
     accessor = getattr(source, acc_name)
     stream = StringIO.StringIO()
 
@@ -545,15 +554,6 @@ def readconf():
     conf = Config()
     Cerebrum.config.loader.read(conf, 'dbfg_update')
     conf.validate()
-    accessors = dict(
-        FSvpd=FSvpd,
-        FS=FS,
-        AJ=AJ,
-        OA=OA,
-        OEP=OEP)
-    for item in conf.databases:
-        item['accessor'] = accessors[item['accessor']]
-
     return conf
 
 
@@ -586,10 +586,12 @@ def main():
     if opts.mode == 'report':
         report_users(opts.expired_file, databases=(opts.db
                                                    if opts.db is not None
-                                                   else conf.report))
-
+                                                   else
+                                                   [x for x in conf.databases
+                                                    for y in conf.report if
+                                                    x.name == y]))
     else:
-        services = opts.db
+        services = opts.db or []
         global dryrun
         dryrun = not opts.commit
 
