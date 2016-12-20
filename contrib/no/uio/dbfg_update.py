@@ -96,8 +96,8 @@ Each of the updates can be turned on/off from the command line.
 
 import sys
 import string
-import getopt
 import traceback
+import argparse
 import StringIO
 
 import cerebrum_path
@@ -459,16 +459,17 @@ def check_spread(account, sprd):
     return ""
 
 
-def report_users(stream_name, external_dbs):
+def report_users(stream_name, databases):
     """
     Prepare status report about users in various databases.
     """
-    
-    def report_no_exc(user, report_missing, item, acc_name, *func_list):
+
+    def report_no_exc(user, report_missing, item, acc_name, func_list):
         """We don't want to bother with ignore/'"""
 
         try:
-            return make_report(user, report_missing, item, acc_name, *func_list)
+            return make_report(user, report_missing, item, acc_name,
+                               check_expired, *func_list)
         except:
             logger.exception("Failed accessing db=%s (accessor=%s):",
                              item["dbname"], acc_name)
@@ -477,39 +478,29 @@ def report_users(stream_name, external_dbs):
     person = Factory.get("Person")(db_cerebrum)
     constants = Factory.get("Constants")(db_cerebrum)
 
-    report_stream = AtomicFileWriter(stream_name, "w")
+    with AtomicFileWriter(stream_name, "w") as report_stream:
 
-    #
-    # Report expired users for all databases
-    for dbname in ("ajprod",):
-        item = external_dbs[dbname]
-        message = report_no_exc(item['dbuser'], False, item, item["sync_accessor"],
-                                     check_expired)
-        if message:
-            report_stream.write("%s contains these expired accounts:\n" %
-                                item["dbname"])
-            report_stream.write(message)
-            report_stream.write("\n")
-        
-    # Report NIS spread / owner's work record
-    for dbname in ("oaprd", "fsprod", "fssbkurs",
-                   "basware-users", "basware-masters"):
-        logger.debug("Accessing db %s", dbname)
-        item = external_dbs[dbname]
-        message = report_no_exc(item['dbuser'], True, item, item["report_accessor"],
-                      check_expired,
-                      lambda acc: check_spread(acc,
-                                               constants.spread_uio_nis_user),
-                      lambda acc: check_owner_status(person,
-                                                     constants,
-                                                     acc.owner_id,
-                                                     acc.account_name))
-        if message:
-            report_stream.write("%s contains these strange accounts:\n" %
-                                item["dbname"])
-            report_stream.write(message)
-            report_stream.write("\n")
-    report_stream.close()
+        for item in databases:
+            # Report expired users for all databases
+            message = report_no_exc(item.dbuser, item.report_missing,
+                                    item, item["sync_accessor"],
+                                    [
+                                        lambda acc: check_spread(
+                                            acc,
+                                            constants.spread_uio_nis_user),
+                                        lambda acc: check_owner_status(
+                                            person, constants, acc.owner_id,
+                                            acc.account_name)]
+                                    if item.report_missing
+                                    else [])
+            if message:
+                report_stream.write("{} contains these {} accounts:\n"
+                                    .format(item.dbname,
+                                            "strange"
+                                            if item.report_missing
+                                            else "expired"))
+                report_stream.write(message)
+                report_stream.write("\n")
 
 
 def make_report(user, report_missing, item, acc_name, *func_list):
@@ -549,36 +540,6 @@ def make_report(user, report_missing, item, acc_name, *func_list):
     return report_data
 
 
-def usage():
-
-    message = """
-This script performes updates of certain groups in Cerebrum and fetches
-information about certain kind of expired accounts
-
---fsprod                    Update fsprod group
---fssbkurs                  Update fssbkurs group
---ajprod                    Update ajprod group
---oaprd                     Update oaprd group
---basware-users             Update basware-users group
---basware-masters           Update basware-masters group
---basware-monitor           Update basware-monitor group
---basware-useradmin         Update basware-useradmin group
---basware-users-kurs        Update basware-users-kurs group
---basware-masters-kurs      Update basware-masters-kurs group
---basware-monitor-kurs      Update basware-monitor-kurs group
---basware-useradmin-kurs    Update basware-useradmin-kurs group
---basware-users-test        Update basware-users-test group
---basware-masters-test      Update basware-masters-test group
---basware-monitor-test      Update basware-monitor-test group
---basware-useradmin-test    Update basware-useradmin-test group
---expired-file, -e=file     Locate expired accounts and generate a report
-
--d, --dryrun                Do not commit the changes.
--h, --help                  Show this and quit.
-"""
-    print message
-
-
 def readconf():
     """ Read config. """
     conf = Config()
@@ -605,147 +566,42 @@ def main():
     logger = Factory.get_logger("cronjob")
     logger.info("Performing group synchronization")
 
-    external_dbs = { "fsprod" : { "dbname"    : "FSPROD.uio.no",
-                                  "dbuser"    : "I0185_ureg2000",
-                                  "class"     : FSvpd,
-                                  "sync_accessor"  : "list_dbfg_usernames",
-                                  "report_accessor" : "list_dba_usernames",
-                                  "ceregroup" : "fsprod" },
-                     "fssbkurs" : { "dbname"    : "FSSBKURS.uio.no",
-                                    "dbuser"    : "ureg2000",
-                                    "class"     : FS,
-                                    "sync_accessor"  : "list_dbfg_usernames",
-                                    "report_accessor" : "list_dba_usernames",
-                                    "ceregroup" : "fssbkurs" },                     
-                     "ajprod" : { "dbname"    : "AJPROD.uio.no",
-                                  "dbuser"    : "ureg2000",
-                                  "class"     : AJ,
-                                  "sync_accessor"  : "list_dbfg_usernames",
-                                  "ceregroup" : "ajprod" },
-                     "oaprd" : { "dbname"    : "OAPRD.uio.no",
-                                 "dbuser"    : "ureg2000",
-                                 "class"     : OA,
-                                 "sync_accessor"  : "list_dbfg_usernames",
-                                 "report_accessor" : "list_applsys_usernames",
-                                 "ceregroup" : "oaprd" },
-                     "basware-users" : { "dbname"        : "OEPAPRD.uio.no",
-                                         "dbuser"        : "ureg2000",
-                                         "class"         : OEP,
-                                         "sync_accessor" : "list_dbfg_users",
-                                         "report_accessor" : "list_dbfg_users",
-                                         "ceregroup"     : "basware-users",
-                                         "db_charset"    : "utf-16-be", },
-                     "basware-masters" : { "dbname"        : "OEPAPRD.uio.no",
-                                           "dbuser"        : "ureg2000",
-                                           "class"         : OEP,
-                                           "sync_accessor" : "list_dbfg_masters",
-                                           "report_accessor" : "list_dbfg_masters",
-                                           "ceregroup"     : "basware-masters",
-                                           "db_charset"    : "utf-16-be", },
-                     "basware-users-kurs" : { "dbname"        : "OEPAKURS.uio.no",
-                                              "dbuser"        : "ureg2000",
-                                              "class"         : OEP,
-                                              "sync_accessor" : "list_dbfg_users",
-                                              "report_accessor" : "list_dbfg_users",
-                                              "ceregroup"     : "basware-users-kurs", },
-                     "basware-masters-kurs" : { "dbname"        : "OEPAKURS.uio.no",
-                                                "dbuser"        : "ureg2000",
-                                                "class"         : OEP,
-                                                "sync_accessor" : "list_dbfg_masters",
-                                                "report_accessor" : "list_dbfg_masters",
-                                                "ceregroup"     : "basware-masters-kurs", },
-                     "basware-monitor-kurs" : { "dbname"        : "OEPAKURS.uio.no",
-                                                "dbuser"        : "ureg2000",
-                                                "class"         : OEP,
-                                                "sync_accessor" : "list_dbfg_monitor",
-                                                "report_accessor" : "list_dbfg_monitor",
-                                                "ceregroup"     : "basware-monitor-kurs", },
-                     "basware-useradmin-kurs" : { "dbname"        : "OEPAKURS.uio.no",
-                                                  "dbuser"        : "ureg2000",
-                                                  "class"         : OEP,
-                                                  "sync_accessor" : "list_dbfg_useradmin",
-                                                  "report_accessor" : "list_dbfg_useradmin",
-                                                  "ceregroup"     : "basware-useradmin-kurs", },
-                     "basware-users-test" : { "dbname"        : "OEPA2TST.uio.no",
-                                              "dbuser"        : "ureg2000",
-                                              "class"         : OEP,
-                                              "sync_accessor" : "list_dbfg_users",
-                                              "report_accessor" : "list_dbfg_users",
-                                              "ceregroup"     : "basware-users-test", },
-                     "basware-masters-test" : { "dbname"        : "OEPA2TST.uio.no",
-                                                "dbuser"        : "ureg2000",
-                                                "class"         : OEP,
-                                                "sync_accessor" : "list_dbfg_masters",
-                                                "report_accessor" : "list_dbfg_masters",
-                                                "ceregroup"     : "basware-masters-test", },
-                     "basware-monitor-test" : { "dbname"        : "OEPA2TST.uio.no",
-                                                "dbuser"        : "ureg2000",
-                                                "class"         : OEP,
-                                                "sync_accessor" : "list_dbfg_monitor",
-                                                "report_accessor" : "list_dbfg_monitor",
-                                                "ceregroup"     : "basware-monitor-test", },
-                     "basware-useradmin-test" : { "dbname"        : "OEPA2TST.uio.no",
-                                                  "dbuser"        : "ureg2000",
-                                                  "class"         : OEP,
-                                                  "sync_accessor" : "list_dbfg_useradmin",
-                                                  "report_accessor" : "list_dbfg_useradmin",
-                                                  "ceregroup"     : "basware-useradmin-test", },
-                     "basware-monitor" : { "dbname"        : "OEPAPRD.uio.no",
-                                           "dbuser"        : "ureg2000",
-                                           "class"         : OEP,
-                                           "sync_accessor" : "list_dbfg_monitor",
-                                           "report_accessor" : "list_dbfg_monitor",
-                                           "ceregroup"     : "basware-monitor",
-                                           "db_charset"    : "utf-16-be", },
-                     "basware-useradmin" : { "dbname"        : "OEPAPRD.uio.no",
-                                             "dbuser"        : "ureg2000",
-                                             "class"         : OEP,
-                                             "sync_accessor" : "list_dbfg_useradmin",
-                                             "report_accessor" : "list_dbfg_useradmin",
-                                             "ceregroup"     : "basware-useradmin",
-                                             "db_charset"    : "utf-16-be", },
-                     }
-    try:
-        options, rest = getopt.getopt(sys.argv[1:],
-                                      "dhe:",
-                                      ["dryrun",
-                                       "help",
-                                       "expired-file="] + external_dbs.keys())
-    except getopt.GetoptError:
-        usage()
-        raise
-        sys.exit(1)
-    # yrt
+    conf = readconf()
+    p = argparse.ArgumentParser()
+    subs = p.add_subparsers(dest='mode')
+    sync = subs.add_parser('sync', help=u'Perform sync')
+    rep = subs.add_parser('report', help=u'Generate report')
+    sync.add_argument('--commit', action='store_true', help=u'Commit')
+    rep.add_argument('-e', '--expired-file', action='store', required=True,
+                     help='Locate expired accounts and generate a report')
+    for db in conf.databases:
+        name = db['name']
+        sync.add_argument('--' + name, action='append_const', const=db,
+                          dest='db', help=u'Update {} group'.format(name))
+        rep.add_argument('--' + name, action='append_const', const=db,
+                         dest='db', help=u'Report database {}'.format(name))
 
-    services = []
-    global dryrun
-    dryrun = False
+    opts = p.parse_args()
 
-    for option, value in options:
-        if option in ("-d", "--dryrun"):
-            dryrun = True
-        elif option in ("-h", "--help"):
-            usage()
-            sys.exit(2)
-        elif option in ("-e", "--expired-file"):
-            report_users(value, external_dbs)
-        elif option in [ "--" + x for x in external_dbs.keys() ]:
-            key = option[2:]
-            services.append( external_dbs[key] )
+    if opts.mode == 'report':
+        report_users(opts.expired_file, databases=(opts.db
+                                                   if opts.db is not None
+                                                   else conf.report))
 
-    # preload the account id -> uname mappings used later.
-    db = Factory.get("Database")()
-    const = Factory.get("Constants")()
-    group = Factory.get("Group")(db)
-    global account2name
-    account2name = dict((x["entity_id"], x["entity_name"]) for x in 
-                        group.list_names(const.account_namespace))
+    else:
+        services = opts.db
+        global dryrun
+        dryrun = not opts.commit
 
-    perform_synchronization(services)
-# end main
+        # preload the account id -> uname mappings used later.
+        db = Factory.get("Database")()
+        const = Factory.get("Constants")()
+        group = Factory.get("Group")(db)
+        global account2name
+        account2name = dict((x["entity_id"], x["entity_name"]) for x in
+                            group.list_names(const.account_namespace))
 
-
-
+        perform_synchronization(services)
 
 
 if __name__ == "__main__":
