@@ -112,10 +112,45 @@ from Cerebrum.modules.no.uio.access_AJ import AJ
 from Cerebrum.modules.no.uio.access_OA import OA
 from Cerebrum.modules.no.uio.access_OEP import OEP
 
+from Cerebrum.config.configuration import (Configuration, ConfigDescriptor,
+                                           Namespace)
+from Cerebrum.config.settings import String, Iterable, Boolean
+import Cerebrum.config.loader
+
+
 del cerebrum_path
 logger = """Global variable for logger."""
 dryrun = """Global flag for dryrun."""
 account2name = """Global variable mapping account ids to usernames."""
+
+
+class DbConfig(Configuration):
+
+    """Settings for one DB."""
+
+    name = ConfigDescriptor(String, doc=u"Name of entry")
+    dbname = ConfigDescriptor(String, doc=u"Name of database")
+    dbuser = ConfigDescriptor(String, doc=u"Username for database connection")
+    accessor = ConfigDescriptor(String, doc=u"Name of class to use")
+    sync_accessor = ConfigDescriptor(String, doc=u"Member function to call")
+    report_accessor = ConfigDescriptor(String, default=None,
+                                       doc=u"Member function to call")
+    report_missing = ConfigDescriptor(Boolean, default=True,
+                                      doc=u'Report missing?')
+    ceregroup = ConfigDescriptor(String, doc=u"Member function to call")
+    db_charset = ConfigDescriptor(String, default=None, doc=u"Charset")
+
+
+class Config(Configuration):
+
+    """Configuration for dbfg_update."""
+
+    databases = ConfigDescriptor(Iterable,
+                                 template=Namespace(DbConfig),
+                                 doc=u"Database entries")
+    report = ConfigDescriptor(Iterable,
+                              template=String(doc=u"Name of database"),
+                              doc=u"Databases for report")
 
 
 def sanitize_group(cerebrum_group, constants):
@@ -542,6 +577,23 @@ information about certain kind of expired accounts
 -h, --help                  Show this and quit.
 """
     print message
+
+
+def readconf():
+    """ Read config. """
+    conf = Config()
+    Cerebrum.config.loader.read(conf, 'dbfg_update')
+    conf.validate()
+    accessors = dict(
+        FSvpd=FSvpd,
+        FS=FS,
+        AJ=AJ,
+        OA=OA,
+        OEP=OEP)
+    for item in conf.databases:
+        item['accessor'] = accessors[item['accessor']]
+
+    return conf
 
 
 def main():
