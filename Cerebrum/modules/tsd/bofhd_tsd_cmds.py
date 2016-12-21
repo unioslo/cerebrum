@@ -1900,11 +1900,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         for q_element in q_list:
             ac.clear()
             ac.find(q_element['entity_id'])
-            unapproved_users.append([q_element['entity_id'],
-                                     ac.account_name,
-                                     ac.created_at])
+            unapproved_users.append({'entity_id': q_element['entity_id'],
+                                     'username': ac.account_name,
+                                     'created': ac.created_at})
         # sort by account name
-        unapproved_users.sort(key=lambda x: x[1])
+        unapproved_users.sort(key=lambda x: x['username'])
         return unapproved_users
 
     #
