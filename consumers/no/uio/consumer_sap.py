@@ -79,8 +79,8 @@ class ErroneousSourceData(Exception):
     """An error occured in the source system data."""
 
 
-class DataError(Exception):
-    """An error occured in the data."""
+class EntityNotResolvableError(Exception):
+    """Distinctive entity could not be resolved with supplied information."""
 
 
 class SAPWSConsumerConfig(Configuration):
@@ -493,7 +493,7 @@ def get_cerebrum_person(database, ids):
             u'Could not find existing person with one of ids:{}'.format(ids))
         pe.clear()
     except Errors.TooManyRowsError as e:
-        raise DataError(
+        raise EntityNotResolvableError(
             u'Person in source system maps to multiple persons in Cerebrum. '
             u'Manual intervention required: {}'.format(e))
 
@@ -806,8 +806,12 @@ def callback(database, source_system, routing_key, content_type, body,
         logger.info(u'Successfully processed {}'.format(body))
     except RemoteSourceUnavailable:
         message_processed = False
-    except (RemoteSourceError, ErroneousSourceData, DataError) as e:
+    except (RemoteSourceError, ErroneousSourceData) as e:
         logger.error(u'Failed processing {}:\n {}: {}'.format(
+            body, type(e).__name__, e))
+        message_processed = True
+    except EntityNotResolvableError as e:
+        logger.critical(u'Failed processing {}:\n {}: {}'.format(
             body, type(e).__name__, e))
         message_processed = True
     except Exception as e:
