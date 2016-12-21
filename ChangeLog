@@ -1,3 +1,7 @@
+2016-12-21    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_students.py: further work on handling fagpersoner from FS
+
 2016-12-14    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_students.py: Updated script to also handle fagpersoner from FS

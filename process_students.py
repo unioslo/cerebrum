@@ -340,44 +340,89 @@ class AccountUtil(object):
         even if the person has no such affiliation"""
 
         changes = []
-        remove_idx = 1     # Do not remove last account affiliation
+        remove_student_idx = 1     # Do not remove last account affiliation
+        remove_fagperson_idx = 1     # Do not remove last account affiliation
+        have_fagperson = False
+        have_student = False
 
         #
         # kennethj:20161214
         # UiT need to create fagperson accounts in this script. therefore we also
         # need to collect fs persons with tilknyttet affiliation
         #
-        account_ous = [ou for aff, ou in accounts[account_id].get_affiliations()
-                       if aff in [const.affiliation_student,const.affiliation_tilknyttet]]
+        account_student_ous = [ou for aff, ou in accounts[account_id].get_affiliations()
+                       if aff == const.affiliation_student]
 
-        save_fagperson = False
+        account_fagperson_ous = [ou for aff, ou in accounts[account_id].get_affiliations()
+                       if aff == const.affiliation_tilknyttet]
+
         for aff, ou, status in persons[fnr].get_affiliations():
-            fagperson = False
             assert aff in [const.affiliation_student,const.affiliation_tilknyttet]
             if aff == const.affiliation_tilknyttet:
                 #logger.debug("populate account affiliation = fagperson")
-                fagperson = True
-                save_fagperson = True
-            if not ou in account_ous:
-                if fagperson:
+                #fagperson = True
+                #save_fagperson = True
+                have_fagperson = True
+                if not ou in account_fagperson_ous:                
+                    logger.debug("adding tilknyttet affiliation to ou:%s" % ou)
                     changes.append(('set_ac_type', (ou, const.affiliation_tilknyttet)))
                 else:
+                    account_fagperson_ous.remove(ou)
+                    remove_fagperson_idx = 0
+
+            if aff == const.affiliation_student:
+                have_student = True
+                if not ou in account_student_ous:                
+                    logger.debug("adding student affiliation to ou:%s" % ou)
                     changes.append(('set_ac_type', (ou, const.affiliation_student)))
+                else:
+                    account_student_ous.remove(ou)
+                    remove_student_idx = 0
+
+                # The account has at least one valid affiliation, so
+                # we can delete everything left in account_ous.
+                #remove_idx = 0
+
+        #
+        # kennethj:20161214
+        # Do not delete tilknyttet affiliation if its the last account affiliation
+        #
+        logger.debug("student idx: %s" % remove_student_idx)
+        logger.debug("fagperson idx: %s" % remove_fagperson_idx)
+        if have_fagperson:
+            for ou in account_fagperson_ous[remove_fagperson_idx:]:
+                logger.debug("delete tilknyttet affiliation to ou:%s" % ou)
+                changes.append(('del_ac_type', (ou, const.affiliation_tilknyttet)))
+        if have_student:
+            for ou in account_student_ous[remove_student_idx:]:
+                logger.debug("delete student affiliation to ou:%s" % ou)
+                changes.append(('del_ac_type', (ou, const.affiliation_student)))
+        #    else:
+        #        logger.debug("delete tilknyttet affiliation to ou:%s" % ou)
+        #        changes.append(('del_ac_type', (ou, const.affiliation_tilknyttet)))
+        return changes
+        
+    def _populate_account_affiliations_old(account_id, fnr):
+        """Assert that the account has the same student affiliations as
+        the person.  Will not remove the last student account affiliation
+        even if the person has no such affiliation"""
+
+        changes = []
+        remove_idx = 1     # Do not remove last account affiliation
+        account_ous = [ou for aff, ou in accounts[account_id].get_affiliations()
+                       if aff == const.affiliation_student]
+        for aff, ou, status in persons[fnr].get_affiliations():
+            assert aff in [const.affiliation_student,const.affiliation_tilknyttet]
+            if not ou in account_ous:
+                changes.append(('set_ac_type', (ou, const.affiliation_student)))
             else:
                 account_ous.remove(ou)
                 # The account has at least one valid affiliation, so
                 # we can delete everything left in account_ous.
                 remove_idx = 0
 
-        #
-        # kennethj:20161214
-        # Do not delete tilknyttet affiliation if its the last account affiliation
-        #
         for ou in account_ous[remove_idx:]:
-            if save_fagperson:
-                changes.append(('del_ac_type', (ou, const.affiliation_student)))
-            else:
-                changes.append(('del_ac_type', (ou, const.affiliation_tilknyttet)))
+            changes.append(('del_ac_type', (ou, const.affiliation_student)))
         return changes
     _populate_account_affiliations=staticmethod(_populate_account_affiliations)
 
