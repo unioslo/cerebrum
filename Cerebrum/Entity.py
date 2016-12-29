@@ -1185,10 +1185,7 @@ class EntityQuarantine(Entity):
         self._db.log_change(self.entity_id, self.const.quarantine_mod,
                             None, change_params={'q_type': int(qtype)})
 
-    # TODO: type should be renamed to f.i. qtype
-    # arguments should not overwrite builtin functions
-    def delete_entity_quarantine(self, type):
-        qtype = type
+    def delete_entity_quarantine(self, qtype):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_quarantine]
         WHERE entity_id=:e_id AND quarantine_type=:q_type""",

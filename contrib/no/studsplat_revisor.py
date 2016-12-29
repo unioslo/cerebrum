@@ -80,7 +80,7 @@ def remove_quarantine(account_id, quarantine_type=co.quarantine_auto_inaktiv):
     try:
         ac.find(account_id)
         if ac.get_entity_quarantine(qtype=quarantine_type):
-            ac.delete_entity_quarantine(type=quarantine_type)
+            ac.delete_entity_quarantine(quarantine_type)
             ac.write_db()
             logger.debug("Deleted quarantine %s for %s" % (quarantine_type,
                                                            ac.account_name))
