@@ -8644,9 +8644,7 @@ Addresses and settings:
                                 {'ou_id': int(aff['ou_id']),
                                  'aff': int(aff['affiliation'])}))
             if not len(aff_map) > 1:
-                raise CerebrumError(
-                    'Person has no affiliations. '
-                    'Try person affiliation_add')
+                raise CerebrumError('Person has no affiliations.')
             return {'prompt': 'Choose affiliation from list', 'map': aff_map}
         all_args.pop(0)  # affiliation =
         if not all_args:
@@ -9552,8 +9550,7 @@ Addresses and settings:
                 map.append((('%s', name), {'ou_id': int(aff['ou_id']),
                                            'aff': int(aff['affiliation'])}))
             if not len(map) > 1:
-                raise CerebrumError('Person has no affiliations. Try' + \
-                                    '\'person affiliation_add\'')
+                raise CerebrumError('Person has no affiliations.') 
             return {'prompt': 'Choose affiliation from list', 'map': map}
         arg = all_args.pop(0)
         if isinstance(arg, type({})) and arg.has_key('aff') and \
@@ -9789,7 +9786,7 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                                 {'ou_id': int(aff['ou_id']), 'aff': int(aff['affiliation'])}))
                 if not len(map) > 1:
                     raise CerebrumError(
-                        "Person has no affiliations. Try person affiliation_add")
+                        "Person has no affiliations.")
                 return {'prompt': "Choose affiliation from list", 'map': map,
                         'last_arg': True}
         else:
