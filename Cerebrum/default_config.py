@@ -478,6 +478,11 @@ FS_DATA_DIR = pj(prefix, 'var', 'cache', 'FS')
 # mainly implemented for UiO (and UiA).
 FS_STUDENT_REMOVE_AFF_GRACE_DAYS = 0
 
+# These affiliations are omitted from the grace period, so they will be removed
+# immediately.  The affiliation should be set up with both the affiliation type
+# and status, i.e. ['STUDENT/evu', 'TILKNYTTET/fagperson']
+FS_EXCLUDE_AFFILIATIONS_FROM_GRACE = []
+
 # Sets the default name and description of the group used for students in FS who
 # have given their consent to be published in the catalogue.
 FS_GROUP_NAME = "FS-aktivt-samtykke"
