@@ -226,6 +226,7 @@ class Event(object):
             # assume datetime.datetime, although mx.DateTime will also work
             # .strftime('%s') is not official and it will not work in Windows
             ret['nbf'] = calendar.timegm(self.scheduled.timetuple())
+        ret['resourceType'] = self.entity_type
         return ret
 
     def mergeable(self, other):
