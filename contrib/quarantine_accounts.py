@@ -534,4 +534,3 @@ if __name__ == '__main__':
         logger.info('This is a dryrun, rolling back DB')
     db.commit()
     logger.info("Process finished")
-
