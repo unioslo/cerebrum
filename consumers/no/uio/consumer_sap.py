@@ -327,6 +327,13 @@ def _get_ou(database, sap_id, placecode):
         return None
 
 
+def _sap_assignments_to_affiliation_map():
+    co = Factory.get('Constants')
+
+    return {u'T/A': co.affiliation_status_ansatt_tekadm,
+            u'Vit': co.affiliation_status_ansatt_vitenskapelig}
+
+
 def parse_affiliations(database, d):
     """Parse data from SAP and return affiliations.
 
@@ -340,9 +347,9 @@ def parse_affiliations(database, d):
     :return: A list of tuples with the fields that should be updated"""
     co = Factory.get('Constants')
 
+    r = []
     for x in d.get(u'assignments'):
-        status = {u'T/A': co.affiliation_status_ansatt_tekadm,
-                  u'Vit': co.affiliation_status_ansatt_vitenskapelig}.get(
+        status = _sap_assignments_to_affiliation_map().get(
                       x.get(u'job').get(u'category').get('uio'))
         ou = _get_ou(database, x.get('id'), x.get(u'organizationalUnit'))
         main = x.get(u'type') == u'primary'
@@ -352,10 +359,29 @@ def parse_affiliations(database, d):
                 'cannot parse affiliation {} for {}'.format(
                     x.get(u'organizationalUnit'), status, d.get(u'id')))
         elif status:
-            yield {u'ou_id': ou.entity_id,
-                   u'affiliation': co.affiliation_ansatt,
-                   u'status': status,
-                   u'precedence': (50L, 50L) if main else None}
+            r.append({u'ou_id': ou.entity_id,
+                      u'affiliation': co.affiliation_ansatt,
+                      u'status': status,
+                      u'precedence': (50L, 50L) if main else None})
+    return r
+
+
+def _sap_roles_to_affiliation_map():
+    co = Factory.get('Constants')
+
+    return {u'EF-FORSKER': co.affiliation_tilknyttet_ekst_forsker,
+            u'EMERITUS': co.affiliation_tilknyttet_emeritus,
+            u'BILAGSLØNN': co.affiliation_tilknyttet_bilag,
+            u'GJ-FORSKER': co.affiliation_tilknyttet_gjesteforsker,
+            u'ASSOSIERT': co.affiliation_tilknyttet_assosiert_person,
+            u'EF-STIP': co.affiliation_tilknyttet_ekst_stip,
+            u'INNKJØPER': co.affiliation_tilknyttet_innkjoper,
+            u'GRP-LÆRER': co.affiliation_tilknyttet_grlaerer,
+            u'EKST-KONS': co.affiliation_tilknyttet_ekst_partner,
+            u'PCVAKT': co.affiliation_tilknyttet_pcvakt,
+            u'EKST-PART': co.affiliation_tilknyttet_ekst_partner,
+            u'STEDOPPLYS': None,
+            u'POLS-ANSAT': None}
 
 
 def parse_roles(database, data):
@@ -369,22 +395,9 @@ def parse_roles(database, data):
                    ('status', PersonAffStatus('TILKNYTTET', 'pcvakt')),
                    (precedence', None))]
     :return: A list of tuples representing them roles."""
-    co = Factory.get('Constants')
+    role2aff = _sap_roles_to_affiliation_map()
 
-    role2aff = {u'EF-FORSKER': co.affiliation_tilknyttet_ekst_forsker,
-                u'EMERITUS': co.affiliation_tilknyttet_emeritus,
-                u'BILAGSLØNN': co.affiliation_tilknyttet_bilag,
-                u'GJ-FORSKER': co.affiliation_tilknyttet_gjesteforsker,
-                u'ASSOSIERT': co.affiliation_tilknyttet_assosiert_person,
-                u'EF-STIP': co.affiliation_tilknyttet_ekst_stip,
-                u'INNKJØPER': co.affiliation_tilknyttet_innkjoper,
-                u'GRP-LÆRER': co.affiliation_tilknyttet_grlaerer,
-                u'EKST-KONS': co.affiliation_tilknyttet_ekst_partner,
-                u'PCVAKT': co.affiliation_tilknyttet_pcvakt,
-                u'EKST-PART': co.affiliation_tilknyttet_ekst_partner,
-                u'STEDOPPLYS': None,
-                u'POLS-ANSAT': None}
-
+    r = []
     for role in data.get(u'roles'):
         ou = _get_ou(database, role.get('id'), role.get(u'organizationalUnit'))
         if not ou:
@@ -395,10 +408,12 @@ def parse_roles(database, data):
                     role2aff.get(role.get(u'type')),
                     data.get(u'id')))
         elif role2aff.get(role.get(u'type')):
-            yield {u'ou_id': ou.entity_id,
-                   u'affiliation': role2aff.get(role.get(u'type')).affiliation,
-                   u'status': role2aff.get(role.get(u'type')),
-                   u'precedence': None}
+            r.append({u'ou_id': ou.entity_id,
+                      u'affiliation': role2aff.get(
+                          role.get(u'type')).affiliation,
+                      u'status': role2aff.get(role.get(u'type')),
+                      u'precedence': None})
+    return r
 
 
 def _parse_hr_person(database, source_system, data):
@@ -533,6 +548,44 @@ def update_person(database, source_system, hr_person, cerebrum_person):
             cerebrum_person.entity_id))
 
 
+def _find_affiliations(cerebrum_person, hr_affs, affiliation_map,
+                       source_system, mode):
+    consider_affiliations = filter(lambda x: x, affiliation_map().values())
+
+    cerebrum_affiliations = cerebrum_person.list_affiliations(
+        person_id=cerebrum_person.entity_id,
+        status=consider_affiliations,
+        source_system=source_system)
+
+    in_hr = map(
+        lambda d: tuple(sorted(
+                filter(lambda (k, v): k != u'precedence',
+                       d.items()))),
+        hr_affs)
+
+    in_cerebrum = map(
+        lambda x: tuple(sorted(
+                    filter_elements(
+                        translate_keys(x,
+                                       {u'ou_id': u'ou_id',
+                                        u'affiliation': u'affiliation',
+                                        u'status': u'status'})))),
+        cerebrum_affiliations)
+
+    if mode == u'remove':
+        return [
+            dict(filter(lambda (k, v): k in (u'ou_id', u'affiliation'), x) +
+                 ((u'source', source_system),))
+            for x in set(in_cerebrum) - set(in_hr)]
+    elif mode == u'add':
+        return [dict(x) for x in set(in_hr) - set(in_cerebrum)]
+    else:
+        from Cerebrum import Errors
+        raise Errors.ProgrammingError(
+            'Invalid mode {} supplied to _find_affiliations'.format(
+                repr(mode)))
+
+
 def update_affiliations(database, source_system, hr_person, cerebrum_person):
     """Update a person in Cerebrum with the latest affiliations.
 
@@ -541,7 +594,22 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
     :param hr_person: The parsed data from the remote source system
     :param cerebrum_person: The Person object to be updated.
     """
-    for affiliation in hr_person.get(u'affiliations'):
+    for affiliation in _find_affiliations(
+            cerebrum_person,
+            hr_person.get(u'affiliations'),
+            _sap_assignments_to_affiliation_map,
+            source_system,
+            u'remove'):
+        cerebrum_person.delete_affiliation(**affiliation)
+        logger.debug(u'Removing affiliation {} for id:{}'.format(
+            _stringify_for_log(affiliation), cerebrum_person.entity_id))
+
+    for affiliation in _find_affiliations(
+            cerebrum_person,
+            hr_person.get(u'affiliations'),
+            _sap_assignments_to_affiliation_map,
+            source_system,
+            u'add'):
         cerebrum_person.populate_affiliation(source_system, **affiliation)
         logger.debug(u'Adding affiliation {} for id:{}'.format(
             _stringify_for_log(affiliation), cerebrum_person.entity_id))
@@ -555,7 +623,22 @@ def update_roles(database, source_system, hr_person, cerebrum_person):
     :param hr_person: The parsed data from the remote source system
     :param cerebrum_person: The Person object to be updated.
     """
-    for role in hr_person.get(u'roles'):
+    for role in _find_affiliations(
+            cerebrum_person,
+            hr_person.get(u'roles'),
+            _sap_roles_to_affiliation_map,
+            source_system,
+            u'remove'):
+        cerebrum_person.delete_affiliation(**role)
+        logger.debug(u'Removing role {} for id:{}'.format(
+            _stringify_for_log(role), cerebrum_person.entity_id))
+
+    for role in _find_affiliations(
+            cerebrum_person,
+            hr_person.get(u'roles'),
+            _sap_roles_to_affiliation_map,
+            source_system,
+            u'add'):
         cerebrum_person.populate_affiliation(source_system, **role)
         logger.debug(
             u'Ensuring role {} for id:{}'.format(
