@@ -392,7 +392,7 @@ def perform_synchronization(services):
         accessor_name = item["sync_accessor"]
         cerebrum_group = item["ceregroup"]
         user = item["dbuser"]
-        db_charset = item.get("db_charset")
+        db_charset = item["db_charset"]
 
         logger.debug("Synchronizing against source %s (user: %s)",
                      service, user)
