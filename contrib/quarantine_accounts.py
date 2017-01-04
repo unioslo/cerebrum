@@ -354,7 +354,8 @@ def set_quarantine(pids, quar, offset, quarantined):
                 # Commiting here to avoid that users get multiple emails if the
                 # script is stopped before it's done.
                 ac.commit()
-                logger.info('Added quarantine for: %s', ac.account_name)
+                logger.info('Added %s quarantine for: %s', quar,
+                            ac.account_name)
                 success.add(ac.entity_id)
             else:
                 failed_notify += 1
@@ -513,6 +514,7 @@ def main():
     if not quarantine:
         quarantine = co.quarantine_auto_no_aff
 
+    logger.info("Process started")
     logger.debug('Finding candidates for addition/removal of quarantine...')
     cands = find_candidates(ignore_aff,
                             grace,
@@ -527,6 +529,7 @@ def main():
     if dryrun:
         logger.info('This is a dryrun, rolling back DB')
     db.commit()
+    logger.info("Process finished")
 
 if __name__ == '__main__':
     main()
