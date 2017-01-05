@@ -289,6 +289,8 @@ def rem_old_aff():
     """
     logger.info("Removing old FS affiliations")
     person = Factory.get("Person")(db)
+    disregard_grace_for_affs = [co.human2constant(x) for x in
+                                cereconf.FS_EXCLUDE_AFFILIATIONS_FROM_GRACE]
     for k in old_aff:
         if not old_aff[k]:
             # The affiliation is still present
@@ -347,7 +349,7 @@ def rem_old_aff():
         # of grace period. EVU affiliations should be removed at once.
         grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
         if (aff['last_date'] > (mx.DateTime.now() - grace_days) and
-                int(aff['status']) != int(co.affiliation_status_student_evu)):
+                int(aff['status']) not in disregard_grace_for_affs):
             logger.info("Too fresh aff for person %s, skipping", ent_id)
             continue
         person.clear()
