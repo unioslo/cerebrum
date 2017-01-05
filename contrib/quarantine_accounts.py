@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2014 University of Oslo, Norway
+# Copyright 2013-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -66,21 +66,24 @@ def usage(exitcode=0):
 
 -q QUARANTINE   The quarantine to set (default 'auto_no_aff')
 
--i              Set quarantine also if account have other quarantines.
+-i              (--ignore-quarantines) Do not consider other quarantines than
+                the one specified. This will practically set the quarantine
+                even if the person is already quarantined by other
+                quarantine(s)
 
 -r              Remove quarantines for those that have previously gotten the
-                given quarantine, but have now gotten an affiliation. This is to
-                automatically clean up those previously quarantined.
+                given quarantine, but have now gotten an affiliation. This is
+                to automatically clean up those previously quarantined.
 
 -o OFFSET       Quarantine offset in days. Default: 7.
                 If a quarantine of the same type exists, and is longer away in
-                the future than the offset defines, it will be removed and a new
-                quarantine will be set
+                the future than the offset defines, it will be removed and a
+                new quarantine will be set
 
 -a AFFILIATIONS Affiliations that should be ignored when checking, so that they
                 will also be quarantined. This is typical affiliations like
-                'MANUELL/inaktiv'. A person that has only affiliations from this
-                list, will be considered as not affiliated, since they got
+                'MANUELL/inaktiv'. A person that has only affiliations from
+                this list, will be considered as not affiliated, since they got
                 ignored. This might be a bit confusing - do not put in proper
                 affiliations here, like 'STUDENT'. The list should be comma
                 separated.
@@ -265,7 +268,8 @@ def find_candidates(exclude_aff=[], grace=0, quarantine=None):
             return False
         return True
 
-    affs = filter(is_aff_considered, pe.list_affiliations(include_deleted=True))
+    affs = filter(is_aff_considered,
+                  pe.list_affiliations(include_deleted=True))
     affed = set(x['person_id'] for x in affs)
     logger.debug('Found %d persons with affiliations', len(affed))
     naffed = set(x['person_id'] for x in pe.list_persons()) - affed
@@ -341,8 +345,9 @@ def set_quarantine(pids, quar, offset, quarantined):
             # We will not send any warning if
             # - In dryrun mode
             # - No mail template is set
-            # - The account is reserved, i.e. has no spreads. This is in effect,
-            #   at least for the user, about the same as being in quarantine.
+            # - The account is reserved, i.e. has no spreads.
+            #   This is in effect, at least for the user,
+            #   about the same as being in quarantine.
             if ac.is_reserved() or not email_info or dryrun:
                 notified = True
             else:
@@ -433,8 +438,7 @@ def parse_affs(affs):
     return parsed
 
 
-def main():
-    global db, co, pe, ac, dryrun, debug_verbose, email_info
+if __name__ == '__main__':
     db = Factory.get('Database')()
     db.cl_init(change_program='quarantine_accounts')
     co = Factory.get('Constants')(db)
@@ -530,6 +534,3 @@ def main():
         logger.info('This is a dryrun, rolling back DB')
     db.commit()
     logger.info("Process finished")
-
-if __name__ == '__main__':
-    main()
