@@ -27,6 +27,7 @@ Queue or Message Broker.
 
 import datetime
 import json
+import copy
 
 import Cerebrum.ChangeLog
 import Cerebrum.DatabaseAccessor
@@ -85,22 +86,26 @@ def change_type_to_message(db,
             return None
 
     if change_params:
-        change_params = change_params.copy()
+        change_params = copy.copy(change_params)
     else:
         change_params = dict()
+
     if subject:
         (subjectid, subject, subjecttype) = get_entity_type(subject)
     else:
         subjectid = subjecttype = None
+
     if dest:
         (destid, dest, desttype) = get_entity_type(dest)
     else:
         destid = desttype = None
+
     if 'spread' in change_params:
         context = constants.Spread(change_params['spread'])
         del change_params['spread']
     else:
         context = None
+
     import Cerebrum.modules.event_publisher.converters as c
     return c.filter_message({
         'category': change_type_code.category,
@@ -215,16 +220,22 @@ class EventPublisher(Cerebrum.ChangeLog.ChangeLog):
                 return change_type_to_message(self, *msg)
             else:
                 return msg
+
         # handle scheduled tasks #
         legal_events = list()
         for element in self.__queue:
-            event = convert(element[:-1])
+            try:
+                event = convert(element[:-1])
+            except AttributeError:
+                # The entity the event relates to, is probably deleted
+                continue
             if event:
                 if isinstance(element[-1], datetime.datetime):
                     event.scheduled = element[-1]
                 legal_events.append(event)
-        ###########################
+
         self.__queue = scim.merge_payloads(legal_events)
+
         if self.__queue:
             self.__try_send_messages()
 
