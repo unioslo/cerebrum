@@ -33,6 +33,11 @@ import mx.DateTime as dt
 from Cerebrum.config.configuration import Configuration, ConfigDescriptor
 from Cerebrum.config.settings import String
 
+from Cerebrum.Person import Person
+from Cerebrum.Account import Account
+from Cerebrum.Group import Group
+from Cerebrum.OU import OU
+
 
 class EventType(object):
     """Holds an event type."""
@@ -119,7 +124,7 @@ class Event(object):
         self.time = self.make_timestamp(time)
         self.issuer = self.issuer if issuer is None else issuer
         self.audience = self.make_aud(spreads, subject)
-        self.subject = subject.entity_id
+        self.subject = self._get_identifier(subject)
         self.attributes = set(attributes or [])
         self.expire = expire
         self.const = subject.const
@@ -127,10 +132,6 @@ class Event(object):
         self.extra = extra
         self.jti = str(uuid.uuid4())
         self.scheduled = None
-        from Cerebrum.Person import Person
-        from Cerebrum.Account import Account
-        from Cerebrum.Group import Group
-        from Cerebrum.OU import OU
         # TODO: Could these be gotten from REST API?
         # Or as an attribute of type?
         entity_type = 'entities'
@@ -144,7 +145,7 @@ class Event(object):
             entity_type = 'ous'
         self.entity_type = entity_type
         if obj:
-            self.obj = [obj.entity_id]
+            self.obj = [self._get_identifier(obj)]
             entity_type = 'entities'
             if isinstance(obj, Person):
                 entity_type = 'persons'
@@ -159,6 +160,15 @@ class Event(object):
             self.obj = []
             self.obj_entity_type = []
         self.key = self.make_key()
+
+    @staticmethod
+    def _get_identifier(ent):
+        if isinstance(ent, Account):
+            return ent.account_name
+        elif isinstance(ent, Group):
+            return ent.group_name
+        else:
+            return ent.entity_id
 
     @classmethod
     def load_config(cls):
