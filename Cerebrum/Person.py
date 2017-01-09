@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2002-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1099,16 +1099,16 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                                 status_list=None,
                                 inverted=False):
         """
-        Retrieve a list of all persons *except* the ones containing
-        the specified affiliations and / or statuses
+        Retrieve a list of all persons with the specified affiliations
+        and / or statuses
 
         :type aff_list: NoneType, int or list
-        :param aff_list: Persons having one or more of the listed affiliations
-                         will not be listed
+        :param aff_list: If not None only persons having one or more of the
+                         listed affiliations will be listed
 
         :type status_list: NoneType, int or list
-        :param status_list: Persons having one or more of the listed statuses
-                            will not be listed
+        :param status_list: If not None only persons having one or more of the
+                            listed statuses will be listed
 
         :type inverted: bool
         :param inverted: Reverse the query and list only persons that do *not*
