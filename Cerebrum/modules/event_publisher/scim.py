@@ -119,6 +119,7 @@ class Event(object):
         :subject: entity id or object
         :attributes: set of attributes
         :expire: expiry
+        :object: entity id or object
         """
         self.event = event
         self.time = self.make_timestamp(time)
@@ -299,6 +300,30 @@ class Event(object):
             self.attributes.update(other.attributes)
             return ret_self()
         return [self, other]
+
+
+class ManualEvent(Event):
+    def __init__(self,
+                 event,
+                 time=None,
+                 subject=None,
+                 subject_type=None,
+                 attributes=None,
+                 obj=None,
+                 obj_entity_type=None,
+                 **extra):
+        self.event = event
+        self.time = self.make_timestamp(time)
+        self.subject = subject
+        self.entity_type = subject_type
+        self.key = self.make_key()
+        self.jti = str(uuid.uuid4())
+        self.scheduled = None
+        self.attributes = set(attributes or [])
+        self.audience = set()
+        self.extra = extra
+        self.obj = obj or []
+        self.obj_entity_type = obj_entity_type or []
 
 
 Event.load_config()

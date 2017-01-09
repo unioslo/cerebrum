@@ -529,6 +529,20 @@ def group_rem(msg, subj, dest, *rest):
                       attributes=['member'])
 
 
+@dispatch('e_group', 'mod')
+def group_mod(msg, subj, dest, *rest):
+    return scim.Event(scim.MODIFY,
+                      subject=subj,
+                      attributes=msg.get('data', []))
+
+
+@dispatch('e_group', 'destroy')
+def group_destroy(msg, subj, dest, *rest):
+    return scim.ManualEvent(event=scim.DELETE,
+                            subject=msg.get('data', {}).get('name', None),
+                            subject_type='groups')
+
+
 @dispatch('ad_attr')
 def ad_attr(msg, *rest):
     return None

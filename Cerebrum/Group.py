@@ -159,7 +159,10 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                  'visib': int(self.visibility),
                  'creator_id': self.creator_id,
                  'exp_date': self.expire_date})
-            self._db.log_change(self.entity_id, self.const.group_mod, None)
+            self._db.log_change(self.entity_id,
+                                self.const.group_mod,
+                                None,
+                                change_params=self.__updated)
             self.update_entity_name(
                 self.const.group_namespace,
                 self.group_name)
@@ -209,7 +212,10 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=group_info]
             WHERE group_id=:g_id""", {'g_id': self.entity_id})
-            self._db.log_change(self.entity_id, self.const.group_destroy, None)
+            self._db.log_change(self.entity_id,
+                                self.const.group_destroy,
+                                None,
+                                {'name': self.group_name})
         # Class Group is a core class; when its delete() method is
         # called, the underlying Entity object is also removed.
         self.__super.delete()
