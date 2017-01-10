@@ -1137,6 +1137,7 @@ class EntityQuarantine(Entity):
     def get_entity_quarantine(self,
                               qtype=None,
                               only_active=False,
+                              ignore_disable_until=False,
                               filter_disable_until=False):
         """Return a list of the current entity's quarantines.
 
@@ -1144,10 +1145,13 @@ class EntityQuarantine(Entity):
         :param qtype: If set, only quarantines of the given type is returned.
 
         :type only_active: bool
-        :param only_active: If True, only quarantines with a set start_date in
-            the past and either a not set end_date or an end_date in the future
-            In addition, if disable_until is set, its date must be in the past
-            for the quarantine to be returned with L{only_active} set to True.
+        :param only_active: If True, only return quarantines with a start_date
+            in the past and a not set or future end_date.
+            In addition, disable_until must be in the past if set.
+
+        :type ignore_disable_until: bool
+        :param ignore_disable_until: If True, disabled_until is ignored when
+            considering whether quarantines are active.
 
         :type filter_disable_until: bool
         :param filter_disable_until: If True, only quarantines with
@@ -1158,9 +1162,8 @@ class EntityQuarantine(Entity):
         if only_active:
             conditions += [
                 "start_date <= [:now]",
-                "(end_date IS NULL OR end_date > [:now])",
-                "(disable_until IS NULL OR disable_until <= [:now])"]
-        if not only_active and filter_disable_until:
+                "(end_date IS NULL OR end_date > [:now])"]
+        if (only_active and not ignore_disable_until) or filter_disable_until:
             conditions += [
                 "(disable_until IS NULL OR disable_until <= [:now])"]
         if qtype is not None:
