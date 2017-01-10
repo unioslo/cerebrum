@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2002-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1175,6 +1175,14 @@ class EntityQuarantine(Entity):
                            'qtype': qtype})
 
     def disable_entity_quarantine(self, qtype, until):
+        """Disable a quarantine for the current entity until a specified time.
+
+        :type qtype: QuarantineCode or int
+        :param qype: The quarantine to be disabled
+
+        :type until: mx.DateTime
+        :param until: Disable quarantine until this point in time
+        """
         self.execute("""
         UPDATE [:table schema=cerebrum name=entity_quarantine]
         SET disable_until=:d_until
@@ -1186,13 +1194,24 @@ class EntityQuarantine(Entity):
                             None, change_params={'q_type': int(qtype)})
 
     def delete_entity_quarantine(self, qtype):
+        """Delete a quarantine for the current entity.
+
+        :type qtype: QuarantineCode or int
+        :param qype: The quarantine to be deleted
+
+        :rtype: bool
+        :returns: Was a quarantine deleted?
+        """
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_quarantine]
         WHERE entity_id=:e_id AND quarantine_type=:q_type""",
                      {'e_id': self.entity_id,
                       'q_type': int(qtype)})
-        self._db.log_change(self.entity_id, self.const.quarantine_del,
-                            None, change_params={'q_type': int(qtype)})
+        if self._db.rowcount:
+            self._db.log_change(self.entity_id, self.const.quarantine_del,
+                                None, change_params={'q_type': int(qtype)})
+            return True
+        return False
 
     def list_entity_quarantines(self, entity_types=None, quarantine_types=None,
                                 only_active=False, entity_ids=None,
@@ -1241,7 +1260,6 @@ class EntityQuarantine(Entity):
 
 
 class EntityExternalId(Entity):
-
     "Mixin class, usable alongside Entity for ExternalIds."
     __read_attr__ = ('_extid_source', '_extid_types')
     __write_attr__ = ()
