@@ -386,9 +386,12 @@ class PasswordNotifier(object):
     def splat_user(self, account):
         """Sets a quarantine_autopassord for account"""
         self.splatted_users.append(account.account_name)
-        self.logger.debug("Splatting %s" % account.account_name)
         if not account.get_entity_quarantine(
-                qtype=self.constants.quarantine_autopassord):
+                qtype=self.constants.quarantine_autopassord,
+                only_active=True):
+            self.logger.debug("Splatting {}".format(account.account_name))
+            account.delete_entity_quarantine(
+                self.constants.quarantine_autopassord)
             account.add_entity_quarantine(
                 self.constants.quarantine_autopassord,
                 self.splattee_id,
@@ -397,6 +400,8 @@ class PasswordNotifier(object):
                 None)
             return True
         else:
+            self.logger.debug("Already splatted {}".format(
+                account.account_name))
             return False
 
     def process_accounts(self):

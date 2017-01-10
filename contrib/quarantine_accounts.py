@@ -354,7 +354,7 @@ def set_quarantine(pids, quar, offset, quarantined):
                 notified = notify_user(ac, offset)
 
             if notified:
-                ac.delete_entity_quarantine(type=quar)
+                ac.delete_entity_quarantine(quar)
                 ac.add_entity_quarantine(quar, creator, start=date)
                 # Commiting here to avoid that users get multiple emails if the
                 # script is stopped before it's done.

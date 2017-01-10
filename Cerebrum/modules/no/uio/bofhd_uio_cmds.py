@@ -8148,10 +8148,15 @@ Addresses and settings:
     all_commands['quarantine_set'] = Command(
         ("quarantine", "set"), EntityType(default="account"), Id(repeat=True),
         QuarantineType(), SimpleString(help_ref="string_why"),
-        SimpleString(help_ref="string_from_to", optional=True),
+        SimpleString(help_ref="quarantine_start_date", default="today",
+                     optional=True),
         perm_filter='can_set_quarantine')
-    def quarantine_set(self, operator, entity_type, id, qtype, why, date=None):
-        date_start, date_end = self._parse_date_from_to(date)
+    def quarantine_set(self, operator, entity_type, id, qtype, why,
+                       start_date=None):
+        if not start_date or start_date == 'today':
+            start_date = self._today()
+        else:
+            start_date = self._parse_date(start_date)
         entity = self._get_entity(entity_type, id)
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_set_quarantine(operator.get_entity_id(), entity, qconst)
@@ -8161,7 +8166,7 @@ Addresses and settings:
                 self._get_name_from_object(entity), qtype))
         try:
             entity.add_entity_quarantine(qconst, operator.get_entity_id(), why,
-                                         date_start, date_end)
+                                         start_date)
         except AttributeError:
             raise CerebrumError("Quarantines cannot be set on %s" % entity_type)
         return "OK, set quarantine %s for %s" % (

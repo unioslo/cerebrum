@@ -1011,7 +1011,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             # raise CerebrumError('Project already approved (no not_approved quarantine)')
             return success_msg + " (already approved, not changing anything)"
 
-        project.delete_entity_quarantine(type=self.const.quarantine_not_approved)
+        project.delete_entity_quarantine(self.const.quarantine_not_approved)
         project.write_db()
         try:
             project.setup_project(operator.get_entity_id(), vlan)

@@ -763,6 +763,9 @@ arg_help = {
     'quarantine_type':
         ['qtype', 'Enter quarantine type',
          "'quarantine list' lists defined quarantines"],
+    'quarantine_start_date':
+        ['start_date', 'Enter start date (YYYY-MM-DD)',
+         "The legal date format is 2003-12-31"],
     'rt_queue':
         ['queue[@host]', 'Enter name of RT queue',
          "Format is <queue>@<host>.  If <host> is the default host, it can be "
