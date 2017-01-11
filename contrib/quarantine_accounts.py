@@ -405,7 +405,7 @@ def remove_quarantine(pids, quar):
             logger.info('Deleting quarantine from: %s', row['name'])
             ac.clear()
             ac.find(row['account_id'])
-            ac.delete_entity_quarantine(type=quar)
+            ac.delete_entity_quarantine(quar)
             ac.write_db()
             dequarantined.append(row['name'])
     logger.debug('Quarantines removed in total: %d', len(dequarantined))
