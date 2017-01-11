@@ -1882,8 +1882,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['user_unapproved'] = cmd.Command(
         ('user', 'unapproved'),
         fs=cmd.FormatSuggestion(
-            '%-10s %-16s %-10s', ('entity_id', 'username', 'created'),
-            hdr='%-10s %-16s %-10s' % ('Entity-Id', 'Username', 'Created')),
+            '%-10d %-16s %s', ('entity_id', 'username', 'created'),
+            hdr='%-10s %-16s %s' % ('Entity-Id', 'Username', 'Created')),
         perm_filter='is_superuser')
 
     @superuser
