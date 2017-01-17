@@ -578,7 +578,9 @@ def _find_affiliations(cerebrum_person, hr_affs, affiliation_map,
                  ((u'source', source_system),))
             for x in set(in_cerebrum) - set(in_hr)]
     elif mode == u'add':
-        return [dict(x) for x in set(in_hr) - set(in_cerebrum)]
+        to_add = set(in_hr) - set(in_cerebrum)
+        to_ensure = set(in_hr) & set(in_cerebrum)
+        return [dict(x) for x in to_add | to_ensure]
     else:
         from Cerebrum import Errors
         raise Errors.ProgrammingError(
