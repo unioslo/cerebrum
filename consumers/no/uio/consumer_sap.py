@@ -20,6 +20,8 @@
 
 """Consumes events from SAP and updates Cerebrum."""
 
+from collections import OrderedDict
+
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.event.mapping import CallbackMap
 
@@ -369,19 +371,20 @@ def parse_affiliations(database, d):
 def _sap_roles_to_affiliation_map():
     co = Factory.get('Constants')
 
-    return {u'EF-FORSKER': co.affiliation_tilknyttet_ekst_forsker,
-            u'EMERITUS': co.affiliation_tilknyttet_emeritus,
-            u'BILAGSLØNN': co.affiliation_tilknyttet_bilag,
-            u'GJ-FORSKER': co.affiliation_tilknyttet_gjesteforsker,
-            u'ASSOSIERT': co.affiliation_tilknyttet_assosiert_person,
-            u'EF-STIP': co.affiliation_tilknyttet_ekst_stip,
-            u'INNKJØPER': co.affiliation_tilknyttet_innkjoper,
-            u'GRP-LÆRER': co.affiliation_tilknyttet_grlaerer,
-            u'EKST-KONS': co.affiliation_tilknyttet_ekst_partner,
-            u'PCVAKT': co.affiliation_tilknyttet_pcvakt,
-            u'EKST-PART': co.affiliation_tilknyttet_ekst_partner,
-            u'STEDOPPLYS': None,
-            u'POLS-ANSAT': None}
+    return OrderedDict(
+            [(u'INNKJØPER', co.affiliation_tilknyttet_innkjoper),
+             (u'EF-FORSKER', co.affiliation_tilknyttet_ekst_forsker),
+             (u'EMERITUS', co.affiliation_tilknyttet_emeritus),
+             (u'BILAGSLØNN', co.affiliation_tilknyttet_bilag),
+             (u'GJ-FORSKER', co.affiliation_tilknyttet_gjesteforsker),
+             (u'ASSOSIERT', co.affiliation_tilknyttet_assosiert_person),
+             (u'EF-STIP', co.affiliation_tilknyttet_ekst_stip),
+             (u'GRP-LÆRER', co.affiliation_tilknyttet_grlaerer),
+             (u'EKST-KONS', co.affiliation_tilknyttet_ekst_partner),
+             (u'PCVAKT', co.affiliation_tilknyttet_pcvakt),
+             (u'EKST-PART', co.affiliation_tilknyttet_ekst_partner),
+             (u'STEDOPPLYS', None),
+             (u'POLS-ANSAT', None)])
 
 
 def parse_roles(database, data):
@@ -413,7 +416,11 @@ def parse_roles(database, data):
                           role.get(u'type')).affiliation,
                       u'status': role2aff.get(role.get(u'type')),
                       u'precedence': None})
-    return r
+
+    return sorted(r,
+                  key=(lambda x: role2aff.values().index(x.get('status')) if
+                       x.get('status') in role2aff.values() else len(r)),
+                  reverse=True)
 
 
 def _parse_hr_person(database, source_system, data):
