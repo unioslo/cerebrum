@@ -1694,17 +1694,7 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
     """
 
     all_commands = dict()
-
-    # FIXME: Anytime *SOMETHING* from no/uio/bofhd_uio_cmds.py:BofhdExtension
-    # is used here, pull that something into a separate BofhdCommon class and
-    # stuff that into Cerebrum/modules/bofhd. Make
-    # no/uio/bofhd_uio_cmds.py:BofhdExtension inherit that common
-    # class. Refactoring, hell yeah!
-
-    def __init__(self, server):
-        super(BofhdVirthomeMiscCommands, self).__init__(server)
-
-        self.ba = BofhdVirtHomeAuth(self.db)
+    authz = BofhdVirtHomeAuth
 
     def _get_spread(self, spread):
         """Fetch the proper spread constant.
