@@ -1,3 +1,7 @@
+2017-01-17    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* OrgLDIF.py (OrgLDIFUiTMixin.init_account_info): init_account_info will now filter out sito accounts
+
 2016-11-24  Karen   <cerebrum@metius.uit.no>
 
     * OU.py: Added get_structure_mappings(). Overrides OU.get_structure_mappings() with added 

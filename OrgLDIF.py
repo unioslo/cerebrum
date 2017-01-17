@@ -113,55 +113,7 @@ class OrgLDIFUiTMixin(OrgLDIF):
             self.ou_tree.setdefault(parent_id, []).append(int(ou_id))
         timer("...OU tree done.")
     
-    def generate_person(self, outfile, alias_outfile, use_mail_module):
-        """Output person tree and aliases if cereconf.LDAP_PERSON['dn'] is set.
-
-        Aliases are only output if cereconf.LDAP_PERSON['aliases'] is true.
-
-        If use_mail_module is set, persons' e-mail addresses are set to
-        their primary users' e-mail addresses.  Otherwise, the addresses
-        are taken from contact info registered for the individual persons."""
-
-        # Changes from superclass:
-        # - Persons with affiliation_ansatt_sito or affiliation_manuell_gjest_u_konto are ignored.
-        # - system object is added.
-        
-        if not self.person_dn:
-            return
-        self.init_person_dump(use_mail_module)
-        if self.person_parent_dn not in (None, self.org_dn):
-            outfile.write(container_entry_string('PERSON'))
-        timer       = make_timer(self.logger,"Processing persons...")
-        round_timer = make_timer(self.logger)
-        round       = 0
-        for row in self.list_persons():
-            #print "---"
-            #pprint(row)
-            #print "---"
-            if(row[2] in [int(self.const.affiliation_ansatt_sito)]):
-                # this person does not qualify to be listed in the FEIDE tree on the ldap server.
-                #self.logger.warn("sito person. Not to be included")
-                continue
-            if (row[2] in [int(self.const.affiliation_manuell_gjest_u_konto)]):
-                #self.logger.warn("person withouth account. not to be included")
-                continue
-            if round % 10000 == 0:
-                round_timer("...rounded %d rows..." % round)
-            round += 1
-            dn, entry, alias_info = self.make_person_entry(row)
-            if dn:
-                if dn in self.used_DNs:
-                    self.logger.warn("Omitting person_id %d: duplicate DN '%s'"
-                                     % (row['person_id'], dn))
-                else:
-                    self.used_DNs[dn] = True
-                    outfile.write(entry_string(dn, entry, False))
-                    if self.aliases and alias_info:
-                        self.write_person_alias(alias_outfile,
-                                                dn, entry, alias_info)
-        timer("...persons done.")
-        self.generate_system_object(outfile)
-
+   
     def generate_system_object(self,outfile):
         entry= {'objectClass':['top','uioUntypedObject']}
         self.ou_dn = "cn=system,dc=uit,dc=no"
@@ -190,50 +142,49 @@ class OrgLDIFUiTMixin(OrgLDIF):
             if ou:
                 ret.append(''.join((p,':',aff_str,'/',status_str,'@',ou)))
         return ret
-        
-    def make_person_entry(self, row):
-        """Add data from person_course to a person entry."""
-        p_id = int(row['person_id'])
-        dn, entry, alias_info = self.__super.make_person_entry(row,p_id)
-        if not dn:
-            return dn, entry, alias_info
-        if self.ownerid2urnlist.has_key(p_id):
-            # Some of the chars in the entitlements are outside ascii
-            if entry.has_key('eduPersonEntitlement'):
-                entry['eduPersonEntitlement'].extend(self.ownerid2urnlist[p_id])
-            else:
-                entry['eduPersonEntitlement'] = self.ownerid2urnlist[p_id]
-        #entry['uioPersonID'] = str(p_id)
-        
-        #
-        # self.person2group == list over person_id : {gruppe_navn}
-        # p_id == person_id
-        #
-        
-        if self.person2group.has_key(p_id):
-            # TODO: remove member and uioPersonObject after transition period
-            entry['uitMemberOf'] = self.person2group[p_id]
-            #entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))
-            entry['objectClass'].append('uioMembership')
-        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(p_id)
-        #entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(p_id, pri_aff, pri_ou)
-        #if 'uioPersonObject' not in entry['objectClass']:
-        #    entry['objectClass'].extend(('uioPersonObject',))
+       
+   
+    def init_account_info(self):
+        # Set self.acc_name        = dict {account_id: user name}.
+        # Set self.acc_passwd      = dict {account_id: password hash}.
+        # Set self.acc_quarantines = dict {account_id: [quarantine list]}.
+        # Set acc_locked_quarantines = acc_quarantines or separate dict
+        timer = make_timer(self.logger, "Fetching account information...")
+        timer2 = make_timer(self.logger)
+        db = Factory.get('Database')()
+        #account_obj = Factory.get('Account')(db)
+        self.acc_name = acc_name = {}
+        self.acc_passwd = {}
+        self.acc_locked_quarantines = self.acc_quarantines = acc_quarantines = defaultdict(list)
+        for row in self.account.list_account_authentication(
+                auth_type=int(self.const.auth_type_md5_crypt)):
+            
 
-        # Check if there exists «avvikende» addresses, if so, export them instead:
-        addrs = self.addr_info.get(p_id)
-        # post  = addrs and addrs.get(int(self.const.address_other_post))
-        # if post:
-        #     a_txt, p_o_box, p_num, city, country = post
-        #     post = self.make_address("$", p_o_box,a_txt,p_num,city,country)
-        #     if post:
-        #         entry['postalAddress'] = (post,)
-        # street = addrs and addrs.get(int(self.const.address_other_street))
-        # if street:
-        #     a_txt, p_o_box, p_num, city, country = street
-        #     street = self.make_address(", ", None,a_txt,p_num,city,country)
-        #     if street:
-        #         entry['street'] = (street,)
+            #filter out sito accounts
+            self.logger.debug("processing account:%s" % row['entity_name'])
+            if len(row['entity_name']) == 7:
+                if row['entity_name'][-1] == 's':
+                    self.logger.debug("filtering out account:%s" %row['entity_name'])
+                    continue
+                
+            account_id = int(row['account_id'])
+            acc_name[account_id] = row['entity_name']
+            self.acc_passwd[account_id] = row['auth_data']
 
-        return dn, entry, alias_info
-    
+        timer2("...account quarantines...")
+        nonlock_quarantines = [
+            int(self.const.Quarantine(code))
+            for code in getattr(cereconf, 'QUARANTINE_FEIDE_NONLOCK', ())]
+        if nonlock_quarantines:
+            self.acc_locked_quarantines = acc_locked_quarantines = defaultdict(list)
+        for row in self.account.list_entity_quarantines(
+                entity_ids=self.accounts,
+                only_active=True,
+                entity_types=self.const.entity_account):
+            qt = int(row['quarantine_type'])
+            entity_id = int(row['entity_id'])
+            acc_quarantines[entity_id].append(qt)
+            if nonlock_quarantines and qt not in nonlock_quarantines:
+                acc_locked_quarantines[entity_id].append(qt)
+        timer("...account information done.")
+   
