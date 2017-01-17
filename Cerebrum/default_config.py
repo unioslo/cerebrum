@@ -122,7 +122,6 @@ MVUSER_SCRIPT = '/cerebrum/sbin/mvuser'
 RMUSER_SCRIPT = '/cerebrum/sbin/aruser'
 ARCHIVE_MAIL_SCRIPT = '/cerebrum/sbin/archivemail'
 LEGAL_BATCH_MOVE_TIMES = '20:00-08:00'
-MAILMAN_SCRIPT = None
 SYMPA_SCRIPT = None
 CONVERT_MAILCONFIG_SCRIPT = None
 MVMAIL_SCRIPT = None

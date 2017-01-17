@@ -741,17 +741,7 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
             ("Forwarding:       %s", ("forward_1", )),
             ("                  %s", ("forward", )),
             #
-            # target_type == Mailman
-            #
-            ("Mailing list:     %s", ("mailman_list", )),
-            ("Alias:            %s", ("mailman_alias_1", )),
-            ("                  %s", ("mailman_alias", )),
-            ("Request address:  %s", ("mailman_mailcmd_1", )),
-            ("                  %s", ("mailman_mailcmd", )),
-            ("Owner address:    %s", ("mailman_mailowner_1", )),
-            ("                  %s", ("mailman_mailowner", )),
-            #
-            # target_type == Sympa. Looks like mailman, but has more attributes
+            # target_type == Sympa
             #
             ("Mailing list:     %s", ("sympa_list",)),
             ("Alias:            %s", ("sympa_alias_1",)),
@@ -787,7 +777,7 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
             ("Forwarding:       %s (%s)", ("fw_addr_1", "fw_enable_1")),
             ("                  %s (%s)", ("fw_addr", "fw_enable")),
             #
-            # both account and Mailman/Sympa
+            # both account and Sympa
             #
             ("Spam level:       %s (%s)\n" +
              "Spam action:      %s (%s)", ("spam_level", "spam_level_desc",
@@ -824,8 +814,7 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
                 ret.append({'def_addr': "<none>"})
             # No else?
 
-        if ttype not in (self.const.email_target_Mailman,
-                         self.const.email_target_Sympa):
+        if ttype == self.const.email_target_Sympa:
             # We want to split the valid addresses into multiple
             # parts for MLs, so there is special code for that.
             addrs = self._get_valid_email_addrs(et, special=True, sort=True)
@@ -835,13 +824,9 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
             for addr in addrs[1:]:
                 ret.append({"valid_addr": addr})
 
-        # TODO: The mailman/sympa email_info belongs in
+        # TODO: The sympa email_info belongs in
         #       bofhd_email_list.py
-        if (ttype == self.const.email_target_Mailman and
-                hasattr(self, '_email_info_mailman')):
-            # TODO: What if the constant doesn't exist?
-            ret += getattr(self, '_email_info_mailman')(et, uname)
-        elif (ttype == self.const.email_target_Sympa and
+        if (ttype == self.const.email_target_Sympa and
                 hasattr(self, '_email_info_sympa')):
             # TODO: What if the constant doesn't exist?
             ret += getattr(self, '_email_info_sympa')(operator, et, uname)
@@ -925,8 +910,7 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         info = {}
         data = [info, ]
         if (et.email_target_alias is not None and
-            et.email_target_type not in (self.const.email_target_Mailman,
-                                         self.const.email_target_Sympa)):
+            et.email_target_type == self.const.email_target_Sympa):
             info['alias_value'] = et.email_target_alias
         info["account"] = acc.account_name
         if et.email_server_id:
@@ -967,7 +951,7 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
             info["filters"] = ", ".join([x for x in filters]),
         else:
             info["filters"] = "<none>"
-        return [info,]
+        return [info, ]
 
     def _email_info_detail(self, acc):
         """ Get email account details.
@@ -1690,8 +1674,7 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         et, addr = self._get_email_target_and_address(address)
         esf = Email.EmailSpamFilter(self.db)
         all_targets = [et.entity_id]
-        if target_type in (self.const.email_target_Mailman,
-                           self.const.email_target_Sympa):
+        if target_type == self.const.email_target_Sympa:
             # This will fail if we don't have the BofhdEmailListMixin
             all_targets = getattr(self, '_get_all_related_maillist_targets')(
                 addr.get_address())
@@ -1716,8 +1699,7 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         et, addr = self._get_email_target_and_address(address)
         etf = Email.EmailTargetFilter(self.db)
         all_targets = [et.entity_id]
-        if target_type in (self.const.email_target_Mailman,
-                           self.const.email_target_Sympa):
+        if target_type == self.const.email_target_Sympa:
             # This will fail if we don't have the BofhdEmailListMixin
             all_targets = getattr(self, '_get_all_related_maillist_targets')(
                 addr.get_address())
@@ -1736,7 +1718,6 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
                     etf.populate(filter_code, parent=et)
                     etf.write_db()
 
-    
     def _report_deleted_EA(self, deleted_EA):
         """ Inform postmaster about deleted EmailAddesses.
 
@@ -2173,8 +2154,7 @@ Addresses and settings:
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
         et, addr = self._get_email_target_and_address(address)
         target_ids = [et.entity_id]
-        if int(et.email_target_type) in (self.const.email_target_Mailman,
-                                         self.const.email_target_Sympa):
+        if et.email_target_type == self.const.email_target_Sympa:
             # The only way we can get here is if uname is actually an e-mail
             # address on its own.
             # This will fail if we don't have the BofhdEmailListMixin
@@ -2216,8 +2196,7 @@ Addresses and settings:
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
         et, addr = self._get_email_target_and_address(address)
         target_ids = [et.entity_id]
-        if int(et.email_target_type) in (self.const.email_target_Mailman,
-                                         self.const.email_target_Sympa):
+        if et.email_target_type == self.const.email_target_Sympa:
             # The only way we can get here is if uname is actually an e-mail
             # address on its own.
             #
@@ -2277,8 +2256,7 @@ Addresses and settings:
         target_ids = [et.entity_id]
         # The only way we can get here is if uname is actually an e-mail
         # address on its own.
-        if int(et.email_target_type) in (self.const.email_target_Mailman,
-                                         self.const.email_target_Sympa):
+        if et.email_target_type == self.const.email_target_Sympa:
             # This will fail if we don't have the BofhdEmailListMixin
             target_ids = getattr(self,
                                  '_get_all_related_maillist_targets')(uname)
@@ -2306,7 +2284,7 @@ Addresses and settings:
 
     #
     # email spam_action <action> <uname>+
-    # 
+    #
     # (This code is cut'n'paste of email_spam_level(), only the call
     # to populate() had to be fixed manually. It's hard to fix this
     # kind of code duplication cleanly.)
@@ -2342,8 +2320,7 @@ Addresses and settings:
         target_ids = [et.entity_id]
         # The only way we can get here is if uname is actually an e-mail
         # address on its own.
-        if int(et.email_target_type) in (self.const.email_target_Mailman,
-                                         self.const.email_target_Sympa):
+        if et.email_target_type == self.const.email_target_Sympa:
             # This will fail if we don't have the BofhdEmailListMixin
             target_ids = getattr(self,
                                  '_get_all_related_maillist_targets')(uname)

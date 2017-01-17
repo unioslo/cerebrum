@@ -104,9 +104,8 @@ class EmailLDAP(DatabaseAccessor):
             et = int(et)
 
         result = {"targetType": self.get_targettype(target_type)}
-        if target_type in (co.email_target_Mailman, co.email_target_Sympa,
-                           co.email_target_pipe, co.email_target_RT,
-                           co.email_target_file):
+        if target_type in (co.email_target_pipe, co.email_target_file,
+                           co.email_target_Sympa, co.email_target_RT):
             result["target"] = alias
         elif target_type in (co.email_target_account, co.email_target_deleted):
             if et == co.entity_account and ei in self.acc2name:

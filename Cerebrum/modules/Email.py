@@ -230,13 +230,6 @@ class EmailConstants(Constants.Constants):
         " email_target.using_uid is set, deliveries to this target"
         " will be run as that PosixUser.")
 
-    email_target_Mailman = _EmailTargetCode(
-        'Mailman',
-        "Target is a Mailman mailing list.  The command (and args) to"
-        " pipe mail into is gathered from email_target.alias_value."
-        "  Iff email_target.using_uid is set, deliveries to this target"
-        " will be run as that PosixUser.")
-
     email_target_Sympa = _EmailTargetCode(
         'Sympa',
         "Target is a Sympa mailing list.  The command (and args) to"

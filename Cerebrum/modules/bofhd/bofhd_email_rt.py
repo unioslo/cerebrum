@@ -194,15 +194,7 @@ class BofhdEmailRTMixin(BofhdEmailMixinBase):
         except CerebrumError:
             pass
         else:
-            if et.email_target_type == self.const.email_target_Mailman:
-                self.ba.can_rt_replace_mailman(op, domain=rt_dom)
-                if not self._get_boolean(force):
-                    raise CerebrumError(
-                        "Address <%s> exists (mailing list), use force" % addr)
-                replaced_lists = [x['address'] for x in
-                                  self._email_delete_list(op, addr, ea)]
-            else:
-                raise CerebrumError("Address <%s> is in use" % addr)
+            raise CerebrumError("Address <{}> is in use".format(addr))
 
         acc = self._get_account("exim")
         et = Email.EmailTarget(self.db)

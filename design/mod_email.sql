@@ -75,7 +75,7 @@ CREATE TABLE email_server
 
 /*	email_target_code
 
-  Define valid target types, e.g. 'user', 'pipe', 'file', 'Mailman'.
+  Define valid target types, e.g. 'user', 'pipe', 'file', ...
 
 */
 category:code;

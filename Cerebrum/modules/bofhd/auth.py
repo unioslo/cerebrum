@@ -1757,7 +1757,6 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any or account:
             return self.can_email_forward_toggle(operator, account,
                                                  query_run_any)
-        # typically Mailman lists
         if self.is_superuser(operator):
             return True
         if self.is_postmaster(operator):
@@ -1776,7 +1775,7 @@ class BofhdAuth(DatabaseAccessor):
 
     # only the user may add or remove forward addresses.
     def can_email_forward_edit(self, operator, account=None, domain=None,
-                                query_run_any=False):
+                               query_run_any=False):
         if query_run_any:
             return True
         if account and operator == account.entity_id:
@@ -1794,10 +1793,6 @@ class BofhdAuth(DatabaseAccessor):
         return self.can_email_forward_edit(operator, account,
                                            query_run_any=query_run_any)
 
-    # TODO: when Mailman is better integrated with Cerebrum, we can
-    # allow local postmasters to create lists, but today creating a
-    # list requires shell access to mailman@lister.uio.no, so there's
-    # no point.
     def can_email_list_create(self, operator, domain=None,
                               query_run_any=False):
         if self.is_superuser(operator):
@@ -1821,11 +1816,11 @@ class BofhdAuth(DatabaseAccessor):
         return self.can_email_archive_create(operator, domain, query_run_any)
 
     def can_email_pipe_create(self, operator, domain=None,
-                                 query_run_any=False):
+                              query_run_any=False):
         return self.can_email_list_create(operator, domain, query_run_any)
 
     def can_email_pipe_edit(self, operator, domain=None,
-                                 query_run_any=False):
+                            query_run_any=False):
         return self.can_email_pipe_create(operator, domain, query_run_any)
 
     def can_email_set_failure(self, operator, account=None,
@@ -1839,16 +1834,6 @@ class BofhdAuth(DatabaseAccessor):
         raise PermissionDenied("Currently limited to superusers")
 
     def can_email_domain_create(self, operator, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if self.is_postmaster(operator):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
-
-    def can_email_list_create(self, operator, domain=None,
-                              query_run_any=False):
         if self.is_superuser(operator):
             return True
         if self.is_postmaster(operator):

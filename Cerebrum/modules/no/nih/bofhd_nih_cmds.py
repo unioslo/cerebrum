@@ -348,9 +348,7 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
     def _email_info_basic(self, acc, et):
         info = {}
         data = [info, ]
-        if (et.email_target_type not in (self.const.email_target_Mailman,
-                                         self.const.email_target_Sympa)
-                and et.email_target_alias is not None):
+        if et.email_target_alias is not None:
             info['alias_value'] = et.email_target_alias
         info["account"] = acc.account_name
         info["server"] = 'Mail server'
