@@ -296,6 +296,10 @@ class ForwardMap(object):
                     s_ref['port'], self.zu.exp_name(s_ref['target_name']))
                 name = ''
             if not shown_owner.has_key(row['dns_owner_id']):
+                txt = self.dnsowner2txt_record.get(row['dns_owner_id'], None)
+                if txt:
+                    line += "%s\t%s\tTXT\t\"%s\"\n" % (name, txt['ttl'] or '', txt['data'])
+                    name = ''
                 if self.owner_id2mx_set.get(int(row['dns_owner_id']), None):
                     for mx_info in self.mx_sets[self.owner_id2mx_set[int(row['dns_owner_id'])]]:
                         line += "%s\t%s\tMX\t%s\t%s\n" % (
