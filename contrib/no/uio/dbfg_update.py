@@ -492,7 +492,7 @@ def report_users(stream_name, databases):
         for item in databases:
             # Report expired users for all databases
             message = report_no_exc(item.dbuser, item.report_missing,
-                                    item, item["sync_accessor"],
+                                    item, item["report_accessor"],
                                     [
                                         lambda acc: check_spread(
                                             acc,
