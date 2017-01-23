@@ -392,9 +392,6 @@ class EntityName(Entity):
                              'domain': int(domain)})
 
     def update_entity_name(self, domain, name):
-        self._db.log_change(self.entity_id, self.const.entity_name_mod, None,
-                            change_params={'domain': int(domain),
-                                           'name': name})
         if int(domain) in [int(self.const.ValueDomain(code_str)) for code_str in
                            cereconf.NAME_DOMAINS_THAT_DENY_CHANGE]:
             raise self._db.IntegrityError(
@@ -406,6 +403,9 @@ class EntityName(Entity):
                      {'e_id': self.entity_id,
                       'domain': int(domain),
                       'name': name})
+        self._db.log_change(self.entity_id, self.const.entity_name_mod, None,
+                            change_params={'domain': int(domain),
+                                           'name': name})
 
     def find_by_name(self, name, domain):
         "Associate instance with the entity having NAME in DOMAIN."

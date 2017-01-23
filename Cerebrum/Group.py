@@ -163,9 +163,10 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                                 self.const.group_mod,
                                 None,
                                 change_params=self.__updated)
-            self.update_entity_name(
-                self.const.group_namespace,
-                self.group_name)
+            if 'group_name' in self.__updated:
+                self.update_entity_name(
+                    self.const.group_namespace,
+                    self.group_name)
         # EntityName.write_db(self, as_object)
         del self.__in_db
         self.__in_db = True
