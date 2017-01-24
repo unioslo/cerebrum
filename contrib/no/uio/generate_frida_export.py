@@ -219,7 +219,7 @@ def output_OU(writer, ou):
         <navnEngelsk>...</...>         <!-- LT.STED.STEDLANGNAVN_ENGELSK
                                                     STEDKORTNAVN_ENGELSK -->
         <akronym>...</...>             <!-- LT.STED.AKRONYM -->
-        <postadresse>...</...>    <!-- LT.STED.ADDRESSELINJE{1+2}_INTERN_ADR -->
+        <postadresse>...</...>  <!-- LT.STED.ADDRESSELINJE{1+2}_INTERN_ADR -->
         <postnrOgPoststed>...</...>    <!-- LT.STED.POSTSTEDNR_INTERN_ADR +
                                             LT.STED.POSTSTEDNAVN_INTERN_ADR -->
         <land>...</...>                <!-- LT.STED.LANDNAVN_INTERN_ADR -->
