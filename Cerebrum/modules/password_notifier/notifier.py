@@ -35,9 +35,9 @@ module:
 
 3. Quarantines accounts for where the deadline has passed.
 
-4. Sends accounts an e-mail, saying that they have to change their password, if
-   the password trait has not already been set. The password trait gets set for
-   logging this, with numval 1.
+4. Sends accounts an e-mail and/or SMS, saying that they have to change their
+   password, if the password trait has not already been set. The password trait
+   gets set for logging this, with numval 1.
 
 5. Sends accounts another e-mail when closer to the deadline, if the password
    trait has not already been set to 2. The trait's numval gets incremented.
