@@ -567,14 +567,10 @@ class norEduLDIFMixin(OrgLDIF):
         entry['norEduPersonAuthnMethod'] = self.attr_unique(
             authn_methods, normalize=normalize_string)
 
-        authn_levels = self.person_authn_levels.get(person_id, [])
-
-        # At least one authentication method is required when setting
-        # service authentication levels
-        if authn_levels and not authn_methods:
-            return
-
         # Add norEduPersonServiceAuthnLevel entries
+        authn_levels = self.person_authn_levels.get(person_id, [])
+        if not authn_levels:
+            return
         authn_level_template = string.Template(
             'urn:mace:feide.no:spid:${feide_id} '
             'urn:mace:feide.no:auth:level:fad08:${level}')
