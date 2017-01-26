@@ -80,7 +80,7 @@ def ldapconf(tree, attr, default=_dummy, utf8=True, module=cereconf):
 
 
 def _deep_text2utf(obj, utf8):
-    if utf8 == True:
+    if utf8 is True:
         if isinstance(obj, str):
             return iso2utf(obj)
         if isinstance(obj, unicode):
@@ -369,6 +369,10 @@ verify_printableString = re.compile(r"[-a-zA-Z0-9'()+,.=/:? ]+\Z").match
 # Return true if the parameter is valid for the LDAP syntax IA5String (ASCII):
 # mail, dc, gecos, homeDirectory, loginShell, memberUid, memberNisNetgroup.
 verify_IA5String = re.compile("[\0-\x7e]*\\Z").match
+
+# Return true if the parameter looks like an email address, i.e. contains
+# exactly one @ and at least one dot after the @
+verify_emailish = re.compile(r"[^@]+@[^@]+\.[^@]+").match
 
 
 class ldif_parser(object):

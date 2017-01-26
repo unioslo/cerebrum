@@ -26,9 +26,14 @@ import cereconf
 from Cerebrum import Entity
 from Cerebrum.modules.feide.service import FeideService
 from Cerebrum.modules.OrgLDIF import OrgLDIF
-from Cerebrum.modules.LDIFutils import (
-    ldapconf, normalize_string, verify_IA5String, normalize_IA5String, iso2utf,
-    hex_escape_match, dn_escape_re)
+from Cerebrum.modules.LDIFutils import (ldapconf,
+                                        normalize_string,
+                                        verify_IA5String,
+                                        verify_emailish,
+                                        normalize_IA5String,
+                                        iso2utf,
+                                        hex_escape_match,
+                                        dn_escape_re)
 from Cerebrum.Utils import make_timer
 
 
@@ -161,10 +166,14 @@ class norEduLDIFMixin(OrgLDIF):
             contact = id2contact.get(ou_id)
             if contact:
                 entry[attr] = contact
+
+        def verify_email(email):
+            return verify_IA5String(email) and verify_emailish(email)
+
         entry['mail'] = self.get_contacts(
             entity_id=ou_id,
             contact_type=int(self.const.contact_email),
-            verify=verify_IA5String,
+            verify=verify_email,
             normalize=normalize_IA5String)
         post_string, street_string = self.make_entity_addresses(
             self.ou, self.system_lookup_order)
