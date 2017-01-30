@@ -80,7 +80,6 @@ class PosixLDIF_UiTMixin(PosixLDIF):
             # out any single account (for those persons with multiple accounts)
             # 
             uname = row['entity_name']
-            self.logger.debug("uname is:%s" % uname)
             if len(uname) == 7:
                 if uname[-1] == 's':
                     self.logger.debug("filtering out account:%s" %row['entity_name'])
