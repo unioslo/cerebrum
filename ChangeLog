@@ -1,3 +1,7 @@
+2017-01-30    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* PosixLDIF.py (PosixLDIF_UiTMixin.user_object): added sito filter
+
 2017-01-17    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* OrgLDIF.py (OrgLDIFUiTMixin.init_account_info): init_account_info will now filter out sito accounts

@@ -72,6 +72,21 @@ class PosixLDIF_UiTMixin(PosixLDIF):
         dn, entry = self.__super.user_object(row)
 
         if entry:
+
+            # 
+            # skip if sito account.
+            # this should really be done using spreads, but since all accounts
+            # have the same spread as the person object, we are unable to filter 
+            # out any single account (for those persons with multiple accounts)
+            # 
+            uname = row['entity_name']
+            self.logger.debug("uname is:%s" % uname)
+            if len(uname) == 7:
+                if uname[-1] == 's':
+                    self.logger.debug("filtering out account:%s" %row['entity_name'])
+                    return None,None
+
+
         # Add displayName, norEduPersonLegalName and objectClass: norEduPerson
             if entry.has_key('displayName'):
                 entry['displayName'].extend(entry['cn'])
