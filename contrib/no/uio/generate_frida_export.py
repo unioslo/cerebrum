@@ -1,7 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2006-2015 University of Oslo, Norway
+# Copyright 2006-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -53,7 +53,6 @@ import getopt
 import sys
 import time
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
@@ -64,6 +63,7 @@ from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.xml2object import DataAddress
 from Cerebrum.modules.xmlutils.xml2object import DataContact
+from Cerebrum.modules.xmlutils.xml2object import DataEmployment
 
 
 logger = Factory.get_logger("cronjob")
@@ -219,7 +219,7 @@ def output_OU(writer, ou):
         <navnEngelsk>...</...>         <!-- LT.STED.STEDLANGNAVN_ENGELSK
                                                     STEDKORTNAVN_ENGELSK -->
         <akronym>...</...>             <!-- LT.STED.AKRONYM -->
-        <postadresse>...</...>    <!-- LT.STED.ADDRESSELINJE{1+2}_INTERN_ADR -->
+        <postadresse>...</...>  <!-- LT.STED.ADDRESSELINJE{1+2}_INTERN_ADR -->
         <postnrOgPoststed>...</...>    <!-- LT.STED.POSTSTEDNR_INTERN_ADR +
                                             LT.STED.POSTSTEDNAVN_INTERN_ADR -->
         <land>...</...>                <!-- LT.STED.LANDNAVN_INTERN_ADR -->
@@ -673,15 +673,21 @@ def should_export_person(person):
                       list(person.iterids()))
         return False
 
-    # All employments that are *NOT* MG/MUG 8;50 of types other than 'Gjest'
-    # Filters out persons that *only* has 8;50 employment records and are
-    # not guests
-    employments = filter(lambda x: not (x.mg == 8 and x.mug == 50 and
-                                        x.kind != x.GJEST),
+    # Filter out people that have 8;50 as a HOVEDSTILLING, unless they have a
+    # GJEST role of appropriate type:
+    n8_50 = filter(lambda x: not (x.mg == 8 and x.mug == 50 and x.kind in [
+        DataEmployment.HOVEDSTILLING]), person.iteremployment())
+    guest_roles = filter(lambda x: (x.kind == DataEmployment.GJEST and
+                                    x.code in ['EF-FORSKER',
+                                               'EF-STIP',
+                                               'EMERITUS',
+                                               'ASSOSIERT',
+                                               'GJ-FORSKER']),
                          person.iteremployment())
-    if not employments:
-        logger.debug2("Skipping, person_id %s only has MG/MUG 850 records and "
-                      "is not a guest", list(person.iterids()))
+
+    if n8_50 and not guest_roles:
+        logger.debug2("Skipping, person_id %s only has MG/MUG 8;50 records and"
+                      " has no applicable role", list(person.iterids()))
         return False
 
     # Filters out persons that has no *active* employment of types
