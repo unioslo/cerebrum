@@ -760,7 +760,7 @@ def _handle_changes(a_id,changes):
         if ccode=='spreads_add':
             for s in cdata:
                 ac.add_spread(s)
-                #ac.set_home_dir(s)
+                ac.set_home_dir(s)
         elif ccode=='quarantine_add':
             ac.add_entity_quarantine(cdata,get_creator_id())
         elif ccode=='quarantine_del':

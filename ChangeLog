@@ -1,3 +1,7 @@
+2017-01-31    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_sito.py (_handle_changes): Added setting of account_home
+
 2016-12-21    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_students.py: further work on handling fagpersoner from FS
