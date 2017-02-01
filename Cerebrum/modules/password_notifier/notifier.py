@@ -732,9 +732,9 @@ class EmailPasswordNotifier(PasswordNotifier):
         """Return a human readable string of a given date, and in the correct
         language. Making it easier for users to be sure of a deadline date."""
         DATE_FORMATS = {
-            'nb_NO': '%A %d. %B %Y',
+            'nb_NO': '%A %-d. %B %Y',
             'nn_NO': '%x',
-            'en_US': '%A, %d %b %Y',
+            'en_US': '%A, %-d %B %Y',
             None:    '%x',  # default
         }
         if language_code:
@@ -746,7 +746,7 @@ class EmailPasswordNotifier(PasswordNotifier):
                               RuntimeWarning)
 
         date_fmt = DATE_FORMATS.get(language_code) or DATE_FORMATS[None]
-        ret = date.strftime(date_fmt).capitalize()
+        ret = date.strftime(date_fmt)
         if language_code:
             locale.setlocale(locale.LC_TIME, previous)
         return ret
