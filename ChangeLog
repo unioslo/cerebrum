@@ -1,3 +1,9 @@
+2017-02-02    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* PosixLDIF.py (PosixLDIF_UiTMixin.user_ldif): moved generate_system_object from OrgLDIF.py in here
+
+	* OrgLDIF.py (OrgLDIFUiTMixin.make_uioPersonScopedAffiliation): moved generate_system_object into PosixLdif.py
+
 2017-01-30    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* PosixLDIF.py (PosixLDIF_UiTMixin.user_object): added sito filter

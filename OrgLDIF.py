@@ -114,11 +114,6 @@ class OrgLDIFUiTMixin(OrgLDIF):
         timer("...OU tree done.")
     
    
-    def generate_system_object(self,outfile):
-        entry= {'objectClass':['top','uioUntypedObject']}
-        self.ou_dn = "cn=system,dc=uit,dc=no"
-        outfile.write(entry_string(self.ou_dn,entry))
-    
     def make_uioPersonScopedAffiliation(self, p_id, pri_aff, pri_ou):
         # [primary|secondary]:<affiliation>@<status>/<stedkode>
         ret = []

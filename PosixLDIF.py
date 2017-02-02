@@ -19,6 +19,8 @@
 
 from Cerebrum.modules.PosixLDIF import PosixLDIF
 from Cerebrum.QuarantineHandler import QuarantineHandler
+from Cerebrum.modules import LDIFutils
+from Cerebrum.Utils import Factory, latin1_to_iso646_60, auto_super, make_timer
 from Cerebrum.Utils import Factory
 
 class PosixLDIF_UiTMixin(PosixLDIF):
@@ -27,7 +29,7 @@ class PosixLDIF_UiTMixin(PosixLDIF):
 
     def __init__(self, *rest, **kw):
         super(PosixLDIF_UiTMixin, self).__init__(*rest, **kw)
-
+        
         # load person_id -> primary account_id
         account = Factory.get("Account")(self.db)
         self.pid2primary_aid = dict()
@@ -37,6 +39,32 @@ class PosixLDIF_UiTMixin(PosixLDIF):
             self.pid2primary_aid[row["person_id"]] = row["account_id"]
     # end __init__
     
+
+    def user_ldif(self, filename=None, auth_meth=None):
+        """Generate posix-user."""
+        timer = make_timer(self.logger, 'Starting user_ldif...')
+        self.init_user(auth_meth)
+        f = LDIFutils.ldif_outfile('USER', filename, self.fd)
+        self.generate_system_object(f) # this line is the only reason for having this function here
+        f.write(LDIFutils.container_entry_string('USER'))
+        self.logger.debug("filter out quarantined accounts")
+        for row in self.posuser.list_extended_posix_users(
+                self.user_auth,
+                spread=self.spread_d['user'],
+                include_quarantines=False):
+            dn, entry = self.user_object(row)
+            if dn:
+                f.write(LDIFutils.entry_string(dn, entry, False))
+                self.logger.warn("writing:%s - %s" % (dn,entry))
+        LDIFutils.end_ldif_outfile('USER', f, self.fd)
+        timer('... done user_ldif')
+
+    #UIT: added the system object. This is needed when we add users under it
+    def generate_system_object(self,outfile):
+        entry= {'objectClass':['top','uioUntypedObject']}
+        self.ou_dn = "cn=system,dc=uit,dc=no"
+        outfile.write(LDIFutils.entry_string(self.ou_dn,entry))
+
 
     def init_user(self, *args, **kwargs):
         # Prepare to include eduPersonAffiliation, taken from OrgLDIF.
