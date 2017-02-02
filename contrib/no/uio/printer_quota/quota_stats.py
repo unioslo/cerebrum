@@ -157,8 +157,7 @@ def person_type_stats(from_date, to_date):
     num2aff = {}
     n = 0
     for c in [co.affiliation_ansatt, co.affiliation_tilknyttet,
-              co.affiliation_student, co.affiliation_manuell,
-              co.affiliation_upersonlig]:
+              co.affiliation_student, co.affiliation_manuell]:
         pri_order[int(c)] = n
         num2aff[n] = c
         n += 1
