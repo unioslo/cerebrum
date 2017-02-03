@@ -591,7 +591,7 @@ def _handle_changes(a_id,changes):
             for s in cdata:
                 #print "cdata[s] is: %s" % s
                 ac.add_spread(s)
-                #ac.set_home_dir(s)
+                ac.set_home_dir(s)
         elif ccode=='quarantine_add':
             ac.add_entity_quarantine(cdata,get_creator_id())
         elif ccode=='quarantine_del':
