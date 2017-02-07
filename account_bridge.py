@@ -199,6 +199,67 @@ class AccountBridge:
 
         return email
 
+    # get_all_emails(self)
+    # 
+    # Returns a dict of all primary email addresses with username as key
+    # (format: {<username> : {'email' : <EMAIL ADDRESS>, 'expire_date' : <EXPIRE DATE>}})
+    # Returns an empty dict if something goes wrong.
+    # 
+    def get_all_emails(self):
+        logger.info("Getting all primary emails.")
+        emails = dict()
+        if self._db_conn:
+            cur = self._db_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            # get all primary email addresses
+            query = "SELECT target_id, local_part, domain_id, expire_date FROM email_address \
+                     WHERE address_id IN \
+                        (SELECT address_id FROM email_primary_address);"
+            cur.execute(query)
+            rows = cur.fetchall()
+
+            if rows != None:
+                # get all domains
+                domains = dict() # dict of all domain ids with their value
+                query = "SELECT domain_id, domain FROM email_domain;"
+                cur.execute(query)
+                domain_rows = cur.fetchall()
+                if rows != None:
+                    for dom in domain_rows:
+                        domains[dom["domain_id"]] = dom["domain"]
+
+                for row in rows:
+                    email_info = dict()
+                    target_id = row['target_id']
+                    local_part = row['local_part']
+                    domain_id = row['domain_id']
+                    expire_date = row['expire_date']
+                    if expire_date != None:
+                        expire_date = expire_date.strftime("%Y-%m-%d")
+
+                    # get username that has this email address
+                    query = "SELECT entity_name FROM entity_name \
+                             WHERE entity_id IN \
+                                (SELECT target_entity_id FROM email_target \
+                                 WHERE target_id = '%s');" % target_id
+                    cur.execute(query)
+                    result = cur.fetchone()
+                    if result != None:
+                        uname = result['entity_name']
+                    else:
+                        logger.warn("Couldn't find username for email with target_id %s. Ignoring it." 
+                                    % (target_id, local_part,  domain_id))
+                        continue
+
+                    # build email address
+                    email = local_part + "@" + domains[domain_id]
+
+                    email_info['email'] = email
+                    email_info['expire_date'] = expire_date
+
+                    emails[uname] = email_info
+        logger.info("Finished getting %s primary emails." % len(emails))
+        return emails
+
     # get_email_aliases(self, username)
     # 
     # Gets email aliases for account with the given username and returns them as a list.
