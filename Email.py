@@ -267,7 +267,7 @@ class email_address:
         return email_list
     
 
-    def process_mail(self, account_id, addr, is_primary=False):
+    def process_mail(self, account_id, addr, is_primary=False,expire_date = None):
         self.logger.debug("account_id to email.process_mail = %s" % account_id)
         if (addr==None):
             #this account has no email address attached to it.
@@ -305,7 +305,7 @@ class email_address:
             self.ea.find_by_address(addr)
             self.logger.debug("EmailAddress found: addr='%s': ea_id:%d", addr, self.ea.entity_id)
         except Errors.NotFoundError:
-            self.ea.populate(lp, self.edom.entity_id, self.et.entity_id)
+            self.ea.populate(lp, self.edom.entity_id, self.et.entity_id,expire_date)
             self.ea.write_db()
             self.logger.debug("EmailAddress created: addr='%s': ea_id='%d'", addr, self.ea.entity_id)
 
