@@ -151,8 +151,9 @@ def display_statistics(statistics):
     logger.debug("Statistics:")
 
     # The keys we are interested in
-    keys = ('ansatt', 'student', 'a&s', 'tilknyttet', 'manuell', 'alle manuell',)
-    nosum = ('alle manuell')
+    keys = ('ansatt', 'student', 'a&s', 'tilknyttet', 'manuell', 'alle manuell',
+            'upersonlig',)
+    nosum = ('alle manuell', 'upersonlig')
     # Dictionary for totalling up numbers per affiliation
     total = dict([(key, 0) for key in keys])
 
@@ -294,6 +295,7 @@ def make_empty_statistics(level, db, extra_fak_sum=False):
                  "manuell": 0,
                  "kun manuell": 0,
                  "alle manuell": 0,
+                 "upersonlig": 0,
                  None: 0,
                  }
         statistics[key].update(value)
@@ -313,7 +315,7 @@ def make_affiliation_priorities(const):
     we have to break ties. The ties are broken in the following fashion:
 
     1. First we compare affiliation; they are classified in this order
-       ansatt, student, tilknyttet, manuell
+       ansatt, student, tilknyttet, manuell, upersonlig
     2. If an entity has two affiliations of the same type, affiliation
        status is used to break up ties in this order:
 
@@ -322,6 +324,7 @@ def make_affiliation_priorities(const):
        tilknyttet -> emeritus, ekst_forsker, ekst_stip, fagperson, bilag,
                      gjesteforsker, sivilarbeider, diverse
        manuell -> don't care
+       upersonlig -> don't care.
 
        For the latter two, we just select one entry. Does not matter which
        one (this might mean though that statistics run one after the other
@@ -369,6 +372,10 @@ def make_affiliation_priorities(const):
         int(const.affiliation_manuell): {
             "name": "manuell",
             "value": 3,
+        },
+        int(const.affiliation_upersonlig): {
+            "name": "upersonlig",
+            "value": 4,
         },
     }
 
