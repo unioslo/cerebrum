@@ -77,7 +77,7 @@ class AccountBridge:
             cur.close()
             return rows
         else:
-            logger.error("Couldn't get uname, no connection to %s database on %s." % (database, host))
+            logger.error("Couldn't get uname. No connection to %s database on %s." % (database, host))
             return None
 
     # get_uname(self, ssn, sito=False)
@@ -148,7 +148,7 @@ class AccountBridge:
 
             cur.close()
         else:
-            logger.error("Couldn't get password, no connection to %s database on %s." % (database, host))
+            logger.error("Couldn't get password. No connection to %s database on %s." % (database, host))
         return rows
 
     #############################################
@@ -195,38 +195,56 @@ class AccountBridge:
 
             cur.close()
         else:
-            logger.error("Couldn't get email address, no connection to %s database on %s." % (database, host))
+            logger.error("Couldn't get email address. No connection to %s database on %s." % (database, host))
 
         return email
 
-    # get_all_emails(self)
+    # get_domains(self)
+    # 
+    # Returns a dict of all domain ids with their value.
+    # Returns an empty dict if something goes wrong.
+    # 
+    # Used by get_all_primary_emails()
+    # 
+    def get_domains(self):
+        domains = dict() # dict of all domain ids with their value
+        if self._db_conn:
+            cur = self._db_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            query = "SELECT domain_id, domain FROM email_domain;"
+            cur.execute(query)
+            rows = cur.fetchall()
+            if rows != None:
+                for row in rows:
+                    domains[row["domain_id"]] = row["domain"]
+            else:
+                logger.error("Found no domains in database.")
+        else:
+            logger.error("Couldn't get domains. No connection to %s database on %s." % (database, host))
+        return domains
+
+    # get_all_primary_emails(self)
     # 
     # Returns a dict of all primary email addresses with username as key
     # (format: {<username> : {'email' : <EMAIL ADDRESS>, 'expire_date' : <EXPIRE DATE>}})
     # Returns an empty dict if something goes wrong.
     # 
-    def get_all_emails(self):
+    def get_all_primary_emails(self):
         logger.info("Getting all primary emails.")
         emails = dict()
         if self._db_conn:
             cur = self._db_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            # get all primary email addresses
+            
+            # get data about all primary email addresses
             query = "SELECT target_id, local_part, domain_id, expire_date FROM email_address \
                      WHERE address_id IN \
                         (SELECT address_id FROM email_primary_address);"
             cur.execute(query)
             rows = cur.fetchall()
 
-            if rows != None:
-                # get all domains
-                domains = dict() # dict of all domain ids with their value
-                query = "SELECT domain_id, domain FROM email_domain;"
-                cur.execute(query)
-                domain_rows = cur.fetchall()
-                if rows != None:
-                    for dom in domain_rows:
-                        domains[dom["domain_id"]] = dom["domain"]
+            # get all domains
+            domains = self.get_domains()
 
+            if (rows != None) and len(domains) > 0:
                 for row in rows:
                     email_info = dict()
                     target_id = row['target_id']
@@ -256,8 +274,12 @@ class AccountBridge:
                     email_info['email'] = email
                     email_info['expire_date'] = expire_date
 
+                    # add email info to emails dict
                     emails[uname] = email_info
-        logger.info("Finished getting %s primary emails." % len(emails))
+            logger.info("Finished getting %s primary emails." % len(emails))
+        else:
+            logger.error("Couldn't get primary emails. No connection to %s database on %s." % (database, host))
+
         return emails
 
     # get_email_aliases(self, username)
@@ -307,7 +329,7 @@ class AccountBridge:
 
             cur.close()
         else:
-            logger.error("Couldn't get email aliases, no connection to %s database on %s." % (database, host))
+            logger.error("Couldn't get email aliases. No connection to %s database on %s." % (database, host))
 
         return aliases
 
