@@ -167,86 +167,9 @@ class Constants(Constants.Constants):
         'MANUELL', 'Tilknyttet enheter/institusjoner som USIT har avtale med')
     affiliation_manuell_alumni = _PersonAffStatusCode(
         affiliation_manuell, 'alumni', 'Uteksaminerte studenter')
-    affiliation_manuell_sio = _PersonAffStatusCode(
-        affiliation_manuell, 'sio', 'SiO')
-    affiliation_manuell_radium = _PersonAffStatusCode(
-        affiliation_manuell, 'radium', 'Det norske radiumhospital')
-    affiliation_manuell_rikshospital = _PersonAffStatusCode(
-        affiliation_manuell, 'rikshospital', 'Rikshospitalet')
-    affiliation_manuell_ulleval = _PersonAffStatusCode(
-        affiliation_manuell, 'ulleval', 'Ullevål')
-    affiliation_manuell_ahus = _PersonAffStatusCode(
-        affiliation_manuell, 'ahus', 'Ahus')
-    affiliation_manuell_notam2 = _PersonAffStatusCode(
-        affiliation_manuell, 'notam2', 'Notam2')
-    affiliation_manuell_biotek = _PersonAffStatusCode(
-        affiliation_manuell, 'biotek', 'The Biotechnology Centre of Oslo')
-    affiliation_manuell_cicero = _PersonAffStatusCode(
-        affiliation_manuell, 'cicero', 'Cicero')
-    affiliation_manuell_simula = _PersonAffStatusCode(
-        affiliation_manuell, 'simula', "Simula Research Laboratory")
-    affiliation_manuell_notur = _PersonAffStatusCode(
-        affiliation_manuell, 'notur', 'Notur')
-    affiliation_manuell_nikk = _PersonAffStatusCode(
-        affiliation_manuell, 'nikk',
-        'Norsk senter for kjønn- og kvinneforskning')
-    affiliation_manuell_gjest = _PersonAffStatusCode(
-        affiliation_manuell, 'gjest', 'Gjest')
-    affiliation_manuell_unirand = _PersonAffStatusCode(
-        affiliation_manuell, 'unirand', 'UniRand')
-    affiliation_manuell_ekst_person = _PersonAffStatusCode(
-        affiliation_manuell, 'ekst_person',
-        'Ekstern person (under utfasing)')
-    affiliation_manuell_spes_avt = _PersonAffStatusCode(
-        affiliation_manuell, 'spes_avt',
-        'Spesialavtale (under utfasing)')
-    affiliation_manuell_gjesteforsker = _PersonAffStatusCode(
-        affiliation_manuell, 'gjesteforsker',
-        'Gjesteforsker (under utfasing)')
-    affiliation_manuell_sivilarb = _PersonAffStatusCode(
-        affiliation_manuell, 'sivilarb',
-        'Sivilarbeider (under utfasing)')
-    affiliation_manuell_iss = _PersonAffStatusCode(
-        affiliation_manuell, 'iss',
-        'International summer school')
-    affiliation_manuell_kaja_kontrakt = _PersonAffStatusCode(
-        affiliation_manuell, 'kaja_kontrakt',
-        'Kaja kontrakt (under utfasing)')
-    affiliation_manuell_konsulent = _PersonAffStatusCode(
-        affiliation_manuell, 'konsulent',
-        'Konsulent (under utfasing)')
-    affiliation_manuell_inaktiv_student = _PersonAffStatusCode(
-        affiliation_manuell, 'inaktiv_student',
-        'Ikke-student med studentkonto i Ureg2000 (under utfasing)')
-    affiliation_manuell_inaktiv_ansatt = _PersonAffStatusCode(
-        affiliation_manuell, 'inaktiv_ansatt',
-        'Presumptivt ansatt uten noen registrering i LT')
-    affiliation_manuell_frisch = _PersonAffStatusCode(
-        affiliation_manuell, 'frisch', 'Frischsenteret')
-    affiliation_manuell_universitas = _PersonAffStatusCode(
-        affiliation_manuell, 'universitas', 'Universitas')
-    affiliation_manuell_vre = _PersonAffStatusCode(
-        affiliation_manuell, 'vre', 'Virtual research enviroment')
-    affiliation_manuell_osi = _PersonAffStatusCode(
-        affiliation_manuell, 'osi', 'Oslostudentenes Idrettsklubb')
     affiliation_manuell_ekstern = _PersonAffStatusCode(
         affiliation_manuell, 'ekstern',
         'Person tilknyttet enhet med avtale om begrensede IT-tilganger')
-
-    affiliation_upersonlig = _PersonAffiliationCode(
-        'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')
-    affiliation_upersonlig_felles = _PersonAffStatusCode(
-        affiliation_upersonlig, 'felles', 'Felleskonti')
-    affiliation_upersonlig_kurs = _PersonAffStatusCode(
-        affiliation_upersonlig, 'kurs', 'Kurskonti')
-    affiliation_upersonlig_pvare = _PersonAffStatusCode(
-        affiliation_upersonlig, 'pvare', 'Programvarekonti')
-    affiliation_upersonlig_term_maskin = _PersonAffStatusCode(
-        affiliation_upersonlig, 'term_maskin', 'Terminalstuemaskin')
-    affiliation_upersonlig_bib_felles = _PersonAffStatusCode(
-        affiliation_upersonlig, 'bib_felles', 'Bibliotek felles')
-    affiliation_upersonlig_uio_forening = _PersonAffStatusCode(
-        affiliation_upersonlig, 'uio_forening', 'Forening ved UiO')
 
     # We override the default settings for shells, thus this file
     # should be before PosixUser in cereconf.CLASS_CONSTANTS
