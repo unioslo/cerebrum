@@ -262,6 +262,18 @@ def process_mail():
         if isinstance(tmp,_CerebrumCode):
             num2const[int(tmp)]=tmp
 
+    # kbj005/V2017
+    # Cache email addresses from Caesar
+    logger.info("Caching all email addresses from Caesar")
+    with AccountBridge() as bridge:            
+        primary_emails_from_caesar = bridge.get_all_primary_emails()
+        email_aliases_from_caesar = bridge.get_all_email_aliases()
+
+    if (len(primary_emails_from_caesar) < 1) or (len(email_aliases_from_caesar) < 1):
+        logger.error("Problem when getting email addresses from Caesar. Cannot continue.")
+        return
+    # kbj005/V2017
+
     logger.info("Get all accounts with AD_account spread")
     count=0
     skipped=0
@@ -292,6 +304,10 @@ def process_mail():
     logger.debug("Caching primary mailaddrs")
     current_primaryemail=ac.getdict_uname2mailaddr(primary_only=True)
 
+    # kbj005/V2017
+    addr_expire = dict() # dict for storing expire date of email addresses - {<email-address> : <expire_date>}
+    # kbj005/V2017
+
     #variabled holding whoom shall we build emailaddrs for?
     all_emails = dict()
     new_primaryemail=dict()
@@ -304,15 +320,29 @@ def process_mail():
         logger.debug("old addrs=%s" % (old_addrs,))
         old_addrs_set=Set(old_addrs)
 
-        # kaj000/H2016
-        # collect email addresses from caesar instead of creating new ones
+        # kaj000/H2016 + kbj005/V2017
+        # use email addresses from caesar instead of creating new ones
         #should_have_addrs,new_primary_addr=calculate_uit_emails(uname,uit_account_affs.get(account_id))
 
-        with AccountBridge() as bridge:            
-            new_primary_addr = bridge.get_email(uname)
-            should_have_addrs = bridge.get_email_aliases(uname)
-                                                         
-                                                    
+        try:
+            new_primary_addr = primary_emails_from_caesar[uname]['email']
+        except KeyError:
+            logger.error("No primary email address found for %s. Skipping this account." % uname)
+            continue
+        
+        addr_expire[new_primary_addr] = primary_emails_from_caesar[uname]['expire_date']
+
+        should_have_addrs = list()
+        try:
+            alias_list = email_aliases_from_caesar[uname]
+        except KeyError:
+            # no aliases found for this account.
+            alias_list = list()
+
+        for a in alias_list:
+            should_have_addrs.append(a['email'])
+            addr_expire[a['email']] = a['expire_date']
+
         # Need to restructure the data a bit so we can compare correctly
         if new_primary_addr not in should_have_addrs:
             should_have_addrs.append(new_primary_addr)
@@ -385,7 +415,12 @@ def process_mail():
                     is_primary=True
             logger.debug("Set mailaddr %s/%s/%s/%s(%s)" % 
                 (account_id,exch_users[account_id],addr,is_primary,exchange_controlled))
-            emdb.process_mail(account_id,addr, is_primary=is_primary)
+
+            # kbj005/V2017
+            # include expire_date
+            # emdb.process_mail(account_id,addr, is_primary=is_primary)
+            emdb.process_mail(account_id,addr, is_primary=is_primary, expire_date = addr_expire[addr])
+            # kbj005/V2017
 
 
 def main():
