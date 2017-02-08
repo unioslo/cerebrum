@@ -1,3 +1,7 @@
+2017-02-08    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* OrgLDIF.py (OrgLDIFUiTMixin.update_org_object_entry): org rootnode need mail attribute
+
 2017-02-08  Karen   <cerebrum@metius.uit.no>
 
     * account_bridge.py: Added get_all_email_aliases().

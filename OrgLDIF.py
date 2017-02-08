@@ -83,7 +83,7 @@ class OrgLDIFUiTMixin(OrgLDIF):
             entry['eduOrgLegalName'] = (['Universitetet i Tromso','University of Tromsoe'])
         
         entry['norEduOrgNIN'] = (['NO970422528'])
-
+        entry['mail'] =(['postmottak@uit.no'])
 
     def update_ou_entry(self, entry):
         # Changes from superclass:
