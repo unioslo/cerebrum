@@ -214,6 +214,12 @@ class SAPConstants(Constants.Constants):
         "VIT"
     )
 
+    sap_1108_forsker = SAPLonnsTittelKode(
+        "20001108",
+        "1108 Forsker",
+        "VIT"
+    )
+
     # NMH er blitt informert om at 9999 er veldig spesiell.
     sap_9999_dummy_stillingskode = SAPLonnsTittelKode(
         "20009999",
