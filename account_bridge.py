@@ -204,7 +204,7 @@ class AccountBridge:
     # Returns a dict of all domain ids with their value.
     # Returns an empty dict if something goes wrong.
     # 
-    # Used by get_all_primary_emails()
+    # Used by get_all_primary_emails() and get_all_email_aliases()
     # 
     def get_domains(self, db_cursor):
         domains = dict()
@@ -226,7 +226,7 @@ class AccountBridge:
     # Returns username connected to a given target_id
     # Returns None if something goes wrong
     # 
-    # Used by get_all_primary_emails()
+    # Used by get_all_primary_emails() and get_all_email_aliases()
     # 
     def get_username_from_target_id(self, target_id, db_cursor):
         username = None
@@ -278,7 +278,7 @@ class AccountBridge:
                     # get username that has this email address
                     uname = self.get_username_from_target_id(target_id, cur)
                     if uname == None:
-                        logger.warn("Couldn't find username for email with target_id %s. Ignoring it." 
+                        logger.error("Couldn't find username for email with target_id %s. Ignoring it." 
                                     % target_id)
                         continue
 
@@ -348,3 +348,64 @@ class AccountBridge:
         return aliases
 
 
+    # get_all_email_aliases(self)
+    # 
+    # Returns a dict of all email aliases with username as key
+    # (format: {<username> : list of {'email' : <EMAIL ADDRESS>, 'expire_date' : <EXPIRE DATE>}})
+    # Returns an empty dict if something goes wrong.
+    # 
+    def get_all_email_aliases(self):
+        logger.info("Getting all email aliases.")
+        aliases = dict()
+
+        if self._db_conn:
+            cur = self._db_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            query = "SELECT ea.target_id, ea.local_part, ea.domain_id, ea.expire_date FROM email_address ea \
+                     LEFT JOIN email_primary_address epa ON epa.address_id = ea.address_id \
+                     WHERE epa.address_id is NULL ORDER BY ea.target_id;"
+            cur.execute(query)
+            rows = cur.fetchall()
+
+            # get all domains
+            domains = self.get_domains(cur)
+
+            if (rows != None) and (len(domains) > 0):
+                current_target_id = -1
+                uname = ''
+                for row in rows:
+                    email_info = dict()
+                    target_id = row['target_id']
+                    local_part = row['local_part']
+                    domain_id = row['domain_id']
+                    expire_date = row['expire_date']
+                    if expire_date != None:
+                        expire_date = expire_date.strftime("%Y-%m-%d")
+
+                    # build email address
+                    email = local_part + "@" + domains[domain_id]
+
+                    email_info['email'] = email
+                    email_info['expire_date'] = expire_date
+
+                    if target_id != current_target_id:
+                        current_target_id = target_id
+                        # get username that has this email alias
+                        uname = self.get_username_from_target_id(target_id, cur)
+                        if uname == None:
+                            logger.error("Couldn't find username for alias with target_id %s. Ignoring all aliases with this target_id." 
+                                        % target_id)
+                            continue
+
+                        # add username to the aliases dict
+                        aliases[uname] = list()
+                    else:
+                        if uname == None:
+                            # uname for this target_id could not be found, ignore this alias
+                            continue
+
+                    # add this email alias to aliases[uname]'s list of aliases
+                    aliases[uname].append(email_info)
+            logger.info("Finished getting email aliases for %s accounts." % len(aliases))
+        else:
+            logger.error("Couldn't get email aliases. No connection to %s database on %s." % (database, host))
+        return aliases
