@@ -695,9 +695,12 @@ class Build(object):
             user_mail_message = True
         else:
             acc_id=p_obj.get_account()
-    
-        acc_obj=accounts[acc_id]
 
+        if acc_id != None:
+            acc_obj=accounts[acc_id]
+        else:
+            # unable to find account object. return None
+            return None
         # check if account is a posix account
         if not acc_obj.get_posix():
             changes.append(('promote_posix',True))
