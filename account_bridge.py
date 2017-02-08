@@ -206,21 +206,42 @@ class AccountBridge:
     # 
     # Used by get_all_primary_emails()
     # 
-    def get_domains(self):
-        domains = dict() # dict of all domain ids with their value
-        if self._db_conn:
-            cur = self._db_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            query = "SELECT domain_id, domain FROM email_domain;"
-            cur.execute(query)
-            rows = cur.fetchall()
-            if rows != None:
-                for row in rows:
-                    domains[row["domain_id"]] = row["domain"]
-            else:
-                logger.error("Found no domains in database.")
+    def get_domains(self, db_cursor):
+        domains = dict()
+
+        query = "SELECT domain_id, domain FROM email_domain;"
+        db_cursor.execute(query)
+        rows = db_cursor.fetchall()
+
+        if rows != None:
+            for row in rows:
+                domains[row["domain_id"]] = row["domain"]
         else:
-            logger.error("Couldn't get domains. No connection to %s database on %s." % (database, host))
+            logger.error("Found no domains in database.")
+
         return domains
+
+    # get_username_from_target_id(self, target_id, db_cursor)
+    # 
+    # Returns username connected to a given target_id
+    # Returns None if something goes wrong
+    # 
+    # Used by get_all_primary_emails()
+    # 
+    def get_username_from_target_id(self, target_id, db_cursor):
+        username = None
+
+        query = "SELECT entity_name FROM entity_name \
+                 WHERE entity_id = \
+                    (SELECT target_entity_id FROM email_target \
+                     WHERE target_id = '%s');" % target_id
+        db_cursor.execute(query)
+        result = db_cursor.fetchone()
+
+        if result != None:
+            username = result['entity_name']
+
+        return username
 
     # get_all_primary_emails(self)
     # 
@@ -242,7 +263,7 @@ class AccountBridge:
             rows = cur.fetchall()
 
             # get all domains
-            domains = self.get_domains()
+            domains = self.get_domains(cur)
 
             if (rows != None) and len(domains) > 0:
                 for row in rows:
@@ -255,17 +276,10 @@ class AccountBridge:
                         expire_date = expire_date.strftime("%Y-%m-%d")
 
                     # get username that has this email address
-                    query = "SELECT entity_name FROM entity_name \
-                             WHERE entity_id IN \
-                                (SELECT target_entity_id FROM email_target \
-                                 WHERE target_id = '%s');" % target_id
-                    cur.execute(query)
-                    result = cur.fetchone()
-                    if result != None:
-                        uname = result['entity_name']
-                    else:
+                    uname = self.get_username_from_target_id(target_id, cur)
+                    if uname == None:
                         logger.warn("Couldn't find username for email with target_id %s. Ignoring it." 
-                                    % (target_id, local_part,  domain_id))
+                                    % target_id)
                         continue
 
                     # build email address

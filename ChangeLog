@@ -1,7 +1,10 @@
 2017-02-08  Karen   <cerebrum@metius.uit.no>
 
-    * account_bridge.py: Changed name of get_all_emails() to get_all_primary_emails() and moved code 
-    for getting information about domains into separate method, get_domains().
+    * account_bridge.py (get_all_primary_emails): Changed name of get_all_emails() to get_all_primary_emails() 
+    and moved code for getting information about domains into separate method, get_domains().
+
+    * account_bridge.py (get_all_primary_emails): Moved code for getting username for a given target id into 
+    separate method, get_username_from_target_id().
 
 2017-02-07  Karen   <cerebrum@metius.uit.no>
 
