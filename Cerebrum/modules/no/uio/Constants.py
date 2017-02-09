@@ -171,9 +171,6 @@ class Constants(Constants.Constants):
         affiliation_manuell, 'ekstern',
         'Person tilknyttet enhet med avtale om begrensede IT-tilganger')
 
-    affiliation_upersonlig = _PersonAffiliationCode(
-        'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')
-
     # We override the default settings for shells, thus this file
     # should be before PosixUser in cereconf.CLASS_CONSTANTS
 
