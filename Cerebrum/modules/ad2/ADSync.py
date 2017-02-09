@@ -3125,53 +3125,6 @@ class MailTargetSync(BaseSync):
                 ent.maildata['quota_hard'] = row['quota_hard']
 
 
-class MailListSync(BaseSync):
-
-    """Sync for Cerebrum mail lists in AD.
-
-    This contains generic functionality for handling mailing lists for AD, to
-    add more functionality you need to subclass this.
-
-    """
-
-    default_ad_object_class = 'contact'
-
-    def __init__(self, *args, **kwargs):
-        """Instantiate Mail Lists specific functionality."""
-        super(MailListSync, self).__init__(*args, **kwargs)
-        self.mailtarget = Email.EmailTarget(self.db)
-        self.rewrite = Email.EmailDomain(self.db).rewrite_special_domains
-
-    def fetch_cerebrum_entities(self):
-        """Fetch the mailing lists information from Cerebrum,
-        that should be compared against AD.
-
-        The configuration is used to know what to cache. All data is put in a
-        list, and each entity is put into an object from
-        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it
-        easier to later compare with AD objects.
-
-        Could be subclassed to fetch more data about each entity to support
-        extra functionality from AD and to override settings.
-
-        """
-        self.logger.debug("Fetching mailing lists information")
-        subset = self.config.get('subset')
-        for row in self.mailtarget.list_email_target_primary_addresses(
-                target_type=self.co.email_target_Mailman):
-            # Filter admin and request mailing lists
-            if row['local_part'].endswith('-admin') or \
-               row['local_part'].endswith('-request'):
-                continue
-            name = ("@".join((row['local_part'], self.rewrite(row['domain']))))
-            # For testing or special cases where we only want to sync a subset
-            # of entities. The subset should contain the entity names, e.g.
-            # usernames or group names.
-            if subset and name not in subset:
-                continue
-            self.entities[name] = self.cache_entity(int(row["target_id"]), name)
-
-
 class ProxyAddressesCompare(BaseSync):
 
     """Entities that have ProxyAddresses attribute should have a special
@@ -3199,4 +3152,3 @@ class ProxyAddressesCompare(BaseSync):
             return (to_add or to_remove, list(to_add), list(to_remove))
         return super(ProxyAddressesCompare, self).attribute_mismatch(ent, atr,
                                                                      c, a)
-

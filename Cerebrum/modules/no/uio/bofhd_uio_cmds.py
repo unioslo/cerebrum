@@ -114,17 +114,6 @@ class UiOAuth(BofhdAuth):
 
     can_rt_delete = can_rt_create
 
-    def can_rt_replace_mailman(self, operator, domain=None,
-                               query_run_any=False):
-        if self.is_superuser(operator, query_run_any):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(operator,
-                                                      self.const.auth_rt_replace)
-        return self._query_maildomain_permissions(operator,
-                                                  self.const.auth_rt_replace,
-                                                  domain, None)
-
     def can_rt_address_add(self, operator, domain=None, query_run_any=False):
         if self.is_superuser(operator, query_run_any):
             return True
@@ -1544,24 +1533,7 @@ class BofhdExtension(BofhdCommonMethods):
         ("Hidden addr list: %s",
          ('hidden', )),
         #
-        # target_type == Mailman
-        #
-        ("Mailing list:     %s",
-         ("mailman_list", )),
-        ("Alias:            %s",
-         ("mailman_alias_1", )),
-        ("                  %s",
-         ("mailman_alias", )),
-        ("Request address:  %s",
-         ("mailman_mailcmd_1", )),
-        ("                  %s",
-         ("mailman_mailcmd", )),
-        ("Owner address:    %s",
-         ("mailman_mailowner_1", )),
-        ("                  %s",
-         ("mailman_mailowner", )),
-        #
-        # target_type == Sympa. Looks like mailman, but has more attributes.
+        # target_type == Sympa
         #
         ("Mailing list:     %s",
          ("sympa_list",)),
@@ -1619,7 +1591,7 @@ class BofhdExtension(BofhdCommonMethods):
         ("                  %s (%s)",
          ("fw_addr", "fw_enable")),
         #
-        # both account and Mailman/Sympa
+        # both account and Sympa
         #
         ("Spam level:       %s (%s)\nSpam action:      %s (%s)",
          ("spam_level", "spam_level_desc", "spam_action", "spam_action_desc")),
@@ -1650,24 +1622,15 @@ class BofhdExtension(BofhdCommonMethods):
         ttype_name = str(self.const.EmailTarget(ttype))
 
         ret = []
-        # exchange-relatert-jazz
 
-        # will allow target_type and target_id to be shown for
-        # accounts also when account is not deleted. This will double
-        # target_type information, but will allow use of same code for
-        # getting and showing target_id
-        #
-        # if ttype not in (self.const.email_target_account,
-        if ttype not in (self.const.email_target_Mailman,
-                         self.const.email_target_Sympa,
+        if ttype not in (self.const.email_target_Sympa,
                          self.const.email_target_pipe,
                          self.const.email_target_RT,
-                         # exchange-relatert-jazz
-                         # make sure dl-group is a recognized
-                         # target type
                          self.const.email_target_dl_group):
-            ret += [ {'target_type': ttype_name,
-                      'target_id': et.entity_id } ]
+            ret += [
+                {'target_type': ttype_name,
+                 'target_id': et.entity_id, }
+            ]
 
         epat = Email.EmailPrimaryAddressTarget(self.db)
         try:
@@ -1681,8 +1644,7 @@ class BofhdExtension(BofhdCommonMethods):
             if ttype != self.const.email_target_dl_group:
                 ret.append({'def_addr': self._get_address(epat)})
 
-        if ttype not in (self.const.email_target_Mailman,
-                         self.const.email_target_Sympa,
+        if ttype not in (self.const.email_target_Sympa,
                          # exchange-relatert-jazz
                          # drop fetching valid addrs,
                          # it's done in a proper place latter
@@ -1695,12 +1657,8 @@ class BofhdExtension(BofhdCommonMethods):
             for addr in addrs[1:]:
                 ret.append({"valid_addr": addr})
 
-        if ttype == self.const.email_target_Mailman:
-            ret += self._email_info_mailman(name, et)
-        elif ttype == self.const.email_target_Sympa:
+        if ttype == self.const.email_target_Sympa:
             ret += self._email_info_sympa(operator, name, et)
-        # exchange-relatert-jazz
-        # get data necessary for dist groups
         elif ttype == self.const.email_target_dl_group:
             ret += self._email_info_dlgroup(name)
         elif ttype == self.const.email_target_multi:
@@ -1794,8 +1752,7 @@ class BofhdExtension(BofhdCommonMethods):
     def _email_info_basic(self, acc, et):
         info = {}
         data = [ info ]
-        if (et.email_target_type not in (self.const.email_target_Mailman,
-                                         self.const.email_target_Sympa) and
+        if (et.email_target_type != self.const.email_target_Sympa and
             et.email_target_alias is not None):
             info['alias_value'] = et.email_target_alias
         info["account"] = acc.account_name
@@ -1926,19 +1883,6 @@ class BofhdExtension(BofhdCommonMethods):
                 info.append({'forward': forw[idx]})
         return info
 
-    # The first address in the list becomes the primary address.
-    _interface2addrs = {
-        'post': ["%(local_part)s@%(domain)s"],
-        'mailcmd': ["%(local_part)s-request@%(domain)s"],
-        'mailowner': ["%(local_part)s-owner@%(domain)s",
-                      "%(local_part)s-admin@%(domain)s",
-                      "owner-%(local_part)s@%(domain)s"]
-        }
-    _mailman_pipe = "|/local/Mailman/mail/wrapper %(interface)s %(listname)s"
-    _mailman_patt = r'\|/local/Mailman/mail/wrapper (\S+) (\S+)$'
-
-    # exchange-relatert-jazz
-    # fetch necessary dist group info
     def _email_info_dlgroup(self, groupname):
         et, dl_group = self._get_email_target_and_dlgroup(groupname)
         ret = []
@@ -1954,65 +1898,6 @@ class BofhdExtension(BofhdCommonMethods):
                 continue
             ret.append({x: tmpret[x]})
         return ret
-
-    def _email_info_mailman(self, addr, et):
-        m = re.match(self._mailman_patt, et.email_target_alias)
-        if not m:
-            raise CerebrumError, ("Unrecognised pipe command for Mailman list:"+
-                                  et.email_target_alias)
-        # We extract the official list name from the pipe command.
-        interface, listname = m.groups()
-        ret = [{'mailman_list': listname}]
-        if listname.count('@') == 0:
-            lp = listname
-            dom = addr.split('@')[1]
-        else:
-            lp, dom = listname.split('@')
-        ed = Email.EmailDomain(self.db)
-        ed.find_by_domain(dom)
-        ea = Email.EmailAddress(self.db)
-        try:
-            ea.find_by_local_part_and_domain(lp, ed.entity_id)
-        except Errors.NotFoundError:
-            raise CerebrumError, ("Address %s exists, but the list it points "
-                                  "to, %s, does not") % (addr, listname)
-        # now find all e-mail addresses
-        # NB! Do NOT overwrite et (it's used in email_info after calling
-        # _email_info_mailman)
-        et_mailman = Email.EmailTarget(self.db)
-        et_mailman.clear()
-        et_mailman.find(ea.email_addr_target_id)
-        addrs = self._get_valid_email_addrs(et_mailman, sort=True)
-        ret += self._email_info_forwarding(et_mailman, addrs)
-        aliases = []
-        for r in et_mailman.get_addresses():
-            a = "%(local_part)s@%(domain)s" % r
-            if a == listname:
-                continue
-            aliases.append(a)
-        if aliases:
-            ret.append({'mailman_alias_1': aliases[0]})
-            for idx in range(1, len(aliases)):
-                ret.append({'mailman_alias': aliases[idx]})
-        # all administrative addresses
-        for iface in ('mailcmd', 'mailowner'):
-            try:
-                et_mailman.clear()
-                et_mailman.find_by_alias(self._mailman_pipe %
-                                         {'interface': iface,
-                                          'listname': listname})
-                addrs = et_mailman.get_addresses()
-                if addrs:
-                    ret.append({'mailman_' + iface + '_1':
-                                '%(local_part)s@%(domain)s' % addrs[0]})
-                    for idx in range(1, len(addrs)):
-                        ret.append({'mailman_' + iface:
-                                    '%(local_part)s@%(domain)s' % addrs[idx]})
-            except Errors.NotFoundError:
-                pass
-        return ret
-    # end _email_info_mailman
-
 
     def _email_info_sympa(self, operator, addr, et):
         """Collect Sympa-specific information for a ML L{addr}."""
@@ -2727,8 +2612,7 @@ class BofhdExtension(BofhdCommonMethods):
         et, addr = self._get_email_target_and_address(address)
         esf = Email.EmailSpamFilter(self.db)
         all_targets = [et.entity_id]
-        if target_type in (self.const.email_target_Mailman,
-                           self.const.email_target_Sympa):
+        if target_type == self.const.email_target_Sympa:
             all_targets = self._get_all_related_maillist_targets(addr.get_address())
         elif target_type == self.const.email_target_RT:
             all_targets = self._get_all_related_rt_targets(addr.get_address())
@@ -2751,8 +2635,7 @@ class BofhdExtension(BofhdCommonMethods):
         et, addr = self._get_email_target_and_address(address)
         etf = Email.EmailTargetFilter(self.db)
         all_targets = [et.entity_id]
-        if target_type in (self.const.email_target_Mailman,
-                           self.const.email_target_Sympa):
+        if target_type == self.const.email_target_Sympa:
             all_targets = self._get_all_related_maillist_targets(addr.get_address())
         elif target_type == self.const.email_target_RT:
             all_targets = self._get_all_related_rt_targets(addr.get_address())
@@ -2864,8 +2747,6 @@ class BofhdExtension(BofhdCommonMethods):
                        self.const.bofh_sympa_create, list_id, ea.entity_id,
                        state_data=pickle.dumps(state))
         return "OK, sympa list '%s' created" % listname
-    # end email_sympa_create_list
-
 
     all_commands['email_create_sympa_cerebrum_list'] = Command(
         ("email", "create_sympa_cerebrum_list"),
@@ -2888,8 +2769,6 @@ class BofhdExtension(BofhdCommonMethods):
                                                   delivery_host,
                                                   listname)
         return "OK, sympa list '%s' created in cerebrum only" % listname
-    # end email_create_sympa_cerebrum_list
-
 
     def _create_mailing_list_in_cerebrum(self, operator, target_type,
                                          delivery_host, listname, force=False):
@@ -2950,9 +2829,7 @@ class BofhdExtension(BofhdCommonMethods):
 
         # Finally, we can start registering useful stuff
         # Register all relevant addresses for the list...
-        if target_type == self.const.email_target_Mailman:
-            self._register_mailman_list_addresses(listname, local_part, domain)
-        elif target_type == self.const.email_target_Sympa:
+        if target_type == self.const.email_target_Sympa:
             self._register_sympa_list_addresses(listname, local_part, domain,
                                                 delivery_host)
         else:
@@ -2960,7 +2837,6 @@ class BofhdExtension(BofhdCommonMethods):
         # register auto spam and filter settings for the list
         self._register_spam_settings(listname, target_type)
         self._register_filter_settings(listname, target_type)
-    # end _create_mailing_list_in_cerebrum
 
     # email create_sympa_list_alias <list-address> <new-alias>
     all_commands['email_create_sympa_list_alias'] = Command(
@@ -2995,46 +2871,36 @@ class BofhdExtension(BofhdCommonMethods):
         return self._create_list_alias(operator, listname, address,
                                        self.const.email_target_Sympa,
                                        delivery_host, force_alias=force)
-    # end email_create_sympa_list_alias
-
 
     def _create_list_alias(self, operator, listname, address, list_type,
                            delivery_host, force_alias=False):
-        """Create an alias L{address} for an existing ml L{listname}.
+        """Create an alias `address` for an existing mailing list `listname`.
 
-        @type listname: basestring
-        @param listname:
-          Email address for an existing mailing list. This is the ML we are
-          aliasing.
+        :type listname: basestring
+        :param listname:
+            Email address for an existing mailing list. This is the mailing
+            list we are aliasing.
 
-        @type address: basestring
-        @param address:
-          Email address which will be the alias.
+        :type address: basestring
+        :param address: Email address which will be the alias.
 
-        @type list_type: _EmailTargetCode instance
-        @param list_type:
-          List type we are processing. Two types are supported today
-          (2008-08-06) -- mailman and sympa.
+        :type list_type: _EmailTargetCode instance
+        :param list_type: List type we are processing.
 
-        @type delivery_host: EmailServer instance or None.
-        @param delivery_host:
+        :type delivery_host: EmailServer instance or None.
+        :param delivery_host:
           Host where delivery to the mail alias happens. It is the
           responsibility of the caller to check that this value makes sense in
           the context of the specified mailing list.
         """
 
-        if list_type not in (self.const.email_target_Sympa,
-                             self.const.email_target_Mailman):
+        if list_type != self.const.email_target_Sympa:
             raise CerebrumError("Unknown list type %s for list %s" %
                                 (self.const.EmailTarget(list_type), listname))
-
         lp, dom = self._split_email_address(address)
         ed = self._get_email_domain(dom)
         self.ba.can_email_list_create(operator.get_entity_id(), ed)
-        if list_type == self.const.email_target_Mailman:
-            self._check_mailman_official_name(listname)
-        else:
-            self._validate_sympa_list(listname)
+        self._validate_sympa_list(listname)
         if not force_alias:
             try:
                 self._get_account(lp)
@@ -3043,17 +2909,8 @@ class BofhdExtension(BofhdCommonMethods):
             else:
                 raise CerebrumError, ("Won't create list-alias %s, as %s is an "
                                       "existing username") % (address, lp)
-        # we _don't_ check for "more than 8 characters in local
-        # part OR it contains hyphen" since we assume the people
-        # who have access to this command know what they are doing
-        if list_type == self.const.email_target_Mailman:
-            self._register_mailman_list_addresses(listname, lp, dom)
-        elif list_type == self.const.email_target_Sympa:
-            self._register_sympa_list_addresses(listname, lp, dom,
-                                                delivery_host)
-
+        self._register_sympa_list_addresses(listname, lp, dom, delivery_host)
         return "OK, list-alias '%s' created" % address
-    # end _create_list_alias
 
     def _report_deleted_EA(self, deleted_EA):
         """Send a message to postmasters informing them that a number of email
@@ -3152,7 +3009,6 @@ Addresses and settings:
             # well.
             self._remove_email_address(et, addr)
         return "OK, removed alias %s and all auto registered aliases" % alias
-    # end email_remove_sympa_list_alias
 
     # email delete_sympa_list <run-host> <list-address>
     all_commands['email_delete_sympa_list'] = Command(
@@ -3242,8 +3098,6 @@ Addresses and settings:
                        list_id, None, state_data=pickle.dumps(state))
 
         return "OK, sympa list '%s' deleted (bofhd request issued)" % listname
-    # end email_delete_sympa_list
-
 
     def _split_email_address(self, addr, with_checks=True):
         """Split an e-mail address into local part and domain.
@@ -3283,36 +3137,16 @@ Addresses and settings:
             raise CerebrumError, "Invalid localpart '%s'" % lp
         return lp, dom
 
-    def _get_mailman_list(self, listname):
-        """Returns the official name for the list, or raise an error
-        if listname isn't a Mailman list."""
-        try:
-            ea = Email.EmailAddress(self.db)
-            ea.find_by_address(listname)
-        except Errors.NotFoundError:
-            raise CerebrumError, "No such mailman list %s" % listname
-        et = Email.EmailTarget(self.db)
-        et.find(ea.get_target_id())
-        if not et.email_target_alias:
-            raise CerebrumError, "%s isn't a Mailman list" % listname
-        m = re.match(self._mailman_patt, et.email_target_alias)
-        if not m:
-            raise CerebrumError, ("Unrecognised pipe command for Mailman list:"+
-                                  et.email_target_alias)
-        return m.group(2)
-
     def _validate_sympa_list(self, listname):
-        """Check whether L{listname} is the 'official' name for a sympa ML.
+        """Check whether `listname` is the 'official' name for a Sympa mailing
+        list.
 
         Raise an error, if it is not.
         """
-
         if self._get_sympa_list(listname) != listname:
             raise CerebrumError("%s is NOT the official Sympa list name" %
                                 listname)
         return listname
-    # end _validate_sympa_list
-
 
     def _get_sympa_list(self, listname):
         """Try to return the 'official' sympa mailing list name, if it can at
@@ -3413,7 +3247,6 @@ Addresses and settings:
                 pass
 
         raise not_sympa_error
-    # end _get_sympa_list
 
     def _get_all_related_maillist_targets(self, address):
         """This method locates and returns all ETs associated with the same ML.
@@ -3446,10 +3279,7 @@ Addresses and settings:
         ml2action = {
             int(self.const.email_target_Sympa):
                 (self._get_sympa_list, [x[0] for x in self._sympa_addr2alias]),
-            int(self.const.email_target_Mailman):
-                (self._get_mailman_list,
-                 [x[0] for x in self._interface2addrs.values()])
-            }
+        }
 
         if int(et.email_target_type) not in ml2action:
             raise CerebrumError("'%s' is not associated with a mailing list" %
@@ -3483,9 +3313,6 @@ Addresses and settings:
             result.add(ea.get_target_id())
 
         return result
-    # end _get_all_related_maillist_targets
-
-
 
     def _is_ok_mailing_list_name(self, localpart):
         # originally this regexp was:^[a-z0-9.-]. postmaster however
@@ -3499,68 +3326,6 @@ Addresses and settings:
         if len(localpart) > 8 or localpart.count('-') or localpart == 'drift':
             return True
         return False
-
-    def _register_mailman_list_addresses(self, listname, lp, dom):
-        """Add list, owner and request addresses.  listname is a mailing list
-        name, which may be different from lp@dom, which is the basis for the
-        local parts and domain of the addresses which should be added."""
-
-        ed = Email.EmailDomain(self.db)
-        ed.find_by_domain(dom)
-
-        et = Email.EmailTarget(self.db)
-        ea = Email.EmailAddress(self.db)
-        epat = Email.EmailPrimaryAddressTarget(self.db)
-        try:
-            ea.find_by_local_part_and_domain(lp, ed.entity_id)
-        except Errors.NotFoundError:
-            pass
-        else:
-            raise CerebrumError, ("The address %s@%s is already in use" %
-                                  (lp, dom))
-
-        mailman = self._get_account("mailman", actype="PosixUser")
-
-        for interface in self._interface2addrs.keys():
-            targ = self._mailman_pipe % { 'interface': interface,
-                                          'listname': listname }
-            found_target = False
-            for addr_format in self._interface2addrs[interface]:
-                addr = addr_format % {'local_part': lp,
-                                      'domain': dom}
-                addr_lp, addr_dom = addr.split('@')
-                # all addresses are in same domain, do an EmailDomain
-                # lookup here if  _interface2addrs changes:
-                try:
-                    ea.clear()
-                    ea.find_by_local_part_and_domain(addr_lp,
-                                                     ed.entity_id)
-                    raise CerebrumError, ("Can't add list %s, as the "
-                                          "address %s is already in use"
-                                          ) % (listname, addr)
-                except Errors.NotFoundError:
-                    pass
-                if not found_target:
-                    et.clear()
-                    try:
-                        et.find_by_alias_and_account(targ, mailman.entity_id)
-                    except Errors.NotFoundError:
-                        et.populate(self.const.email_target_Mailman,
-                                    alias=targ, using_uid=mailman.entity_id)
-                        et.write_db()
-                ea.clear()
-                ea.populate(addr_lp, ed.entity_id, et.entity_id)
-                ea.write_db()
-                if not found_target:
-                    epat.clear()
-                    try:
-                        epat.find(et.entity_id)
-                    except Errors.NotFoundError:
-                        epat.clear()
-                        epat.populate(ea.entity_id, parent=et)
-                        epat.write_db()
-                    found_target = True
-
 
     # aliases that we must create for each sympa mailing list.
     # request,editor,-owner,subscribe,unsubscribe all come from sympa
@@ -3595,25 +3360,25 @@ Addresses and settings:
         """Add list, request, editor, owner, subscribe and unsubscribe
         addresses to a sympa mailing list.
 
-        @type listname: basestring
-        @param listname:
+        :type listname: basestring
+        :param listname:
           Sympa listname that the operation is about. listname is typically
           different from local_part@domain when we are creating an
           alias. local_part@domain is the alias, listname is the original
           listname. And since aliases should point to the 'original' ETs, we
           have to use listname to locate the ETs.
 
-        @type local_part: basestring
-        @param local_part: See domain
+        :type local_part: basestring
+        :param local_part: See domain
 
-        @type domain: basestring
-        @param domain:
-          L{local_part} and domain together represent a new list address that
+        :type domain: basestring
+        :param domain:
+          `local_part` and `domain` together represent a new list address that
           we want to create.
 
         @type delivery_host: EmailServer instance.
         @param delivery_host:
-          EmailServer where e-mail to L{listname} is to be delivered through.
+          EmailServer where e-mail to `listname` is to be delivered through.
         """
 
         if (delivery_host.email_server_type !=
@@ -3816,15 +3581,7 @@ Addresses and settings:
         except CerebrumError:
             pass
         else:
-            if et.email_target_type == self.const.email_target_Mailman:
-                self.ba.can_rt_replace_mailman(op, domain=rt_dom)
-                if not self._get_boolean(force):
-                    raise CerebrumError, ("Address <%s> is an existing mailing "
-                                          "list, please use force" % addr)
-                replaced_lists = [x['address'] for x in
-                                  self._email_delete_list(op, addr, ea)]
-            else:
-                raise CerebrumError, "Address <%s> is in use" % addr
+            raise CerebrumError, "Address <%s> is in use" % addr
         acc = self._get_account("exim")
         et = Email.EmailTarget(self.db)
         ea = Email.EmailAddress(self.db)
@@ -4320,12 +4077,11 @@ Addresses and settings:
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
 
         target_ids = [et.entity_id]
-        if int(et.email_target_type) in (self.const.email_target_Mailman,
-                                         self.const.email_target_Sympa):
+        if et.email_target_type == self.const.email_target_Sympa:
             # The only way we can get here is if uname is actually an e-mail
             # address on its own.
             target_ids = self._get_all_related_maillist_targets(address)
-        elif int(et.email_target_type) == (self.const.email_target_RT):
+        elif et.email_target_type == self.const.email_target_RT:
             target_ids = self._get_all_related_rt_targets(address)
         for target_id in target_ids:
             try:
@@ -4342,7 +4098,6 @@ Addresses and settings:
                 etf.populate(filter_code, parent=et)
                 etf.write_db()
         return "Ok, registered filter %s for %s" % (filter, address)
-    # end email_add_filter
 
     # email remove_filter filter address
     all_commands['email_remove_filter'] = Command(
@@ -4360,12 +4115,11 @@ Addresses and settings:
         etf = Email.EmailTargetFilter(self.db)
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
         target_ids = [et.entity_id]
-        if int(et.email_target_type) in (self.const.email_target_Mailman,
-                                         self.const.email_target_Sympa):
+        if et.email_target_type == self.const.email_target_Sympa:
             # The only way we can get here is if uname is actually an e-mail
             # address on its own.
             target_ids = self._get_all_related_maillist_targets(address)
-        elif int(et.email_target_type) == (self.const.email_target_RT):
+        elif et.email_target_type == self.const.email_target_RT:
             target_ids = self._get_all_related_rt_targets(address)
         processed = list()
         for target_id in target_ids:
@@ -4397,15 +4151,10 @@ Addresses and settings:
         """Set the spam level for the EmailTarget associated with username.
         It is also possible for super users to pass the name of other email
         targets."""
-        codes = self.const.fetch_constants(self.const.EmailSpamLevel,
-                                           prefix_match=level)
-        if len(codes) == 1:
-           levelcode = codes[0]
-        elif len(codes) == 0:
-           raise CerebrumError, "Spam level code not found: %s" % level
-        else:
-           raise CerebrumError, ("'%s' does not uniquely identify a spam "+
-                                 "level") % level
+        try:
+            levelcode = int(self.const.EmailSpamLevel(level))
+        except Errors.NotFounderror:
+            raise CerebrumError("Spam level code not found: {}".format(level))
         try:
             et, acc = self._get_email_target_and_account(name)
         except CerebrumError, e:
@@ -4425,10 +4174,9 @@ Addresses and settings:
         target_ids = [et.entity_id]
         # The only way we can get here is if uname is actually an e-mail
         # address on its own.
-        if int(et.email_target_type) in (self.const.email_target_Mailman,
-                                         self.const.email_target_Sympa):
+        if et.email_target_type == self.const.email_target_Sympa:
            target_ids = self._get_all_related_maillist_targets(name)
-        elif int(et.email_target_type) == self.const.email_target_RT:
+        elif et.email_target_type == self.const.email_target_RT:
            targets_ids = self._get_all_related_rt_targets(name)
 
         for target_id in target_ids:
@@ -4448,17 +4196,8 @@ Addresses and settings:
            esf.write_db()
 
         return "OK, set spam-level for '%s'" % name
-    # end email_spam_level
-
 
     # email spam_action <action> <uname>+
-    #
-    # (This code is cut'n'paste of email_spam_level(), only the call
-    # to populate() had to be fixed manually.  It's hard to fix this
-    # kind of code duplication cleanly.)
-    # exchange-relatert-jazz
-    # made it possible to use this cmd for adding spam_action
-    # to dist group targets
     all_commands['email_spam_action'] = Command(
         ('email', 'spam_action'),
         SimpleString(help_ref='spam_action'),
@@ -4468,15 +4207,11 @@ Addresses and settings:
         """Set the spam action for the EmailTarget associated with username.
         It is also possible for super users to pass the name of other email
         targets."""
-        codes = self.const.fetch_constants(self.const.EmailSpamAction,
-                                           prefix_match=action)
-        if len(codes) == 1:
-            actioncode = codes[0]
-        elif len(codes) == 0:
-            raise CerebrumError, "Spam action code not found: %s" % action
-        else:
-            raise CerebrumError, ("'%s' does not uniquely identify a spam "+
-                                  "action") % action
+        try:
+            actioncode = int(self.const.EmailSpamAction(action))
+        except Errors.NotFounderror:
+            raise CerebrumError(
+                "Spam action code not found: {}".format(action))
         try:
             et, acc = self._get_email_target_and_account(name)
         except CerebrumError, e:
@@ -4496,10 +4231,9 @@ Addresses and settings:
         target_ids = [et.entity_id]
         # The only way we can get here is if uname is actually an e-mail
         # address on its own.
-        if int(et.email_target_type) in (self.const.email_target_Mailman,
-                                         self.const.email_target_Sympa):
+        if et.email_target_type == self.const.email_target_Sympa:
             target_ids = self._get_all_related_maillist_targets(name)
-        elif int(et.email_target_type) == self.const.email_target_RT:
+        elif et.email_target_type == self.const.email_target_RT:
             target_ids = self._get_all_related_rt_targets(name)
 
         for target_id in target_ids:
@@ -4520,8 +4254,6 @@ Addresses and settings:
             esf.write_db()
 
         return "OK, set spam-action for '%s'" % name
-    # end email_spam_action
-
 
     # email tripnote on|off <uname> [<begin-date>]
     all_commands['email_tripnote'] = Command(
@@ -6586,10 +6318,7 @@ Addresses and settings:
                         self.const.bofh_email_delete):
                 dest = self._get_entity_name(r['destination_id'],
                                              self.const.entity_host)
-            elif op in (self.const.bofh_mailman_create,
-                        self.const.bofh_mailman_add_admin,
-                        self.const.bofh_mailman_remove,
-                        self.const.bofh_sympa_create,
+            elif op in (self.const.bofh_sympa_create,
                         self.const.bofh_sympa_remove):
                 ea = Email.EmailAddress(self.db)
                 if r['destination_id'] is not None:
@@ -9944,7 +9673,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             return es
         except Errors.NotFoundError:
             raise CerebrumError, "Unknown mail server: %s" % name
-    # end _get_email_server
 
     def _get_host(self, name):
         host = Utils.Factory.get('Host')(self.db)
@@ -10048,7 +9776,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                     except Errors.NotFoundError:
                         pass
         elif arg.find("-") != -1:
-            # finn personer på fødselsdato
             ret = person.find_persons_by_bdate(self._parse_date(arg))
 
         else:
@@ -10364,8 +10091,7 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                     msg += ", " + f
         by = row['change_program'] or self._get_entity_name(row['change_by'])
         return {'timestamp': row['tstamp'],
-                'change_by': (row['change_program'] or
-                              self._get_entity_name(row['change_by'])),
+                'change_by': by,
                 'message': msg}
 
     def _convert_ticks_to_timestamp(self, ticks):
@@ -10387,4 +10113,3 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             return date.strftime("%Y-%m-%dT%H:%M:%S")
 
         return str(date)
-    # end _date_human_readable

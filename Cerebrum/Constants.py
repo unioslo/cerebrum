@@ -882,19 +882,18 @@ class _ChangeTypeCode(_CerebrumCode):
 
 
 class ConstantsBase(DatabaseAccessor):
-
     def __iterate_constants(self, const_type=None):
         """Iterate all of constants within this constants proxy object.
 
         This is a convenience method for internal usage.
 
-        @type const_type: class or a sequence thereof
-        @param const_type:
+        :type const_type: class or a sequence thereof
+        :param const_type:
           Wanted constant types. This gives us a possibility to iterate, say,
           only EntityType constant objects.
 
-        @rtype: generator
-        @return:
+        :rtype: generator
+        :return:
           A generator yielding (in random order) constants of the specified
           type. If no type is specified, all constants will be yielded.
         """
@@ -906,27 +905,25 @@ class ConstantsBase(DatabaseAccessor):
             attribute = getattr(self, name)
             if isinstance(attribute, const_type):
                 yield attribute
-    # end __iterate_constants
 
     def map_const(self, code):
         """Returns the Constant object as a reverse lookup on integer code.
 
-        @param code:
+        :param int code:
           Constant's integer value.
 
-        @rtype: _CerebrumCode instance or None.
-        @return:
+        :rtype: _CerebrumCode instance or None.
+        :return:
           A _CerebrumCode instance (i.e. a constant object) the integer code
-          of which matches L{code}. If no match is found, return None.
+          of which matches `code`. If no match is found, return None.
         """
 
         for const_obj in self.__iterate_constants():
             if int(const_obj) == code:
                 return const_obj
         return None
-    # end map_const
 
-    def initialize(self, update=True, delete=False):
+    def _get_dependency_order(self):
         # {dependency1: {class: [object1, ...]},
         #  ...}
         order = {}
@@ -940,6 +937,22 @@ class ConstantsBase(DatabaseAccessor):
                 if cls not in order[dep]:
                     order[dep][cls] = {}
                 order[dep][cls][str(attr)] = attr
+        return order
+
+    def _get_superfluous_codes(self):
+        order = self._get_dependency_order()
+        root = None
+        for cls in order[root].keys():
+            rows = self._db.query("SELECT * FROM {}".format(cls._lookup_table))
+            table_vals = [int(r[cls._lookup_code_column]) for r in rows]
+            code_vals = [int(x) for x in order[root][cls].values()]
+            for code in table_vals:
+                if code not in code_vals:
+                    name = str(cls(code))
+                    yield cls, code, name
+
+    def initialize(self, update=True, delete=False):
+        order = self._get_dependency_order()
         if None not in order:
             raise ValueError("All code values have circular dependencies.")
         stats = {'total': 0, 'inserted': 0, 'updated': 0, 'details': []}
@@ -1022,7 +1035,6 @@ class ConstantsBase(DatabaseAccessor):
                 clist.append(const_obj)
 
         return clist
-    # end fetch_constants
 
     def cache_constants(self):
         u""" Do a lookup on every constant, to cause caching of values. """
@@ -1081,8 +1093,6 @@ class ConstantsBase(DatabaseAccessor):
             if not isinstance(obj, const_type):
                 obj = None
         return obj
-    # end human2constant
-# end ConstantsBase
 
 
 class CoreConstants(ConstantsBase):

@@ -116,6 +116,7 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], 'dc:h',
                                    ['debug', 'help', 'drop', 'update-codes',
                                     'only-insert-codes', 'country-file=',
+                                    'clean-codes-from-cl',
                                     'extra-file=', 'stage='])
     except getopt.GetoptError, e:
         print e
@@ -151,12 +152,15 @@ def main():
             # We won't drop any tables (which might be holding data)
             # unless we're explicitly asked to do so.
             do_drop = True
+        elif opt == '--clean-codes-from-cl':
+            clean_codes_from_change_log(db)
+            sys.exit()
         elif opt == '--only-insert-codes':
-            insert_code_values(db, debug=debug)
+            insert_code_values(db)
             check_schema_versions(db)
             sys.exit()
         elif opt == '--update-codes':
-            insert_code_values(db, delete_extra_codes=True, debug=debug)
+            insert_code_values(db, delete_extra_codes=True)
             check_schema_versions(db)
             sys.exit()
         elif opt == '--stage':
@@ -231,7 +235,7 @@ def read_country_file(fname):
     const.commit()
 
 
-def insert_code_values(db, delete_extra_codes=False, debug=False):
+def insert_code_values(db, delete_extra_codes=False):
     const = Factory.get('Constants')()
     print "Inserting code values."
     try:
@@ -247,9 +251,30 @@ def insert_code_values(db, delete_extra_codes=False, debug=False):
     else:
         print "  Inserted %(inserted)d new codes (new total: %(total)d), "\
             "updated %(updated)d, superfluous %(superfluous)d" % stats
-    if debug and stats['details']:
+    if stats['details']:
         print "  Details:\n    %s" % "\n    ".join(stats['details'])
     const.commit()
+
+
+def clean_codes_from_change_log(db):
+    """ Deletes entries in change_log referencing a deleted change type. """
+    co = Factory.get('Constants')()
+    codes = [x for x in co._get_superfluous_codes()
+             if x[0] is co.ChangeType]
+    for cls, code, name in codes:
+        print 'Found superfluous change type: {}'.format((cls, code, name))
+        num_entries = db.query_1(
+            "SELECT count(*) FROM change_log "
+            "WHERE change_type_id = {}".format(code))
+        print '{} has {} change log entries'.format(name, num_entries)
+        if num_entries:
+            print 'Deleting changes of type {}'.format(name)
+            db.execute(
+                "DELETE FROM change_log "
+                "WHERE change_type_id = {}".format(code))
+    print 'Committing...'
+    db.commit()
+    print 'Done.'
 
 
 def makeInitialUsers(db):

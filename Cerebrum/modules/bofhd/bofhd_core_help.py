@@ -143,38 +143,22 @@ command_help = {
             "address",
         "email_info":
             "View e-mail information about a user or address",
-        "email_create_archive":
-            "Add address feeding an archive of a list",
-        "email_create_list":
-            "Add addresses needed for a Mailman list",
         "email_create_sympa_list":
             "Add addresses needed for a Sympa list",
         "email_create_sympa_cerebrum_list":
             "Add addresses needed for a Sympa list (Cerebrum only)",
-        "email_create_list_alias":
-            "Add an alias for a Mailman list.  This also adds additional "
-            "-owner and -request addresses.",
         "email_create_sympa_list_alias":
             "Add an alias for a Sympa list.  This also adds additional "
             "addresses (e.g. -owner, -request, etc.)",
-        "email_remove_list_alias":
-            "Remove an alias for a Mailman list. This also removes additional "
-            "administrative addresses (-owner, -request, etc.)",
         "email_remove_sympa_list_alias":
             "Remove an alias for a Sympa list. This also removes additional "
             "administrative addresses (-owner, -request, etc.)",
-        "email_reassign_list_address":
-            "Migrates email targets from Mailman to Sympa",
         "email_create_multi":
             "Make an e-mail target which expands to the members of a group",
         "email_create_pipe":
             "Make an e-mail target which points to a pipe",
         "email_delete_pipe":
             "Delete an e-mail target that points to a pipe",
-        "email_delete_archive":
-            "Remove address for a Mailman archive",
-        "email_delete_list":
-            "Remove a Mailman list's addresses",
         "email_delete_sympa_list":
             "Remove a Sympa list's addresses",
         "email_delete_multi":

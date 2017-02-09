@@ -49,6 +49,7 @@ default_spam_level = 9999
 default_spam_action = 0
 mail_dn = ldapconf('MAIL', 'dn')
 
+
 def dict_to_ldif_string(d):
     """Stringify a dict LDIF-style.
 
@@ -78,7 +79,6 @@ def dict_to_ldif_string(d):
             result.append(format % (key, value))
 
     return "".join(result)
-# end dict_to_ldif_string
 
 
 def write_ldif():
@@ -167,9 +167,11 @@ def write_ldif():
                 if ei in ldap.pending:
                     rest += "mailPause: TRUE\n"
 
-            # Does the event log have an unprocessed primary email change for this email target?
+            # Does the event log have an unprocessed primary email change for
+            # this email target?
             # pending_primary_email is populated by EmailLDAPUiOMixin
-            if hasattr(ldap, 'pending_primary_email') and t in ldap.pending_primary_email:
+            if (hasattr(ldap, 'pending_primary_email') and
+                    t in ldap.pending_primary_email):
                 # maybe the event has been processed by now?
                 pending_event = False
 
@@ -207,8 +209,7 @@ def write_ldif():
             pass
 
         elif tt in (co.email_target_pipe, co.email_target_RT,
-                    co.email_target_file, co.email_target_Mailman,
-                    co.email_target_Sympa):
+                    co.email_target_file, co.email_target_Sympa):
 
             # Target is a shell pipe. The command (and args) to pipe mail
             # into is gathered from email_target.alias_value.  Iff
@@ -220,12 +221,12 @@ def write_ldif():
             # is set and belongs to an Account, deliveries to this target
             # will be run as that account.
             #   or
-            # Target is a Mailman or Sympa mailing list. The command (and args)
+            # Target is a Sympa mailing list. The command (and args)
             # to pipe mail into is gathered from email_target.alias_value.
             # Iff email_target.target_entity_id is set and belongs to an
             # Account, deliveries to this target will be run as that
             # account.
-            if alias == None:
+            if alias is None:
                 logger.warn("Target id=%s (type %s) needs an alias_value",
                             t, tt)
                 continue
@@ -245,7 +246,8 @@ def write_ldif():
 
             if et == co.entity_group:
                 try:
-                    addrs, missing = ldap.get_multi_target(ei, ignore_missing=True)
+                    addrs, missing = ldap.get_multi_target(
+                        ei, ignore_missing=True)
                 except ValueError, e:
                     logger.warn("Target id=%s (type %s): %s", t, tt, e)
                     continue
@@ -258,7 +260,8 @@ def write_ldif():
                                 t, tt, ei, addr)
             else:
                 # A 'multi' target with no forwarding; seems odd.
-                logger.warn("Target id=%s (type %s) no forwarding found", t, tt)
+                logger.warn("Target id=%s (type %s) no forwarding found",
+                            t, tt)
                 continue
         else:
             # We don't want to log errors for distributiong groups.
@@ -290,8 +293,9 @@ def write_ldif():
                 primary_address = ldap.aid2addr[ldap.targ2prim[t]]
                 f.write("defaultMailAddress: %s\n" % primary_address)
             else:
-                logger.warning("Strange: target id=%d, targ2prim[t]: %d, but no aid2addr",
-                               t, ldap.targ2prim[t])
+                logger.warning(
+                    "Strange: target id=%d, targ2prim[t]: %d, but no aid2addr",
+                    t, ldap.targ2prim[t])
 
         # Find addresses for target:
         for a in ldap.targ2addr[t]:
@@ -303,12 +307,13 @@ def write_ldif():
                 if primary_address:
                     f.write("forwardDestination: %s\n" % primary_address)
                 else:
-                    logger.warning("Missing primary address when setting local delivery"
-                                   " for account_id:%s target_id:%s",
-                                   ldap.targ2prim.get(t), t)
+                    logger.warning(
+                        "Missing primary address when setting local delivery "
+                        "for account_id:%s target_id:%s",
+                        ldap.targ2prim.get(t), t)
             for addr in ldap.targ2forward[t]:
-                # Skip local forward addresses when the account is deleted, else
-                # they will create an unnecessary bounce message.
+                # Skip local forward addresses when the account is deleted,
+                # else they will create an unnecessary bounce message.
                 if tt == co.email_target_deleted and addr in ldap.targ2addr[t]:
                     continue
                 f.write("forwardDestination: %s\n" % addr)
@@ -432,11 +437,20 @@ def main():
     global verbose, f, db, co, ldap, auth, start
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-v', "--verbose", action="count", default=0)
+    parser.add_argument('-v', "--verbose",
+                        action="count",
+                        default=0)
     parser.add_argument('-m', "--mail-file")
-    parser.add_argument('-s', "--spread", default=ldapconf('MAIL', 'spread', None))
-    parser.add_argument('-i', "--ignore-size", dest="max_change", action="store_const", const=100)
-    parser.add_argument('-a', "--no-auth-data", dest="auth", action="store_false", default=True)
+    parser.add_argument('-s', "--spread",
+                        default=ldapconf('MAIL', 'spread', None))
+    parser.add_argument('-i', "--ignore-size",
+                        dest="max_change",
+                        action="store_const",
+                        const=100)
+    parser.add_argument('-a', "--no-auth-data",
+                        dest="auth",
+                        action="store_false",
+                        default=True)
     args = parser.parse_args()
 
     verbose = args.verbose

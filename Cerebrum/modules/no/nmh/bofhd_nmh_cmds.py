@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2016 University of Oslo, Norway
+# Copyright 2006-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -34,7 +34,7 @@ from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailMixin
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 
 from Cerebrum.modules.no.access_FS import make_fs
-from Cerebrum.modules.no.nmh import bofhd_nmh_help
+from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
     UiOBofhdExtension
 
@@ -180,9 +180,9 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
 
     @classmethod
     def get_help_strings(cls):
-        return (bofhd_nmh_help.group_help,
-                bofhd_nmh_help.command_help,
-                bofhd_nmh_help.arg_help)
+        return (bofhd_core_help.group_help,
+                bofhd_core_help.command_help,
+                bofhd_core_help.arg_help)
 
     #
     # person student_info

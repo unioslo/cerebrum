@@ -172,7 +172,7 @@ class Constants(Constants.Constants):
                                                   'Refresh quarantine')
     bofh_homedir_restore = _BofhdRequestOpCode('br_homedir_rest',
                                                'Restore users homedir')
-    
+
     # br_email_move stays in queue until delivery has stopped.
     # generate_mail_ldif.py will set the mailPause attribute based on
     # entries in the request queue.
@@ -197,28 +197,14 @@ class Constants(Constants.Constants):
                                              'Convert user mail config')
     bofh_email_restore = _BofhdRequestOpCode('br_email_restore',
                                              'Restore users mail from backup')
-    # entity_id is address_id of the official name of the mailing list
-    # destination_id is address_id of the admin address
-    bofh_mailman_create = _BofhdRequestOpCode('br_mm_create',
-                                              'Create mailman list')
-    # entity_id and destination_id as above
-    # state_data is optional request_id for dependency
-    bofh_mailman_add_admin = _BofhdRequestOpCode('br_mm_add_admin',
-                                                 'Add admin to mailman list')
-    # entity_id as above
-    # since this has been deleted by the time process_bofhd_requests runs,
-    # the name of the list is passed as a string in state_data as well.
-    bofh_mailman_remove = _BofhdRequestOpCode('br_mm_remove',
-                                              'Remove mailman list')
 
-    # Sympa lists are much like Mailman lists...
+    # Sympa lists
     bofh_sympa_create = _BofhdRequestOpCode("br_sym_create",
                                             "Create a sympa list")
 
     bofh_sympa_remove = _BofhdRequestOpCode("br_sym_remove",
                                             "Remove a sympa list")
-    
-    
+
 
 class BofhdRequests(object):
     def __init__(self, db, const, id=None):
@@ -272,12 +258,8 @@ class BofhdRequests(object):
                                            const.bofh_email_move],
             int(const.bofh_email_hquota): [const.bofh_email_delete],
             int(const.bofh_email_convert): [const.bofh_email_delete],
-            int(const.bofh_mailman_create): [const.bofh_mailman_remove],
-            int(const.bofh_mailman_add_admin): None,
-            int(const.bofh_mailman_remove): [const.bofh_mailman_create,
-                                             const.bofh_mailman_add_admin],
             int(const.bofh_sympa_create): [const.bofh_sympa_remove],
-            int(const.bofh_sympa_remove): [const.bofh_sympa_create,],
+            int(const.bofh_sympa_remove): [const.bofh_sympa_create],
             int(const.bofh_quarantine_refresh): None,
             int(const.bofh_email_restore): [const.bofh_email_create,
                                             const.bofh_email_hquota],
