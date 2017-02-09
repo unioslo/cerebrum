@@ -311,9 +311,7 @@ def get_students():
               if x[0] == int(const.affiliation_student)]:
             # Har en gyldig STUDENT affiliation (!= aktiv)
             if not [x for x in tmp_gyldige[pid] if not (
-                    x[0] == int(const.affiliation_student) or
-                    (x[0] == int(const.affiliation_manuell) and
-                     x[1] == int(const.affiliation_manuell_inaktiv_student))
+                    x[0] == int(const.affiliation_student)
             )]:
                 # ... og ingen gyldige ikke-student affiliations
                 ret.append(pid)
