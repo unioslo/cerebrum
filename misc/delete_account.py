@@ -40,6 +40,19 @@ class delete:
         except:
             pass
         
+        # need to delete any entries in bofhd_session_state
+        # for this account_id before deleting other things
+        query = "select session_id from bofhd_session where account_id = %s" % account_id
+        session_ids = db.query(query)
+        if len(session_ids) > 0:
+            for s_id in session_ids:
+                query = "delete from bofhd_session_state where session_id = '%s'" % s_id['session_id']
+                print "query= %s" % query
+                try:
+                    db.query(query)
+                except:
+                    print "error deleting bofhd_session_state data for account_id: %s" % account_id
+                    sys.exit()
 
         delete_tables=[]
         delete_tables.append({'change_log': 'change_by'})
@@ -50,11 +63,13 @@ class delete:
         delete_tables.append({'posix_user':'account_id'})
         delete_tables.append({'homedir':'account_id'})
         delete_tables.append({'group_member':'member_id'})
+        delete_tables.append({'bofhd_session':'account_id'})
         delete_tables.append({'account_info':'account_id'})
         delete_tables.append({'spread_expire':'entity_id'})
         delete_tables.append({'entity_spread':'entity_id'})
         delete_tables.append({'entity_quarantine':'entity_id'})
         delete_tables.append({'entity_trait':'entity_id'})
+        delete_tables.append({'entity_contact_info' : 'entity_id'})
         delete_tables.append({'entity_info':'entity_id'})
 
         delete_mail_tables=[]
