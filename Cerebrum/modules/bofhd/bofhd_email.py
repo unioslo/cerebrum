@@ -2238,15 +2238,10 @@ Addresses and settings:
         targets.
 
         """
-        codes = self.const.fetch_constants(self.const.EmailSpamLevel,
-                                           prefix_match=level)
-        if len(codes) == 1:
-            levelcode = codes[0]
-        elif len(codes) == 0:
-            raise CerebrumError("Spam level code not found: %s" % level)
-        else:
-            raise CerebrumError(
-                "'%s' does not uniquely identify a spam level" % level)
+        try:
+            levelcode = int(self.const.EmailSpamLevel(level))
+        except Errors.NotFoundError:
+            raise CerebrumError("Spam level code not found: {}".format(level))
         et, acc = self._get_email_target_and_account(uname)
         self.ba.can_email_spam_settings(operator.get_entity_id(), acc, et)
         esf = Email.EmailSpamFilter(self.db)
@@ -2302,15 +2297,11 @@ Addresses and settings:
         targets.
 
         """
-        codes = self.const.fetch_constants(self.const.EmailSpamAction,
-                                           prefix_match=action)
-        if len(codes) == 1:
-            actioncode = codes[0]
-        elif len(codes) == 0:
-            raise CerebrumError("Spam action code not found: %s" % action)
-        else:
+        try:
+            actioncode = int(self.const.EmailSpamAction(action))
+        except Errors.NotFoundError:
             raise CerebrumError(
-                "'%s' does not uniquely identify a spam action" % action)
+                "Spam action code not found: {}".format(action))
         et, acc = self._get_email_target_and_account(uname)
         self.ba.can_email_spam_settings(operator.get_entity_id(), acc, et)
         esf = Email.EmailSpamFilter(self.db)
