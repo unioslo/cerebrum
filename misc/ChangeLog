@@ -1,0 +1,5 @@
+2017-02-10  Karen   <cerebrum@cleomedes.uit.no>
+    
+    * Added delete_account.py, join_persons.py and move_emails.py. 
+    These were copied from Leetah.
+
