@@ -68,7 +68,7 @@ def set_mail(account, localpart, domain, is_primary=True):
        sys.exit(0)
    # Set / validate domain
    # NOTE: Cannot use find_by_domain because we have lots of invalid domains in our domain table!
-   if ((domain != 'adm.uit.no') and (domain != 'nordnorsk.vitensenter.no') and (domain != 'kun.uit.no') and (domain != 'post.uit.no') and (domain not in valid_exchange_domains) and (domain != 'student.uit.no') and (domain != 'nuv.no') and (domain !='norgesuniversitetet.no') and (domain != 'sito.no') and (domain != 'mailbox.uit.no') and (domain != 'hifm.no') and (domain != 'asp.uit.no') and (domain != 'ad.uit.no') and (domain != 'ak.uit.no') and (domain !='jusshjelpa.uit.no') and (domain != 'driv.no') and (domain !='samskipnaden.no')):
+   if ((domain != 'adm.uit.no') and (domain != 'hin.no') and (domain != 'hih.no') and (domain != 'nordnorsk.vitensenter.no') and (domain != 'kun.uit.no') and (domain != 'post.uit.no') and (domain not in valid_exchange_domains) and (domain != 'student.uit.no') and (domain != 'nuv.no') and (domain !='norgesuniversitetet.no') and (domain != 'sito.no') and (domain != 'mailbox.uit.no') and (domain != 'hifm.no') and (domain != 'asp.uit.no') and (domain != 'ad.uit.no') and (domain != 'ak.uit.no') and (domain !='jusshjelpa.uit.no') and (domain != 'driv.no') and (domain !='samskipnaden.no')):
        logger.error('Can only set emails for domains:%s ' , valid_exchange_domains)
        sys.exit(0)
    # Find account

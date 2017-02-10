@@ -2,6 +2,8 @@
     
     * delete_account.py (delete_account): Added delete of bofhd session things and delete from entity_contact_info.
 
+    * set_email.py (set_mail): Added hin.no and hih.no as invalid domains.
+
     * Added delete_account.py, join_persons.py and move_emails.py. 
     These were copied from Leetah.
 
