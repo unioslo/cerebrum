@@ -4153,7 +4153,7 @@ Addresses and settings:
         targets."""
         try:
             levelcode = int(self.const.EmailSpamLevel(level))
-        except Errors.NotFounderror:
+        except Errors.NotFoundError:
             raise CerebrumError("Spam level code not found: {}".format(level))
         try:
             et, acc = self._get_email_target_and_account(name)
@@ -4209,7 +4209,7 @@ Addresses and settings:
         targets."""
         try:
             actioncode = int(self.const.EmailSpamAction(action))
-        except Errors.NotFounderror:
+        except Errors.NotFoundError:
             raise CerebrumError(
                 "Spam action code not found: {}".format(action))
         try:
