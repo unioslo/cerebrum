@@ -311,93 +311,93 @@ def main():
 
 
             # Sending email to SUT queue in RT
-            if not dryrun:
-                account_expired = '';
-                if ac.is_expired():
-                    account_expired = ' Imidlertid er ikke kontoen aktiv, men kan reaktiveres når som helst.'
+            # if not dryrun:
+            #     account_expired = '';
+            #     if ac.is_expired():
+            #         account_expired = ' Imidlertid er ikke kontoen aktiv, men kan reaktiveres når som helst.'
             
-                Utils.sendmail('star-gru@orakel.uit.no', #TO
-                               'bas-admin@cc.uit.no', #SENDER
-                               'Brukernavn endret (%s erstattes av %s)' % (old_name, new_name), #TITLE
-                               'Brukernavnet %s er endret til %s. Videresend e-post, flytt filer, e-post, osv. fra %s til %s.%s' %
-                               (old_name, new_name, old_name, new_name, account_expired), #BODY
-                               cc=None,
-                               charset='iso-8859-1',
-                               debug=False)
-                print "mail sent to star-gru@orakel.uit.no\n"
+            #     Utils.sendmail('star-gru@orakel.uit.no', #TO
+            #                    'bas-admin@cc.uit.no', #SENDER
+            #                    'Brukernavn endret (%s erstattes av %s)' % (old_name, new_name), #TITLE
+            #                    'Brukernavnet %s er endret til %s. Videresend e-post, flytt filer, e-post, osv. fra %s til %s.%s' %
+            #                    (old_name, new_name, old_name, new_name, account_expired), #BODY
+            #                    cc=None,
+            #                    charset='iso-8859-1',
+            #                    debug=False)
+            #     print "mail sent to star-gru@orakel.uit.no\n"
 
 
-            # Sending email to PORTAL queue in RT
-            if False and not dryrun:
-                account_expired = '';
-                if ac.is_expired():
-                    account_expired = ' Imidlertid er ikke kontoen aktiv, men kan reaktiveres når som helst.'
+            # # Sending email to PORTAL queue in RT
+            # if False and not dryrun:
+            #     account_expired = '';
+            #     if ac.is_expired():
+            #         account_expired = ' Imidlertid er ikke kontoen aktiv, men kan reaktiveres når som helst.'
 
-                Utils.sendmail('vevportal@rt.uit.no', #TO
-                               'bas-admin@cc.uit.no', #SENDER
-                               'Brukernavn endret (%s erstattes av %s)' % (old_name, new_name), #TITLE
-                               'Brukernavnet %s er endret til %s.' %
-                               (old_name, new_name), #BODY
-                               cc=None,
-                               charset='iso-8859-1',
-                               debug=False)
-                print "mail sent to vevportal@rt.uit.no\n"
+            #     Utils.sendmail('vevportal@rt.uit.no', #TO
+            #                    'bas-admin@cc.uit.no', #SENDER
+            #                    'Brukernavn endret (%s erstattes av %s)' % (old_name, new_name), #TITLE
+            #                    'Brukernavnet %s er endret til %s.' %
+            #                    (old_name, new_name), #BODY
+            #                    cc=None,
+            #                    charset='iso-8859-1',
+            #                    debug=False)
+            #     print "mail sent to vevportal@rt.uit.no\n"
 
             
-            # Sending email to AD nybrukere if necessary
-            mailto_ad = False
-            try:
-                spreads = ac.get_spread()
-                for spread in spreads:
-                    if spread['spread'] == co.spread_uit_ad_account:
-                        mailto_ad = True
-                        break
-            except:
-                print "No AD spread found."
+            # # Sending email to AD nybrukere if necessary
+            # mailto_ad = False
+            # try:
+            #     spreads = ac.get_spread()
+            #     for spread in spreads:
+            #         if spread['spread'] == co.spread_uit_ad_account:
+            #             mailto_ad = True
+            #             break
+            # except:
+            #     print "No AD spread found."
 
-            riktig_brukernavn = ' Nytt brukernavn er %s.' % (new_name)
+            # riktig_brukernavn = ' Nytt brukernavn er %s.' % (new_name)
 
-            if ac.is_expired():
-                riktig_brukernavn += ' Imidlertid er ikke kontoen aktiv, og vil kun sendes til AD når den blir reaktivert.'
+            # if ac.is_expired():
+            #     riktig_brukernavn += ' Imidlertid er ikke kontoen aktiv, og vil kun sendes til AD når den blir reaktivert.'
 
-            if False and mailto_ad and not dryrun:
-                Utils.sendmail('nybruker2@asp.uit.no', #TO
-                               'bas-admin@cc.uit.no', #SENDER
-                               'Brukernavn endret', #TITLE
-                               'Brukernavnet %s er endret i BAS.%s' %
-                               (old_name, riktig_brukernavn), #BODY
-                               cc=None,
-                               charset='iso-8859-1',
-                               debug=False)
-                print "mail sent to nybruker2@asp.uit.no\n"
+            # if False and mailto_ad and not dryrun:
+            #     Utils.sendmail('nybruker2@asp.uit.no', #TO
+            #                    'bas-admin@cc.uit.no', #SENDER
+            #                    'Brukernavn endret', #TITLE
+            #                    'Brukernavnet %s er endret i BAS.%s' %
+            #                    (old_name, riktig_brukernavn), #BODY
+            #                    cc=None,
+            #                    charset='iso-8859-1',
+            #                    debug=False)
+            #     print "mail sent to nybruker2@asp.uit.no\n"
 
-            pe.clear()
-            ac.clear()
+            # pe.clear()
+            # ac.clear()
 
-            if send_user_mail is not None:
-                # SEND MAIL TO OLD AND NEW ACCOUNT + "BCC" to bas-admin!
-                sender = 'orakel@uit.no'
-                recipient = send_user_mail['OLD_MAIL']
-                cc = [send_user_mail ['NEW_MAIL'],]
+            # if send_user_mail is not None:
+            #     # SEND MAIL TO OLD AND NEW ACCOUNT + "BCC" to bas-admin!
+            #     sender = 'orakel@uit.no'
+            #     recipient = send_user_mail['OLD_MAIL']
+            #     cc = [send_user_mail ['NEW_MAIL'],]
 
-                template = cereconf.CB_SOURCEDATA_PATH + '/templates/rename_account.tmpl'
+            #     template = cereconf.CB_SOURCEDATA_PATH + '/templates/rename_account.tmpl'
 
-                result = Utils.mail_template(recipient, template, sender=sender, cc=cc,
-                                        substitute=send_user_mail, charset='utf-8', debug=dryrun)
+            #     result = Utils.mail_template(recipient, template, sender=sender, cc=cc,
+            #                             substitute=send_user_mail, charset='utf-8', debug=dryrun)
                 
-                print "Mail sent to: %s" % (recipient)
-                print "cc to %s" % (cc)
+            #     print "Mail sent to: %s" % (recipient)
+            #     print "cc to %s" % (cc)
                 
-                if dryrun:
-                    print "\nDRYRUN: mailmsg=\n%s" % result
+            #     if dryrun:
+            #         print "\nDRYRUN: mailmsg=\n%s" % result
 
-                # BCC
-                recipient = 'bas-admin@cc.uit.no'
-                template = cereconf.CB_SOURCEDATA_PATH + '/templates/rename_account.tmpl'
-                result = Utils.mail_template(recipient, template, sender=sender,
-                                        substitute=send_user_mail, charset='utf-8', debug=dryrun)
+            #     # BCC
+            #     recipient = 'bas-admin@cc.uit.no'
+            #     template = cereconf.CB_SOURCEDATA_PATH + '/templates/rename_account.tmpl'
+            #     result = Utils.mail_template(recipient, template, sender=sender,
+            #                             substitute=send_user_mail, charset='utf-8', debug=dryrun)
 
-                print "BCC sent to: %s" % (recipient)
+            #     print "BCC sent to: %s" % (recipient)
             #worker.rollback();
             worker.commit()
         else:
