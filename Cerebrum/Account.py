@@ -132,10 +132,10 @@ class AccountType(object):
                                          [":%s" % t for t in cols.keys()])},
                          cols)
             self._db.log_change(self.entity_id, self.const.account_type_add,
-                                None, change_params={'ou_id': int(ou_id),
-                                                     'affiliation':
-                                                     int(affiliation),
-                                                     'priority': int(priority)})
+                                None, change_params={
+                                    'ou_id': int(ou_id),
+                                    'affiliation': int(affiliation),
+                                    'priority': int(priority)})
             return 'add', priority
         else:
             if orig_pri != priority:
@@ -197,7 +197,7 @@ class AccountType(object):
         """Return information about the matching accounts.
 
         TODO: Add rest of the parameters.
-        
+
         @type filter_expired: bool
         @param filter_expired:
             If accounts marked as expired should be filtered away from the
@@ -231,13 +231,17 @@ class AccountType(object):
         if ou_id is not None:
             extra += " AND at.ou_id=:ou_id"
         if person_id is not None:
-            extra += " AND " + argument_to_sql(person_id, "at.person_id", binds, int)
+            extra += " AND " + argument_to_sql(person_id,
+                                               "at.person_id",
+                                               binds,
+                                               int)
         if filter_expired:
             extra += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
         if account_id:
             extra += " AND ai.account_id=:account_id"
         if person_spread is not None and account_spread is not None:
-            raise Errors.CerebrumError, 'Illegal to use both person and account spread in query'
+            raise Errors.CerebrumError, ('Illegal to use both person and '
+                                         'account spread in query')
         if person_spread is not None:
             if isinstance(person_spread, (list, tuple)):
                 person_spread = "IN (%s)" % \
@@ -257,8 +261,10 @@ class AccountType(object):
                     " ON es.entity_id = at.account_id" \
                     " AND es.spread " + account_spread
         if exclude_account_id is not None and len(exclude_account_id):
-            extra += " AND NOT " + argument_to_sql(exclude_account_id, "ai.account_id", binds, int)
-
+            extra += " AND NOT " + argument_to_sql(exclude_account_id,
+                                                   "ai.account_id",
+                                                   binds,
+                                                   int)
         rows = self.query("""
         SELECT DISTINCT at.person_id, at.ou_id, at.affiliation, at.account_id,
                         at.priority
@@ -272,7 +278,7 @@ class AccountType(object):
               ai.account_id=at.account_id
               %s
         ORDER BY at.person_id, at.priority""" % (join, extra),
-                                                binds, fetchall=fetchall)
+                          binds, fetchall=fetchall)
         if primary_only:
             ret = []
             prev = None
@@ -422,10 +428,12 @@ class AccountHome(object):
         else:
             tmp = {}
         tmp['homedir_id'] = binds['homedir_id']
-        if binds.has_key('status'):
+        if 'status' in binds:
             tmp['status'] = binds['status']
-        self._db.log_change(self.entity_id, change_type,
-                            None, change_params=tmp)
+        self._db.log_change(self.entity_id,
+                            change_type,
+                            None,
+                            change_params=tmp)
 
         return binds['homedir_id']
 
@@ -618,9 +626,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         know what to do with such events, as they are for other entities. If
         such events occur, a db constraint will complain.
 
-        It works by first removing related data, before it runs L{delete}, which
-        deletes the account itself.
-
+        It works by first removing related data, before it runs L{delete},
+        which deletes the account itself.
         """
         if not self.entity_id:
             raise RuntimeError('No account set')
@@ -628,8 +635,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
         # Deactivating the account first. This is not an optimal solution, but
         # it solves race conditions like for update_email_addresses, which
-        # recreates EmailTarget and e-mail addresses for the account until it is
-        # deactivated. Makes termination a bit slower.
+        # recreates EmailTarget and e-mail addresses for the account until it
+        # is deactivated. Makes termination a bit slower.
         self.deactivate()
 
         # Have to write latest change_log entries, to be able to remove them:
@@ -684,7 +691,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         # If __in_db in not present, we'll set it to False.
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
         self.owner_type = int(owner_type)
@@ -802,7 +809,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 # the string, and OpenLDAP won't accept that.
                 # b64encode does not, but it requires Python 2.4
                 return base64.encodestring(
-                    hashlib.sha1(utf8_plaintext + salt).digest() + salt).strip()
+                    hashlib.sha1(
+                        utf8_plaintext + salt).digest() + salt).strip()
             return crypt.crypt(plaintext if method ==
                                self.const.auth_type_crypt3_des
                                else utf8_plaintext, salt)
@@ -930,7 +938,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             # TBD: Why are they in __updated?
             if key == 'np_type':
                 newvalues[key] = int(getattr(self, key))
-            elif key not in ['_auth_info', '_acc_affect_auth_types', 'password']:
+            elif key not in ['_auth_info',
+                             '_acc_affect_auth_types',
+                             'password']:
                 newvalues[key] = getattr(self, key)
 
         # mark_update will not change the value if the new value is
@@ -1070,7 +1080,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         SELECT owner_type, owner_id, np_type,
                creator_id, expire_date
         FROM [:table schema=cerebrum name=account_info]
-        WHERE account_id=:a_id""", {'a_id' : account_id})
+        WHERE account_id=:a_id""", {'a_id': account_id})
         self.account_name = self.get_name(self.const.account_namespace)
         try:
             del self.__in_db
@@ -1180,17 +1190,18 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         if include_nohome:
             if home_spread is not None:
                 tables.append(
-                    'LEFT JOIN [:table schema=cerebrum name=account_home] ah' +
-                    '  ON ah.account_id=ai.account_id AND ah.spread=:home_spread')
+                    ('LEFT JOIN [:table schema=cerebrum name=account_home] ah '
+                     ' ON ah.account_id=ai.account_id AND '
+                     'ah.spread=:home_spread'))
             else:
                 tables.append(
                     'LEFT JOIN [:table schema=cerebrum name=account_home] ah' +
                     '  ON ah.account_id=ai.account_id')
             tables.append(
-                'LEFT JOIN ([:table schema=cerebrum name=homedir] hd' +
-                '           LEFT JOIN [:table schema=cerebrum name=disk_info] d' +
-                '           ON d.disk_id = hd.disk_id)' +
-                'ON hd.homedir_id=ah.homedir_id')
+                ('LEFT JOIN ([:table schema=cerebrum name=homedir] hd '
+                 'LEFT JOIN [:table schema=cerebrum name=disk_info] d '
+                 'ON d.disk_id = hd.disk_id) '
+                 'ON hd.homedir_id=ah.homedir_id'))
         else:
             tables.extend([
                 ', [:table schema=cerebrum name=account_home] ah ',
@@ -1511,8 +1522,14 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         xlated = re.sub(r' ?-+ ?', "-", xlated).strip(" -")
         return xlated
 
-    def search(self, spread=None, name=None, owner_id=None, owner_type=None,
-               expire_start='[:now]', expire_stop=None, exclude_account_id=None):
+    def search(self,
+               spread=None,
+               name=None,
+               owner_id=None,
+               owner_type=None,
+               expire_start='[:now]',
+               expire_stop=None,
+               exclude_account_id=None):
         """Retrieves a list of Accounts filtered by the given criterias.
         If no criteria is given, all non-expired accounts are returned.
 
@@ -1533,8 +1550,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         @param owner_type: Return entities where owners type is of owner_type
         @type owner_type: Integer
 
-        @param expire_start: Filter on expire_date. If not specified use current
-        time. If specified then filter on expire_date>=expire_start.
+        @param expire_start: Filter on expire_date. If not specified use
+        current time. If specified then filter on expire_date>=expire_start.
         If expire_start is None, don't apply a start_date filter.
         @type expire_start: Date. Either a string on format 'YYYY-mm-dd' or a
         mx.DateTime object
@@ -1590,7 +1607,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
         if expire_start and expire_stop:
             where.append(
-                "(ai.expire_date>=:expire_start and ai.expire_date<:expire_stop)")
+                ("(ai.expire_date>=:expire_start "
+                 "and ai.expire_date<:expire_stop)"))
             binds['expire_start'] = expire_start
             binds['expire_stop'] = expire_stop
         elif expire_start and expire_stop is None:
@@ -1602,8 +1620,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             binds['expire_stop'] = expire_stop
 
         if exclude_account_id is not None and len(exclude_account_id):
-             where.append("NOT " + argument_to_sql(exclude_account_id, "ai.account_id", binds, int))
-
+            where.append("NOT " + argument_to_sql(exclude_account_id,
+                                                  "ai.account_id",
+                                                  binds,
+                                                  int))
         where_str = ""
         if where:
             where_str = "WHERE " + " AND ".join(where)
