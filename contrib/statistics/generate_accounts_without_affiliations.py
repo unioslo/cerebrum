@@ -28,7 +28,9 @@ that are ACTIVE for that user.
             generate a report.
         get_accs_wo_affs():
             This function searches the database for accounts that are owned by
-            a person which is not affiliated with anything.
+            a person which is not affiliated with anything, or accounts that have
+            no affiliations but are owned by a person who is affiliated with
+            something (depending on script options).
         gen_affles_users_report():
             This function generates an HTML-report.
         usage():
@@ -53,9 +55,13 @@ Overall flow of execution looks like:
                 those with the NIS_user@uio spread) in a var.
                 - For each of these accounts, find the owners entity. The owners
                     entity must be checked to makes sure it is a person, and if
-                    so, the person is fetched.
-                    - Get the affiliations, if there are none, we add the
+                    so, the person is fetched. Then one of the following, depending
+                    on script options:
+                    - Get the person's affiliations, if there are none, we add the
                         account to our report-dict.
+                    - Get the account's affiliations, if there are none but there
+                        are person affiliations, we add the account to our
+                        report-dict.
 
     gen_affles_users_report():
         - Prints out the HTML preamble via the preamble() function
@@ -89,12 +95,21 @@ def usage(exitcode=0):
     print """Usage:
     %s [Options]
 
-    Generate an HTML formatted report of accounts on disk without affiliations.
+    Generate an HTML formatted report of accounts on disk, belonging to persons
+    without affiliations (or, if -a is used, accounts without affiliations
+    belonging to persons with affiliations).
 
     Options:
     -o, --output FILE       The file to print the report to. Defaults to stdout.
 
     -s, --spread SPREAD     Spread to filter users by. Defaults to NIS_user@uio.
+
+    -a, --check-accounts    Find the accounts lacking affiliations, belonging to
+                            persons who have affiliations.
+                            If this option is not set, the default behavior is
+                            instead to find the accounts of persons who lack
+                            affiliations, regardless of whether the accounts
+                            have affiliations or not.
 
     -f, --output-format FMT The type of format. Defaults to 'html'. Available
                             options: html and csv.
@@ -104,7 +119,7 @@ def usage(exitcode=0):
     """ % sys.argv[0] 
     sys.exit(exitcode)
 
-def get_accs_wo_affs(logger, filter_by_spread, ac, pe, di, co):
+def get_accs_wo_affs(logger, filter_by_spread, ac, pe, di, co, check_accounts=False):
     """Search disks for users owned by persons without affiliations.
 
     :rtype: dict
@@ -169,8 +184,15 @@ def get_accs_wo_affs(logger, filter_by_spread, ac, pe, di, co):
             # Exclude non personal accounts:
             if ac.owner_type != co.entity_person:
                 continue
-            # Ignore persons with an affiliation:
-            if ac.owner_id in target_person_affs:
+            # If we're focusing on person affiliations,
+            # ignore persons with an affiliation:
+            if not check_accounts and ac.owner_id in target_person_affs:
+                continue
+            # If we're focusing on account affiliations,
+            # ignore persons without an affiliation and
+            # accounts with an affiliation
+            if check_accounts and (ac.get_account_types() != [] or
+                                   ac.owner_id not in target_person_affs):
                 continue
 
             # We pull out the first entry from the quarantine list,
@@ -241,7 +263,7 @@ def preamble(output, title):
     <body>
     """ % title)
 
-def gen_affles_users_report(output, no_aff, output_format):
+def gen_affles_users_report(output, no_aff, output_format, check_accounts=False):
     """Produce the output for the report, based on the given input.
 
     :param file output: The stream the report is written to.
@@ -290,8 +312,12 @@ def gen_affles_users_report(output, no_aff, output_format):
 
     # Print the header. Then some info
     preamble(output, 'Users on disk without affiliations')
-    output.write('<p class="meta">%d users without person affiliations on'
-                 'disk.</p>\n' % number_of_users)
+    if check_accounts:
+        output.write('<p class="meta">%d users on disk without affiliations, '
+                     'owned by persons with affiliations.</p>\n' % number_of_users)
+    else:
+        output.write('<p class="meta">%d users without person affiliations on '
+                     'disk.</p>\n' % number_of_users)
 
     # Print tables of disks with users:
     # For each disk
@@ -344,10 +370,11 @@ def main():
     output = sys.stdout
     output_format = 'html'
     spread = 'NIS_user@uio'
+    check_accounts = False
 
     # Parsing opts
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'o:s:',
+        opts, args = getopt.getopt(sys.argv[1:], 'o:s:f:a',
                                    ['output=', 
                                     'output-format=',
                                     'spread='])
@@ -369,6 +396,8 @@ def main():
             output_format = val
         elif opt in ('-s', '--spread'):
             spread = val
+        elif opt in ('-a', '--check-accounts'):
+            check_accounts = True
         else:
             print "Unknown argument: %s" % opt
             usage(1)
@@ -376,10 +405,10 @@ def main():
     logger.info('Start of accounts without affiliation report')
 
     # Search for accounts without affiliations
-    no_aff = get_accs_wo_affs(logger, spread, ac, pe, di, co)
+    no_aff = get_accs_wo_affs(logger, spread, ac, pe, di, co, check_accounts)
    
    # Generate HTML report of results
-    gen_affles_users_report(output, no_aff, output_format)
+    gen_affles_users_report(output, no_aff, output_format, check_accounts)
 
     # If the output is being written to file, close the filehandle
     if not output is sys.stdout:
