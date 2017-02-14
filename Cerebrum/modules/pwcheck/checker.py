@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -76,7 +76,7 @@ def get_checkers():
     return _checkers
 
 
-def check_password(password, account=None, structured=False):
+def check_password(password, account=None, structured=False, checkers=None):
     """
     Check password against all enabled password checks.
 
@@ -86,16 +86,20 @@ def check_password(password, account=None, structured=False):
     :type account: Cerebrum.Account
     :param structured: send a strctured (json) output or raise an exception
     :type structured: bool
+    :param checkers: (if not None) it overrides the lsit of checks defined in
+                     cereconf.PASSWORD_CHECKS
+    :type checkers: dict
     """
+    checkers_dict = cereconf.PASSWORD_CHECKS
+    if isinstance(checkers, dict):
+        checkers_dict = checkers
     load_checkers()
     # Inspect the PASSWORD_CHECKS structure and decide
     # on supported password styles
     allowed_style = 'rigid'
-    if (
-            cereconf.PASSWORD_CHECKS.get('rigid') and
-            cereconf.PASSWORD_CHECKS.get('phrase')):
+    if checkers_dict.get('rigid') and checkers_dict.get('phrase'):
         allowed_style = 'mixed'
-    elif cereconf.PASSWORD_CHECKS.get('phrase'):
+    elif checkers_dict.get('phrase'):
         allowed_style = 'phrase'
     pwstyle = allowed_style
     if pwstyle == 'mixed':
@@ -114,7 +118,7 @@ def check_password(password, account=None, structured=False):
     errors = tree()
     requirements = tree()
 
-    for style, checks in cereconf.PASSWORD_CHECKS.items():
+    for style, checks in checkers_dict.items():
         for check_name, check_args in checks:
             if check_name not in _checkers:
                 print('Invalid password check', repr(check_name))
@@ -160,7 +164,7 @@ def check_password(password, account=None, structured=False):
 
     checks_structure = collections.defaultdict(list)
     total_passed = collections.defaultdict(lambda: True)
-    for style, checks in cereconf.PASSWORD_CHECKS.items():
+    for style, checks in checkers_dict.items():
         # we want to preserve the cereconf checks order in checks_structure
         for check in checks:
             name = check[0]
@@ -178,8 +182,6 @@ def check_password(password, account=None, structured=False):
         'style': pwstyle,
         'checks': checks_structure,
     }
-    # import json
-    # print json.dumps(data, indent=4)
     return data
 
 

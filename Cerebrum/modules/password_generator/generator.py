@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,9 +27,6 @@ import cereconf
 from Cerebrum import Errors, Utils
 
 from Cerebrum.modules.password_generator.config import load_config
-
-from Cerebrum.modules.pwcheck.checker import (check_password,
-                                              PasswordNotGoodEnough)
 
 
 class PasswordGenerator(object):

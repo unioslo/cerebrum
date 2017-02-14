@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2002-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1291,7 +1291,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def get_account_name(self):
         return self.account_name
 
-    def make_passwd(self, uname, phrase=False):
+    def make_passwd(self, uname, phrase=False, checkers=None):
         """Generate a random password"""
         password_generator = PasswordGenerator()
         for attempt in range(10):
@@ -1301,7 +1301,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             else:
                 r = password_generator.generate_password()
             try:
-                check_password(r, self)
+                check_password(r, self, checkers=checkers)
                 return r
             except PasswordNotGoodEnough as e:
                 if attempt == 9:  # last attempt
