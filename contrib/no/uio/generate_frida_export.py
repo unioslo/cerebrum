@@ -690,7 +690,8 @@ def should_export_person(person):
                                                'EF-STIP',
                                                'EMERITUS',
                                                'ASSOSIERT',
-                                               'GJ-FORSKER']),
+                                               'GJ-FORSKER',
+                                               'EKST-PART']),
                          person.iteremployment())
 
     if (assignments_8_50 and assignments_8_50 == assignments and
