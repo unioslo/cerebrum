@@ -821,6 +821,7 @@ def main():
     global source_system
     source_system = getattr(constants, sysname)
     output_xml(output_file, sysname, personfile, oufile)
+    logger.info("Finished generating FRIDA export")
 
 
 if __name__ == "__main__":
