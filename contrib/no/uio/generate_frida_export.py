@@ -451,7 +451,12 @@ def output_employments(writer, person, ou_cache):
         values = dict((key, getattr(employment, key))
                       for key in names)
         # grab sko
-        values["place"] = employment.place[1]
+        try:
+            values["place"] = employment.place[1]
+        except TypeError:
+            # Some employments, like 8;50, does not come with a placecode. It
+            # is perfectly natural to skip them at this stage.
+            continue
         # grab title
         values["title"] = employment.get_name_with_lang(employment.WORK_TITLE,
                                                         *languages)
@@ -675,8 +680,11 @@ def should_export_person(person):
 
     # Filter out people that have 8;50 as a HOVEDSTILLING, unless they have a
     # GJEST role of appropriate type:
-    n8_50 = filter(lambda x: not (x.mg == 8 and x.mug == 50 and x.kind in [
-        DataEmployment.HOVEDSTILLING]), person.iteremployment())
+    assignments = filter(lambda x: x.kind in [DataEmployment.HOVEDSTILLING],
+                         person.iteremployment())
+    assignments_8_50 = filter(lambda x: x.mg == 8 and x.mug == 50,
+                              assignments)
+
     guest_roles = filter(lambda x: (x.kind == DataEmployment.GJEST and
                                     x.code in ['EF-FORSKER',
                                                'EF-STIP',
@@ -685,7 +693,8 @@ def should_export_person(person):
                                                'GJ-FORSKER']),
                          person.iteremployment())
 
-    if n8_50 and not guest_roles:
+    if (assignments_8_50 and assignments_8_50 == assignments and
+            not guest_roles):
         logger.debug2("Skipping, person_id %s only has MG/MUG 8;50 records and"
                       " has no applicable role", list(person.iterids()))
         return False
@@ -722,8 +731,9 @@ def output_people(writer, sysname, personfile, ou_cache):
     logger.info("cached PhD students (%d people)", len(phd_students))
 
     writer.startElement("personer")
-    parser = system2parser(sysname)(personfile, logger, False)
-    for person in parser.iter_person():
+    parser = system2parser(sysname)(personfile, logger, fetchall=False)
+    for person in parser.iter_person(filter_out_sko_0000=False,
+                                     require_ou_for_assignments=False):
         if not should_export_person(person):
             continue
 

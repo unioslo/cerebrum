@@ -600,7 +600,7 @@ class XMLDataGetter(AbstractDataGetter):
 
         super(XMLDataGetter, self).__init__(logger, fetchall)
 
-    def _make_iterator(self, element, klass):
+    def _make_iterator(self, element, klass, **kwargs):
         """Create an iterator over XML elements.
 
         Creates an iterator over XML elements 'element' that returns instances
@@ -612,7 +612,7 @@ class XMLDataGetter(AbstractDataGetter):
         else:
             it = XMLEntityIterator(self._filename, element)
 
-        return klass(iter(it), self.logger)
+        return klass(iter(it), self.logger, **kwargs)
 
     def fetch(self, fetchall=True):
         """Parse the XML file and convert it to HRDataPerson objects."""
@@ -638,7 +638,7 @@ class XMLEntity2Object(object):
     reason such an object cannot be created, None must be returned.
     """
 
-    def __init__(self, xmliter, logger):
+    def __init__(self, xmliter, logger, **kwargs):
         """Constructs an iterator supplying DataEntity objects.
 
         xmliter is the the underlying ElementTree iterator (here we do not
@@ -647,6 +647,8 @@ class XMLEntity2Object(object):
 
         self._xmliter = iter(xmliter)
         self.logger = logger
+        for (k, v) in kwargs.items():
+            setattr(self, k, v)
 
     def next(self):
         """Return next object constructed from a suitable XML element
