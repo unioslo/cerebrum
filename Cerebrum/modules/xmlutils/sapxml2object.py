@@ -76,11 +76,11 @@ class SAPXMLDataGetter(XMLDataGetter):
 
     """An abstraction layer for SAP XML files."""
 
-    def iter_person(self):
-        return self._make_iterator("sap2bas_pers", XMLPerson2Object)
+    def iter_person(self, **kwargs):
+        return self._make_iterator("sap2bas_pers", XMLPerson2Object, **kwargs)
 
-    def iter_ou(self):
-        return self._make_iterator("sap2bas_sted", XMLOU2Object)
+    def iter_ou(self, **kwargs):
+        return self._make_iterator("sap2bas_sted", XMLOU2Object, **kwargs)
 
 
 class XMLOU2Object(XMLEntity2Object):
@@ -398,9 +398,10 @@ class XMLPerson2Object(XMLEntity2Object):
             elif sub.tag == "SKO":
                 code = int(value[0:4])
 
-                # 0000 are to be discarded. This is by design.
-                if code == 0:
-                    return None
+                if getattr(self, 'filter_out_sko_0000', True):
+                    # 0000 are to be discarded. This is by design.
+                    if code == 0:
+                        return None
                 # Some elements have the proper category set in AdmForsk
                 if category is None:
                     category = self._code2category(code)
@@ -445,7 +446,7 @@ class XMLPerson2Object(XMLEntity2Object):
             # contains deceased status for a person.
 
         # We *must* have an OU to which this employment is attached.
-        if not ou_id:
+        if getattr(self, 'require_ou_for_assignments', True) and not ou_id:
             return None
 
         kind = self.tag2type[emp_element.tag]
