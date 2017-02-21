@@ -101,13 +101,12 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
         super(PasswordHistoryMixin, self).clear()
 
     def _bruteforce_check_password_history(self, password):
-        """ Check if entity had this or a similar password earlier.
+        """ Check if entity had a similar password earlier.
 
         :param str password: The plaintext password.
 
-        :return: Returns True if the password has been used before or
-            if it is too similar to an old one. Return False or None
-            otherwise
+        :return: Returns True if the password is too similar to an old
+            one. Return False or None otherwise
         """
         ph = PasswordHistory(self._db)
         name = getattr(self, 'account_name', None)
@@ -148,11 +147,8 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
 
         :param str password: The plaintext password.
 
-        :return: Returns on success
-
-        :return: Returns True if the password has been used before or
-            if it is too similar to an old one. Return False or None
-            otherwise
+        :return: Returns True if the password has been used before.
+            Return False or None otherwise
         """
         ph = PasswordHistory(self._db)
         name = getattr(self, 'account_name', None)
