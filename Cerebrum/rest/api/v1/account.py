@@ -1,4 +1,22 @@
-# coding: utf-8
+# -*- coding: utf-8 -*-
+#
+# Copyright 2016-2017 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Account API. """
 
 from flask import make_response, request
@@ -16,6 +34,19 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough)
 
 api = Namespace('accounts', description='Account operations')
+
+
+# Overrides the cereconf.PASSWORD_CHECKS
+# This is a temporary hack and it will be removed in the future
+custom_checkers = {
+    'rigid': (
+        ('simple_entropy_calculator',
+         {'min_required_entropy': 33,
+          'min_groups': 3,
+          'min_chars_per_group': 2}),
+        ('history', {}),
+    ),
+}
 
 
 def find_account(identifier):
@@ -472,9 +503,13 @@ class AccountPasswordResource(Resource):
         data = request.json
         plaintext = data.get('password', None)
         if plaintext is None:
-            plaintext = ac.make_passwd(ac.account_name)
+            plaintext = ac.make_passwd(ac.account_name,
+                                       checkers=custom_checkers)
         try:
-            check_password(plaintext, account=ac, structured=False)
+            check_password(plaintext,
+                           account=ac,
+                           structured=False,
+                           checkers=custom_checkers)
         except PasswordNotGoodEnough as err:
             abort(400, 'Bad password: {}'.format(err))
         if isinstance(plaintext, unicode):
@@ -531,7 +566,10 @@ class AccountPasswordCheckerResource(Resource):
                 plaintext = plaintext.encode('ISO-8859-1')
             except UnicodeEncodeError:
                 abort(400, 'Bad password: Contains illegal characters')
-        return check_password(plaintext, account=ac, structured=True)
+        return check_password(plaintext,
+                              account=ac,
+                              structured=True,
+                              checkers=custom_checkers)
 
 
 @api.route('/<string:id>/gpg/<string:tag>/<string:key_id>/latest', doc=False)
