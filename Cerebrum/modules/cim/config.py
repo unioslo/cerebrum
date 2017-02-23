@@ -101,10 +101,20 @@ class CIMDataSourceConfig(Configuration):
         default=u"SAP",
         doc=u'Perspective to use when fetching OU structure.')
 
+    ou_exclude_root_from_structure = ConfigDescriptor(
+        Boolean,
+        default=False,
+        doc=u'Perspective to use when fetching OU structure.')
+
     phone_country_default = ConfigDescriptor(
         String,
         default=u"NO",
         doc=u'Assume this phone region when otherwise unknown.')
+
+    phone_authoritative_system = ConfigDescriptor(
+        String,
+        default=u"SAP",
+        doc=u'Authoritative system to fetch phone numbers from.')
 
     phone_mappings = ConfigDescriptor(
         Namespace,
