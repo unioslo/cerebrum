@@ -40,6 +40,8 @@ class CIMDataSource(object):
         self.ou = Factory.get('OU')(self.db)
         self.authoritative_system = self.co.AuthoritativeSystem(
             str(self.config.authoritative_system))
+        self.phone_authoritative_system = self.co.AuthoritativeSystem(
+            str(self.config.phone_authoritative_system))
         self.ou_perspective = self.co.OUPerspective(
             str(self.config.ou_perspective))
         self.spread = self.co.Spread(str(self.config.spread))
@@ -174,7 +176,7 @@ class CIMDataSource(object):
         """
         contact_info = self._attr_filter(
             'source_system',
-            self.authoritative_system,
+            self.phone_authoritative_system,
             self.pe.get_contact_info())
         phones = {}
         for contact_entry in self.config.phone_mappings:
@@ -210,7 +212,7 @@ class CIMDataSource(object):
         current_ou_id = self.ou.entity_id
         current_ou_name = None
 
-        while current_ou_id not in ou_roots:
+        while current_ou_id:
             self.ou.clear()
             self.ou.find(current_ou_id)
             try:
@@ -223,7 +225,8 @@ class CIMDataSource(object):
             else:
                 ous.append(current_ou_name)
             current_ou_id = self.ou.get_parent(self.ou_perspective)
-            if not current_ou_id:
+            if (self.config.ou_exclude_root_from_structure and
+                    current_ou_id in ou_roots):
                 break
 
         ous.reverse()
