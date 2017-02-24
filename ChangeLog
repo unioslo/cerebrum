@@ -1,3 +1,7 @@
+2017-02-24    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* OrgLDIF.py (OrgLDIFUiTMixin.make_person_entry): need to make uit spesific make_person_entry in order to get correct group membership
+
 2017-02-08    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* Email.py (email_address.process_mail): Added option to set

@@ -183,3 +183,59 @@ class OrgLDIFUiTMixin(OrgLDIF):
                 acc_locked_quarantines[entity_id].append(qt)
         timer("...account information done.")
    
+
+    def make_person_entry(self, row, person_id):
+        """ Extend with UiO functionality. """
+        dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
+        if not dn:
+            return dn, entry, alias_info
+
+        # Add or extend entitlements
+        #if person_id in self.ownerid2urnlist:
+        #    if 'eduPersonEntitlement' in entry:
+        #        entry['eduPersonEntitlement'].extend(self.ownerid2urnlist[person_id])
+        #    else:
+        #        entry['eduPersonEntitlement'] = self.ownerid2urnlist[person_id]
+
+        # Add person ID
+        #entry['uioPersonID'] = str(person_id)
+
+        # Add group memberships
+        self.logger.debug("get group memberships")
+        if person_id in self.person2group:
+            # TODO: remove member and uioPersonObject after transition period
+            self.logger.debug("appending uioMemberOf:%s" % self.person2group[person_id])
+            #entry['uioMemberOf'] = entry['member'] = self.person2group[person_id]
+            entry['member'] = self.person2group[person_id]
+            entry['objectClass'].extend((['uitMembership']))
+            #entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))
+
+        # Add scoped affiliations
+        #pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(person_id)
+        #entry['uioPersonScopedAffiliation'] = self.make_uioPersonScopedAffiliation(
+        #    person_id, pri_aff, pri_ou)
+
+        # Add the uioPersonObject class if missing
+        #if 'uioPersonObject' not in entry['objectClass']:
+        #    entry['objectClass'].extend(('uioPersonObject',))
+
+        # Check if there exists «avvikende» addresses, if so, export them instead:
+        #addrs = self.addr_info.get(person_id)
+        #post = addrs and addrs.get(int(self.const.address_other_post))
+        #if post:
+        #    a_txt, p_o_box, p_num, city, country = post
+        #    post = self.make_address("$", p_o_box, a_txt, p_num, city, country)
+        #    if post:
+        #        entry['postalAddress'] = (post,)
+        #street = addrs and addrs.get(int(self.const.address_other_street))
+        #if street:
+        #    a_txt, p_o_box, p_num, city, country = street
+        #    street = self.make_address(", ", None, a_txt, p_num, city, country)
+        #    if street:
+        #        entry['street'] = (street,)
+
+        # Add Office 365 consents
+        #if person_id in self.office365_consents:
+        #    entry['uioOffice365consent'] = 'TRUE'
+
+        return dn, entry, alias_info
