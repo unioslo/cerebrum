@@ -24,7 +24,9 @@ import cerebrum_path
 import getopt
 import xml.sax
 import sys
-from Cerebrum.Utils import XMLHelper,SimilarSizeWriter
+from Cerebrum.Utils import XMLHelper
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
+
 
 class CollectParser(xml.sax.ContentHandler):
     def __init__(self, filename, results, hash_keys, append_file=False):

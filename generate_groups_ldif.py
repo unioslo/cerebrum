@@ -44,7 +44,8 @@ import getopt
 import pickle
 import cerebrum_path
 
-from Cerebrum.Utils import Factory, SimilarSizeWriter
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.modules.LDIFutils import *
 
 logger = Factory.get_logger("cronjob")

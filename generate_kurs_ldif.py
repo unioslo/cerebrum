@@ -25,7 +25,8 @@ import pickle
 import os, sys
 import cerebrum_path
 import locale
-from Cerebrum.Utils import Factory, SimilarSizeWriter
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.modules.LDIFutils import *
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
 
