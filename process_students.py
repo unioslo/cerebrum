@@ -22,6 +22,7 @@
 import hotshot
 import hotshot.stats
 proffile = 'hotshot.prof'
+import inspect
 
 import getopt
 import sys
@@ -1166,11 +1167,28 @@ def get_existing_accounts():
     #
     logger.info("Listing accounts...")
     tmp_ac = {}
-    for row in account_obj.list(filter_expired=False, fetchall=False):
+ 
+
+    #
+    # uio uses account.list. uit need to use account.search since we need the
+    # username at this time (to filter out sito accounts
+    #
+    #for row in account_obj.list(filter_expired=False, fetchall=False):
+    #    if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
+    #        continue
+    for row in account_obj.search(expire_start=None):
         if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
+            continue
+        if row['name'].endswith("999"):
+            logger.debug("we do not want to process admin account:%s" % (row['name']))
+            continue
+        if (row['name'].endswith(cereconf.USERNAME_POSTFIX['sito'])):
+            # we only want to process uit accounts
+            logger.debug("account name:%s is a sito account, do not add to list" % row['name'])
             continue
         tmp_ac[int(row['account_id'])] = ExistingAccount(pid2fnr[int(row['owner_id'])],
                                                          row['expire_date'])
+
     # PosixGid
     for row in posix_user_obj.list_posix_users():
         tmp = tmp_ac.get(int(row['account_id']), None)
@@ -1275,6 +1293,9 @@ def get_existing_accounts():
 
     for ac_id, tmp in tmp_ac.items():
         fnr = tmp_ac[ac_id].get_fnr()
+        affs = tmp.get_affiliations()
+        logger.debug("affs:%s" % (affs))
+        logger.debug(pformat(tmp))
         if tmp.is_reserved():
             tmp_persons[fnr].append_reserved_ac(ac_id)
         elif tmp.is_deleted():
@@ -1289,13 +1310,13 @@ def get_existing_accounts():
             # students if the person has at least one STUDENT
             # affiliation.  The STUDENT affiliation(s) will be added
             # later during this run.
-            logger.debug("affiliations = :%s" % tmp_persons[fnr].get_affiliations())
+
+            #
+            # get home_spreads() returns nothing for account id:740117 ....why?
+            # 
             for s in tmp.get_home_spreads():
-                logger.debug("home spreads:%s" % s)
                 disk_id = tmp.get_home(s)[0]
-                logger.debug("disk id:%s" % disk_id)
                 foo = autostud.disk_tool.get_diskdef_by_diskid(disk_id)
-                logger.debug("foo:%s" % foo)
                 if autostud.disk_tool.get_diskdef_by_diskid(disk_id):
                     tmp_persons[fnr].append_stud_ac(ac_id)
                     break
@@ -1306,8 +1327,8 @@ def get_existing_accounts():
 
     logger.info(" found %i persons and %i accounts" % (
         len(tmp_persons), len(tmp_ac)))
-    #logger.debug("Persons: \n"+"\n".join([str(y) for y in persons.items()]))
-    #logger.debug("Accounts: \n"+"\n".join([str(y) for y in accounts.items()]))
+    #logger.debug("Persons: \n"+"\n".join([str(y) for y in tmp_persons.items()]))
+    #logger.debug("Accounts: \n"+"\n".join([str(y) for y in tmp_ac.items()]))
     return tmp_persons, tmp_ac
 
 def make_letters(data_file=None, type=None, range=None):
