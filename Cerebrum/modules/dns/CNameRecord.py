@@ -133,7 +133,7 @@ class CNameRecord(Entity):
         WHERE %s ORDER BY en_own.entity_name""" % where, {
             'target_owner_id': target_owner,
             'cname_owner_id': cname_owner,
-            host 'zone': zone} )
+            'zone': zone} )
 
     def _delete(self):
         """Deletion in cname_record should be done through the DnsHelper
