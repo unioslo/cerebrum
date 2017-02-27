@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2016 University of Oslo, Norway
+# Copyright 2003-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -389,14 +389,15 @@ class _SAPPersonDataTuple(_SAPTupleBase):
 
 
 class _SAPPersonDataTupleFok(_SAPPersonDataTuple):
-
     """This one has forretningsområdekode."""
 
     _field_rules = {'sap_fokode': 25, }
 
     def valid(self):
         """Everything tagged with fok"""
-        return self.sap_fokode != '9999'
+        if (not self.sap_fokode) or self.sap_fokode == '9999':
+            return False
+        return True
 
 
 class _SAPEmploymentTuple(_SAPTupleBase):
@@ -434,7 +435,6 @@ class _SAPEmploymentTuple(_SAPTupleBase):
 
 
 class _SAPEmploymentTupleFok(_SAPEmploymentTuple):
-
     """This time with forretningsområdekode."""
 
     _field_rules = {'sap_fokode': 4,
@@ -442,9 +442,8 @@ class _SAPEmploymentTupleFok(_SAPEmploymentTuple):
 
     def valid(self):
         # "9999" comes from SAP
-        if self.sap_fokode == "9999":
+        if (not self.sap_fokode) or self.sap_fokode == "9999":
             return False
-
         return super(_SAPEmploymentTupleFok, self).valid()
 
 

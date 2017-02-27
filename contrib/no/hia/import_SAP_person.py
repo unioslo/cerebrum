@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2004-2016 University of Oslo, Norway
+# Copyright 2004-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -521,11 +521,16 @@ def main():
                                required=True,
                                help='File containing person data-export '
                                     'from SAP.')
-    parser.add_argument('--without-fok', dest='use_fok', action='store_false',
+    parser.add_argument('--without-fok',
+                        action='store_false',
+                        default=True,
+                        dest='use_fok',
                         help='Do not use forretningsområdekode for checking '
                              'if a person should be imported. (default: use.)')
-    parser.set_defaults(use_fok=True)
-    parser.add_argument('-c', '--commit', dest='commit', action='store_true',
+    parser.add_argument('-c', '--commit',
+                        dest='commit',
+                        default=False,
+                        action='store_true',
                         help='Write changes to DB.')
     args = parser.parse_args()
 
