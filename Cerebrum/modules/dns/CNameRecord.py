@@ -130,10 +130,10 @@ class CNameRecord(Entity):
              [:table schema=cerebrum name=dns_owner] d_tgt,
              [:table schema=cerebrum name=entity_name] en_own,
              [:table schema=cerebrum name=entity_name] en_tgt
-        WHERE %s""" % where, {
-               'target_owner_id': target_owner,
-               'cname_owner_id': cname_owner,
-               'zone': zone} )
+        WHERE %s ORDER BY en_own.entity_name""" % where, {
+            'target_owner_id': target_owner,
+            'cname_owner_id': cname_owner,
+            'zone': zone} )
 
     def _delete(self):
         """Deletion in cname_record should be done through the DnsHelper
