@@ -295,7 +295,8 @@ class CheckSimpleEntropyCalculator(PasswordChecker):
         counters = {string.ascii_lowercase: 0,
                     string.ascii_uppercase: 0,
                     string.digits: 0,
-                    string.punctuation: 0}
+                    # here we define ' ' as a punctuation character
+                    string.punctuation + ' ': 0}
         for character in basestring_sequence:
             for group in counters.keys():
                 if character in group:
