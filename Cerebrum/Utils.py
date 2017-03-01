@@ -1154,7 +1154,8 @@ def argument_to_sql(argument,
     # replace . with _, to not confuse the printf-like syntax when joining
     # the safe SQL string from this function with the values from L{binds}.
     binds_name = sql_attr_name.replace('.', '_')
-    negation = 'NOT ' if negate else ''
+    compare_set = 'NOT IN' if negate else 'IN'
+    compare_scalar = '!=' if negate else '='
     if (isinstance(argument, (collections.Sized, collections.Iterable)) and
             not isinstance(argument, basestring)):
         assert len(argument) > 0, "List can not be empty."
@@ -1166,9 +1167,9 @@ def argument_to_sql(argument,
         # entries, so then skip it. Also the odds for hitting the sql-query
         # cache diminishes rapidly, which is what binds is trying to aid.
         elif len(argument) > 8:
-            return '(%s %sIN (%s))' % (
+            return '(%s %s (%s))' % (
                 sql_attr_name,
-                negation,
+                compare_set,
                 ', '.join(map(str, map(transformation, argument))))
         else:
             tmp = dict()
@@ -1178,14 +1179,14 @@ def argument_to_sql(argument,
                 tmp[name] = transformation(item)
 
             binds.update(tmp)
-            return '(%s %sIN (%s))' % (
+            return '(%s %s (%s))' % (
                 sql_attr_name,
-                negation,
+                compare_set,
                 ', '.join([':' + x for x in tmp.iterkeys()]))
 
     assert binds_name not in binds
     binds[binds_name] = transformation(argument)
-    return "(%s = :%s)" % (sql_attr_name, binds_name)
+    return "(%s %s :%s)" % (sql_attr_name, compare_scalar, binds_name)
 
 
 def prepare_string(value, transform=str.lower):
