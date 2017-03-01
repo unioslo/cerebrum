@@ -1,3 +1,7 @@
+2017-03-01    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* user_expire.py: Email notifications are sent from leetah. cleomedes will not send emails yet..
+
 2017-02-24    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_students.py (get_existing_accounts): removed lots of debug lines. script changed to also process fagpersoner from fs

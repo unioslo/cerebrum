@@ -71,8 +71,14 @@ FIRST_WARNING= cereconf.USER_EXPIRE_CONF['FIRST_WARNING']
 SECOND_WARNING=cereconf.USER_EXPIRE_CONF['SECOND_WARNING']
 
 
-
+#
+# user_expire will not send notification emails from cleomedes.
+# these messages are still sendt from leetah
+#
 def send_mail(uname, user_info, nr, forward=False):
+    return None
+
+def send_mail_orig(uname, user_info, nr, forward=False):
     """Get template file based on user_info and expiring action number
     to create Subject and body of mail. Get mail addresses based on
     type of account and expiring action number. If a critical error
