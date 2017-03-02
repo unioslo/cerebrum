@@ -727,12 +727,11 @@ class Build:
         new_deceased = False
         if p_obj.get_deceased_date() is not None:
             new_expire = str(p_obj.get_deceased_date())
+            logger.debug("current_expire:%s, new_expire:%s" % (current_expire,new_expire))
             if current_expire != new_expire:
                 logger.warn("Account owner deceased: %s" % (acc_obj.get_uname()))
                 new_deceased = True
-
-        logger.debug("Current expire %s, new expire %s" % (current_expire,new_expire))
-        if (new_expire > current_expire) or new_deceased:
+        if (new_expire > current_expire) or new_deceased or current_expire == 'None':
             changes.append(('expire_date',"%s" % new_expire))
  
         #check account affiliation and status        

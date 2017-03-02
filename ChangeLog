@@ -1,3 +1,8 @@
+2017-03-02    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_paga.py (Build.process_person): Also need to set expire
+	data on accounts with current expire_date = None
+
 2017-03-01    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* user_expire.py: Email notifications are sent from leetah. cleomedes will not send emails yet..
