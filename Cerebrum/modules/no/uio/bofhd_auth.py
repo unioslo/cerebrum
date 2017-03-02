@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2003-2014 University of Oslo, Norway
+# Copyright 2003-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,11 +20,17 @@
 """ Site specific auth.py for UiO. """
 
 import cereconf
+from Cerebrum import Constants
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd import auth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
-from Cerebrum.modules import Email
+from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+
+
+class Constants(Constants.Constants):
+    auth_set_password_important = _AuthRoleOpCode(
+        'set_password_imp', 'Set password for important/critical accounts')
 
 
 class BofhdAuth(auth.BofhdAuth):
@@ -62,6 +68,24 @@ class BofhdAuth(auth.BofhdAuth):
             return self.is_group_member(operator, grp.group_name)
         return False
 
+    def _is_important_account(self, operator, account):
+        """If an account is considered important."""
+        # Accounts owned by a group, i.e. system account
+        # is_account_owner() will allow this if operator is a group member
+        if account.owner_type == self.const.entity_group:
+            return True
+        # Tagged sysadmin accounts
+        if account.get_trait(self.const.trait_sysadm_account):
+            return True
+        # Manually tagged important accounts
+        if account.get_trait(self.const.trait_important_account):
+            return True
+        # Accounts that can set passwords for these accounts are also important
+        if self._has_operation_perm_somewhere(
+                account.entity_id, self.const.auth_set_password_important):
+            return True
+        return False
+
     def can_set_password(self, operator, account=None,
                          query_run_any=False):
         if self.is_superuser(operator):
@@ -74,11 +98,18 @@ class BofhdAuth(auth.BofhdAuth):
             return True
         if self._is_guest_owner(operator, account):
             return True
-        return self.is_account_owner(operator, self.const.auth_set_password,
-                                     account)
+        important = self._is_important_account(operator, account)
+        operation = (self.const.auth_set_password_important if important
+                     else self.const.auth_set_password)
+        try:
+            return self.is_account_owner(operator, operation, account)
+        except PermissionDenied:
+            raise PermissionDenied(
+                "Not allowed to set password for '{}'".format(
+                    account.account_name))
 
     def can_clear_name(self, operator, person=None, source_system=None,
-            query_run_any=False):
+                       query_run_any=False):
         """If operator is allowed to remove a person's name from a given source
         system."""
         if self.is_superuser(operator, query_run_any):
@@ -105,6 +136,13 @@ class BofhdAuth(auth.BofhdAuth):
             account.find(operator)
             if ety.entity_id == account.owner_id:
                 return True
+        # permission can be given via opsets
+        if trait and self._has_target_permissions(
+                operator=operator, operation=self.const.auth_set_trait,
+                target_type=self.const.auth_target_type_host,
+                target_id=ety.entity_id, victim_id=ety.entity_id,
+                operation_attr=str(trait)):
+            return True
         raise PermissionDenied("Not allowed to set trait")
 
     def can_get_contact_info(self, operator, person=None, contact_type=None,
@@ -119,8 +157,8 @@ class BofhdAuth(auth.BofhdAuth):
         account.find(operator)
         if person.entity_id == account.owner_id:
             return True
-        if (hasattr(cereconf, 'BOFHD_VOIP_ADMINS') and 
-            self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS)):
+        if (hasattr(cereconf, 'BOFHD_VOIP_ADMINS') and
+                self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS)):
                 return True
         return super(BofhdAuth, self).can_get_contact_info(operator, person,
                                                            contact_type,
@@ -129,25 +167,26 @@ class BofhdAuth(auth.BofhdAuth):
     def can_email_address_delete(self, operator_id, account=None, domain=None,
                                  query_run_any=False):
         """Checks if the operator can delete an address in a given domain.
-        Superusers and postmasters are always allowed, but normal users are also
-        allowed to delete their own addresses if it is not registered to one of
-        their users' active affiliations' OU."""
+        Superusers and postmasters are always allowed, but normal users are
+        also allowed to delete their own addresses if it is not registered to
+        one of their users' active affiliations' OU."""
         if self.is_superuser(operator_id):
             return True
         if query_run_any:
             return True
         try:
-            return self._is_local_postmaster(operator_id,
-                    self.const.auth_email_delete, account, domain,
-                    query_run_any)
+            return self._is_local_postmaster(
+                operator_id, self.const.auth_email_delete, account, domain,
+                query_run_any)
         except PermissionDenied:
             pass
         if operator_id != account.entity_id:
             raise PermissionDenied("Can only change e-mail addresses that "
                                    "belongs to your account")
         if domain.entity_id in account.get_prospect_maildomains():
-            raise PermissionDenied("Can't delete e-mail addresses from domains "
-                                   "the account is affiliated with")
+            raise PermissionDenied(
+                "Can't delete e-mail addresses from domains the account is "
+                "affiliated with")
         return True
 
     def can_email_mod_name(self, operator_id, person=None, firstname=None,
@@ -202,4 +241,3 @@ class BofhdAuth(auth.BofhdAuth):
         if query_run_any:
             return False
         raise PermissionDenied('Restricted access')
-
