@@ -758,6 +758,12 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if query_run_any:
             return True
+        if trait and self._has_target_permissions(
+                operator=operator, operation=self.const.auth_set_trait,
+                target_type=self.const.auth_target_type_host,
+                target_id=ety.entity_id, victim_id=ety.entity_id,
+                operation_attr=str(trait)):
+            return True
         raise PermissionDenied("Not allowed to set trait")
 
     def can_clear_name(self, operator, person=None, source_system=None,
@@ -776,6 +782,12 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if query_run_any:
             return True
+        if trait and self._has_target_permissions(
+                operator=operator, operation=self.const.auth_remove_trait,
+                target_type=self.const.auth_target_type_host,
+                target_id=ety.entity_id, victim_id=ety.entity_id,
+                operation_attr=str(trait)):
+            return True
         raise PermissionDenied("Not allowed to remove trait")
 
     def can_view_trait(self, operator, trait=None, ety=None, target=None,
@@ -792,14 +804,33 @@ class BofhdAuth(DatabaseAccessor):
         account.find(operator)
         if ety and ety.entity_id == account.owner_id:
             return True
+        operation_attr = str(trait) if trait else None
+        if self._has_target_permissions(
+                operator=operator, operation=self.const.auth_view_trait,
+                target_type=self.const.auth_target_type_host,
+                target_id=ety.entity_id, victim_id=target,
+                operation_attr=operation_attr):
+            return True
         raise PermissionDenied("Not allowed to see trait")
+
+    def can_list_trait(self, operator, trait=None, query_run_any=False):
+        """Access to list which entities has a trait."""
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_list_trait)
+        if self._has_operation_perm_somewhere(
+                operator, self.const.auth_list_trait):
+            return True
+        raise PermissionDenied("Not allowed to list traits")
 
     def can_get_student_info(self, operator, person=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
         # auth_view_studentinfo is not tied to a target
         if self._has_operation_perm_somewhere(
-            operator, self.const.auth_view_studentinfo):
+                operator, self.const.auth_view_studentinfo):
             return True
         if query_run_any:
             return False

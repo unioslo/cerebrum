@@ -8136,11 +8136,10 @@ Addresses and settings:
         ("trait", "list"), SimpleString(help_ref="trait"),
         fs=FormatSuggestion("%-16s %-16s %s", ('trait', 'type', 'name'),
                             hdr="%-16s %-16s %s" % ('Trait', 'Type', 'Name')),
-        perm_filter="is_superuser")
+        perm_filter="can_list_trait")
     def trait_list(self, operator, trait_name):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
         trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
+        self.ba.can_list_trait(operator.get_entity_id(), trait=trait)
         ety = self.Account_class(self.db) # exact class doesn't matter
         ret = []
         ety_type = str(self.const.EntityType(trait.entity_type))
@@ -8153,7 +8152,6 @@ Addresses and settings:
         ret.sort(lambda x,y: cmp(x['name'], y['name']))
         return ret
 
-#def can_remove_trait(self, operator, trait=None, ety=None, target=None, query_run_any=False):
     # trait remove -- remove trait from entity
     all_commands['trait_remove'] = Command(
         ("trait", "remove"), Id(help_ref="id:target:account"),
