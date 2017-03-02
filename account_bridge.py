@@ -95,7 +95,12 @@ class AccountBridge:
                 if (len(row["entity_name"]) > 6) and row["entity_name"].endswith('s'): 
                     sito_uname = row["entity_name"]
                 else:
-                    uit_uname = row["entity_name"]
+                    #
+                    # Do not collect usernames on the form aaa99(8,9). these are admin accounts and not to be included
+                    # (they are soon to be deleted from all systems)
+                    #
+                    if((len(row["entity_name"]) == 6) and ((row["entity_name"][3:5] != '99') and (row["entity_name"][5] not in ('8','9')))):
+                        uit_uname = row["entity_name"]
 
         if sito:
             return sito_uname

@@ -1,3 +1,7 @@
+2017-03-02    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* account_bridge.py (AccountBridge.get_uname): do not collect usernames on the form aaa99(8,9) from old cerebrum. these are to be deleted
+
 2017-02-24    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* OrgLDIF.py (OrgLDIFUiTMixin.make_person_entry): need to make uit spesific make_person_entry in order to get correct group membership
