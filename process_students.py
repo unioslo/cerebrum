@@ -32,7 +32,7 @@ import traceback
 from time import localtime, strftime, time
 from mx.DateTime import now
 import pprint
-
+import datetime
 import cerebrum_path
 import cereconf
 
@@ -1104,9 +1104,43 @@ def bootstrap():
     account = Factory.get('Account')(db)
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     default_creator_id = account.entity_id
-    default_expire_date = None
+    #default_expire_date = None
+    default_expire_date = get_default_expire_date()
     if posix_tables:
         default_shell = const.posix_shell_bash
+
+#
+# return current semester. spring or autumn
+#
+def get_semester():
+    import time
+    t = time.localtime()[0:2]
+    this_year = t[0]
+    if t[1] <= 6:
+        this_sem = 'vår'
+        next_year = this_year
+        next_sem = 'høst'
+    else:
+        this_sem = 'høst'
+        next_year = this_year + 1
+        next_sem = 'vår'
+    return ((str(this_year), this_sem), (str(next_year), next_sem))
+
+#
+# Get default expire date for student accounts
+#
+def get_default_expire_date():
+
+    this_sem, next_sem = get_semester()
+    sem = this_sem[1]
+    if (sem=='vår'):
+        month = 9
+    else:        
+        month = 2
+    year = int(next_sem[0])
+    day = 16
+    expire_date = datetime.date(year,month,day).isoformat()
+    return expire_date
 
 def get_existing_accounts():
     """Prefetch data about persons and their accounts to avoid

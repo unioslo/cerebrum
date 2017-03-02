@@ -1,5 +1,9 @@
 2017-03-02    <cerebrum@cleomedes.uit.no-cleomedes>
 
+	* process_students.py (get_default_expire_date):
+	default_expire_date is now calculated directly (and not set to
+	none) when creating the account.
+
 	* process_paga.py (Build.process_person): Also need to set expire
 	data on accounts with current expire_date = None
 
