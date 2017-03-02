@@ -33,6 +33,7 @@ __doc__ = """
                     default is user_yyyymmdd.txt in dumps/telefoni folder 
     -h | --help   : this text
     -d | --dryrun : do not change DB, default is do change DB.
+    -F | --force : force write ignoring cereconf.MAX_NUM_ALLOWED_CHANGES
     --checknames  : turn on check of name spelling. default is off
     --logger-name=name   : use this logger, default is cronjob
     --logger-level=level : use this log level, default is debug
@@ -48,8 +49,9 @@ import time
 import csv
 import getopt
 import csv
-import mx.DateTime
 import datetime
+import mx.DateTime
+from sets import Set
 
 import cerebrum_path
 import cereconf
@@ -78,8 +80,10 @@ db.cl_init(change_program='import_tlf')
 p=Factory.get('Person')(db)
 co=Factory.get('Constants')(db)
 ac=Factory.get('Account')(db)
+ac_phone = Factory.get('Account')(db)
 logger=Factory.get_logger("cronjob")
-
+num_changes = 0
+max_changes_allowed = int(cereconf.MAX_NUM_ALLOWED_CHANGES)
 
 def str_upper_no(string, encoding='iso-8859-1'):
     '''Converts Norwegian iso strings to upper correctly. Eg. זרו -> ֶ״ֵ
@@ -95,17 +99,13 @@ def init_cache(checknames,checkmail):
     logger.info("Caching account owners")
     uname2ownerid=dict()
     uname2expire=dict()
-    
-    # for a in ac.search(expire_start=None,expire_stop=mx.DateTime.MaxDateTime):
-    # KEB: replaced the above line with the line below as there is a problem with using 
-    #      mx.DateTime.MaxDateTime on metius.
     for a in ac.search(expire_start=None,expire_stop=mx.DateTime.DateTime(datetime.MAXYEAR,12,31)):
         uname2ownerid[a['name']]=a['owner_id']
         uname2expire[a['name']]=a['expire_date']
     if checknames:
         logger.info("Caching person names")
-        name_cache = p.getdict_persons_names(name_types=(co.name_first,
-                                                         co.name_last,))
+        name_cache = p.getdict_persons_names(name_types=(co.name_first, \
+            co.name_last, co.name_work_title))
     logger.info("Caching contact info")
     person2contact=dict()
     for c in p.list_contact_info(source_system=co.system_tlf,
@@ -121,7 +121,7 @@ def handle_changes(p_id,changes):
     """ 
     process a change list of contact info for given person id.
     """
-
+    global num_changes
     p.clear()
     try:
         p.find(p_id)
@@ -131,6 +131,7 @@ def handle_changes(p_id,changes):
         return
 
     for change in changes:
+        num_changes += 1
         chg_code=change[0]
         chg_val=change[1]
         idx,value=chg_val
@@ -215,13 +216,14 @@ def process_contact(userid,data,checknames,checkmail):
             if namelist:
                 cb_fname = str_upper_no(namelist.get(int(co.name_first),""))
                 cb_lname = str_upper_no( namelist.get(int(co.name_last),""))
+                worktitle = namelist.get(int(co.name_work_title),"")
                 if cb_fname != tlf_fname or cb_lname != tlf_lname:
-                    s_errors.setdefault(userid, list()).append(
-                        "Name spelling differ: yours=%s %s, ours=%s %s" %
+                    s_errors.setdefault(userid,list()).append( \
+                        "Name spelling differ: yours=%s %s, ours=%s %s" % \
                         (tlf_fname,tlf_lname,cb_fname,cb_lname))
 
-    db_idx = set(cinfo.keys())
-    src_idx= set(idxlist)
+    db_idx = Set(cinfo.keys())
+    src_idx= Set(idxlist)
     for idx in db_idx-src_idx:
         changes.append(('del_contact', (idx,None)))
     
@@ -231,21 +233,127 @@ def process_contact(userid,data,checknames,checkmail):
         logger.info("Update contact and write_db done")
     processed.append(ownerid)
 
+#
+# write back modified phonenr to database
+#
+def update_phonenr(uid,phone):
+    ac_phone.clear()
+    try:
+        ac_phone.find_by_name(uid)
+    except:
+        logger.error("unable to find user:%s. Continue with next user" % (uid))
+        return
+    logger.debug("writeback: uid: %s - %s" % (uid,phone))
+    ac_phone.populate_contact_info(co.system_tlf,co.contact_phone,phone)
+    ac_phone.write_db()
+    
+
+#
+# Delete the (work) phonenumber for the given uid with source = telefoni
+#
+def delete_phonenr(uid,phone):
+    ac_phone.clear()
+    try:
+        ac_phone.find_by_name(uid)
+    except NotFoundError:
+        logger.error("unable to find user:%s. Continue with next user" %(uid))
+        return
+    logger.debug("%s has account id:%s" % (uid,ac_phone.entity_id))
+    if(len(phone) == 5):
+        # sanity check. only delete 5digit numbers
+        logger.debug("deleting phonenumber:%s" % phone) 
+        #ac_phone.delete_contact_info(source=co.source_system_tlf,contact_type=co.contact_phone)
+    else:
+        logger.debug("Not deleting phonenumber: %s" % phone)
+
+        
 def process_telefoni(filename,checknames,checkmail):
+    #
+    # we will add a prefix to internal phone numbers based on their first digits.
+    # and we will mark some numbers for deletion, also based on prefix.
+    #
+    prefix_table = [
+        # (internal number first digits, prefix to add or "DELETE")
+        ("207", "776"),
+        ("208", "776"),
+        ("209", "776"),
+        ("231", "776"),
+        ("232", "776"),
+        ("233", "776"),
+        ("251", "776"),
+        ("252", "776"),
+        ("26",  "DELETE"),
+        ("27",  "DELETE"),
+        ("28",  "DELETE"),
+        ("44",  "776"),
+        ("45",  "776"),
+        ("46",  "776"),
+        ("483", "776"),
+        ("491", "776"),
+        ("492", "776"),
+        ("50",  "784"),
+        ("55",  "DELETE"),
+        ("58",  "770"),
+        ("602", "776"),
+        ("603", "776"),
+        ("604", "776"),
+        ("605", "776"),
+        ("606", "776"),
+        ("607", "776"),
+        ("608", "776"),
+        ("609", "776"),
+        ("62",  "769"),
+        ("660", "769"),
+        ("661", "769"),
+        ("662", "769"),
+        ("663", "769"),
+        ("664", "769"),
+        ("665", "769"),
+        ("66",  "769"),
+        ("69",  "DELETE"),
+    ]
+
     reader=csv.reader(open(filename,'r'), delimiter=';')
     phonedata=dict()
     for row in reader:
         if row[RESERVATION].lower()=='kat' and row[USERID].strip():
+
+            if row[USERID].strip() <> row[USERID]:
+                logger.error("Userid %s has blanks in it - notify telefoni!" % (row[USERID]))
             data = {'phone': row[PHONE],'mobile': row[MOB], 'room': row[ROOM],
                     'mail':row[MAIL], 'fax':row[FAX],'phone_2':row[PHONE_2],
                     'firstname': row[FNAME], 'lastname': row[LNAME],
                     'building': row[BUILDING]}
-            phonedata.setdefault(row[USERID],list()).append(data)
+
+            #
+            # Set phone extension or mark for deletion based on the first internal number's digits
+            #
+            added_prefix = False
+            for internal_first_digits, prefix in prefix_table:
+                if len(data['phone']) == 5 and data['phone'].startswith(internal_first_digits):
+                    if prefix == "DELETE":
+                        print "DELETE: %s - %s" % (row[USERID], data['phone'])
+                        # Delete the phonenumber from the database
+                        delete_phonenr(row[USERID],data['phone'])
+                    else:
+                        logger.debug('unmodified phone:%s' % (data['phone']))
+                        data['phone'] = "%s%s" % (prefix, data['phone'])
+                        logger.debug('modified phone:%s' % (data['phone']))
+                        update_phonenr(row[USERID],data['phone'])
+                    added_prefix = True
+                    break
+            if not added_prefix:
+                logger.warning('Userid %s has a malformed internal phone number '
+                               'or a number that does not have a match '
+                               'in our number prefix table:%s' % (row[USERID], data))
+                print "INVALID: %s - %s" % (row[USERID], data['phone'])
+
+            phonedata.setdefault(row[USERID].strip(),list()).append(data)
 
     for userid,pdata in phonedata.items():
         process_contact(userid, pdata,checknames,checkmail)
 
-    unprocessed = set(person2contact.keys()) - set(processed)
+    unprocessed = Set(person2contact.keys()) - Set(processed)
     for p_id in unprocessed:
         changes=list()
         contact_info=person2contact[p_id]
@@ -272,7 +380,7 @@ def process_telefoni(filename,checknames,checkmail):
             for i in msg[k]:
                 mailmsg+=i
 
-        #notify_phoneadmin(mailmsg)
+        notify_phoneadmin(mailmsg)
 
 
 def notify_phoneadmin(msg):    
@@ -296,13 +404,13 @@ def usage(exitcode=0,msg=None):
 
 def main():
     global dryrun
-
+    force = False
     default_phonefile='%s/telefoni/user_%s.txt' % (cereconf.DUMPDIR,
                                                    time.strftime("%Y%m%d"))
     phonefile=dryrun=checknames=checkmail=False
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dh?f:',
-                                   ['help','dryrun','file','checknames','checkmail'])
+        opts, args = getopt.getopt(sys.argv[1:], 'dh?f:F',
+                                   ['help','dryrun','file','checknames','checkmail','force'])
     except getopt.GetoptError,m:
         usage(1,m)
 
@@ -316,19 +424,29 @@ def main():
         elif opt in ['--checkmail']:
             checkmail=True
         elif opt in ['-f', '--file']:
-            phonefile=val 
-    
+            phonefile=val
+        elif opt in ['-F','--force']:
+            force = True
+
     init_cache(checknames,checkmail)
     logger.info("Using sourcefile '%s'" % (phonefile or default_phonefile))
     process_telefoni(phonefile or default_phonefile,checknames,checkmail)
-
+    logger.debug("Max number of allowed changes:%s" % (max_changes_allowed))
+    logger.debug("Number of changes:%s" % num_changes)
     if dryrun:
         db.rollback()
         logger.info("Dryrun, rollback changes")
+    
     else:
-        db.commit()
-        logger.info("Commited all changes")
-
+        if ((force == False) and (num_changes <= max_changes_allowed)):
+            db.commit()
+            logger.info("Commited all changes")
+        elif ((num_changes > max_changes_allowed) and (force == False)):
+            db.rollback()
+            logger.error("too many changes:%s. rollback" % (num_changes))
+        elif(force == True):
+            db.commit()
+            logger.warning("Forced writing: %s changes in phone processing")
 
 if __name__=="__main__":
     main()
