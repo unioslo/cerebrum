@@ -1,3 +1,9 @@
+2017-03-07    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* import_tlf.py (delete_phonenr): fixed error handling..which has
+	never worked. The script will now actually delete contact info if
+	required (which also didnt work before)
+
 2017-03-02    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* import_tlf.py (init_cache): updated script to check number of changes towards cereconf.MAX_NUM_ALLOWED_CHANGES.

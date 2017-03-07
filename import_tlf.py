@@ -234,7 +234,8 @@ def process_contact(userid,data,checknames,checkmail):
     processed.append(ownerid)
 
 #
-# write back modified phonenr to database
+# write back modified phonenr to database. Do not update the database
+# if the phone/contact info already exists in the database
 #
 def update_phonenr(uid,phone):
     ac_phone.clear()
@@ -255,14 +256,15 @@ def delete_phonenr(uid,phone):
     ac_phone.clear()
     try:
         ac_phone.find_by_name(uid)
-    except NotFoundError:
-        logger.error("unable to find user:%s. Continue with next user" %(uid))
+    except Errors.NotFoundError:
+        logger.error("unable to find user:'%s' Continue with next user" %(uid))
         return
     logger.debug("%s has account id:%s" % (uid,ac_phone.entity_id))
     if(len(phone) == 5):
         # sanity check. only delete 5digit numbers
         logger.debug("deleting phonenumber:%s" % phone) 
-        #ac_phone.delete_contact_info(source=co.source_system_tlf,contact_type=co.contact_phone)
+        ac_phone.delete_contact_info(source=co.system_tlf,contact_type=co.contact_phone)
+        ac_phone.write_db()
     else:
         logger.debug("Not deleting phonenumber: %s" % phone)
 
