@@ -29,10 +29,9 @@ from Cerebrum.modules.event import evhandlers
 from Cerebrum.utils.funcwrap import memoize
 
 from Cerebrum.modules.cim.client import CIMClient
-from Cerebrum.modules.cim.datasource import CIMDataSource
 
 from Cerebrum.Errors import NotFoundError
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, dyn_import
 
 
 class Listener(evhandlers.EventConsumer):
@@ -65,9 +64,12 @@ class Listener(evhandlers.EventConsumer):
     @property
     @memoize
     def datasource(self):
-        return CIMDataSource(db=self.db,
-                             config=self._config.datasource,
-                             logger=self.logger)
+        mod, name = self._config.datasource.datasource_class.split('/')
+        mod = dyn_import(mod)
+        cls = getattr(mod, name)
+        return cls(db=self.db,
+                   config=self._config.datasource,
+                   logger=self.logger)
 
     @property
     @memoize

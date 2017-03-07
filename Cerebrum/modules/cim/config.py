@@ -86,6 +86,11 @@ class CIMPhoneMappingConfig(Configuration):
 
 class CIMDataSourceConfig(Configuration):
     u"""Configuration for the CIM data source."""
+    datasource_class = ConfigDescriptor(
+        String,
+        default=u'Cerebrum.modules.cim.datasource/CIMDataSource',
+        doc=u'Data source class')
+
     spread = ConfigDescriptor(
         String,
         default=u"CIM_person",
@@ -104,7 +109,7 @@ class CIMDataSourceConfig(Configuration):
     ou_exclude_root_from_structure = ConfigDescriptor(
         Boolean,
         default=False,
-        doc=u'Perspective to use when fetching OU structure.')
+        doc=u'Exclude the root node from the OU tree')
 
     phone_country_default = ConfigDescriptor(
         String,
