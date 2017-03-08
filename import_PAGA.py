@@ -243,6 +243,32 @@ def type_is_active(entry_type):
     return False
 
 
+def set_person_spreads(new_person):
+    # TODO?: check employment percent and only add spreads for 
+    #        those with high enough percentage??
+    #        (see how it is done in determine_affiliations()
+    #         remember: person may have more than one 'tils'...)
+
+    # Add ansatt spreads if person has ANSATT affiliation.
+    # Spreads to add are listed in cereconf.EMPLOYEE_PERSON_SPREADS
+    affs = new_person.get_affiliations()
+    is_ansatt = False
+    for i in range(0, len(affs)):
+        if affs[i]['affiliation'] == int(const.affiliation_ansatt):
+            is_ansatt = True
+    if is_ansatt:
+        spreads_to_add = [int(const.Spread(x)) for x in cereconf.EMPLOYEE_PERSON_SPREADS]
+
+        # only add spreads this person doesn't already have
+        spreads = new_person.get_spread()
+        for s in spreads:
+            if s['spread'] in spreads_to_add:
+                spreads_to_add.remove(s['spread'])
+
+        for spread in spreads_to_add:
+            new_person.add_spread(spread)
+
+
 def process_person(person):
     fnr = person['fnr']
 
@@ -298,7 +324,6 @@ def process_person(person):
 
     try:
         new_person.find_by_external_id(const.externalid_paga_ansattnr, str(paga_nr)) 
-        #KEB: added str() "around" paga_nr to the above line
     except Errors.NotFoundError:
         if person.get('fnr',''):
             try:
@@ -378,6 +403,8 @@ def process_person(person):
         ou_id, aff, aff_stat = v
         new_person.set_affiliation_last_date(const.system_paga, ou_id,\
                                          int(aff), int(aff_stat))
+
+    set_person_spreads(new_person)
 
     if op is None and op2 is None:
         logger.info("**** EQUAL ****")
