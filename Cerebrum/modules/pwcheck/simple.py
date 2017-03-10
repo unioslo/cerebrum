@@ -302,7 +302,8 @@ class CheckSimpleEntropyCalculator(PasswordChecker):
                 if character in group:
                     counters[group] += 1
         different_groups = [value for value in counters.values() if value > 0]
-        return (len(different_groups), min(different_groups))
+        min_value = min(different_groups) if different_groups else 0
+        return (len(different_groups), min_value)
 
 
 @pwchecker('length')
