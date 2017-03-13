@@ -854,7 +854,13 @@ class BofhdExtension(BofhdCommonMethods):
                                 "result" %
                                 (cereconf.BOFHD_MAX_MATCHES_ACCESS, len(matches)))
         for row in matches:
-            entity = self._get_entity(ident=row["entity_id"])
+            try:
+                entity = self._get_entity(ident=row["entity_id"])
+            except Errors.NotFoundError:
+                self.logger.warn(
+                    "Non-existent entity (%s) referenced from auth_op_target",
+                    row["entity_id"])
+                continue
             etype = str(self.const.EntityType(entity.entity_type))
             ename = self._get_entity_name(entity.entity_id, entity.entity_type)
             tmp = {"entity_id": row["entity_id"],
