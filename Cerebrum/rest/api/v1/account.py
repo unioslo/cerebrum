@@ -507,6 +507,11 @@ class AccountPasswordResource(Resource):
         if plaintext is None:
             plaintext = ac.make_passwd(ac.account_name,
                                        checkers=custom_checkers)
+        if isinstance(plaintext, unicode):
+            try:
+                plaintext = plaintext.encode('ISO-8859-1')
+            except UnicodeEncodeError:
+                abort(400, 'Bad password: Contains illegal characters')
         try:
             check_password(plaintext,
                            account=ac,
@@ -514,12 +519,11 @@ class AccountPasswordResource(Resource):
                            checkers=custom_checkers)
         except PasswordNotGoodEnough as err:
             abort(400, 'Bad password: {}'.format(err))
-        if isinstance(plaintext, unicode):
-            try:
-                plaintext = plaintext.encode('ISO-8859-1')
-            except UnicodeEncodeError:
-                abort(400, 'Bad password: Contains illegal characters')
         ac.set_password(plaintext)
+        # Remove "weak password" quarantine
+        for q in (db.const.quarantine_autopassord,
+                  db.const.quarantine_svakt_passord):
+            ac.delete_entity_quarantine(q)
         ac.write_db()
         return {'password': plaintext}
 
