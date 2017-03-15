@@ -1,3 +1,10 @@
+2017-03-15    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* account_bridge.py (AccountBridge.get_uname): Function to filter
+	out admin accounts erroneously filtered out all accounts ending
+	with 8 or 9.  Function has been fixed and should not only filter
+	out accounts ending with 998 or 999
+
 2017-03-02    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* account_bridge.py (AccountBridge.get_uname): do not collect usernames on the form aaa99(8,9) from old cerebrum. these are to be deleted
