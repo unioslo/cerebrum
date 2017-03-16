@@ -288,8 +288,9 @@ def main():
             usage(1)
 
     logger.info("Start deactivation, quar=%s, since=%s, terminate=%s, "
-                "bofhdreq=%s, limit=%s", quarantines, since, delete, bofhdreq,
-                limit)
+                "bofhdreq=%s, limit=%s",
+                [str(co.human2constant(q)) for q in quarantines], since,
+                delete, bofhdreq, limit)
     logger.debug("Ignoring those with person-affilations: %s",
                  ', '.join(str(a) for a in affiliations))
     logger.info("Fetching relevant accounts")
