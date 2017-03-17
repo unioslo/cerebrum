@@ -1,3 +1,8 @@
+2017-03-17  Karen   <cerebrum@metius.uit.no>
+
+    * cim_datasource.py: Added to repo. Contains CIMDataSourceUit that provides a UiT-specific 
+    extension to the CIMDataSource class.
+
 2017-03-15    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* account_bridge.py (AccountBridge.get_uname): Function to filter
