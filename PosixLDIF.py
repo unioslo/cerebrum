@@ -110,8 +110,8 @@ class PosixLDIF_UiTMixin(PosixLDIF):
             uname = row['entity_name']
             if len(uname) == 7:
                 if uname[-1] == 's':
-                    self.logger.debug("filtering out account:%s" %row['entity_name'])
-                    return None,None
+                self.logger.debug("filtering out account:%s" %row['entity_name'])
+                return None,None
 
 
         # Add displayName, norEduPersonLegalName and objectClass: norEduPerson

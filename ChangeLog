@@ -1,6 +1,9 @@
 2017-03-20    <cerebrum@cleomedes.uit.no-cleomedes>
 
+	* PosixLDIF.py (PosixLDIF_UiTMixin.user_object): revert this change. we need to filter sito accounts for a while more
+
 	* Constants.py (Constants): added the spreads system@ldap, people@ldap, securimaster, portal, paga and fs
+	removed spread_uit_ldap_account
 
 2017-03-17  Karen   <cerebrum@metius.uit.no>
 

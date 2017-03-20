@@ -314,10 +314,6 @@ class Constants(Constants.Constants):
         'cristin@uit',
         Constants.Constants.entity_account,
         'Accounts with CRISTIN spread')
-    spread_uit_ldap_account = _SpreadCode(
-        'ldap@uit',
-        Constants.Constants.entity_account,
-        'Accounts with ldap spread')
 
     # spread for ldap guests
     spread_uit_ldap_guest = _SpreadCode(
