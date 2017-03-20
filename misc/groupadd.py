@@ -156,28 +156,7 @@ def add_user_to_group():
                     continue
                   
     
-#
-# Kristine Bentzen - kbe000
-# account_id: 1910 (member of group 547462)
-# person_id: 231 (member of group: NA)
-# member: cn=uit.no:fs:evu:uniped:2014-høst:student,cn=group,dc=uit,dc=no
-# person spread: spread code 11 (LDAP_person)
-# account_spread: spread_code: 9 (AD_account), 492(fd@uit), 496(fronter_acc@uit), 498(ldap@uit), 571(exchange_mailbox)
-# 
-# 547462 -  Studenter EVU-kurs uniped, 2014-høst
-#
-# Kristoffer Golde - kov012
-# account_id: 546668 (member of group 547462)
-# person_id: 538244
-# member: NA
-# person_spread: 11 (LDAP_person)
-# account_spread: 9(AD_account), 496(fronter_acc@uit), 498(ldap@uit), 571(exchange_mailbox)
-#
-# Stig Wennevold - swe000
-# account_id: 2518 (member of 547462)
-# person_id:1487
-# person_spread: 11
-# account_spread:9,492,496,498,571                
+
 def main():
 
     input_file = None

@@ -192,7 +192,7 @@ def get_existing_accounts():
     # Spreads
     spread_list=[co.spread_uit_ldap_account,\
                  co.spread_uit_fronter_account, \
-                 co.spread_uit_ad_account,co.spread_uit_cristin, co.spread_exchange_account]
+                 co.spread_uit_ad_account,co.spread_uit_cristin, co.spread_uit_exchange]
     for spread_id in spread_list:
         is_account_spread=is_person_spread=False
         spread=co.Spread(spread_id)
@@ -745,7 +745,6 @@ class Build(object):
         # Check if at the affiliation from SystemX could qualify for exchange_mailbox spread
         could_have_exchange = False
         got_exchange = False
-        got_sut = False
         try:
             person_sko = sys_x_affs[sysx_id]
         except KeyError:
@@ -779,21 +778,13 @@ class Build(object):
         tmp_spread=[int(co.Spread('ldap@uit'))]        
         if(no_account == False):
             for s in person_info.get('spreads'):
-                if s == 'frida@uit':
+                if s == 'cristin@uit':
                     logger.warn("renaming old spread frida to cristin")
                     s = 'cristin@uit'
                 tmp_spread.append(int(co.Spread(s)))
-                if s=='SUT@uit':
-                    got_sut = True
-                    tmp_spread.append(int(co.Spread('fd@uit')))
-                elif s=="AD_account" and could_have_exchange:
+                if s=="AD_account" and could_have_exchange:
                     got_exchange = True
-                    tmp_spread.append(int(co.Spread('exchange_acc@uit')))
-            if not got_exchange:
-                tmp_spread.append(int(co.Spread('sut_mailbox')))
-                if not got_sut:
-                    tmp_spread.append(int(co.Spread('SUT@uit')))
-
+                    tmp_spread.append(int(co.Spread('exchange_mailbox')))
         sysX_spreads=Set(tmp_spread)
 
         # Set spread expire date

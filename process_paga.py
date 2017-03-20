@@ -687,7 +687,7 @@ class Build:
         # need atleast one aff to give exchange spread
         logger.debug("acc_affs=%s,in filter=%s, result=%s" % (Set(all_affs),tmp,Set(all_affs)-tmp))
         if Set(all_affs)-tmp:
-            default_spreads.append(int(const.Spread('exchange_acc@uit')))
+            default_spreads.append(int(const.Spread('exchange_mailbox')))
         return default_spreads
 
 

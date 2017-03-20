@@ -1,3 +1,7 @@
+2017-03-20    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* groupadd.py: removed old comments
+
 2017-02-14    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* rename_account.py (main): removed all sendmail functions. we do

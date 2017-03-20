@@ -115,7 +115,9 @@ def load_cb_data():
             except EntityExpiredError:
                 logger.warn('Expired ou (%s) for person: %s' % (aff['ou_id'], aff['person_id']))
                 continue
-            
+            except Errors.NotFoundError:
+                logger.warn("Unable to find ou id:%s possible sito ou? these are not to be exported anyways" % ou_id)
+                continue
             sko.clear()
             try:
                 sko.find(ou_id)

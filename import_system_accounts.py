@@ -76,7 +76,7 @@ Are set at account creation, and can be changed later.
 If a tag is omitted the contact info will be deleted.
 
 *** spreads *** MANDATORY (element, and at least one sub-element, with or without character data)
-spread is a valid spread (fd@uit, ldap@uit, etc.)
+spread is a valid spread (ldap@uit, etc.)
 Multiple spread tags are allowed. Spreads are set at account creation, and can
 be added and removed (if omitted) by the script later.
 

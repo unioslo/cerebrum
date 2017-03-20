@@ -1,3 +1,21 @@
+2017-03-20    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_systemx.py (Build._process_sysx): replaced exchange_acc@uit with exchange_mailbox
+
+	* process_sito.py (Build._calculate_spreads): replaced
+	exchange_acc@uit with exchange_mailbox
+
+	* process_paga.py (Build._calculate_spreads): replaced
+	exchange_acc@uit with exchange_mailbox
+
+	* process_systemx.py: removed SUT@uit as valid spread
+	removed sut_mailbox as valid spread
+
+	* import_system_accounts.py: removed comment about fd@uit being valid spread
+
+	* process_systemx.py (Build._process_sysx): updated spread from frida@uit.no to cristin@uit
+	(Build._process_sysx): removed spread fd@uit
+
 2017-03-08  Karen   <cerebrum@cleomedes.uit.no>
 
     * import_PAGA.py: Added functionality to add employee person spreads if person has ANSATT affiliation.
