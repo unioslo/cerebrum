@@ -1,5 +1,13 @@
 2017-03-20    <cerebrum@cleomedes.uit.no-cleomedes>
 
+	* process_systemx.py (get_existing_accounts): udpated script with new spreads. lots of old spreads deleted, and new added
+
+	* process_sito_email.py (process_mail): renamed exchange spread to
+	exchange_mailbox
+
+	* user_expire.py (check_users): run user_expire.py on all
+	accounts. no matter what spread the account has
+
 	* process_systemx.py (Build._process_sysx): replaced exchange_acc@uit with exchange_mailbox
 
 	* process_sito.py (Build._calculate_spreads): replaced

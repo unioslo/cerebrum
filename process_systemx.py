@@ -190,8 +190,9 @@ def get_existing_accounts():
             tmp.append_quarantine(int(row['quarantine_type']))
 
     # Spreads
-    spread_list=[co.spread_uit_ldap_account,\
+    spread_list=[co.spread_uit_ldap_people,\
                  co.spread_uit_fronter_account, \
+                 co.spread_uit_ldap_system, \
                  co.spread_uit_ad_account,co.spread_uit_cristin, co.spread_uit_exchange]
     for spread_id in spread_list:
         is_account_spread=is_person_spread=False
@@ -775,16 +776,31 @@ class Build(object):
         
         #make sure all spreads defined in sysX is set
         
-        tmp_spread=[int(co.Spread('ldap@uit'))]        
+        tmp_spread=[int(co.Spread('system@ldap'))] # everybody gets this one  
         if(no_account == False):
             for s in person_info.get('spreads'):
-                if s == 'cristin@uit':
+                if s == 'frida@uit':
                     logger.warn("renaming old spread frida to cristin")
                     s = 'cristin@uit'
                 tmp_spread.append(int(co.Spread(s)))
+                #if s=='SUT@uit':
+                #    got_sut = True
+                #    tmp_spread.append(int(co.Spread('fd@uit')))
                 if s=="AD_account" and could_have_exchange:
                     got_exchange = True
                     tmp_spread.append(int(co.Spread('exchange_mailbox')))
+            #if not got_exchange:
+            #    tmp_spread.append(int(co.Spread('sut_mailbox')))
+            #    if not got_sut:
+            #        tmp_spread.append(int(co.Spread('SUT@uit')))
+
+        # if(no_account == False):
+        #     for s in person_info.get('spreads'):
+        #         tmp_spread.append(int(co.Spread(s)))
+        #         if s=="AD_account" and could_have_exchange:
+        #             got_exchange = True
+        #             tmp_spread.append(int(co.Spread('exchange_mailbox')))
+        #             tmp_spread.append(int(co.Spread('people@ldap')))
         sysX_spreads=Set(tmp_spread)
 
         # Set spread expire date

@@ -197,7 +197,7 @@ def process_mail():
     skipped=0
     
     #TBD: Use account affiliation = sito to get accounts instead of spread!
-    for a in ac.search(spread=co.spread_exchange_account):
+    for a in ac.search(spread=co.spread_uit_exchange):
         if (a['name'].endswith(cereconf.USERNAME_POSTFIX.get('sito'))):
             logger.debug("caching sito account %s" % a['name'])
         else:

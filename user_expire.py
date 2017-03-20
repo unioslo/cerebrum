@@ -290,7 +290,7 @@ def check_users(cache_file):
         expiring_data = {} 
 
     logger.debug("Check expiring info for all user accounts")
-    for row in ac.list_all(spread=co.spread_uit_ldap_account,filter_expired=False):
+    for row in ac.list_all(filter_expired=False):
         uname = row['entity_name']
         #logger.debug('*************** %s *******************' % uname)
         ea_nr = decide_expiring_action(row['expire_date'])
