@@ -1,3 +1,7 @@
+2017-03-20    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Constants.py (Constants): added the spreads system@ldap, people@ldap, securimaster, portal, paga and fs
+
 2017-03-17  Karen   <cerebrum@metius.uit.no>
 
     * cim_datasource.py: Added to repo. Contains CIMDataSourceUit that provides a UiT-specific 

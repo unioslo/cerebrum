@@ -115,7 +115,7 @@ class Constants(Constants.Constants):
     #
     # Affiliation status
     #
-    affiliation_status_flyt_hih_ansatt_faculty = _PersonAffStatusCode(affiliation_ansatt,'ansatt HiH','Vitenskapelig')
+    affiliation_status_flyt_hih_ansatt_faculty = _PersonAffStatusCode(affiliation_ansatt,'Ansatt HiH','Vitenskapelig')
     affiliation_status_flyt_hih_ansatt_tekadm = _PersonAffStatusCode(affiliation_ansatt,'ansatt HiH','Teknisk/administrativt')
     affiliation_status_flyt_hin_ansatt_faculty = _PersonAffStatusCode(affiliation_ansatt,'Ansatt HiN','Vitenskapelig')
     affiliation_status_flyt_hin_ansatt_tekadm = _PersonAffStatusCode(affiliation_ansatt,'ansatt HiN','Teknisk/administrativt')
@@ -168,7 +168,7 @@ class Constants(Constants.Constants):
     affiliation_status_student_sys_x = _PersonAffStatusCode(
         affiliation_student, 
         'sys_x-student',
-        'Manuelt gitt tilgang til SUT (bør nyanseres)')
+        'Student Manuelt gitt tilgang til AD')
     affiliation_status_student_tilbud = _PersonAffStatusCode(
         affiliation_student, 
         'tilbud', 
@@ -297,10 +297,6 @@ class Constants(Constants.Constants):
     
     # Spread constants
 
-    spread_uit_nis_user = _SpreadCode(
-        'NIS_user@uit', 
-        Constants.Constants.entity_account,
-        'User in NIS domain "uit"')
     spread_uit_fronter = _SpreadCode(
         'fronter@uit', 
         Constants.Constants.entity_group,
@@ -322,45 +318,69 @@ class Constants(Constants.Constants):
         'ldap@uit',
         Constants.Constants.entity_account,
         'Accounts with ldap spread')
-    spread_uit_ldap_person = _SpreadCode(
-        'LDAP_person', Constants.Constants.entity_person,
-        'Person included in LDAP directory')
+
+    # spread for ldap guests
     spread_uit_ldap_guest = _SpreadCode(
         'guest@ldap', Constants.Constants.entity_account,
         'LDAP/RADIUS spread for wireless accounts')
+    
+    # spread for ldap system accounts
+    spread_uit_ldap_system = _SpreadCode(
+        'system@ldap',
+        Constants.Constants.entity_account,
+        'account included in system tree on ldap')
+
+    # spread for ldap people accounts
+    spread_uit_ldap_people = _SpreadCode(
+        'people@ldap',
+        Constants.Constants.entity_account,
+        'account included in people tree on ldap')
+
+    # spread for securimaster export
+    spread_uit_securimaster = _SpreadCode(
+        'securimaster',
+        Constants.Constants.entity_account,
+        'account to be exported to securimaster')
+
+    # spread for portal export
+    spread_uit_portal = _SpreadCode(
+        'portal export',
+        Constants.Constants.entity_account,
+        'account to be exported to the portal')
+
+    # spread for paga export. which accounts should have its uid written to paga
+    spread_uit_paga = _SpreadCode(
+        'paga export',
+        Constants.Constants.entity_account,
+        'account to have its uid exported to paga')
+
+    # spread for fs export. which accounts should have its email and uid written to fs
+    spread_uit_fs = _SpreadCode(
+        'fs export',
+        Constants.Constants.entity_account,
+        'account to have its uid and email exported to fs')
+    
     spread_uit_ad_account = _SpreadCode(
         'AD_account',
         Constants.Constants.entity_account,
         'account included in Active Directory')
+
     spread_uit_ad_group = _SpreadCode(
         'AD_group',
         Constants.Constants.entity_group,
         'group included in Active Directory')
-    spread_uit_ad_lit_admin = _SpreadCode(
-        'AD_litadmin',  
-        Constants.Constants.entity_account,
-        'AD admin local IT') 
-    spread_uit_ad_admin = _SpreadCode(
-        'AD_admin',
-        Constants.Constants.entity_account,
-        'AD admin central IT')    
     spread_uit_ad_lit_admingroup = _SpreadCode(
         'AD_group_litadmn',
         Constants.Constants.entity_group,
         'AD admingroup for local IT')
 
     # Spreads for Exchange
-    spread_exchange_account = _SpreadCode(
-        'exchange_acc@uit', Constants.Constants.entity_account,
-        'An account with an Exchange-mailbox')
-    spread_exchange_group = _SpreadCode(
-        'exchange_grp@uit', Constants.Constants.entity_group,
-        'A mail enabled security group for Exchange')
-    #spread_uit_exchange = _SpreadCode(
-    #    'exchange_mailbox',
-    #    Constants.Constants.entity_account,
-    #    'Accounts with exchange mailbox')
+    spread_uit_exchange = _SpreadCode(
+        'exchange_mailbox',
+        Constants.Constants.entity_account,
+        'Accounts with exchange mailbox')
 
+    # sito spread
     spread_sito = _SpreadCode(
         'SITO',
         Constants.Constants.entity_account,
