@@ -1,3 +1,8 @@
+2017-03-22  Karen   <cerebrum@cleomedes.uit.no>
+
+    * import_PAGA.py: Now checks employment percentage before adding employee person spreads for persons 
+    with ANSATT affiliation.
+
 2017-03-20    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_systemx.py (get_existing_accounts): udpated script with new spreads. lots of old spreads deleted, and new added

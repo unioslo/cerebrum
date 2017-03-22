@@ -242,32 +242,55 @@ def type_is_active(entry_type):
                 (earliest, dato_fra,dato_til))
     return False
 
+def get_stillingsandel(person):
+    prosent_tilsetting = 0
+    for tils in person.get('tils', ()):
+        if not type_is_active(tils):
+            continue
 
-def set_person_spreads(new_person):
-    # TODO?: check employment percent and only add spreads for 
-    #        those with high enough percentage??
-    #        (see how it is done in determine_affiliations()
-    #         remember: person may have more than one 'tils'...)
+        if not tils['hovedkategori'] in ('TEKN', 'ADM', 'VIT'):
+            # this tils has unknown hovedkat, ignore it
+            continue
 
-    # Add ansatt spreads if person has ANSATT affiliation.
+        pros = float(tils['stillingsandel'])
+        prosent_tilsetting += pros
+    return prosent_tilsetting
+
+def set_person_spreads(person, new_person):
+    # Add ansatt spreads if person has ANSATT affiliation and 
+    # has a stillingsandel higher than cereconf.EMPLOYEE_PERSON_SPREADS_PERCENTAGE.
     # Spreads to add are listed in cereconf.EMPLOYEE_PERSON_SPREADS
+    employee_person_spreads = [int(const.Spread(x)) for x in cereconf.EMPLOYEE_PERSON_SPREADS]
+
     affs = new_person.get_affiliations()
     is_ansatt = False
     for i in range(0, len(affs)):
         if affs[i]['affiliation'] == int(const.affiliation_ansatt):
-            is_ansatt = True
+            percentage = get_stillingsandel(person)
+            if percentage > cereconf.EMPLOYEE_PERSON_SPREADS_PERCENTAGE:
+                is_ansatt = True
+                break
+    
     if is_ansatt:
-        spreads_to_add = [int(const.Spread(x)) for x in cereconf.EMPLOYEE_PERSON_SPREADS]
+        spreads_to_add = employee_person_spreads
 
         # only add spreads this person doesn't already have
-        spreads = new_person.get_spread()
-        for s in spreads:
+        curr_spreads = new_person.get_spread()
+        for s in curr_spreads:
             if s['spread'] in spreads_to_add:
                 spreads_to_add.remove(s['spread'])
 
         for spread in spreads_to_add:
             new_person.add_spread(spread)
-
+    # else:
+    # # TODO?: remove employee spreads for those with is_ansatt == False?
+    #     spreads_to_remove = employee_person_spreads
+    # 
+    #     # only remove employee spreads this person already has
+    #     curr_spreads = new_person.get_spread()
+    #     for s in curr_spreads:
+    #         if s['spread'] in spreads_to_remove:
+    #             new_person.delete_spread(s['spread'])
 
 def process_person(person):
     fnr = person['fnr']
@@ -404,7 +427,7 @@ def process_person(person):
         new_person.set_affiliation_last_date(const.system_paga, ou_id,\
                                          int(aff), int(aff_stat))
 
-    set_person_spreads(new_person)
+    set_person_spreads(person, new_person)
 
     if op is None and op2 is None:
         logger.info("**** EQUAL ****")
