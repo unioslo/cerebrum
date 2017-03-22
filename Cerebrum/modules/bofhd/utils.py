@@ -99,6 +99,14 @@ class Constants(Constants.Constants):
         'set_password', 'Set password')
     auth_set_gecos = _AuthRoleOpCode(
         'set_gecos', "Set account's gecos field")
+    auth_set_trait = _AuthRoleOpCode(
+        'set_trait', "Set trait")
+    auth_remove_trait = _AuthRoleOpCode(
+        'remove_trait', "Remove trait")
+    auth_view_trait = _AuthRoleOpCode(
+        'view_trait', "View trait")
+    auth_list_trait = _AuthRoleOpCode(
+        'list_trait', "List traits")
     auth_move_from_disk = _AuthRoleOpCode(
         'move_from_disk', 'Move account from disk')
     auth_move_to_disk = _AuthRoleOpCode(
