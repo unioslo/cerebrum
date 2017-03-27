@@ -7538,11 +7538,18 @@ Addresses and settings:
                                            self.const.contact_private_mobile):
                 continue
             try:
-                if self.ba.can_get_contact_info(operator.get_entity_id(),
-                        person=person, contact_type=row['contact_type']):
-                    data.append({'contact': row['contact_value'],
-                                 'contact_src': str(self.const.AuthoritativeSystem(row['source_system'])),
-                                 'contact_type': str(self.const.ContactInfo(row['contact_type']))})
+                if self.ba.can_get_contact_info(
+                        operator.get_entity_id(),
+                        person=person,
+                        contact_type=str(self.const.ContactInfo(
+                            row['contact_type']))):
+                    data.append({
+                        'contact': row['contact_value'],
+                        'contact_src': str(self.const.AuthoritativeSystem(
+                            row['source_system'])),
+                        'contact_type': str(self.const.ContactInfo(
+                            row['contact_type']))
+                    })
             except PermissionDenied:
                 continue
         return data
