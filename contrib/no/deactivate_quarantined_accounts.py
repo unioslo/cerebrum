@@ -42,7 +42,8 @@ would work.
 
 The script also supports *deleting* (nuking) accounts instead of just
 deactivating them. You should be absolutely sure before you run it with nuking,
-as this deletes *all* the details around the user accounts, even its change log.
+as this deletes *all* the details around the user accounts, even its change
+log.
 
 Note: If a quarantine has been temporarily disabled, it would not be found by
 this script. This would make it possible to let accounts live for a prolonged
@@ -55,10 +56,8 @@ import sys
 import getopt
 import re
 
-import time
 import mx.DateTime as dt
 
-import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -78,6 +77,7 @@ account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 operator_id = account.entity_id
 account.clear()
 
+
 def fetch_all_relevant_accounts(qua_type, since, ignore_affs,
                                 system_accounts):
     """Fetch all accounts that matches the criterias for deactivation.
@@ -86,14 +86,14 @@ def fetch_all_relevant_accounts(qua_type, since, ignore_affs,
         The quarantine that the accounts must have to be targeted.
 
     :param int since:
-        The number of days a quarantine must have been active for the account to
-        be targeted.
+        The number of days a quarantine must have been active for the account
+        to be targeted.
 
     :type ignore_affs: set, list or tuple
     :param ignore_affs:
         A given list of `PersonAffiliationCode`. If given, we will ignore them,
-        and process the persons' accounts as if they didn't have an affiliation,
-        and could therefore be targeted for deactivation.
+        and process the persons' accounts as if they didn't have an
+        affiliation, and could therefore be targeted for deactivation.
 
     :param bool system_accounts:
         If True, accounts owned by groups are also included in the resulting
@@ -104,13 +104,13 @@ def fetch_all_relevant_accounts(qua_type, since, ignore_affs,
 
     """
     max_date = dt.now() - since
-    logger.debug("Search quarantines older than %s days, i.e. before %s", since,
-                 max_date.strftime('%Y-%m-%d'))
+    logger.debug("Search quarantines older than %s days, i.e. before %s",
+                 since, max_date.strftime('%Y-%m-%d'))
     targets = set(row['entity_id'] for row in
-                      account.list_entity_quarantines(
-                            entity_types=constants.entity_account,
-                            quarantine_types=qua_type, only_active=True)
-                      if row['start_date'] <= max_date)
+                  account.list_entity_quarantines(
+                        entity_types=constants.entity_account,
+                        quarantine_types=qua_type, only_active=True)
+                  if row['start_date'] <= max_date)
     logger.debug("Found %d quarantine targets", len(targets))
     if len(targets) == 0:
         return targets
@@ -134,6 +134,7 @@ def fetch_all_relevant_accounts(qua_type, since, ignore_affs,
                                       owner_type=constants.entity_group))
         logger.debug2("Removed system accounts. Result: %d", len(targets))
     return targets
+
 
 def process_account(account, delete=False, bofhdreq=False):
     """Deactivate the given account.
@@ -178,14 +179,15 @@ def process_account(account, delete=False, bofhdreq=False):
         account.deactivate()
     return True
 
+
 def usage(exitcode=0):
     print """Usage: deactivate_quarantined_accounts.py -q quarantine_type -s #days [-d]
 
 Deactivate all accounts where given quarantine has been set for at least #days.
 
-Accounts will NOT be deactivated by default if their persons are registered with
-affiliations, or if the account is a system account, i.e. owned by a group and
-not a person.
+Accounts will NOT be deactivated by default if their persons are registered
+with affiliations, or if the account is a system account, i.e. owned by a group
+and not a person.
 
 %s
 
@@ -195,7 +197,8 @@ not a person.
                             comma separated with no spaces in between. If not
                             provided it defaults to the "generell" quarantine.
 
-    -s, --since DAYS        Number of days since quarantine started. Default: 30
+    -s, --since DAYS        Number of days since quarantine started.
+                            Default: 30
 
     -l, --limit LIMIT       Limit the number of deactivations by the script.
                             This is to prevent too much changes in the system,
@@ -203,9 +206,9 @@ not a person.
 
         --bofhdrequest      If specified, instead of deactivating the account
                             directly, it is handed over to BofhdRequest for
-                            further processing. This is needed e.g. when we need
-                            to archive the home directory before the account
-                            gets deactivated.
+                            further processing. This is needed e.g. when we
+                            need to archive the home directory before the
+                            account gets deactivated.
 
     -a, --affiliations AFFS List of person affiliation types that will be
                             ignored, and handled as if the person did not have
@@ -229,6 +232,7 @@ not a person.
     -h, --help              show this and quit.
     """ % __doc__
     sys.exit(exitcode)
+
 
 def main():
     options, junk = getopt.getopt(sys.argv[1:],
@@ -302,7 +306,8 @@ def main():
     i = 0
     for a in rel_accounts:
         if limit and i >= limit:
-            logger.debug("Limit of deactivations reached (%d), stopping", limit)
+            logger.debug("Limit of deactivations reached (%d), stopping",
+                         limit)
             break
         account.clear()
         try:
