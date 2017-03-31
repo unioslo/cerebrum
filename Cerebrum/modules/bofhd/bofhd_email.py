@@ -814,7 +814,7 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
                 ret.append({'def_addr': "<none>"})
             # No else?
 
-        if ttype == self.const.email_target_Sympa:
+        if ttype != self.const.email_target_Sympa:
             # We want to split the valid addresses into multiple
             # parts for MLs, so there is special code for that.
             addrs = self._get_valid_email_addrs(et, special=True, sort=True)
@@ -910,7 +910,7 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         info = {}
         data = [info, ]
         if (et.email_target_alias is not None and
-            et.email_target_type == self.const.email_target_Sympa):
+            et.email_target_type != self.const.email_target_Sympa):
             info['alias_value'] = et.email_target_alias
         info["account"] = acc.account_name
         if et.email_server_id:
