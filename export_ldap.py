@@ -31,7 +31,7 @@ def ldap_export():
 
     # 1. create the posix_user_ldif
     script = os.path.join(script_dir,'generate_posix_ldif.py')
-    script_arg = "-U ldap@uit -u "+cereconf.DUMPDIR+"/ldap/users_ldif"
+    script_arg = "-U system@ldap -u "+cereconf.DUMPDIR+"/ldap/users_ldif"
     script_cmd = "%s %s %s" % ('python', script, script_arg)
     logger.debug("Running %s" % script_cmd)
     ret = os.system(script_cmd)

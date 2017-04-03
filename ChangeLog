@@ -1,3 +1,7 @@
+2017-04-03    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* export_ldap.py (ldap_export): changed default spread for system tree to system@ldap
+
 2017-03-27    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_systemx.py (Build._process_sysx): ldap@uit is no longer
