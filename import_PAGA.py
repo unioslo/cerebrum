@@ -282,15 +282,15 @@ def set_person_spreads(person, new_person):
 
         for spread in spreads_to_add:
             new_person.add_spread(spread)
-    # else:
-    # # TODO?: remove employee spreads for those with is_ansatt == False?
-    #     spreads_to_remove = employee_person_spreads
-    # 
-    #     # only remove employee spreads this person already has
-    #     curr_spreads = new_person.get_spread()
-    #     for s in curr_spreads:
-    #         if s['spread'] in spreads_to_remove:
-    #             new_person.delete_spread(s['spread'])
+    else:
+        # remove employee spreads for those with is_ansatt == False
+        spreads_to_remove = employee_person_spreads
+    
+        # only remove employee spreads this person already has
+        curr_spreads = new_person.get_spread()
+        for s in curr_spreads:
+            if s['spread'] in spreads_to_remove:
+                new_person.delete_spread(s['spread'])
 
 def process_person(person):
     fnr = person['fnr']
@@ -315,7 +315,9 @@ def process_person(person):
         gender = const.gender_female
 
     # If a FNR is given, do a check of the values presented
-    if person.get('fnr',''):
+    if(person['fnr'][6:11] == "00000"):
+        logger.warn("Person with fnr:%s does not have valid fnr. Do not process fnr gender check. it will fail" % person['fnr'])
+    elif((person.get('fnr','') and (person['fnr'][6:11]!='00000'))):
         try:
             fodselsnr.personnr_ok(fnr)
         except:
@@ -341,6 +343,47 @@ def process_person(person):
         if day_chk != day:
             logger.error("Day inconsistent between XML (%s) and FNR (%s) for PAGA person %s" % (day, day_chk, paga_nr))
             return
+
+        
+
+    # # If a FNR is given, do a check of the values presented
+    # if person.get('fnr',''):
+    #     try:
+    #         fodselsnr.personnr_ok(fnr)
+    #     except:
+    #         logger.error("FNR invalid (%s) for PAGA person %s" % (fnr, paga_nr))
+#         # fodselsnr.personnr_ok() will return Invaliderror for
+    #         #  fodselsnr on the form DDMMYY00000. DDMMYY00000 is a
+    #         #  valid number for foreign persons. if a fodselsnr on
+    #         #  this form is found, continue processing it to avoid
+    #         #  changes in modules.no/fodselsnr.py, create an
+    #         #  additional check here
+
+    #         temp_pnr = fnr[6:11]
+    #         if(temp_pnr != '00000'):
+    #             return
+    #         else:
+    #             logger.error("FNR (%s) is for a foreign person and valid for PAGA person %s" % (fnr, paga_nr))
+    
+    #     gender_chk = const.gender_male
+    #     if(fodselsnr.er_kvinne(fnr)):
+    #         gender_chk = const.gender_female
+
+    #     if gender_chk != gender:
+    #         logger.error("Gender inconsistent between XML (%s) and FNR (%s) for PAGA person %s" % (gender, gender_chk, paga_nr))
+    #         return
+    
+    #     (year_chk, mon_chk, day_chk) = fodselsnr.fodt_dato(fnr)
+
+    #     if year_chk != year:
+    #         logger.error("Year inconsistent between XML (%s) and FNR (%s) for PAGA person %s" % (year, year_chk, paga_nr))
+    #         return
+    #     if mon_chk != mon:
+    #         logger.error("Month inconsistent between XML (%s) and FNR (%s) for PAGA person %s" % (mon, mon_chk, paga_nr))
+    #         return
+    #     if day_chk != day:
+    #         logger.error("Day inconsistent between XML (%s) and FNR (%s) for PAGA person %s" % (day, day_chk, paga_nr))
+    #         return
 
 
     new_person.clear()
