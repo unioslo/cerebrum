@@ -1,3 +1,12 @@
+2017-03-27    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_systemx.py (Build._process_sysx): ldap@uit is no longer
+	supported in new cerebrum. Since the source system (system-x
+	registration system) is still used by old cerebrum, we cannot
+	remove ldap@uit. instead we will translate it to people@ldap and
+	system@ldap for now. we can remove ldap@uit.no once system-x is no
+	longer used by old cerebrum.
+
 2017-03-22  Karen   <cerebrum@cleomedes.uit.no>
 
     * import_PAGA.py: Now checks employment percentage before adding employee person spreads for persons 

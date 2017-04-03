@@ -389,7 +389,7 @@ def _handle_changes(a_id,changes):
         if ccode=='spreads_add':
             for s in cdata:
                 ac.add_spread(s)
-                #ac.set_home_dir(s)
+                ac.set_home_dir(s)
         elif ccode=='quarantine_add':
             ac.add_entity_quarantine(cdata,get_creator_id(),start=TODAY)
             #ac.quarantine_add(cdata)
@@ -779,10 +779,17 @@ class Build(object):
         tmp_spread=[int(co.Spread('system@ldap'))] # everybody gets this one  
         if(no_account == False):
             for s in person_info.get('spreads'):
-                if s == 'frida@uit':
+                if s == 'ldap@uit':
+                    s = 'people@ldap'
+                    tmp_spread.append(int(co.Spread(s)))
+                    s = 'system@ldap'
+                    tmp_spread.append(int(co.Spread(s)))
+                elif s == 'frida@uit':
                     logger.warn("renaming old spread frida to cristin")
                     s = 'cristin@uit'
-                tmp_spread.append(int(co.Spread(s)))
+                    tmp_spread.append(int(co.Spread(s)))
+                else:
+                    tmp_spread.append(int(co.Spread(s)))
                 #if s=='SUT@uit':
                 #    got_sut = True
                 #    tmp_spread.append(int(co.Spread('fd@uit')))
