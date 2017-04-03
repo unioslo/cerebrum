@@ -1,5 +1,10 @@
 2017-04-03    <cerebrum@cleomedes.uit.no-cleomedes>
 
+	* generate_fronter_full.py (FronterXML.__init__): replaced all references to UREG2000 with FS@uit.
+	(process_kurs2enhet): Added function to handle invalid sko with
+	building ou structure. our fix will log a warning intead of
+	crashing if an unvalid ou is found
+
 	* import_PAGA.py (process_person): removed fodselsnumber check for
 	accounts owned by users with fodselsnumber on the form 00000xxxxxx
 

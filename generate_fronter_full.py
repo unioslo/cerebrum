@@ -58,7 +58,7 @@ from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 root_sko = '000000'
 root_ou_id = 'will be set later'
 root_struct_id = 'UiT root node'
-group_struct_id = "UREG2000@uio.no imported groups"     #kbj005: probably need to change this...
+group_struct_id = "FS@uit.no imported groups"
 group_struct_title = 'Automatisk importerte grupper'
 
 
@@ -984,7 +984,7 @@ class FronterXML(object):
         self.xml = XMLWriter(fname)
         self.xml.startDocument(encoding='UTF-8')
         self.rootEl = 'enterprise'
-        self.DataSource = 'UREG2000@uio.no'
+        self.DataSource = 'FS@uit.no'
         self.cf_dir = cf_dir
         self.debug_file = debug_file
         self.debug_level = debug_level
@@ -1451,7 +1451,7 @@ def register_supergroups():
         elif ktype == fronter.KULL_PREFIX.lower():
             parent_struct_id = 'Kullgrupper %s' % ' '.join(parent[2:4])
         else:
-            parent_struct_id = 'UREG2000@uio.no imported groups'
+            parent_struct_id = 'FS@uit.no imported groups'
 
         if not new_group.has_key(parent_struct_id):
             register_group(parent_struct_id, parent_struct_id, group_struct_id,
@@ -1515,7 +1515,7 @@ def build_structure(sko, allow_room=False, allow_contact=False):
     if not sko:
         return None
 
-    struct_id = "STRUCTURE/Sko:185:%s" % sko
+    struct_id = "STRUCTURE/Sko:186:%s" % sko
     if ((not new_group.has_key(struct_id)) or
         (allow_room and not new_group[struct_id]['allow_room']) or
         (allow_contact and not new_group[struct_id]['allow_contact'])):
@@ -1654,8 +1654,19 @@ def process_kurs2enhet():
             # Create structure nodes that allow to have rooms right "under"
             # them.
             sko_node = build_structure(fronter.enhet2sko[enh_id])
-            sko_part = sko_node.split('/')[1]
-
+            if sko_node == root_struct_id:
+                # TODO kbj005: Handle this properly(?)
+                logger.warning("Invalid sko_node, %s, for enhet %s, not processing it." % (sko_node, enhet_id))
+                continue
+            else:
+                sko_part = sko_node.split('/')[1]
+            # try:
+            #     sko_part = sko_node.split('/')[1]
+            # except IndexError as e:
+            #     # TODO kbj005: Handle this properly(?)
+            #     logger.warning("Invalid sko_node, %s, for enhet %s, not processing it." % (sko_node, enhet_id))
+            #     continue
+ 
             multi_enhet = []
             multi_id = ":".join((Instnr, emnekode, termk, aar))
             multi_termin = False
@@ -1745,7 +1756,19 @@ def process_kurs2enhet():
                 kurskode, tidskode = enhet_id.split(":")[1:3]
                 # Create structure nodes that allow rooms associated with them.
                 sko_node = build_structure(fronter.enhet2sko[enhet_id])
-                sko_part = sko_node.split('/')[1]
+                if sko_node == root_struct_id:
+                    # TODO kbj005: Handle this properly(?)
+                    logger.warning("Invalid sko_node, %s, for enhet %s, not processing it." % (sko_node, enhet_id))
+                    continue
+                else:
+                    sko_part = sko_node.split('/')[1]
+                # try:
+                #     sko_part = sko_node.split('/')[1]
+                # except IndexError as e:
+                #     # TODO kbj005: Handle this properly(?)
+                #     logger.warning("Invalid sko_node, %s, for enhet %s, not processing it." % (sko_node, enhet_id))
+                #     continue
+     
                 struct_id = enhet_id.upper()
                 tittel = "%s - %s, %s" % (kurskode.upper(),
                                           fronter.kurs2navn[kurs_id],
