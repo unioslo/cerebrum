@@ -1077,6 +1077,7 @@ class ExistingPerson(object):
     def has_student_ac(self):
         return len(self._stud_ac) > 0
 
+
 def start_process_students(recalc_pq=False, update_create=False):
     global autostud, accounts, persons
 
@@ -1088,6 +1089,7 @@ def start_process_students(recalc_pq=False, update_create=False):
     logger.info("config processed")
     persons, accounts = get_existing_accounts()
     logger.info("got student accounts")
+    
     if recalc_pq:
         RecalcQuota.recalc_pq_main()
     elif update_create:
@@ -1203,22 +1205,8 @@ def get_existing_accounts():
     tmp_ac = {}
  
 
-    #
-    # uio uses account.list. uit need to use account.search since we need the
-    # username at this time (to filter out sito accounts
-    #
-    #for row in account_obj.list(filter_expired=False, fetchall=False):
-    #    if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
-    #        continue
-    for row in account_obj.search(expire_start=None):
+    for row in account_obj.list(filter_expired=False, fetchall=False):
         if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
-            continue
-        if row['name'].endswith("999"):
-            logger.debug("we do not want to process admin account:%s" % (row['name']))
-            continue
-        if (row['name'].endswith(cereconf.USERNAME_POSTFIX['sito'])):
-            # we only want to process uit accounts
-            logger.debug("account name:%s is a sito account, do not add to list" % row['name'])
             continue
         tmp_ac[int(row['account_id'])] = ExistingAccount(pid2fnr[int(row['owner_id'])],
                                                          row['expire_date'])
@@ -1250,6 +1238,8 @@ def get_existing_accounts():
             tmp = tmp_ac.get(int(row['account_id']), None)
             if tmp is not None:
                 tmp.set_disk_kvote(int(row['homedir_id']), row['quota'])
+    
+
     # Spreads
     for spread_id in autostud.pc.spread_defs:
         spread = const.Spread(spread_id)
@@ -1268,7 +1258,9 @@ def get_existing_accounts():
                     pid2fnr.get(int(row['entity_id']), None), None)
             if tmp is not None:
                 tmp.append_spread(spread_id)
+                logger.debug("appending spread:%s on account:%s" % (spread_id,row['entity_id']))
                 
+
     #
     # kennethj: UiT is unable to set_home on account object withouth disk_id
     # UiO sets this in an UiO spesific Account.py. UiT needs to either copy UiO Account.py
@@ -1278,10 +1270,11 @@ def get_existing_accounts():
     disk_obj = Factory.get('Disk')(db)
     disk_obj.clear()
     disk_path = '/fakeserver/nodisk'
-    student_disk_retval = disk_obj.search(path = disk_path)
-    logger.debug(pformat(student_disk_retval[0]['disk_id']))
-    student_disk = str(student_disk_retval[0]['disk_id'])
-    logger.debug("student disk id:%s" % student_disk)
+    student_disk = disk_obj.find_by_path(path = disk_path)
+    #student_disk_retval = disk_obj.search(path = disk_path)
+    #logger.debug(pformat(student_disk_retval[0]['disk_id']))
+    #student_disk = str(student_disk_retval['disk_id'])
+    #logger.debug("student disk id:%s" % student_disk)
 
 
     # Account homes
@@ -1328,8 +1321,8 @@ def get_existing_accounts():
     for ac_id, tmp in tmp_ac.items():
         fnr = tmp_ac[ac_id].get_fnr()
         affs = tmp.get_affiliations()
-        logger.debug("affs:%s" % (affs))
-        logger.debug(pformat(tmp))
+        #logger.debug("affs:%s" % (affs))
+        #logger.debug(pformat(tmp))
         if tmp.is_reserved():
             tmp_persons[fnr].append_reserved_ac(ac_id)
         elif tmp.is_deleted():

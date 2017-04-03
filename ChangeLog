@@ -1,5 +1,10 @@
 2017-04-03    <cerebrum@cleomedes.uit.no-cleomedes>
 
+	* process_students.py (get_existing_accounts): Reverted change
+	where we needed to use account.search instead of account.list when
+	collecting existing accounts.  We no longer need to know the
+	usrname when this data is processed.
+
 	* export_ldap.py (ldap_export): changed default spread for system tree to system@ldap
 
 2017-03-27    <cerebrum@cleomedes.uit.no-cleomedes>
