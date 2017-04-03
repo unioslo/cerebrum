@@ -1,3 +1,9 @@
+2017-04-03    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* bofhd_uit_cmds.py: replaced uit version with uio version. this
+	because sertain uio bofhd commands have uio constants defined in
+	the script. this breaks brukerinfo webportal for uit.
+
 2017-03-20    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* PosixLDIF.py (PosixLDIF_UiTMixin.user_object): revert this change. we need to filter sito accounts for a while more
