@@ -16,22 +16,26 @@ role=Learner for studenter og Instructor for gruppe-lærer/foreleser.
 --ldiffile fname.ldif : trigger generering av ldif fil med angitt navn
 --picklefile fname : brukes av person-ldif exporten til å sette eduCourseMember
 """
+
+import locale
 import getopt
-import pickle
 import os
 import sys
-import locale
+import cPickle as pickle
 
-import cerebrum_path
+from collections import defaultdict
+
 import cereconf
 
 from Cerebrum.Utils import Factory
+from Cerebrum.Utils import make_timer
 from Cerebrum.modules.LDIFutils import ldapconf
 from Cerebrum.modules.LDIFutils import iso2utf
 from Cerebrum.modules.LDIFutils import entry_string
 from Cerebrum.modules.LDIFutils import ldif_outfile
 from Cerebrum.modules.LDIFutils import end_ldif_outfile
 from Cerebrum.modules.LDIFutils import container_entry_string
+
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
 
 logger = Factory.get_logger("cronjob")
@@ -81,16 +85,19 @@ class CerebrumGroupInfo(object):
                   'terminkode', 'arstall', 'terminnr')
 
     def __init__(self):
-        self._emne_key2dta = {}
+        timer = make_timer(logger, 'Initing CerebrumGroupInfo...')
+        self._emne_key2dta = defaultdict(list)
+        len_id_key_seq = len(CerebrumGroupInfo.id_key_seq)
         for row in group.search(name="%s%%" % CerebrumGroupInfo.PREFIX):
             name = row['name'][len(CerebrumGroupInfo.PREFIX):]
-            emne_key = name.split(":")[:len(CerebrumGroupInfo.id_key_seq)]
-            emne_val = name.split(":")[len(CerebrumGroupInfo.id_key_seq):]
-            self._emne_key2dta.setdefault(tuple(emne_key), []).append(
+            emne_key = name.split(":")[:len_id_key_seq]
+            emne_val = name.split(":")[len_id_key_seq:]
+            self._emne_key2dta[tuple(emne_key)].append(
                 {'group_id': int(row['group_id']),
                  'emne_val': emne_val})
             # for k, v in self._emne_key2dta.items():
             #     logger.debug("Emne "+repr(k)+" -> "+repr(v))
+        timer('... done initing CerebrumGroupInfo')
 
     def find_group_by_undervisningsenhet(
             self, institusjonsnr, emnekode, versjonskode, terminkode,
@@ -142,6 +149,7 @@ class CerebrumGroupInfo(object):
 
 class StudinfoParsers(object):
     def __init__(self, emne_file, aktivitet_file, enhet_file):
+        timer = make_timer(logger, 'Initing StudinfoParsers...')
         self.emnekode2info = self._parse_emner(emne_file)
         self.undervisningsaktiviteter = self._parse_undervisningsaktivitet(aktivitet_file)
         self.undervisningsenheter = self._parse_undervisningenheter(enhet_file)
@@ -153,6 +161,7 @@ class StudinfoParsers(object):
                 logger.info("Enhet for ukjent emne: %s" % entry)
             else:
                 tmp['emnenavn_bokmal'] = entry['emnenavn_bokmal']
+        timer('... done initing StudinfoParsers')
 
     def _parse_emner(self, fname):
         logger.debug("Parsing %s" % fname)
@@ -200,6 +209,7 @@ class StudinfoParsers(object):
 
 
 def gen_undervisningsaktivitet(cgi, sip, out):
+    timer = make_timer(logger, 'Starting gen_undervisningsaktivitet')
     # uioEduSection - Undervisningsaktivitet (instansiering av gruppe,
     #                 kollokvia, lab, skrivekurs, forelesning)
     # access_FS.py:Undervisning.list_aktiviteter
@@ -254,10 +264,12 @@ def gen_undervisningsaktivitet(cgi, sip, out):
             'uioEduCourseOffering':      (iso2utf(urn),)}))
         n += 1
         ret[urn] = aktivitet_id
+    timer('... done gen_undervisningsaktivitet')
     return ret
 
 
 def gen_undervisningsenhet(cgi, sip, out):
+    timer = make_timer(logger, 'Starting gen_undervisningsenhet')
     # uioEduOffering - Undervisningsenhet (instansiering av et emne)
     # access_FS.py:Undervisning.list_undervisningenheter
     #
@@ -299,29 +311,38 @@ def gen_undervisningsenhet(cgi, sip, out):
             'uioEduCourseOffering':      (iso2utf(urn),)}))
         n += 1
         ret[urn] = aktivitet_id
+    timer('... done gen_undervisningsenhet')
     return ret
 
 
-def dump_pickle_file(fname, urn_dict1, urn_dict2):
-    urn_dict1.update(urn_dict2)
-    owner_id2urn = {}
+def gen_owner_id2urn(urn_dict):
+    timer = make_timer(logger, 'Starting gen_owner_id2urn...')
+    groups = []
+    group_members = defaultdict(list)
+    owner_id2urn = defaultdict(list)
     member_id2owner_id = {}
     for row in ac.list():
         member_id2owner_id[int(row['account_id'])] = int(row['owner_id'])
-    for urn, members in urn_dict1.items():
-        for entity_id, role in members.items():
-            entity_id = int(entity_id)
-            group.clear()
-            group.find(entity_id)
-            for row in group.search_members(group_id=group.entity_id):
-                member_id = int(row["member_id"])
+    for i in urn_dict.itervalues():
+        groups.extend(map(int, i.keys()))
+    for row in group.search_members(group_id=groups):
+        group_members[row['group_id']].append(row['member_id'])
+    for urn, members in urn_dict.iteritems():
+        for group_id, role in members.items():
+            for member_id in group_members[int(group_id)]:
                 owner_id = member_id2owner_id.get(member_id)
                 if owner_id:
-                    owner_id2urn.setdefault(owner_id, []).append("%s@%s" %
-                                                                 (role, urn))
-    tmpfname = fname + ".tmp"
-    pickle.dump(owner_id2urn, open(tmpfname, "w"))
+                    owner_id2urn[owner_id].append('%s@%s' % (role, urn))
+    timer('...done gen_owner_id2urn')
+    return owner_id2urn
+
+
+def dump_pickle_file(fname, urn_dict):
+    timer = make_timer(logger, 'Starting dump_pickle_file...')
+    tmpfname = fname + '.tmp'
+    pickle.dump(urn_dict, open(tmpfname, 'wb'), pickle.HIGHEST_PROTOCOL)
     os.rename(tmpfname, fname)
+    timer('...done dump_pickle_file')
 
 
 def main():
@@ -352,14 +373,15 @@ def main():
             emnefile and picklefile and ldiffile) or args:
         usage(1)
 
-    destfile = ldif_outfile('KURS', ldiffile)
-    destfile.write(container_entry_string('KURS'))
     cgi = CerebrumGroupInfo()
     sip = StudinfoParsers(emnefile, aktivitetfile, enhetfile)
-    dump_pickle_file(picklefile,
-                     gen_undervisningsaktivitet(cgi, sip, destfile),
-                     gen_undervisningsenhet(cgi, sip, destfile))
+    destfile = ldif_outfile('KURS', ldiffile)
+    destfile.write(container_entry_string('KURS'))
+    urn_dict = gen_undervisningsaktivitet(cgi, sip, destfile)
+    urn_dict.update(gen_undervisningsenhet(cgi, sip, destfile))
     end_ldif_outfile('KURS', destfile)
+    owner_id2urn = gen_owner_id2urn(urn_dict)
+    dump_pickle_file(picklefile, owner_id2urn)
 
 
 def usage(exitcode=0):
