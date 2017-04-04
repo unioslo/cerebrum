@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-# Copyright 2007 University of Oslo, Norway
+# Copyright 2007-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -36,12 +36,13 @@ This script take the following arguments:
 --picklefile fname : pickle file with group memberships
 --ldiffile fname : LDIF file with the group tree
 """
+
+import getopt
 import os
 import sys
-import getopt
-import pickle
+import cPickle as pickle
 
-import cerebrum_path
+from collections import defaultdict
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.LDIFutils import ldapconf
@@ -56,21 +57,21 @@ db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 group = Factory.get('Group')(db)
 
-mbr2grp = {}
+mbr2grp = defaultdict(list)
 top_dn = ldapconf('GROUP', 'dn')
 
 
 def dump_ldif(file_handle):
+    group2dn = {}
     for row in group.search(spread=co.spread_ldap_group):
-        group.clear()
-        group.find(int(row['group_id']))
         dn = "cn=%s,%s" % (row['name'], top_dn)
-        for mbr in group.search_members(group_id=group.entity_id,
-                                        member_type=co.entity_person):
-            mbr2grp.setdefault(int(mbr["member_id"]), []).append(dn)
+        group2dn[row['group_id']] = dn
         file_handle.write(entry_string(dn, {
             'objectClass': ("top", "uioGroup"),
             'description': (iso2utf(row['description']),)}))
+    for mbr in group.search_members(spread=co.spread_ldap_group,
+                                    member_type=co.entity_person):
+        mbr2grp[int(mbr["member_id"])].append(group2dn[mbr['group_id']])
 
 
 def main():
@@ -92,10 +93,10 @@ def main():
     destfile = ldif_outfile('GROUP', ldiffile)
     destfile.write(container_entry_string('GROUP'))
     dump_ldif(destfile)
-    tmpfname = picklefile + ".tmp"
-    pickle.dump(mbr2grp, open(tmpfname, "w"))
-    os.rename(tmpfname, picklefile)
     end_ldif_outfile('GROUP', destfile)
+    tmpfname = picklefile + '.tmp'
+    pickle.dump(mbr2grp, open(tmpfname, 'wb'), pickle.HIGHEST_PROTOCOL)
+    os.rename(tmpfname, picklefile)
 
 
 def usage(exitcode=0):
