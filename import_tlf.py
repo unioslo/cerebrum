@@ -34,6 +34,7 @@ __doc__ = """
     -h | --help   : this text
     -d | --dryrun : do not change DB, default is do change DB.
     -F | --force : force write ignoring cereconf.MAX_NUM_ALLOWED_CHANGES
+    -e | --no-email : do not notify cereconf.TELEFONIERRORS_RECEIVER with log messages
     --checknames  : turn on check of name spelling. default is off
     --logger-name=name   : use this logger, default is cronjob
     --logger-level=level : use this log level, default is debug
@@ -269,7 +270,7 @@ def delete_phonenr(uid,phone):
         logger.debug("Not deleting phonenumber: %s" % phone)
 
         
-def process_telefoni(filename,checknames,checkmail):
+def process_telefoni(filename,checknames,checkmail,notify_recipient):
     #
     # we will add a prefix to internal phone numbers based on their first digits.
     # and we will mark some numbers for deletion, also based on prefix.
@@ -382,17 +383,20 @@ def process_telefoni(filename,checknames,checkmail):
             for i in msg[k]:
                 mailmsg+=i
 
-        notify_phoneadmin(mailmsg)
+        notify_phoneadmin(mailmsg,notify_recipient)
 
 
-def notify_phoneadmin(msg):    
+def notify_phoneadmin(msg,notify_recipient):    
     recipient=cereconf.TELEFONIERRORS_RECEIVER
     sender=cereconf.SYSX_EMAIL_NOTFICATION_SENDER
     subject="Import telefoni errors from Cerebrum %s" % time.strftime("%Y%m%d")
     body=msg
     debug=dryrun    
     # finally, send the message    
-    ret=sendmail(recipient,sender,subject,body,debug=debug)
+    if notify_recipient == True:
+        ret=sendmail(recipient,sender,subject,body,debug=debug)
+    else:
+        logger.warn("do NOT notify phoneadmin with email")
     if debug:
         print "DRYRUN: mailmsg=\n%s" % ret
 
@@ -407,12 +411,13 @@ def usage(exitcode=0,msg=None):
 def main():
     global dryrun
     force = False
+    notify_recipient = True
     default_phonefile='%s/telefoni/user_%s.txt' % (cereconf.DUMPDIR,
                                                    time.strftime("%Y%m%d"))
     phonefile=dryrun=checknames=checkmail=False
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dh?f:F',
-                                   ['help','dryrun','file','checknames','checkmail','force'])
+        opts, args = getopt.getopt(sys.argv[1:], 'dh?f:Fe',
+                                   ['help','dryrun','file','checknames','checkmail','force','no-email'])
     except getopt.GetoptError,m:
         usage(1,m)
 
@@ -429,10 +434,12 @@ def main():
             phonefile=val
         elif opt in ['-F','--force']:
             force = True
+        elif opt in ['-e','--no-email']:
+            notify_recipient = False
 
     init_cache(checknames,checkmail)
     logger.info("Using sourcefile '%s'" % (phonefile or default_phonefile))
-    process_telefoni(phonefile or default_phonefile,checknames,checkmail)
+    process_telefoni(phonefile or default_phonefile,checknames,checkmail,notify_recipient)
     logger.debug("Max number of allowed changes:%s" % (max_changes_allowed))
     logger.debug("Number of changes:%s" % num_changes)
     if dryrun:

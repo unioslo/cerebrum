@@ -1,3 +1,11 @@
+2017-04-06    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* import_tlf.py (notify_phoneadmin): added option
+	--no-email. using this flag when starting the script will turn off
+	email notification to phone admins. this feature was added because
+	we do not want email to phoneadmin from new cerebrum until old
+	cerebrum has been decomissioned
+
 2017-04-03    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* generate_fronter_full.py (FronterXML.__init__): replaced all references to UREG2000 with FS@uit.
