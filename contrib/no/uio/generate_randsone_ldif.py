@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-# Copyright 2002-2012 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2002-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,15 +18,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Usage: generate_isf_ldif.py [options]
+"""Usage: generate_randsone_ldif.py [options]
 
-Write FEIDE information for ISF (Institutt for samfunnsforskning)
-to an LDIF file.  Like generate_org_ldif, but reads issconf which
-can override some cereconf LDAP variables.
+Write FEIDE information to an LDIF file for Randsone organizations
+affiliated to UiO.  Like generate_org_ldif, but reads an <inst>conf
+file which can override some cereconf LDAP variables.
 """
 
 import getopt
 import sys
+import importlib
 
 import cerebrum_path
 
@@ -40,9 +41,6 @@ import cereconf as _c
     (_d.LDAP, _d.LDAP_ORG, _d.LDAP_OU, _d.LDAP_PERSON) = _save
 del _c, _d, _save
 
-# This modifies some values in cereconf.
-import isfconf
-
 from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.modules.LDIFutils import ldif_outfile, end_ldif_outfile
 
@@ -51,11 +49,14 @@ def main():
     logger = Factory.get_logger("cronjob")
 
     # The script is designed to use the mail-module.
+    module_name = ''
+    unit = ''
     use_mail_module = True
     config = ofile = None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "ho:m",
-                                   ("help", "org=", "omit-mail-module"))
+        opts, args = getopt.getopt(sys.argv[1:], "ho:i:m",
+                                   ("help", "org=", "inst=",
+                                    "omit-mail-module"))
     except getopt.GetoptError, e:
         usage(str(e))
     if args:
@@ -63,10 +64,23 @@ def main():
     for opt, val in opts:
         if opt in ("-o", "--org"):
             ofile = val
+        elif opt in ("-i", "--inst"):
+                unit = str(val)
+                module_name = str(unit)+'_ldap_conf'
         elif opt in ("-m", "--omit-mail-module"):
             use_mail_module = False
         else:
             usage()
+    if unit == '':
+        usage("\nThe -i or --inst option must be provided with valid argument")
+        return 1
+    # The following overrides some imported values from cereconf.
+    try:
+        importlib.import_module(module_name)
+    except:
+        usage("\nNo configuration with a file name %s found, aborting"
+              % module_name)
+        return 1
 
     ldif = Factory.get('OrgLDIF')(Factory.get('Database')(), logger)
     timer = make_timer(logger, 'Starting dump.')
@@ -91,4 +105,3 @@ def usage(err=0):
 
 if __name__ == '__main__':
         main()
-
