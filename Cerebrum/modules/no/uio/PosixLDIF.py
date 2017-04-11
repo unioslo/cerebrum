@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2004-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -20,6 +20,7 @@
 import cereconf
 from Cerebrum.modules.PosixLDIF import PosixLDIF
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
+from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory, make_timer
 
 
@@ -38,23 +39,26 @@ class PosixLDIF_UiOMixin(PosixLDIF):
                 account_spread=self.spread_d["user"][0]):
             self.pid2primary_aid[row["person_id"]] = row["account_id"]
         timer('... done initing PosixLDIF_UiOMixin')
-        # handle exempt users #
+        # handle exempt users
         self.pq_exempt_user_ids = set()
         if hasattr(cereconf, 'PQ_EXEMPT_GROUP'):
             try:
                 self.grp.find_by_name(cereconf.PQ_EXEMPT_GROUP)
                 for member in self.grp.search_members(
                         group_id=self.grp.entity_id,
-                        member_type=self.const.entity_account,
+                        member_type=(self.const.entity_account,
+                                     self.const.entity_person),
                         indirect_members=True):
                     self.pq_exempt_user_ids.add(member['member_id'])
                 self.grp.clear()
+            except NotFoundError:
+                self.logger.error('Could not find PQ_EXEMPT_GROUP "{group}"'.format(
+                    group=cereconf.PQ_EXEMPT_GROUP))
             except Exception as e:
                 # should not happen unless nonexisting group-name is specified
                 self.logger.error(
                     'PQ_EXEMPT_GROUP defined in cereconf, but extracting '
                     'exempt users failed: {error}'.format(error=e))
-    # end __init__
 
     def init_user(self, *args, **kwargs):
         self.__super.init_user(*args, **kwargs)
@@ -124,6 +128,7 @@ class PosixLDIF_UiOMixin(PosixLDIF):
         # Handle exempt users and people with printer quotas. #
         if (
                 account_id not in self.pq_exempt_user_ids and
+                owner_id not in self.pq_exempt_user_ids and
                 owner_id in self.pq_people
         ):
             entry['uioHasPrinterQuota'] = "TRUE"
@@ -162,6 +167,4 @@ class PosixLDIF_UiOMixin(PosixLDIF):
 
             user_id = int(self.pid2primary_aid[person_id])
             self.group2persons[int(row['group_id'])].append(user_id)
-
         timer('... done UiO cache_group2persons')
-# end class PosixLDIF_UiOMixin
