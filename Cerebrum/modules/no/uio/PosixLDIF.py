@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2004-2015 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2004-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,8 +17,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import cereconf
 from Cerebrum.modules.PosixLDIF import PosixLDIF
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
+from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory, make_timer
 
 
@@ -37,7 +39,27 @@ class PosixLDIF_UiOMixin(PosixLDIF):
                 account_spread=self.spread_d["user"][0]):
             self.pid2primary_aid[row["person_id"]] = row["account_id"]
         timer('... done initing PosixLDIF_UiOMixin')
-    # end __init__
+        # handle exempt users
+        self.pq_exempt_user_ids = set()
+        if hasattr(cereconf, 'PQ_EXEMPT_GROUP'):
+            try:
+                self.grp.find_by_name(cereconf.PQ_EXEMPT_GROUP)
+                for member in self.grp.search_members(
+                        group_id=self.grp.entity_id,
+                        member_type=(self.const.entity_account,
+                                     self.const.entity_person),
+                        indirect_members=True):
+                    self.pq_exempt_user_ids.add(member['member_id'])
+                self.grp.clear()
+            except NotFoundError:
+                self.logger.error(
+                    'Could not find PQ_EXEMPT_GROUP "{group}"'.format(
+                        group=cereconf.PQ_EXEMPT_GROUP))
+            except Exception as e:
+                # should not happen unless nonexisting group-name is specified
+                self.logger.error(
+                    'PQ_EXEMPT_GROUP defined in cereconf, but extracting '
+                    'exempt users failed: {error}'.format(error=e))
 
     def init_user(self, *args, **kwargs):
         self.__super.init_user(*args, **kwargs)
@@ -58,7 +80,8 @@ class PosixLDIF_UiOMixin(PosixLDIF):
 
         self.pq_people = frozenset(
             int(row['person_id'])
-            for row in PaidPrinterQuotas.PaidPrinterQuotas(self.db).list(only_with_quota=True))
+            for row in PaidPrinterQuotas.PaidPrinterQuotas(self.db).list(
+                    only_with_quota=True))
         timer('... done UiO init_user')
 
     def init_netgroup(self, *args, **kwargs):
@@ -103,8 +126,12 @@ class PosixLDIF_UiOMixin(PosixLDIF):
             entry['uioPersonID'] = str(owner_id)
             added = True
 
-        # People with printer quotas.
-        if owner_id in self.pq_people:
+        # Handle exempt users and people with printer quotas. #
+        if (
+                account_id not in self.pq_exempt_user_ids and
+                owner_id not in self.pq_exempt_user_ids and
+                owner_id in self.pq_people
+        ):
             entry['uioHasPrinterQuota'] = "TRUE"
             added = True
 
@@ -122,15 +149,18 @@ class PosixLDIF_UiOMixin(PosixLDIF):
         timer = make_timer(self.logger, 'Starting UiO cache_group2persons...')
         ldapgroup = set()
         nisng = set()
-        for row in self.grp.list_all_with_spread(spreads=self.const.spread_ldap_group):
+        for row in self.grp.list_all_with_spread(
+                spreads=self.const.spread_ldap_group):
             ldapgroup.add(int(row['entity_id']))
-        for row in self.grp.list_all_with_spread(spreads=self.const.spread_uio_nis_ng):
+        for row in self.grp.list_all_with_spread(
+                spreads=self.const.spread_uio_nis_ng):
             nisng.add(int(row['entity_id']))
 
         help_vortex_groups = ldapgroup & nisng
 
-        for row in self.grp.search_members(group_id=help_vortex_groups,
-                                           member_type=self.const.entity_person):
+        for row in self.grp.search_members(
+                group_id=help_vortex_groups,
+                member_type=self.const.entity_person):
             person_id = row["member_id"]
             # This is a hack. When it fails, ignore it silently.
             if person_id not in self.pid2primary_aid:
@@ -138,6 +168,4 @@ class PosixLDIF_UiOMixin(PosixLDIF):
 
             user_id = int(self.pid2primary_aid[person_id])
             self.group2persons[int(row['group_id'])].append(user_id)
-
         timer('... done UiO cache_group2persons')
-# end class PosixLDIF_UiOMixin
