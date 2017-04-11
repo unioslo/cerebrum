@@ -540,7 +540,7 @@ def create_employee_account_tmp(fnr):
         uname = bridge.get_uname(fnr)
     if uname == None:
           # This account isn't in old Cerebrum yet, ignore it for now
-        logger.warn("Cannot create sito account for %s. Couldn't find uname for this account in Caesar database." % fnr)
+        logger.warn("Cannot create account for %s. Couldn't find uname for this account in Caesar database." % fnr)
         return -1
     else:
         logger.warn("KB, uname from Caesar: %s" % uname)
