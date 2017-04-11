@@ -52,8 +52,9 @@ class PosixLDIF_UiOMixin(PosixLDIF):
                     self.pq_exempt_user_ids.add(member['member_id'])
                 self.grp.clear()
             except NotFoundError:
-                self.logger.error('Could not find PQ_EXEMPT_GROUP "{group}"'.format(
-                    group=cereconf.PQ_EXEMPT_GROUP))
+                self.logger.error(
+                    'Could not find PQ_EXEMPT_GROUP "{group}"'.format(
+                        group=cereconf.PQ_EXEMPT_GROUP))
             except Exception as e:
                 # should not happen unless nonexisting group-name is specified
                 self.logger.error(
