@@ -1,3 +1,9 @@
+2017-04-11    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_students.py (BuildAccounts._process_students_callback):
+	added processing(expire) of deceased persons. Added
+	setting/expiring of spreads on student accounts
+
 2017-04-06    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* import_tlf.py (notify_phoneadmin): added option

@@ -27,6 +27,7 @@ import inspect
 import getopt
 import sys
 import os
+import mx
 import pickle
 import traceback
 from time import localtime, strftime, time
@@ -64,6 +65,7 @@ processed_accounts = {}
 keep_account_home = {}
 paid_paper_money = {}
 account_id2fnr = {}
+deceased = {}
 
 posix_user_obj = Factory.get('PosixUser')(db)
 account_obj = Factory.get('Account')(db)
@@ -588,6 +590,22 @@ class AccountUtil(object):
         # Set/change homedir
         user_spreads = [int(s) for s in profile.get_spreads()]
 
+        # update expire if needed
+        current_expire = mx.DateTime.DateFrom(ac.get_expire_date())
+        new_expire = mx.DateTime.DateFrom(default_expire_date)
+        today = mx.DateTime.today()
+
+        if deceased.has_key(fnr):
+            logger.warn("Person deceased: %s" % (fnr))
+            if current_expire != str(deceased[fnr]):
+                changes.append(('expire', str(deceased[fnr])))
+        elif ((new_expire > today) and (new_expire > current_expire)):
+            changes.append(('expire', default_expire_date))
+        
+        # Set spread expire dates
+        for us in user_spreads:
+            account_obj.set_spread_expire(spread=us, expire_date=new_expire, entity_id=account_id)
+    
         # quarantine scope='student_disk' should affect all users with
         # home on a student-disk, or that doesn't have a home at all
         may_be_quarantined = False
@@ -1659,7 +1677,7 @@ def main():
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
            dryrun, emne_info_file, move_users, remove_groupmembers, \
            workdir, paper_money_file, ou_perspective, with_quarantines,\
-           with_diskquota, posix_tables
+           with_diskquota, posix_tables, deceased
 
     recalc_pq = False
     validate = False
@@ -1744,6 +1762,13 @@ def main():
     if not (recalc_pq or update_accounts or create_users or
             reset_diskquota):
         usage("No action selected")
+
+    logger.info("Loading deceased persons...")
+    person_obj=Factory.get('Person')(db)
+    pid_deceased = person_obj.list_deceased()
+    for row in person_obj.list_external_ids(id_type=const.externalid_fodselsnr):
+        if pid_deceased.has_key(int(row['entity_id'])):
+            deceased[row['external_id']] = pid_deceased[int(row['entity_id'])]
 
     start_process_students(recalc_pq=recalc_pq,
                            update_create=(create_users or reset_diskquota))
