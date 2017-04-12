@@ -1,3 +1,7 @@
+2017-04-12    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* import_tlf.py (process_telefoni): changed 2 print debug lines to logger.debug()
+
 2017-04-11    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* process_students.py (BuildAccounts._process_students_callback):

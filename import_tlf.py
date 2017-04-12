@@ -335,7 +335,7 @@ def process_telefoni(filename,checknames,checkmail,notify_recipient):
             for internal_first_digits, prefix in prefix_table:
                 if len(data['phone']) == 5 and data['phone'].startswith(internal_first_digits):
                     if prefix == "DELETE":
-                        print "DELETE: %s - %s" % (row[USERID], data['phone'])
+                        logger.debug("DELETE: %s - %s" % (row[USERID], data['phone']))
                         # Delete the phonenumber from the database
                         delete_phonenr(row[USERID],data['phone'])
                     else:
@@ -349,8 +349,8 @@ def process_telefoni(filename,checknames,checkmail,notify_recipient):
                 logger.warning('Userid %s has a malformed internal phone number '
                                'or a number that does not have a match '
                                'in our number prefix table:%s' % (row[USERID], data))
-                print "INVALID: %s - %s" % (row[USERID], data['phone'])
-
+                logger.debug("INVALID: %s - %s" % (row[USERID], data['phone']))
+                    
             phonedata.setdefault(row[USERID].strip(),list()).append(data)
 
     for userid,pdata in phonedata.items():
