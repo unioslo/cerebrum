@@ -48,7 +48,8 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, simple_memoize
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules.no import access_FS
@@ -117,7 +118,7 @@ def get_skoinfo(fak,inst,avd):
     acrolist.reverse()
     res['path']=".".join(acrolist)
     return res
-get_skoinfo=simple_memoize(get_skoinfo)
+get_skoinfo=memoize(get_skoinfo)
 
 
 def GetUndenhFile(xmlfile):

@@ -1,5 +1,7 @@
 2017-04-12    <cerebrum@cleomedes.uit.no-cleomedes>
 
+	* ad_export_autogroups_undervisning.py: momoize has moved to another file. updated import
+
 	* import_tlf.py (process_telefoni): changed 2 print debug lines to logger.debug()
 
 2017-04-11    <cerebrum@cleomedes.uit.no-cleomedes>
