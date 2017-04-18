@@ -1,5 +1,8 @@
 2017-04-18    <cerebrum@cleomedes.uit.no-cleomedes>
 
+	* export_safecom.py: replaced export_safecom.py with
+	export_safecom2.py from leetah.
+
 	* spread_cleaner.py (process_spread): removed debug line
 
 2017-04-12    <cerebrum@cleomedes.uit.no-cleomedes>

@@ -1,7 +1,7 @@
-#!/bin/env python
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-
-# Copyright 2003, 2004 University of Oslo, Norway
+#
+# Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,178 +19,404 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# kbj005 2015.02.25: Copied from Leetah.
+
+## Uit specific extension to Cerebrum
 
 import os
 import sys
+import re
 import getopt
 import mx.DateTime
-import time
+from pprint import pprint
 
 import cerebrum_path
 import cereconf
+from Cerebrum import Constants
 from Cerebrum import Errors
-from Cerebrum.modules.no.Stedkode import Stedkode
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
-from Cerebrum.Utils import Factory
+#from Cerebrum import Entity
+from Cerebrum.Utils import Factory, simple_memoize
 from Cerebrum.extlib.xmlprinter import xmlprinter
-from Cerebrum.Constants import _SpreadCode, _CerebrumCode
+from Cerebrum.Constants import _CerebrumCode, _SpreadCode
+from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+
+logger = Factory.get_logger('cronjob')
+today_tmp=mx.DateTime.today()
+tomorrow_tmp=today_tmp + 1
+TODAY=today_tmp.strftime("%Y%m%d")
+TOMORROW=tomorrow_tmp.strftime("%Y%m%d")
+
+DEFAULT_PAYXML=os.path.join(cereconf.DUMPDIR, "safecom","safecom_pay_%s.xml" % TODAY)
+DEFAULT_TRACKXML=os.path.join(cereconf.DUMPDIR, "safecom","safecom_track_%s.xml" % TODAY)
+
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
-logger = Factory.get_logger('cronjob')
-sko = Stedkode(db)
-DEFAULT_OUTPUT = os.path.join(cereconf.DUMPDIR, "safecom","safecom_%s.xml" % time.strftime("%Y%m%d"))
-
-__filename__=os.path.basename(sys.argv[0])
-__doc__ = """
-
-Usage %s options
-options is
-
-   -o | --output File to write to. Default is %s
-   --logger-name <name>  : Which logger to use
-   --logger-level <name  : Which loglevel to use
-
-""" % (__filename__, DEFAULT_OUTPUT)
+person = Factory.get('Person')(db)
+account = Factory.get('Account')(db)
+ou=Factory.get('OU')(db)
+sko=Factory.get('Stedkode')(db)
 
 
-def write_export(spread, output):
-
-    logger.info("Caching names")
-    pe = Factory.get('Person')(db)
-    cached_names = pe.getdict_persons_names(source_system=co.system_cached, name_types=(co.name_first,co.name_last))
-
-    logger.info("Caching OU names and ou 2 stedkode mappings")
-    ou = Factory.get("OU")(db)
-    OU2Stedkodemap = dict()
-    OU2name = dict()
-    for row in sko.get_stedkoder():
-        #print "adding:%02d%02d%02d to ou list" % (row['fakultet'],row['institutt'],row['avdeling'])
-        OU2Stedkodemap[int(row["ou_id"])] = ("%02d%02d%02d" % ( int(row["fakultet"]),
-                                                                int(row["institutt"]),
-                                                                int(row["avdeling"])))
-        sko.clear()
-        try:
-            sko.find(int(int(row["ou_id"])))
-        except EntityExpiredError:
-            logger.warn("ou:%s is expired. not exported" % row['ou_id'])
-            continue
-        OU2name[int(row["ou_id"])] = sko.get_name_with_language(co.ou_name_display, co.language_nb, default='')
-    for i in OU2Stedkodemap:
-        if i == '321400':
-            print "### %s ###" % i
-        #print i
-    logger.info("Getting constant mappings")
-    num2const = dict()
-    for c in dir(co):
-        tmp = getattr(co, c)
-        if isinstance(tmp, _CerebrumCode):
-            num2const[int(tmp)] = tmp
-
-    logger.info("Getting person affiliation to status map")
-    aff_list = pe.list_affiliations()
-    aff_map = dict()
-    for aff in aff_list:
-        aux = (aff['person_id'], aff['ou_id'], aff['affiliation'])
-        if aux in aff_map and num2const[aff['status']] != aff_map[aux]:
-            logger.warn("Overwriting affiliation status %s for person %s with new status %s" % (aff_map[aux], aff['person_id'], num2const[aff['status']]))
-        aff_map[aux] = num2const[aff['status']]
-
-    logger.info("Getting accounts with spread %s" % (spread))
-    ac = Factory.get('Account')(db)
-    account_list = ac.list_all_with_spread(spread)
-
-    logger.info("Processing and writing account list")
+def get_sko(ou_id):
+    sko.clear()
+    sko.find(ou_id)
+    return "%s%s%s" % (str(sko.fakultet).zfill(2),
+                       str(sko.institutt).zfill(2),
+                       str(sko.avdeling).zfill(2))
+get_sko=simple_memoize(get_sko)
 
 
-
-    fp = file(output,'w')
-    xml = xmlprinter(fp,indent_level=2,data_mode=True,input_encoding='ISO-8859-1')
-    xml.startDocument(encoding='utf-8')
-
-    xml.startElement('UserList')
-
-
-    for account in account_list:
-        ac.clear()
-        ac.find(account['entity_id'])
-
-        name = cached_names.get(ac.owner_id, None)
-        first_name = ""
-        last_name = ""
-        if name is not None:
-            first_name = name.get(co.name_first)
-            last_name = name.get(co.name_last)
-
-        mail = ""
-        try:
-            mail = ac.get_primary_mailaddress()
-        except:
-            logger.warn("User %s lacks primary mail address" % (ac.account_name))
-
-        primary_aff = None
-        sko_sted = "000000"
-        skoname = "N/A"
-        aff_str = "N/A"
-
-        try:
-            primary_aff = ac.get_account_types(owner_id = ac.owner_id, filter_expired = False)[0]
-        except IndexError:
-            logger.warn("Affiliation_dropped for %s. No affiliation found" % (ac.account_name))
-
-        if primary_aff is not None:
-            try:
-                sko_sted = OU2Stedkodemap[primary_aff['ou_id']]
-                skoname = OU2name[primary_aff['ou_id']]
-            except KeyError:
-                logger.warn("SKO dropped for: %s. Invalid OU in primary affiliation: %s" % (ac.account_name, primary_aff['ou_id']))
-
-        if primary_aff is not None:
-            try:
-                aff = (primary_aff['person_id'], primary_aff['ou_id'], primary_aff['affiliation'])
-                aff_str = aff_map[aff]
-            except KeyError:
-                logger.warn("Affiliation string dropped for: %s. Invalid affiliation: %s" % (ac.account_name, aff))
-
-        xml.startElement('User')
-        xml.dataElement('UserLogon', ac.account_name)
-        xml.dataElement('FullName', "%s %s" % (first_name, last_name))
-        xml.dataElement('EMail', mail)
-        xml.dataElement('CostCode', "%s@%s" % (aff_str, sko_sted))
-        xml.endElement('User')
-
-    xml.endElement('UserList')
-    xml.endDocument()
-
-    logger.info("Finished writing export file - %d records written" % (len(account_list)))
-
-
-def usage(exit_code=0,m=None):
-    if m:
-        print m
-    print __doc__
-    sys.exit(exit_code)
-    
-
-def main():
+def get_ouinfo(ou_id,perspective):
+    #logger.debug("Enter get_ouinfo with id=%s,persp=%s" % (ou_id,perspective))
+    sko=Factory.get('Stedkode')(db)
+    sko.clear()
+    sko.find_by_perspective(ou_id,perspective)
+    res=dict()
+    res['name']=str(sko.name)
+    res['short_name']=str(sko.short_name)
+    res['acronym']=str(sko.acronym)
+    acropath=[]
+    acropath.append(res['acronym'])
+    #logger.debug("got basic info about id=%s,persp=%s" % (ou_id,perspective))
 
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'o:h',
-                                  ['output','help'])
-    except getopt.GetoptError,m:
-        usage(1,m)
+        sted_sko=get_sko(ou_id)
+    except Errors.NotFoundError:
+        sted_sko=""
+    res['sko']=sted_sko
 
-    spread = co.spread_uit_ad_account
-    output = DEFAULT_OUTPUT
-    for opt,val in opts:
-        if opt in('-o','--output'):
-            output = val
-        if opt in('-h','--help'):
-            usage()
+    # Find company name for this ou_id by going to parent
+    visited = []
+    parent_id=sko.get_parent(perspective)
+    #logger.debug("Find parent to OU id=%s, parent has %s, perspective is %s" % (ou_id,parent_id,perspective))
+    while True:
+        if (parent_id is None) or (parent_id == sko.entity_id):
+            #logger.debug("Root for %s is %s, name is  %s" % (ou_id,sko.entity_id,sko.name))
+            res['company']=sko.name
+            break
+        sko.clear()
+        #logger.debug("Lookup %s in %s" % (parent_id,perspective))
+        sko.find_by_perspective(parent_id,perspective)
+        #logger.debug("Lookup returned: id=%s,name=%s" % (sko.entity_id,sko.name))
+        # Detect infinite loops
+        if sko.entity_id in visited:
+            raise RuntimeError, "DEBUG: Loop detected: %r" % visited
+        visited.append(sko.entity_id)
+	acropath.append(str(sko.acronym))
+        parent_id = sko.get_parent(perspective)
+        #logger.debug("New parentid is %s" % (parent_id,))
+    acropath.reverse()
+    res['path']=".".join(acropath)
+    logger.debug("get_ouinfo: return %s" % res)
+    return res
+get_ouinfo=simple_memoize(get_ouinfo)
 
-    write_export(spread, output)
+
+def wash_sitosted(name):
+    # removes preceeding and trailing numbers and whitespaces
+    # samskipnaden has a habit of putting metadata (numbers) in the name... :(
+    washed=re.sub(r"^[0-9\ ]+|\,|\&\ |[0-9\ -\.]+$", "",name)
+    logger.debug("WASH: '%s'->'%s' " % (name,washed))
+    return washed
 
 
-if __name__=='__main__':
+def get_samskipnadstedinfo(ou_id,perspective):
+
+    res=dict()
+    ou.clear()
+    ou.find(ou_id)
+    depname=wash_sitosted(ou.display_name)
+    res['sted']=depname
+    # Find company name for this ou_id by going to parents
+    visited = []
+    while True:
+        parent_id=ou.get_parent(perspective)
+        logger.debug("Parent to id=%s is %s" % (ou_id,parent_id))
+        if (parent_id is None) or (parent_id == ou.entity_id):
+            logger.debug("Root for %s is %s, name is  %s" % (ou_id,ou.entity_id,ou.name))
+            res['company']=ou.name
+            break
+        ou.clear()
+        ou.find(parent_id)
+        logger.debug("Current id=%s, name is %s" % (ou.entity_id,ou.name))
+        # Detect infinite loops
+        if ou.entity_id in visited:
+            raise RuntimeError, "DEBUG: Loop detected: %r" % visited
+        visited.append(ou.entity_id)
+        parentname=wash_sitosted(ou.display_name)
+        res.setdefault('parents',list()).append(parentname)
+    res['acropath'].remove(res['company'])
+    return res
+get_samskipnadstedinfo=simple_memoize(get_samskipnadstedinfo)
+
+
+num2const=dict()
+class safecom_export:
+
+    def __init__(self,payfile,trackfile):
+        self.userfile_pay=payfile
+	self.userfile_track=trackfile
+	logger.debug("Will write payfile to %s" % payfile)
+	logger.debug("Will write trackfile to %s" % trackfile)
+
+    def load_cbdata(self):
+        logger.info("Start get constants")
+        for c in dir(co):
+            tmp = getattr(co, c)
+            if isinstance(tmp, _CerebrumCode):
+               num2const[int(tmp)] = tmp
+
+        logger.info("Cache AD accounts")
+        self.ad_accounts=account.search(
+                              spread=int(co.spread_uit_ad_account),
+                              expire_start=TOMORROW)
+        logger.info("Build helper translation tables")
+        self.accid2ownerid = dict()
+        self.ownerid2accid = dict()
+        self.accname2accid=dict()
+        self.accid2accname=dict()
+        self.accid2accaff=dict()
+        for acct in self.ad_accounts:
+            self.accid2ownerid[int(acct['account_id'])]=int(acct['owner_id'])
+            self.ownerid2accid[int(acct['owner_id'])]=int(acct['account_id'])
+            self.accname2accid[acct['name']]=int(acct['account_id'])
+            self.accid2accname[int(acct['account_id'])]=acct['name']
+
+	self.account_affs=dict()
+        logger.info("Caching account primary affiliations.")
+        for row in  account.list_accounts_by_type(filter_expired=True,
+                                             primary_only=True,
+                                             fetchall=False):
+            self.account_affs.setdefault(row['account_id'],list()).append((row['affiliation'],row['ou_id']))
+
+        logger.info("Cache person affs")
+        self.person_affs = self.list_affiliations()
+	logger.info("Calculate Pay persons")	
+	pay_persons=self.get_safecom_mode()
+
+        logger.info("Cache person names")
+        self.cached_names=person.getdict_persons_names(
+                                 source_system=co.system_cached,
+                                 name_types=(co.name_first,co.name_last))
+
+        logger.info("Retrieving account primaryemailaddrs")
+        self.uname2primarymail=account.getdict_uname2mailaddr(primary_only=True)
+
+    def get_safecom_mode(self):
+	self.pay=[]
+	self.track=[]
+	pay_filter=[co.affiliation_status_student_aktiv, co.affiliation_status_student_alumni,
+		    co.affiliation_status_student_evu, co.affiliation_status_student_opptak, 
+		    co.affiliation_status_student_perm, co.affiliation_status_student_privatist,
+		    co.affiliation_status_student_sys_x, co.affiliation_status_student_tilbud,
+		    co.affiliation_status_flyt_hih_student_aktiv,co.affiliation_status_flyt_hin_student_aktiv]
+	for person in self.person_affs.keys():
+	    logger.debug("Checking person %s with affs=%s" % (person,self.person_affs[person]))
+	    for aff in self.person_affs[person]:
+                logger.debug("Aff is: %s" % aff)
+		pay=True
+		if aff['affstatus'] not in pay_filter:
+                    logger.debug("Aff not in payfilter: %s" % aff['affstatus'])
+		    pay=False
+		    break
+		else:
+		    logger.debug("Aff in payfilter: %s" % aff['affstatus'])
+	    logger.debug("Paymode for person_id %s is %s" % (person,pay))
+	    if pay: 
+		self.pay.append(person)
+	    else:
+		self.track.append(person)
+
+    def list_affiliations(self):
+        person_affs = dict()
+        skip_source = []
+        skip_source.append(co.system_lt)
+        for aff in person.list_affiliations():
+            # simple filtering
+            if aff['source_system'] in skip_source:
+               logger.warn('Skip affiliation, unwanted source system %s' % aff)
+               continue
+
+            p_id = aff['person_id']
+            ou_id = aff['ou_id']
+            source_system = aff['source_system']
+    	    if (source_system==co.system_sito):
+                perspective_code=co.perspective_sito
+            else:
+                perspective_code=co.perspective_fs
+
+            try:
+                ou_info=get_ouinfo(ou_id,perspective_code)
+                sko = ou_info['sko']
+	        path=ou_info['path']
+            except EntityExpiredError,msg:
+                logger.error("person id:%s affiliated to expired ou:%s. Do not export" % (p_id,ou_id))
+                continue
+            except Errors.NotFoundError:
+                logger.error("OU id=%s not found on person %s. DB integrety error!" % (ou_id,p_id))
+                sys.exit(1)
+
+	    if source_system==co.system_sito:
+		path="Samskipnaden" # TODO fix hardcoding!!
+            aff_stat=num2const[aff['status']]
+            affinfo = {'affstr': str(aff_stat),
+		       'affiliation':aff['affiliation'],
+		       'ou_id':ou_id,
+		       'affstatus':aff['status'],
+                       'sko': sko,
+                       'path':path,
+			}
+	    tmp=person_affs.get(p_id,list())
+            if affinfo not in tmp:
+                tmp.append(affinfo)
+                person_affs[p_id]=tmp
+        return person_affs
+
+
+    def build_cbdata(self):
+        logger.info("Processing cerebrum info...")
+        count = 0
+        self.userexport=list()
+        for item in self.ad_accounts:
+            count +=1
+            if (count%500 == 0):
+                logger.info("Processed %d accounts" % count)
+            acc_id = item['account_id']
+            name = item['name']
+            owner_id = item['owner_id']
+
+	    accaffs=self.account_affs.get(acc_id,None)
+	    persaffs=self.person_affs.get(owner_id,None)
+	    logger.debug("%s: ACCAFF: %s" % (name,accaffs))
+	    logger.debug("%s: PERAFF: %s" % (name,persaffs))
+	    costcode=""
+	    if accaffs==None:
+		costcode=""
+	    elif persaffs==None:
+		costcode=""
+	    else:
+		primaryaff,primary_ou=accaffs[0]
+		costcode=""	
+		for paff in persaffs:
+		    if paff['affiliation']==primaryaff and paff['ou_id']==primary_ou:
+			costcode="%s@%s" % (paff['affstr'],paff['path'])
+			logger.debug("%s: CostCode is %s" % (name,costcode)) 
+	    if costcode == "":
+		logger.warn("Account %s without affiliations. Do not process" % name)
+		continue # account in grace to be closed, cannot calculate new status.	
+		
+	    if owner_id in self.pay:
+  		mode="Pay"
+	    else:
+		mode="Track"
+            owner_type=item['owner_type']
+            namelist = self.cached_names.get(owner_id, None)
+            first_name=last_name=worktitle=""
+            try:
+                first_name = namelist.get(int(co.name_first))
+                last_name = namelist.get(int(co.name_last))
+            except AttributeError:
+                if owner_type == co.entity_person:
+                    logger.error("Failed to get name for a_id/o_id=%s/%s"  %  \
+                                 (acc_id,owner_id))
+                else:
+                    logger.warn("No name found for a_id/o_id=%s/%s, ownertype was %s" % \
+                                 (acc_id,owner_id,owner_type))
+
+	    entry=dict()
+            entry['UserLogon']="%s" % (name,)
+            entry['FullName'] = "%s %s" % (first_name, last_name)
+	    primaryemail = self.uname2primarymail.get(item['name'],"")
+            entry['Email'] = primaryemail
+            entry['CostCode'] = costcode 
+	    entry['Mode']=mode
+            self.userexport.append(entry)
+
+
+    def build_xml(self):
+
+        logger.info("Start building pay export, writing to %s" % self.userfile_pay)
+        fh_pay = file(self.userfile_pay,'w')
+        xml_pay = xmlprinter(fh_pay,indent_level=2,data_mode=True,input_encoding='ISO-8859-1')
+        xml_pay.startDocument(encoding='utf-8')
+        xml_pay.startElement('UserList')
+        logger.info("Start building track export, writing to %s" % self.userfile_track)
+        fh_trk = file(self.userfile_track,'w')
+        xml_trk = xmlprinter(fh_trk,indent_level=2,data_mode=True,input_encoding='ISO-8859-1')
+        xml_trk.startDocument(encoding='utf-8')
+        xml_trk.startElement('UserList')
+        for item in self.userexport:
+	    if item['Mode'] == "Pay":
+            	xml_pay.startElement('User')
+	        xml_pay.dataElement('UserLogon',item['UserLogon'])
+            	xml_pay.dataElement('CostCode',item['CostCode'])
+            	xml_pay.dataElement('FullName',item['FullName'])
+            	xml_pay.dataElement('Email',item['Email'])
+            	xml_pay.endElement('User')
+	    elif item['Mode'] == "Track":
+                xml_trk.startElement('User')
+	        xml_trk.dataElement('UserLogon',item['UserLogon'])
+            	xml_trk.dataElement('CostCode',item['CostCode'])
+            	xml_trk.dataElement('FullName',item['FullName'])
+            	xml_trk.dataElement('Email',item['Email'])
+            	xml_trk.endElement('User')
+	    else: 
+		logger.error("MODE invalid: %s" % (item['Mode'],))
+
+        xml_pay.endElement('UserList')
+        xml_pay.endDocument()
+        xml_trk.endElement('UserList')
+        xml_trk.endDocument()
+ 	logger.info("Writing done")	
+
+#
+# program usage
+#
+def usage(exitcode=0):
+    print """Usage: [options]
+    -p | --payfile filename   : write Safecom Pay users to filename
+    -t | --trackfile filename : write Safecom Track user to filename
+    -h | --help               : show this message
+    -o | --out filname        : writes to given filename
+    --logger-name name        : Use logger target name, ex console or cronjob
+    --logger-level level      : level can be: DEBUG, INFO, WARNING, ERROR, CRITICAL
+    """
+    sys.exit(exitcode)
+
+
+
+def main():
+    global payfile
+    global trackfile
+
+    payfile=DEFAULT_PAYXML
+    trackfile=DEFAULT_TRACKXML
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'ho:p:t:',
+                                   ['help',"out=","payfile=","trackfile="])
+    except getopt.GetoptError:
+        usage(1)
+    for opt, val in opts:
+        if opt in ['-o', '--out']:
+            outfile=val
+        elif opt in ['-p', '--payfile']:
+            payfile=val
+        elif opt in ['-t', '--trackfile']:
+            trackfile=val
+        elif opt in ['-h', '--help']:
+            usage(0)
+        else:
+            usage(1)
+
+    start=mx.DateTime.now()
+    worker = safecom_export(payfile,trackfile)
+    worker.load_cbdata()
+    worker.build_cbdata()
+    worker.build_xml()
+    stop=mx.DateTime.now()
+    logger.info("Started %s ended %s" %  (start,stop))
+    logger.info("Script running time was %s " % ((stop-start).strftime("%M minutes %S secs")))
+
+
+if __name__ == '__main__':
     main()
