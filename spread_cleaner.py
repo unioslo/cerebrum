@@ -58,7 +58,7 @@ logger = Factory.get_logger('cronjob')
 
 def process_spread(spread):
     spread_txt = spread
-    print "processing spread:%s" % spread
+    #print "processing spread:%s" % spread
     try:
         if not isinstance(spread,int):
             spread = int(co.Spread(spread))
