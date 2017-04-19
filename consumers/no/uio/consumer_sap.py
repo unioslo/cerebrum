@@ -851,6 +851,46 @@ def update_reservation(database, hr_person, cerebrum_person):
             cerebrum_person.entity_id))
 
 
+def perform_update(database, source_system, hr_person, cerebrum_person):
+    """Update or create a person."""
+    update_person(database, source_system, hr_person, cerebrum_person)
+    update_external_ids(database, source_system, hr_person, cerebrum_person)
+    update_names(database, source_system, hr_person, cerebrum_person)
+    update_addresses(database, source_system, hr_person, cerebrum_person)
+    update_contact_info(database, source_system, hr_person, cerebrum_person)
+    update_titles(database, source_system, hr_person, cerebrum_person)
+    update_affiliations(database, source_system, hr_person, cerebrum_person)
+    update_roles(database, source_system, hr_person, cerebrum_person)
+    update_reservation(database, hr_person, cerebrum_person)
+
+
+def perform_delete(database, source_system, cerebrum_person):
+    """Delete a person."""
+    update_addresses(database,
+                     source_system,
+                     {u'addresses': []},
+                     cerebrum_person)
+    update_contact_info(database,
+                        source_system,
+                        {u'contacts': []},
+                        cerebrum_person)
+    update_titles(database,
+                  source_system,
+                  {u'titles': []},
+                  cerebrum_person)
+    update_affiliations(database,
+                        source_system,
+                        {u'affiliations': []},
+                        cerebrum_person)
+    update_roles(database,
+                 source_system,
+                 {u'roles': []},
+                 cerebrum_person)
+    update_reservation(database,
+                       {u'reserved': False},
+                       cerebrum_person)
+
+
 def handle_person(database, source_system, url, datasource=get_hr_person):
     """Fetch info from the remote system, and perform changes.
 
@@ -863,15 +903,11 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
                                           map(lambda (k, v): (k, v),
                                               hr_person.get(u'external_ids')))
 
-    update_person(database, source_system, hr_person, cerebrum_person)
-    update_external_ids(database, source_system, hr_person, cerebrum_person)
-    update_names(database, source_system, hr_person, cerebrum_person)
-    update_addresses(database, source_system, hr_person, cerebrum_person)
-    update_contact_info(database, source_system, hr_person, cerebrum_person)
-    update_titles(database, source_system, hr_person, cerebrum_person)
-    update_affiliations(database, source_system, hr_person, cerebrum_person)
-    update_roles(database, source_system, hr_person, cerebrum_person)
-    update_reservation(database, hr_person, cerebrum_person)
+    if hr_person.get('affiliations') or hr_person.get('roles'):
+        perform_update(database, source_system, hr_person, cerebrum_person)
+    elif cerebrum_person.entity_type:  # entity_type as indication of instance
+        perform_delete(database, source_system, cerebrum_person)
+
     cerebrum_person.write_db()
     database.commit()
 
