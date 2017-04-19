@@ -1,5 +1,11 @@
 2017-04-19    <cerebrum@cleomedes.uit.no-cleomedes>
 
+	* skype_export.py (write_file): Added script to repo. this script
+	collects info about sito employees and writes to a file. script
+	needd by espen amundsen for list of sito skype users
+
+	* import_PAGA.py: we now also import campus information on each person
+
 	* process_students.py: mx.DateTime cant handle None, use 0 instead
 
 2017-04-18    <cerebrum@cleomedes.uit.no-cleomedes>
