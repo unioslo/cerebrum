@@ -591,7 +591,11 @@ class AccountUtil(object):
         user_spreads = [int(s) for s in profile.get_spreads()]
 
         # update expire if needed
-        current_expire = mx.DateTime.DateFrom(ac.get_expire_date())
+        ac_expire_date = ac.get_expire_date()
+        if ac_expire_date == None:
+            # mx.DateTime.DateFrom will fail if None is given as in-parameter. use 0 instead
+            ac_expire_date = 0
+        current_expire = mx.DateTime.DateFrom(ac_expire_date)
         new_expire = mx.DateTime.DateFrom(default_expire_date)
         today = mx.DateTime.today()
 

@@ -1,3 +1,7 @@
+2017-04-19    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* process_students.py: mx.DateTime cant handle None, use 0 instead
+
 2017-04-18    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* export_safecom.py: replaced export_safecom.py with
