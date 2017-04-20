@@ -1892,7 +1892,7 @@ class BofhdExtension(BofhdCommonMethods):
         # to implement support for checking if delivery is paused in
         # Exchange, but at this point only very vague explanation has
         # been given and priority is therefore low
-        if acc.has_spread(self.const.spread_exchange_account):
+        if acc.has_spread(self.const.spread_uit_exchange):
             return info
         # Check if the ldapservers have set mailPaused
         if self._email_delivery_stopped(acc.account_name):
