@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2006, 2007 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2006-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""
+r"""
 ad-sync script for UiA that uses ADsync.py module to sync users and groups
 to AD and Exchange.
 
@@ -53,10 +53,13 @@ Usage: [options]
 Example:
   ad_fullsync.py --user-sync --store-sid
 
-  ad_fullsync.py --user-sync --group-sync  --user_spread 'account@ad' \\
-    --user_exchange_spread 'account@exchange' --user_imap_spread 'account@imap'\\
-    --group_spread 'group@ad' --group_exchange_spread 'group@exchange \\
-    --delete --store-sid --logger-level DEBUG --logger-name console
+  ad_fullsync.py --user-sync --group-sync \
+    --user_spread 'account@ad' \
+    --user_exchange_spread 'account@exchange' \
+    --user_imap_spread 'account@imap'\
+    --group_spread 'group@ad' \
+    --group_exchange_spread 'group@exchange \
+    --delete --store-sid
 
 TODO: the script should support --ad_ldap for setting the root OU. Usable e.g.
 for the guest users, and might speed up the job quite a bit. It is already
