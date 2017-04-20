@@ -116,7 +116,7 @@ def main():
         for k, v in groups_and_members.iteritems():
             stream.write(k + ';' + v)
             stream.write('\n')
-        logger.info("All done.")
+    logger.info("All done.")
 
 
 if __name__ == '__main__':
