@@ -98,9 +98,9 @@ class RTQueue(Parameter):
     _help_ref = 'rt_queue'
 
 
-# TODO: move more Uit cruft from bofhd/auth.py in here
-class UitAuth(BofhdAuth):
-    """Authorisation.  Uit specific operations and business logic."""
+# TODO: move more UiO cruft from bofhd/auth.py in here
+class UiOAuth(BofhdAuth):
+    """Authorisation.  UiO specific operations and business logic."""
 
     def can_rt_create(self, operator, domain=None, query_run_any=False):
         if self.is_superuser(operator, query_run_any):
@@ -146,14 +146,14 @@ class BofhdExtension(BofhdCommonMethods):
     hidden_commands = {}
     parent_commands = True
 
-    authz = UitAuth
+    authz = UiOAuth
     external_id_mappings = {}
 
     # This little class is used to store connections to the LDAP servers, and
     # the LDAP modules needed. The reason for doing things like this instead
-    # instead of importing the LDAP module for the entire bofhd_uit_cmds,
+    # instead of importing the LDAP module for the entire bofhd_uio_cmds,
     # are amongst others:
-    # 1. bofhd_uit_cmds is partially used at other institutions in some form,
+    # 1. bofhd_uio_cmds is partially used at other institutions in some form,
     #    they might not have any need for, or wish, to install the LDAP module.
     # 2. If we import the module on a per-function basis, we'll loose options
     #    set in the module.
@@ -183,7 +183,7 @@ class BofhdExtension(BofhdCommonMethods):
         super(BofhdExtension, self).__init__(*args, **kwargs)
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
         # exchange-relatert-jazz
-        # currently valid language variants for Uit-Cerebrum
+        # currently valid language variants for UiO-Cerebrum
         # although these codes are used for distribution groups
         # they are not directly related to them. maybe these should be
         # put in a cereconf-variable somewhere in the future? (Jazz, 2013-12)
@@ -1892,7 +1892,7 @@ class BofhdExtension(BofhdCommonMethods):
         # to implement support for checking if delivery is paused in
         # Exchange, but at this point only very vague explanation has
         # been given and priority is therefore low
-        if acc.has_spread(self.const.spread_uit_exchange):
+        if acc.has_spread(self.const.spread_exchange_account):
             return info
         # Check if the ldapservers have set mailPaused
         if self._email_delivery_stopped(acc.account_name):
@@ -3078,8 +3078,8 @@ class BofhdExtension(BofhdCommonMethods):
             return "\n".join(result)
         # end email_info2string
 
-        to_address = "postmaster-logs@usit.uit.no"
-        from_address = "cerebrum-logs@usit.uit.no"
+        to_address = "bas-admin@cc.uit.no"
+        from_address = "bas-admin@cc.uit.no"
         try:
             Utils.sendmail(toaddr=to_address,
                            fromaddr=from_address,
@@ -4107,7 +4107,7 @@ Addresses and settings:
             spreads = [int(r['spread']) for r in acc.get_spread()]
             br = BofhdRequests(self.db, self.const)
             if not self.const.spread_uit_imap in spreads:
-                # Uit's add_spread mixin will not do much since
+                # UiO's add_spread mixin will not do much since
                 # email_server_id is set to a Cyrus server already.
                 acc.add_spread(self.const.spread_uit_imap)
             # Create the mailbox.
@@ -4135,14 +4135,14 @@ Addresses and settings:
             try:
                 Utils.mail_template(acc.get_primary_mailaddress(),
                                     cereconf.USER_EMAIL_MOVE_WARNING,
-                                    sender="postmaster@usit.uit.no",
+                                    sender="bas-admin@cc.uit.no",
                                     substitute={'USER': acc.account_name,
                                                 'WHEN_EN': when_en,
                                                 'WHEN_NN': when_nn})
             except Exception, e:
                 self.logger.info("Sending mail failed: %s", e)
         else:
-            # TBD: should we remove spread_uit_imap ?
+            # TBD: should we remove spread_uio_imap ?
             # It does not do much good to add to a bofh request, mvmail
             # can't handle this anyway.
             raise CerebrumError, "can't move to non-IMAP server"
@@ -4532,7 +4532,7 @@ Addresses and settings:
         acc = self._get_account(uname)
         # exchange-relatert-jazz
         # For Exchange-mailboxes vacation must be registered via
-        # Outlook/OWA since smart host solution for Exchange@Uit
+        # Outlook/OWA since smart host solution for Exchange@UiO
         # could not be implemented. When migration to Exchange
         # is completed this method should be changed and adding
         # vacation for any account disallowed. Jazz (2013-11)
@@ -4631,7 +4631,7 @@ Addresses and settings:
         acc = self._get_account(uname)
         # exchange-relatert-jazz
         # For Exchange-mailboxes vacation must be registered via
-        # OWA since smart host solution for Exchange@Uit
+        # OWA since smart host solution for Exchange@UiO
         # could not be implemented. When migration to Exchange
         # is completed this method should be changed and adding
         # vacation for any account disallowed. Jazz (2013-11)
@@ -5336,7 +5336,7 @@ Addresses and settings:
         # the following attributes is not used and don't need to
         # be registered correctly
         # managedby is never exported to Exchange, hardcoded to
-        # dl-dladmin@groups.uit.bo
+        # dl-dladmin@groups.uio.bo
         managedby = cereconf.DISTGROUP_DEFAULT_ADMIN
         # display name language is standard for dist groups
         disp_name_language = room_list.ret_standard_language()
@@ -5351,7 +5351,7 @@ Addresses and settings:
             # should never happen unless default admin
             # dist group is deleted from Cerebrum
             return ('Default admin address does not exist, please contact'
-                    ' cerebrum-drift@usit.uit.no for help!')
+                    ' bas-admin@cc.uit.no for help!')
         if not displayname:
             displayname = groupname
         # using DistributionGroup.new(...)
@@ -5404,7 +5404,7 @@ Addresses and settings:
 
     # group request, like group create, but only send request to
     # the ones with the access to the 'group create' command
-    # Currently send email to brukerreg@usit.uit.no
+    # Currently send email to brukerreg@usit.uio.no
     all_commands['group_request'] = Command(
         ("group", "request"), GroupName(help_ref="group_name_new"),
         SimpleString(help_ref="string_description"), SimpleString(help_ref="string_spread"),
@@ -10050,7 +10050,7 @@ Password altered. Use misc list_password to print or view the new password.%s'''
     def _get_entity_name(self, entity_id, entity_type=None):
         """Fetch a human-friendly name for the specified entity.
 
-        Overridden to return names only used at Uit.
+        Overridden to return names only used at UiO.
 
         @type entity_id: int
         @param entity_id:
