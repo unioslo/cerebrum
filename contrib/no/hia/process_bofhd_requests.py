@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2003-2009 University of Oslo, Norway
+# Copyright 2003-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,36 +22,27 @@
 import errno
 import fcntl
 import getopt
-import imaplib
 import mx
 import os
 import pickle
-import popen2
-import re
 import sys
 import time
-import socket
-from select import select
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.modules import Email
-from Cerebrum import Constants
-from Cerebrum.Utils import Factory, read_password, spawn_and_log_output
+from Cerebrum.Utils import Factory, spawn_and_log_output
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 
+
+logger = Factory.get_logger("bofhd_req")
 db = Factory.get('Database')()
 db.cl_init(change_program='process_bofhd_r')
 cl_const = Factory.get('CLConstants')(db)
 const = Factory.get('Constants')(db)
-logger = Factory.get_logger("bofhd_req")
 
 max_requests = 999999
-ou_perspective = None
-
-ldapconns = None
 
 EXIT_SUCCESS = 0
 
@@ -75,7 +66,7 @@ class RequestLockHandler(object):
         """
         if self.lockfd is not None:
             self.release()
-            
+
         self.reqid = reqid
         try:
             lockfile = file(self.lockdir % reqid, "w")
@@ -117,7 +108,7 @@ def dependency_pending(dep_id, local_db=db, local_co=const):
 
 def process_requests(types):
     global max_requests
-    
+
     operations = {
         'sympa':
         [(const.bofh_sympa_create, proc_sympa_create, 2*60),
@@ -136,11 +127,6 @@ def process_requests(types):
     reqlock = RequestLockHandler()
     br = BofhdRequests(db, const)
     for t in types:
-        if t == 'move' and is_ok_batch_time(time.strftime("%H:%M")):
-            # convert move_student into move_user requests
-            process_move_student_requests()
-        if t == 'email':
-            process_email_move_requests()
         for op, process, delay in operations[t]:
             set_operator()
             start_time = time.time()
@@ -190,8 +176,8 @@ def proc_sympa_create(request):
         logger.exception("Corrupt request state for sympa list=%s: %s",
                          listname, request["state_data"])
         return True
-    
-    try:    
+
+    try:
         host = state["runhost"]
         profile = state["profile"]
         description = state["description"]
@@ -207,7 +193,7 @@ def proc_sympa_create(request):
            listname, admins, profile, description]
     return spawn_and_log_output(cmd) == EXIT_SUCCESS
 # end proc_sympa_create
-        
+
 
 def proc_sympa_remove(request):
     """Execute the request for removing a sympa mailing list.
@@ -249,10 +235,12 @@ def get_address(address_id):
 
 def is_ok_batch_time(now):
     times = cereconf.LEGAL_BATCH_MOVE_TIMES.split('-')
-    if times[0] > times[1]:   #  Like '20:00-08:00'
+    if times[0] > times[1]:
+        #  Like '20:00-08:00'
         if now > times[0] or now < times[1]:
             return True
-    else:                     #  Like '08:00-20:00'
+    else:
+        #  Like '08:00-20:00'
         if now > times[0] and now < times[1]:
             return True
     return False
@@ -275,15 +263,9 @@ def is_valid_request(req_id, local_db=db, local_co=const):
 
 def main():
     global max_requests
-    global ou_perspective, emne_info_file, studconfig_file, \
-           studieprogs_file, student_info_file
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dpt:m:',
-                                   ['debug', 'process', 'type=', 'max=',
-                                    'ou-perspective=',
-                                    'emne-info-file=','studconfig-file=',
-                                    'studie-progs-file=',
-                                    'student-info-file='])
+                                   ['debug', 'process', 'type=', 'max=', ])
     except getopt.GetoptError:
         usage(1)
     if not opts:
@@ -300,19 +282,8 @@ def main():
         elif opt in ('-p', '--process'):
             if not types:
                 types = ['quarantine', 'delete', 'move',
-                         'email', 'sympa',]
+                         'email', 'sympa', ]
             process_requests(types)
-        elif opt in ('--ou-perspective',):
-            ou_perspective = const.OUPerspective(val)
-            int(ou_perspective)   # Assert that it is defined
-        elif opt in ('--emne-info-file',):
-            emne_info_file = val
-        elif opt in ('--studconfig-file',):
-            studconfig_file = val
-        elif opt in ('--studie-progs-file',):
-            studieprogs_file = val
-        elif opt in ('--student-info-file',):
-            student_info_file = val
 
 
 def usage(exitcode=0):
@@ -324,21 +295,11 @@ def usage(exitcode=0):
     -m | --max val: perform up to this number of requests
 
     Legal values for --type:
-      email
       sympa
-      move
-      quarantine
-      delete
 
-    Needed for move_student requests:
-    --ou-perspective code_str: set ou_perspective (default: perspective_fs)
-    --emne-info-file file:
-    --studconfig-file file:
-    --studie-progs-file file:
-    --student-info-file file:
     """
     sys.exit(exitcode)
 
+
 if __name__ == '__main__':
     main()
-
