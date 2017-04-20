@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2005 University of Oslo, Norway
+# Copyright 2005-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,23 +18,24 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+This is a HiA-spesific cerebrum related script that processes
+account-deletion requests registered in Cerebrum.
+When an account is deleted a delete request is registered in
+'bofhd_requests'. The following is done by this script:
 
-# This is a HiA-spesific cerebrum related script that processes
-# account-deletion requests registered in Cerebrum.
-# When an account is deleted a delete request is registered in
-# 'bofhd_requests'. The following is done by this script:
-#
-#
-#
-#
-# nis  : write "deleted" file
-#        <uname>:<crypt>:<uid>:<gid>:<gecos>:<home>:<shell>
-#        for both nis and nisans, account@nis/nisans removed
-# ad   : account@ad spread removed
-# email: write file (<uname>:<email_server>), account@imap spread removed
-# other spreads: removed
-#
-# TODO: this script must be more robust and pretty (but first we make it work)
+
+
+
+nis  : write "deleted" file
+       <uname>:<crypt>:<uid>:<gid>:<gecos>:<home>:<shell>
+       for both nis and nisans, account@nis/nisans removed
+ad   : account@ad spread removed
+email: write file (<uname>:<email_server>), account@imap spread removed
+other spreads: removed
+
+TODO: this script must be more robust and pretty (but first we make it work)
+"""
 
 
 import time
@@ -42,20 +43,17 @@ import os
 import mx
 import string
 
-import cerebrum_path
-
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 
-del cerebrum_path
 
+logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
 db.cl_init(change_program='process_bofhd_r')
 cl_const = Factory.get('CLConstants')(db)
 const = Factory.get('Constants')(db)
-logger = Factory.get_logger("cronjob")
 max_requests = None
 start_time = None
 
@@ -147,7 +145,8 @@ def process_delete_requests():
                 except Errors.NotFoundError:
                     logger.warn('No email target for %s, removing imap spread '
                                 'only.', account.account_name)
-                logger.debug("Found e-mail target for %s", account.account_name)
+                logger.debug("Found e-mail target for %s",
+                             account.account_name)
                 if et:
                     es = Email.EmailServer(db)
                     es.find(et.email_server_id)
@@ -193,8 +192,8 @@ def process_delete_requests():
                     continue
                 account.set_homedir(current_id=home['homedir_id'],
                                     status=const.home_status_archived)
-                logger.debug("Set home to archived %s (%s)", home['homedir_id'],
-                             row['spread'])
+                logger.debug("Set home to archived %s (%s)",
+                             home['homedir_id'], row['spread'])
                 account.clear_home(row['spread'])
                 logger.debug("clear_home in %s", row['spread'])
                 account.delete_spread(row['spread'])
