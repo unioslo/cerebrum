@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2005 University of Oslo, Norway
+# Copyright 2005-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,31 +18,18 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-import string
+""" Export groups. """
+import argparse
 import os
 import sys
-import getopt
 
-import cerebrum_path
-import cereconf
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum import Group
-
-try:
-    set()
-except NameError:
-    from sets import Set as set
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 
 
-def usage():
-    print """python export_groups.py [options]
-    -s, --spread: choose all groups with given spread
-    -o, --outfile: override def. file name (/cerebrum/var/cache/EZPublish/groups.txt)
-    -f : flatten out groups (find all account-members of groups and their groupmembers)
+DEFAULT_OUTFILE = os.path.join(
+    sys.prefix, 'var', 'cache', 'EZPublish', 'groups.txt')
 
-    Example: python export_groups.py -s group@ezpublish -o /tmp/testfile -f """
 
 def make_groups_list(flat, grps):
     """
@@ -61,7 +48,7 @@ def make_groups_list(flat, grps):
       A dict-like object from group names to a string with members
       names. Member names are ','-separated within the string.
     """
-    entity2name = dict((x["entity_id"], x["entity_name"]) for x in 
+    entity2name = dict((x["entity_id"], x["entity_name"]) for x in
                        group.list_names(constants.account_namespace))
     entity2name.update((x["entity_id"], x["entity_name"]) for x in
                        group.list_names(constants.group_namespace))
@@ -88,58 +75,49 @@ def make_groups_list(flat, grps):
             members[i["name"]] = ','.join(member_names)
     return members
 # end make_groups_list
-    
+
+
 def main():
     global group, constants
-    
-    grps = []
-    flat = False
-    groups_and_members = {}
-    spread_val = ""
-    outfile = '/cerebrum/var/cache/EZPublish/groups.txt'
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "s:o:f",
-                                   ['spread=',
-                                    'outfile='])
-    except getopt.GetoptError:
-        usage()
-        sys.exit(2)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '-s', '--spread',
+        required=True,
+        help="choose all groups with given spread")
+    parser.add_argument(
+        '-o', '--outfile',
+        default=DEFAULT_OUTFILE,
+        help="override default file name (%(default)s)")
+    parser.add_argument(
+        '-f', '--flat',
+        default=False,
+        action='store_true',
+        help=("flatten out groups (find all account-members of groups and "
+              "their groupmembers)"))
+    args = parser.parse_args()
 
-    for opt, val in opts:
-        if opt in ('-s', '--spread'):
-            spread_val = val
-        elif opt in ('-o', '--outfile'):
-            outfile = val
-        elif opt in ('-f'):
-            flat = True
-
-    if not spread_val:
-        usage()
-        sys.exit(2)
-
+    logger = Factory.get_logger('cronjob')
     db = Factory.get('Database')()
     constants = Factory.get('Constants')(db)
     group = Factory.get("Group")(db)
-    logger = Factory.get_logger('cronjob')
 
-    spread = int(constants.Spread(spread_val))
-    
-    logger.info("Getting groups")
-    grps = group.search(spread=spread)
+    spread = int(constants.Spread(args.spread))
 
-    logger.info("Processing groups")
-    groups_and_members = make_groups_list(flat, grps)
-    
-    logger.info("Writing groups file.")
-    stream = open(outfile, 'w')
+    with AtomicFileWriter(args.outfile, 'w') as stream:
 
-    for k, v in groups_and_members.iteritems():
-        stream.write(k + ';' + v)
-        stream.write('\n')
-    stream.close()
-    logger.info("All done.")
+        logger.info("Getting groups")
+        grps = group.search(spread=spread)
 
-    
+        logger.info("Processing groups")
+        groups_and_members = make_groups_list(args.flat, grps)
+
+        logger.info("Writing groups file.")
+        for k, v in groups_and_members.iteritems():
+            stream.write(k + ';' + v)
+            stream.write('\n')
+        logger.info("All done.")
+
+
 if __name__ == '__main__':
     main()
