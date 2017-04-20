@@ -48,6 +48,7 @@ class PosixLDIF_UiTMixin(PosixLDIF):
         self.generate_system_object(f) # this line is the only reason for having this function here
         f.write(LDIFutils.container_entry_string('USER'))
         self.logger.debug("filter out quarantined accounts")
+        self.logger.debug("only include accounts with spread:%s" % (self.spread_d['user']))
         for row in self.posuser.list_extended_posix_users(
                 self.user_auth,
                 spread=self.spread_d['user'],
@@ -107,11 +108,11 @@ class PosixLDIF_UiTMixin(PosixLDIF):
             # have the same spread as the person object, we are unable to filter 
             # out any single account (for those persons with multiple accounts)
             # 
-            uname = row['entity_name']
-            if len(uname) == 7:
-                if uname[-1] == 's':
-                self.logger.debug("filtering out account:%s" %row['entity_name'])
-                return None,None
+            #uname = row['entity_name']
+            #if len(uname) == 7:
+            #    if uname[-1] == 's':
+            #        self.logger.debug("filtering out account:%s" %row['entity_name'])
+            #        return None,None
 
 
         # Add displayName, norEduPersonLegalName and objectClass: norEduPerson
