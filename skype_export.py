@@ -32,20 +32,7 @@ name,email and tlf for every person having accounts with spread as given with th
 for use towards skype 
 
 export format: 
-
-XML Structure
-<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<data>
-  <person>
-     <person_name<person_name>
-     <tlf></tlf>
-     <account>
-        <account_name></account_name>
-        <primary_email></primary_email>
-         <expire_date></expire_date>
-     </account>
- </person>
-</data>
+<NAVN>;[TELEFON...];<BRUKERNAVN>;<EPOST>
 """
 
 # generic imports
@@ -89,12 +76,11 @@ def get_data(spread=None,source_system=None):
     global account
     person_dict = {}
 
-    #set_source_system = const.AuthoritativeSystem(source_system)
     set_source_system = const.system_cached
     set_spread  =  const.Spread(spread)
     set_name_variant = int(const.name_full)
 
-    account_list = account.list_accounts_by_type(filter_expired = False,account_spread = set_spread)
+    account_list = account.list_accounts_by_type(filter_expired = True,account_spread = set_spread)
     for accounts in account_list:
         account.clear()
         person.clear()
@@ -139,14 +125,12 @@ def get_person_tlf(person):
     source_system = const.system_tlf
 
     # get work phone
-    #retval = person.get_contact_info(source = source_system,type = const.contact_phone)
     retval = person.get_contact_info( type = const.contact_phone)
     for val in retval:
         if val[4] not in phone_list:
             phone_list.append(val[4]) 
 
     # get mobile
-    #retval = person.get_contact_info(source = source_system,type = const.contact_mobile_phone)
     retval = person.get_contact_info(type = const.contact_mobile_phone)
     for val in retval:
         if val[4] not in phone_list:
@@ -205,8 +189,6 @@ def main():
     logger.debug("source: %s" % default_source)
     
     data_list = get_data(default_spread,default_source) # collects: person names, tlf and campus
-    #account_list = get_accounts(person_list) # collects email addresses 
-    #data_list = generate_data(person_list,account_list) # generate dict with names,email,tlf,campus
     write_file(data_list,outfile)
 
 #

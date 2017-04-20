@@ -1,3 +1,7 @@
+2017-04-20    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* skype_export.py (write_file): removed debug lines, added expired account filtering.
+
 2017-04-19    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* skype_export.py (write_file): Added script to repo. this script
