@@ -49,7 +49,7 @@ Usage: [options]
             is _not_ to delete groups.
   --logger-level LEVEL: default is INFO
   --logger-name NAME: default is console
-  
+
 Example:
   ad_fullsync.py --user-sync --store-sid
 
@@ -68,27 +68,25 @@ ADFullUserSync when instantiating it.
 import getopt
 import sys
 import xmlrpclib
-import cerebrum_path
+
 import cereconf
-from Cerebrum.Constants import _SpreadCode
+
 from Cerebrum import Utils
 from Cerebrum.modules.no.hia import ADsync
 
 
+logger = Utils.Factory.get_logger('cronjob')
 db = Utils.Factory.get('Database')()
 db.cl_init(change_program="hia_ad_sync")
 co = Utils.Factory.get('Constants')(db)
 ac = Utils.Factory.get('Account')(db)
 
-def fullsync(user_sync, group_sync, maillists_sync, forwarding_sync, 
-             user_spread, user_exchange_spread, user_imap_spread, 
+
+def fullsync(user_sync, group_sync, maillists_sync, forwarding_sync,
+             user_spread, user_exchange_spread, user_imap_spread,
              group_spread, group_exchange_spread, dryrun,
-             delete_objects, store_sid, logger_name, logger_level,
+             delete_objects, store_sid,
              default_user_ou, only_ous):
-        
-    # initate logger
-    logger = Utils.Factory.get_logger(logger_name)
-    # set logger level ...
 
     # --- USER SYNC ---
     if user_sync:
@@ -105,10 +103,10 @@ def fullsync(user_sync, group_sync, maillists_sync, forwarding_sync,
                              imap_spread=user_imap_spread,
                              forwarding_sync=forwarding_sync)
         except xmlrpclib.ProtocolError, xpe:
-            logger.critical("Error connecting to AD service. Giving up!: %s %s" %
-                            (xpe.errcode, xpe.errmsg))
-    
-    
+            logger.critical(
+                "Error connecting to AD service. Giving up!: %s %s" %
+                (xpe.errcode, xpe.errmsg))
+
     # --- GROUP SYNC ---
     if group_sync:
         # Catch protocolError to avoid that url containing password is
@@ -120,9 +118,9 @@ def fullsync(user_sync, group_sync, maillists_sync, forwarding_sync,
                 dry_run=dryrun, store_sid=store_sid, user_spread=user_spread,
                 exchange_spread=group_exchange_spread)
         except xmlrpclib.ProtocolError, xpe:
-            logger.critical("Error connecting to AD service. Giving up!: %s %s" %
-                            (xpe.errcode, xpe.errmsg))
-
+            logger.critical(
+                "Error connecting to AD service. Giving up!: %s %s" %
+                (xpe.errcode, xpe.errmsg))
 
     # --- MAILLIST CONTACT OBJECTS SYNC ---
     if maillists_sync:
@@ -133,17 +131,18 @@ def fullsync(user_sync, group_sync, maillists_sync, forwarding_sync,
             ADsync.ADFullContactSync(db, co, logger).full_sync(
                 dry_run=dryrun)
         except xmlrpclib.ProtocolError, xpe:
-            logger.critical("Error connecting to AD service. Giving up!: %s %s" %
-                            (xpe.errcode, xpe.errmsg))
+            logger.critical(
+                "Error connecting to AD service. Giving up!: %s %s" %
+                (xpe.errcode, xpe.errmsg))
 
-    
+
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'hugfm',  [
-            'help', 'user-sync', 'group-sync', 'user_spread=', 
+            'help', 'user-sync', 'group-sync', 'user_spread=',
             'user_exchange_spread=', 'user_imap_spread=', 'default_user_ou=',
-            'only_ous=', 'dryrun', 'store-sid', 'delete', 
-            'group_spread=', 'logger-level=', 'logger-name=',
+            'only_ous=', 'dryrun', 'store-sid', 'delete',
+            'group_spread=',
             'group_exchange_spread=', 'maillists-sync', 'forwarding-sync'])
     except getopt.GetoptError:
         usage(1)
@@ -162,10 +161,9 @@ def main():
     only_ous = None
     group_spread = cereconf.AD_GROUP_SPREAD
     group_exchange_spread = cereconf.AD_GROUP_EXCHANGE_SPREAD
-    logger_name = 'console'
-    logger_level = 'INFO'
+
     for opt, val in opts:
-        if opt in ('--help','-h'):
+        if opt in ('--help', '-h'):
             usage()
         elif opt in ('--dryrun',):
             dryrun = True
@@ -173,13 +171,13 @@ def main():
             delete_objects = True
         elif opt in ('--store-sid',):
             store_sid = True
-        elif opt in ('--user-sync','-u'):
+        elif opt in ('--user-sync', '-u'):
             user_sync = True
-        elif opt in ('--group-sync','-g'):
+        elif opt in ('--group-sync', '-g'):
             group_sync = True
-        elif opt in ('--maillists-sync','-m'):
+        elif opt in ('--maillists-sync', '-m'):
             maillists_sync = True
-        elif opt in ('--forwarding-sync','-f'):
+        elif opt in ('--forwarding-sync', '-f'):
             forwarding_sync = True
         elif opt == '--user_spread':
             user_spread = val
@@ -195,20 +193,18 @@ def main():
             group_spread = val
         elif opt == '--group_exchange_spread':
             group_exchange_spread = val
-        elif opt == '--logger-name':
-            logger_name = val
-        elif opt == '--logger-level':
-            logger_level = val
-        
-    fullsync(user_sync, group_sync, maillists_sync, forwarding_sync, 
-             user_spread, user_exchange_spread, user_imap_spread, 
+
+    fullsync(user_sync, group_sync, maillists_sync, forwarding_sync,
+             user_spread, user_exchange_spread, user_imap_spread,
              group_spread, group_exchange_spread, dryrun,
-             delete_objects, store_sid, logger_name, logger_level,
+             delete_objects, store_sid,
              default_user_ou, only_ous)
+
 
 def usage(exitcode=0):
     print __doc__
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()
