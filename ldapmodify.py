@@ -43,7 +43,7 @@ def main():
     ldap_diff = "uit_ldif"
 
     ret = 0
-    ret = os.system("/usr/bin/ldapmodify -x -H ldaps://%s -D \"cn=%s,dc=uit,dc=no\" -w %s -v -f %s/uit_diff_%02d%02d%02d" % (ldap_server,user,password,ldap_dump_dir,year,month,day))
+    ret = os.system("/usr/bin/ldapmodify -x -H ldaps://%s -D \"cn=%s,dc=uit,dc=no\" -w %s -f %s/uit_diff_%02d%02d%02d" % (ldap_server,user,password,ldap_dump_dir,year,month,day))
     if(ret != 0):
         logger.error("unable to update ldap server")
         sys.exit(1)
