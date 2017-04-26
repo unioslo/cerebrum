@@ -147,7 +147,7 @@ class AccountUiTMixin(Account.Account):
         return self.__super.decrypt_password(method, cryptstring)
 
 
-    def verify_password(self, method, plaintext, cryptstring):
+    def verify_password_old(self, method, plaintext, cryptstring):
         """
         Support UiT added encryption methods, for other methods call super()
         """
@@ -156,7 +156,31 @@ class AccountUiTMixin(Account.Account):
             raise NotImplementedError, "Verification for %s not implemened yet" % method
         return self.__super.verify_password(method, plaintext, cryptstring)
 
-    
+    def verify_password(self, method, plaintext, cryptstring):
+        """Returns True if the plaintext matches the cryptstring,
+        False if it doesn't.  If the method doesn't support
+        verification, NotImplemented is returned.
+        """
+        self.logger.warn("method:%s, cryptstring:%s" % (method,cryptstring))
+        if method in (self.const.auth_type_md5_crypt,
+                      self.const.auth_type_md5_b64,
+                      self.const.auth_type_ha1_md5,
+                      self.const.auth_type_crypt3_des,
+                      self.const.auth_type_md4_nt,
+                      self.const.auth_type_ssha,
+                      self.const.auth_type_sha256_crypt,
+                      self.const.auth_type_sha512_crypt,
+                      self.const.auth_type_plaintext):
+            salt = cryptstring
+            if method == self.const.auth_type_ssha:
+                salt = base64.decodestring(cryptstring)[20:]
+            return (self.encrypt_password(method, plaintext, salt=salt) ==
+                    cryptstring or self.encrypt_password(method, plaintext,
+                                                         salt=salt,
+                                                         binary=True) ==
+                    cryptstring)
+        raise ValueError("Unknown method %r" % method)
+
     #UIT: added encryption method
     # Added by: kennethj 20050803
     def enc_auth_type_md5_crypt_hex(self,plaintext,salt = None):
