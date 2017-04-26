@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2002-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -8922,7 +8922,7 @@ Addresses and settings:
 
         """
         help_struct = Help([self, ], logger=self.logger)
-        all_args = list(args[:])
+        all_args = list(args)
         if not all_args:
             return MoveType().get_struct(help_struct)
         move_type = all_args.pop(0)
@@ -8975,6 +8975,16 @@ Addresses and settings:
         perm_filter='can_move_user')
 
     def user_move(self, operator, move_type, accountname, *args):
+        """
+        """
+        # now strip all str / unicode arguments in order to please CRB-2172
+        def strip_arg(arg):
+            if isinstance(arg, basestring):
+                return arg.strip()
+            return arg
+        args = tuple(map(strip_arg, args))
+        self.logger.debug('user_move: after stripping args ({args})'.format(
+            args=args))
         account = self._get_account(accountname)
         account_error = lambda reason: "Cannot move {!r}, {!s}".format(
             account.account_name, reason)
