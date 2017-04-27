@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2003-2015 University of Oslo, Norway
+# Copyright 2003-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -745,7 +745,8 @@ class EmailTarget(Entity_class):
                                 self.const.email_target_add,
                                 self.email_target_entity_id,
                                 change_params={
-                                    'target_type': int(self.email_target_type)})
+                                    'target_type': int(self.email_target_type)
+                                })
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=email_target]
@@ -975,7 +976,10 @@ class EmailTarget(Entity_class):
             where.append("et.target_type = %d" % int(target_type))
 
         if target_entity_id is not None:
-            where.append(argument_to_sql(target_entity_id, "et.target_entity_id", binds, int))
+            where.append(argument_to_sql(target_entity_id,
+                                         "et.target_entity_id",
+                                         binds,
+                                         int))
 
         if where:
             where = "WHERE " + " AND ".join(where)
@@ -1990,6 +1994,7 @@ class EmailForward(EmailTarget):
             FROM [:table schema=cerebrum name=email_forward] ef""" + where,
             binds, fetchall=fetchall)
 
+
 class EmailVacation(EmailTarget):
 
     def add_vacation(self, start, text, end=None, enable=False):
@@ -2474,7 +2479,7 @@ class AccountEmailMixin(Account.Account):
         assert(max_initials is None or max_initials >= 0)
 
         names = [x.lower() for x in re.split(r'\s+', full_name)]
-        #names = compress_preposition_surname(names) # CRB-131, see above
+        # names = compress_preposition_surname(names) # CRB-131, see above
         last = names.pop(-1)
         names = [x for x in '-'.join(names).split('-') if x]
 
@@ -2508,18 +2513,21 @@ class AccountEmailMixin(Account.Account):
             # specialisations into account (for *all* your users),
             # override this method in an appropriate subclass, and set
             # cereconf.CLASS_ACCOUNT accordingly.
-            raise Errors.NotFoundError('No full name for non-personal account.')
+            raise Errors.NotFoundError(
+                'No full name for non-personal account.')
         p = Utils.Factory.get("Person")(self._db)
         p.find(self.owner_id)
         full = p.get_name(self.const.system_cached, self.const.name_full)
         return full
 
     def get_prospect_maildomains(self, use_default_domain=True):
-        """Return correct `domain_id's for the account's account_types regardless
+        """
+        Return correct `domain_id's for the account's account_types regardless
         of what's populated in email_address.
 
         Domains will be sorted based on account_type priority and have
-        cereconf.EMAIL_DEFAULT_DOMAIN last in the list."""
+        cereconf.EMAIL_DEFAULT_DOMAIN last in the list.
+        """
         dom = EmailDomain(self._db)
         if use_default_domain:
             dom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
@@ -2693,6 +2701,22 @@ class AccountEmailMixin(Account.Account):
 
     # Rewrite when converting to Python 3.x
     def wash_email_local_part(self, local_part):
+        """
+        """
+        # A very ugly and hopefully temporary fix for CRB-2170
+        # `latin1_to_iso646_60 expects` a latin1 (iso-8859-1) string.
+        # Since `local_part` may be different depending on the DB connection
+        # backend, we need to make sure that it always ends up being latin-1.
+        if isinstance(local_part, str):
+            try:
+                local_part = local_part.decode('utf-8')
+            except:  # probably latin1
+                local_part = local_part.decode('iso-8859-1')
+        try:
+            local_part = local_part.encode('iso-8859-1')
+        except UnicodeEncodeError:
+            raise Errors.CerebrumError(
+                'Corrupt input when washing email_local_part')
         lp = Utils.latin1_to_iso646_60(local_part)
         # Translate ISO 646-60 representation of Norwegian characters
         # to the closest single-ascii-letter.
