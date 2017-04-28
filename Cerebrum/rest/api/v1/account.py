@@ -504,11 +504,28 @@ class AccountPasswordResource(Resource):
         ac = find_account(id)
         data = request.json
         plaintext = data.get('password', None)
+        plaintext_unicode = None  # used for utf-8 conversion
         if plaintext is None:
             plaintext = ac.make_passwd(ac.account_name,
                                        checkers=custom_checkers)
-        if isinstance(plaintext, unicode):
+        if isinstance(plaintext, str):
+            # plaintext can be either latin1 (ISO-8859-1) or UTF-8 str
+            # depending on the publisher and the weather...
+            # The following hack ensures that we end up with a latin1 string
+            # in order to please set_password.
+            # Hopefully Cerebrum will switch to unicode in the near future
             try:
+                plaintext_unicode = plaintext.decode('utf-8')
+            except:  # probably latin1
+                plaintext_unicode = plaintext.decode('iso-8859-1')
+            try:
+                plaintext = plaintext_unicode.encode('iso-8859-1')
+            except UnicodeEncodeError:
+                abort(400, 'Bad password: Contains illegal characters')
+        elif isinstance(plaintext, unicode):
+            # in case it came from ac.make_passwd...
+            try:
+                plaintext_unicode = plaintext
                 plaintext = plaintext.encode('ISO-8859-1')
             except UnicodeEncodeError:
                 abort(400, 'Bad password: Contains illegal characters')
@@ -525,7 +542,7 @@ class AccountPasswordResource(Resource):
                   db.const.quarantine_svakt_passord):
             ac.delete_entity_quarantine(q)
         ac.write_db()
-        return {'password': plaintext}
+        return {'password': plaintext_unicode.encode('utf-8')}
 
 
 @api.route('/<string:id>/password/verify')
