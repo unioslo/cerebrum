@@ -927,7 +927,7 @@ from None and LDAP_PERSON['dn'].""")
         # a format which can be passed to select_bool() or select_list().
         #
         # This is either an internal simple selector (below), or a dict:
-        # {(aff, status): simple selector,  # tried first
+        # {(aff, status(@OU)): simple selector,  # tried first
         # aff:           simple selector,  # tried if (aff, status) is not set
         # None:          simple selector } # default
         if type(selector) is not dict:
@@ -950,16 +950,42 @@ from None and LDAP_PERSON['dn'].""")
                 else:
                     aff_id = self.const.PersonAffiliation(affiliation)
                 for status, ssel in status_ssels:
+                    key = 0
                     if status is True:   # wildcard
                         key = int(aff_id)
                     elif affiliation is True:
                         raise ValueError("Selector[True][not True: %s] illegal"
                                          % repr(status))
                     else:
-                        status_id = self.const.PersonAffStatus(aff_id, status)
-                        if status_id is not None:
-                            status_id = int(status_id)
-                        key = (int(aff_id), status_id)
+                        if len(status.split("@")) == 1:
+                            status_id = self.const.PersonAffStatus(aff_id,
+                                                                   status)
+                            if status_id is not None:
+                                status_id = int(status_id)
+                            key = (int(aff_id), status_id)
+                        elif len(status.split("@")) > 1:
+                            # In the case of "@" notation in the status string
+                            # interpret that as a selection criteria after the
+                            # OU for every affiliated person with the related
+                            # active status.
+                            db = Factory.get('Database')()
+                            ou = Factory.get('OU')(db)
+                            status_str = (status.split("@"))[0]
+                            status_id = self.const.PersonAffStatus(aff_id,
+                                                                   status_str)
+                            if status_id is not None:
+                                status_id = int(status_id)
+                            ou_str = (status.split("@"))[1]
+                            try:
+                                ou.clear()
+                                ou.find_stedkode(ou_str[0:2], ou_str[2:4],
+                                                 ou_str[4:6],
+                                                 cereconf.INTERNAL_OU_NUMBER, 0)
+                                key = (int(aff_id), status_id,
+                                       int(ou.entity_id))
+                            except Exception as e:
+                                logger.DEBUG("Unhandled Exception: " + e)
+                                pass
                     if mapping.has_key(key):
                         raise ValueError("Duplicate selector[%s][%s]" % tuple(
                             [val is True and "True" or repr(val)
@@ -1048,9 +1074,12 @@ from None and LDAP_PERSON['dn'].""")
         if type(selector) is dict:
             for p_affiliation in p_affiliations:
                 try:
-                    ssel = selector[p_affiliation[:2]]
+                    ssel = selector[p_affiliation[:3]]
                 except KeyError:
-                    ssel = selector[p_affiliation[:2]] = \
+                    try:
+                            ssel = selector[p_affiliation[:2]]
+                    except KeyError:
+                        ssel = selector[p_affiliation[:2]] = \
                         selector.get(p_affiliation[0]) or selector.get(None)
                 if ssel and ssel[ssel[2](person_id)]:
                     return True
