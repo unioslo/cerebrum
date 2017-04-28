@@ -984,7 +984,7 @@ from None and LDAP_PERSON['dn'].""")
                                 key = (int(aff_id), status_id,
                                        int(ou.entity_id))
                             except Exception as e:
-                                logger.DEBUG("Unhandled Exception: " + e)
+                                self.logger.error("Unhandled Exception: %s" % e)
                                 pass
                     if mapping.has_key(key):
                         raise ValueError("Duplicate selector[%s][%s]" % tuple(
