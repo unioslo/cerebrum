@@ -560,7 +560,22 @@ class AccountPasswordVerifierResource(Resource):
         plaintext = data.get('password', None)
         if plaintext is None:
             abort(400, 'No password specified')
-        if isinstance(plaintext, unicode):
+        if isinstance(plaintext, str):
+            # plaintext can be either latin1 (ISO-8859-1) or UTF-8 str
+            # depending on the publisher and the weather...
+            # The following hack ensures that we end up with a latin1 string
+            # in order to please set_password.
+            # Hopefully Cerebrum will switch to unicode in the near future
+            try:
+                plaintext = plaintext.decode('utf-8')
+            except:  # probably latin1
+                plaintext = plaintext.decode('iso-8859-1')
+            try:
+                # and back to latin1 again...
+                plaintext = plaintext.encode('iso-8859-1')
+            except UnicodeEncodeError:
+                abort(400, 'Bad password: Contains illegal characters')
+        elif isinstance(plaintext, unicode):
             try:
                 plaintext = plaintext.encode('ISO-8859-1')
             except UnicodeEncodeError:
@@ -584,7 +599,21 @@ class AccountPasswordCheckerResource(Resource):
         plaintext = data.get('password', None)
         if plaintext is None:
             abort(400, 'No password specified')
-        if isinstance(plaintext, unicode):
+        if isinstance(plaintext, str):
+            # plaintext can be either latin1 (ISO-8859-1) or UTF-8 str
+            # depending on the publisher and the weather...
+            # The following hack ensures that we end up with a latin1 string
+            # in order to please set_password.
+            # Hopefully Cerebrum will switch to unicode in the near future
+            try:
+                plaintext = plaintext.decode('utf-8')
+            except:  # probably latin1
+                plaintext = plaintext.decode('iso-8859-1')
+            try:
+                plaintext = plaintext.encode('iso-8859-1')
+            except UnicodeEncodeError:
+                abort(400, 'Bad password: Contains illegal characters')
+        elif isinstance(plaintext, unicode):
             try:
                 plaintext = plaintext.encode('ISO-8859-1')
             except UnicodeEncodeError:
