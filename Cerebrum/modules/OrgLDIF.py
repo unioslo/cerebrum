@@ -984,7 +984,12 @@ from None and LDAP_PERSON['dn'].""")
                                 key = (int(aff_id), status_id,
                                        int(ou.entity_id))
                             except Exception as e:
-                                self.logger.error("Unhandled Exception: %s" % e)
+                                self.logger.error("Filtering after the OU %s an"
+                                                  "d its related affiliation an"
+                                                  "d status, as defined in the "
+                                                  "config file, failed because "
+                                                  "of the following Unhandled "
+                                                  "Exception: '%s'", ou_str, e)
                                 pass
                     if mapping.has_key(key):
                         raise ValueError("Duplicate selector[%s][%s]" % tuple(
