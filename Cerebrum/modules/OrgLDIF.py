@@ -968,8 +968,7 @@ from None and LDAP_PERSON['dn'].""")
                             # interpret that as a selection criteria after the
                             # OU for every affiliated person with the related
                             # active status.
-                            db = Factory.get('Database')()
-                            ou = Factory.get('OU')(db)
+                            ou = Factory.get('OU')(self.db)
                             status_str = (status.split("@"))[0]
                             status_id = self.const.PersonAffStatus(aff_id,
                                                                    status_str)
