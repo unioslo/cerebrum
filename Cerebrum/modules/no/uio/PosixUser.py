@@ -92,8 +92,9 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
                 parent_group = self.gr
 
             self.pg.clear()
+            name = name or parent.account_name
             self.pg.populate(visibility=self.const.group_visibility_all,
-                             name=name or parent.account_name,
+                             name=name,
                              creator_id=creator_id,
                              description=('Personal file group for %s' % name),
                              parent=parent_group)
