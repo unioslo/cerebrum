@@ -18,12 +18,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from contextlib import contextmanager
+
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import PosixUser  
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, \
-     BofhdAuthOpTarget, BofhdAuthRole
+from Cerebrum.modules import PosixUser
+from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
+                                         BofhdAuthOpTarget,
+                                         BofhdAuthRole)
+
 
 class PosixUserUiOMixin(PosixUser.PosixUser):
     """This mixin overrides PosixUser for the UiO instance, and automatically
@@ -32,8 +36,12 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
 
     """
 
+    # NOTE: This mixin depends on mod_entity_trait, allthough it's not in the
+    # MRO explicitly
+
+    __read_attr__ = ('__create_dfg', )
+
     def __init__(self, database):
-        self.gr = Factory.get('Group')(database)
         self.pg = Factory.get('PosixGroup')(database)
         self.__super.__init__(database)
 
@@ -44,124 +52,154 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
 
         """
         ret = self.__super.delete_posixuser()
-        self.pg.clear()
-        self.pg.find(self.gid_id)
-        # TODO: check personal_group trait instead or in addition
-        if self.pg.group_name == self.account_name:
-            if (hasattr(self, 'delete_trait') and
-                    self.get_trait(self.const.trait_personal_dfg)):
-                self.delete_trait(self.const.trait_personal_dfg)
-                self.write_db()
-            for row in self.pg.get_spread():
-                self.pg.delete_spread(int(row['spread']))
-            self.pg.write_db()
-            self.pg.demote_posix()
+        # self.pg.clear()
+        # self.pg.find(self.gid_id)
+        trait = self.const.get_trait(code=self.const.trait_personal_dfg,
+                                     target_id=self.entity_id)
+        if trait:
+            pg = Factory.get('PosixGroup')(self._db)
+            pg.find(trait['entity_id'])
+            for row in pg.get_spread():
+                pg.delete_spread(int(row['spread']))
+            pg.write_db()
+            pg.demote_posix()
         return ret
 
     def clear(self):
         """Also clear the PosixGroup."""
         self.pg.clear()
+        try:
+            del self.__create_dfg
+        except AttributeError:
+            pass
         return self.__super.clear()
 
-    def populate(self, posix_uid, gid_id, gecos, shell, name=None, owner_type=None,
-                 owner_id=None, np_type=None, creator_id=None, expire_date=None,
-                 parent=None):
+    def populate(self, posix_uid, gid_id, gecos, shell,
+                 name=None, owner_type=None, owner_id=None, np_type=None,
+                 creator_id=None, expire_date=None, parent=None):
         """Populate PosixUser instance's attributes without database access.
         Note that the given L{gid_id} is ignored, the account's personal file
-        group is used anyways. The personal group's entity_id will be fetched at
-        L{write_db}.
+        group is used anyways. The personal group's entity_id will be fetched
+        at L{write_db}.
 
         Note that the gid_id could be forced by explicitly setting pu.gid_id
         after populate. The module would then respect this at write_db.
 
         """
+        # TODO: Fix __xerox__ so that it fails if passed 'None', remove this
+        # assertion, and move super.populate up here.
         assert name or parent, "Need to either specify name or parent"
+
         if not creator_id:
             creator_id = parent.entity_id
 
-        self.pg.clear()
-        try:
-            self.pg.find_by_name(name or parent.account_name)
-        except Errors.NotFoundError:
-            try:
-                self.gr.clear()
-                self.gr.find_by_name(name or parent.account_name)
-            except Errors.NotFoundError:
-                parent_group = None
+        if gid_id is None:
+            personal_dfg = self.find_personal_group()
+            if personal_dfg is None:
+                # No dfg, we need to create it
+                self.__create_dfg = creator_id
             else:
-                parent_group = self.gr
+                self.pg = personal_dfg
+                gid_id = self.pg.entity_id
 
-            self.pg.clear()
-            self.pg.populate(visibility=self.const.group_visibility_all,
-                             name=name or parent.account_name,
-                             creator_id=creator_id,
-                             description=('Personal file group for %s' % name),
-                             parent=parent_group)
+        return self.__super.populate(posix_uid, gid_id, gecos,
+                                     shell, name, owner_type, owner_id,
+                                     np_type, creator_id, expire_date, parent)
 
-        # The gid_id is not given to the super class, but should be set at
-        # write_db, when we have the group's entity_id.
-        return self.__super.populate(posix_uid, None, gecos, shell, name,
-                                     owner_type, owner_id, np_type, creator_id,
-                                     expire_date, parent)
+    def find_personal_group(self):
+        """ Find any group marked by the trait_personal_dfg trait. """
+        # NOTE: UiO Only
+        if not getattr(self, 'entity_id', None):
+            return None
+        group = Factory.get('PosixGroup')(self._db)
+        trait = list(group.list_traits(target_id=self.entity_id,
+                                       code=self.const.trait_personal_dfg))
+        if trait:
+            group.find(trait[0]['entity_id'])
+            return group
+        return None
 
-    def write_db(self):
-        """Write PosixUser instance to database, in addition to the personal
-        file group. As long as L{gid_id} is not set, it gets set to the
-        account's personal file group instead.
+    @contextmanager
+    def _new_personal_group(self, creator_id):
+        group = Factory.get('PosixGroup')(self._db)
 
-        """
-        if not self.gid_id:
-            # Create the PosixGroup first, to get its entity_id
-            # TODO: Should we handle that self.pg could not be populated when
-            # we're here? When could gid_id be none without running populate?
-            self.pg.write_db()
-            # We'll need to set this here, as the groups entity_id is
-            # created when we write to the DB.
-            self.gid_id = self.pg.entity_id
+        def get_available_dfg_name(basename):
+            group = Factory.get('Group')(self._db)
 
-        ret = self.__super.write_db()
+            def alternatives(base):
+                # base -> base, base1, base2, ... base9
+                yield base
+                if len(base) >= 8:
+                    base = base[:-1]
+                for i in range(1, 10):
+                    yield base + str(i)
 
-        # Become a member of the group:
-        if not hasattr(self.pg, 'entity_id'):
-            self.pg.find(self.gid_id)
-        if not self.pg.has_member(self.entity_id):
-            self.pg.add_member(self.entity_id)
+            for name in alternatives(basename):
+                try:
+                    group.find_by_name(name)
+                    group.clear()
+                    continue
+                except Errors.NotFoundError:
+                    return name
+            # TODO: Better exception?
+            raise Errors.NotFoundError(
+                "Unable to find a group name for {!s}".format(basename))
 
-        # If the dfg is not a personal group we are done now:
-        # TODO: check trait_personal_dfg instead or in addition?
-        if self.account_name != self.pg.group_name:
-            return ret
+        # Find any group previously marked as this users personal group.
+        personal_dfg_name = get_available_dfg_name(self.account_name)
 
-        # Set the personal file group trait
-        if not self.pg.get_trait(self.const.trait_personal_dfg):
-            self.pg.populate_trait(self.const.trait_personal_dfg,
-                                   target_id=self.entity_id)
-            self.pg.write_db()
+        group.populate(
+            creator_id,
+            self.const.group_visibility_all,
+            personal_dfg_name,
+            'Personal file group for {}'.format(self.account_name))
 
-        # Register the posixuser as owner of the group, if not already set
+        # Intermediate write, to get an entity_id
+        group.write_db()
+
+        yield group
+
+        group.populate_trait(self.const.trait_personal_dfg,
+                             target_id=self.entity_id)
+
+        # Syncronizing the groups spreads with the users
+        mapping = [(int(self.const.spread_uio_nis_user),
+                    int(self.const.spread_uio_nis_fg)),
+                   (int(self.const.spread_uio_ad_account),
+                    int(self.const.spread_uio_ad_group)),
+                   (int(self.const.spread_ifi_nis_user),
+                    int(self.const.spread_ifi_nis_fg)), ]
+        user_spreads = [int(r['spread']) for r in self.get_spread()]
+        group_spreads = [int(r['spread']) for r in group.get_spread()]
+        for uspr, gspr in mapping:
+            if uspr in user_spreads and gspr not in group_spreads:
+                group.add_spread(gspr)
+            if gspr in group_spreads and uspr not in user_spreads:
+                group.delete_spread(gspr)
+
+        group.write_db()
+
+    def _set_owner_of_group(self, group):
         op_target = BofhdAuthOpTarget(self._db)
-        if not op_target.list(entity_id=self.pg.entity_id, target_type='group'):
-            op_target.populate(self.pg.entity_id, 'group')
+        if not op_target.list(entity_id=group.entity_id, target_type='group'):
+            op_target.populate(group.entity_id, 'group')
             op_target.write_db()
             op_set = BofhdAuthOpSet(self._db)
             op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
             role = BofhdAuthRole(self._db)
-            role.grant_auth(self.entity_id, op_set.op_set_id,
+            role.grant_auth(self.entity_id,
+                            op_set.op_set_id,
                             op_target.op_target_id)
 
-        # Syncronizing the groups spreads with the users
-        mapping = { int(self.const.spread_uio_nis_user):
-                    int(self.const.spread_uio_nis_fg),
-                    int(self.const.spread_uio_ad_account):
-                    int(self.const.spread_uio_ad_group),
-                    int(self.const.spread_ifi_nis_user):
-                    int(self.const.spread_ifi_nis_fg) }
-        user_spreads = [int(r['spread']) for r in self.get_spread()]
-        group_spreads = [int(r['spread']) for r in self.pg.get_spread()]
-        for uspr, gspr in mapping.iteritems():
-            if uspr in user_spreads:
-                if gspr not in group_spreads:
-                    self.pg.add_spread(gspr)
-            elif gspr in group_spreads:
-                self.pg.delete_spread(gspr)
-        return ret
+    def write_db(self):
+        try:
+            creator_id = self.__create_dfg
+            del self.__create_dfg
+        except AttributeError:
+            self.__super.write_db()
+        else:
+            with self._new_personal_group(creator_id) as personal_fg:
+                self.gid_id = personal_fg.entity_id
+                self.__super.write_db()
+                self._set_owner_of_group(personal_fg)
+                self.pg = personal_fg

@@ -45,11 +45,11 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 
-db = Utils.Factory.get('Database')()
-db.cl_init(change_program='process_bofhd_r')
-cl_const = Utils.Factory.get('CLConstants')(db)
-const = Utils.Factory.get('Constants')(db)
 logger = Utils.Factory.get_logger("bofhd_req")
+db = Utils.Factory.get(b'Database')()
+db.cl_init(change_program='process_bofhd_r')
+cl_const = Utils.Factory.get(b'CLConstants')(db)
+const = Utils.Factory.get(b'Constants')(db)
 
 max_requests = 999999
 ou_perspective = None
@@ -1013,37 +1013,29 @@ def proc_delete_user(r):
     group = Utils.Factory.get('Group')(db)
     default_group = _get_default_group(account.entity_id)
     pu = Utils.Factory.get('PosixUser')(db)
+
     try:
         pu.find(account.entity_id)
     except Errors.NotFoundError:
         pass
     else:
-        try:
-            group.find_by_name(account.account_name)
-        except Errors.NotFoundError:
-            ac = Utils.Factory.get('Account')(db)
-            ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-            group.clear()
-            group.new(
-                ac.entity_id,
-                const.group_visibility_all,
-                account.account_name,
-                description=(
-                    'Personal file group for {}'.format(account.account_name)))
-            group.add_member(account.entity_id)
-            group.write_db()
+        # The account is a PosixUser, special care needs to be taken with
+        # regards to its default file group (dfg)
+
+        personal_fg = pu.find_personal_group()
+        if personal_fg is None:
+            # Create a new personal file group
+            op = Utils.Factory.get('Account')(db)
+            op.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+            with pu._new_personal_group(op.entity_id) as new_group:
+                personal_fg = new_group
+                pu._set_owner_of_group(personal_fg)
             logger.debug("Created group: '%s'. Group ID = %d",
-                         group.group_name, group.entity_id)
-        pg = Utils.Factory.get('PosixGroup')(db)
-        try:
-            pg.find(group.entity_id)
-        except:
-            pg.clear()
-            pg.populate(parent=group)
-            pg.write_db()
-            logger.debug("Group upgraded to posixgroup")
-        if group.entity_id != default_group:
-            pu.gid_id = group.entity_id
+                         personal_fg.group_name, personal_fg.entity_id)
+
+        # Set group to be dfg for the user.
+        if personal_fg.entity_id != default_group:
+            pu.gid_id = personal_fg.entity_id
             pu.write_db()
             default_group = _get_default_group(account.entity_id)
 
