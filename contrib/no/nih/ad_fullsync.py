@@ -38,7 +38,7 @@ Usage: [options]
   --domain: ovverride domain given in cereconf
   --user-sync: sync users to AD and Exchange
   --forward-sync: sync users forward addrs to Exchange
-  --sec-group-sync: sync security groups to AD 
+  --sec-group-sync: sync security groups to AD
   --dist-group-sync: sync distribution groups to AD and Exchange
   --exchange-sync: Only sync to exhange if True
   --user-spread SPREAD: overrides spread from cereconf
@@ -47,12 +47,10 @@ Usage: [options]
   --user-exchange-spread SPREAD: overrides spread from cereconf
   --store-sid: write sid of new AD objects to cerebrum databse as external ids.
                default is _not_ to write sid to database.
-  --delete: if user-sync: Should obsolete users be disabled or deleted? 
+  --delete: if user-sync: Should obsolete users be disabled or deleted?
             if group-sync: Should superfluous groups be deleted?
   --subset: Only sync users/groups from given subset
   --first-run: Signals that no data from AD is ok
-  --logger-level LEVEL: default is INFO
-  --logger-name NAME: default is console
 
 """
 
@@ -60,10 +58,14 @@ Usage: [options]
 import getopt
 import sys
 import xmlrpclib
-import cerebrum_path
+
 import cereconf
+
 from Cerebrum import Utils
 from Cerebrum.modules.no.nih import ADSync
+
+# Initate logger
+logger = Utils.Factory.get_logger('cronjob')
 
 db = Utils.Factory.get('Database')()
 db.cl_init(change_program="nih_ad_sync")
@@ -72,11 +74,11 @@ db.cl_init(change_program="nih_ad_sync")
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hd",  [
-            "help", "dryrun", "host=", "port=", "domain=", "delete", 
+            "help", "dryrun", "host=", "port=", "domain=", "delete",
             "store-sid", "user-sync", "forward-sync", "sec-group-sync",
             "dist-group-sync", "exchange-sync", "user-spread=",
             "sec-group-spread=", "dist-group-spread=", "user-exchange-spread=",
-            "subset=", "first-run", "logger-level=", "logger-name="])
+            "subset=", "first-run"])
 
     except getopt.GetoptError, e:
         print e
@@ -85,8 +87,6 @@ def main():
     host = cereconf.AD_SERVER_HOST
     port = cereconf.AD_SERVER_PORT
     delete = None
-    logger_name = "console"
-    logger_level = "INFO"
     # Configure AD sync. Set default values, then read cereconf and
     # user input.
     config_args = {'ad_domain': cereconf.AD_DOMAIN,
@@ -102,19 +102,19 @@ def main():
                    "exchange_sync": False,
                    "subset": [],
                    "first_run": False}
-    
+
     for opt, val in opts:
         # General options
-        if opt in ("--help","-h"):
+        if opt in ("--help", "-h"):
             usage()
         elif opt in ("--dryrun", "-d"):
             config_args["dryrun"] = True
         elif opt == "--host":
             config_args["host"] = val
         elif opt == "--port":
-            config_args["port"]  = val
+            config_args["port"] = val
         elif opt == "--domain":
-            config_args["ad_domain"]  = val
+            config_args["ad_domain"] = val
         elif opt == "--delete":
             delete = true_false(val)
         elif opt == "--store-sid":
@@ -127,10 +127,6 @@ def main():
             config_args["subset"] = names
         elif opt in ("--first-run"):
             config_args["first_run"] = True
-        elif opt == "--logger-name":
-            logger_name = val
-        elif opt == "--logger-level":
-            logger_level = val
         # Sync type options
         elif opt in ('--user-sync',):
             sync_type = "user"
@@ -152,10 +148,7 @@ def main():
             config_args["forward_sync"] = True
         elif opt in ('--exchange-sync',):
             config_args["exchange_sync"] = True
-        
-    # Initate logger
-    logger = Utils.Factory.get_logger(logger_name)
-    
+
     # specific args for the different sync types:
     if sync_type == 'user':
         config_args["sync_class"] = "NIHUserSync"
@@ -166,10 +159,10 @@ def main():
             config_args["delete_users"] = delete
     elif sync_type == 'sec-group':
         config_args["sync_class"] = "NIHGroupSync"
-        config_args["name_prefix"] = cereconf.AD_GROUP_PREFIX        
+        config_args["name_prefix"] = cereconf.AD_GROUP_PREFIX
     elif sync_type == 'dist-group':
         config_args["sync_class"] = "NIHDistGroupSync"
-        config_args["name_prefix"] = cereconf.AD_DIST_GROUP_PREFIX        
+        config_args["name_prefix"] = cereconf.AD_DIST_GROUP_PREFIX
     # Delete groups or not?
     if sync_type in ('sec-group', 'dist-group'):
         config_args["delete_groups"] = cereconf.AD_DELETE_GROUPS
@@ -178,7 +171,7 @@ def main():
 
     # Run AD sync
     run_sync(logger, host, port, config_args)
-    
+
 
 def run_sync(logger, host, port, config_args):
     """
@@ -208,7 +201,7 @@ def run_sync(logger, host, port, config_args):
                         xpe.errcode, xpe.errmsg)
         sys.exit(2)
 
-    
+
 def true_false(arg):
     if arg.lower() in ("t", "true", "y", "yes", ):
         return True

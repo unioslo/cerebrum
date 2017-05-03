@@ -181,9 +181,9 @@ def write_mail_dns():
 
     hosts, cnames, lower2host, hosts_only_mx = get_hosts_and_cnames()
 
+    logger = Factory.get_logger('cronjob')
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
-    logger = Factory.get_logger('cronjob')
     email = Email.EmailDomain(db)
     email_domain = {}
     for dom_entry in email.list_email_domains():

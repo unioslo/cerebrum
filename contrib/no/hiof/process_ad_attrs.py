@@ -23,16 +23,18 @@
 import sys
 import getopt
 import time
-import cerebrum_path
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hiof.bofhd_hiof_cmds import HiofBofhdRequests
+
+
+logger = Factory.get_logger("cronjob")
 
 db = Factory.get('Database')()
 const = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
 br = HiofBofhdRequests(db, const)
-logger = Factory.get_logger("cronjob")
 max_requests = 999999
 start_time = time.time()
 
@@ -49,7 +51,8 @@ def process_requests(dryrun):
             continue
         if not keep_running():
             break
-        logger.debug("Process req: %s %d at %s", op, r['request_id'], r['run_at'])
+        logger.debug("Process req: %s %d at %s",
+                     op, r['request_id'], r['run_at'])
         set_operator(r['requestee_id'])
         if r['state_data']:
             spread = const.Spread(r['state_data'])
@@ -57,7 +60,7 @@ def process_requests(dryrun):
             spread = None
         if delete_ad_attrs(r['entity_id'], spread):
             br.delete_request(request_id=r['request_id'])
-            
+
     if dryrun:
         logger.info("Rolling back all changes")
         db.rollback()
@@ -132,6 +135,7 @@ def usage(exitcode=0):
     --delete: find bofhd requests and delete ad attrs
     """
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()

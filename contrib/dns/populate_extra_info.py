@@ -9,11 +9,13 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import DnsOwner
+
+
+logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
 db.cl_init(change_program="pop_extra_dinfo")
 co = Factory.get('Constants')(db)
 
-logger = Factory.get_logger("cronjob")
 
 def import_hinfo(fname):
     """Import the hinfo file.  It has the format::

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2012 University of Oslo, Norway
+# Copyright 2012-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,13 +22,15 @@
 import sys
 import getopt
 
-import cerebrum_path
 import cereconf
+
 from Cerebrum.Utils import Factory
-from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, \
-     AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
+     BofhdAuthOpTarget, BofhdAuthRole
+
+# Initialize logger
+logger = Factory.get_logger('cronjob')
 
 # Initialize database connections
 db = Factory.get('Database')()
@@ -41,9 +43,7 @@ baot = BofhdAuthOpTarget(db)
 
 db.cl_init(change_program="update_affiliation_groups.py")
 
-# Initialize logger
-logger = Factory.get_logger('cronjob')
-    
+
 def usage(exitcode=0):
     print """Usage:
     %s [Options]
@@ -55,8 +55,9 @@ def usage(exitcode=0):
     -d, --dryrun                    Don't commit changes to Cerebrum db.
     -a, --affmap    <aff:group>     Specify mappings between affs and groups.
                                     "ANSATT:ansattgroup STUDENT:studentgroup"
-    """ % sys.argv[0] 
+    """ % sys.argv[0]
     sys.exit(exitcode)
+
 
 def list_affs():
     """
@@ -64,7 +65,10 @@ def list_affs():
     """
     affiliations = pe.list_person_affiliation_codes()
     for a in affiliations:
-        print "%s: %s (%s)" % (str(int(a['code'])), a['code_str'], a['description'])
+        print "%s: %s (%s)" % (str(int(a['code'])),
+                               a['code_str'],
+                               a['description'])
+
 
 def update_aff_groups(aff_groups, dryrun):
     # get all affiliations and aff ids
@@ -73,10 +77,10 @@ def update_aff_groups(aff_groups, dryrun):
         affs[a['code_str']] = int(a['code'])
 
     # for each aff:group...
-    for affiliation,group in aff_groups.items():
-        
+    for affiliation, group in aff_groups.items():
+
         # valid affiliation?
-        if not affiliation in affs:
+        if affiliation not in affs:
             logger.error("Affiliation not found (%s)." % affiliation)
             return
 
@@ -95,7 +99,7 @@ def update_aff_groups(aff_groups, dryrun):
         # get each person's primary account
         #####
         # The current solution is classic brute force. An API change would
-        # be more elegant, e.g. expanding Person or Account (search or 
+        # be more elegant, e.g. expanding Person or Account (search or
         # list_affiliations). Account.list_accounts_by_type may serve as an
         # example.
         #####
@@ -106,7 +110,7 @@ def update_aff_groups(aff_groups, dryrun):
                                                primary_only=True)
             if account:
                 primary_accounts.add(int(account[0]['account_id']))
-        
+
         # get all entity_ids in target group
         group_members = set()
         for member in list(gr.search_members(group_id=gr.entity_id)):
@@ -125,7 +129,7 @@ def update_aff_groups(aff_groups, dryrun):
                 gr.write_db()
                 logger.debug("Removed %s from %s." % (str(account), group))
             except Errors.DatabaseError, e:
-                logger.error("Failed removing %s from %s: %s" % 
+                logger.error("Failed removing %s from %s: %s" %
                              (str(account), group, e))
         if not dryrun:
             try:
@@ -142,7 +146,7 @@ def update_aff_groups(aff_groups, dryrun):
                 gr.write_db()
                 logger.debug("Added %s to %s." % (str(account), group))
             except Errors.DatabaseError, e:
-                logger.error("Failed adding %s to %s: %s" % 
+                logger.error("Failed adding %s to %s: %s" %
                              (str(account), group, e))
         if not dryrun:
             try:
@@ -152,18 +156,21 @@ def update_aff_groups(aff_groups, dryrun):
         else:
             db.rollback()
 
+
 def main():
 
     dryrun = False
     aff_groups = None
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'lda:', ['list', 'dryrun', 'affs='])
+        opts, args = getopt.getopt(sys.argv[1:],
+                                   'lda:',
+                                   ['list', 'dryrun', 'affs='])
     except getopt.GetoptError, e:
         logger.error(e)
         usage(1)
-    
-    for opt,val in opts:
+
+    for opt, val in opts:
         if opt in ('-l', '--list'):
             list_affs()
             sys.exit(0)
@@ -187,6 +194,7 @@ def main():
             logger.info('Start update of affiliation groups.')
             update_aff_groups(cereconf.AFFILIATION_GROUPS, dryrun)
             logger.info('End update of affiliation groups.')
-    
+
+
 if __name__ == '__main__':
     sys.exit(main())

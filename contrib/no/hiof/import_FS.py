@@ -26,7 +26,6 @@ import getopt
 import mx
 from collections import defaultdict
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
@@ -51,6 +50,8 @@ ou_adr_cache = {}
 gen_groups = False
 no_name = 0  # count persons for which we do not have any name data from FS
 
+logger = Factory.get_logger("cronjob")
+
 # DB transaction:
 db = Factory.get('Database')()
 db.cl_init(change_program='import_FS')
@@ -62,7 +63,6 @@ aff_status_pri_order = dict([(aff_status_pri_order[i], i)
                              for i in range(len(aff_status_pri_order))])
 
 # Globals set by main():
-logger = None
 group = None
 
 # Seen affiliations lookup map
@@ -96,11 +96,11 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
     # fi
 
     key = "-".join((str(institusjon), a_dict[kfak], a_dict[kinst], a_dict[kgr]))
-    if not ou_cache.has_key(key):
+    if key not in ou_cache:
         ou = Factory.get('OU')(db)
         try:
-            ou.find_stedkode(int(a_dict[kfak]), int(a_dict[kinst]), int(a_dict[kgr]),
-                             institusjon=institusjon)
+            ou.find_stedkode(int(a_dict[kfak]), int(a_dict[kinst]),
+                             int(a_dict[kgr]), institusjon=institusjon)
             ou_cache[key] = ou.entity_id
         except Errors.NotFoundError:
             logger.warn("Cannot find an OU in Cerebrum with stedkode: %s", key)
@@ -119,10 +119,11 @@ def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
     if not ou_id:
         return None
     ou_id = int(ou_id)
-    if not ou_adr_cache.has_key(ou_id):
+    if ou_id not in ou_adr_cache:
         ou = Factory.get('OU')(db)
         ou.find(ou_id)
-        rows = ou.get_entity_address(source=co.system_fs, type=co.address_street)
+        rows = ou.get_entity_address(source=co.system_fs,
+                                     type=co.address_street)
         if rows:
             ou_adr_cache[ou_id] = {
                 'address_text': rows[0]['address_text'],
@@ -144,7 +145,7 @@ def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
     if postal_number:
         postal_number = "%04i" % int(postal_number)
     ret['postal_number'] = postal_number
-    ret['city'] =  a_dict.get(kline3, '')
+    ret['city'] = a_dict.get(kline3, '')
     if len(ret['address_text']) == 1:
         logger.debug("Address might not be complete, but we need to cover one-line addresses")
     # we have to register at least the city in order to have a "proper" address
@@ -184,10 +185,11 @@ def _calc_address(person_info):
                   'postnr_hjem', 'adresseland_hjem'),
         '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
         }
-    logger.debug("Getting address for person %s%s" % (person_info['fodselsdato'], person_info['personnr']))
+    logger.debug("Getting address for person %s%s" %
+                 (person_info['fodselsdato'], person_info['personnr']))
     ret = [None, None, None]
     for key, addr_src in rules:
-        if not person_info.has_key(key):
+        if key not in person_info:
             continue
         tmp = person_info[key][0].copy()
         if key == 'aktiv':
@@ -207,7 +209,7 @@ def _load_cere_aff():
     fs_aff = {}
     person = Factory.get("Person")(db)
     for row in person.list_affiliations(source_system=co.system_fs):
-        k = "%s:%s:%s" % (row['person_id'],row['ou_id'],row['affiliation'])
+        k = "%s:%s:%s" % (row['person_id'], row['ou_id'], row['affiliation'])
         fs_aff[str(k)] = True
     return(fs_aff)
 
@@ -333,7 +335,7 @@ def register_cellphone(person, person_info):
 
         # No point in registering a number that's already there.
         if cell_phone in _fetch_cerebrum_contact():
-            return 
+            return
 
         person.populate_contact_info(co.system_fs)
         person.populate_contact_info(co.system_fs,
@@ -343,7 +345,8 @@ def register_cellphone(person, person_info):
                      cell_phone, fnr)
         return
 
-    logger.warn("Person %s has several cell phone numbers. Ignoring them all", fnr)
+    logger.warn("Person %s has several cell phone numbers. Ignoring them all",
+                fnr)
 
 
 def process_person_callback(person_info):
@@ -353,13 +356,14 @@ def process_person_callback(person_info):
 
     global no_name
     try:
-        fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
-                                                  int(person_info['personnr'])))
+        fnr = fodselsnr.personnr_ok(
+            "%06d%05d" % (int(person_info['fodselsdato']),
+                          int(person_info['personnr'])))
         fnr = fodselsnr.personnr_ok(fnr)
         logger.info("Process %s " % (fnr))
         (year, mon, day) = fodselsnr.fodt_dato(fnr)
-        if (year < 1970
-            and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
+        if (year < 1970 and
+                getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
             # Seems to be a bug in time.mktime on some machines
             year = 1970
     except fodselsnr.InvalidFnrError:
@@ -376,11 +380,12 @@ def process_person_callback(person_info):
     address_info = None
     aktiv_sted = []
 
-    # Iterate over all person_info entries and extract relevant data    
-    if person_info.has_key('aktiv'):
+    # Iterate over all person_info entries and extract relevant data
+    if 'aktiv' in person_info:
         for row in person_info['aktiv']:
             if studieprog2sko[row['studieprogramkode']] is not None:
-                aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
+                aktiv_sted.append(
+                    int(studieprog2sko[row['studieprogramkode']]))
                 logger.debug("App2akrivts")
 
     for dta_type in person_info.keys():
@@ -411,7 +416,8 @@ def process_person_callback(person_info):
                 # to a single stedkode we want to register the status 'aktive'
                 # in cerebrum
                 if studieprog2sko[row['studieprogramkode']] is not None:
-                    aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
+                    aktiv_sted.append(
+                        int(studieprog2sko[row['studieprogramkode']]))
                 _process_affiliation(
                     co.affiliation_student,
                     co.affiliation_status_student_aktiv,
@@ -517,11 +523,10 @@ def process_person_callback(person_info):
 
 
 def main():
-    global verbose, ou, logger, fnr2person_id, gen_groups, group
+    global verbose, ou, fnr2person_id, gen_groups, group
     global old_aff, include_delete, no_name
     verbose = 0
     include_delete = False
-    logger = Factory.get_logger("cronjob")
     opts, args = getopt.getopt(sys.argv[1:], 'vp:s:e:gdf', [
         'verbose', 'person-file=', 'studieprogram-file=',
         'emne-file=', 'generate-groups', 'include-delete', ])
@@ -563,14 +568,14 @@ def main():
         logger.warn("Warning: ENABLE_MKTIME_WORKAROUND is set")
 
     for s in StudentInfo.StudieprogDefParser(studieprogramfile):
-        studieprog2sko[s['studieprogramkode']] = \
-            _get_sko(s, 'faknr_studieansv', 'instituttnr_studieansv',
-                     'gruppenr_studieansv')
+        studieprog2sko[s['studieprogramkode']] = _get_sko(
+            s, 'faknr_studieansv', 'instituttnr_studieansv',
+            'gruppenr_studieansv')
 
     for e in StudentInfo.EmneDefParser(emnefile):
-        emne2sko[e['emnekode']] = \
-            _get_sko(e, 'faknr_reglement', 'instituttnr_reglement',
-                     'gruppenr_reglement')
+        emne2sko[e['emnekode']] = _get_sko(
+            e, 'faknr_reglement', 'instituttnr_reglement',
+            'gruppenr_reglement')
 
     # create fnr2person_id mapping, always using fnr from FS when set
     person = Factory.get('Person')(db)
@@ -589,6 +594,6 @@ def main():
     logger.info("Found %d persons without name." % no_name)
     logger.info("Completed")
 
+
 if __name__ == '__main__':
     main()
-    del cerebrum_path

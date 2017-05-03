@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004, 2005 University of Oslo, Norway
+# Copyright 2004-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,9 +27,6 @@ import getopt
 import time
 import re
 
-import cerebrum_path
-getattr(cerebrum_path, 'This will shut the linters up', None)
-
 import cereconf
 
 from Cerebrum import Errors
@@ -41,7 +38,7 @@ from Cerebrum.modules.no.hih.access_FS import FS
 
 cf_dir = '/cerebrum/var/cache/Fronter'
 
-db = const = logger = None 
+db = const = logger = None
 fronter = fxml = None
 new_users = None
 
@@ -53,6 +50,7 @@ host_config = {
                'spread': 'spread_lms_acc',
                },
     }
+
 
 class Fronter(object):
     STATUS_ADD = 1
@@ -325,12 +323,13 @@ class IMSv1_0_object(IMS_object):
 
 def init_globals():
     global db, const, logger, group, users_only, ou, person
+    logger = Factory.get_logger("cronjob")
+
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
     group = Factory.get("Group")(db)
     person = Factory.get("Person")(db)
     ou = Factory.get("OU")(db)
-    logger = Factory.get_logger("cronjob")
 
     fsdb = Database.connect(user='I0208_cerebrum',
                             service=cereconf.FS_DATABASE_NAME,
@@ -523,7 +522,7 @@ def main():
     # Håndter upper- og lowercasing av strenger som inneholder norske
     # tegn.
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
-    
+
     init_globals()
 
     fxml.start_xml_file()
@@ -579,7 +578,7 @@ def main():
     # trying to sort the xml-file as the fronters import machinery requires sorted XML
     for gname, data in new_inst_nodes.iteritems():
         fxml.group_to_XML(gname, fronter.STATUS_ADD, data, 0)
-    
+
     all_users_dat = {'title': 'All_users',
                      'parent': 'root',
                      'typeval': 'ALLE'}

@@ -38,7 +38,6 @@ import getopt
 import sys
 import time
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.utils.atomicfile import AtomicFileWriter
@@ -48,9 +47,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no.hia.access_FS import FS
 from Cerebrum.modules.no import Stedkode
-
-
-
 
 
 #
@@ -957,10 +953,5 @@ def main():
 # end main
 
 
-
-
-
 if __name__ == "__main__":
     main()
-# fi
-

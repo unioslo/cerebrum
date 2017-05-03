@@ -30,9 +30,9 @@ from Cerebrum.modules.NISUtils import Passwd, FileGroup, UserNetGroup, MachineNe
 from Cerebrum.modules.NISUtils import HackUserNetGroupUIO
 
 Factory = Utils.Factory
+logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
-logger = Factory.get_logger("cronjob")
 
 # The "official" NIS max line length (consisting of key + NUL + value
 # + NUL) is 1024; however, some implementations appear to have lower
