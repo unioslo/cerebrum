@@ -957,13 +957,13 @@ from None and LDAP_PERSON['dn'].""")
                         raise ValueError("Selector[True][not True: %s] illegal"
                                          % repr(status))
                     else:
-                        if len(status.split("@")) == 1:
+                        if "@" not in status:
                             status_id = self.const.PersonAffStatus(aff_id,
                                                                    status)
                             if status_id is not None:
                                 status_id = int(status_id)
                             key = (int(aff_id), status_id)
-                        elif len(status.split("@")) > 1:
+                        else:
                             # In the case of "@" notation in the status string
                             # interpret that as a selection criteria after the
                             # OU for every affiliated person with the related
@@ -982,13 +982,14 @@ from None and LDAP_PERSON['dn'].""")
                                                  cereconf.INTERNAL_OU_NUMBER, 0)
                                 key = (int(aff_id), status_id,
                                        int(ou.entity_id))
-                            except Exception as e:
+                            except ValueError as e:
                                 self.logger.error("Filtering after the OU %s an"
                                                   "d its related affiliation an"
                                                   "d status, as defined in the "
                                                   "config file, failed because "
-                                                  "of the following Unhandled "
-                                                  "Exception: '%s'", ou_str, e)
+                                                  "of the following OU search "
+                                                  "function error: '%s'",
+                                                  ou_str, e)
                                 pass
                     if mapping.has_key(key):
                         raise ValueError("Duplicate selector[%s][%s]" % tuple(
