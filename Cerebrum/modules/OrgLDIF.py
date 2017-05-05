@@ -22,7 +22,7 @@ import re
 from collections import defaultdict
 
 import cereconf
-from Cerebrum import Entity
+from Cerebrum import Entity, Errors
 from Cerebrum.Utils import Factory, auto_super, make_timer
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.LDIFutils import *
@@ -982,7 +982,7 @@ from None and LDAP_PERSON['dn'].""")
                                                  cereconf.INTERNAL_OU_NUMBER, 0)
                                 key = (int(aff_id), status_id,
                                        int(ou.entity_id))
-                            except ValueError as e:
+                            except Errors.NotFoundError as e:
                                 self.logger.error("Filtering after the OU %s an"
                                                   "d its related affiliation an"
                                                   "d status, as defined in the "
