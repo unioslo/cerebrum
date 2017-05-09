@@ -1034,15 +1034,23 @@ from None and LDAP_PERSON['dn'].""")
         raise ValueError("Bad simple selector: " + repr(ssel))
 
     def select_list(selector, person_id, p_affiliations):
-        # Return a list of values selected for the person and affiliations.
+        """Return a list of values selected for the person and affiliations.
+
+        Like select_bool(), except returning a list of values."""
         if type(selector) is dict:
             result = []
             for p_affiliation in p_affiliations:
+                # Search selector for p_affiliation or initial part of it.
                 try:
-                    ssel = selector[p_affiliation[:2]]
+                    ssel = selector[p_affiliation[:3]]
                 except KeyError:
-                    ssel = selector[p_affiliation[:2]] = \
-                        selector.get(p_affiliation[0]) or selector.get(None)
+                    try:
+                        ssel = selector[p_affiliation[:2]]
+                    except KeyError:
+                        # Cache this to avoid more exceptions at the same key
+                        ssel = selector[p_affiliation[:2]] = \
+                               selector.get(p_affiliation[0]) or \
+                               selector.get(None)
                 if ssel:
                     result.extend(ssel[0])
             return result
@@ -1076,14 +1084,17 @@ from None and LDAP_PERSON['dn'].""")
             selected as True, otherwise False.
 
         """
+        # Same code as select_list(), except how to handle selected values
         if type(selector) is dict:
             for p_affiliation in p_affiliations:
+                # Search selector for p_affiliation or initial part of it.
                 try:
                     ssel = selector[p_affiliation[:3]]
                 except KeyError:
                     try:
                             ssel = selector[p_affiliation[:2]]
                     except KeyError:
+                        # Cache this to avoid more exceptions at the same key
                         ssel = selector[p_affiliation[:2]] = \
                         selector.get(p_affiliation[0]) or selector.get(None)
                 if ssel and ssel[ssel[2](person_id)]:
