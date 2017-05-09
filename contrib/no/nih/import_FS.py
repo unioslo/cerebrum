@@ -21,24 +21,16 @@
 
 from os.path import join as pj
 
-import re
-import os
 import sys
 import getopt
-import time
 import mx
 
-import xml.sax
-
-import cerebrum_path
 import cereconf
-from os.path import join as pj
+
 from Cerebrum import Errors
-from Cerebrum import Person
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
-from Cerebrum.modules.no.uio import AutoStud
 
 default_personfile = pj(cereconf.FS_DATA_DIR, "merged_persons.xml")
 default_studieprogramfile = pj(cereconf.FS_DATA_DIR, "studieprog.xml")
@@ -52,7 +44,11 @@ emne2sko = {}
 ou_cache = {}
 ou_adr_cache = {}
 gen_groups = False
-no_name = 0 # count persons for which we do not have any name data from FS
+
+no_name = 0  # count persons for which we do not have any name data from FS
+
+
+logger = Factory.get_logger("cronjob")
 
 db = Factory.get('Database')()
 db.cl_init(change_program='import_FS')
@@ -61,15 +57,18 @@ aff_status_pri_order = [int(x) for x in (  # Most significant first
     co.affiliation_status_student_aktiv,
     co.affiliation_status_student_evu)]
 aff_status_pri_order = dict([(aff_status_pri_order[i], i)
-                              for i in range(len(aff_status_pri_order))] )
+                             for i in range(len(aff_status_pri_order))] )
+
 
 def _add_res(entity_id):
     if not group.has_member(entity_id):
         group.add_member(entity_id)
 
+
 def _rem_res(entity_id):
     if group.has_member(entity_id):
         group.remove_member(entity_id)
+
 
 def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
     #
@@ -80,22 +79,24 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
     else:
         institusjon = cereconf.DEFAULT_INSTITUSJONSNR
     # fi
-    
+
     key = "-".join((str(institusjon), a_dict[kfak], a_dict[kinst], a_dict[kgr]))
-    if not ou_cache.has_key(key):
+    if key not in ou_cache:
         ou = Factory.get('OU')(db)
         try:
-            ou.find_stedkode(int(a_dict[kfak]), int(a_dict[kinst]), int(a_dict[kgr]),
-                             institusjon=institusjon)
+            ou.find_stedkode(int(a_dict[kfak]), int(a_dict[kinst]),
+                             int(a_dict[kgr]), institusjon=institusjon)
             ou_cache[key] = ou.entity_id
         except Errors.NotFoundError:
             logger.warn("Cannot find an OU in Cerebrum with stedkode: %s", key)
             ou_cache[key] = None
     return ou_cache[key]
 
+
 def _process_affiliation(aff, aff_status, new_affs, ou):
     if ou is not None:
         new_affs.append((ou, aff, aff_status))
+
 
 def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
     ou_id = _get_sko(a_dict, k_fak, k_inst, k_gruppe,
@@ -324,7 +325,7 @@ def process_person_callback(person_info):
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
             studentnr = p['studentnr_tildelt']
-    
+
         # Get affiliations
         if dta_type in ('fagperson',):
             _process_affiliation(co.affiliation_tilknyttet,
@@ -403,7 +404,7 @@ def process_person_callback(person_info):
         ou, aff, aff_status = a
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
         if include_delete:
-            key_a = "%s:%s:%s" % (new_person.entity_id,ou,int(aff))
+            key_a = "%s:%s:%s" % (new_person.entity_id, ou, int(aff))
             if old_aff.has_key(key_a):
                 old_aff[key_a] = False
 
@@ -417,7 +418,7 @@ def process_person_callback(person_info):
     else:
         logger.info("**** UPDATE ****")
 
-    # Reservations    
+    # Reservations
     if gen_groups:
         should_add = False
         for dta_type in person_info.keys():
@@ -449,16 +450,14 @@ def process_person_callback(person_info):
     db.commit()
 
 
-
 def main():
-    global verbose, ou, logger, fnr2person_id, gen_groups, group
+    global verbose, ou, fnr2person_id, gen_groups, group
     global old_aff, include_delete, no_name
     verbose = 0
     include_delete = False
-    logger = Factory.get_logger("cronjob")
     opts, args = getopt.getopt(sys.argv[1:], 'vp:s:e:gdf', [
         'verbose', 'person-file=', 'studieprogram-file=',
-        'emne-file=', 'generate-groups','include-delete', ])
+        'emne-file=', 'generate-groups', 'include-delete', ])
 
     personfile = default_personfile
     studieprogramfile = default_studieprogramfile
@@ -504,7 +503,7 @@ def main():
         emne2sko[e['emnekode']] = \
             _get_sko(e, 'faknr_reglement', 'instituttnr_reglement',
                      'gruppenr_reglement')
-        
+
     # create fnr2person_id mapping, always using fnr from FS when set
     person = Factory.get('Person')(db)
     if include_delete:
@@ -513,7 +512,7 @@ def main():
     for p in person.list_external_ids(id_type=co.externalid_fodselsnr):
         if co.system_fs == p['source_system']:
             fnr2person_id[p['external_id']] = p['entity_id']
-        elif not fnr2person_id.has_key(p['external_id']):
+        elif p['external_id'] not in fnr2person_id:
             fnr2person_id[p['external_id']] = p['entity_id']
     StudentInfo.StudentInfoParser(personfile, process_person_callback, logger)
     if include_delete:
@@ -521,6 +520,7 @@ def main():
     db.commit()
     logger.info("Found %d persons without name." % no_name)
     logger.info("Completed")
+
 
 if __name__ == '__main__':
     main()

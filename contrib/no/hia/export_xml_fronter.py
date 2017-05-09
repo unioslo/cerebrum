@@ -18,16 +18,14 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
 import sys
 import locale
 import os
 import getopt
 import time
 
-import cerebrum_path
 import cereconf
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import access_FS
@@ -35,17 +33,17 @@ from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.hia import fronter_lib
 
 
-
 db = const = logger = None
 fxml = None
 romprofil_id = {}
 include_this_sem = True
 
+
 def init_globals():
     global db, const, logger
+    logger = Factory.get_logger("cronjob")
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
-    logger = Factory.get_logger("cronjob")
 
     cf_dir = '/cerebrum/var/cache/Fronter'
     global fs_dir

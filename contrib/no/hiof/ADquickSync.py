@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2003-2010 University of Oslo, Norway
+# Copyright 2003-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,23 +18,51 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+r"""Usage: ADquickSync.py [options]
 
+--url URL               The URL to the AD server, e.g.
+                        https://ad.example.com:8000
 
-import getopt, sys, pickle
+--user-spread SPREAD    Only users with the given spreads are updated. Can
+                        be a comma separated list of spreads.
+
+--cl-key KEY            What key from the change logger the sync should
+                        find unsynced accounts from. Default: ad
+
+--dryrun                When set, the AD server is not updated.
+
+--commit-changes        Must be set if Cerebrum's counter should be
+                        updated.
+
+--ad-ldap DOMAIN_DN     Overrides cereconf.AD_LDAP.
+
+Example:
+
+ADquickSync.py --url https://158.39.170.197:8000 \
+               --user_spread 'account@ad_adm' \
+               --ad-ldap 'DC=adm,DC=hiof2,DC=no'
+               --commit-changes
+"""
+
+import getopt
+import pickle
+import sys
 import xmlrpclib
-import cerebrum_path
+
 import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import ADutilMixIn
 from Cerebrum.modules import CLHandler
 
+logger = Factory.get_logger("cronjob")
+
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
-logger = Factory.get_logger("cronjob")
 
 
 class ADquickSync(ADutilMixIn.ADuserUtil):
+
     def __init__(self, *args, **kwargs):
         super(ADquickSync, self).__init__(*args, **kwargs)
         self.cl = CLHandler.CLHandler(db)
@@ -47,14 +75,15 @@ class ADquickSync(ADutilMixIn.ADuserUtil):
         # update(s) will not be rerun afterwards, leaving the user with
         # an older password than the last.
         handled = set()
-        answer = reversed(self.cl.get_events(cl_key, (self.co.account_password,)))
+        answer = reversed(self.cl.get_events(cl_key,
+                                             (self.co.account_password,)))
         for ans in answer:
             confirm = True
             if ans['change_type_id'] == self.co.account_password:
                 if not ans['subject_entity'] in handled:
                     handled.add(ans['subject_entity'])
                     pw = pickle.loads(ans['change_params'])['password']
-                    try: 
+                    try:
                         confirm = self.change_pw(ans['subject_entity'],
                                                  spreads, pw, dry_run)
                     except xmlrpclib.ProtocolError, xpe:
@@ -63,9 +92,9 @@ class ADquickSync(ADutilMixIn.ADuserUtil):
                         self.logger.warn("Couldn't change password for %s" %
                                          ans['subject_entity'])
                         confirm = False
-                    except Exception, e:
+                    except Exception:
                         self.logger.warn("Unexpected exception", exc_info=1)
-                        confirm = False                        
+                        confirm = False
                 else:
                     self.logger.debug("user %s already updated" %
                                       ans['subject_entity'])
@@ -74,10 +103,10 @@ class ADquickSync(ADutilMixIn.ADuserUtil):
                                   ans['change_type_id'])
             if confirm:
                 self.cl.confirm_event(ans)
-        if commit_changes:                
+        if commit_changes:
             self.cl.commit_confirmations()
             self.logger.info("Commited all changes, updated c_l_handler.")
-            
+
     def change_pw(self, account_id, spreads, pw, dry_run):
         self.ac.clear()
         self.ac.find(account_id)
@@ -93,45 +122,24 @@ class ADquickSync(ADutilMixIn.ADuserUtil):
                                  (self.ac.account_name, self.ad_ldap))
                 return True
             else:
-                #Something went wrong.
-                self.logger.warn('Failed change password for %s in domain %s: %s' % (
-                    self.ac.account_name, self.ad_ldap, ret))
+                # Something went wrong.
+                self.logger.warn(
+                    'Failed change password for %s in domain %s: %s' % (
+                        self.ac.account_name, self.ad_ldap, ret))
                 return False
         else:
-            #Account without ADspread, do nothing and return.
-            self.logger.debug('Account %s does not have spread %s, not updating', 
-                              self.ac.account_name, spreads)
+            # Account without ADspread, do nothing and return.
+            self.logger.debug(
+                'Account %s does not have spread %s, not updating',
+                self.ac.account_name, spreads)
             return True
 
 
 def usage():
-    print """Usage: ADquickSync.py [options]
-
-    --url URL               The URL to the AD server, e.g.
-                            https://ad.example.com:8000
-
-    --user-spread SPREAD    Only users with the given spreads are updated. Can
-                            be a comma separated list of spreads.
-
-    --cl-key KEY            What key from the change logger the sync should
-                            find unsynced accounts from. Default: ad
-
-    --dryrun                When set, the AD server is not updated.
-
-    --commit-changes        Must be set if Cerebrum's counter should be
-                            updated.
-
-    --ad-ldap DOMAIN_DN     Overrides cereconf.AD_LDAP.
-
-    Example:
-
-    ADquickSync.py --url https://158.39.170.197:8000 \\
-                   --user_spread 'account@ad_adm' \\
-                   --ad-ldap 'DC=adm,DC=hiof2,DC=no'
-                   --commit-changes
-            """
+    print __doc__
     sys.exit(1)
-                           
+
+
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:],
@@ -147,14 +155,13 @@ def main():
         print e
         usage()
 
-    delete_objects = False
-    dry_run = False	
+    dry_run = False
     ad_ldap = cereconf.AD_LDAP
     user_spreads = []
     url = None
     cl_key = 'ad'
     commit_changes = False
-    
+
     for opt, val in opts:
         if opt in ('-s', '--user-spread'):
             user_spreads = [getattr(co, v) for v in val.split(',')]
@@ -177,20 +184,17 @@ def main():
     if not user_spreads:
         raise Exception('No spreads given, no account will be synced')
 
-    ADquickUser = ADquickSync(db,
-                            co,
-                            logger,
-                            url=url,
-                            ad_ldap=ad_ldap)
+    ADquickUser = ADquickSync(db, co, logger, url=url, ad_ldap=ad_ldap)
 
     try:
         ADquickUser.quick_sync(user_spreads,
                                dry_run,
-                               cl_key = cl_key,
-                               commit_changes = commit_changes)
+                               cl_key=cl_key,
+                               commit_changes=commit_changes)
     except xmlrpclib.ProtocolError, xpe:
         logger.critical("Error connecting to AD service. Giving up!: %s %s" %
                         (xpe.errcode, xpe.errmsg))
+
 
 if __name__ == '__main__':
     main()

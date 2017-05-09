@@ -28,14 +28,17 @@ If sendmail is enabled, events will be confirmed in CLHandler, and emails
 will be sent instead of outputted to the logger instance.
 """
 
+import argparse
 import pickle
+
 import cereconf
-import cerebrum_path
+
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler
 
+logger = Factory.get_logger('cronjob')
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
@@ -59,8 +62,8 @@ def check_changelog_for_quarantine_triggers(logger, sendmail):
         logger.info('Checking changelog for triggers for quarantine %s'
                     % quarantine)
         quar_data = cereconf.QUARANTINE_NOTIFY_DATA[quarantine]
-        triggers = tuple(getattr(co, trigger) for \
-                         trigger in quar_data['triggers'])
+        triggers = tuple(
+            getattr(co, trigger) for trigger in quar_data['triggers'])
         for event in cl.get_events(quar_data['cl_key'],
                                    triggers):
             change_params = pickle.loads(event['change_params'])
@@ -74,8 +77,9 @@ def check_changelog_for_quarantine_triggers(logger, sendmail):
                 try:
                     if sendmail:
                         generate_mail_notification(quar_info, event_info)
-                        logger.info('Email for change-ID: %d generated and sent.'
-                                    % event_info['change_id'])
+                        logger.info(
+                            'Email for change-ID: %d generated and sent.' %
+                            event_info['change_id'])
                         cl.confirm_event(event)
                         logger.info('change-ID %d confirmed in CLHandler.'
                                     % event_info['change_id'])
@@ -94,6 +98,7 @@ def check_changelog_for_quarantine_triggers(logger, sendmail):
                     cl.confirm_event(event)
         if sendmail:
             cl.commit_confirmations()
+
 
 def generate_quarantine_info(quarantine, metadata):
     quarantine_info = dict()
@@ -119,6 +124,7 @@ def generate_event_info(event):
         event_info['change_by'] = event['change_program']
     event_info['time_stamp'] = event['tstamp'].strftime()
     return event_info
+
 
 def generate_mail_notification(quar_info, event_info, debug=False):
     if event_info['change_type'] == 'quarantine:mod':
@@ -147,23 +153,15 @@ def generate_mail_notification(quar_info, event_info, debug=False):
                           body,
                           debug=debug)
 
+
 def main():
-    try:
-        import argparse
-    except ImportError:
-        import Cerebrum.extlib.argparse as argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sendmail', action='store_true',
                         help='Actually send generated e-mails')
-    parser.add_argument('-l', '--logger-name',
-                        dest='logname',
-                        default='cronjob',
-                        help='Specify logger (default: cronjob)')
     args = parser.parse_args()
-    logger = Factory.get_logger(args.logname)
     check_changelog_for_quarantine_triggers(logger, args.sendmail)
+
 
 if __name__ == '__main__':
     main()
-

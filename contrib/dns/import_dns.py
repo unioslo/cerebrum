@@ -18,11 +18,11 @@ from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import Utils
 
+sys.argv.extend(["--logger-level", "DEBUG"])
+logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
 db.cl_init(change_program='import_dns')
 co = Factory.get('Constants')(db)
-sys.argv.extend(["--logger-level", "DEBUG"])
-logger = Factory.get_logger("cronjob")
 ipnumber = IPNumber.IPNumber(db)
 arecord = ARecord.ARecord(db)
 cname = CNameRecord.CNameRecord(db)

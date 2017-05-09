@@ -26,22 +26,19 @@ generate_fronter_xml.py.
 """
 
 import sys
-import locale
-import os
 import getopt
-import time
-import re
 from mx.DateTime import now
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Database
 from Cerebrum import Errors
-
 from Cerebrum.modules.no.hih.access_FS import FS
 from Cerebrum.Utils import Factory
+
+
 logger = Factory.get_logger("cronjob")
+
 db = Factory.get("Database")()
 db.cl_init(change_program='pop-lms-grps')
 const = Factory.get("Constants")(db)
@@ -61,7 +58,7 @@ institutt_group_settings = (
     # sko 220000 has id = 5735
     ('stud-220000', {'affiliation': const.affiliation_student, 'ou_id': 5735}),
     ('ans-220000',  {'affiliation': const.affiliation_ansatt,  'ou_id': 5735}),
-    # sko 230000 has id = 5748 
+    # sko 230000 has id = 5748
     ('stud-230000', {'affiliation': const.affiliation_student, 'ou_id': 5748}),
     ('ans-230000',  {'affiliation': const.affiliation_ansatt,  'ou_id': 5748}),
    )
@@ -70,6 +67,7 @@ institutt_group_settings = (
 # disable all other groups with the LMS-spread that should not be active
 # anymore.
 touched_groups = set()
+
 
 def usage(exitcode=0):
     print """Usage: populate-fronter-groups.py
@@ -80,7 +78,7 @@ def usage(exitcode=0):
 
                     Another thing it does is removing existing group members
                     from the group that should not be there.
-    
+
                     Note that removing students from their old groups removes
                     their access to the corresponding rooms and data in
                     Fronter. Do not do this unless the instance has accepted
@@ -91,6 +89,7 @@ def usage(exitcode=0):
     -h --help       Show this and quit.
     """
     sys.exit(exitcode)
+
 
 def get_group(groupname, description):
     """Return a group instance for a group with the given name. If the group
@@ -108,7 +107,7 @@ def get_group(groupname, description):
         # all groups are created/owned by bootstrap_account, id = 2
         group.populate(creator_id=2,
                        visibility=const.group_visibility_all,
-                       name=groupname, 
+                       name=groupname,
                        description=description)
         try:
             group.write_db()
@@ -132,6 +131,7 @@ def get_group(groupname, description):
         group.write_db()
     return group
 
+
 def fill_group(gr, members, remove_others=False):
     """Add the given members to the given group. If L{remove_others} is True,
     existing members of the group that is not mentioned in L{members} are
@@ -150,12 +150,13 @@ def fill_group(gr, members, remove_others=False):
             logger.info('Adding mem %s to group %s', mem, gr.group_name)
             gr.add_member(mem)
 
+
 def institutt_grupper(remove_others=False):
     """Create and populate groups that is specific for the HiH instance,
     depending on the persons' affiliations and OUs. This includes both student
     and some employee groups, and its members are defined in
     L{institutt_group_settings}.
-    
+
     If L{remove_others} is True, extra group members are removed from
     the groups, that is, the members that does not have the correct
     affiliation anymore."""
@@ -178,6 +179,7 @@ def institutt_grupper(remove_others=False):
                             row['person_id'], groupname)
         fill_group(group, members, remove_others)
     logger.debug("institutt_grupper done")
+
 
 def studieprog_grupper(fsconn, remove_others=False):
     """Create and populate groups for active study programs that is defined in FS."""
@@ -206,6 +208,7 @@ def studieprog_grupper(fsconn, remove_others=False):
                 continue
         fill_group(grp, members, remove_others)
 
+
 def kull_grupper(fsconn, studieprogramkode, remove_others=False):
     """Create and update kullgrupper for a given studieprogram."""
     for x in fs.undervisning.list_kull_at_studieprog(studieprogramkode):
@@ -220,7 +223,7 @@ def kull_grupper(fsconn, studieprogramkode, remove_others=False):
                                               x['terminkode'],
                                               x['arstall'],
                                               studieprogramkode))
-        logger.debug("Processing group (kull): %s", grp.group_name)        
+        logger.debug("Processing group (kull): %s", grp.group_name)
         # update memberships in kull-group
         members = set()
         for x in fs.undervisning.list_studenter_kull(studieprogramkode, x['terminkode'], x['arstall']):
@@ -231,6 +234,7 @@ def kull_grupper(fsconn, studieprogramkode, remove_others=False):
                 logger.info("Person %s not found, or no primary account (kull)", fnr)
                 continue
         fill_group(grp, members, remove_others)
+
 
 def undervisningsmelding_grupper(fsconn, remove_others=False):
     for x in fs.undervisning.list_undervisningenheter(sem=None):
@@ -246,11 +250,11 @@ def undervisningsmelding_grupper(fsconn, remove_others=False):
 
         # update memberships in emne-groups
         members = set()
-        for y in fs.undervisning.list_studenter_underv_enhet(x['institusjonsnr'], 
+        for y in fs.undervisning.list_studenter_underv_enhet(x['institusjonsnr'],
                                                              x['emnekode'],
-                                                             x['versjonskode'], 
-                                                             x['terminkode'], 
-                                                             x['arstall'], 
+                                                             x['versjonskode'],
+                                                             x['terminkode'],
+                                                             x['arstall'],
                                                              x['terminnr']):
             fnr = "%06d%05d" % (int(y['fodselsdato']), int(y['personnr']))
             try:
@@ -259,6 +263,7 @@ def undervisningsmelding_grupper(fsconn, remove_others=False):
                 logger.info("Person %s not found, or no primary account (undvmeld)", fnr)
                 continue
         fill_group(grp, members, remove_others)
+
 
 def vurderingsmelding_grupper(fsconn, remove_others=False):
     aktuelle_emnekoder = []
@@ -282,6 +287,7 @@ def vurderingsmelding_grupper(fsconn, remove_others=False):
                     continue
         fill_group(grp, members, remove_others)
 
+
 def remove_old_groups():
     """Go through the database and disable all groups with the LMS-spread but
     have not been touched by this script, i.e. is in the global set
@@ -302,6 +308,7 @@ def remove_old_groups():
         group.write_db()
         # Maybe we want to delete the group in the future:
         #group.delete()
+
 
 def main():
     try:
@@ -337,7 +344,7 @@ def main():
 
     fsdb = Database.connect(user=cereconf.FS_USER,
                             service=cereconf.FS_DATABASE_NAME,
-                            DB_driver='cx_Oracle') 
+                            DB_driver='cx_Oracle')
     fs = FS(fsdb)
 
     logger.info("Updating studieprogram groups")
@@ -355,13 +362,14 @@ def main():
     if remove_others:
         logger.info("Removing other/old groups with LMS-spread")
         remove_old_groups()
-    
+
     if dryrun:
         logger.info("All done, rolled back changes")
         db.rollback()
     else:
         logger.info("All done, commiting to database")
         db.commit()
+
 
 if __name__ == '__main__':
     main()

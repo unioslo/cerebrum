@@ -473,13 +473,13 @@ def main():
     global person_file_name, logger, role_file_name
     global org_file_name, parent_ou, address_file_name, address_part_file_name
     
+    logger = Factory.get_logger("cronjob")
     db = Factory.get("Database")()
     person = Factory.get("Person")(db)
-    account = Factory.get("Account")(db)    
+    account = Factory.get("Account")(db)
     const = Factory.get("Constants")(db)
     ou = Factory.get("OU")(db)
     parent_ou = Factory.get("OU")(db)
-    logger = Factory.get_logger("cronjob")
 
     dump_directory = '/cerebrum/var/cache/BASWAREPM/'
 

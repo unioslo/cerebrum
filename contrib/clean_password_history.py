@@ -26,12 +26,15 @@ back from the current time and date.
 Multiple arguments may be used at the same time, to get the wanted timedelta.
 """
 
-import sys
-import cerebrum_path
-import cereconf
+import argparse
 from mx import DateTime
+
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.pwcheck.history import PasswordHistory
+
+
+logger = Factory.get_logger('cronjob')
+
 
 def get_relative_date(years=None, months=None, days=None):
     """
@@ -53,43 +56,46 @@ def get_relative_date(years=None, months=None, days=None):
         exp_date = exp_date - DateTime.RelativeDate(days=int(days))
     return exp_date
 
+
 def main():
     """ Script invocation. """
-    try:
-        import argparse
-    except ImportError:
-        import Cerebrum.extlib.argparse as argparse
-
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-y', '--years', dest='years',
-                        help='Number of years to add to the timedelta')
-    parser.add_argument('-m', '--months', dest='months',
-                        help='Number of months to add to the timedelta')
-    parser.add_argument('-d', '--days', dest='days',
-                        help='Number of days to add to the timedelta')
-    parser.add_argument('--commit', action='store_true',
-                        help='Commit changes to DB')
-    parser.add_argument('-l', '--logger-name', dest='logname',
-                        default='cronjob',
-                        help='Specify logger (default: cronjob)')
+    parser.add_argument(
+        '-y', '--years',
+        dest='years',
+        help='Number of years to add to the timedelta')
+    parser.add_argument(
+        '-m', '--months',
+        dest='months',
+        help='Number of months to add to the timedelta')
+    parser.add_argument(
+        '-d', '--days',
+        dest='days',
+        help='Number of days to add to the timedelta')
+    parser.add_argument(
+        '--commit',
+        action='store_true',
+        default=False,
+        help='Commit changes to DB')
     args = parser.parse_args()
-    if not args.years and not args.months and not args.days:
-        raise SystemExit('At least one of the following arguments must be '
-                         'specified: years, months, days.\n'
-                         'See %s --help' % sys.argv[0])
 
     exp_date = get_relative_date(years=args.years,
                                  months=args.months,
                                  days=args.days)
 
-    db = Factory.get('Database')()
-    logger = Factory.get_logger(args.logname)
-    logger.info('Deleting all entries in password_history before: %s' % exp_date)
-    ph = PasswordHistory(db)
+    logger.info(
+        'Deleting all entries in password_history before: %s' % exp_date)
+
+    ph = PasswordHistory(Factory.get('Database')())
     ph.del_exp_history(exp_date)
     if args.commit:
+        logger.info('Committing changes')
         ph.commit()
+    else:
+        logger.info('Rolling back changes')
+        ph.rollback()
+    logger.info('Done')
+
 
 if __name__ == '__main__':
         main()
-
