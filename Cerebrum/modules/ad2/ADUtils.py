@@ -1447,9 +1447,15 @@ class ADclient(PowershellClient):
                 ad_id=ad_id).replace('\\\\', '\\')
             cmd = '''
             try {{
+                [console]::OutputEncoding = [System.Text.Encoding]::UTF8;
                 [System.Convert]::FromBase64String({pwd}) | Set-Content {tmp_enc_passwd_file} -encoding byte;
                 $decrypted_text = gpg2 -q --batch --decrypt {tmp_enc_passwd_file};
-                $pwd = ConvertTo-SecureString -AsPlainText -Force $decrypted_text;
+                $passphrase = [System.Text.Encoding]::Unicode.GetString(
+                    [System.Text.Encoding]::Convert(
+                        [System.Text.Encoding]::UTF8,
+                        [System.Text.Encoding]::Unicode,
+                        [System.Text.Encoding]::UTF8.GetBytes($decrypted_text)));
+                $pwd = ConvertTo-SecureString -AsPlainText -Force $passphrase;
                 {cmd} -NewPassword $pwd;
             }} catch {{
                 write-host {error};
