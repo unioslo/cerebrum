@@ -54,8 +54,8 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         ret = self.__super.delete_posixuser()
         # self.pg.clear()
         # self.pg.find(self.gid_id)
-        trait = self.const.get_trait(code=self.const.trait_personal_dfg,
-                                     target_id=self.entity_id)
+        trait = self.list_traits(code=self.const.trait_personal_dfg,
+                                 target_id=self.entity_id)
         if trait:
             pg = Factory.get('PosixGroup')(self._db)
             pg.find(trait['entity_id'])
