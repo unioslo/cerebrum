@@ -957,11 +957,11 @@ from None and LDAP_PERSON['dn'].""")
                         raise ValueError("Selector[True][not True: %s] illegal"
                                          % repr(status))
                     else:
+                        status_str = status.split("@")[0]
+                        status_id = self.const.PersonAffStatus(aff_id,status_str)
+                        if status_id is not None:
+                            status_id = int(status_id)
                         if "@" not in status:
-                            status_id = self.const.PersonAffStatus(aff_id,
-                                                                   status)
-                            if status_id is not None:
-                                status_id = int(status_id)
                             key = (int(aff_id), status_id)
                         else:
                             # In the case of "@" notation in the status string
@@ -969,11 +969,6 @@ from None and LDAP_PERSON['dn'].""")
                             # OU for every affiliated person with the related
                             # active status.
                             ou = Factory.get('OU')(self.db)
-                            status_str = (status.split("@"))[0]
-                            status_id = self.const.PersonAffStatus(aff_id,
-                                                                   status_str)
-                            if status_id is not None:
-                                status_id = int(status_id)
                             ou_str = (status.split("@"))[1]
                             try:
                                 ou.clear()
