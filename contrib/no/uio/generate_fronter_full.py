@@ -1173,9 +1173,9 @@ class FronterXML(object):
 
 def init_globals():
     global db, const, logger
+    logger = Factory.get_logger("cronjob")
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
-    logger = Factory.get_logger("cronjob")
 
     cf_dir = '/cerebrum/var/cache/Fronter'
     try:
