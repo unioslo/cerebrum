@@ -52,13 +52,9 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
 
         """
         ret = self.__super.delete_posixuser()
-        # self.pg.clear()
-        # self.pg.find(self.gid_id)
-        trait = self.list_traits(code=self.const.trait_personal_dfg,
-                                 target_id=self.entity_id)
-        if trait:
-            pg = Factory.get('PosixGroup')(self._db)
-            pg.find(trait['entity_id'])
+
+        pg = self.find_personal_group()
+        if pg is not None:
             for row in pg.get_spread():
                 pg.delete_spread(int(row['spread']))
             pg.write_db()
