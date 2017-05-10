@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,11 +28,11 @@ from __future__ import with_statement
 
 import collections
 
-import cereconf
-getattr(cereconf, "No linter nag!", None)
-
 from Cerebrum.modules.ad2 import ADUtils
 from Cerebrum.Utils import Factory
+
+import cereconf
+getattr(cereconf, "No linter nag!", None)
 
 
 class ADclientMock(ADUtils.ADclient):
@@ -517,18 +517,25 @@ class ADclientMock(ADUtils.ADclient):
         # TODO: Update state in cache.
         return True
 
-    def set_password(self, ad_id, password, gpg_encrypted):
+    def set_password(self, ad_id, password, password_type='plaintext'):
         """Send a new password for a given object.
 
         This only works for Accounts.
 
-        @param ad_id: The Id for the object. Could be the SamAccountName,
+        :param ad_id: The Id for the object. Could be the SamAccountName,
             DistinguishedName, SID, UUID and probably some other identifiers.
 
-        @type password: string
-        @param password: The new passord for the object. Must be in plaintext,
+        :param password: The new passord for the object. Must be in plaintext,
             as that is how AD requires it to be, for now.
+        :type password: str
 
+        :param password_type: The password type (default: 'plaintext').
+                              Currently supported types:
+                              'password' - GPG encrypted plaintext-password
+                              'password-base64' - GPG encrypted base64-encoded
+                                                  password
+                              'plaintext' - unencrypted plaintext password
+        :type password_type: str
         """
         self.logger.info('Setting password for: %s', ad_id)
         return True
