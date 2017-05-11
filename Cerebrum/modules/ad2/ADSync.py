@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2013 University of Oslo, Norway
+# Copyright 2011-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -2481,23 +2481,27 @@ class UserSync(BaseSync):
 
             # If a GPG recipient ID is set, we fetch the encrypted password
             if self.config.get('gpg_recipient_id', None):
-                gpg_data = self.ac.search_gpg_data(
-                    entity_id=ent.entity_id,
-                    tag='password',
-                    recipient=self.config['gpg_recipient_id'],
-                    latest=True)
-                if not gpg_data:
+                for tag in ('password-base64', 'password'):
+                    gpg_data = self.ac.search_gpg_data(
+                        entity_id=ent.entity_id,
+                        tag=tag,
+                        recipient=self.config['gpg_recipient_id'],
+                        latest=True)
+                    if gpg_data:
+                        break
+                else:
                     self.logger.debug2(
                         'No GPG encrypted password found for %s',
                         ent.entity_name)
                     continue
                 password = gpg_data[0].get('message')
-                self.uname2pasw[ent.entity_name] = (password, True)
+                self.uname2pasw[ent.entity_name] = (password, tag)
             else:  # we fetch the plaintext from the changelog
                 try:
                     password = pickle.loads(
                         str(row['change_params']))['password']
-                    self.uname2pasw[ent.entity_name] = (password, False)
+                    self.uname2pasw[ent.entity_name] = (password,
+                                                        'plaintext')
                 except (KeyError, TypeError, IndexError):
                     self.logger.debug2('No plaintext loadable for %s',
                                        ent.entity_name)
@@ -2549,7 +2553,7 @@ class UserSync(BaseSync):
             # fetch_passwords(). If there is no plaintext available for
             # the user, set an empty one.
             try:
-                password, gpg_encrypted = self.uname2pasw[ent.entity_name]
+                password, tag = self.uname2pasw[ent.entity_name]
             except KeyError:
                 self.logger.warn('No password set for %s' % ent.entity_name)
                 return ad_object
@@ -2557,7 +2561,7 @@ class UserSync(BaseSync):
             self.logger.debug('Trying to set pw for %s', ent.entity_name)
             if self.server.set_password(ad_object['DistinguishedName'],
                                         password,
-                                        gpg_encrypted=gpg_encrypted):
+                                        password_type=tag):
                 # As a security feature, you have to explicitly enable the
                 # account after a valid password has been set.
                 if ent.active:
@@ -2621,23 +2625,25 @@ class UserSync(BaseSync):
             name = self._format_name(self.ac.account_name)
 
             # If a GPG recipient ID is set, we fetch the encrypted password
+            tag = 'plaintext'
             if self.config.get('gpg_recipient_id', None):
-                gpg_data = self.ac.search_gpg_data(
-                    entity_id=self.ac.entity_id,
-                    tag='password',
-                    recipient=self.config['gpg_recipient_id'],
-                    latest=True)
-                if not gpg_data:
+                for tag in ('password-base64', 'password'):
+                    gpg_data = self.ac.search_gpg_data(
+                        entity_id=self.ac.entity_id,
+                        tag=tag,
+                        recipient=self.config['gpg_recipient_id'],
+                        latest=True)
+                    if gpg_data:
+                        break
+                else:
                     self.logger.warn(
                         'Account %s missing GPG encrypted password',
                         row['subject_entity'])
                     return False
                 pw = gpg_data[0].get('message')
-                gpg_encrypted = True
             else:  # we fetch the plaintext from the changelog
                 try:
                     pw = pickle.loads(str(row['change_params']))['password']
-                    gpg_encrypted = False
                 except (KeyError, TypeError, IndexError):
                     self.logger.warn("Account %s missing plaintext password",
                                      row['subject_entity'])
@@ -2648,7 +2654,7 @@ class UserSync(BaseSync):
                     pw = unicode(pw, 'UTF-8')
                 except UnicodeDecodeError:
                     pw = unicode(pw, 'ISO-8859-1')
-            return self.server.set_password(name, pw, gpg_encrypted)
+            return self.server.set_password(name, pw, password_type=tag)
 
         elif row['change_type_id'] in (self.co.quarantine_add,
                                        self.co.quarantine_del,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2016 University of Oslo, Norway
+# Copyright 2011-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1414,7 +1414,7 @@ class ADclient(PowershellClient):
         out = self.run(cmd)
         return not out.get('stderr')
 
-    def set_password(self, ad_id, password, gpg_encrypted):
+    def set_password(self, ad_id, password, password_type='plainext'):
         """Send a new password for a given object.
 
         This only works for Accounts.
@@ -1422,10 +1422,17 @@ class ADclient(PowershellClient):
         :param str ad_id: The Id for the object. Could be the SamAccountName,
             DistinguishedName, SID, UUID and probably some other identifiers.
 
-        :param str password: The new passord for the object, in plaintext
+        :param password: The new passord for the object, in plaintext
             or as a GPG message.
+        :type password: (unicode, str)
 
-        :param bool gpg_encrypted: Is this a GPG message?
+        :param password_type: The password type (default: 'plaintext').
+                              Currently supported types:
+                              'password' - GPG encrypted plaintext-password
+                              'password-base64' - GPG encrypted base64-encoded
+                                                  password
+                              'plaintext' - unencrypted plaintext password
+        :type password_type: str
         """
         self.logger.info('Setting password for: %s', ad_id)
         # Would like to be able to give AD a hash/crypt in some format that is
@@ -1434,7 +1441,7 @@ class ADclient(PowershellClient):
         # reasons.
         # Encrypted passwords will be handled differently (decrypted) on the
         # AD-side (Windows server - side).
-        if gpg_encrypted:
+        if password_type in ('password', 'password-base64'):  # GPG encrypted
             if password.startswith('-----BEGIN PGP MESSAGE-----\n'):
                 password = base64.b64encode(password)
             enc_passwd_dir = """C:\passwords"""  # paranoia
@@ -1445,32 +1452,49 @@ class ADclient(PowershellClient):
             tmp_enc_passwd_file = """{edir}\{ad_id}_encrypted_password.gpg""".format(
                 edir=enc_passwd_dir,
                 ad_id=ad_id).replace('\\\\', '\\')
-            cmd = '''
-            try {{
-                [console]::OutputEncoding = [System.Text.Encoding]::UTF8;
-                [System.Convert]::FromBase64String({pwd}) | Set-Content {tmp_enc_passwd_file} -encoding byte;
-                $decrypted_text = gpg2 -q --batch --decrypt {tmp_enc_passwd_file};
-                $passphrase = [System.Text.Encoding]::Unicode.GetString(
-                    [System.Text.Encoding]::Convert(
-                        [System.Text.Encoding]::UTF8,
-                        [System.Text.Encoding]::Unicode,
-                        [System.Text.Encoding]::UTF8.GetBytes($decrypted_text)));
-                $pwd = ConvertTo-SecureString -AsPlainText -Force $passphrase;
-                {cmd} -NewPassword $pwd;
-            }} catch {{
-                write-host {error};
-                exit 1;
-            }} finally {{
-                Remove-Item {tmp_enc_passwd_file};
-            }}
-            '''.format(
+            if password_type == 'password':
+                # encrypted clear UTF-8 text password (old format)
+                cmd = '''
+                try {{
+                    [System.Convert]::FromBase64String({pwd}) | Set-Content {tmp_enc_passwd_file} -encoding byte;
+                    $decrypted_text = gpg2 -q --batch --decrypt {tmp_enc_passwd_file};
+                    $pwd = ConvertTo-SecureString -AsPlainText -Force $decrypted_text;
+                    {cmd} -NewPassword $pwd;
+                }} catch {{
+                    write-host {error};
+                    exit 1;
+                }} finally {{
+                    Remove-Item {tmp_enc_passwd_file};
+                }}
+                '''
+            elif password_type == 'password-base64':
+                # ecrypted base64 enc. clear UTF-8 text password (new format)
+                cmd = '''
+                try {{
+                    [System.Convert]::FromBase64String({pwd}) | Set-Content {tmp_enc_passwd_file} -encoding byte;
+                    $decrypted_text = gpg2 -q --batch --decrypt {tmp_enc_passwd_file};
+                    $passphrase = [System.Text.Encoding]::Unicode.GetString(
+                        [System.Text.Encoding]::Convert(
+                            [System.Text.Encoding]::UTF8,
+                            [System.Text.Encoding]::Unicode,
+                            [System.Convert]::FromBase64String($decrypted_text)));
+                    $pwd = ConvertTo-SecureString -AsPlainText -Force $passphrase;
+                    {cmd} -NewPassword $pwd;
+                }} catch {{
+                    write-host {error};
+                    exit 1;
+                }} finally {{
+                    Remove-Item {tmp_enc_passwd_file};
+                }}
+                '''
+            cmd = cmd.format(
                 pwd=self.escape_to_string(password),
                 tmp_enc_passwd_file=tmp_enc_passwd_file,
                 error='Unable to decrypt the password for: {0}'.format(ad_id),
                 cmd=self._generate_ad_command('Set-ADAccountPassword',
                                               {'Identity': ad_id},
                                               ['Reset']))
-        else:
+        elif password_type == 'plaintext':
             try:
                 password = base64.b64encode(password)
             except UnicodeEncodeError:
@@ -1482,7 +1506,8 @@ class ADclient(PowershellClient):
                        cmd=self._generate_ad_command('Set-ADAccountPassword',
                                                      {'Identity': ad_id},
                                                      ['Reset']))
-        #Set-ADAccountPassword -Identity %(_ad_id)s -Credential $cred -Reset -NewPassword $pwd
+        else:
+            raise Exception('Invalid password-type')
         if self.dryrun:
             return True
         out = self.run(cmd)
