@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,19 +25,14 @@ shuffling the functionality around.
 """
 
 import re
-import time
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uio.access_FS import FS
-from Cerebrum import Database
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 
 
-
-def get_member_names(group_name):
-    db = Factory.get("Database")()
+def get_member_names(db, group_name):
     group = Factory.get("Group")(db)
     usernames = ()
     try:
@@ -56,44 +51,46 @@ def get_member_names(group_name):
             usernames.append(account.account_name)
 
     return usernames
-# end get_member_names
 
 
+def get_host_config(db, hostname):
+    """ Get config for one of the hardcoded hosts. """
+    # Ugly, but better than running get_member_names on import.
 
-host_config = {
-    'internkurs.uio.no': { 'DBinst': 'DLOUIO.uio.no',
-                           'admins':
-                           get_member_names('classfronter-internkurs-drift'),
-                           'export': ['All_users'],
-                           },
-    'tavle.uio.no': {'DBinst': 'DLOOPEN.uio.no',
-                     'admins': get_member_names('classfronter-tavle-drift'),
-                     'export': ['All_users'],
-                     },
-    'kladdebok.uio.no': { 'DBinst': 'DLOUTV.uio.no',
-                          'admins':
-                          get_member_names('classfronter-kladdebok-drift'),
-                          'export': ['FS'],
-                          'plain_users': get_member_names('classfronter-kladdebok-plain'),
-                          'spread': 'spread_fronter_kladdebok',
-                          },
-    'petra.uio.no': { 'DBinst': 'DLODEMO.uio.no',
-                      'admins': get_member_names('classfronter-petra-drift'),
-                      'export': ['FS', 'All_users'],
-                      'spread': 'spread_fronter_petra',
-                      },
-    'blyant.uio.no': { 'DBinst': 'DLOPROD.uio.no',
-                       'admins': get_member_names('classfronter-blyant-drift'),
-                       'export': ['FS', 'All_users'],
-                       'spread': 'spread_fronter_blyant',
-                       },
-    'fronter.com': { 'DBinst': 'DLOPROD.uio.no',
-                       'admins': get_member_names('classfronter-fronterdotcom-drift'),
-                       'export': ['FS', 'All_users'],
-                       'spread': 'spread_fronter_dotcom',
-                       }
-    }
+    host_config = {
+        'internkurs.uio.no': {
+            'DBinst': 'DLOUIO.uio.no',
+            'admins': get_member_names(db, 'classfronter-internkurs-drift'),
+            'export': ['All_users'], },
+        'tavle.uio.no': {
+            'DBinst': 'DLOOPEN.uio.no',
+            'admins': get_member_names(db, 'classfronter-tavle-drift'),
+            'export': ['All_users'], },
+        'kladdebok.uio.no': {
+            'DBinst': 'DLOUTV.uio.no',
+            'admins': get_member_names(db, 'classfronter-kladdebok-drift'),
+            'export': ['FS'],
+            'plain_users': get_member_names(db,
+                                            'classfronter-kladdebok-plain'),
+            'spread': 'spread_fronter_kladdebok', },
+        'petra.uio.no': {
+            'DBinst': 'DLODEMO.uio.no',
+            'admins': get_member_names(db, 'classfronter-petra-drift'),
+            'export': ['FS', 'All_users'],
+            'spread': 'spread_fronter_petra', },
+        'blyant.uio.no': {
+            'DBinst': 'DLOPROD.uio.no',
+            'admins': get_member_names(db, 'classfronter-blyant-drift'),
+            'export': ['FS', 'All_users'],
+            'spread': 'spread_fronter_blyant', },
+        'fronter.com': {
+            'DBinst': 'DLOPROD.uio.no',
+            'admins': get_member_names(db, 'classfronter-fronterdotcom-drift'),
+            'export': ['FS', 'All_users'],
+            'spread': 'spread_fronter_dotcom', }
+        }
 
+    return host_config[hostname]
 
 
 def UE2KursID(kurstype, *rest):
@@ -110,9 +107,9 @@ def UE2KursID(kurstype, *rest):
     kurstype = kurstype.lower()
     if kurstype == 'evu':
         if len(rest) != 2:
-            raise ValueError, \
-                  "ERROR: EVU-kurs skal identifiseres av 2 felter, " + \
-                  "ikke <%s>" % ">, <".join(rest)
+            raise ValueError(
+                "ERROR: EVU-kurs skal identifiseres av 2 felter, "
+                "ikke <%s>" % ">, <".join(rest))
         # EVU-kurs er greie; de identifiseres unikt ved to
         # fritekstfelter; kurskode og tidsangivelse, og er modellert i
         # FS uavhengig av semester-inndeling.
@@ -122,21 +119,21 @@ def UE2KursID(kurstype, *rest):
 
     elif kurstype == 'kull':
         if len(rest) != 3:
-            raise ValueError, ("ERROR: Kull skal alltid identifiseres av 3 "
-                               "felter, ikke <%s>" % ">, <".join(rest))
+            raise ValueError("ERROR: Kull skal alltid identifiseres av 3 "
+                             "felter, ikke <%s>" % ">, <".join(rest))
         rest = list(rest)
         rest.insert(0, kurstype)
         return fields2key(*rest)
-    
+
     elif kurstype != 'kurs':
-        raise ValueError, "ERROR: Ukjent kurstype <%s> (%s)" % (kurstype, rest)
+        raise ValueError("ERROR: Ukjent kurstype <%s> (%s)" % (kurstype, rest))
 
     # Vi vet her at $kurstype er 'KURS', og vet dermed også hvilke
     # elementer som er med i *rest:
     if len(rest) != 6:
-        raise ValueError, \
-              "ERROR: Undervisningsenheter skal identifiseres av 6 " + \
-              "felter, ikke <%s>" % ">, <".join(rest)
+        raise ValueError(
+            "ERROR: Undervisningsenheter skal identifiseres av 6 "
+            "felter, ikke <%s>" % ">, <".join(rest))
 
     instnr, emnekode, versjon, termk, aar, termnr = rest
     termnr = int(termnr)
@@ -160,16 +157,15 @@ def UE2KursID(kurstype, *rest):
         # verdier for $termk enn 'vår' og 'høst', da det i så fall vil
         # bli vanskelig å vite hvilket semester det var "for 2
         # semestere siden".
-        raise ValueError, \
-              "ERROR: Unknown terminkode <%s> for emnekode <%s>." % (
-            termk, emnekode)
+        raise ValueError(
+            "ERROR: Unknown terminkode <%s> for emnekode <%s>." % (termk,
+                                                                   emnekode))
 
     # $termnr er ikke del av den returnerte strengen.  Vi har benyttet
     # $termnr for å beregne $termk og $aar ved $termnr == 1; det er
     # altså implisitt i kurs-IDen at $termnr er lik 1 (og dermed
     # unødvendig å ta med).
     return fields2key(kurstype, instnr, emnekode, versjon, termk, aar)
-# end UE2KursID
 
 
 def fields2key(*fields):
@@ -187,7 +183,6 @@ def fields2key(*fields):
     """
 
     return (":".join([str(x) for x in fields])).lower()
-# end make_key
 
 
 def str2key(s):
@@ -199,7 +194,6 @@ def str2key(s):
     """
 
     return s.lower()
-# end str2key
 
 
 def key2fields(key):
@@ -215,7 +209,8 @@ def key2fields(key):
     return key.lower().split(":")
 
 
-class XMLWriter(object):   # TODO: Move to separate file
+class XMLWriter(object):
+    # TODO: Move to separate file
     # TODO: should produce indented XML for easier readability
 
     def __init__(self, fname):
@@ -264,7 +259,8 @@ def semester_number(start_year, start_semester,
 
     For entities spanning multiple semester we need to know the semester
     number of (current_year, current_semester) relative to the starting
-    point. 
+    point.
+
     """
     cs = current_semester.lower()
     ss = start_semester.lower()
@@ -275,4 +271,3 @@ def semester_number(start_year, start_semester,
     elif cs == 'vår' and ss == 'høst':
         correction = -1
     return years*2 + correction+1
-# end semester_number
