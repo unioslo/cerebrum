@@ -1452,7 +1452,7 @@ def register_supergroups():
                             member_id, group.group_name, group.entity_id)
                 continue
 
-            if uname not in new_users:
+            if uname in new_users:
                 if new_users[uname]['USERACCESS'] != 'administrator':
                     new_users[uname]['USERACCESS'] = 'allowlogin'
                     logger.debug("<%s> gets member <%s>",
