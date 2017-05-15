@@ -504,6 +504,28 @@ class CheckRepeatedPattern(PasswordChecker):
             return repeat_err
 
 
+@pwchecker('exact_username')
+class CheckUsername(PasswordChecker):
+    """Check for use of the username in the password."""
+
+    def __init__(self):
+        self._requirement = _(
+            'Must not contain your username')
+
+    def check_password(self, password, account=None):
+        """Does the password contain the username?"""
+        if account is None:
+            return
+
+        uname = getattr(account, 'account_name', None)
+        if uname is None:
+            return
+
+        # password cannot contain the username
+        if uname.lower() in password.lower():
+            return [_('Password cannot contain your username')]
+
+
 @pwchecker('username')
 class CheckUsername(PasswordChecker):
     """Check for use of the username in the password."""
@@ -528,6 +550,35 @@ class CheckUsername(PasswordChecker):
         # password cannot contain the username reversed
         if uname[::-1].lower() in password.lower():
             return [_('Password cannot contain your username in reverse')]
+
+
+@pwchecker('exact_owner_name')
+class CheckOwnerNameMixin(PasswordChecker):
+    """Check for use of the account owners name in the password."""
+
+    def __init__(self):
+        self._requirement = _('Must not contain words from your fullname')
+
+    def check_password(self, password, account=None):
+        if account is None:
+            return
+        if not hasattr(account, 'owner_id'):
+            return
+
+        person = Factory.get("Person")(account._db)
+
+        try:
+            person.find(account.owner_id)
+        except NotFoundError:
+            return
+
+        password = unicodify(password).lower()
+
+        for row in person.get_all_names():
+            for name in row["name"].split():
+                if unicodify(name).lower() in password:
+                    return [_('Password cannot contain your name')]
+        return
 
 
 @pwchecker('owner_name')

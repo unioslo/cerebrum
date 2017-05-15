@@ -44,8 +44,8 @@ custom_checkers = {
          {'min_required_entropy': 33,
           'min_groups': 3,
           'min_chars_per_group': 2}),
-        ('username', {}),
-        ('owner_name', {'name_seq_len': 5}),
+        ('exact_username', {}),
+        ('exact_owner_name', {}),
         ('history', {}),
     ),
 }
