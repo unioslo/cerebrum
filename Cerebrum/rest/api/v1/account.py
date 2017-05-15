@@ -36,21 +36,6 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
 api = Namespace('accounts', description='Account operations')
 
 
-# Overrides the cereconf.PASSWORD_CHECKS
-# This is a temporary hack and it will be removed in the future
-# custom_checkers = {
-#     'rigid': (
-#         ('simple_entropy_calculator',
-#          {'min_required_entropy': 33,
-#           'min_groups': 3,
-#           'min_chars_per_group': 2}),
-#         ('exact_username', {}),
-#         ('exact_owner_name', {}),
-#         ('history', {}),
-#     ),
-# }
-
-
 def find_account(identifier):
     idtype = 'entity_id' if identifier.isdigit() else 'name'
     try:
