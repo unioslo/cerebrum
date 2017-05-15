@@ -38,17 +38,17 @@ api = Namespace('accounts', description='Account operations')
 
 # Overrides the cereconf.PASSWORD_CHECKS
 # This is a temporary hack and it will be removed in the future
-custom_checkers = {
-    'rigid': (
-        ('simple_entropy_calculator',
-         {'min_required_entropy': 33,
-          'min_groups': 3,
-          'min_chars_per_group': 2}),
-        ('exact_username', {}),
-        ('exact_owner_name', {}),
-        ('history', {}),
-    ),
-}
+# custom_checkers = {
+#     'rigid': (
+#         ('simple_entropy_calculator',
+#          {'min_required_entropy': 33,
+#           'min_groups': 3,
+#           'min_chars_per_group': 2}),
+#         ('exact_username', {}),
+#         ('exact_owner_name', {}),
+#         ('history', {}),
+#     ),
+# }
 
 
 def find_account(identifier):
@@ -506,8 +506,7 @@ class AccountPasswordResource(Resource):
         plaintext = data.get('password', None)
         plaintext_unicode = None  # used for utf-8 conversion
         if plaintext is None:
-            plaintext = ac.make_passwd(ac.account_name,
-                                       checkers=custom_checkers)
+            plaintext = ac.make_passwd(ac.account_name)
         if isinstance(plaintext, str):
             # plaintext can be either latin1 (ISO-8859-1) or UTF-8 str
             # depending on the publisher and the weather...
@@ -532,8 +531,7 @@ class AccountPasswordResource(Resource):
         try:
             check_password(plaintext,
                            account=ac,
-                           structured=False,
-                           checkers=custom_checkers)
+                           structured=False)
         except PasswordNotGoodEnough as err:
             abort(400, 'Bad password: {}'.format(err))
         ac.set_password(plaintext)
@@ -620,8 +618,7 @@ class AccountPasswordCheckerResource(Resource):
                 abort(400, 'Bad password: Contains illegal characters')
         return check_password(plaintext,
                               account=ac,
-                              structured=True,
-                              checkers=custom_checkers)
+                              structured=True)
 
 
 @api.route('/<string:id>/gpg/<string:tag>/<string:key_id>/latest', doc=False)
