@@ -18,6 +18,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import re
+import sys
 
 from collections import defaultdict
 
@@ -978,14 +979,12 @@ from None and LDAP_PERSON['dn'].""")
                                 key = (int(aff_id), status_id,
                                        int(ou.entity_id))
                             except Errors.NotFoundError as e:
-                                self.logger.error("Filtering after the OU %s an"
-                                                  "d its related affiliation an"
-                                                  "d status, as defined in the "
-                                                  "config file, failed because "
-                                                  "of the following OU search "
-                                                  "function error: '%s'",
-                                                  ou_str, e)
-                                pass
+                                sys.exit("Filtering after the OU %s and its"
+                                         " related affiliation and status,"
+                                         " as defined in the config file,"
+                                         " failed because of the following"
+                                         " OU search function error: '%s'"
+                                         % (ou_str, e))
                     if mapping.has_key(key):
                         raise ValueError("Duplicate selector[%s][%s]" % tuple(
                             [val is True and "True" or repr(val)
