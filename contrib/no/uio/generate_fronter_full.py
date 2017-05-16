@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004, 2005, 2013 University of Oslo, Norway
+# Copyright 2004-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -42,13 +42,13 @@ import re
 import sys
 import time
 
-import cerebrum_path
-getattr(cerebrum_path, 'This will shut the linters up', None)
 import cereconf
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uio.fronter_lib \
-     import XMLWriter, UE2KursID, key2fields, fields2key, host_config
+from Cerebrum.modules.no.uio.fronter_lib import (XMLWriter, UE2KursID,
+                                                 key2fields, fields2key,
+                                                 get_host_config)
 from Cerebrum.modules.no.uio.fronter_lib import semester_number
 from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 
@@ -60,12 +60,14 @@ group_struct_id = "UREG2000@uio.no imported groups"
 group_struct_title = 'Automatisk importerte grupper'
 
 
-db = const = logger = None 
+db = const = logger = None
 fronter = fxml = None
 include_this_sem = True
 new_users = None
 
+
 class Fronter(object):
+
     STATUS_ADD = 1
     STATUS_UPDATE = 2
     STATUS_DELETE = 3
@@ -86,9 +88,9 @@ class Fronter(object):
         self.db = db
         self.const = const
         self.logger = logger
-        _config = host_config[fronter_host]
+        _config = get_host_config(db, fronter_host)
         for k in ('DBinst', 'admins', 'export'):
-           setattr(self, k, _config[k])
+            setattr(self, k, _config[k])
         self.plain_users = _config.get('plain_users', ())
         self.spread = _config.get('spread', None)
         self.logger.debug("Fronter: leser eksporterbare grupper")
@@ -122,8 +124,6 @@ class Fronter(object):
             self.semester = 'VÅR'
         else:
             self.semester = 'HØST'
-    # end __init__
-
 
     def expand_kull_group(self, g_id):
         """Recursively fetch all group members of group with g_id.
@@ -157,8 +157,6 @@ class Fronter(object):
             result.update(self.expand_kull_group(e_id))
 
         return result
-    # end expand_kull_group
-        
 
     def get_exportable_groups(self):
         """Return a dict with group names for groups that are to be exported
@@ -196,7 +194,7 @@ class Fronter(object):
                     logger.debug("Additional kull groups added: %s",
                                  list(addition.iterkeys()))
                     result.update(addition)
-                
+
                 # result is supposed to contain group names for groups where
                 # accounts are members. However, 'kull' groups with fronter
                 # spreads are also the ones with group members only. It is
@@ -206,20 +204,16 @@ class Fronter(object):
             return result
         elif 'FS_all' in self.export:
             # Is this used at all?
-            raise ValueError, "didn't think this was in use"
+            raise ValueError("didn't think this was in use")
         else:
             # No FS-synchronisation; return an empty dict.
             return {}
-    # end get_exportable_groups
-
 
     def _date_sort(self, x, y):
         """Sort by year, then by semester"""
         if(x[0] != y[0]):
             return cmp(x[0], y[0])
         return cmp(y[1][0], x[1][0])
-    # _date_sort
-
 
     def _group_name2key(self, name):
         """Remap a group name to a key that can be compared with FS data.
@@ -274,19 +268,25 @@ class Fronter(object):
         key = None
         count = len(fields) - start
         if fields[start] == "kurs":
-            if count == 8:                 # undenh
+            if count == 8:
+                # undenh
                 key = fields[start:-1]
-            elif count == 9:               # undakt
-                key = fields[start:-2] + [fields[-1],]
+            elif count == 9:
+                # undakt
+                key = fields[start:-2] + [fields[-1], ]
         elif fields[start] == "evu":
-            if count == 4:                 # kurs
+            if count == 4:
+                # kurs
                 key = fields[start:-1]
-            elif count == 5:               # kursakt
-                key = fields[start:-2] + [fields[-1],]
+            elif count == 5:
+                # kursakt
+                key = fields[start:-2] + [fields[-1], ]
         elif fields[start] == "kull":
-            if count == 4:                 # internal:uio.no:fs:kull:...
+            if count == 4:
+                # internal:uio.no:fs:kull:...
                 key = fields[start:]
-            if count == 5:                 # uio.no:fs:kull:...:{dlo,student,etc}
+            if count == 5:
+                # uio.no:fs:kull:...:{dlo,student,etc}
                 key = fields[start:-1]
         else:
             self.logger.warn("Ukjent kurstype: <%s> (group name: <%s>) "
@@ -299,13 +299,11 @@ class Fronter(object):
         # but there are a lot of them, and it's probably not a good idea to
         # generate an error message.
         if key is None:
-            self.logger.debug("Kunne ikke lage nøkkel av gruppenavn <%s>", name)
+            self.logger.debug("Kunne ikke lage nøkkel av gruppenavn <%s>",
+                              name)
             return None
 
         return fields2key(*key)
-    # end _group_name2key
-
-
 
     def read_kurs_data(self, undenh_file, undakt_file, evu_file,
                        kursakt_file, kull_file):
@@ -333,23 +331,22 @@ class Fronter(object):
         self._read_undenh_data(kurs, undenh_file)
         # ... and undakt
         self._read_undakt_data(kurs, undakt_file)
-        # ... and EVU-kurs 
+        # ... and EVU-kurs
         self._read_evu_data(kurs, evu_file)
         # ... and EVU-kursakt
         self._read_kursakt_data(kurs, kursakt_file)
-        # ... and finally kull 
+        # ... and finally kull
         self._read_kull_data(kurs, kull_file)
 
         # IVR 2007-10-13 TBD: How do we clean up the spreads?
         #
         # - Kull spreads cannot be cleaned up automatically, because they are
-        #   assigned manually. 
+        #   assigned manually.
         # - undenh/undakt/kurs/kursakt disappearing from the FS-data keep
         #   their spreads. These should be potentially tracked down and
         #   cleaned up. (I.e. those groups in Cerebrum with fronterspreads but
         #   without any corresponding fronter data should lose their spreads).
     # end read_kurs_data
-        
 
     def _read_undenh_data(self, kurs, undenh_file):
         """Scan all undenh in FS and populate the internal data structures for
@@ -388,7 +385,7 @@ class Fronter(object):
                 multi_id, {})["v%s" % undenh['versjonskode']] = 1
             self.emne_termnr.setdefault(
                 multi_id, {})[undenh['terminnr']] = 1
-            
+
             full_sko = "%02d%02d%02d" % (int(undenh['faknr_kontroll']),
                                          int(undenh['instituttnr_kontroll']),
                                          int(undenh['gruppenr_kontroll']))
@@ -400,7 +397,7 @@ class Fronter(object):
                 self.enhet2sko[key] = "%02d%02d00" % (
                     int(undenh['faknr_kontroll']),
                     int(undenh['instituttnr_kontroll']))
-            
+
             emne_tittel = undenh['emnenavn_bokmal']
             if len(emne_tittel) > 50:
                 emne_tittel = undenh['emnenavnfork']
@@ -415,8 +412,6 @@ class Fronter(object):
             self.kurs2navn[kurs_id] = names[0][2]
 
         self.logger.debug("Ferdig med undenh data fra FS")
-    # end _read_undenh_data
-        
 
     def _read_undakt_data(self, kurs, undakt_file):
         """Scan all undakt from FS and populate the internal data structures
@@ -436,7 +431,7 @@ class Fronter(object):
             enhet_id = fields2key(*id_seq)
             key = fields2key(enhet_id, undakt["aktivitetkode"])
             kurs_id = UE2KursID(*id_seq)
-                                
+
             # undakt is not exportable
             if key not in kurs:
                 continue
@@ -449,7 +444,8 @@ class Fronter(object):
                                  "undenh <%s>", key, enhet_id)
                 continue
 
-            self.logger.debug("registrerer undakt for <%s> (key: %s)", id_seq, key)
+            self.logger.debug("registrerer undakt for <%s> (key: %s)",
+                              id_seq, key)
 
             self.enhet2akt.setdefault(enhet_id, []).append(
                 (undakt['aktivitetkode'], undakt['aktivitetsnavn'],
@@ -457,9 +453,6 @@ class Fronter(object):
 
             if undakt["lmsrommalkode"]:
                 self.entity2room_profile[key] = undakt["lmsrommalkode"]
-    # end _read_undakt_data
-
-
 
     def _read_evu_data(self, kurs, evu_file):
         """Scan all EVU-kurs and populate the internal data structures
@@ -480,19 +473,18 @@ class Fronter(object):
             if key not in kurs:
                 continue
 
-            self.logger.debug("registrerer EVU-kurs <%s> (key: %s)", id_seq, key)
+            self.logger.debug("registrerer EVU-kurs <%s> (key: %s)",
+                              id_seq, key)
             self.kurs2enhet.setdefault(key, []).append(key)
-            self.enhet2sko[key] = "%02d%02d00" % (int(evu['faknr_adm_ansvar']),
-                                                  int(evu['instituttnr_adm_ansvar']))
+            self.enhet2sko[key] = "%02d%02d00" % (
+                int(evu['faknr_adm_ansvar']),
+                int(evu['instituttnr_adm_ansvar']))
             # The correct name for EVU-kurs is always readily available (as
             # opposed to multisemester subjects (flersemesteremner)).
             self.kurs2navn[key] = evu['etterutdkursnavn']
-            
+
             if evu["lmsrommalkode"]:
                 self.entity2room_profile[key] = evu["lmsrommalkode"]
-    # end _read_evu_data
-
-
 
     def _read_kursakt_data(self, kurs, kursakt_file):
         """Scan all EVU-kursakt and populate the internal data structures for
@@ -505,7 +497,7 @@ class Fronter(object):
 
         for kursakt in EduDataGetter(kursakt_file, logger).iter_kursakt():
             id_seq = (self.EVU_PREFIX, kursakt['etterutdkurskode'],
-                     kursakt['kurstidsangivelsekode'])
+                      kursakt['kurstidsangivelsekode'])
             key = fields2key(*id_seq)
             akt_id = fields2key(key, kursakt["aktivitetskode"])
 
@@ -518,7 +510,7 @@ class Fronter(object):
                 self.logger.debug("ignorerer EVU-kursakt for <%s> "
                                   "(EVU-kurs %s)", akt_id, key)
                 continue
-                
+
             self.logger.debug("registrerer EVU-kursakt for <%s> (key: %s)",
                               id_seq, akt_id)
             self.enhet2akt.setdefault(key, []).append(
@@ -526,10 +518,7 @@ class Fronter(object):
 
             if kursakt["lmsrommalkode"]:
                 self.entity2room_profile[key] = kursakt["lmsrommalkode"]
-    # end _read_kursakt_data
 
-            
-        
     def _read_kull_data(self, kurs, kull_file):
         """Scan all kull and populate the internal data structures for those
         that are to be exported.
@@ -561,9 +550,7 @@ class Fronter(object):
 
             if kull["lmsrommalkode"]:
                 self.entity2room_profile[key] = kull["lmsrommalkode"]
-    # end _read_kull_data
 
-                    
     def pwd(self, p):
         pwtype, password = p.split(":")
         type_map = {'md5': 1,
@@ -576,7 +563,6 @@ class Fronter(object):
             ret['password'] = password
         return ret
 
-    
     def useraccess(self, access):
         # TODO: move to config section
         mapping = {
@@ -594,14 +580,15 @@ class Fronter(object):
         if name is None:
             return 'UiOstdrom2003'
         return name
-# end class Fronter
 
 
 # A couple of shorthands, to avoid sprinkling the code with magic constants
-admin_lite = {'gacc': '250',
-              'racc': '100',}
-view_contacts = {'gacc': '100',
-                 'racc': '0',}
+admin_lite = {
+    'gacc': '250',
+    'racc': '100', }
+view_contacts = {
+    'gacc': '100',
+    'racc': '0', }
 
 # A mapping with permissions for different contexts:
 #
@@ -616,7 +603,7 @@ view_contacts = {'gacc': '100',
 # permissions defined for a specific fronter structure; e.g. 'tolk' has
 # no permissions defined for 'larer') This means that that particular role
 # does NOT have any permissions wrt the specified group/structure. The code
-# must be prepared for such an eventuality. 
+# must be prepared for such an eventuality.
 #
 # The same roles in different sub-dictionaries (may) have different set of
 # attributes.
@@ -676,8 +663,7 @@ kind2permissions = {
                'tilsyn': {'felles': Fronter.ROLE_READ,
                           # 'larer': NOTIMPLEMENTED on purpose
                           # 'korridor': NOTIMPLEMENTED on purpose
-                          'student': view_contacts},
-    },
+                          'student': view_contacts}, },
     #
     # Permissions for undakt/EVU-kursaktivitet
     'undakt': {'admin': {'felles': Fronter.ROLE_CHANGE,
@@ -686,10 +672,10 @@ kind2permissions = {
                          'korridor': admin_lite,
                          'student': view_contacts},
                'dlo':  {'felles': Fronter.ROLE_CHANGE,
-                         'larer': Fronter.ROLE_CHANGE,
-                         'undakt': Fronter.ROLE_CHANGE,                        
-                         'korridor': admin_lite,
-                         'student': view_contacts},
+                        'larer': Fronter.ROLE_CHANGE,
+                        'undakt': Fronter.ROLE_CHANGE,
+                        'korridor': admin_lite,
+                        'student': view_contacts},
                'fagansvar': {'felles': Fronter.ROLE_CHANGE,
                              'larer': Fronter.ROLE_CHANGE,
                              'undakt': Fronter.ROLE_CHANGE,
@@ -739,19 +725,18 @@ kind2permissions = {
                         # 'larer': NOTIMPLEMENTED on purpose
                         'undakt': Fronter.ROLE_READ,
                         # 'korridor': NOTIMPLEMENTED on purpose
-                        'student': view_contacts,},
+                        'student': view_contacts, },
                'tilsyn': {'felles': Fronter.ROLE_READ,
                           # 'larer': NOTIMPLEMENTED on purpose
                           'undakt': Fronter.ROLE_READ,
                           # 'korridor': NOTIMPLEMENTED on purpose
-                          'student': view_contacts,},
-    },
+                          'student': view_contacts, }, },
     #
     # Permissions for kull.
     'kull': {'admin': {'kullrom': Fronter.ROLE_CHANGE,
                        'korridor': admin_lite, },
              'dlo':  {'kullrom': Fronter.ROLE_CHANGE,
-                      'korridor': admin_lite, }, 
+                      'korridor': admin_lite, },
              'fagansvar': {'kullrom': Fronter.ROLE_CHANGE,
                            'korridor': admin_lite, },
              'foreleser': {'kullrom': Fronter.ROLE_DELETE,
@@ -759,7 +744,7 @@ kind2permissions = {
              'gjestefore': {'kullrom': Fronter.ROLE_DELETE,
                             'korridor': admin_lite, },
              'gruppelære': {'kullrom': Fronter.ROLE_DELETE,
-                            'korridor': admin_lite,},
+                            'korridor': admin_lite, },
              'hovedlærer': {'kullrom': Fronter.ROLE_CHANGE,
                             'korridor': admin_lite, },
              'it-ansvarl': {'kullrom': Fronter.ROLE_CHANGE,
@@ -767,19 +752,19 @@ kind2permissions = {
              'lærer': {'kullrom': Fronter.ROLE_CHANGE,
                        'korridor': admin_lite, },
              'sensor': {'kullrom': Fronter.ROLE_DELETE,
-                        'korridor': admin_lite,},
+                        'korridor': admin_lite, },
              'studiekons': {'kullrom': Fronter.ROLE_CHANGE,
-                            'korridor': admin_lite,},
-             'tolk': {'kullrom': Fronter.ROLE_READ,},
+                            'korridor': admin_lite, },
+             'tolk': {'kullrom': Fronter.ROLE_READ,
                       # 'korridor': NOTIMPLEMENTED on purpose
-             'tilsyn': {'kullrom': Fronter.ROLE_READ,},
+                      },
+             'tilsyn': {'kullrom': Fronter.ROLE_READ,
                         # 'korridor': NOTIMPLEMENTED on purpose
-    },
+                        },
+             },
     'student': {'undakt': Fronter.ROLE_WRITE,
-                'undenh': Fronter.ROLE_WRITE,
-    },
+                'undenh': Fronter.ROLE_WRITE, },
 }
-    
 
 
 def process_undakt_permissions(template, korridor, fellesrom,
@@ -787,7 +772,7 @@ def process_undakt_permissions(template, korridor, fellesrom,
     """Assign fronter permissions to undakt/evu-kursakt roles.
 
     Works much like L{process_undenh_permissions}, except for
-    undakt/EVU-kursakt. 
+    undakt/EVU-kursakt.
 
     @param template:
       A template for nameing the fronter groups (for different roles). A
@@ -809,7 +794,7 @@ def process_undakt_permissions(template, korridor, fellesrom,
 
           uio.no:fs:kurs:185:nor4308:1:høst:2007:1:student:1-1
     @type studentnode: basestring
-      
+
     @param undakt_node:
       Fronter room id for this undakt/kursakt. E.g.:
 
@@ -849,11 +834,9 @@ def process_undakt_permissions(template, korridor, fellesrom,
     # The student group has to have 'view contacts' on itself
     new_acl.setdefault(studentnode, {})[studentnode] = view_contacts
 
-    # Finally, the student group has permissions in the undakt/kursakt room. 
+    # Finally, the student group has permissions in the undakt/kursakt room.
     new_acl.setdefault(undakt_node, {})[studentnode] = {
         'role': student_permissions['undakt']}
-# end process_undakt_permissions
-    
 
 
 def process_undenh_permissions(template, korridor, fellesrom,
@@ -873,7 +856,7 @@ def process_undenh_permissions(template, korridor, fellesrom,
 
     @param korridor:
       Student corridor id for the given undenh/EVU-kurs. E.g.:
-      
+
           STRUCTURE/Studentkorridor:KURS:185:SAS1500:1:HØST:2007:1
     @type korridor: basestring
 
@@ -893,7 +876,7 @@ def process_undenh_permissions(template, korridor, fellesrom,
     student_permissions = kind2permissions['student']
     for group_name in permissions:
         role_permissions = permissions[group_name]
-        
+
         xml_name = (template % group_name).lower()
 
         # Every group has 'view contacts' on itself.
@@ -918,9 +901,7 @@ def process_undenh_permissions(template, korridor, fellesrom,
         'role': student_permissions['undenh']}
     # ... and they have 'view contacts' on their own group.
     new_acl.setdefault(studentnode, {})[studentnode] = view_contacts
-# end process_undenh_permissions
-        
-        
+
 
 def process_kull_permissions(template, korridor, kullrom, studentnode):
     """Assign fronter permissions to 'kull' roles.
@@ -969,11 +950,9 @@ def process_kull_permissions(template, korridor, kullrom, studentnode):
     # baardj thinks that students should not have 'view contacts' on the
     # entire 'kull'.
     # new_acl.setdefault(studentnode, {})[studentnode] = view_contacts
-    
+
     # However, students should have write access to the room itself.
     new_acl.setdefault(kullrom, {})[studentnode] = {'role': fronter.ROLE_WRITE}
-# end process_kull_permissions
-
 
 
 class FronterXML(object):
@@ -991,7 +970,7 @@ class FronterXML(object):
         self.cf_id = self.fronter.fronter_host
 
     def start_xml_file(self, kurs):
-        self.xml.comment("Eksporterer data om følgende emner:\n  " + 
+        self.xml.comment("Eksporterer data om følgende emner:\n  " +
                          "\n  ".join(kurs))
         self.xml.startTag(self.rootEl)
         self.xml.startTag('properties')
@@ -1027,8 +1006,8 @@ class FronterXML(object):
         self.xml.emptyTag('systemrole',
                           {'systemroletype':
                            fronter.useraccess(data['USERACCESS'])})
-        #self.xml.startTag('extension')
-        #self.xml.endTag('extension')
+        # self.xml.startTag('extension')
+        # self.xml.endTag('extension')
         self.xml.endTag('person')
 
     def group_to_XML(self, id, recstatus, data):
@@ -1069,7 +1048,7 @@ class FronterXML(object):
         #
         # Old rooms are never to be deleted.
         if recstatus == Fronter.STATUS_DELETE:
-            return 
+            return
         self.xml.startTag('group', {'recstatus': recstatus})
         self.xml.startTag('sourcedid')
         self.xml.dataElement('source', self.DataSource)
@@ -1140,21 +1119,21 @@ class FronterXML(object):
             # The following member ids are groups.
             self.xml.dataElement('idtype', '2')
             acl = groups[gname]
-            if acl.has_key('role'):
+            if 'role' in acl:
                 self.xml.startTag('role', {'recstatus': recstatus,
                                            'roletype': acl['role']})
                 self.xml.dataElement('status', '1')
                 self.xml.startTag('extension')
-                self.xml.emptyTag('memberof', {'type': 2}) # Member of room.
+                self.xml.emptyTag('memberof', {'type': 2})  # Member of room.
             else:
                 self.xml.startTag('role', {'recstatus': recstatus})
                 self.xml.dataElement('status', '1')
                 self.xml.startTag('extension')
-                self.xml.emptyTag('memberof', {'type': 1}) # Member of group.
+                self.xml.emptyTag('memberof', {'type': 1})  # Member of group.
                 # Fronter says that this tag should be ommited if the target is
                 # a corridor.
-                if not (new_group.has_key(node) and \
-                        new_group[node]['allow_room'] == True and \
+                if not (node in new_group and
+                        new_group[node]['allow_room'] == True and
                         new_group[node]['allow_contact'] == False):
                     self.xml.emptyTag('groupaccess',
                                       {'contactAccess': acl['gacc'],
@@ -1168,7 +1147,6 @@ class FronterXML(object):
     def end(self):
         self.xml.endTag(self.rootEl)
         self.xml.endDocument()
-
 
 
 def init_globals():
@@ -1230,17 +1208,17 @@ def init_globals():
 
     global entity2name
     group = Factory.get("Group")(db)
-    entity2name = dict((x["entity_id"], x["entity_name"]) for x in 
+    entity2name = dict((x["entity_id"], x["entity_name"]) for x in
                        group.list_names(const.account_namespace))
     entity2name.update((x["entity_id"], x["entity_name"]) for x in
                        group.list_names(const.group_namespace))
 
-    
     global fronter
     # TODO: Use the data files from FS instead of fetching data directly from
     # the FS database
-    assert undenh_file # and undakt_file and evu_file and kursakt_file and kull_file
-    
+    assert undenh_file
+    # assert undakt_file and evu_file and kursakt_file and kull_file
+
     fronter = Fronter(host, db, const,
                       undenh_file, undakt_file, evu_file, kursakt_file,
                       kull_file, logger=logger)
@@ -1253,11 +1231,11 @@ def init_globals():
 
     global fxml
     fxml = FronterXML(filename,
-                      cf_dir = cf_dir,
-                      debug_file = debug_file,
-                      debug_level = debug_level,
-                      fronter = fronter,
-                      include_password = set_pwd)
+                      cf_dir=cf_dir,
+                      debug_file=debug_file,
+                      debug_level=debug_level,
+                      fronter=fronter,
+                      include_password=set_pwd)
 
     # Get uname -> account-data mapping for all users.
     global new_users
@@ -1279,6 +1257,7 @@ def list_users_for_fronter_export():  # TODO: rewrite this
         ret.append(tmp)
     return ret
 
+
 # Somehow a set of users who should not get exported to Fronter appears in
 # Fronter. We wanna filter 'em out. It's a hack, but it is faster to
 # implement ;)
@@ -1298,6 +1277,7 @@ def find_accounts_to_exclude():
             ac.find(y['account_id'])
             r.append(ac.account_name)
     return r
+
 
 def get_new_users():
     # Fetch userinfo in Cerebrum.
@@ -1392,7 +1372,7 @@ def get_sted(stedkode=None, entity_id=None):
     # Not publishable, move one step up in the OU structure:
     parent_id = sted.get_parent(const.perspective_sap)
     if parent_id is not None and parent_id != sted.entity_id:
-        return get_sted(entity_id = parent_id)
+        return get_sted(entity_id=parent_id)
     return None
 
 
@@ -1450,9 +1430,9 @@ def register_supergroups():
         else:
             parent_struct_id = 'UREG2000@uio.no imported groups'
 
-        if not new_group.has_key(parent_struct_id):
+        if parent_struct_id not in new_group:
             register_group(parent_struct_id, parent_struct_id, group_struct_id,
-                    allow_room=False, allow_contact=True)
+                           allow_room=False, allow_contact=True)
 
         register_group(group.description, group.group_name,
                        parent_struct_id, allow_room=False,
@@ -1471,22 +1451,22 @@ def register_supergroups():
                 logger.warn("Member id=%s of group name=%s id=%s has no name",
                             member_id, group.group_name, group.entity_id)
                 continue
-            
-            if new_users.has_key(uname):
+
+            if uname in new_users:
                 if new_users[uname]['USERACCESS'] != 'administrator':
                     new_users[uname]['USERACCESS'] = 'allowlogin'
-                    logger.debug("<%s> gets member <%s>", group.group_name, uname)
+                    logger.debug("<%s> gets member <%s>",
+                                 group.group_name, uname)
                     new_groupmembers.setdefault(group.group_name,
                                                 {})[uname] = 1
-# end register_supergroups
-
 
 
 new_acl = {}
 new_groupmembers = {}
-
-
 new_rooms = {}
+new_group = {}
+
+
 def register_room(title, room_id, parent_id, profile_name=None):
     new_rooms[room_id] = {
         'title': title,
@@ -1494,7 +1474,6 @@ def register_room(title, room_id, parent_id, profile_name=None):
         'profile': fronter.profile(profile_name)}
 
 
-new_group = {}
 def register_group(title, group_id, parent_id,
                    allow_room=False, allow_contact=False):
     """Adds info in new_group about group."""
@@ -1513,9 +1492,9 @@ def build_structure(sko, allow_room=False, allow_contact=False):
         return None
 
     struct_id = "STRUCTURE/Sko:185:%s" % sko
-    if ((not new_group.has_key(struct_id)) or
-        (allow_room and not new_group[struct_id]['allow_room']) or
-        (allow_contact and not new_group[struct_id]['allow_contact'])):
+    if (struct_id not in new_group or
+            (allow_room and not new_group[struct_id]['allow_room']) or
+            (allow_contact and not new_group[struct_id]['allow_contact'])):
         # Insert ancestors first; by not passing $allow_* on up the
         # tree, we're causing nodes that are created purely as
         # ancestors to allow neither rooms nor contacts.
@@ -1546,13 +1525,11 @@ def build_structure(sko, allow_room=False, allow_contact=False):
                         (sko, root_sko))
             parent = build_structure(root_sko)
 
-
         ou_name = sted.get_name_with_language(name_variant=const.ou_name,
                                               name_language=const.language_nb,
                                               default="")
         register_group(ou_name, struct_id, parent, allow_room, allow_contact)
     return struct_id
-# end build_structure
 
 
 def make_profile(*rest):
@@ -1566,7 +1543,6 @@ def make_profile(*rest):
 
     key = ":".join(rest)
     return fronter.entity2room_profile.get(key)
-# end make_profile
 
 
 def process_single_enhet_id(enhet_id, struct_id, emnekode,
@@ -1582,8 +1558,9 @@ def process_single_enhet_id(enhet_id, struct_id, emnekode,
             # manually to test fronter functionality. It's no big deal that
             # they fail.
             aktkode, aktnavn = akt
-            logger.info("Under henting av tidsdata for aktivitet i 'process_single_enhet_id'"
-                        ": ValueError: '%s' '%s' '%s' from <%s>" %
+            logger.info("Under henting av tidsdata for aktivitet i "
+                        "'process_single_enhet_id': ValueError: "
+                        "'%s' '%s' '%s' from <%s>" %
                         (emnekode, aktkode, aktnavn, akt))
 
         aktstud = "uio.no:fs:%s:student:%s" % (enhet_id.lower(),
@@ -1595,7 +1572,7 @@ def process_single_enhet_id(enhet_id, struct_id, emnekode,
         fellesrom_id = "ROOM/Felles:%s" % struct_id
         process_undakt_permissions(template_id, undervisning_node,
                                    fellesrom_id, aktstud, akt_rom_id)
-                                   
+
         # Hvis denne enheten har blitt flagget med "process_akt_data",
         # så er det nokså mulig at tilhørende aktiviteter kommer fra
         # ulike semestre, og at aktivitetene må derfor selv designere
@@ -1609,8 +1586,6 @@ def process_single_enhet_id(enhet_id, struct_id, emnekode,
         akt_tittel = "%s - %s%s" % (emnekode.upper(), aktnavn, termin_suffix)
         register_room(akt_tittel, akt_rom_id, enhet_node,
                       make_profile(enhet_id, aktkode))
-# end process_single_enhet_id
-
 
 
 def process_kurs2enhet():
@@ -1670,31 +1645,33 @@ def process_kurs2enhet():
             if int(termnr) != 1:
                 if termk.upper() != naa_termk:
                     logger.debug("Termnr: '%s'" % termnr)
-                    logger.debug("Fant 'forskuttert' enhet: %s - %s %s %s %s. termin" %
+                    logger.debug("Fant 'forskuttert' enhet: %s - %s %s %s %s. "
+                                 "termin" %
                                  (emnekode.upper(), fronter.kurs2navn[kurs_id],
                                   termk.upper(), aar, termnr))
                     termk = naa_termk
                     aar = str(naa_aar)
-                    termnr = int(termnr) - 1 # termnr usually string, but need
-                                             # to temporarily int it to calculate
+                    # termnr usually string, but need to temporarily int it to
+                    # calculate
+                    termnr = int(termnr) - 1
                     process_akt_data = True
 
             tittel = "%s - %s, %s %s" % (emnekode.upper(),
                                          fronter.kurs2navn[kurs_id],
                                          termk.upper(), aar)
-            if (# Det finnes flere und.enh. i semesteret angitt av
-                # 'terminkode' og 'arstall' hvor både 'institusjonsnr'
-                # og 'emnekode' er like, men 'terminnr' varierer.
-                len(fronter.emne_termnr[multi_id]) > 1
-                # Det finnes mer enn en und.enh. som svarer til samme
-                # "kurs", e.g. både 'høst 2004, terminnr=1' og 'vår
-                # 2005, terminnr=2' finnes.
-                or len(enhet_sorted) > 1
-                # Denne und.enh. har terminnr større enn 1, slik at
-                # det er sannsynlig at det finnes und.enh. fra
-                # tidligere semester som hører til samme "kurs".
-                or int(termnr) > 1):
-                #
+            if (
+                    # Det finnes flere und.enh. i semesteret angitt av
+                    # 'terminkode' og 'arstall' hvor både 'institusjonsnr' og
+                    # 'emnekode' er like, men 'terminnr' varierer.
+                    len(fronter.emne_termnr[multi_id]) > 1 or
+                    # Det finnes mer enn en und.enh. som svarer til samme
+                    # "kurs", e.g. både 'høst 2004, terminnr=1' og 'vår
+                    # 2005, terminnr=2' finnes.
+                    len(enhet_sorted) > 1 or
+                    # Denne und.enh. har terminnr større enn 1, slik at
+                    # det er sannsynlig at det finnes und.enh. fra
+                    # tidligere semester som hører til samme "kurs".
+                    int(termnr) > 1):
                 # Dersom minst en av testene over slår til, er det her
                 # snakk om et "flersemesteremne" (eller i alle fall et
                 # emne som i noen varianter undervises over flere
@@ -1707,7 +1684,7 @@ def process_kurs2enhet():
                 multi_enhet.append("v%s" % versjon)
             if multi_enhet:
                 tittel += ", " + ", ".join(multi_enhet)
-                
+
             # We register a corridor for them rooms
             sem, aar = struct_id.lower().split(":")[4:6]
             korr_name = "Kurs %s %s" % (sem, aar)
@@ -1727,7 +1704,8 @@ def process_kurs2enhet():
             for enhet_id in fronter.kurs2enhet[kurs_id]:
                 termin_suffix = ""
                 if multi_termin:
-                    pass # term-suffix now added above for all courses
+                    # term-suffix now added above for all courses
+                    pass
 
                 enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
                 template_id = "uio.no:fs:%s:%s" % (enhet_id.lower(), "%s")
@@ -1762,7 +1740,8 @@ def process_kurs2enhet():
                 process_undenh_permissions(template_id, korr_node,
                                            fellesrom_id, enhstud)
 
-                # Just like undenh, EVU-kurs have one fellesrom and one lærerrom.
+                # Just like undenh, EVU-kurs have one fellesrom and one
+                # lærerrom.
                 register_room("%s - Fellesrom" % kurskode.upper(),
                               fellesrom_id, korr_node, make_profile(enhet_id))
                 process_single_enhet_id(enhet_id, struct_id,
@@ -1775,10 +1754,10 @@ def process_kurs2enhet():
                 sko_node = build_structure(fronter.enhet2sko[enhet_id])
                 struct_id = enhet_id.upper()
                 # We'll only make one corridor for each studieprogram
-                stprog_node = "STRUCTURE/Studieprogramkorridor:%s" % \
-                                    stprog.upper()
+                stprog_node = "STRUCTURE/Studieprogramkorridor:%s" % (
+                    stprog.upper())
                 kull_node = "ROOM/Studieprogram:%s" % struct_id
-                
+
                 # TODO: Should we test if it is allready created? Will we
                 # achieve better performance?
                 register_group("Studieprogramkorridor for %s" % (stprog,),
@@ -1817,36 +1796,37 @@ def usage(exitcode):
     print "Usage: generate_fronter_full.py OUTPUT_FILENAME"
     sys.exit(exitcode)
 
-### This stuff can sort the groups by dependency.
-### It is terribly slow. We should not need to use this.
-#def sort_groups(groups):
-#    logger.info('Starting sort')
-#    grpkeys = groups.keys()
-#    s = []
-#
-#    # Makin' a list of groups without children
-#    for x in grpkeys:
-#        childless = True
-#        for y in grpkeys:
-#            if x == groups[y]['parent']:
-#                childless = False
-#        if childless:
-#            s.append(x)
-#    logger.info('Childless nodes collected')
-#
-#    # Sorting the groups
-#    r = []
-#    for x in s:
-#        tmp = []
-#        t = x
-#        while groups[t]['parent'] != t and t not in r:
-#            tmp.append(t)
-#            t = groups[t]['parent']
-#        if t not in r:
-#            tmp.append(t)
-#        r.extend(tmp[::-1])
-#    logger.info('Sort finished')
-#    return r
+# This stuff can sort the groups by dependency.
+# It is terribly slow. We should not need to use this.
+#   def sort_groups(groups):
+#       logger.info('Starting sort')
+#       grpkeys = groups.keys()
+#       s = []
+
+#       # Makin' a list of groups without children
+#       for x in grpkeys:
+#           childless = True
+#           for y in grpkeys:
+#               if x == groups[y]['parent']:
+#                   childless = False
+#           if childless:
+#               s.append(x)
+#       logger.info('Childless nodes collected')
+
+#       # Sorting the groups
+#       r = []
+#       for x in s:
+#           tmp = []
+#           t = x
+#           while groups[t]['parent'] != t and t not in r:
+#               tmp.append(t)
+#               t = groups[t]['parent']
+#           if t not in r:
+#               tmp.append(t)
+#           r.extend(tmp[::-1])
+#       logger.info('Sort finished')
+#       return r
+
 
 def main():
     # Proper upper/lower casing of Norwegian letters.
@@ -1879,5 +1859,6 @@ def main():
 
     logger.info("generate_fronter_full is done")
 
+
 if __name__ == '__main__':
-     main()
+    main()
