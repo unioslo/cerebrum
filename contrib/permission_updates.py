@@ -40,17 +40,19 @@ the database.
 All changes are logged as INFO, while the rest is only DEBUG. This is to make
 changes easier to spot.
 """
-import getopt, sys
+import getopt
+import sys
 
-import cerebrum_path, cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet
 from Cerebrum import Errors
 
+
+logger = Factory.get_logger("tee")
 db = Factory.get('Database')()
 db.cl_init(change_program="permission_updates.py")
 co = Factory.get('Constants')(db)
-logger = Factory.get_logger("tee")
+
 
 def usage(exitcode=0):
     print """Usage: %(filename)s [options]
