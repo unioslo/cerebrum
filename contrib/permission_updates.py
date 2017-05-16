@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012, 2014 University of Oslo, Norway
+# Copyright 2012-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -40,79 +40,71 @@ the database.
 All changes are logged as INFO, while the rest is only DEBUG. This is to make
 changes easier to spot.
 """
-import getopt
+import argparse
+import os
 import sys
 
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet
-from Cerebrum import Errors
 
 
 logger = Factory.get_logger("tee")
-db = Factory.get('Database')()
-db.cl_init(change_program="permission_updates.py")
-co = Factory.get('Constants')(db)
 
 
-def usage(exitcode=0):
-    print """Usage: %(filename)s [options]
+class OpsetConfigError(ValueError):
+    pass
 
-    %(doc)s
-    Updates the content of OpSets in the db by the new definitions in this
-    script. The script is running in dryrun as default, to see through changes
-    before committing.
 
-    --import    Import/update opset-definitions in database
-    --convert   Convert old opset role entries to new op_set_id
+def convert_opsets(db, opsets):
+    """ Changes all granted opsets from `opsets.convert_mapping`.
 
-    --config    Specify what config file to use. Defaults to opset_config
-                which should be in python's path.
+    For each mapped opset (old_opset -> new_opset) in `convert_mapping`, any
+    granted access to the old_opset is changed to the new_opset.
 
-    --commit    Commit changes
+    This is needed when existing opsets are refactored (e.g. split, combined
+    or just renamed).
 
-    --help      Show this message
-    """ % {'filename': sys.argv[0],
-           'doc': __doc__}
-    sys.exit(exitcode)
-
-def convert_existing_opsets(dryrun):
-    """Convert the opsets in db with those defined in convert_mapping, by
-    changing their names."""
+    """
     logger.debug('Convert existing opsets to new ones')
+
+    convert_mapping = getattr(opsets, 'convert_mapping', dict())
+    if not convert_mapping:
+        raise OpsetConfigError("No opset mappings defined in convert_mapping!")
+
     baos = BofhdAuthOpSet(db)
     name2id = {}
-    for name in opset_config.convert_mapping.keys():
+    for name in convert_mapping.keys():
         baos.clear()
         baos.find_by_name(name)
         name2id[name] = int(baos.op_set_id)
-        if not opset_config.convert_mapping[name]:
+        if not convert_mapping[name]:
             continue
         baos.clear()
-        baos.find_by_name(opset_config.convert_mapping[name])
-        name2id[opset_config.convert_mapping[name]] = int(baos.op_set_id)
+        baos.find_by_name(convert_mapping[name])
+        name2id[convert_mapping[name]] = int(baos.op_set_id)
 
-    for src, target in opset_config.convert_mapping.items():
+    for src, target in convert_mapping.items():
         if not target:
             continue
         logger.info('Converting opset: %s -> %s', src, target)
-        db.execute("""
-            UPDATE [:table schema=cerebrum name=auth_role]
+        db.execute(
+            """ UPDATE [:table schema=cerebrum name=auth_role]
             SET op_set_id=:new_id
-            WHERE op_set_id=:old_id""", {
-                'old_id': name2id[src], 'new_id': name2id[target]})
-    if dryrun:
-        db.rollback()
-        logger.info('Rolled back changes')
-    else:
-        db.commit()
-        logger.info('Changes committed')
+            WHERE op_set_id=:old_id""",
+            {'old_id': name2id[src],
+             'new_id': name2id[target]})
 
 
-def fix_opset(name, contents):
-    """Fix an operation set by giving it the operations defined in operation_sets,
-    and removing other operations that shouldn't be there. If the opset doesn't
-    exist, it is first created."""
+def fix_opset(db, name, contents):
+    """ Update a single opset.
+
+    Creates the opset name if it doesn't exist, and then syncs the
+    operations/permissions in `contents` to the Cerebrum database.
+
+    """
     logger.debug('Checking opset %s' % name)
+    co = Factory.get('Constants')(db)
     baos = BofhdAuthOpSet(db)
     baos.clear()
     try:
@@ -137,8 +129,8 @@ def fix_opset(name, contents):
         else:
             # already there
             del current_operations[int(op_code)]
-        current_attrs = [row['attr']
-                         for row in baos.list_operation_attrs(current_op_id)]
+        current_attrs = [row['attr'] for row in
+                         baos.list_operation_attrs(current_op_id)]
         for a in contents[k].get('attrs', []):
             if a not in current_attrs:
                 baos.add_op_attrs(current_op_id, a)
@@ -150,66 +142,111 @@ def fix_opset(name, contents):
             logger.info("Remove attr for %s:%s: %s", name, k, a)
 
     for op in current_operations:
-        #TBD: In theory this should be op_id, should
+        # TBD: In theory this should be op_id, should
         # the DB have a unique constraint?
         baos.del_operation(op, current_operations[op])
         logger.info('OpSet %s had unwanted operation %s, removed it',
                     name, co.AuthRoleOp(op))
     baos.write_db()
 
-def fix_opsets(dryrun, opsets):
-    """Go fix all opsets defined in operation_sets, by sending them to
-    fix_opset."""
-    for k, v in opsets.operation_sets.items():
-        fix_opset(k, v)
-    if dryrun:
-        db.rollback()
-        logger.info('Rolled back changes')
+
+def import_opsets(db, opsets):
+    """ Import or update opsets from ``opsets.operation_sets`.
+
+    Iterates through the opset items definded in the `operation_sets` dict.
+    Each opset is updated using `fix_opset`.
+    """
+
+    operation_sets = getattr(opsets, 'operation_sets', dict())
+    if not operation_sets:
+        raise OpsetConfigError("No opsets defined in operation_sets!")
+
+    for k, v in operation_sets.items():
+        fix_opset(db, k, v)
+
+
+def get_opset_config(filename=None):
+    """ Load an `opset_config` module.
+
+    :param str filename:
+        A python file to load as the opset_config module.
+        If `None`, we just `import opset_config`. This is the default.
+
+    :return Module:
+        Returns the imported opset_config module.
+    """
+    if filename is None:
+        import opset_config
     else:
+        import imp
+        opset_config = imp.load_source('opset_config', filename)
+
+    if opset_config and 'opset_config' not in sys.modules:
+        sys.modules['opset_config'] = opset_config
+    return opset_config
+
+
+def make_parser():
+    parser = argparse.ArgumentParser(
+        description="Update opsets in Cerebrum database")
+
+    parser.add_argument(
+        '--commit',
+        dest='commit',
+        action='store_true',
+        default=False,
+        help="Commit changes to the database (default: %(default)s)")
+    parser.add_argument(
+        '--config',
+        metavar="FILE",
+        help=("Path to the opset_config config module. Imports 'opset_config'"
+              " from PYTHONPATH by default."))
+
+    action = parser.add_mutually_exclusive_group(required=True)
+    action.add_argument(
+        '--convert',
+        dest='action',
+        action='store_const',
+        const=convert_opsets,
+        help="Convert old opset role entries to new op_set_id")
+    action.add_argument(
+        '--import',
+        dest='action',
+        action='store_const',
+        const=import_opsets,
+        help="Import/update opset-definitions in database")
+
+    return parser
+
+
+def main(args=None):
+    parser = make_parser()
+    args = parser.parse_args(args)
+
+    logger.info("Starting permission_updates.py, {!r}".format(args))
+
+    opset_config = get_opset_config(args.config)
+    logger.info("Using opset_config '{!s}'".format(
+        os.path.abspath(opset_config.__file__)))
+
+    db = Factory.get('Database')()
+    db.cl_init(change_program="permission_updates.py")
+
+    try:
+        args.action(db, opset_config)
+    except OpsetConfigError as e:
+        logger.error("Aborting, invalid config: {}".format(e))
+        raise SystemExit(1)
+
+    if args.commit:
         db.commit()
         logger.info('Changes committed')
+    else:
+        db.rollback()
+        logger.info('Rolled back changes')
 
-def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                'h',
-               ['help',
-                'commit',
-                'import',
-                'config=',
-                'convert'])
-    except getopt.GetoptError:
-        usage(1)
-    if not opts:
-        print "No action given"
-        usage(1)
+    logger.info("Done")
 
-    dryrun = True
-
-    # First pick out the auxiliary options...
-    for opt, val in opts:
-        if opt in ('-h', '--help'):
-            usage()
-        elif opt in ('--commit',):
-            # ...most significantly with regards to --commit
-            dryrun = False
-        elif opt in ('--config',):
-            raise Exception('Not implemented yet, can only use default for now')
-    try:
-        import opset_config
-    except ImportError:
-        print "No default opset_config found."
-        sys.exit(2)
-    if not opset_config.operation_sets:
-        print "No operation sets defined. Abort"
-        sys.exit(1)
-
-    # Then do whatever it is we're supposed to actually be doing
-    for opt, val in opts:
-        if opt in ('--import',):
-            fix_opsets(dryrun=dryrun, opsets=opset_config)
-        elif opt in ('--convert',):
-            convert_existing_opsets(dryrun=dryrun)
 
 if __name__ == '__main__':
     main()
