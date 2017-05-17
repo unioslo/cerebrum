@@ -35,7 +35,6 @@ from collections import defaultdict
 
 import cerebrum_path
 import cereconf
-cerebrum_path, cereconf  # Satisfy the linters.
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
@@ -43,6 +42,8 @@ from Cerebrum import Errors
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 from Cerebrum.modules.no.uio.EphorteWS import EphorteWSError
 from Cerebrum.modules.no.uio.Ephorte import EphortePermission
+
+cerebrum_path, cereconf  # Satisfy the linters.
 
 logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')(client_encoding='utf-8')
@@ -545,7 +546,7 @@ def update_person_perms(person, client, remove_superfluous=False):
                         userid, *perm)
             try:
                 client.disable_user_authz(userid, perm[0], perm[1])
-            except Exception, e:
+            except Exception:
                 logger.exception(
                     "Failed to remove perm for %s: %s@%s, authorized=%s",
                     userid, *perm)
@@ -566,7 +567,7 @@ def update_person_perms(person, client, remove_superfluous=False):
 
         try:
             client.ensure_access_code_authorization(userid, *perm)
-        except Exception, e:
+        except Exception:
             logger.exception(
                 u"Could not ensure perm for %s: %s@%s, authorized=%s",
                 userid, *perm)
@@ -665,12 +666,14 @@ def update_person_roles(pe, client, remove_superfluous=False):
                         for x in user_details_to_roles(
                             client.get_user_details(user_id)))
     cerebrum_roles = set()
+
     # These functons can be used to remove the default_role component from
     # data-structures.
-    remove_default_flag = lambda l: filter(
-        lambda e: e[0] is not 'default_role', l)
-    remove_default_flag_from_set = lambda l: set(
-        map(lambda e: remove_default_flag(e), l))
+    def remove_default_flag(l):
+        return filter(lambda e: e[0] is not 'default_role', l)
+
+    def remove_default_flag_from_set(l):
+        return set(map(remove_default_flag, l))
 
     for role in ephorte_role.list_roles(person_id=pe.entity_id,
                                         filter_expired=True):
@@ -940,7 +943,7 @@ def main():
         sys.exit(1)
 
     try:
-        _ = config.change_key
+        config.change_key
     except AttributeError:
         logger.error('Missing change_key in configuration.')
         sys.exit(1)
