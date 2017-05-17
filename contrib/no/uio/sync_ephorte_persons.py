@@ -44,9 +44,8 @@ from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 from Cerebrum.modules.no.uio.EphorteWS import EphorteWSError
 from Cerebrum.modules.no.uio.Ephorte import EphortePermission
 
-db = Factory.get('Database')(client_encoding='utf-8')
-
 logger = Factory.get_logger("cronjob")
+db = Factory.get('Database')(client_encoding='utf-8')
 co = Factory.get('Constants')(db)
 ou = Factory.get('OU')(db)
 ephorte_role = EphorteRole(db)
