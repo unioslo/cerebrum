@@ -1080,11 +1080,12 @@ class EmailAddress(Entity_class):
             # changes related to a target. as this includes
             # address-manipulation subject_entity in change_log
             # will be the target_id and not the address_id
-            self._db.log_change(self.email_addr_target_id,
-                                self.const.email_address_add,
-                                self.entity_id,
-                                change_params={'lp': self.email_addr_local_part,
-                                               'dom_id': self.email_addr_domain_id})
+            self._db.log_change(
+                self.email_addr_target_id,
+                self.const.email_address_add,
+                self.entity_id,
+                change_params={'lp': self.email_addr_local_part,
+                               'dom_id': self.email_addr_domain_id})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=email_address]
@@ -1132,8 +1133,9 @@ class EmailAddress(Entity_class):
         self._db.log_change(self.email_addr_target_id,
                             self.const.email_address_rem,
                             self.entity_id,
-                            change_params={'lp': self.email_addr_local_part,
-                                           'dom_id': self.email_addr_domain_id})
+                            change_params={
+                                'lp': self.email_addr_local_part,
+                                'dom_id': self.email_addr_domain_id})
         self.__super.delete()
 
     def find_by_local_part_and_domain(self, local_part, domain_id):
@@ -1255,19 +1257,21 @@ class EmailAddress(Entity_class):
         if domain_id is not None:
             conditions.append('ea.domain_id = :domain_id')
         if target_id is not None:
-            conditions.append(argument_to_sql(target_id, "ea.target_id", binds, int))
+            conditions.append(
+                argument_to_sql(target_id, "ea.target_id", binds, int))
         if filter_expired:
             conditions.append('(ea.expire_date IS NULL OR'
                               ' ea.expire_date > [:now])')
         where = ""
         if conditions:
             where = " WHERE " + " AND ".join(conditions)
-        return self.query("""
-        SELECT ea.address_id, ea.target_id, ea.local_part, ed.domain_id,
-               ed.domain
-        FROM [:table schema=cerebrum name=email_address] ea
-          JOIN [:table schema=cerebrum name=email_domain] ed
-            ON ea.domain_id = ed.domain_id""" + where, binds, fetchall=fetchall)
+        return self.query(
+            """ SELECT ea.address_id, ea.target_id, ea.local_part,
+                       ed.domain_id, ed.domain
+            FROM [:table schema=cerebrum name=email_address] ea
+            JOIN [:table schema=cerebrum name=email_domain] ed
+              ON ea.domain_id = ed.domain_id""" + where,
+            binds, fetchall=fetchall)
 
     # FIXME: should be replaced by search()
     def list_target_addresses(self, target_id):
@@ -1404,10 +1408,11 @@ class EntityEmailDomain(Entity):
         else:
             aff_cond = "affiliation IS NULL"
         # exchange-relevant-jazz
-        self._db.log_change(self.entity_email_domain_id,
-                            self.const.email_entity_dom_rem,
-                            self.entity_id,
-                            change_params={'aff': self.entity_email_affiliation})
+        self._db.log_change(
+            self.entity_email_domain_id,
+            self.const.email_entity_dom_rem,
+            self.entity_id,
+            change_params={'aff': self.entity_email_affiliation})
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_entity_domain]
         WHERE entity_id=:e_id AND """ + aff_cond,
@@ -1450,7 +1455,9 @@ class EmailQuota(EmailTarget):
                           'soft': self.email_quota_soft,
                           'hard': self.email_quota_hard})
             # exchange-relevant-jazz
-            self._db.log_change(self.entity_id, self.const.email_quota_add, None,
+            self._db.log_change(self.entity_id,
+                                self.const.email_quota_add,
+                                None,
                                 change_params={'soft': self.email_quota_soft,
                                                'hard': self.email_quota_hard})
         else:
@@ -1463,7 +1470,9 @@ class EmailQuota(EmailTarget):
                                        'soft': self.email_quota_soft,
                                        'hard': self.email_quota_hard})
             # exchange-relevant-jazz
-            self._db.log_change(self.entity_id, self.const.email_quota_mod, None,
+            self._db.log_change(self.entity_id,
+                                self.const.email_quota_mod,
+                                None,
                                 change_params={'soft': self.email_quota_soft,
                                                'hard': self.email_quota_hard})
         del self.__in_db
@@ -1509,16 +1518,16 @@ class EmailQuota(EmailTarget):
         """Return statistics about the quota handed out to account
         targets.  If there are no targets on a server, the values will
         be None."""
-        return self.query_1("""
-        SELECT SUM(eq.quota_hard) AS total_quota,
-               MIN(eq.quota_hard) AS min_quota,
-               MAX(eq.quota_hard) AS max_quota,
-               COUNT(*) AS total_accounts
-        FROM email_target et
-          JOIN email_quota eq ON et.target_id = eq.target_id
-        WHERE et.server_id = :server AND et.target_type = :t_type""",
-                            {'server': int(server),
-                             't_type': int(EmailConstants.email_target_account)})
+        return self.query_1(
+            """ SELECT SUM(eq.quota_hard) AS total_quota,
+                       MIN(eq.quota_hard) AS min_quota,
+                       MAX(eq.quota_hard) AS max_quota,
+                       COUNT(*) AS total_accounts
+            FROM email_target et
+            JOIN email_quota eq ON et.target_id = eq.target_id
+            WHERE et.server_id = :server AND et.target_type = :t_type""",
+            {'server': int(server),
+             't_type': int(EmailConstants.email_target_account)})
 
 
 class EmailTargetFilter(EmailTarget):
@@ -1558,8 +1567,11 @@ class EmailTargetFilter(EmailTarget):
                          {'t_id': self.entity_id,
                           'filter': int(self.email_target_filter_filter)})
             # exchange-relatert-jazz
-            self._db.log_change(self.entity_id, self.const.email_tfilter_add, None,
-                                change_params={'filter': int(self.email_target_filter_filter)})
+            self._db.log_change(
+                self.entity_id,
+                self.const.email_tfilter_add,
+                None,
+                change_params={'filter': int(self.email_target_filter_filter)})
         else:
             # Binary table. No need to update with the same info
             pass
@@ -1652,9 +1664,13 @@ class EmailSpamFilter(EmailTarget):
                           'level': int(self.email_spam_level),
                           'action': int(self.email_spam_action)})
             # exchange-relatert-jazz
-            self._db.log_change(self.entity_id, self.const.email_sfilter_add, None,
-                                change_params={'level': int(self.email_spam_level),
-                                               'action': int(self.email_spam_action)})
+            self._db.log_change(
+                self.entity_id,
+                self.const.email_sfilter_add,
+                None,
+                change_params={
+                    'level': int(self.email_spam_level),
+                    'action': int(self.email_spam_action)})
         else:
             # TBD: What about DELETEs?
             self.execute("""
@@ -1665,9 +1681,13 @@ class EmailSpamFilter(EmailTarget):
                                        'level': int(self.email_spam_level),
                                        'action': int(self.email_spam_action)})
             # exchange-relatert-jazz
-            self._db.log_change(self.entity_id, self.const.email_sfilter_mod, None,
-                                change_params={'level': int(self.email_spam_level),
-                                               'action': int(self.email_spam_action)})
+            self._db.log_change(
+                self.entity_id,
+                self.const.email_sfilter_mod,
+                None,
+                change_params={
+                    'level': int(self.email_spam_level),
+                    'action': int(self.email_spam_action)})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -1747,12 +1767,13 @@ class EmailVirusScan(EmailTarget):
                           'removed': self.email_virus_removed_act,
                           'enable': self.email_virus_enable})
             # exchange-relatert-jazz
-            self._db.log_change(self.entity_id,
-                                self.const.email_scan_add,
-                                None,
-                                change_params={'found': int(self.email_virus_found_act),
-                                               'removed': int(self.email_virus_removed_act),
-                                               'enable': int(self.email_virus_enable)})
+            self._db.log_change(
+                self.entity_id,
+                self.const.email_scan_add,
+                None,
+                change_params={'found': int(self.email_virus_found_act),
+                               'removed': int(self.email_virus_removed_act),
+                               'enable': int(self.email_virus_enable)})
         else:
             # TBD: What about DELETEs?
             self.execute("""
@@ -1764,12 +1785,13 @@ class EmailVirusScan(EmailTarget):
                           'removed': self.email_virus_removed_act,
                           'enable': self.email_virus_enable})
             # exchange-relatert-jazz
-            self._db.log_change(self.entity_id,
-                                self.const.email_scan_mod,
-                                None,
-                                change_params={'found': int(self.email_virus_found_act),
-                                               'removed': int(self.email_virus_removed_act),
-                                               'enable': int(self.email_virus_enable)})
+            self._db.log_change(
+                self.entity_id,
+                self.const.email_scan_mod,
+                None,
+                change_params={'found': int(self.email_virus_found_act),
+                               'removed': int(self.email_virus_removed_act),
+                               'enable': int(self.email_virus_enable)})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -1805,16 +1827,21 @@ class EmailVirusScan(EmailTarget):
         return removed
 
     def list_email_virus_ext(self):
-        """Join between email_virus_scan, email_virus_found_code and
-        email_virus_removed_code. Returns target_id, found_str(code from
-        email_virus_found_code), removed_str(code from email_virus_removed_code)
-        and enable."""
-        return self.query("""
-        SELECT s.target_id, f.code_str AS found_str, r.code_str AS removed_str, s.enable
-        FROM [:table schema=cerebrum name=email_virus_scan] s,
-             [:table schema=cerebrum name=email_virus_found_code] f,
-             [:table schema=cerebrum name=email_virus_removed_code] r
-        WHERE s.found_action = f.code AND s.rem_action = r.code""")
+        """ TODO.
+
+        Join between email_virus_scan, email_virus_found_code and
+        email_virus_removed_code.
+
+        Returns target_id, found_str(code from email_virus_found_code),
+        removed_str(code from email_virus_removed_code) and enable.
+        """
+        return self.query(
+            """ SELECT s.target_id, f.code_str AS found_str,
+                       r.code_str AS removed_str, s.enable
+            FROM [:table schema=cerebrum name=email_virus_scan] s,
+                 [:table schema=cerebrum name=email_virus_found_code] f,
+                 [:table schema=cerebrum name=email_virus_removed_code] r
+            WHERE s.found_action = f.code AND s.rem_action = r.code""")
 
 
 class EmailForward(EmailTarget):
@@ -2096,7 +2123,8 @@ class EmailPrimaryAddressTarget(EmailTarget):
                 raise RuntimeError('populate() called multiple times.')
         except AttributeError:
             if parent is None:
-                raise RuntimeError("Can't populate EmailPrimaryAddressTarget without parent.")
+                raise RuntimeError(
+                    "Can't populate EmailPrimaryAddressTarget without parent.")
             self.__in_db = False
         self.email_primaddr_id = address_id
 
@@ -2113,10 +2141,11 @@ class EmailPrimaryAddressTarget(EmailTarget):
                          {'t_id': self.entity_id,
                           'addr_id': self.email_primaddr_id})
             # exchange-relevant-jazz
-            self._db.log_change(self.entity_id,
-                                self.const.email_primary_address_add,
-                                None,
-                                change_params={'addr_id': self.email_primaddr_id})
+            self._db.log_change(
+                self.entity_id,
+                self.const.email_primary_address_add,
+                None,
+                change_params={'addr_id': self.email_primaddr_id})
         else:
             # TBD: What about DELETEs?
             self.execute("""
@@ -2125,10 +2154,11 @@ class EmailPrimaryAddressTarget(EmailTarget):
             WHERE target_id=:t_id""", {'t_id': self.entity_id,
                                        'addr_id': self.email_primaddr_id})
             # exchange-relevant-jazz
-            self._db.log_change(self.entity_id,
-                                self.const.email_primary_address_mod,
-                                None,
-                                change_params={'addr_id': self.email_primaddr_id})
+            self._db.log_change(
+                self.entity_id,
+                self.const.email_primary_address_mod,
+                None,
+                change_params={'addr_id': self.email_primaddr_id})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -2204,10 +2234,11 @@ class EmailServer(Host):
                          {'s_id': self.entity_id,
                           'type': int(self.email_server_type)})
             # exchange-relatert-jazz
-            self._db.log_change(self.entity_id,
-                                self.const.email_server_add,
-                                None,
-                                change_params={'server_type': int(self.email_server_type)})
+            self._db.log_change(
+                self.entity_id,
+                self.const.email_server_add,
+                None,
+                change_params={'server_type': int(self.email_server_type)})
         else:
             # TBD: What about DELETEs?
             self.execute("""
@@ -2216,10 +2247,11 @@ class EmailServer(Host):
             WHERE server_id=:s_id""", {'s_id': self.entity_id,
                                        'type': int(self.email_server_type)})
             # exchange-relatert-jazz
-            self._db.log_change(self.entity_id,
-                                self.const.email_server_mod,
-                                None,
-                                change_params={'server_type': int(self.email_server_type)})
+            self._db.log_change(
+                self.entity_id,
+                self.const.email_server_mod,
+                None,
+                change_params={'server_type': int(self.email_server_type)})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -2231,10 +2263,11 @@ class EmailServer(Host):
             WHERE server_id=:s_id""", {'s_id': self.entity_id,
                                        'type': int(self.email_server_type)})
         # exchange-relatert-jazz
-        self._db.log_change(self.entity_id,
-                            self.const.email_server_rem,
-                            None,
-                            change_params={'server_type': int(self.email_server_type)})
+        self._db.log_change(
+            self.entity_id,
+            self.const.email_server_rem,
+            None,
+            change_params={'server_type': int(self.email_server_type)})
         return self.__super.delete()
     # end delete
 
@@ -2432,7 +2465,8 @@ class AccountEmailMixin(Account.Account):
         return self.get_email_cn_given_local_part(
             full_name=full, given_names=given_names, max_initials=max_initials)
 
-    def get_email_cn_given_local_part(self, full_name, given_names=-1, max_initials=None):
+    def get_email_cn_given_local_part(
+            self, full_name, given_names=-1, max_initials=None):
         """Return a "pretty" local part out of a given name. This can be used to
         see what cn a name change would give.
 
@@ -2559,7 +2593,8 @@ class AccountEmailMixin(Account.Account):
                 except Errors.NotFoundError:
                     pass
         if use_default_domain:
-            # Append cereconf.EMAIL_DEFAULT_DOMAIN last to return a vaild domain always
+            # Append cereconf.EMAIL_DEFAULT_DOMAIN last to return a vaild
+            # domain always
             domains.append(dom.entity_id)
         return domains
 
@@ -2621,7 +2656,8 @@ class AccountEmailMixin(Account.Account):
         return (r['local_part'] + '@' +
                 ed.rewrite_special_domains(r['domain']))
 
-    def getdict_uname2mailaddr(self, filter_expired=True, primary_only=True, filter_deleted=True):
+    def getdict_uname2mailaddr(
+            self, filter_expired=True, primary_only=True, filter_deleted=True):
         """Collect uname -> e-mail address mappings.
 
         This method collects e-mail address information for all users in
@@ -2647,12 +2683,28 @@ class AccountEmailMixin(Account.Account):
           basestring. When primary_only is False, 'information' is a sequence
           (even when there is just one e-mail address for a user names)
         """
-        ret = {}
-        namespace = int(self.const.account_namespace)
-        ed = EmailDomain(self._db)
-        where = "en.value_domain = :namespace"
-        if filter_expired:
-            where += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
+        query_fmt = """
+            SELECT en.entity_name, ea.local_part, ed.domain
+            FROM [:table schema=cerebrum name=account_info] ai
+            JOIN [:table schema=cerebrum name=entity_name] en
+              ON en.entity_id = ai.account_id
+            JOIN [:table schema=cerebrum name=email_target] et
+              ON {target_join!s}
+              AND et.target_entity_id = ai.account_id
+            {extra_join!s}
+            JOIN [:table schema=cerebrum name=email_domain] ed
+              ON ed.domain_id = ea.domain_id
+            WHERE {where!s}
+            """
+
+        where = ["en.value_domain = :namespace", ]
+        binds = {'namespace': int(self.const.account_namespace)}
+
+        target_type = [self.const.email_target_account, ]
+        if not filter_deleted:
+            target_type.append(self.const.email_target_deleted)
+        target_join = argument_to_sql(
+            target_type, 'et.target_type', binds, int)
 
         if primary_only:
             extra_join = """
@@ -2667,29 +2719,18 @@ class AccountEmailMixin(Account.Account):
                    ON ea.target_id = et.target_id
             """
 
-        if filter_deleted:
-            target_type = "et.target_type = %d" % \
-                          int(self.const.email_target_account)
-        else:
-            target_type = "et.target_type in (%d, %d)" % (
-                int(self.const.email_target_account),
-                int(self.const.email_target_deleted))
+        if filter_expired:
+            where.append("(ai.expire_date IS NULL OR ai.expire_date > [:now])")
 
-        for row in self.query("""
-        SELECT en.entity_name, ea.local_part, ed.domain
-        FROM [:table schema=cerebrum name=account_info] ai
-        JOIN [:table schema=cerebrum name=entity_name] en
-          ON en.entity_id = ai.account_id
-        JOIN [:table schema=cerebrum name=email_target] et
-          ON %s AND
-             et.target_entity_id = ai.account_id
+        ret = {}
+        ed = EmailDomain(self._db)
 
-        %s
-
-        JOIN [:table schema=cerebrum name=email_domain] ed
-          ON ed.domain_id = ea.domain_id
-
-        WHERE %s""" % (target_type, extra_join, where), {'namespace': namespace}):
+        for row in self.query(
+                query_fmt.format(
+                    target_join=target_join,
+                    extra_join=extra_join,
+                    where=" AND ".join(where)),
+                binds, fetchall=False):
             uname = row['entity_name']
             address = '@'.join((row['local_part'],
                                 ed.rewrite_special_domains(row['domain'])))
@@ -2741,7 +2782,8 @@ class AccountEmailMixin(Account.Account):
         while lp.find('..') != -1:
             lp = lp.replace('..', '.')
         if not lp:
-            raise ValueError("Local-part can't be empty (%r -> %r)" % (local_part, lp))
+            raise ValueError(
+                "Local-part can't be empty (%r -> %r)" % (local_part, lp))
         return lp
 
     def set_account_type(self, *param, **kw):
@@ -2779,12 +2821,13 @@ class AccountEmailMixin(Account.Account):
             return ret
         res = self.query("""
             SELECT * FROM [:table schema=cerebrum name=email_target]
-            WHERE using_uid = :eid AND (target_entity_id IS NULL OR 
+            WHERE using_uid = :eid AND (target_entity_id IS NULL OR
                          target_entity_id <> :eid)""",
                          {'eid': self.entity_id})
         ret.extend(['Email target {}'.format(x['alias_value']
                                              if x['alias_value']
-                                             else x['target_id']) for x in res])
+                                             else x['target_id'])
+                    for x in res])
         return ret
 
     def delete(self):
@@ -2926,7 +2969,8 @@ class PersonEmailMixin(Person.Person):
         person_external_id type 'id_type'"""
         return self._id2mailaddr(id_type=id_type)
 
-    def _id2mailaddr(self, id_type=None, entity_type=None, filter_expired=True):
+    def _id2mailaddr(
+            self, id_type=None, entity_type=None, filter_expired=True):
         ret = {}
         # TODO: How should multiple external_id entries, only
         # differing in person_external_id.source_system, be treated?
