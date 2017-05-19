@@ -49,8 +49,8 @@ def main():
     logger = Factory.get_logger("cronjob")
 
     # The script is designed to use the mail-module.
-    module_name = ''
-    unit = ''
+    module_name = None
+    unit = None
     use_mail_module = True
     config = ofile = None
     try:
@@ -71,7 +71,7 @@ def main():
             use_mail_module = False
         else:
             usage()
-    if unit == '':
+    if not unit:
         usage("\nThe -i or --inst option must be provided with valid argument")
         return 1
     # The following overrides some imported values from cereconf.

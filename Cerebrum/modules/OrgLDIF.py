@@ -970,7 +970,7 @@ from None and LDAP_PERSON['dn'].""")
                             # OU for every affiliated person with the related
                             # active status.
                             ou = Factory.get('OU')(self.db)
-                            ou_str = (status.split("@"))[1]
+                            ou_str = status.split("@")[1]
                             try:
                                 ou.clear()
                                 ou.find_stedkode(ou_str[0:2], ou_str[2:4],
