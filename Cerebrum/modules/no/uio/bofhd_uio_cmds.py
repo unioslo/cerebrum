@@ -5832,15 +5832,20 @@ Addresses and settings:
                                                     'Description')))
     def misc_affiliations(self, operator):
         tmp = {}
+        duplicate_check_list = list()
         for co in self.const.fetch_constants(self.const.PersonAffStatus):
             aff = str(co.affiliation)
             if aff not in tmp:
                 tmp[aff] = [{'aff': aff,
                              'status': '',
                              'desc': co.affiliation.description}]
+            status = str(co._get_status())
+            if (aff, status) in duplicate_check_list:
+                continue
             tmp[aff].append({'aff': '',
-                             'status': "%s" % co._get_status(),
+                             'status': status,
                              'desc': co.description})
+            duplicate_check_list.append((aff, status))
         # fetch_constants returns a list sorted according to the name
         # of the constant.  Since the name of the constant and the
         # affiliation status usually are kept related, the list for
