@@ -499,6 +499,9 @@ class AccountUiOMixin(Account.Account):
         # Avoid circular import dependency
         from Cerebrum.modules.PosixUser import PosixUser
 
+        if any(x.isupper() for x in name):
+            return 'contains upper case letter(s) ({})'.format(name)
+
         if isinstance(self, PosixUser):
             # TODO: Kill the ARsystem user to limit range og legal characters
             if len(name) > 16:
@@ -507,7 +510,7 @@ class AccountUiOMixin(Account.Account):
                 return "must start with a character (%s)" % name
             if re.search("[^A-Za-z0-9\-_]", name):
                 return "contains illegal characters (%s)" % name
-        return False
+        return super(AccountUiOMixin, self).illegal_name(name)
 
     def validate_new_uname(self, domain, uname):
         """Check that the requested username is legal and free"""

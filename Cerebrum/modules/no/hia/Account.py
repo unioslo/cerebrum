@@ -181,6 +181,9 @@ class AccountHiAMixin(Account.Account):
         # Avoid circular import dependency
         from Cerebrum.modules.PosixUser import PosixUser
 
+        if any(x.isupper() for x in name):
+            return 'contains upper case letter(s) ({})'.format(name)
+
         if isinstance(self, PosixUser):
             if len(name) > 8:
                 return "too long (%s)" % name
@@ -188,7 +191,7 @@ class AccountHiAMixin(Account.Account):
                 return "must start with a character (%s)" % name
             if re.search("[^A-Za-z0-9\-_]", name):
                 return "contains illegal characters (%s)" % name
-        return False
+        return super(AccountHiAMixin, self).illegal_name(name)
 
     def _autopick_homeMDB(self):
         """Return a valid HomeMDB database.

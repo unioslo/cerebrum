@@ -86,7 +86,7 @@ class AccountHiNeMixin(Account.Account):
         #if re.search("^\d{6}$", name):
         #    return "disallowed due to possible conflict with FS-based usernames" % name
                 
-        return False
+        return super(AccountHiNeMixin, self).illegal_name(name)
 
 
 class AccountHiNeEmailMixin(Account.Account):

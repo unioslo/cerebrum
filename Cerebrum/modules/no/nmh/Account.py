@@ -66,7 +66,7 @@ class AccountNMHMixin(Account.Account):
             return "too long (%s); max 10 chars allowed" % name
         if re.search("[^a-z]", name):
             return "contains illegal characters (%s); only a-z allowed" % name
-        return False
+        return super(AccountNMHMixin, self).illegal_name(name)
 
 
 class AccountNmhEmailMixin(Account.Account):

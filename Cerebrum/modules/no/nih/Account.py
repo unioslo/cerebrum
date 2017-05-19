@@ -81,7 +81,7 @@ class AccountNIHMixin(Account.Account):
         if re.search("[^a-z0-9._-]", name):
             return "contains illegal characters (%s); only a-z allowed" % name
 
-        return False
+        return super(AccountNIHMixin, self).illegal_name(self, name)
 
 
     def is_employee(self, person):
