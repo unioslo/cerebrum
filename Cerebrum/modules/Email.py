@@ -2268,6 +2268,49 @@ class EmailServer(Host):
         %s
         """ % where)
 
+    def search(self, host_id=None, name=None, description=None):
+        """Retrieves a list of EmailServers filtered by the given criterias.
+
+        If no criteria is given, all hosts are returned. ``name`` and
+        ``description`` should be strings if given. Wildcards * and ? are
+        expanded for "any chars" and "one char".
+
+        :return list:
+            A list of tuples/db_rows with fields: (host_id, name, description,
+            server_type).
+        """
+        where = list()
+        binds = dict()
+
+        query_fmt = """
+        SELECT DISTINCT hi.host_id, en.entity_name AS name,
+                        hi.description, s.server_type
+        FROM [:table schema=cerebrum name=host_info] hi
+        JOIN [:table schema=cerebrum name=email_server] s
+          ON hi.host_id = s.server_id
+        JOIN [:table schema=cerebrum name=entity_name] en
+          ON hi.host_id = en.entity_id AND
+             en.value_domain = [:get_constant name=host_namespace]
+        {where!s}
+        """
+
+        if host_id is not None:
+            where.append(argument_to_sql(host_id, 'hi.host_id', binds, int))
+
+        if name is not None:
+            where.append("LOWER(en.entity_name) LIKE :name")
+            binds['name'] = prepare_string(name.lower())
+
+        if description is not None:
+            where.append("LOWER(hi.description) LIKE :desc")
+            binds['desc'] = prepare_string(description.lower())
+
+        where_str = ""
+        if where:
+            where_str = "WHERE " + " AND ".join(where)
+
+        return self.query(query_fmt.format(where=where_str), binds)
+
 
 class AccountEmailMixin(Account.Account):
     """Email-module mixin for core class ``Account''."""
