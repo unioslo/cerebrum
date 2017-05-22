@@ -72,7 +72,7 @@ class AccountHiOfMixin(Account.Account):
                 return "must start with a character (%s)" % name
             if re.search("[^A-Za-z0-9\-_]", name):
                 return "contains illegal characters (%s)" % name
-        return False
+        return super(AccountHiOfMixin, self).illegal_name(name)
 
     def update_email_addresses(self):
         # Find, create or update a proper EmailTarget for this

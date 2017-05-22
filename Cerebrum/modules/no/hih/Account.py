@@ -210,4 +210,4 @@ class AccountHiHMixin(Account.Account):
         #if re.search("^\d{6}$", name):
         #    return "disallowed due to possible conflict with FS-based usernames" % name
                 
-        return False
+        return super(AccountHiHMixin, self).illegal_name(name)

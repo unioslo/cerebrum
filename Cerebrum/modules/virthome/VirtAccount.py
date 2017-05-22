@@ -204,8 +204,7 @@ class BaseVirtHomeAccount(Account,
         if uname.count("@") != 1:
             return "Account name misses a realm"
 
-        return False
-    # end illegal_uname
+        return super(BaseVirtHomeAccount, self).illegal_name(self)
 
 
 
@@ -366,7 +365,6 @@ class VirtAccount(BaseVirtHomeAccount):
             return "Account name %s is too short" % (uname,)
 
         return False
-    # end illegal_name
 
     # IVR 2009-04-11 TBD: Do we want to override some of the is_*()-methods?
     # A VirtAccount is not active, until VACCOUNT_UNCONFIRMED trait has been
