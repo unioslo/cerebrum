@@ -21,8 +21,7 @@
 
 """
 
-import cereconf
-from Cerebrum.Utils import Factory, prepare_string
+from Cerebrum.Utils import Factory, prepare_string, argument_to_sql
 from Cerebrum.Entity import EntityName, EntitySpread
 
 Entity_class = Factory.get("Entity")
@@ -51,7 +50,7 @@ class Disk(EntitySpread, Entity_class):
         # If __in_db in not present, we'll set it to False.
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
         self.host_id = host_id
@@ -103,7 +102,7 @@ class Disk(EntitySpread, Entity_class):
 
     def __eq__(self, other):
         """Overide the == test for objects."""
-        assert isinstance(other, OU)
+        assert isinstance(other, Disk)
         if not self.__super.__eq__(other):
             return False
         identical = ((other.path == self.path) and
@@ -255,7 +254,7 @@ class Host(EntityName, EntitySpread, Entity_class):
         # If __in_db in not present, we'll set it to False.
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
         self.name = name
@@ -314,7 +313,7 @@ class Host(EntityName, EntitySpread, Entity_class):
 
     def __eq__(self, other):
         """Overide the == test for objects."""
-        assert isinstance(other, OU)
+        assert isinstance(other, Host)
         if not self.__super.__eq__(other):
             return False
         identical = ((other.name == self.name) and
@@ -359,38 +358,38 @@ class Host(EntityName, EntitySpread, Entity_class):
     def search(self, host_id=None, name=None, description=None):
         """Retrieves a list of Hosts filtered by the given criterias.
 
-        Returns a list of tuples with the info (host_id, name, description).
         If no criteria is given, all hosts are returned. ``name`` and
         ``description`` should be strings if given. Wildcards * and ? are
-        expanded for "any chars" and "one char"."""
+        expanded for "any chars" and "one char".
 
-        where = []
+        :return list:
+            A list of tuples/db_rows with fields: (host_id, name, description)
+        """
+        where = list()
+        binds = dict()
 
-        if host_id is not None:
-            if isinstance(host_id, (list, tuple, set)):
-                where.append("host_id IN (%s)" %
-                             ", ".join(map(str, map(int, host_id))))
-            else:
-                where.append("host_id = %d" % int(host_id))
-
-        if name is not None:
-            name = prepare_string(name)
-            where.append("LOWER(en.entity_name) LIKE :name")
-
-        if description is not None:
-            description = prepare_string(description)
-            where.append("LOWER(hi.description) LIKE :description")
-
-        where_str = ""
-        if where:
-            where_str = "WHERE " + " AND ".join(where)
-
-        return self.query("""
+        query_fmt = """
         SELECT DISTINCT hi.host_id, en.entity_name AS name, hi.description
         FROM [:table schema=cerebrum name=host_info] hi
         JOIN [:table schema=cerebrum name=entity_name] en
           ON hi.host_id = en.entity_id AND
              en.value_domain = [:get_constant name=host_namespace]
-        %s""" % where_str,
-                          {'name': name, 'description': description})
+        {where!s}
+        """
 
+        if host_id is not None:
+            where.append(argument_to_sql(host_id, 'hi.host_id', binds, int))
+
+        if name is not None:
+            where.append("LOWER(en.entity_name) LIKE :name")
+            binds['name'] = prepare_string(name.lower())
+
+        if description is not None:
+            where.append("LOWER(hi.description) LIKE :desc")
+            binds['desc'] = prepare_string(description.lower())
+
+        where_str = ""
+        if where:
+            where_str = "WHERE " + " AND ".join(where)
+
+        return self.query(query_fmt.format(where=where_str), binds)
