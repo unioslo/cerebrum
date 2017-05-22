@@ -503,6 +503,12 @@ JOB_RUNNER_PAUSE_WARN = 3600 * 12
 # Used by Cerebrum/no/Stedkode.py
 DEFAULT_INSTITUSJONSNR = None
 
+# A clone of the previous DEFAULT_INSTITUSJONSNR as this needs to be ovveridden
+# sometimes, especially with the exports for the sub-organizations that are not
+# reflected with their hierarchies within the OU structure in LDAP e.g. when
+# exporting to LDAP with the module 'generate_randsone_ldif.py'
+INTERNAL_OU_NUMBER = DEFAULT_INSTITUSJONSNR
+
 # INSTITUTION_DOMAIN_NAME: The DNS domain name your institution
 # prefers to use for identifying itself on the internet.
 #

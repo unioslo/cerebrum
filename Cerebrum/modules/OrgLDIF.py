@@ -18,11 +18,12 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import re
+import sys
 
 from collections import defaultdict
 
 import cereconf
-from Cerebrum import Entity
+from Cerebrum import Entity, Errors
 from Cerebrum.Utils import Factory, auto_super, make_timer
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.LDIFutils import *
@@ -927,7 +928,7 @@ from None and LDAP_PERSON['dn'].""")
         # a format which can be passed to select_bool() or select_list().
         #
         # This is either an internal simple selector (below), or a dict:
-        # {(aff, status): simple selector,  # tried first
+        # {(aff, status(@OU)): simple selector,  # tried first
         # aff:           simple selector,  # tried if (aff, status) is not set
         # None:          simple selector } # default
         if type(selector) is not dict:
@@ -950,16 +951,40 @@ from None and LDAP_PERSON['dn'].""")
                 else:
                     aff_id = self.const.PersonAffiliation(affiliation)
                 for status, ssel in status_ssels:
+                    key = 0
                     if status is True:   # wildcard
                         key = int(aff_id)
                     elif affiliation is True:
                         raise ValueError("Selector[True][not True: %s] illegal"
                                          % repr(status))
                     else:
-                        status_id = self.const.PersonAffStatus(aff_id, status)
+                        status_str = status.split("@")[0]
+                        status_id = self.const.PersonAffStatus(aff_id,status_str)
                         if status_id is not None:
                             status_id = int(status_id)
-                        key = (int(aff_id), status_id)
+                        if "@" not in status:
+                            key = (int(aff_id), status_id)
+                        else:
+                            # In the case of "@" notation in the status string
+                            # interpret that as a selection criteria after the
+                            # OU for every affiliated person with the related
+                            # active status.
+                            ou = Factory.get('OU')(self.db)
+                            ou_str = status.split("@")[1]
+                            try:
+                                ou.clear()
+                                ou.find_stedkode(ou_str[0:2], ou_str[2:4],
+                                                 ou_str[4:6],
+                                                 cereconf.INTERNAL_OU_NUMBER, 0)
+                                key = (int(aff_id), status_id,
+                                       int(ou.entity_id))
+                            except Errors.NotFoundError as e:
+                                sys.exit("Filtering after the OU %s and its"
+                                         " related affiliation and status,"
+                                         " as defined in the config file,"
+                                         " failed because of the following"
+                                         " OU search function error: '%s'"
+                                         % (ou_str, e))
                     if mapping.has_key(key):
                         raise ValueError("Duplicate selector[%s][%s]" % tuple(
                             [val is True and "True" or repr(val)
@@ -1003,15 +1028,23 @@ from None and LDAP_PERSON['dn'].""")
         raise ValueError("Bad simple selector: " + repr(ssel))
 
     def select_list(selector, person_id, p_affiliations):
-        # Return a list of values selected for the person and affiliations.
+        """Return a list of values selected for the person and affiliations.
+
+        Like select_bool(), except returning a list of values."""
         if type(selector) is dict:
             result = []
             for p_affiliation in p_affiliations:
+                # Search selector for p_affiliation or initial part of it.
                 try:
-                    ssel = selector[p_affiliation[:2]]
+                    ssel = selector[p_affiliation[:3]]
                 except KeyError:
-                    ssel = selector[p_affiliation[:2]] = \
-                        selector.get(p_affiliation[0]) or selector.get(None)
+                    try:
+                        ssel = selector[p_affiliation[:2]]
+                    except KeyError:
+                        # Cache this to avoid more exceptions at the same key
+                        ssel = selector[p_affiliation[:2]] = \
+                               selector.get(p_affiliation[0]) or \
+                               selector.get(None)
                 if ssel:
                     result.extend(ssel[0])
             return result
@@ -1045,12 +1078,18 @@ from None and LDAP_PERSON['dn'].""")
             selected as True, otherwise False.
 
         """
+        # Same code as select_list(), except how to handle selected values
         if type(selector) is dict:
             for p_affiliation in p_affiliations:
+                # Search selector for p_affiliation or initial part of it.
                 try:
-                    ssel = selector[p_affiliation[:2]]
+                    ssel = selector[p_affiliation[:3]]
                 except KeyError:
-                    ssel = selector[p_affiliation[:2]] = \
+                    try:
+                            ssel = selector[p_affiliation[:2]]
+                    except KeyError:
+                        # Cache this to avoid more exceptions at the same key
+                        ssel = selector[p_affiliation[:2]] = \
                         selector.get(p_affiliation[0]) or selector.get(None)
                 if ssel and ssel[ssel[2](person_id)]:
                     return True

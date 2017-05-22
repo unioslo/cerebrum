@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2012 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,11 +17,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Mixin for contrib/no/uio/generate_isf_ldif.py."""
+"""Mixin for contrib/no/uio/generate_randsone_ldif.py."""
 
 from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 
-class ISS_LDIF(norEduLDIFMixin):
+class RE_LDIF(norEduLDIFMixin):
     def init_ou_structure(self):
         # Change from original: Drop OUs outside self.root_ou_id subtree.
         self.__super.init_ou_structure()
