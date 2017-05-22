@@ -235,6 +235,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                     self.delete_affiliation(ou_id, affil, source)
                     if is_new != 1:
                         is_new = False
+            delattr(self, '_affil_source')
+            self.__affil_data = {}
 
         # If affect_names has not been called, we don't care about
         # names
