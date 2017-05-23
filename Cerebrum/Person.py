@@ -236,7 +236,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                     if is_new != 1:
                         is_new = False
             delattr(self, '_affil_source')
-            self.__affil_data = {}
+            delattr(self, '_Person__affil_data')
 
         # If affect_names has not been called, we don't care about
         # names
