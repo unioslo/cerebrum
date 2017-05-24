@@ -204,7 +204,7 @@ class BaseVirtHomeAccount(Account,
         if uname.count("@") != 1:
             return "Account name misses a realm"
 
-        return super(BaseVirtHomeAccount, self).illegal_name(self)
+        return super(BaseVirtHomeAccount, self).illegal_name(uname)
 
 
 
