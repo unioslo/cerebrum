@@ -1,7 +1,7 @@
 category:metainfo;
 name=dns;
 category:metainfo;
-version=1.4;
+version=1.5;
 
 category:drop;
 DROP TABLE dns_srv_record;
@@ -403,7 +403,7 @@ CREATE TABLE dns_general_dns_record (
                     CONSTRAINT field_type_code_fk
                   REFERENCES dns_field_type_code(code),
   ttl             NUMERIC(6,0), 
-  data            CHAR VARYING(128) NOT NULL,
+  data            CHAR VARYING(255) NOT NULL,
   CONSTRAINT general_dns_record_pk PRIMARY KEY (dns_owner_id, field_type)
 );
 
