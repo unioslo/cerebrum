@@ -205,7 +205,7 @@ def main():
 
     for phase in order:
         if phase == '  insert':
-            insert_code_values(db, debug=debug)
+            insert_code_values(db)
         else:
             for f in files:
                 runfile(f, db, debug, phase)
