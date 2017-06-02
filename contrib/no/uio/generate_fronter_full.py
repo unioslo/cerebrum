@@ -42,10 +42,12 @@ import re
 import sys
 import time
 
+from collections import defaultdict
+
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.modules.no.uio.fronter_lib import (XMLWriter, UE2KursID,
                                                  key2fields, fields2key,
                                                  get_host_config)
@@ -84,6 +86,7 @@ class Fronter(object):
     def __init__(self, fronter_host, db, const,
                  undenh_file, undakt_file, evu_file, kursakt_file, kull_file,
                  logger=None):
+        timer = make_timer(logger, 'Starting __init__...')
         self.fronter_host = fronter_host
         self.db = db
         self.const = const
@@ -97,12 +100,12 @@ class Fronter(object):
         self.exportable = self.get_exportable_groups()
         self.logger.debug("Fronter: len(self.exportable)=%i",
                           len(self.exportable))
-        self.kurs2navn = {}
-        self.kurs2enhet = {}
+        self.kurs2navn = defaultdict(list)
+        self.kurs2enhet = defaultdict(list)
         self.enhet2sko = {}
-        self.enhet2akt = {}
-        self.emne_versjon = {}
-        self.emne_termnr = {}
+        self.enhet2akt = defaultdict(list)
+        self.emne_versjon = defaultdict(dict)
+        self.emne_termnr = defaultdict(dict)
         # Cache av undakt -> romprofil, siden vi ønsker å ha spesialiserte
         # romprofiler.
         self.akt2room_profile = {}
@@ -124,6 +127,7 @@ class Fronter(object):
             self.semester = 'VÅR'
         else:
             self.semester = 'HØST'
+        timer('... __init__ done.')
 
     def expand_kull_group(self, g_id):
         """Recursively fetch all group members of group with g_id.
@@ -149,11 +153,12 @@ class Fronter(object):
                 logger.warn("No name for member id=%s of group name=%s id=%s",
                             e_id, group.group_name, group.entity_id)
                 continue
-            name = entity2name[e_id]
-            if name in result:
+            if e_id in result:
                 continue
 
-            result[name] = e_id
+            group.clear()
+            group.find(e_id)
+            result[e_id] = group.description
             result.update(self.expand_kull_group(e_id))
 
         return result
@@ -168,29 +173,29 @@ class Fronter(object):
 
         @rtype: dict
         @return
-          A dict mapping group names to group_ids for all groups that are
-          supposed to end up in the Fronter xml file (i.e. those that have the
-          right fronter spread).
+          A dict mapping group names to group_ids and descriptions for all
+          groups that are supposed to end up in the Fronter xml file (i.e.
+          those that have the right fronter spread).
         """
 
         if 'FS' in self.export:
             group = Factory.get("Group")(self.db)
             result = dict()
             logger.debug("Fetching exportable groups...")
-            for g in group.list_all_with_spread(int(getattr(self.const,
-                                                            self.spread))):
-                group.clear()
-                group.find(g["entity_id"])
-                if not group.group_name:
+            for g in group.search(spread=int(getattr(self.const, self.spread))):
+                group_name = g['name']
+                entity_id = g['group_id']
+                if not group_name:
+                    print g
                     continue
 
                 # 'kull' groups are a bit special, since fronter spreads are
                 # inherited by group members for any given 'kull'. If a 'kull'
                 # group A has a fronter spread and a member B, then B would be
                 # registered as well here, as if it had fronter spreads.
-                key = self._group_name2key(group.group_name)
+                key = self._group_name2key(group_name)
                 if key and key.find("kull") == 0:
-                    addition = self.expand_kull_group(g["entity_id"])
+                    addition = self.expand_kull_group(entity_id)
                     logger.debug("Additional kull groups added: %s",
                                  list(addition.iterkeys()))
                     result.update(addition)
@@ -199,7 +204,7 @@ class Fronter(object):
                 # accounts are members. However, 'kull' groups with fronter
                 # spreads are also the ones with group members only. It is
                 # harmless to include them in this dictionary.
-                result[group.group_name] = group.entity_id
+                result[entity_id] = g['description']
             logger.debug("... done")
             return result
         elif 'FS_all' in self.export:
@@ -316,13 +321,14 @@ class Fronter(object):
         # First we have to load all the keys for all of the exportable
         # groups. The keys connect groups in Cerebrum with the corresponding
         # data in FS.
-        kurs = dict()
-        for group_name in self.exportable:
+        kurs = set()
+        for group_id in self.exportable:
+            group_name = entity2name[group_id]
             key = self._group_name2key(group_name)
             if key is None:
                 continue
             self.logger.debug("group_name <%s> => key <%s>", group_name, key)
-            kurs[key] = 1
+            kurs.add(key)
 
         self.logger.debug("len(self.exportable) = %d; len(kurs) = %d",
                           len(self.exportable), len(kurs))
@@ -378,13 +384,11 @@ class Fronter(object):
 
             self.logger.debug("registrerer undenh <%s> (key: %s)", id_seq, key)
 
-            self.kurs2enhet.setdefault(kurs_id, []).append(key)
+            self.kurs2enhet[kurs_id].append(key)
             multi_id = fields2key(undenh['institusjonsnr'], undenh['emnekode'],
                                   undenh['terminkode'], undenh['arstall'])
-            self.emne_versjon.setdefault(
-                multi_id, {})["v%s" % undenh['versjonskode']] = 1
-            self.emne_termnr.setdefault(
-                multi_id, {})[undenh['terminnr']] = 1
+            self.emne_versjon[multi_id]["v%s" % undenh['versjonskode']] = 1
+            self.emne_termnr[multi_id][undenh['terminnr']] = 1
 
             full_sko = "%02d%02d%02d" % (int(undenh['faknr_kontroll']),
                                          int(undenh['instituttnr_kontroll']),
@@ -401,7 +405,7 @@ class Fronter(object):
             emne_tittel = undenh['emnenavn_bokmal']
             if len(emne_tittel) > 50:
                 emne_tittel = undenh['emnenavnfork']
-            self.kurs2navn.setdefault(kurs_id, []).append(
+            self.kurs2navn[kurs_id].append(
                 [undenh['arstall'], undenh['terminkode'], emne_tittel])
 
         # Once all the names have been collected, we chose the correct name
@@ -447,7 +451,7 @@ class Fronter(object):
             self.logger.debug("registrerer undakt for <%s> (key: %s)",
                               id_seq, key)
 
-            self.enhet2akt.setdefault(enhet_id, []).append(
+            self.enhet2akt[enhet_id].append(
                 (undakt['aktivitetkode'], undakt['aktivitetsnavn'],
                  undakt['terminkode'], undakt['arstall'], undakt['terminnr']))
 
@@ -475,7 +479,7 @@ class Fronter(object):
 
             self.logger.debug("registrerer EVU-kurs <%s> (key: %s)",
                               id_seq, key)
-            self.kurs2enhet.setdefault(key, []).append(key)
+            self.kurs2enhet[key].append(key)
             self.enhet2sko[key] = "%02d%02d00" % (
                 int(evu['faknr_adm_ansvar']),
                 int(evu['instituttnr_adm_ansvar']))
@@ -513,7 +517,7 @@ class Fronter(object):
 
             self.logger.debug("registrerer EVU-kursakt for <%s> (key: %s)",
                               id_seq, akt_id)
-            self.enhet2akt.setdefault(key, []).append(
+            self.enhet2akt[key].append(
                 (kursakt['aktivitetskode'], kursakt['aktivitetsnavn']))
 
             if kursakt["lmsrommalkode"]:
@@ -540,7 +544,7 @@ class Fronter(object):
             if key not in kurs:
                 continue
 
-            self.kurs2enhet.setdefault(key, []).append(key)
+            self.kurs2enhet[key].append(key)
             self.enhet2sko[key] = "%02d%02d%02d" % (
                 int(kull["faknr_studieansv"]),
                 int(kull["instituttnr_studieansv"]),
@@ -809,34 +813,30 @@ def process_undakt_permissions(template, korridor, fellesrom,
         xml_name = (template % group_name).lower()
 
         # Every group has 'view contacts' on itself.
-        new_acl.setdefault(xml_name, {})[xml_name] = view_contacts
+        new_acl[xml_name][xml_name] = view_contacts
 
         # The role holders have special permissions in the student group.
-        new_acl.setdefault(
-            studentnode, {})[xml_name] = role_permissions['student']
+        new_acl[studentnode][xml_name] = role_permissions['student']
         # The student group has 'view contacts' on the role holders.
-        new_acl.setdefault(
-            xml_name, {})[studentnode] = view_contacts
+        new_acl[xml_name][studentnode] = view_contacts
 
         # Role holders may have permissions in the undakt/kursakt room,
         # lærerrom, fellesrom and the corridor:
         if "korridor" in role_permissions:
-            new_acl.setdefault(
-                korridor, {})[xml_name] = role_permissions["korridor"]
+            new_acl[korridor][xml_name] = role_permissions["korridor"]
         # ... fellesrommet
         if "felles" in role_permissions:
-            new_acl.setdefault(fellesrom, {})[xml_name] = {
+            new_acl[fellesrom][xml_name] = {
                 'role': role_permissions["felles"]}
         # ... ann finally undakt/kursakt room
-        new_acl.setdefault(undakt_node, {})[xml_name] = {
+        new_acl[undakt_node][xml_name] = {
             'role': role_permissions["undakt"]}
 
     # The student group has to have 'view contacts' on itself
-    new_acl.setdefault(studentnode, {})[studentnode] = view_contacts
+    new_acl[studentnode][studentnode] = view_contacts
 
     # Finally, the student group has permissions in the undakt/kursakt room.
-    new_acl.setdefault(undakt_node, {})[studentnode] = {
-        'role': student_permissions['undakt']}
+    new_acl[undakt_node][studentnode] = {'role': student_permissions['undakt']}
 
 
 def process_undenh_permissions(template, korridor, fellesrom,
@@ -880,27 +880,23 @@ def process_undenh_permissions(template, korridor, fellesrom,
         xml_name = (template % group_name).lower()
 
         # Every group has 'view contacts' on itself.
-        new_acl.setdefault(xml_name, {})[xml_name] = view_contacts
+        new_acl[xml_name][xml_name] = view_contacts
 
         # Role holders have special permissions in the student corridor.
-        if "korridor" in role_permissions:
-            new_acl.setdefault(korridor, {})[xml_name] = \
-                                         role_permissions["korridor"]
+        if 'korridor' in role_permissions:
+            new_acl[korridor][xml_name] = role_permissions['korridor']
 
         # ... fellesrommet
-        if "felles" in role_permissions:
-            new_acl.setdefault(fellesrom, {})[xml_name] = {
-                'role': role_permissions["felles"]}
+        if 'felles' in role_permissions:
+            new_acl[fellesrom][xml_name] = {'role': role_permissions['felles']}
 
         # Role holders have special permissions wrt the student group.
-        new_acl.setdefault(
-            studentnode, {})[xml_name] = role_permissions["student"]
+        new_acl[studentnode][xml_name] = role_permissions['student']
 
     # Student groups also have access to fellesrom:
-    new_acl.setdefault(fellesrom, {})[studentnode] = {
-        'role': student_permissions['undenh']}
+    new_acl[fellesrom][studentnode] = {'role': student_permissions['undenh']}
     # ... and they have 'view contacts' on their own group.
-    new_acl.setdefault(studentnode, {})[studentnode] = view_contacts
+    new_acl[studentnode][studentnode] = view_contacts
 
 
 def process_kull_permissions(template, korridor, kullrom, studentnode):
@@ -936,23 +932,21 @@ def process_kull_permissions(template, korridor, kullrom, studentnode):
         xml_name = (template % group_name).lower()
 
         # The role holders have 'view contacts' on their own group.
-        new_acl.setdefault(xml_name, {})[xml_name] = view_contacts
+        new_acl[xml_name][xml_name] = view_contacts
 
         # The role holders have permissions in the corridor...
-        if "korridor" in role_permissions:
-            new_acl.setdefault(korridor, {})[xml_name] = \
-                                         role_permissions["korridor"]
+        if 'korridor' in role_permissions:
+            new_acl[korridor][xml_name] = role_permissions['korridor']
 
         # ... and in the room itself.
-        new_acl.setdefault(kullrom, {})[xml_name] = {
-            'role': role_permissions['kullrom']}
+        new_acl[kullrom][xml_name] = {'role': role_permissions['kullrom']}
 
     # baardj thinks that students should not have 'view contacts' on the
     # entire 'kull'.
-    # new_acl.setdefault(studentnode, {})[studentnode] = view_contacts
+    # new_acl[studentnode][studentnode] = view_contacts
 
     # However, students should have write access to the room itself.
-    new_acl.setdefault(kullrom, {})[studentnode] = {'role': fronter.ROLE_WRITE}
+    new_acl[kullrom][studentnode] = {'role': fronter.ROLE_WRITE}
 
 
 class FronterXML(object):
@@ -1299,8 +1293,7 @@ def get_new_users():
                        }
 
         if 'All_users' in fronter.export:
-            new_groupmembers.setdefault('All_users',
-                                        {})[user['uname']] = 1
+            new_groupmembers['All_users'].add(user['uname'])
             user_params['USERACCESS'] = 'allowlogin'
 
         if user['uname'] in fronter.admins:
@@ -1385,6 +1378,7 @@ def register_supergroups():
     names.
     """
 
+    timer = make_timer(logger, 'Starting register_supergroups...')
     register_group("Universitetet i Oslo", root_struct_id, root_struct_id)
     register_group(group_struct_title, group_struct_id, root_struct_id)
     if 'All_users' in fronter.export:
@@ -1398,16 +1392,17 @@ def register_supergroups():
         register_group("Alle brukere (STOR)", 'All_users', sg_id,
                        allow_room=False, allow_contact=True)
 
-    for group_name in fronter.exportable:
-        try:
-            group = get_group(group_name)
-        except Errors.NotFoundError:
-            logger.debug("gruppe <%s> skal eksporteres, men get_group() "
-                         "fant ingen i Cerebrum", group_name)
-            continue
+    group = Factory.get('Group')(db)
+    group_members = defaultdict(set)
+    timer2 = make_timer(logger, '   getting all group members...')
+    for row in group.search_members(group_id=fronter.exportable.keys(),
+                                    member_type=const.entity_account):
+        group_members[row['group_id']].add(row['member_id'])
+    timer2('   ... done getting all group members.')
 
-        members = list(group.search_members(group_id=group.entity_id,
-                                            member_type=const.entity_account))
+    for group_id, group_description in fronter.exportable.iteritems():
+        group_name = entity2name[group_id]
+        members = group_members[group_id]
         if not members:
             # On one hand, we should allow some leeway wrt erroneous spreads
             # in Cerebrum (and we have a lot of historic data with fronter
@@ -1434,35 +1429,33 @@ def register_supergroups():
             register_group(parent_struct_id, parent_struct_id, group_struct_id,
                            allow_room=False, allow_contact=True)
 
-        register_group(group.description, group.group_name,
+        register_group(group_description, group_name,
                        parent_struct_id, allow_room=False,
                        allow_contact=True)
 
-        logger.debug("Registrerer <%s>; desc <%s>; %d members",
-                     group.group_name, group.description, len(members))
+        #logger.debug("Registrerer <%s>; desc <%s>; %d members",
+        #             group.group_name, group.description, len(members))
 
         # All groups have "view contacts" on themselves.
-        new_acl.setdefault(group.group_name,
-                           {})[group.group_name] = view_contacts
-        for row in members:
-            member_id = int(row["member_id"])
+        new_acl[group_name][group_name] = view_contacts
+        for member_id in members:
             uname = entity2name.get(member_id)
             if uname is None:
                 logger.warn("Member id=%s of group name=%s id=%s has no name",
-                            member_id, group.group_name, group.entity_id)
+                            member_id, group_name, group_id)
                 continue
 
             if uname in new_users:
                 if new_users[uname]['USERACCESS'] != 'administrator':
                     new_users[uname]['USERACCESS'] = 'allowlogin'
-                    logger.debug("<%s> gets member <%s>",
-                                 group.group_name, uname)
-                    new_groupmembers.setdefault(group.group_name,
-                                                {})[uname] = 1
+                    #logger.debug("<%s> gets member <%s>",
+                    #             group_name, uname)
+                    new_groupmembers[group_name].add(uname)
+    timer('... done register_supergroups')
 
 
-new_acl = {}
-new_groupmembers = {}
+new_acl = defaultdict(dict)
+new_groupmembers = defaultdict(set)
 new_rooms = {}
 new_group = {}
 
@@ -1589,12 +1582,13 @@ def process_single_enhet_id(enhet_id, struct_id, emnekode,
 
 
 def process_kurs2enhet():
+    timer = make_timer(logger, 'Starting process_kurs2enhet...')
     # TODO: some code-duplication has been reduced by adding
     # process_single_enhet_id.  Recheck that the reduction is correct.
     # It should be possible to move more code to that subroutine.
     for kurs_id in fronter.kurs2enhet.keys():
         ktype = kurs_id.split(":")[0].lower()
-        logger.debug("Processing kurs_id %s", kurs_id)
+        #logger.debug("Processing kurs_id %s", kurs_id)
         if ktype == fronter.EMNE_PREFIX.lower():
             enhet_sorted = fronter.kurs2enhet[kurs_id][:]
             enhet_sorted.sort(fronter._date_sort)
@@ -1790,6 +1784,7 @@ def process_kurs2enhet():
         else:
             raise ValueError("Unknown type <%s> for course <%s>" %
                              (ktype, kurs_id))
+    timer('... done process_kurs2enhet')
 
 
 def usage(exitcode):
@@ -1833,28 +1828,37 @@ def main():
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
     init_globals()
+    register_supergroups()
+    process_kurs2enhet()
 
     fxml.start_xml_file(fronter.kurs2enhet.keys())
 
-    register_supergroups()
-
     # Generate <person>-elements
+    timer = make_timer(logger, 'Writing users to xml...')
     for uname, data in new_users.iteritems():
         fxml.user_to_XML(uname, fronter.STATUS_ADD, data)
+    timer('... done writing users.')
 
-    logger.info("process_kurs2enhet()")
-    process_kurs2enhet()
-
+    timer = make_timer(logger, 'Writing groups to xml...')
     for gname, data in new_group.iteritems():
         fxml.group_to_XML(gname, fronter.STATUS_ADD, data)
+    timer('... done writing groups.')
+
+    timer = make_timer(logger, 'Writing rooms to xml...')
     for room_id, data in new_rooms.iteritems():
         fxml.room_to_XML(room_id, fronter.STATUS_ADD, data)
+    timer('... done writing rooms.')
 
-    for gname, members_as_dict in new_groupmembers.iteritems():
+    timer = make_timer(logger, 'Writing groupmembers to xml...')
+    for gname, members in new_groupmembers.iteritems():
         fxml.personmembers_to_XML(gname, fronter.STATUS_ADD,
-                                  members_as_dict.keys())
+                                  members)
+    timer('... done writing groupmembers.')
+
+    timer = make_timer(logger, 'Writing acls to xml...')
     for struct_id, data in new_acl.iteritems():
         fxml.acl_to_XML(struct_id, fronter.STATUS_ADD, data)
+    timer('... done writing acls.')
     fxml.end()
 
     logger.info("generate_fronter_full is done")
