@@ -186,7 +186,6 @@ class Fronter(object):
                 group_name = g['name']
                 entity_id = g['group_id']
                 if not group_name:
-                    print g
                     continue
 
                 # 'kull' groups are a bit special, since fronter spreads are
