@@ -21,7 +21,7 @@
 u""" Module for setting up mappings between events and actions. """
 
 from collections import defaultdict
-from Cerebrum.modules.event.EventExceptions import EventHandlerNotImplemented
+from .errors import EventHandlerNotImplemented
 
 
 class EventMap(object):

@@ -51,8 +51,7 @@ Manager.register('queue', Queue)
 Manager.register('log_queue', Queue)
 
 
-def serve(logger, config, num_workers, enable_listener,
-          enable_collectors):
+def serve(logger, config, num_workers, enable_listener, enable_collectors):
     logger.info('Starting {!r} event utils'.format(TARGET_SYSTEM))
 
     channels = [TARGET_SYSTEM, ]
@@ -89,9 +88,8 @@ def serve(logger, config, num_workers, enable_listener,
 
     if enable_listener:
         exchanged.add_process(
-            evhandlers.DBEventListener,
+            evhandlers.EventLogListener,
             queue=event_queue,
-            fan_out_queues=queues,
             log_queue=exchanged.log_queue,
             running=exchanged.run_trigger,
             channels=channels)
@@ -99,9 +97,8 @@ def serve(logger, config, num_workers, enable_listener,
     if enable_collectors:
         for chan in channels:
             exchanged.add_process(
-                evhandlers.DBEventCollector,
+                evhandlers.EventLogCollector,
                 queue=event_queue,
-                fan_out_queues=queues,
                 log_queue=exchanged.log_queue,
                 running=exchanged.run_trigger,
                 channel=chan,

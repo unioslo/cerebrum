@@ -38,7 +38,7 @@ from multiprocessing import Queue
 from Cerebrum import Utils
 from Cerebrum.modules.event import utils
 from Cerebrum.modules.event import evhandlers
-from Cerebrum.modules.cim.consumer import Listener
+from Cerebrum.modules.cim.consumer import CimConsumer
 from Cerebrum.modules.cim.config import load_config
 
 
@@ -62,7 +62,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
 
     for i in range(0, num_workers):
         cimd.add_process(
-            Listener,
+            CimConsumer,
             queue=event_queue,
             log_queue=cimd.log_queue,
             running=cimd.run_trigger,
@@ -70,7 +70,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
 
     if enable_listener:
         cimd.add_process(
-            evhandlers.DBEventListener,
+            evhandlers.EventLogListener,
             queue=event_queue,
             log_queue=cimd.log_queue,
             running=cimd.run_trigger,
@@ -79,7 +79,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
     if enable_collectors:
         for chan in channels:
             cimd.add_process(
-                evhandlers.DBEventCollector,
+                evhandlers.EventLogCollector,
                 queue=event_queue,
                 log_queue=cimd.log_queue,
                 running=cimd.run_trigger,
@@ -121,7 +121,7 @@ def main(args=None):
     # TODO: Make option for this?
     # Update `event_to_target` mapping tables
     utils.update_system_mappings(
-        parser.prog, TARGET_SYSTEM, Listener.event_map.events)
+        parser.prog, TARGET_SYSTEM, CimConsumer.event_map.events)
 
     args = parser.parse_args(args)
     cim_config = load_config(filepath=args.configfile)

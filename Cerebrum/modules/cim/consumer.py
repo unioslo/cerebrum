@@ -21,9 +21,9 @@
 u""" This module contains a consumer for Cerebrum events. """
 import pickle
 
-from Cerebrum.modules.event.EventExceptions import EntityTypeError
-from Cerebrum.modules.event.EventExceptions import UnrelatedEvent
-from Cerebrum.modules.event.EventExceptions import EventExecutionException
+from Cerebrum.modules.event.errors import EntityTypeError
+from Cerebrum.modules.event.errors import UnrelatedEvent
+from Cerebrum.modules.event.errors import EventExecutionException
 from Cerebrum.modules.event.mapping import EventMap
 from Cerebrum.modules.event import evhandlers
 from Cerebrum.utils.funcwrap import memoize
@@ -34,7 +34,7 @@ from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory, dyn_import
 
 
-class Listener(evhandlers.EventConsumer):
+class CimConsumer(evhandlers.EventLogConsumer):
     u""" Event listener and handler for CIM. """
 
     event_map = EventMap()
@@ -42,7 +42,7 @@ class Listener(evhandlers.EventConsumer):
     def __init__(self, cim_config, cim_mock=False, **kwargs):
         self._config = cim_config
         self._mock = cim_mock
-        super(Listener, self).__init__(**kwargs)
+        super(CimConsumer, self).__init__(**kwargs)
 
     def handle_event(self, event):
         u""" Call the appropriate handlers.
