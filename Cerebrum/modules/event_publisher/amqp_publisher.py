@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2016 University of Oslo, Norway
+# Copyright 2015-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,27 +21,38 @@
 
 """ Wrapper of the pika AMQP 0.9.1 client.
 
-# Connect and publish messages with the client:
->>> from Cerebrum.modules.event_publisher.config import load_config
+This client is hard coded to publish persistent messages with content-type
+'application/json'.
+
+Connect and publish messages with the client:
+
+>>> from Cerebrum.modules.event_publisher.config import load_publisher_config
 >>> from Cerebrum.modules.event_publisher.amqp_publisher import (
-...     PublishingAMQP091Client)
->>> c = PublishingAMQP091Client(load_config())
->>> c.publish(['ost', 'fisk'])
->>> c.publish('kolje')
+...     AMQP091Publisher, )
+>>> c = AMQP091Publisher(load_config())
+>>> c.publish('my_routing_key', '{"fisk": ["hyse", "kolje"]}')
 >>> c.close()
 """
-
-import datetime
 import json
-
 import pika
 
 from Cerebrum.modules.event.clients import ClientErrors
-from Cerebrum.modules.event.clients.amqp_client import BaseAMQP091Client
-from . import scim
+from Cerebrum.modules.event.clients import amqp_client
+from Cerebrum.modules.event.clients import amqp_client_config
+
+from Cerebrum.config.configuration import (Namespace,
+                                           Configuration,
+                                           ConfigDescriptor)
+from Cerebrum.config.settings import (Boolean, String)
 
 
-class PublishingAMQP091Client(BaseAMQP091Client):
+DELIVERY_NON_PERSISTENT = 1
+DELIVERY_PERSISTENT = 2
+
+CONTENT_TYPE = 'application/json'
+
+
+class AMQP091Publisher(amqp_client.BaseAMQP091Client):
     """AMQP 0.9.1 client wrapper usable for publishing messages."""
 
     def __init__(self, config):
@@ -50,22 +61,22 @@ class PublishingAMQP091Client(BaseAMQP091Client):
         :type config: AMQPClientPublisherConfig
         :param config: The configuration for the AMQP client.
         """
-        super(PublishingAMQP091Client, self).__init__(config)
-        self.exchange = config.exchange_name
+        super(AMQP091Publisher, self).__init__(config)
+        self.exchange_name = config.exchange_name
         self.exchange_type = config.exchange_type
         self.exchange_durable = config.exchange_durable
 
     def open(self):
-        super(PublishingAMQP091Client, self).open()
+        super(AMQP091Publisher, self).open()
         # Declare exchange
         self.channel.exchange_declare(
-            exchange=self.exchange,
+            exchange=self.exchange_name,
             exchange_type=self.exchange_type,
             durable=self.exchange_durable)
         # Ensure that messages are recieved by the broker
         self.channel.confirm_delivery()
 
-    def publish(self, messages, durable=True):
+    def publish(self, routing_key, message, durable=True):
         """Publish a message to the exchange.
 
         :type messages: dict or list of dicts.
@@ -74,121 +85,65 @@ class PublishingAMQP091Client(BaseAMQP091Client):
         :type durable: bool
         :param durable: If this message should be durable.
         """
-        if isinstance(messages, (dict, scim.Event)):
-            messages = [messages]
-        elif not isinstance(messages, list):
-            raise TypeError('messages must be a dict, event or a list thereof')
-        for message in messages:
-            if not isinstance(message, (dict, scim.Event)):
-                raise TypeError('messages must be a dict, '
-                                'Event or a list thereof')
-            try:
-                err_msg = 'Could not generate routing key'
-                if isinstance(message, dict):
-                    if 'routing-key' in message:
-                        event_type = message['routing-key']
-                    else:
-                        event_type = 'unknown'
-                    payload = message
-                else:
-                    event_type = message.key
-                    payload = message.get_payload()
-                msg_body = dict(filter(lambda x: x[0] != 'routing-key',
-                                       payload.items()))
-                err_msg = ('Could not generate'
-                           ' application/json content from message')
-                msg_body = json.dumps(msg_body)
-            except Exception as e:
-                raise ClientErrors.MessageFormatError('{0}: {1}'.format(
-                    err_msg,
-                    e))
-            try:
-                if self.channel.basic_publish(
-                        exchange=self.exchange,
-                        routing_key=event_type,
-                        body=msg_body,
-                        properties=pika.BasicProperties(
-                            # Delivery mode:
-                            # 1: Non-persistent
-                            # 2: Persistent
-                            delivery_mode=2,
-                            content_type='application/json'),
-                        # Makes publish return false if
-                        # the message is not routed / published
-                        mandatory=False,
-                        # TODO: Should we enable immediate?
-                ):
-                    return True
-                else:
-                    raise Exception('Broker did not confirm message delivery')
-            except Exception as e:
-                raise ClientErrors.MessagePublishingError(
-                    'Unable to publish message: {0!r}'.format(e))
+        try:
+            routing_key = routing_key or 'unknown'
+
+            if isinstance(message, basestring):
+                # Validate any previously stored json strings?
+                # message = json.loads(message)
+                msg_body = str(message)
+            else:
+                msg_body = json.dumps(message)
+        except Exception as e:
+            raise ClientErrors.MessageFormatError(
+                'Unable to format message: {0!r}'.format(e))
+        try:
+            if self.channel.basic_publish(
+                    exchange=self.exchange_name,
+                    routing_key=routing_key,
+                    body=msg_body,
+                    properties=pika.BasicProperties(
+                        delivery_mode=DELIVERY_PERSISTENT,
+                        content_type=CONTENT_TYPE),
+                    # Makes publish return false if
+                    # the message is not routed / published
+                    mandatory=False):
+                return True
+            else:
+                raise Exception('Broker did not confirm message delivery')
+        except Exception as e:
+            raise ClientErrors.MessagePublishingError(
+                'Unable to publish message: {0!r}'.format(e))
 
 
-class SchedulingAndPublishingAMQP091Client(PublishingAMQP091Client):
-    """
-    Client with scheduling (celery) capabilities
-    """
+class PublisherConfig(amqp_client_config.BaseAMQPClientConfig):
+    u"""Configuration for the Publishing AMQP client."""
 
-    def publish(self, messages, durable=True):
-        """
-        Publish a message to the exchange after scheduling it
-        in case it is marked for scheduling
+    class PublisherClass(Configuration):
+        mod = ConfigDescriptor(
+            String,
+            default=AMQP091Publisher.__module__,
+            doc="Publisher module to use for publishing events")
+        cls = ConfigDescriptor(
+            String,
+            default=AMQP091Publisher.__name__,
+            doc="Publisher class to use for publishing events")
 
-        :type messages: dict, scim.Event or list of dicts and / or scim.Event
-        :param messages: The message(s) to publish
+    publisher_class = ConfigDescriptor(
+        Namespace,
+        config=PublisherClass)
 
-        :type durable: bool
-        :param durable: If this message should be durable
+    exchange_type = ConfigDescriptor(
+        String,
+        default=u"topic",
+        doc=u"The exchange type")
 
-        :rtype: dict
-        :return: A dict of jti:(celery.result.AsyncResult, eta)
-        """
-        from Cerebrum.modules.celery_tasks.apps.scheduler import schedule_message
-        super(SchedulingAndPublishingAMQP091Client, self).publish(
-            messages,
-            durable)
-        if isinstance(messages, (dict, scim.Event)):
-            messages = [messages]
-        elif not isinstance(messages, list):
-            raise TypeError('messages must be a dict, event or a list thereof')
-        result_tickets = dict()
-        for message in messages:
-            if not isinstance(message, (dict, scim.Event)):
-                raise TypeError('messages must be a dict, '
-                                'Event or a list thereof')
-            try:
-                if isinstance(message, dict):
-                    err_msg = 'Could not extract schedule time'
-                    if 'nbf' not in message:
-                        continue
-                    eta = datetime.datetime.fromtimestamp(int(message['nbf']))
-                    jti = message.get('jti', 'invalid')
-                    err_msg = 'Could not get routing-key'
-                    routing_key = message.get('routing-key', 'unknown')
-                    err_msg = 'Could not produce message-body'
-                    body = json.dumps(dict(
-                        filter(lambda x: x[0] != 'routing-key',
-                               message.items())))
-                else:
-                    # scim.Event
-                    err_msg = 'Could not extract schedule time'
-                    if not isinstance(message.scheduled, datetime.datetime):
-                        continue
-                    eta = message.scheduled
-                    jti = message.jti or 'invalid'
-                    err_msg = 'Could not get routing-key'
-                    routing_key = message.key
-                    err_msg = 'Could not produce message-body'
-                    body = json.dumps(message.get_payload())
-                err_msg = 'Could not schedule / produce task'
-                result_tickets[jti] = (schedule_message.apply_async(
-                    kwargs={'routing_key': routing_key,
-                            'body': body},
-                    eta=eta), eta)
-            except Exception as e:
-                raise ClientErrors.MessageFormatError('{0}: {1}'.format(
-                    err_msg,
-                    e))
-        return result_tickets
+    exchange_durable = ConfigDescriptor(
+        Boolean,
+        default=True,
+        doc=u"Whether the exchange is durable or not")
+
+    exchange_name = ConfigDescriptor(
+        String,
+        default=u"api_events",
+        doc=u"The name of the exchange")

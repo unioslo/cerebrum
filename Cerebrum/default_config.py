@@ -22,6 +22,11 @@ from os.path import join as pj
 from sys import prefix
 
 
+# Default timezone. This value *must* match the timezone configuration of the
+# SQL server. The value is used to convert naive, local datetimes from the
+# database (mx.DateTime) into proper localized datetime values.
+TIMEZONE = 'Europe/Oslo'
+
 # Files containing the authentication data needed for database access
 # are kept in this directory.
 DB_AUTH_DIR = pj(prefix, 'etc', 'passwords')

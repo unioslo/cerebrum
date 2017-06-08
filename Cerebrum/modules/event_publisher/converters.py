@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,22 +18,21 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Module used by publisher to convert 'raw' events into exportable messages.
+
+General idea: The eventlog module creates a dict containing the message data.
+Then the EventFilter is called with the data, and generates Event objects that
+can be formatted and published.
 
 """
-Module used by publisher to convert 'raw' events into exportable messages.
-
-General idea: The event publisher creates a dict containing the message.
-Then the filter_message is called with the required arguments.
-
-If filter_message returns some value that is boolean true, it is used as the
-message, otherwise it is discarded.
-"""
+from __future__ import absolute_import, print_function
 
 import re
 from collections import OrderedDict
-from Cerebrum.Utils import Factory
 
-from . import scim
+from Cerebrum.Utils import Factory
+from . import event
+
 
 """
 General fixes:
@@ -76,51 +75,65 @@ categories:
 """
 
 
-def filter_message(msg, subject, dest, change_type, db):
-    """Filter a message, converting the data on the way.
+class EventFilter(object):
+    """ Filter with database. """
 
-    :param msg: Message object
-    :type msg: dict
+    callbacks = OrderedDict()
 
-    :param subject: Subject
-    :type subject: Entity
+    def __init__(self, db):
+        self.db = db
 
-    :param dest: Object/destination
-    :type dest: Entity or None
+    def __call__(self, message, change_type, **kwargs):
+        """ Generate an event.
 
-    :param db: Database
-    :type db: Database
+        :param dict message: Message data.
+        :param ChangeTypeCode change_type: The change type.
 
-    :param change_type: ChangeType
-    :type change_type: Code ChangeType
-    """
-    category, change = msg['category'], msg['change']
-    payload = None
-    for key in _dispatch.keys():
-        if re.match('^%s$' % key,
-                    '%s:%s' % (category, change) if change else category):
-            payload = _dispatch.get(key)(
-                msg, subject, dest, change_type, db)
-            msg['payload'] = payload
-    return payload
+        :return Event:
+            Returns an event object, or None if no event should be issued for
+            the given change.
+        """
+        category, change = message['category'], message['change']
+        fn = self.get_callback(category, change)
+        return fn(message,
+                  db=self.db,
+                  change_type=change_type,
+                  **kwargs)
+
+    @classmethod
+    def register(cls, category, change=None):
+        """ Register an event generator for a given change type.
+
+        >>> @EventFilter.register('person', 'aff_mod')
+        ... def person_aff(msg, **kwargs):
+        ...     return event.Event(event.MODIFY)
+
+        >>> @EventFilter.register('person', 'aff_(add|del)')
+        ... def person_other(msg):
+        ...    return None
 
 
-# Holds the mapping of names, as registred by dispatch().
-def _identity(msg, *args):
-    return msg
-_dispatch = OrderedDict()
+        """
+        key = re.compile('^{0}:{1}$'.format(category, change or '.*'))
 
+        def wrapper(fn):
+            cls.callbacks[key] = fn
+            return fn
+        return wrapper
 
-def dispatch(cat, change=None):
-    """Wrapper registers transform-functions to change-types."""
-    def _fix(fn):
-        _dispatch['%s:%s' % (cat, change) if change else '%s:.*' % cat] = fn
-        return fn
-    return _fix
+    @classmethod
+    def get_callback(cls, category, change):
+        # TODO: Will change ever be empty? And should we match an empty
+        # change value?
+        term = '{0}:{1}'.format(category, change or '')
+        for key in cls.callbacks:
+            if key.match(term):
+                return cls.callbacks[key]
+        return lambda *a, **kw: None
 
 
 def _stringify_code(msg, field, code_converter):
-    """Convert a code to a string.
+    """ Convert a code to a string.
 
     :type msg: dict
     :param msg: The message to convert
@@ -129,8 +142,11 @@ def _stringify_code(msg, field, code_converter):
     :type code_converter: _CerebrumCode
     :param code_converter: The converter to use for the code.
     """
-    if msg.get('data', {}).get(field):
-        msg['data'][field] = str(code_converter(msg['data'][field]))
+    code = msg.get('data', {}).get(field)
+    if code and isinstance(code, code_converter):
+        msg['data'][field] = str(code)
+    elif code:
+        msg['data'][field] = str(code_converter(code))
 
 
 def _rename_key(msg, field, new_field):
@@ -146,6 +162,18 @@ def _rename_key(msg, field, new_field):
     if msg.get('data', {}).get(field):
         msg['data'][new_field] = msg['data'][field]
         del msg['data'][field]
+
+
+def _make_common_args(msg):
+    """ prepare common data from msg into kwargs for Event. """
+    common_args = dict()
+    for k in ('subject', 'objects', 'context', ):
+        if msg.get(k):
+            common_args[k] = msg[k]
+    schedule = msg.get('data', dict()).get('schedule')
+    if schedule:
+        common_args['scheduled'] = schedule
+    return common_args
 
 
 """
@@ -190,57 +218,61 @@ def _rename_key(msg, field, new_field):
 """
 
 
-@dispatch('e_account', 'password')
-def account_password(msg, subject, *args):
+@EventFilter.register('e_account', 'password')
+def account_password(msg, **kwargs):
     """Issue a password message."""
-    return scim.Event(scim.PASSWORD,
-                      subject=subject,
-                      attributes=['password'])
+    common = _make_common_args(msg)
+    return event.Event(event.PASSWORD,
+                       attributes=['password'],
+                       **common)
 
 
-# @dispatch('e_account', 'password_token')
-# def password_token(*args):
+# @EventFilter.register('e_account', 'password_token')
+# def password_token(*args, **kwargs):
 #    return None
 
 
-@dispatch('e_account', 'create')
-def account_create(msg, subject, *args):
+@EventFilter.register('e_account', 'create')
+def account_create(msg, **kwargs):
     """account create (by write_db)
     attributes other than _auth_info, _acc_affect_auth_types, password
     """
-    return scim.Event(scim.CREATE,
-                      subject=subject,
-                      attributes=['npType', 'expireDate', 'createDate'])
+    common = _make_common_args(msg)
+    return event.Event(event.CREATE,
+                       attributes=['npType', 'expireDate', 'createDate'],
+                       **common)
 
 
-@dispatch('e_account', 'destroy')
-def account_delete(msg, subject, *args):
-    return scim.Event(scim.DELETE,
-                      subject=subject)
+@EventFilter.register('e_account', 'destroy')
+def account_delete(msg, **kwargs):
+    common = _make_common_args(msg)
+    return event.Event(event.DELETE,
+                       **common)
 
 
-@dispatch('e_account', 'mod')
-def account_mod(msg, subject, *kws):
+@EventFilter.register('e_account', 'mod')
+def account_mod(msg, **kwargs):
     """account mod (by write_db)
     attributes that have been changed
     """
-    return scim.Event(scim.MODIFY,
-                      subject=subject,
-                      attributes=['npType', 'expireDate', 'createDate'])
+    common = _make_common_args(msg)
+    return event.Event(event.MODIFY,
+                       attributes=['npType', 'expireDate', 'createDate'],
+                       **common)
 
 
-@dispatch('spread', 'add')
-def spread_add(msg, subject, *args):
-    return scim.Event(scim.ADD,
-                      subject=subject,
-                      spreads=[msg['context']])
+@EventFilter.register('spread', 'add')
+def spread_add(msg, **kwargs):
+    common = _make_common_args(msg)
+    return event.Event(event.ADD,
+                       **common)
 
 
-@dispatch('spread', 'delete')
-def spread_del(msg, subject, *args):
-    return scim.Event(scim.REMOVE,
-                      subject=subject,
-                      spreads=[msg['context']])
+@EventFilter.register('spread', 'delete')
+def spread_del(msg, **kwargs):
+    common = _make_common_args(msg)
+    return event.Event(event.REMOVE,
+                       **common)
 
 
 def _ou(msg, db):
@@ -251,18 +283,20 @@ def _ou(msg, db):
         msg['data']['ou'] = str(o)
 
 
-@dispatch('ac_type')
-def account_type(msg, subject, *args):
-    return scim.Event(scim.MODIFY,
-                      subject=subject,
-                      attributes=['accountType'])  # TODO: better name?
+@EventFilter.register('ac_type')
+def account_type(msg, **kwargs):
+    common = _make_common_args(msg)
+    return event.Event(event.MODIFY,
+                       attributes=['accountType'],  # TODO: better name?
+                       **common)
 
 
-@dispatch('homedir')
-def homedir(msg, subj, *args):
-    return scim.Event(scim.MODIFY,
-                      subject=subj,
-                      attributes=['home'])
+@EventFilter.register('homedir')
+def homedir(msg, **kwargs):
+    common = _make_common_args(msg)
+    return event.Event(event.MODIFY,
+                       attributes=['home'],
+                       **common)
 
 """
     # Disk changes
@@ -296,32 +330,34 @@ def homedir(msg, subj, *args):
 
 
 # suppress entity, the usually follow something else
-@dispatch('entity')
-def entity(*args):
+@EventFilter.register('entity')
+def entity(*args, **kwargs):
     return None
 
 
 # change entity_name to identifier, as this is easier understood
 # (not conflicting with other names)
 # TODO: map to account, group, etc?
-@dispatch('entity_name')
-def entity_name(msg, subject, *args):
-    attr = None
-    if msg['subjecttype'] in ('account', 'group'):
-        attr = ['identifier']
-    elif msg['subjecttype'] == 'person':
-        attr = ['title']
+@EventFilter.register('entity_name')
+def entity_name(msg, **kwargs):
+    subject_type = getattr(msg.get('subject'), 'entity_type', None)
+    attr = {
+        'account': ['identifier', ],
+        'group': ['identifier', ],
+        'person': ['title', ],
+    }.get(subject_type)
+
     if attr:
-        return scim.Event(scim.MODIFY,
-                          subject=subject,
-                          attributes=attr)
+        common = _make_common_args(msg)
+        return event.Event(event.MODIFY,
+                           attributes=attr,
+                           **common)
 
 
-@dispatch('entity_cinfo')
-def entity_cinfo(msg, subject, *args):
+@EventFilter.register('entity_cinfo')
+def entity_cinfo(msg, db=None, **kwargs):
     """Convert address type and source constants."""
-    c = Factory.get('Constants')(args[-1])
-
+    c = Factory.get('Constants')(db)
     x = c.ContactInfo(msg['data']['type'])
     attr = {
         c.contact_phone: 'phone',
@@ -334,30 +370,36 @@ def entity_cinfo(msg, subject, *args):
         c.contact_private_mobile_visible: 'cellPhone'
     }.get(x) or str(x).capitalize()
 
-    return scim.Event(scim.MODIFY,
-                      subject=subject,
-                      attributes=[attr])
+    common = _make_common_args(msg)
+
+    return event.Event(event.MODIFY,
+                       attributes=[attr],
+                       **common)
 
 
-@dispatch('entity_addr')
-def entity_addr(msg, subj, *args):
-    if subj:
-        return scim.Event(scim.MODIFY,
-                          subject=subj,
-                          attributes=['address'])
+@EventFilter.register('entity_addr')
+def entity_addr(msg, **kwargs):
+    if not msg['subject']:
+        # No subject: noop
+        return
+    common = _make_common_args(msg)
+    return event.Event(event.MODIFY,
+                       attributes=['address'],
+                       **common)
 
 
-@dispatch('entity_note')
-def entity_note(msg, *args):
+@EventFilter.register('entity_note')
+def entity_note(*args, **kwargs):
     # TODO: Should we get the actual note, and send it?
     return None
 
 
-@dispatch('entity', 'ext_id.*')
-def entity_external_id(msg, subj, *args):
-    if not subj:
-        return None
-    c = Factory.get('Constants')(args[-1])
+@EventFilter.register('entity', 'ext_id.*')
+def entity_external_id(msg, db=None, **kwargs):
+    if not msg['subject']:
+        # No subject: noop
+        return
+    c = Factory.get('Constants')(db)
     x = c.EntityExternalId(msg['data']['id_type'])
     attr = {
         # c.externalid_groupsid: 'sid',
@@ -374,76 +416,94 @@ def entity_external_id(msg, subj, *args):
         c.externalid_stedkode: 'OuCode',
     }.get(x) or str(x).capitalize()
 
-    return scim.Event(scim.MODIFY,
-                      subject=subj,
-                      attributes=[attr])
+    common = _make_common_args(msg)
+
+    return event.Event(event.MODIFY,
+                       attributes=[attr],
+                       **common)
 
 
-@dispatch('person')
-def person(msg, subject, dest, change_type, db):
+@EventFilter.register('person')
+def person(*args, **kwargs):
     return None
 
 
-@dispatch('person', 'create')
-def person_create(msg, subj, *rest):
-    return scim.Event(scim.CREATE,
-                      subject=subj,
-                      attributes='exportID birthDate gender '
-                      'description deseasedDate'.split())
+_PERSON_ATTRIBUTES = [
+    'exportID',
+    'birthDate',
+    'gender',
+    'description',
+    'deseasedDate',
+]
 
 
-@dispatch('person', 'update')
-def person_update(msg, subj, *rest):
-    return scim.Event(scim.MODIFY,
-                      subject=subj,
-                      attributes='exportID birthDate gender '
-                      'description deseasedDate'.split())
+@EventFilter.register('person', 'create')
+def person_create(msg, **kwargs):
+    common = _make_common_args(msg)
+    return event.Event(event.CREATE,
+                       attributes=_PERSON_ATTRIBUTES,
+                       **common)
 
 
-@dispatch('person', 'name_.*')
-def person_name_ops(msg, *args):
-    co = Factory.get('Constants')(args[-1])
+@EventFilter.register('person', 'update')
+def person_update(msg, **kwargs):
+    common = _make_common_args(msg)
+    return event.Event(event.MODIFY,
+                       attributes=_PERSON_ATTRIBUTES,
+                       **common)
+
+
+@EventFilter.register('person', 'name_.*')
+def person_name_ops(msg, db=None, **kwargs):
+    co = Factory.get('Constants')(db)
     if msg['data']['src'] == co.system_cached:
-        return scim.Event(scim.MODIFY,
-                          subject=args[0],
-                          attributes=['name'])
+        common = _make_common_args(msg)
+        return event.Event(event.MODIFY,
+                           attributes=['name'],
+                           **common)
     return None
 
 
-@dispatch('person', 'aff_(add|mod|del)')
-def person_affiliation_ops(msg, subj, *args):
-    return scim.Event(scim.MODIFY,
-                      subject=subj,
-                      attributes=['affiliation'])
+@EventFilter.register('person', 'aff_(add|mod|del)')
+def person_affiliation_ops(msg, **kwargs):
+    common = _make_common_args(msg)
+    return event.Event(event.MODIFY,
+                       attributes=['affiliation'],
+                       **common)
 
 
-@dispatch('person', 'aff_src.*')
-def person_affiliation_source_ops(msg, *args):
+@EventFilter.register('person', 'aff_src.*')
+def person_affiliation_source_ops(*args, **kwargs):
     # TODO: Calculate changes
     return None
 
 
-@dispatch('quarantine', 'add')
-def quarantine_add(msg, subj, *args):
+@EventFilter.register('quarantine', 'add')
+def quarantine_add(msg, **kwargs):
+    common = _make_common_args(msg)
+    start = msg['data'].get('start')
     # co = Factory.get('Constants')(args[-1])
     # tp = msg['data']['q_type']
     # TODO: Quarantine handler
-    return scim.Event(scim.DEACTIVATE,
-                      subject=subj)
+    return event.Event(event.DEACTIVATE,
+                       scheduled=start,
+                       **common)
 
 
-@dispatch('quarantine', 'del')
-def quarantine_del(msg, subj, *args):
-    return scim.Event(scim.ACTIVATE,
-                      subject=subj)
+@EventFilter.register('quarantine', 'del')
+def quarantine_del(msg, **kwargs):
+    common = _make_common_args(msg)
+    return event.Event(event.ACTIVATE,
+                       **common)
 
 
-@dispatch('quarantine', 'mod')
-def quarantine_mod(msg, subj, *args):
+@EventFilter.register('quarantine', 'mod')
+def quarantine_mod(msg, **kwargs):
     # TBD: Is this really ACTIVATE? Or is it DEACTIVATE? Is this relative to
     # the point in time the quarantine should be enforced?
-    return scim.Event(scim.ACTIVATE,
-                      subject=subj)
+    common = _make_common_args(msg)
+    return event.Event(event.ACTIVATE,
+                       **common)
 
 # TODO: What to translate to?
 
@@ -501,54 +561,72 @@ def quarantine_mod(msg, subj, *args):
 """
 
 
-@dispatch('e_group')
-def group(msg, *rest):
-    return None
+#   @EventFilter.register('e_group')
+#   def group(*args, **kwargs):
+#       return None
 
 
-@dispatch('e_group', 'create')
-def group_create(msg, subj, *rest):
-    return scim.Event(scim.CREATE,
-                      subject=subj,
-                      attributes=['description'])
+@EventFilter.register('e_group', 'create')
+def group_create(msg, **kwargs):
+    common = _make_common_args(msg)
+    return event.Event(event.CREATE,
+                       attributes=['description'],
+                       **common)
 
 
-@dispatch('e_group', 'add')
-def group_add(msg, subj, dest, *rest):
-    return scim.Event(scim.MODIFY,
-                      subject=subj,
-                      obj=dest,
-                      attributes=['member'])
+@EventFilter.register('e_group', 'add')
+def group_add(msg, **kwargs):
+    common = _make_common_args(msg)
+    return event.Event(event.MODIFY,
+                       attributes=['member'],
+                       **common)
 
 
-@dispatch('e_group', 'rem')
-def group_rem(msg, subj, dest, *rest):
-    return scim.Event(scim.MODIFY,
-                      subject=subj,
-                      obj=dest,
-                      attributes=['member'])
+@EventFilter.register('e_group', 'rem')
+def group_rem(msg, **kwargs):
+    common = _make_common_args(msg)
+    return event.Event(event.MODIFY,
+                       attributes=['member'],
+                       **common)
 
 
-@dispatch('e_group', 'mod')
-def group_mod(msg, subj, dest, *rest):
-    return scim.Event(scim.MODIFY,
-                      subject=subj,
-                      attributes=msg.get('data', []))
+@EventFilter.register('e_group', 'mod')
+def group_mod(msg, **kwargs):
+    common = _make_common_args(msg)
+    return event.Event(event.MODIFY,
+                       attributes=msg.get('data', []),
+                       **common)
 
 
-@dispatch('e_group', 'destroy')
-def group_destroy(msg, subj, dest, *rest):
-    return scim.ManualEvent(event=scim.DELETE,
-                            subject=msg.get('data', {}).get('name', None),
-                            subject_type='groups')
+@EventFilter.register('e_group', 'destroy')
+def group_destroy(msg, *kwargs):
+    common = _make_common_args(msg)
+    # We may be missing some data here, as it has been deleted, so let's
+    # manipulate the 'subject' part of our message.
+    common['subject'].ident = msg.get('data', {}).get('name', None)
+    common['subject'].entity_type = 'group'
+    return event.Event(event.DELETE,
+                       **common)
 
 
-@dispatch('ad_attr')
-def ad_attr(msg, *rest):
-    return None
+#   @EventFilter.register('ad_attr')
+#   def ad_attr(*args, **kwags):
+#       return None
 
 
-@dispatch('dlgroup')
-def dlgroup(msg, *rest):
-    """distribution group roomlist"""
-    return None
+#   @EventFilter.register('dlgroup')
+#   def dlgroup(msg, *rest):
+#       """distribution group roomlist"""
+#       return None
+
+
+# python -m Cerebrum.modules.event_publisher.converters
+
+def main():
+    """ Print the registered handler regexes. """
+    for key in EventFilter.callbacks:
+        print(key.pattern)
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -1,6 +1,7 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,14 +18,27 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+""" Celery scheduler app. """
 import json
+from contextlib import contextmanager
+from celery.utils.log import get_task_logger
 
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.celery_tasks import (create_celery_app,
-                                           load_amqp_client_config)
+from Cerebrum.modules.celery_tasks import create_celery_app
+from Cerebrum.modules.event_publisher import get_client
+from Cerebrum.modules.event_publisher.config import load_publisher_config
+
 
 app = create_celery_app('scheduler')
+
+
+@contextmanager
+def exception_logger(logger, action=None):
+    action = ' ({0})'.format(action) if action else ''
+    try:
+        yield
+    except Exception as e:
+        logger.error("{0}: {1}{2}".format(type(e), e, action))
+        raise
 
 
 @app.task(bind=True,
@@ -40,14 +54,17 @@ def schedule_message(self, routing_key, body):
     :param body: Message body in json.dumps format
     :type body: str
     """
+    logger = get_task_logger(__name__)
     try:
-        message = json.loads(body)
-        message['routing-key'] = routing_key
-        conf = load_amqp_client_config('schedule_message')
-        publisher_class = Factory.make_class('SchedulerPublisher',
-                                             conf.publisher_class)
-        with publisher_class(conf) as amqp_client:
-            amqp_client.publish(message)
+        with exception_logger(logger):
+            message = json.loads(body)
+            config = load_publisher_config()
+            publisher_client = get_client(config)
+            with publisher_client as client:
+                client.publish(routing_key, message)
+                logger.info(
+                    'Message published (jti={0})'.format(message.get('jti')))
+
     except Exception as e:
         # we want to log and retry sending indefinitely...
         # TODO logger... use Cerebrum's??
