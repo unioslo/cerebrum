@@ -109,7 +109,7 @@ class EventConsumer(evhandlers.DBConsumer):
 #           pass
 
         # Publish message
-        with self.client as client:
+        with self.publisher as client:
             client.publish(routing_key, message)
             self.logger.info('Message published (msg jti={0})'
                              ''.format(message['jti']))
