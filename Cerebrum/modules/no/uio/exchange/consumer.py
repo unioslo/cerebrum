@@ -30,10 +30,10 @@ from urllib2 import URLError
 
 from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
                                                   ServerUnavailableException)
-from Cerebrum.modules.event.EventExceptions import (EventExecutionException,
-                                                    EventHandlerNotImplemented,
-                                                    EntityTypeError,
-                                                    UnrelatedEvent)
+from Cerebrum.modules.event.errors import (EventExecutionException,
+                                           EventHandlerNotImplemented,
+                                           EntityTypeError,
+                                           UnrelatedEvent)
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
@@ -46,7 +46,7 @@ from Cerebrum.modules.event import evhandlers
 from . import group_flattener
 
 
-class ExchangeEventHandler(evhandlers.EventConsumer):
+class ExchangeEventHandler(evhandlers.EventLogConsumer):
     """Event handler for Exchange.
 
     This event handler is started by the event daemon.

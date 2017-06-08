@@ -26,9 +26,9 @@ from urllib2 import URLError
 
 from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
                                                   ServerUnavailableException)
-from Cerebrum.modules.event.EventExceptions import (EventExecutionException,
-                                                    EntityTypeError,
-                                                    UnrelatedEvent)
+from Cerebrum.modules.event.errors import (EventExecutionException,
+                                           EntityTypeError,
+                                           UnrelatedEvent)
 from Cerebrum.modules.event.mapping import EventMap
 from Cerebrum.modules.no.uio.exchange.consumer import (
     ExchangeEventHandler as UIOExchangeEventHandler,)

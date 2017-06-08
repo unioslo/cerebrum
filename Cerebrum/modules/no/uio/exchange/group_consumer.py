@@ -20,8 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Event-handler for Exchange events."""
 
-import cereconf
-
 import os
 import traceback
 
@@ -30,10 +28,10 @@ from urllib2 import URLError
 from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
                                                   ServerUnavailableException,
                                                   AlreadyPerformedException)
-from Cerebrum.modules.event.EventExceptions import (EntityTypeError,
-                                                    EventExecutionException,
-                                                    EventHandlerNotImplemented,
-                                                    UnrelatedEvent)
+from Cerebrum.modules.event.errors import (EntityTypeError,
+                                           EventExecutionException,
+                                           EventHandlerNotImplemented,
+                                           UnrelatedEvent)
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
@@ -45,7 +43,7 @@ from Cerebrum.modules.event import evhandlers
 from . import group_flattener
 
 
-class ExchangeGroupEventHandler(evhandlers.EventConsumer):
+class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
     """Event handler for Exchange.
 
     This event handler is started by the event daemon.

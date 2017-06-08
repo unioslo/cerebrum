@@ -1117,22 +1117,27 @@ class EntityQuarantine(Entity):
         Add quarantine for this entity
         """
         qtype = int(qtype)
-        self.execute("""
-        INSERT INTO [:table schema=cerebrum name=entity_quarantine]
-          (entity_id, quarantine_type,
-           creator_id, description, start_date, end_date)
-        VALUES (:e_id, :q_type, :c_id, :description, :start_date, :end_date)""",
-                     {'e_id': self.entity_id,
-                      'q_type': qtype,
-                      'c_id': creator,
-                      'description': description,
-                      'start_date': start,
-                      'end_date': end})
+        self.execute(
+            """ INSERT INTO [:table schema=cerebrum name=entity_quarantine]
+            (entity_id, quarantine_type, creator_id, description,
+             start_date, end_date)
+            VALUES
+            (:entity_id, :quarantine_type, :creator_id, :description,
+             :start_date, :end_date)
+            """,
+            {'entity_id': self.entity_id,
+             'quarantine_type': qtype,
+             'creator_id': creator,
+             'description': description,
+             'start_date': start,
+             'end_date': end})
+
         self._db.log_change(self.entity_id,
                             self.const.quarantine_add,
                             None,
-                            change_params={'q_type': qtype},
-                            schedule=start)
+                            change_params={'q_type': qtype,
+                                           'start': start,
+                                           'end': end, })
 
     def get_entity_quarantine(self,
                               qtype=None,

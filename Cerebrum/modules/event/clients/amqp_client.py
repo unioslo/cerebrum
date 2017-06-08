@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2016 University of Oslo, Norway
+# Copyright 2015-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """ Wrapper base of the pika AMQP 0.9.1 client.
 
 # Connect with the client:
@@ -32,7 +31,14 @@
 import pika
 import pika.exceptions
 
+from Cerebrum.Utils import read_password
 from Cerebrum.modules.event.clients import ClientErrors
+
+
+def make_credentials(username, hostname):
+    return pika.credentials.PlainCredentials(
+        username,
+        read_password(username, hostname))
 
 
 class BaseAMQP091Client(object):
@@ -46,11 +52,7 @@ class BaseAMQP091Client(object):
         """
         # Define potential credentials
         if config.username:
-            from Cerebrum.Utils import read_password
-            cred = pika.credentials.PlainCredentials(
-                config.username,
-                read_password(config.username,
-                              config.hostname))
+            cred = make_credentials(config.username, config.hostname)
             ssl_opts = None
         else:
             raise ClientErrors.ConfigurationFormatError(
@@ -75,7 +77,7 @@ class BaseAMQP091Client(object):
             self.connection = pika.BlockingConnection(self.conn_params)
         except Exception as e:
             raise ClientErrors.ConnectionError(
-                'Unable to connect to broker: {}'.format(e))
+                'Unable to connect to broker: {} {}'.format(type(e), str(e)))
         # Set up channel
         self.channel = self.connection.channel()
 

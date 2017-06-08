@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,10 +18,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Event utils for CIM (Cerebrum.modules.cim).
+""" Event handler for publishing SCIM-messages to the Message Queue.
 
-Once started, this utils will listen for changes in the Cerebrum database, and
-attempt to update CIM with the same data.
+Once started, this daemon will listen for changes in the Cerebrum database, and
+attempt to publish SCIM-formatted messages using some MQ publisher.
 
 This process accepts the following signals:
 
@@ -37,56 +37,66 @@ from multiprocessing import Queue
 
 from Cerebrum import Utils
 from Cerebrum.modules.event import utils
-from Cerebrum.modules.event import evhandlers
-from Cerebrum.modules.cim.consumer import CimConsumer
-from Cerebrum.modules.cim.config import load_config
+from Cerebrum.modules.event_publisher.config import load_daemon_config
 
-
-TARGET_SYSTEM = 'CIM'
+from Cerebrum.modules.event_publisher import consumer
 
 
 class Manager(utils.Manager):
     pass
+
 # Inject Queue implementations:
 Manager.register('queue', Queue)
 Manager.register('log_queue', Queue)
 
 
-def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
-    logger.info('Starting {!r} event utils'.format(TARGET_SYSTEM))
+def serve(logger, config, num_workers, enable_listener, enable_collector):
+    logger.info('Starting publisher event utils')
 
-    channels = [TARGET_SYSTEM, ]
-    cimd = utils.ProcessHandler(logger=logger, manager=Manager)
+    # Generic event processing daemon
+    daemon = utils.ProcessHandler(logger=logger, manager=Manager)
 
-    event_queue = cimd.mgr.queue()
+    event_queue = daemon.mgr.queue()
 
+    # The 'event handler'
+    # Listens on the `event_queue` and processes events that are pushed onto it
     for i in range(0, num_workers):
-        cimd.add_process(
-            CimConsumer,
+        daemon.add_process(
+            consumer.EventConsumer,
+            config.event_publisher,
+            config.event_formatter,
             queue=event_queue,
-            log_queue=cimd.log_queue,
-            running=cimd.run_trigger,
-            cim_config=cim_config)
+            log_queue=daemon.log_queue,
+            running=daemon.run_trigger,
+        )
 
+    # The 'event listener'
+    # Listens to 'events' from the database, fetches related event records, and
+    # pushes events onto the `event_queue`.
     if enable_listener:
-        cimd.add_process(
-            evhandlers.EventLogListener,
+        daemon.add_process(
+            consumer.EventListener,
             queue=event_queue,
-            log_queue=cimd.log_queue,
-            running=cimd.run_trigger,
-            channels=channels)
+            log_queue=daemon.log_queue,
+            running=daemon.run_trigger)
 
-    if enable_collectors:
-        for chan in channels:
-            cimd.add_process(
-                evhandlers.EventLogCollector,
-                queue=event_queue,
-                log_queue=cimd.log_queue,
-                running=cimd.run_trigger,
-                channel=chan,
-                config=cim_config.eventcollector)
+    # The 'event collector'
+    # Regularly pulls event records from the database, and pushes events onto
+    # the `event_queue`.
+    if enable_collector:
+        daemon.add_process(
+            consumer.EventCollector,
+            queue=event_queue,
+            log_queue=daemon.log_queue,
+            running=daemon.run_trigger,
+            config=config.event_daemon_collector)
 
-    cimd.serve()
+    daemon.serve()
+
+
+def show_config(config):
+    import pprint
+    pprint.pprint(config.dump_dict())
 
 
 def main(args=None):
@@ -99,12 +109,18 @@ def main(args=None):
                         default=None,
                         help='Use a custom configuration file')
 
+    parser.add_argument('--show-config',
+                        dest='show_config',
+                        action='store_true',
+                        default=False,
+                        help='Show config and exit')
+
     parser.add_argument('-n', '--num-workers',
                         dest='num_workers',
                         metavar='NUM',
                         default=1,
-                        help=(u'Use %(metavar)s processes to handle incoming'
-                              u' events (default=%(default)s)'))
+                        help=('Use %(metavar)s processes to handle incoming'
+                              ' events (default=%(default)s)'))
 
     parser.add_argument('--no-listener',
                         dest='listen_db',
@@ -118,18 +134,17 @@ def main(args=None):
                         default=True,
                         help='Disable event collectors')
 
-    # TODO: Make option for this?
-    # Update `event_to_target` mapping tables
-    utils.update_system_mappings(
-        parser.prog, TARGET_SYSTEM, CimConsumer.event_map.events)
-
     args = parser.parse_args(args)
-    cim_config = load_config(filepath=args.configfile)
+    config = load_daemon_config(filepath=args.configfile)
+
+    if args.show_config:
+        show_config(config)
+        raise SystemExit()
 
     # Run event processes
     serve(
         logger,
-        cim_config,
+        config,
         int(args.num_workers),
         args.listen_db,
         args.collect_db)
