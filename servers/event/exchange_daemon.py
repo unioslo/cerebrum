@@ -90,6 +90,7 @@ def serve(logger, config, num_workers, enable_listener, enable_collectors):
         exchanged.add_process(
             evhandlers.EventLogListener,
             queue=event_queue,
+            fan_out_queues=queues,
             log_queue=exchanged.log_queue,
             running=exchanged.run_trigger,
             channels=channels)
@@ -99,6 +100,7 @@ def serve(logger, config, num_workers, enable_listener, enable_collectors):
             exchanged.add_process(
                 evhandlers.EventLogCollector,
                 queue=event_queue,
+                fan_out_queues=queues,
                 log_queue=exchanged.log_queue,
                 running=exchanged.run_trigger,
                 channel=chan,

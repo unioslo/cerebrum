@@ -258,13 +258,18 @@ class ProcessDBMixin(ProcessBase):
 class ProcessQueueMixin(ProcessBase):
     u""" Simple multiprocessing queue handler. """
 
-    def __init__(self, queue=None, **kwargs):
+    def __init__(self, queue=None, fan_out_queues=None, **kwargs):
         u"""EventHandler initialization routine.
 
         :param Queue queue:
             The queue to poll or put items on.
+-        :param list fan_out_queues:
+-            A list of additional queues to put items on.
         """
+        self.queues = fan_out_queues or []
         self.queue = queue
+        if queue:
+            self.queues.append(queue)
         super(ProcessQueueMixin, self).__init__(**kwargs)
 
     def push(self, item):
@@ -273,7 +278,8 @@ class ProcessQueueMixin(ProcessBase):
         :param item:
             Any pickleable object.
         """
-        self.queue.put(item)
+        for queue in self.queues:
+            queue.put(item)
 
 
 class QueueListener(ProcessQueueMixin, ProcessLoopMixin):
