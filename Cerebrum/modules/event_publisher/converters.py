@@ -561,9 +561,9 @@ def quarantine_mod(msg, **kwargs):
 """
 
 
-#   @EventFilter.register('e_group')
-#   def group(*args, **kwargs):
-#       return None
+@EventFilter.register('e_group')
+def group(*args, **kwargs):
+    return None
 
 
 @EventFilter.register('e_group', 'create')
