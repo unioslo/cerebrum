@@ -190,7 +190,6 @@ class EventLog(ChangeLog):
                    change_type,
                    destination_entity,
                    change_params=None,
-                   skip_event=False,
                    **kw):
         """Register events that should be stored into the database. """
         super(EventLog, self).log_change(
@@ -199,11 +198,6 @@ class EventLog(ChangeLog):
             destination_entity,
             change_params=change_params,
             **kw)
-
-        if skip_event:
-            # TODO: Do we really want the same kw for skipping the old and new
-            # EventLog? Do we even want to allow this in the first place?
-            return
 
         # TODO: Ugh, we don't inherit from the database but expect to behave
         # like it by passing self as a database object...
