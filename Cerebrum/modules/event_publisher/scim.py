@@ -24,7 +24,8 @@ https://tools.ietf.org/html/draft-hunt-idevent-scim-00#section-2.2
 """
 from __future__ import absolute_import
 
-import time
+import calendar
+import datetime
 import uuid
 
 from Cerebrum.config.configuration import Configuration, ConfigDescriptor
@@ -55,8 +56,8 @@ class ScimFormatterConfig(Configuration):
 def make_timestamp(dt_object):
     """ Make a timestamp from a datetime object. """
     if dt_object is None:
-        return int(time.mktime(time.gmtime()))
-    return int(time.mktime(dt_object.utctimetuple()))
+        dt_object = datetime.datetime.utcnow()
+    return int(calendar.timegm(dt_object.utctimetuple()))
 
 
 class ScimFormatter(object):
@@ -101,12 +102,6 @@ class ScimFormatter(object):
         entity_type = self.get_entity_type(entity_ref)
         return self.config.keytemplate.format(entity_type=entity_type,
                                               event=event_type.verb)
-
-    def get_timestamp(self, event):
-        """ Convert the Event timestamp object to an actual timestamp. """
-        if event.timestamp is None:
-            return int(time.time())
-        return int(time.mktime(event.timestamp.timetuple()))
 
     def __call__(self, event):
         """Create and return payload as jsonable dict."""
