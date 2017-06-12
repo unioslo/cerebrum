@@ -190,6 +190,7 @@ class EventLog(ChangeLog):
                    change_type,
                    destination_entity,
                    change_params=None,
+                   skip_publish=False,
                    **kw):
         """Register events that should be stored into the database. """
         super(EventLog, self).log_change(
@@ -198,6 +199,10 @@ class EventLog(ChangeLog):
             destination_entity,
             change_params=change_params,
             **kw)
+
+        if skip_publish:
+            # Ugh
+            return
 
         # TODO: Ugh, we don't inherit from the database but expect to behave
         # like it by passing self as a database object...
