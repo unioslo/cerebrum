@@ -263,8 +263,8 @@ class ProcessQueueMixin(ProcessBase):
 
         :param Queue queue:
             The queue to poll or put items on.
--        :param list fan_out_queues:
--            A list of additional queues to put items on.
+        :param list fan_out_queues:
+            A list of additional queues to put items on.
         """
         self.queues = fan_out_queues or []
         self.queue = queue

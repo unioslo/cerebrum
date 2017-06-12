@@ -197,15 +197,6 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         """
         return 'CB%s' % hex(os.getpid())[2:].upper()
 
-    def handle(self, item):
-        """Check if events are appropriate for this handler before handling."""
-        key = str(self.get_event_code(item.event))
-        try:
-            self.event_map.get_callbacks(key)
-            super(ExchangeEventHandler, self).handle(item)
-        except EventHandlerNotImplemented:
-            return
-
     def handle_event(self, event):
         u""" Call the appropriate handlers.
 
@@ -215,7 +206,14 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         key = str(self.get_event_code(event))
         self.logger.debug3(u'Got event key {!r}', str(key))
 
-        for callback in self.event_map.get_callbacks(str(key)):
+        try:
+            event_handlers = self.event_map.get_callbacks(key)
+        except EventHandlerNotImplemented:
+            self.logger.info(u'No event handlers for event key {!r}',
+                             str(key))
+            return
+
+        for callback in event_handlers:
             try:
                 callback(self, event)
             except (EntityTypeError, UnrelatedEvent) as e:
