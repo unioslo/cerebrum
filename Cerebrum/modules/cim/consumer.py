@@ -24,6 +24,7 @@ import pickle
 from Cerebrum.modules.event.errors import EntityTypeError
 from Cerebrum.modules.event.errors import UnrelatedEvent
 from Cerebrum.modules.event.errors import EventExecutionException
+from Cerebrum.modules.event.errors import EventHandlerNotImplemented
 from Cerebrum.modules.event.mapping import EventMap
 from Cerebrum.modules.event import evhandlers
 from Cerebrum.utils.funcwrap import memoize
@@ -53,7 +54,14 @@ class CimConsumer(evhandlers.EventLogConsumer):
         key = str(self.get_event_code(event))
         self.logger.debug3(u'Got event key {!r}', str(key))
 
-        for callback in self.event_map.get_callbacks(str(key)):
+        try:
+            event_handlers = self.event_map.get_callbacks(key)
+        except EventHandlerNotImplemented:
+            self.logger.info(u'No event handlers for event key {!r}',
+                             str(key))
+            return
+
+        for callback in event_handlers:
             try:
                 callback(self, key, event)
             except (EntityTypeError, UnrelatedEvent) as e:
