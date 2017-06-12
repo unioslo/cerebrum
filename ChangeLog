@@ -1,3 +1,7 @@
+2017-06-12  Karen   <cerebrum@metius.uit.no>
+
+    * cim_datasource.py: Adding dist_list stuff. WORK IN PROGRESS.
+
 2017-04-26    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* Account.py (AccountUiTMixin.verify_password): updated verify_password to include b64 encoded md5 crypts
