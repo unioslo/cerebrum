@@ -84,6 +84,26 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
         """ Handle the EventItem. """
         raise NotImplementedError("Abstract method")
 
+    # Utility functions
+    # These are commonly used methods, and should not be neccessary to
+    # override.
+    def get_event_code(self, event):
+        """ Get a ChangeType from the event.
+
+        :param dict event:
+            The event.
+
+        :return ChangeType:
+            Returns the ChangeType code referred to in the event['event_type'].
+        """
+        try:
+            return self.co.ChangeType(int(event['event_type']))
+        except KeyError as e:
+            self.logger.warn(u'Invalid event format for {!r}: {!s}', event, e)
+        except Exception as e:
+            self.logger.warn(u'Unable to process event {!r}: {!s}', event, e)
+        return None
+
     # Lock/event management.
     # These methods manages db commit/rollback, and should not be neccessary to
     # override.
@@ -171,11 +191,8 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
             self.__release_event(item.identifier)
 
         except EventHandlerNotImplemented as e:
-            # No implementation for this event, we'll never be able to handle
-            # it unless we rewrite the consumer...
-            self.logger.debug3('Unable to handle event_id {:d}: {!s}',
-                               item.identifier, str(e))
-            self.__remove_event(item.identifier)
+            self.logger.debug(u'No event handlers for event key {!r}',
+                              str(self.get_event_code(item.payload)))
 
         except Exception as e:
             # What happened here? We have an unhandled error,
@@ -356,23 +373,6 @@ class EventLogConsumer(DBConsumer):
             return True
         except Errors.NotFoundError:
             return False
-
-    def get_event_code(self, event):
-        """ Get a ChangeType from the event.
-
-        :param dict event:
-            The event.
-
-        :return ChangeType:
-            Returns the ChangeType code referred to in the event['event_type'].
-        """
-        try:
-            return self.co.ChangeType(int(event['event_type']))
-        except KeyError as e:
-            self.logger.warn(u'Invalid event format for {!r}: {!s}', event, e)
-        except Exception as e:
-            self.logger.warn(u'Unable to process event {!r}: {!s}', event, e)
-        return None
 
     def handle_event(self, event):
         """ Call the appropriate handlers.
