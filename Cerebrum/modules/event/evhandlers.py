@@ -173,6 +173,7 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
         except EventHandlerNotImplemented as e:
             self.logger.debug(u'No event handlers for event {!r}: {!s}',
                               item, str(e))
+            self.__release_event(item.identifier)
 
         except Exception as e:
             # What happened here? We have an unhandled error,
