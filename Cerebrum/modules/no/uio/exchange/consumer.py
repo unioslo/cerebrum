@@ -206,14 +206,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         key = str(self.get_event_code(event))
         self.logger.debug3(u'Got event key {!r}', str(key))
 
-        try:
-            event_handlers = self.event_map.get_callbacks(key)
-        except EventHandlerNotImplemented:
-            self.logger.info(u'No event handlers for event key {!r}',
-                             str(key))
-            return
-
-        for callback in event_handlers:
+        for callback in self.event_map.get_callbacks(key):
             try:
                 callback(self, event)
             except (EntityTypeError, UnrelatedEvent) as e:

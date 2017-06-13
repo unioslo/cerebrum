@@ -171,11 +171,8 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
             self.__release_event(item.identifier)
 
         except EventHandlerNotImplemented as e:
-            # No implementation for this event, we'll never be able to handle
-            # it unless we rewrite the consumer...
-            self.logger.debug3('Unable to handle event_id {:d}: {!s}',
-                               item.identifier, str(e))
-            self.__remove_event(item.identifier)
+            self.logger.debug(u'No event handlers for event {!r}: {!s}',
+                              item, str(e))
 
         except Exception as e:
             # What happened here? We have an unhandled error,
