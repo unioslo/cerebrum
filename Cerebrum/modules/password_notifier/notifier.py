@@ -118,7 +118,7 @@ class PasswordNotifier(object):
         self.db = db or Utils.Factory.get("Database")()
         self.dryrun = bool(dryrun)
 
-        self.now = self.db.Date(*(time.localtime()[:3]))
+        self.now = dt.Date(*(time.localtime()[:3]))
         self.today = dt.Date(*(time.localtime()[:3]))
 
         account = Utils.Factory.get("Account")(self.db)
