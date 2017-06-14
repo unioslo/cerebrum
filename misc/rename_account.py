@@ -43,8 +43,7 @@ from Cerebrum.modules.no.uit import Email
 
 
 today = time.strftime("%Y%m%d")
-
-logger_name = 'console'
+#logger_name = 'console'
 
 logger = None
 
@@ -55,31 +54,34 @@ class Changer:
     def __init__(self):
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
-#        self.account = Factory.get('Account')(self.db)
+        self.account_old = Factory.get('Account')(self.db)
+        self.account_new = Factory.get('Account')(self.db)
         self.constants = Factory.get('Constants')(self.db)
 #        self.ent_name = Entity.EntityName(self.db)
-        self.pu_old = PosixUser.PosixUser(self.db)
-        self.pu_new = PosixUser.PosixUser(self.db)
-        self.logger = Factory.get_logger(logger_name)
+        #self.pu_old = PosixUser.PosixUser(self.db)
+        #self.pu_new = PosixUser.PosixUser(self.db)
+        #self.logger = Factory.get_logger(logger_name)
         self.db.cl_init(change_program='ren_acc')
-        
+        #self.logger=Factory.get_logger("cronjob")
+        self.logger=Factory.get_logger("console")
     def rename_account(self,old_name,new_name):
 
         ret_value = None
 
         try:
-            self.pu_old.find_by_name(old_name)
+            #self.pu_old.find_by_name(old_name)
+            self.account_old.find_by_name(old_name)
         except Errors.NotFoundError:
             self.logger.error("Account '%s' not found!" % (old_name))
             sys.exit(-1)
         else:
-            self.logger.info("Account '%s'(id=%s) located..." % (old_name,self.pu_old.entity_id))
+            self.logger.info("Account '%s'(id=%s) located..." % (old_name,self.account_old.entity_id))
 
         try:
-            self.pu_new.find_by_name(new_name)
+            self.account_new.find_by_name(new_name)
         except Errors.NotFoundError:
             self.logger.info("Account '%s' free, GOOOODIE" % (new_name))
-            self.pu_new.clear()
+            self.account_new.clear()
         else:
             self.logger.info("New account '%s' is already in use. Cannot continue" % new_name)
             sys.exit(-1)
@@ -88,27 +90,26 @@ class Changer:
         # Old account found, new account name free! Do work!
 
 
-        self.pu_old.update_entity_name(self.co.account_namespace,new_name)
-        self.pu_old.write_db()
+        self.account_old.update_entity_name(self.co.account_namespace,new_name)
+        self.account_old.write_db()
 
 
-
+        self.logger.info("TESTING")
         # write_db does not update object instace variables (ie account_name
         # after a call to update_entity_name. so create a new object instance
         # based on new account name, and update its email and homes.
-        self.pu_new.find_by_name(new_name)
-        spreads = self.pu_new.get_spread()
+        self.account_new.find_by_name(new_name)
+        spreads = self.account_new.get_spread()
         for s in spreads:
             int_s = int(s[0])
-            self.pu_new.set_home_dir(int_s)
+            self.account_new.set_home_dir(int_s)
             self.logger.info(" - updated homedir for spread %d (?)" % (int_s))
 
-        ret_value = self.update_email(self.pu_new, old_name, new_name)
+        ret_value = self.update_email(self.account_new, old_name, new_name)
         try:
-            self.pu_new.write_db()
+            self.account_new.write_db()
         except Exception,m:
             self.logger.error("Failed writing updates to database: %s" % (m))
-
         return ret_value
 
 
@@ -194,7 +195,7 @@ def usage(exitcode=0):
     -d | --dryrun : do not commit changes to database
     -o | --old <name> : old account name to change (REQUIRED)
     -n | --new <name> : new account name set as new (REQUIRED)
-    -l | --logger_name <name> : logger target to use
+    --logger_name <name> : logger target to use
 
     """
 
@@ -208,7 +209,7 @@ def usage(exitcode=0):
 
 
 def main():
-    global logger_name
+    #global logger_name
     
     dryrun = False
     old_name = None
@@ -216,9 +217,9 @@ def main():
     #today = datetime.date.today()
 #    new_expire_date = today + datetime.timedelta(days=numdays)
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'hdn:o:l:',['help','dryrun','new=','old=','logger_name='])
-    except getopt.GetoptError:
-        print "usage 1"
+        opts, args = getopt.getopt(sys.argv[1:],'hdn:o:l:',['help','dryrun','new=','old=','logger='])
+    except getopt.GetoptError,m:
+        print "wrong arguments:%s" % m
         usage(1)
 
 
@@ -231,9 +232,9 @@ def main():
             new_name=val
         elif opt in ['-o', '--old']:
             old_name=val
-            print "old is:%s" % old_name
-        elif opt in [ '-l', '--logger_name']:
+        elif opt in [ '-l', '--logger']:
             logger_name = val
+            print "logger name=%s" % logger_name
             
     if not old_name:
         usage(1)
@@ -243,6 +244,7 @@ def main():
            
 
     worker=Changer()
+    #worker.logger = Factory.get_logger(logger_name)
     send_user_mail = None
 
 
@@ -256,7 +258,8 @@ def main():
     old_person_name = pe.get_name(co.system_cached, co.name_full)
     ac.clear()
     pe.clear()
-    
+    print "old_name:%s" % old_name
+    print "new name:%s" % new_name
     send_user_mail = worker.rename_account(old_name,new_name)
 
 
@@ -311,93 +314,93 @@ def main():
 
 
             # Sending email to SUT queue in RT
-            # if not dryrun:
-            #     account_expired = '';
-            #     if ac.is_expired():
-            #         account_expired = ' Imidlertid er ikke kontoen aktiv, men kan reaktiveres når som helst.'
+            if not dryrun:
+                account_expired = '';
+                if ac.is_expired():
+                    account_expired = ' Imidlertid er ikke kontoen aktiv, men kan reaktiveres når som helst.'
             
-            #     Utils.sendmail('star-gru@orakel.uit.no', #TO
-            #                    'bas-admin@cc.uit.no', #SENDER
-            #                    'Brukernavn endret (%s erstattes av %s)' % (old_name, new_name), #TITLE
-            #                    'Brukernavnet %s er endret til %s. Videresend e-post, flytt filer, e-post, osv. fra %s til %s.%s' %
-            #                    (old_name, new_name, old_name, new_name, account_expired), #BODY
-            #                    cc=None,
-            #                    charset='iso-8859-1',
-            #                    debug=False)
-            #     print "mail sent to star-gru@orakel.uit.no\n"
+                Utils.sendmail('star-gru@orakel.uit.no', #TO
+                               'bas-admin@cc.uit.no', #SENDER
+                               'Brukernavn endret (%s erstattes av %s)' % (old_name, new_name), #TITLE
+                               'Brukernavnet %s er endret til %s. Videresend e-post, flytt filer, e-post, osv. fra %s til %s.%s' %
+                               (old_name, new_name, old_name, new_name, account_expired), #BODY
+                               cc=None,
+                               charset='iso-8859-1',
+                               debug=False)
+                print "mail sent to star-gru@orakel.uit.no\n"
 
 
-            # # Sending email to PORTAL queue in RT
-            # if False and not dryrun:
-            #     account_expired = '';
-            #     if ac.is_expired():
-            #         account_expired = ' Imidlertid er ikke kontoen aktiv, men kan reaktiveres når som helst.'
+            # Sending email to PORTAL queue in RT
+            if False and not dryrun:
+                account_expired = '';
+                if ac.is_expired():
+                    account_expired = ' Imidlertid er ikke kontoen aktiv, men kan reaktiveres når som helst.'
 
-            #     Utils.sendmail('vevportal@rt.uit.no', #TO
-            #                    'bas-admin@cc.uit.no', #SENDER
-            #                    'Brukernavn endret (%s erstattes av %s)' % (old_name, new_name), #TITLE
-            #                    'Brukernavnet %s er endret til %s.' %
-            #                    (old_name, new_name), #BODY
-            #                    cc=None,
-            #                    charset='iso-8859-1',
-            #                    debug=False)
-            #     print "mail sent to vevportal@rt.uit.no\n"
+                Utils.sendmail('vevportal@rt.uit.no', #TO
+                               'bas-admin@cc.uit.no', #SENDER
+                               'Brukernavn endret (%s erstattes av %s)' % (old_name, new_name), #TITLE
+                               'Brukernavnet %s er endret til %s.' %
+                               (old_name, new_name), #BODY
+                               cc=None,
+                               charset='iso-8859-1',
+                               debug=False)
+                print "mail sent to vevportal@rt.uit.no\n"
 
             
-            # # Sending email to AD nybrukere if necessary
-            # mailto_ad = False
-            # try:
-            #     spreads = ac.get_spread()
-            #     for spread in spreads:
-            #         if spread['spread'] == co.spread_uit_ad_account:
-            #             mailto_ad = True
-            #             break
-            # except:
-            #     print "No AD spread found."
+            # Sending email to AD nybrukere if necessary
+            mailto_ad = False
+            try:
+                spreads = ac.get_spread()
+                for spread in spreads:
+                    if spread['spread'] == co.spread_uit_ad_account:
+                        mailto_ad = True
+                        break
+            except:
+                print "No AD spread found."
 
-            # riktig_brukernavn = ' Nytt brukernavn er %s.' % (new_name)
+            riktig_brukernavn = ' Nytt brukernavn er %s.' % (new_name)
 
-            # if ac.is_expired():
-            #     riktig_brukernavn += ' Imidlertid er ikke kontoen aktiv, og vil kun sendes til AD når den blir reaktivert.'
+            if ac.is_expired():
+                riktig_brukernavn += ' Imidlertid er ikke kontoen aktiv, og vil kun sendes til AD når den blir reaktivert.'
 
-            # if False and mailto_ad and not dryrun:
-            #     Utils.sendmail('nybruker2@asp.uit.no', #TO
-            #                    'bas-admin@cc.uit.no', #SENDER
-            #                    'Brukernavn endret', #TITLE
-            #                    'Brukernavnet %s er endret i BAS.%s' %
-            #                    (old_name, riktig_brukernavn), #BODY
-            #                    cc=None,
-            #                    charset='iso-8859-1',
-            #                    debug=False)
-            #     print "mail sent to nybruker2@asp.uit.no\n"
+            if False and mailto_ad and not dryrun:
+                Utils.sendmail('nybruker2@asp.uit.no', #TO
+                               'bas-admin@cc.uit.no', #SENDER
+                               'Brukernavn endret', #TITLE
+                               'Brukernavnet %s er endret i BAS.%s' %
+                               (old_name, riktig_brukernavn), #BODY
+                               cc=None,
+                               charset='iso-8859-1',
+                               debug=False)
+                print "mail sent to nybruker2@asp.uit.no\n"
 
-            # pe.clear()
-            # ac.clear()
+            pe.clear()
+            ac.clear()
 
-            # if send_user_mail is not None:
-            #     # SEND MAIL TO OLD AND NEW ACCOUNT + "BCC" to bas-admin!
-            #     sender = 'orakel@uit.no'
-            #     recipient = send_user_mail['OLD_MAIL']
-            #     cc = [send_user_mail ['NEW_MAIL'],]
+            if send_user_mail is not None:
+                # SEND MAIL TO OLD AND NEW ACCOUNT + "BCC" to bas-admin!
+                sender = 'orakel@uit.no'
+                recipient = send_user_mail['OLD_MAIL']
+                cc = [send_user_mail ['NEW_MAIL'],]
 
-            #     template = cereconf.CB_SOURCEDATA_PATH + '/templates/rename_account.tmpl'
+                template = cereconf.CB_SOURCEDATA_PATH + '/templates/rename_account.tmpl'
 
-            #     result = Utils.mail_template(recipient, template, sender=sender, cc=cc,
-            #                             substitute=send_user_mail, charset='utf-8', debug=dryrun)
+                result = Utils.mail_template(recipient, template, sender=sender, cc=cc,
+                                        substitute=send_user_mail, charset='utf-8', debug=dryrun)
                 
-            #     print "Mail sent to: %s" % (recipient)
-            #     print "cc to %s" % (cc)
+                print "Mail sent to: %s" % (recipient)
+                print "cc to %s" % (cc)
                 
-            #     if dryrun:
-            #         print "\nDRYRUN: mailmsg=\n%s" % result
+                if dryrun:
+                    print "\nDRYRUN: mailmsg=\n%s" % result
 
-            #     # BCC
-            #     recipient = 'bas-admin@cc.uit.no'
-            #     template = cereconf.CB_SOURCEDATA_PATH + '/templates/rename_account.tmpl'
-            #     result = Utils.mail_template(recipient, template, sender=sender,
-            #                             substitute=send_user_mail, charset='utf-8', debug=dryrun)
+                # BCC
+                recipient = 'bas-admin@cc.uit.no'
+                template = cereconf.CB_SOURCEDATA_PATH + '/templates/rename_account.tmpl'
+                result = Utils.mail_template(recipient, template, sender=sender,
+                                        substitute=send_user_mail, charset='utf-8', debug=dryrun)
 
-            #     print "BCC sent to: %s" % (recipient)
+                print "BCC sent to: %s" % (recipient)
             #worker.rollback();
             worker.commit()
         else:
