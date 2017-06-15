@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2016 University of Oslo, Norway
+# Copyright 2003-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -556,7 +556,9 @@ class CheckUsername(PasswordChecker):
 class CheckOwnerNameMixin(PasswordChecker):
     """Check for use of the account owners name in the password."""
 
-    def __init__(self):
+    def __init__(self, initial_chars=None, min_length=0):
+        self.initial_chars = initial_chars
+        self.min_length = min_length
         self._requirement = _('Must not contain words from your fullname')
 
     def check_password(self, password, account=None):
@@ -576,7 +578,15 @@ class CheckOwnerNameMixin(PasswordChecker):
 
         for row in person.get_all_names():
             for name in row["name"].split():
-                if unicodify(name).lower() in password:
+                name = unicodify(name)
+                if (
+                        self.min_length and len(filter(
+                            lambda x: x not in self.initial_chars,
+                            name)) < self.min_length
+                ):
+                    # the name is too short. Skip the check.
+                    continue
+                if name.lower() in password:
                     return [_('Password cannot contain your name')]
         return
 
