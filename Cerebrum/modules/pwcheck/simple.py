@@ -580,8 +580,9 @@ class CheckOwnerNameMixin(PasswordChecker):
             for name in row["name"].split():
                 name = unicodify(name)
                 if (
-                        self.min_length and
-                        len(name.strip(self.initial_chars)) < self.min_length
+                        self.min_length and len(filter(
+                            lambda x: x not in self.initial_chars,
+                            name)) < self.min_length
                 ):
                     # the name is too short. Skip the check.
                     continue
