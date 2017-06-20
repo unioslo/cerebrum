@@ -228,9 +228,19 @@ class _CerebrumCode(DatabaseAccessor):
     # Database arg every time?
     def __init__(self, code, description=None, lang=None):
         # self may be an already initialised singleton.
-        if isinstance(description, str):
+        if isinstance(description, basestring):
             description = description.strip()
+
+        # Let's try to keep the value unicode internally
+        if isinstance(description, bytes):
+            # Try to decode as utf-8, latin-1
+            try:
+                description = description.decode('utf-8')
+            except UnicodeError:
+                description = description.decode('latin-1')
+
         self._desc = description
+
         if isinstance(code, str):
             # We can't initialise self.int here since the database is
             # unavailable while all the constants are defined, nor
@@ -251,7 +261,25 @@ class _CerebrumCode(DatabaseAccessor):
             except Errors.NotFoundError:
                 raise Errors.NotFoundError('Constant %r' % self)
         self._lang = self._build_language_mappings(lang)
-    # end __init__
+
+    @property
+    def _desc(self):
+        """ the internal cached description value. """
+        try:
+            value = self.__desc
+        except AttributeError:
+            value = None
+
+        if value is None or isinstance(value, unicode):
+            return value
+        raise AttributeError("no valid _desc set")
+
+    @_desc.setter
+    def _desc(self, value):
+        if value is None or isinstance(value, unicode):
+            self.__desc = value
+        else:
+            raise ValueError("_desc must be unicode or None")
 
     def _build_language_mappings(self, lang):
         "Build a dictionary holding this self's names in various languages."
@@ -260,10 +288,10 @@ class _CerebrumCode(DatabaseAccessor):
             return dict()
 
         # Now let's build the mapping. Ideally, we should check the strings
-        # against existing language_code constants, but we simply cannot do this
-        # from _CerebrumCode's ctor without introducing a circular dependency.
+        # against existing language_code constants, but we simply cannot do
+        # this from _CerebrumCode's ctor without introducing a circular
+        # dependency.
         return copy.deepcopy(lang)
-    # end _build_language_mappings
 
     def lang(self, language):
         """Return self's name in the specified language.
@@ -296,7 +324,6 @@ class _CerebrumCode(DatabaseAccessor):
         # Hmm, do we want to cache the fact that 'language' does not exist as a
         # key? (so as to speed up subsequent 'misses'?)
         return self.description
-    # end lang
 
     def __str__(self):
         return self.str
@@ -312,13 +339,23 @@ class _CerebrumCode(DatabaseAccessor):
 
     @property
     def description(self):
-        u""" This code value's description. """
+        """ This code value's description. """
         if self._desc is None:
-            self._desc = self.sql.query_1("SELECT %s FROM %s WHERE %s=:code" %
-                                          (self._lookup_desc_column,
-                                           self._lookup_table,
-                                           self._lookup_code_column),
-                                          {'code': int(self)})
+            desc = self.sql.query_1(
+                """
+                SELECT {0._lookup_desc_column}
+                FROM {0._lookup_table}
+                WHERE {0._lookup_code_column}=:code
+                """.format(self),
+                {'code': int(self)})
+
+            # Decode and cache
+            try:
+                self._desc = desc.decode(self.sql.encoding)
+            except Exception:
+                # UnicodeDecodeError, or TypeError (desc is None)
+                self._desc = None
+
         return self._desc
 
     def __int__(self):
@@ -332,7 +369,7 @@ class _CerebrumCode(DatabaseAccessor):
                                      (self._lookup_code_column,
                                       self._lookup_table,
                                       self._lookup_str_column),
-                                     self.__dict__))
+                                     {'str': self.str}))
             except Errors.NotFoundError:
                 raise Errors.NotFoundError('Constant %r' % self)
         return self.int
@@ -344,18 +381,19 @@ class _CerebrumCode(DatabaseAccessor):
     def __eq__(self, other):
         if other is None:
             return False
-        elif (
-            # It should be OK to compare _CerebrumCode instances with
-            # themselves or ints.
-            isinstance(other, (int, _CerebrumCode))
-            # The following test might catch a few more cases than we
-            # really want to, e.g. comparison with floats.
-            #
-            # However, it appears to be the best alternative if we
-            # want to support comparison with e.g. PgNumeric instances
-            # without introducing a dependency on whatever database
-            # driver module is being used.
-                or hasattr(other, '__int__')):
+
+        # It should be OK to compare _CerebrumCode instances with
+        # themselves or ints.
+
+        # The other.__int__ test might catch a few more cases than we
+        # really want to, e.g. comparison with floats.
+        #
+        # However, it appears to be the best alternative if we
+        # want to support comparison with e.g. PgNumeric instances
+        # without introducing a dependency on whatever database
+        # driver module is being used.
+        elif (isinstance(other, (int, _CerebrumCode)) or
+              hasattr(other, '__int__')):
             return self.__int__() == other.__int__()
         # This allows reflexive comparison (other.__eq__)
         return NotImplemented
@@ -410,12 +448,16 @@ class _CerebrumCode(DatabaseAccessor):
         db_desc = self.description
         if new_desc != db_desc:
             self._desc = new_desc
-            self.sql.execute("UPDATE %s SET %s=:desc WHERE %s=:code" %
-                             (self._lookup_table, self._lookup_desc_column,
-                              self._lookup_code_column),
-                             {'desc': new_desc, 'code': self.int})
-
-            return ["Updated description for '%s': '%s'" % (self, new_desc)]
+            self.sql.execute(
+                """
+                UPDATE {0._lookup_table}
+                SET {0._lookup_desc_column}=:desc
+                WHERE {0._lookup_code_column}=:code
+                """.format(self),
+                {'desc': new_desc,
+                 'code': self.int})
+            return ["Updated description for '{0}': "
+                    "{1}".format(str(self), repr(new_desc))]
 
     def insert(self):
         self.sql.execute("""
@@ -1109,8 +1151,12 @@ class CoreConstants(ConstantsBase):
     entity_group = _EntityTypeCode(
         'group',
         'Group - see table "cerebrum.group_info" and friends.')
-    entity_host = _EntityTypeCode('host', 'see table host_info')
-    entity_disk = _EntityTypeCode('disk', 'see table disk_info')
+    entity_host = _EntityTypeCode(
+        'host',
+        'see table host_info')
+    entity_disk = _EntityTypeCode(
+        'disk',
+        'see table disk_info')
 
     group_namespace = _ValueDomainCode(
         cereconf.ENTITY_TYPE_NAMESPACE['group'],
@@ -1122,20 +1168,24 @@ class CoreConstants(ConstantsBase):
         cereconf.ENTITY_TYPE_NAMESPACE['host'],
         'Default domain for host names')
 
-    group_memberop_union = _GroupMembershipOpCode('union', 'Union')
+    group_memberop_union = _GroupMembershipOpCode(
+        'union',
+        'Union')
     group_memberop_intersection = _GroupMembershipOpCode(
-        'intersection', 'Intersection')
+        'intersection',
+        'Intersection')
     group_memberop_difference = _GroupMembershipOpCode(
-        'difference', 'Difference')
+        'difference',
+        'Difference')
 
-    language_nb = _LanguageCode("nb", "Bokmål")
+    language_nb = _LanguageCode("nb", "BokmÃ¥l")
     language_nn = _LanguageCode("nn", "Nynorsk")
     language_en = _LanguageCode("en", "English")
     language_de = _LanguageCode("de", "Deutsch")
     language_it = _LanguageCode("it", "Italiano")
     language_nl = _LanguageCode("nl", "Nederlands")
     language_sv = _LanguageCode("sv", "Svenska")
-    language_sv = _LanguageCode("fr", "Français")
+    language_sv = _LanguageCode("fr", "FranÃ§ais")
     language_ru = _LanguageCode("ru", "Russian")
 
     system_cached = _AuthoritativeSystemCode(
@@ -1191,22 +1241,40 @@ class CommonConstants(ConstantsBase):
         'md5-unsalted',
         "Unsalted MD5-crypt. Use with care!")
 
-    contact_phone = _ContactInfoCode('PHONE', 'Phone')
-    contact_phone_private = _ContactInfoCode('PRIVPHONE',
-                                             "Person's private phone number")
-    contact_fax = _ContactInfoCode('FAX', 'Fax')
-    contact_email = _ContactInfoCode('EMAIL', 'Email')
-    contact_url = _ContactInfoCode('URL', 'URL')
-    contact_mobile_phone = _ContactInfoCode('MOBILE', 'Mobile phone')
+    contact_phone = _ContactInfoCode(
+        'PHONE',
+        'Phone')
+    contact_phone_private = _ContactInfoCode(
+        'PRIVPHONE',
+        "Person's private phone number")
+    contact_fax = _ContactInfoCode(
+        'FAX',
+        'Fax')
+    contact_email = _ContactInfoCode(
+        'EMAIL',
+        'Email')
+    contact_url = _ContactInfoCode(
+        'URL',
+        'URL')
+    contact_mobile_phone = _ContactInfoCode(
+        'MOBILE',
+        'Mobile phone')
     contact_private_mobile = _ContactInfoCode(
-        'PRIVATEMOBILE', 'Private mobile phone')
+        'PRIVATEMOBILE',
+        'Private mobile phone')
     contact_private_mobile_visible = _ContactInfoCode(
-        'PRIVMOBVISIBLE', 'Private mobile phone (visible in directories)')
+        'PRIVMOBVISIBLE',
+        'Private mobile phone (visible in directories)')
 
-    address_post = _AddressCode('POST', 'Post address')
-    address_post_private = _AddressCode('PRIVPOST',
-                                        "Person's private post address")
-    address_street = _AddressCode('STREET', 'Street address')
+    address_post = _AddressCode(
+        'POST',
+        'Post address')
+    address_post_private = _AddressCode(
+        'PRIVPOST',
+        "Person's private post address")
+    address_street = _AddressCode(
+        'STREET',
+        'Street address')
 
     gender_male = _GenderCode('M', 'Male')
     gender_female = _GenderCode('F', 'Female')
@@ -1221,36 +1289,52 @@ class CommonConstants(ConstantsBase):
     name_full = _PersonNameCode('FULL', 'Full name')
 
     name_personal_title = _PersonNameCode(
-        'PERSONALTITLE', 'Persons personal title',
+        'PERSONALTITLE',
+        'Persons personal title',
         {"nb": "Personlig tittel",
-         "en": "Personal title", },)
-    name_work_title = _PersonNameCode('WORKTITLE', 'Persons work title',
-                                      {"nb": "Arbeidstittel",
-                                       "en": "Work title", },)
+         "en": "Personal title", })
+    name_work_title = _PersonNameCode(
+        'WORKTITLE',
+        'Persons work title',
+        {"nb": "Arbeidstittel",
+         "en": "Work title", })
 
     personal_title = _EntityNameCode(
-        'PERSONALTITLE', "Person's personal title",
+        'PERSONALTITLE',
+        "Person's personal title",
         {"nb": "Personlig tittel",
-         "en": "Personal title", },)
-    work_title = _EntityNameCode('WORKTITLE', "Person's work title",
-                                 {"nb": "Arbeidstittel",
-                                  "en": "Work title", },)
+         "en": "Personal title", })
+    work_title = _EntityNameCode(
+        'WORKTITLE',
+        "Person's work title",
+        {"nb": "Arbeidstittel",
+         "en": "Work title", })
 
-    ou_name = _EntityNameCode("OU name", "OU name",
-                              {"nb": "Stedsnavn",
-                               "en": "OU name", })
-    ou_name_acronym = _EntityNameCode("OU acronym", "OU acronym",
-                                      {"nb": "Akronym",
-                                       "en": "Acronym", })
-    ou_name_short = _EntityNameCode("OU short", "OU short name",
-                                    {"nb": "Kortnavn",
-                                     "en": "Short name", })
-    ou_name_long = _EntityNameCode("OU long", "OU long name",
-                                   {"nb": "Navn",
-                                    "en": "Full name", })
-    ou_name_display = _EntityNameCode("OU display", "OU display name",
-                                      {"nb": "Fremvisningsnavn",
-                                       "en": "Display name", })
+    ou_name = _EntityNameCode(
+        "OU name",
+        "OU name",
+        {"nb": "Stedsnavn",
+         "en": "OU name", })
+    ou_name_acronym = _EntityNameCode(
+        "OU acronym",
+        "OU acronym",
+        {"nb": "Akronym",
+         "en": "Acronym", })
+    ou_name_short = _EntityNameCode(
+        "OU short",
+        "OU short name",
+        {"nb": "Kortnavn",
+         "en": "Short name", })
+    ou_name_long = _EntityNameCode(
+        "OU long",
+        "OU long name",
+        {"nb": "Navn",
+         "en": "Full name", })
+    ou_name_display = _EntityNameCode(
+        "OU display",
+        "OU display name",
+        {"nb": "Fremvisningsnavn",
+         "en": "Display name", })
 
     system_manual = _AuthoritativeSystemCode('Manual', 'Manual registration')
 
@@ -1383,7 +1467,7 @@ class CLConstants(Constants):
     account_move = _ChangeTypeCode(
         'e_account', 'move', '%(subject)s moved',
         ('from=%(string:old_host)s:%(string:old_disk)s,'
-            + 'to=%(string:new_host)s:%(string:new_disk)s,',))
+         'to=%(string:new_host)s:%(string:new_disk)s,', ))
     account_home_updated = _ChangeTypeCode(
         'e_account', 'home_update', 'home updated for %(subject)s',
         ('old=%(homedir:old_homedir_id)s',
