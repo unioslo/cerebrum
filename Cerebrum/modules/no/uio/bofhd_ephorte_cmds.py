@@ -391,6 +391,11 @@ class BofhdExtension(BofhdCommonMethods):
                 ou.has_spread(self.const.spread_ephorte_ou)):
             raise CerebrumError("Cannot assign permission to a non-ephorte OU")
 
+        if self.ephorte_perm.has_permission(person.entity_id,
+                                            self._get_tilgang(tilgang),
+                                            ou.entity_id):
+            raise CerebrumError("Person %s already has perm %s (remove first)" %
+                                (person_id, tilgang))
         # This is a hack needed by the archivists.
         # If one of the new permissions, defined in
         # EPHORTE_NEW2OLD_PERMISSIONS.values() is to be added, the old
