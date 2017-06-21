@@ -51,7 +51,7 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.utils.atomicfile import AtomicFileWriter
-from Cerebrum.modules.LDIFutils import entry_string
+from Cerebrum.modules import LDIFutils
 
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.xml2object import DataEmployment
@@ -346,6 +346,13 @@ def make_parser():
         metavar='FILE',
         default=DEFAULT_OUTPUT_FILE,
         help="LDIF output file, or '-' for stdout (default: %(default)s)")
+    parser.add_argument(
+        '-u', '--utf8-data',
+        dest='needs_base64',
+        action='store_const',
+        const=LDIFutils.needs_base64_readable,
+        default=LDIFutils.needs_base64_safe,
+        help="Allow utf-8 values in ldif")
     return parser
 
 
@@ -354,6 +361,7 @@ def main(args=None):
 
     logger.info("Start {0}".format(__file__))
 
+    LDIFutils.needs_base64 = args.needs_base64
     xml_parser = system2parser('system_sap')(args.input_file, logger)
     show_ou = OUSelector('ORG_OU', cereconf.OU_USAGE_SPREAD)
     get_ous = OrgTree(xml_parser.iter_ou(), show_ou)
@@ -394,7 +402,7 @@ def main(args=None):
             stats['included'] += 1
 
             output.write(
-                entry_string(
+                LDIFutils.entry_string(
                     identifier.encode(OUTPUT_ENCODING),
                     {
                         b'uioPersonPartialEmployment': set([
