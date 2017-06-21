@@ -70,7 +70,7 @@ DEFAULT_OUTPUT_FILE = os.path.join(cereconf.CACHE_DIR, 'LDAP',
 # SAP DataEmployment.category to ANSATT/<status>
 CATEGORY_TO_STATUS = {
     DataEmployment.KATEGORI_OEVRIG: 'tekadm',
-    DataEmployment.KATEGORI_VITENSKAPLIG: 'vitenskaplig', }
+    DataEmployment.KATEGORI_VITENSKAPLIG: 'vitenskapelig', }
 
 
 logger = Factory.get_logger("cronjob")
@@ -152,8 +152,6 @@ class AffSelector(dict):
     Mapping {(aff,status): bool, (aff,): bool, ..., (): bool (default value)}.
     Corresponds to a boolean selector in Cerebrum.modules.OrgLDIF.
     """
-    # sigh, hack so that we don't have to rename all the cereconf selectors.
-    kat2kat = {DataEmployment.KATEGORI_VITENSKAPLIG: 'vitenskapelig', }
 
     def __init__(self, selector):
         """
@@ -190,8 +188,8 @@ class AffSelector(dict):
         if employment.kind not in (DataEmployment.HOVEDSTILLING,
                                    DataEmployment.BISTILLING):
             return False
-        return self["ANSATT",
-                    self.kat2kat.get(employment.category, employment.category)]
+        return self["ANSATT", CATEGORY_TO_STATUS.get(employment.category,
+                                                     employment.category)]
 
 
 class LanguageSelector(object):
