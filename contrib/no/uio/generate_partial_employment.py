@@ -61,6 +61,7 @@ from Cerebrum.modules.xmlutils.xml2object import DataOU
 
 # The Cerebrum XML parser is hard coded to encode certain values
 PARSER_ENCODING = 'latin1'
+OUTPUT_ENCODING = 'utf-8'
 
 DEFAULT_INPUT_FILE = os.path.join(cereconf.CACHE_DIR, 'SAP', 'sap2bas.xml')
 DEFAULT_OUTPUT_FILE = os.path.join(cereconf.CACHE_DIR, 'LDAP',
@@ -394,9 +395,11 @@ def main(args=None):
 
             output.write(
                 entry_string(
-                    identifier,
+                    identifier.encode(OUTPUT_ENCODING),
                     {
-                        'uioPersonPartialEmployment': partial_affs,
+                        b'uioPersonPartialEmployment': set([
+                            p.encode(OUTPUT_ENCODING)
+                            for p in partial_affs]),
                     },
                     add_rdn=False))
 
