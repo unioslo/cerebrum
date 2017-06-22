@@ -47,6 +47,8 @@ class HiofBofhdRequests(BofhdRequests):
 
 
 uio_helpers = [
+    '_find_persons',
+    '_format_ou_name',
     '_get_constant',
     '_parse_date',
 ]

@@ -37,8 +37,7 @@ from Cerebrum.modules import Email
 from Cerebrum import Errors
 from Cerebrum import Utils
 
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase, BofhdCommonMethods
-from Cerebrum.modules.bofhd.bofhd_utils import copy_func
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.cmd_param import Command, FormatSuggestion, \

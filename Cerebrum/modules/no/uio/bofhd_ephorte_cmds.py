@@ -76,6 +76,7 @@ class Tilgang(cmd_param.Parameter):
     methods=[
         '_format_changelog_entry',
         '_format_from_cl',
+        '_format_ou_name',
     ])
 class BofhdExtension(BofhdCommonMethods):
     u""" Extends bofhd with a 'ephorte' command group. """
