@@ -724,7 +724,6 @@ admin_uio_helpers = [
     '_convert_ticks_to_timestamp',
     '_entity_info',
     '_fetch_member_names',
-    '_find_persons',
     '_format_changelog_entry',
     '_format_from_cl',
     '_get_access_id',
