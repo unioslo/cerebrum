@@ -960,7 +960,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
 
         # TODO: generaliser ifi-hack seinare
         # IVR 2008-05-14: itslp added at ifi-drift's request
-        if (re.match(r"(dig|inf|med-inf|tool|humit|itslp|mat-in)",
+        if (re.match(r"(dig|inf|in|med-inf|tool|humit|itslp|mat-in)",
                      emnekode.lower()) and
                 termk == fs.info.semester.lower() and
                 aar == str(fs.info.year)):
