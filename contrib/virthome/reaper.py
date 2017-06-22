@@ -170,8 +170,19 @@ def delete_common(entity_id, db):
 
     remove_permissions_on_target(entity_id, db)
 
-    # Kill memberships
+    # Kill change_log entries
+    logger.debug("Cleaning change_log of references to %s", entity_id)
+    # Kill change_log entries (this includes requests linked to this entity)
+    for row in db.get_log_events(subject_entity=entity_id):
+        db.remove_log_event(row["change_id"])
+# end delete_common
+
+
+def remove_from_groups(entity_id, db):
+    """ Remove entity from groups and clean change log. """
     group = Factory.get("Group")(db)
+    const = Factory.get("Constants")()
+
     for row in group.search(member_id=entity_id,
                             filter_expired=False):
         group.clear()
@@ -180,12 +191,9 @@ def delete_common(entity_id, db):
                      entity_id, group.group_name, group.entity_id)
         group.remove_member(entity_id)
 
-    # Kill change_log entries
-    logger.debug("Cleaning change_log of references to %s", entity_id)
-    # Kill change_log entries (this includes requests linked to this entity)
-    for row in db.get_log_events(subject_entity=entity_id):
+    for row in db.get_log_events(subject_entity=entity_id,
+                                 types=[const.group_rem]):
         db.remove_log_event(row["change_id"])
-# end delete_common
 
 
 def disable_account(account_id, db):
@@ -419,6 +427,7 @@ def find_and_delete_group(gname, database):
         return
 
     gname, gid = group.group_name, group.entity_id
+    remove_from_groups(group.entity_id, database)
     delete_common(group.entity_id, database)
 
     group.delete()
