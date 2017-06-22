@@ -134,7 +134,7 @@ def sync_email_address(address, group):
         update_email_address(address, group)
 
 # the horrors, the horrors.
-# http://www.ifi.uio.no/it/listeautomatikk.html
+# http://www.uio.no/for-ansatte/arbeidsstotte/sta/enheter/mn/institutter/ifi/epostlister/
 
 def shorten_course_name(course):
     fgname = course
@@ -150,6 +150,7 @@ def shorten_course_name(course):
     # INFxxx used to stay as infxxx, but there won't be any more three digit
     # codes, so we change it to just "i" unconditionally.
     fgname = fgname.replace("inf", "i", 1)
+    fgname = fgname.replace("in", "in", 1)
     fgname = fgname.replace("dig", "id", 1)
     fgname = fgname.replace("tool", "it", 1)
     return fgname[:6]
@@ -158,12 +159,12 @@ def convert_activitynumber(act):
     # support for TVI has not been added, it will probably not return
 
     if act is 'grl':
-        return 'g'	# the filegroup for all the teachers
+        return 'g'      # the filegroup for all the teachers
     elif act in range(200, 300):
-        delim = 'p'	# activity for profession students
+        delim = 'p'     # activity for profession students
         act = act % 100
     elif act in range(300, 400):
-        delim = 'm'	# activity MOD students
+        delim = 'm'     # activity MOD students
         act = act % 100
     else:
         delim = '-'
@@ -301,7 +302,7 @@ def process_groups(super, fg_super):
         member_id = int(row["member_id"])
     
         group = get_group(member_id)
-        if group.group_name.startswith('sinf'):
+        if group.group_name.startswith(('sinf', 'sin')):
             continue
         course = act = None
         m = re.match(r'g(\w+)-(\d+)$', group.group_name)
