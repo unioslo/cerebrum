@@ -135,13 +135,6 @@ class AccountUtil(object):
         
         account.populate_trait(code=const.trait_student_new, date=now())
         account.write_db()
-        # hack, accomodating UiAs need to assign server-groups to
-        # students an add_student_to_server_group is defined in
-        # Cerebrum/Account.py and may be overridden in institution
-        # specific Account-classes the reason we need this hack is
-        # that AutoStud does not support assigning a group membership
-        # in a random group out of pre-defined pool
-        account.add_student_to_server_group()
         password = 'Password collected from Caesar. Not available here.'
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
     restore_uname_tmp=staticmethod(restore_uname_tmp)
@@ -169,13 +162,6 @@ class AccountUtil(object):
         account.write_db()
         account.populate_trait(code=const.trait_student_new, date=now())
         account.write_db()
-        # hack, accomodating UiAs need to assign server-groups to
-        # students an add_student_to_server_group is defined in
-        # Cerebrum/Account.py and may be overridden in institution
-        # specific Account-classes the reason we need this hack is
-        # that AutoStud does not support assigning a group membership
-        # in a random group out of pre-defined pool
-        account.add_student_to_server_group()
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
     restore_uname=staticmethod(restore_uname)
 
@@ -244,13 +230,6 @@ class AccountUtil(object):
         account.populate_trait(code=const.trait_student_new, date=now())
         account.write_db()
 
-        # hack, accomodating UiAs need to assign server-groups to
-        # students an add_student_to_server_group is defined in
-        # Cerebrum/Account.py and may be overridden in institution
-        # specific Account-classes the reason we need this hack is
-        # that AutoStud does not support assigning a group membership
-        # in a random group out of pre-defined pool
-        account.add_student_to_server_group()
         password = 'Password collected from Caesar, so not available here.'
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
         as_posix = False
@@ -320,13 +299,6 @@ class AccountUtil(object):
         account.write_db()
         account.populate_trait(code=const.trait_student_new, date=now())
         account.write_db()
-        # hack, accomodating UiAs need to assign server-groups to
-        # students an add_student_to_server_group is defined in
-        # Cerebrum/Account.py and may be overridden in institution
-        # specific Account-classes the reason we need this hack is
-        # that AutoStud does not support assigning a group membership
-        # in a random group out of pre-defined pool
-        account.add_student_to_server_group()
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
         as_posix = False
         for spread in profile.get_spreads():

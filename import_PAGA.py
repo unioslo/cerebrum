@@ -471,19 +471,18 @@ def process_person(person):
     postal_number = None
     city = None
     country = None
-    if(len(person['adresse'])):
+    if (person.has_key('adresse')) and (len(person['adresse'])):
         address_text = person['adresse']
         private_address = True
-    if(len(person['postnr'])):
+    if (person.has_key('postnr')) and (len(person['postnr'])):
         postal_number = person['postnr']
         private_address = True
-    if(len(person['poststed'])):
+    if (person.has_key('poststed')) and (len(person['poststed'])):
         city = person['poststed']
         private_address = True
     if(private_address == True):
         logger.info("Setting additional home address:%s %s %s" % (address_text,postal_number,city))
-        new_person.add_entity_address(const.system_paga,const.address_street,address_text,p_o_box,postal_number, city, coun
-try)
+        new_person.add_entity_address(const.system_paga,const.address_street,address_text,p_o_box,postal_number, city, country)
 
     # UIT: Update last_date field
     # must be done after write_db() to ensure that affiliation table entry exist
