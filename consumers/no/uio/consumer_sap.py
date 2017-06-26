@@ -20,9 +20,13 @@
 
 """Consumes events from SAP and updates Cerebrum."""
 
+import datetime
+import requests
+import json
 from collections import OrderedDict
 
-from Cerebrum.Utils import Factory
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory, read_password
 from Cerebrum.modules.event.mapping import CallbackMap
 
 
@@ -129,22 +133,26 @@ def parse_address(d):
     :return: A tuple with the fields that should be updated"""
     co = Factory.get('Constants')
 
-    m = {u'homeAddress': co.address_post_private,
-         u'postalAddress': co.address_post,
-         u'visitingAddress': co.address_street,
+    address_types = (u'legalAddress',
+                     u'workMailingAddress',
+                     u'workVisitingAddress')
+
+    m = {u'legalAddress': co.address_post_private,
+         u'workMailingAddress': co.address_post,
+         u'workVisitingAddress': co.address_street,
 
          u'city': u'city',
          u'postalCode': u'postal_number',
          u'streetAndHouseNumber': u'address_text'}
 
-    r = {x.get('type'): x for x in d.get('addresses', [])}
+    r = {x: d.get(x, {}) for x in address_types}
 
     # Visiting address should be a concoction of real address and a
     # meta-location
-    if u'visitingAddress' in r:
-        r[u'visitingAddress'][u'streetAndHouseNumber'] = u'{}\n{}'.format(
-            r.get(u'visitingAddress').get(u'streetAndHouseNumber'),
-            r.get(u'visitingAddress').get(u'location'))
+    if r.get(u'workVisitingAddress'):
+        r[u'workVisitingAddress'][u'streetAndHouseNumber'] = u'{}\n{}'.format(
+            r.get(u'workVisitingAddress').get(u'streetAndHouseNumber'),
+            r.get(u'workVisitingAddress').get(u'location'))
 
     return tuple([(k, tuple(sorted(filter_elements(translate_keys(v, m))))) for
                   (k, v) in filter_elements(
@@ -208,7 +216,7 @@ def parse_contacts(d):
     m = {u'workPhone': co.contact_phone,
          u'workMobile': co.contact_mobile_phone,
          u'privateMobile': co.contact_private_mobile,
-         u'privateMobileWeb': co.contact_private_mobile_visible}
+         u'publicMobile': co.contact_private_mobile_visible}
 
     def expand(l, pref=0):
         if not l:
@@ -225,10 +233,7 @@ def parse_contacts(d):
                  ('description', None)),),) + expand(n, pref + 1)
     return expand(
         filter_elements(
-            translate_keys(
-                {c.get('type'): c.get('value') for
-                 c in d.get(u'phoneNumbers')},
-                m)))
+            translate_keys({c: d.get(c) for c in m.keys()}, m)))
 
 
 def parse_titles(d):
@@ -248,32 +253,37 @@ def parse_titles(d):
                 (u'name_language', lang),
                 (u'name', name))
 
-    titles = ([make_tuple(co.personal_title,
-                          co.language_en,
-                          d.get(u'title').get(u'en'))] +
-              map(lambda lang: make_tuple(co.personal_title,
-                                          lang,
-                                          d.get(u'title').get(u'nb')),
-                  [co.language_nb, co.language_nn]))
+    titles = []
+    if d.get(u'personalTitle'):
+        titles.extend(
+            [make_tuple(co.personal_title,
+                        co.language_en,
+                        d.get(u'personalTitle', {}).get(u'en'))] +
+            map(lambda lang: make_tuple(
+                    co.personal_title,
+                    lang,
+                    d.get(u'personalTitle', {}).get(u'nb')),
+                [co.language_nb, co.language_nn]))
 
     # Select appropriate work title.
-    work_title = None
-    for e in d.get(u'assignments', []):
-        if e.get(u'type') == u'primary':
-            work_title = e
+    assignment = None
+    for e in d.get(u'assignments', {}).get(u'results', []):
+        if not e.get(u'jobTitle'):
+            continue
+        if e.get(u'primaryAssignmentFlag'):
+            assignment = e
             break
-        if not work_title:
-            work_title = e
-        elif (float(e.get(u'percentage')) >
-                float(work_title.get(u'percentage')) or
-                not work_title):
-            work_title = e
+        if not assignment:
+            assignment = e
+        elif (float(e.get(u'agreedFTEPercentage')) >
+                float(assignment.get(u'agreedFTEPercentage'))):
+            assignment = e
 
-    if work_title:
+    if assignment:
         titles.extend(map(lambda (lang_code, lang_str): make_tuple(
             co.work_title,
             lang_code,
-            work_title.get(u'job').get(u'title').get(lang_str)),
+            assignment.get(u'jobTitle').get(lang_str)),
             [(co.language_nb, u'nb'),
              (co.language_nn, u'nb'),
              (co.language_en, u'en')]))
@@ -292,19 +302,17 @@ def parse_external_ids(d):
     :return: A list of tuples with the external_ids"""
     co = Factory.get('Constants')
 
-    def make_tuple(x):
-        return {
-            u'passportNumber': (co.externalid_pass_number,
-                                co.make_passport_number(
-                                    x.get(u'country'), x.get(u'value'))),
-            u'nationalIdentityNumber': (co.externalid_fodselsnr,
-                                        x.get(u'value'))}.get(x.get('type'),
-                                                              (None, None))
+    external_ids = [(co.externalid_sap_ansattnr, unicode(d.get(u'personId')))]
 
-    external_ids = [(co.externalid_sap_ansattnr, unicode(d.get(u'id')))]
+    if d.get(u'passportIssuingCountry') and d.get(u'passportNumber'):
+        external_ids.append(
+            (co.externalid_pass_number,
+             co.make_passport_number(d.get(u'passportIssuingCountry'),
+                                     d.get(u'passportNumber'))))
 
-    external_ids.extend(
-        [make_tuple(x) for x in d.get('identities')])
+    if d.get(u'norwegianIdentificationNumber'):
+        external_ids.append(
+            (co.externalid_fodselsnr, d.get(u'norwegianIdentificationNumber')))
 
     return filter_elements(external_ids)
 
@@ -313,9 +321,9 @@ def _get_ou(database, sap_id, placecode):
     """Populate a Cerebrum-OU-object from the DB."""
     if not placecode:
         raise ErroneousSourceData(
-            u'organizationalUnit is {} for {}'.format(placecode, sap_id))
+            u'locationId is {} for organizationalUnitId {}'.format(
+                placecode, sap_id))
     import cereconf
-    from Cerebrum import Errors
     ou = Factory.get('OU')(database)
     ou.clear()
     try:
@@ -332,8 +340,8 @@ def _get_ou(database, sap_id, placecode):
 def _sap_assignments_to_affiliation_map():
     co = Factory.get('Constants')
 
-    return {u'T/A': co.affiliation_status_ansatt_tekadm,
-            u'Vit': co.affiliation_status_ansatt_vitenskapelig}
+    return {u'administrative': co.affiliation_status_ansatt_tekadm,
+            u'academic': co.affiliation_status_ansatt_vitenskapelig}
 
 
 def parse_affiliations(database, d):
@@ -350,21 +358,26 @@ def parse_affiliations(database, d):
     co = Factory.get('Constants')
 
     r = []
-    for x in d.get(u'assignments'):
+    for x in d.get(u'assignments', {}).get(u'results', []):
         status = _sap_assignments_to_affiliation_map().get(
-                      x.get(u'job').get(u'category').get('uio'))
-        ou = _get_ou(database, x.get('id'), x.get(u'organizationalUnit'))
-        main = x.get(u'type') == u'primary'
+                      x.get(u'jobCategory'))
+        if not status:
+            # Unknown job category
+            continue
+        ou = _get_ou(database,
+                     sap_id=x.get('organizationalUnitId'),
+                     placecode=x.get(u'locationId'))
         if not ou:
             logger.warn(
                 'OU {} does not exist, '
                 'cannot parse affiliation {} for {}'.format(
-                    x.get(u'organizationalUnit'), status, d.get(u'id')))
-        elif status:
-            r.append({u'ou_id': ou.entity_id,
-                      u'affiliation': co.affiliation_ansatt,
-                      u'status': status,
-                      u'precedence': (50L, 50L) if main else None})
+                    x.get(u'locationId'), status, x.get(u'personId')))
+            continue
+        main = x.get(u'primaryAssignmentFlag')
+        r.append({u'ou_id': ou.entity_id,
+                  u'affiliation': co.affiliation_ansatt,
+                  u'status': status,
+                  u'precedence': (50L, 50L) if main else None})
     return r
 
 
@@ -401,20 +414,20 @@ def parse_roles(database, data):
     role2aff = _sap_roles_to_affiliation_map()
 
     r = []
-    for role in data.get(u'roles'):
-        ou = _get_ou(database, role.get('id'), role.get(u'organizationalUnit'))
+    for role in data.get(u'roles', {}).get(u'results', []):
+        ou = _get_ou(database, sap_id=None, placecode=role.get(u'locationId'))
         if not ou:
             logger.warn(
                 'OU {} does not exist, '
                 'cannot parse affiliation {} for {}'.format(
-                    role.get(u'organizationalUnit'),
-                    role2aff.get(role.get(u'type')),
-                    data.get(u'id')))
-        elif role2aff.get(role.get(u'type')):
+                    role.get(u'locationId'),
+                    role2aff.get(role.get(u'roleName')),
+                    data.get(u'personId')))
+        elif role2aff.get(role.get(u'roleName')):
             r.append({u'ou_id': ou.entity_id,
                       u'affiliation': role2aff.get(
-                          role.get(u'type')).affiliation,
-                      u'status': role2aff.get(role.get(u'type')),
+                          role.get(u'roleName')).affiliation,
+                      u'status': role2aff.get(role.get(u'roleName')),
                       u'precedence': None})
 
     return sorted(r,
@@ -429,7 +442,7 @@ def _parse_hr_person(database, source_system, data):
     co = Factory.get('Constants')
 
     return {
-        u'id': data.get(u'id'),
+        u'id': data.get(u'personId'),
         u'addresses': parse_address(data),
         u'names': parse_names(data),
         u'birth_date': DateTime.DateFrom(
@@ -443,7 +456,8 @@ def _parse_hr_person(database, source_system, data):
         u'affiliations': parse_affiliations(database, data),
         u'roles': parse_roles(database, data),
         u'titles': parse_titles(data),
-        u'reserved': not data.get(u'publish')}
+        u'reserved': not data.get(u'allowedPublicDirectoryFlag')
+    }
 
 
 def get_hr_person(config, database, source_system, url):
@@ -458,18 +472,16 @@ def get_hr_person(config, database, source_system, url):
 
     :raises: RemoteSourceUnavailable if the remote system can't be contacted"""
 
-    def _get_data(config, url):
-        import requests
-        import json
-        from Cerebrum.Utils import read_password
-
+    def _get_data(config, url, params=None):
+        if not params:
+            params = {}
         auth = (config.auth_user, read_password(user=config.auth_user,
                                                 system=config.auth_system))
         headers = {'Accept': 'application/json'}
 
         try:
             logger.debug4(u'Fetching {}'.format(url))
-            r = requests.get(url, auth=auth, headers=headers)
+            r = requests.get(url, auth=auth, headers=headers, params=params)
             logger.debug4(u'Fetch completed')
         except Exception as e:
             # Be polite on connection errors. Conenction errors seldom fix
@@ -486,10 +498,15 @@ def get_hr_person(config, database, source_system, url):
                         '__deferred' in data.get(k) and
                         'uri' in data.get(k).get('__deferred')):
                     # Fetch, unpack and store data
-                    r = _get_data(config,
-                                  data.get(k).get('__deferred').get('uri'))
-                    if r.keys() == [u'results']:
-                        r = r[u'results']
+                    deferred_uri = data.get(k).get('__deferred').get('uri')
+                    # We filter by effectiveEndDate >= today to also get
+                    # future assignments and roles
+                    if k in ('assignments', 'roles'):
+                        filter_param = {
+                            '$filter': "effectiveEndDate ge '{today}'".format(
+                                today=datetime.date.today())
+                        }
+                    r = _get_data(config, deferred_uri, filter_param)
                     data.update({k: r})
             return data
         else:
@@ -506,7 +523,6 @@ def get_cerebrum_person(database, ids):
     If the person does not exist in Cerebrum, the returned object is
     clear()'ed"""
     pe = Factory.get('Person')(database)
-    from Cerebrum import Errors
     try:
         pe.find_by_external_ids(*ids)
         logger.debug(u'Found existing person with id:{}'.format(pe.entity_id))
@@ -589,7 +605,6 @@ def _find_affiliations(cerebrum_person, hr_affs, affiliation_map,
         to_ensure = set(in_hr) & set(in_cerebrum)
         return [dict(x) for x in to_add | to_ensure]
     else:
-        from Cerebrum import Errors
         raise Errors.ProgrammingError(
             'Invalid mode {} supplied to _find_affiliations'.format(
                 repr(mode)))
@@ -663,7 +678,6 @@ def update_names(database, source_system, hr_person, cerebrum_person):
     :param hr_person: The parsed data from the remote source system
     :param cerebrum_person: The Person object to be updated.
     """
-    from Cerebrum import Errors
     co = Factory.get('Constants')(database)
     try:
         names = set(map(lambda name_type:
@@ -916,7 +930,6 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
 
 def get_resource_url(body):
     """Excavate resource URL from message body."""
-    import json
     d = json.loads(body)
     return d.get(u'sub')
 
@@ -957,7 +970,6 @@ def callback(database, source_system, routing_key, content_type, body,
 
 def load_mock(mock_file):
     """Call appropriate handler functions."""
-    import json
     with open(mock_file) as f:
         data = json.load(f).get(u'd')
         import pprint
@@ -1001,11 +1013,13 @@ def main(args=None):
         database.commit = database.rollback
 
     if args.mock:
-        import json
+        import pprint
         mock_data = load_mock(args.mock)
         parsed_mock_data = _parse_hr_person(database,
                                             source_system,
                                             mock_data)
+        logger.debug1(u'Parsed mock data as:\n{}'.format(
+            pprint.pformat(parsed_mock_data)))
         body = json.dumps({u'sub': None})
         callback(database, source_system, u'', u'', body,
                  datasource=lambda *x: parsed_mock_data)
