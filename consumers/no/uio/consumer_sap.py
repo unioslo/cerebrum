@@ -20,10 +20,13 @@
 
 """Consumes events from SAP and updates Cerebrum."""
 
+import datetime
+import requests
+import json
 from collections import OrderedDict
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, read_password
 from Cerebrum.modules.event.mapping import CallbackMap
 
 
@@ -469,18 +472,16 @@ def get_hr_person(config, database, source_system, url):
 
     :raises: RemoteSourceUnavailable if the remote system can't be contacted"""
 
-    def _get_data(config, url):
-        import requests
-        import json
-        from Cerebrum.Utils import read_password
-
+    def _get_data(config, url, params=None):
+        if not params:
+            params = {}
         auth = (config.auth_user, read_password(user=config.auth_user,
                                                 system=config.auth_system))
         headers = {'Accept': 'application/json'}
 
         try:
             logger.debug4(u'Fetching {}'.format(url))
-            r = requests.get(url, auth=auth, headers=headers)
+            r = requests.get(url, auth=auth, headers=headers, params=params)
             logger.debug4(u'Fetch completed')
         except Exception as e:
             # Be polite on connection errors. Conenction errors seldom fix
@@ -497,8 +498,16 @@ def get_hr_person(config, database, source_system, url):
                         '__deferred' in data.get(k) and
                         'uri' in data.get(k).get('__deferred')):
                     # Fetch, unpack and store data
-                    r = _get_data(config,
-                                  data.get(k).get('__deferred').get('uri'))
+                    deferred_uri = data.get(k).get('__deferred').get('uri')
+                    # We filter by effectiveEndDate <= today to also get
+                    # future assignments and roles
+                    if k in ('assignments', 'roles'):
+                        deferred_uri = deferred_uri + '/' + k
+                        filter_param = {
+                            '$filter': "effectiveEndDate ge '{today}'".format(
+                                today=datetime.date.today())
+                        }
+                    r = _get_data(config, deferred_uri, filter_param)
                     data.update({k: r})
             return data
         else:
@@ -922,7 +931,6 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
 
 def get_resource_url(body):
     """Excavate resource URL from message body."""
-    import json
     d = json.loads(body)
     return d.get(u'sub')
 
@@ -963,7 +971,6 @@ def callback(database, source_system, routing_key, content_type, body,
 
 def load_mock(mock_file):
     """Call appropriate handler functions."""
-    import json
     with open(mock_file) as f:
         data = json.load(f).get(u'd')
         import pprint
@@ -1007,7 +1014,6 @@ def main(args=None):
         database.commit = database.rollback
 
     if args.mock:
-        import json
         import pprint
         mock_data = load_mock(args.mock)
         parsed_mock_data = _parse_hr_person(database,
