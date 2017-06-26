@@ -214,7 +214,10 @@ class BofhdExtension(BofhdCommonMethods):
         self.ephorte_role.add_role(person.entity_id, self._get_role_type(role), ou.entity_id,
                                    arkivdel, journalenhet, auto_role='F')
         if not_ephorte_ou:
-            return "Warning: Added %s role for %s%s to a non-archive OU %s " % (role, person_id, extra_msg, sko)
+            return "Warning: Added %s role for %s%s to a non-archive OU %s " % (role,
+                                                                                person_id,
+                                                                                extra_msg,
+                                                                                sko)
         return "OK, added %s role for %s%s" % (role, person_id, extra_msg)
 
     #
@@ -239,7 +242,7 @@ class BofhdExtension(BofhdCommonMethods):
         ou = self._get_ou(stedkode=sko)
         arkivdel = self._get_arkivdel(arkivdel)
         journalenhet = self._get_journalenhet(journalenhet)
-        # Check that the person has the given role. 
+        # Check that the person has the given role.
         if not self.ephorte_role.get_role(person.entity_id,
                                           self._get_role_type(role),
                                           ou.entity_id,
@@ -252,7 +255,7 @@ class BofhdExtension(BofhdCommonMethods):
                                                ou.entity_id,
                                                arkivdel,
                                                journalenhet) and
-            len(self.ephorte_role.list_roles(person_id=person.entity_id)) > 1):
+                len(self.ephorte_role.list_roles(person_id=person.entity_id)) > 1):
             raise CerebrumError("Cannot delete standard role.")
         self.ephorte_role.remove_role(person.entity_id, self._get_role_type(role),
                                       ou.entity_id, arkivdel, journalenhet)
@@ -328,7 +331,7 @@ class BofhdExtension(BofhdCommonMethods):
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
         ou = self._get_ou(stedkode=sko)
-        # Check that the person has the given role. 
+        # Check that the person has the given role.
         tmp = self.ephorte_role.get_role(person.entity_id,
                                          self._get_role_type(role),
                                          ou.entity_id,
@@ -347,7 +350,7 @@ class BofhdExtension(BofhdCommonMethods):
             if row['standard_role'] == 'T':
                 self.logger.debug("Unset role %s at %s as standard_role" % (
                     row['role_type'], row['adm_enhet']))
-                self.ephorte_role.set_standard_role_val(person.entity_id, 
+                self.ephorte_role.set_standard_role_val(person.entity_id,
                                                         row['role_type'],
                                                         row['adm_enhet'],
                                                         row['arkivdel'],
@@ -387,12 +390,18 @@ class BofhdExtension(BofhdCommonMethods):
         if not (sko == cereconf.EPHORTE_EGNE_SAKER_SKO or
                 ou.has_spread(self.const.spread_ephorte_ou)):
             raise CerebrumError("Cannot assign permission to a non-ephorte OU")
+
+        if self.ephorte_perm.has_permission(person.entity_id,
+                                            self._get_tilgang(tilgang),
+                                            ou.entity_id):
+            raise CerebrumError("Person %s already has perm %s (remove first)" %
+                                (person_id, tilgang))
         # This is a hack needed by the archivists.
         # If one of the new permissions, defined in
         # EPHORTE_NEW2OLD_PERMISSIONS.values() is to be added, the old
         # (expired) one must be added to. And vice versa.
-        corresponding_perm = cereconf.EPHORTE_NEW2OLD_PERMISSIONS.get(tilgang, None) or \
-                             cereconf.EPHORTE_OLD2NEW_PERMISSIONS.get(tilgang, None) 
+        corresponding_perm = (cereconf.EPHORTE_NEW2OLD_PERMISSIONS.get(tilgang, None) or
+                              cereconf.EPHORTE_OLD2NEW_PERMISSIONS.get(tilgang, None))
         if corresponding_perm:
             # Add the corresponding permission
             self.ephorte_perm.add_permission(person.entity_id,
@@ -431,8 +440,8 @@ class BofhdExtension(BofhdCommonMethods):
         # If one of the new permissions, defined in
         # EPHORTE_NEW2OLD_PERMISSIONS.values() is to be added, the old
         # (expired) one must be added to. And vice versa.
-        corresponding_perm = cereconf.EPHORTE_NEW2OLD_PERMISSIONS.get(tilgang, None) or \
-                             cereconf.EPHORTE_OLD2NEW_PERMISSIONS.get(tilgang, None)
+        corresponding_perm = (cereconf.EPHORTE_NEW2OLD_PERMISSIONS.get(tilgang, None) or
+                              cereconf.EPHORTE_OLD2NEW_PERMISSIONS.get(tilgang, None))
         if corresponding_perm:
             # Remove old permission
             self.ephorte_perm.remove_permission(person.entity_id,
