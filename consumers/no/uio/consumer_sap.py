@@ -499,7 +499,7 @@ def get_hr_person(config, database, source_system, url):
                         'uri' in data.get(k).get('__deferred')):
                     # Fetch, unpack and store data
                     deferred_uri = data.get(k).get('__deferred').get('uri')
-                    # We filter by effectiveEndDate <= today to also get
+                    # We filter by effectiveEndDate >= today to also get
                     # future assignments and roles
                     if k in ('assignments', 'roles'):
                         deferred_uri = deferred_uri + '/' + k
