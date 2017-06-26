@@ -502,7 +502,6 @@ def get_hr_person(config, database, source_system, url):
                     # We filter by effectiveEndDate >= today to also get
                     # future assignments and roles
                     if k in ('assignments', 'roles'):
-                        deferred_uri = deferred_uri + '/' + k
                         filter_param = {
                             '$filter': "effectiveEndDate ge '{today}'".format(
                                 today=datetime.date.today())
