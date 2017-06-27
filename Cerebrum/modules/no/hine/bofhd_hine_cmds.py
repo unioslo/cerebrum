@@ -59,7 +59,6 @@ uio_helpers = [
     '_get_affiliationid',
     '_get_auth_op_target',
     '_get_cached_passwords',
-    '_get_constant',
     '_get_disk',
     '_get_group_opcode',
     '_get_opset',

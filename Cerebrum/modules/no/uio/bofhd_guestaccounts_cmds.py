@@ -35,7 +35,6 @@ from Cerebrum.modules.no.uio.bofhd_guestaccounts_utils import GuestUtils, GuestA
 
 
 uio_helpers = [
-    '_get_constant',
     '_get_disk',
     '_get_shell',
     '_parse_date',

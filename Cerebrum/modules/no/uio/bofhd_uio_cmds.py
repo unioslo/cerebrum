@@ -9822,14 +9822,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
         except Errors.NotFoundError:
             raise CerebrumError("Unknown affiliation status")
 
-    def _get_constant(self, code_cls, code_str, code_type="value"):
-        c = code_cls(code_str)
-        try:
-            int(c)
-        except Errors.NotFoundError:
-            raise CerebrumError("Unknown %s: %s" % (code_type, code_str))
-        return c
-
 
     hidden_commands['get_constant_description'] = Command(
         ("misc", "get_constant_description"),

@@ -47,8 +47,7 @@ class HiofBofhdRequests(BofhdRequests):
 
 
 uio_helpers = [
-    '_get_constant',
-    '_parse_date',
+    '_parse_date'
 ]
 
 uio_commands = [

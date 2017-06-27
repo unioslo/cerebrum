@@ -210,6 +210,14 @@ class BofhdCommandBase(object):
                 visible_commands[key] = command
         return visible_commands
 
+    def _get_constant(self, code_cls, code_str, code_type="value"):
+        c = code_cls(code_str)
+        try:
+            int(c)
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown %s: %s" % (code_type, code_str))
+        return c
+
     @staticmethod
     def _get_boolean(onoff):
         """ String to boolean conversion.
