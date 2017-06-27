@@ -29,7 +29,6 @@ import time
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-# from Cerebrum.modules.celery_tasks.apps.scheduler import schedule_message
 from Cerebrum.modules.event import evhandlers
 from Cerebrum.utils.funcwrap import memoize
 
@@ -93,20 +92,6 @@ class EventConsumer(evhandlers.DBConsumer):
         message = self.formatter(event)
 
         routing_key = self.formatter.get_key(event.event_type, event.subject)
-
-#       if event.scheduled:
-#           # Schedule message
-#           # TODO Check if not_before is in the past?
-#           jti = schedule_message.apply_async(
-#               kwargs={
-#                   'routing_key': routing_key,
-#                   'body': json.dumps(message), },
-#               eta=event.scheduled)
-#           self.logger.info('Message scheduled for {0!r}'
-#                            ' (msg jti={1}, sched jti={2})'.format(
-#                                event.scheduled, message['jti'], jti))
-#       else:
-#           pass
 
         # Publish message
         with self.publisher as client:

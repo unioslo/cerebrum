@@ -103,14 +103,6 @@ def main():
         default=False,
         help='Do not actually schedule the tasks. Just logg and be happy')
     parser.add_argument(
-        '-e', '--target-exchange',
-        metavar='EXCHANGE',
-        type=str,
-        dest='target_exchange',
-        default='ex_scheduled_messages',
-        help=('Exchage to send scheduled messages to '
-              '(default: ex_scheduled_messages)'))
-    parser.add_argument(
         '-q', '--queue',
         metavar='QUEUE',
         type=str,
