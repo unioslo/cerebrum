@@ -30,7 +30,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase, BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailMixin
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.no.hiof import bofhd_hiof_help
@@ -45,7 +45,6 @@ def format_day(field):
 
 
 uio_helpers = [
-    '_format_ou_name',
     '_get_affiliationid',
     '_get_host',
 ]

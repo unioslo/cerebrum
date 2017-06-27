@@ -9722,14 +9722,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             raise CerebrumError, "Could not find op set with name %s" % opset
         return aos
 
-    def _format_ou_name(self, ou):
-        short_name = ou.get_name_with_language(
-                            name_variant=self.const.ou_name_short,
-                            name_language=self.const.language_nb,
-                            default="")
-        return "%02i%02i%02i (%s)" % (ou.fakultet, ou.institutt, ou.avdeling,
-                                      short_name)
-
     def _get_group_opcode(self, operator):
         if operator is None:
             return self.const.group_memberop_union
@@ -9762,51 +9754,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             ety = Entity.Entity(self.db)
             return ety.get_subclassed_object(ident)
         raise CerebrumError("Invalid idtype")
-
-    def _find_persons(self, arg):
-        if arg.isdigit() and len(arg) > 10:  # finn personer fra fnr
-            arg = 'fnr:%s' % arg
-        ret = []
-        person = Utils.Factory.get('Person')(self.db)
-        person.clear()
-        if arg.find(":") != -1:
-            idtype, value = arg.split(":", 1)
-            if not value:
-                raise CerebrumError, "Unable to parse person id %r" % arg
-            if idtype == 'exp':
-                if not value.isdigit():
-                    raise CerebrumError, "Export id must be a number"
-                person.clear()
-                try:
-                    person.find_by_export_id(value)
-                    ret.append({'person_id': person.entity_id})
-                except Errors.NotFoundError:
-                    raise CerebrumError, "Unkown person id %r" % arg
-            elif idtype == 'entity_id':
-                if not value.isdigit():
-                    raise CerebrumError, "Entity id must be a number"
-                person.clear()
-                try:
-                    person.find(value)
-                    ret.append({'person_id': person.entity_id})
-                except Errors.NotFoundError:
-                    raise CerebrumError, "Unkown person id %r" % arg
-            elif idtype == 'fnr':
-                for ss in cereconf.SYSTEM_LOOKUP_ORDER:
-                    try:
-                        person.clear()
-                        person.find_by_external_id(
-                            self.const.externalid_fodselsnr, value,
-                            source_system=getattr(self.const, ss))
-                        ret.append({'person_id': person.entity_id})
-                    except Errors.NotFoundError:
-                        pass
-        elif arg.find("-") != -1:
-            ret = person.find_persons_by_bdate(self._parse_date(arg))
-
-        else:
-            raise CerebrumError, "Unable to parse person id %r" % arg
-        return ret
 
     def _get_entity_name(self, entity_id, entity_type=None):
         """Fetch a human-friendly name for the specified entity.
