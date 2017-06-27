@@ -45,6 +45,7 @@ from Cerebrum.modules.no.hia.access_FS import FS
 
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
+from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 
 
 def format_day(field):
@@ -118,7 +119,6 @@ uio_helpers = [
     '_remove_auth_target',
     '_revoke_auth',
     '_today',
-    '_user_create_set_account_type',
     '_validate_access',
     '_validate_access_disk',
     '_validate_access_global_group',
@@ -278,6 +278,10 @@ email_sympa_mixin_commands = [
 @copy_func(
     UiOBofhdExtension,
     methods=uio_helpers + copy_uio + copy_uio_hidden)
+@copy_func(
+    BofhdUserCreateMethod,
+    methods=['_user_create_set_account_type']
+)
 class BofhdExtension(
         BofhdCommonMethods,
         BofhdEmailMixin,

@@ -42,9 +42,11 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PhrasePasswordNotGoodEnough)
 from Cerebrum.modules.pwcheck.history import PasswordHistory
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
+from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
                                          AuthConstants,
                                          BofhdAuthOpTarget,
@@ -127,6 +129,10 @@ class UiOAuth(BofhdAuth):
     can_rt_address_remove = can_rt_address_add
 
 
+@copy_func(
+    BofhdUserCreateMethod,
+    methods=['_user_create_set_account_type']
+)
 class BofhdExtension(BofhdCommonMethods):
     """All CallableFuncs take user as first arg, and are responsible
     for checking necessary permissions"""

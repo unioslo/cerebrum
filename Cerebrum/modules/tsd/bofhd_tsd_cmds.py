@@ -65,6 +65,7 @@ from Cerebrum.modules.tsd import Gateway
 
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
+from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 
 
 def format_day(field):
@@ -856,6 +857,10 @@ def _apply_superuser(commands, replace=True):
 @copy_func(
     UiOBofhdExtension,
     methods=admin_uio_helpers + admin_copy_uio)
+@copy_func(
+    BofhdUserCreateMethod,
+    methods=['_user_create_set_account_type']
+)
 class AdministrationBofhdExtension(TSDBofhdExtension):
     """The bofhd commands for the TSD project's system administrators.
 
