@@ -58,7 +58,7 @@ def schedule_message(self, routing_key, body):
     try:
         with exception_logger(logger):
             message = json.loads(body)
-            config = load_publisher_config()
+            config = load_publisher_config('schedule_message')
             publisher_client = get_client(config)
             with publisher_client as client:
                 client.publish(routing_key, message)
