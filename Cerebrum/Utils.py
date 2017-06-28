@@ -24,7 +24,6 @@ tree.
 
 import cereconf
 import inspect
-import new
 import os
 import re
 import smtplib
@@ -39,7 +38,6 @@ import urllib
 import urlparse
 import random
 import collections
-from io import BytesIO
 from string import ascii_lowercase, digits
 from subprocess import Popen, PIPE
 
@@ -68,14 +66,17 @@ NotSet = _NotSet()
 
 def dyn_import(name):
     """Dynamically import python module ``name``."""
-    mod = __import__(name)
+    try:
+        mod = __import__(name)
+    except ImportError as e:
+        raise ImportError("{0} (module={1})".format(e, name))
     components = name.split(".")
     try:
         for comp in components[1:]:
             mod = getattr(mod, comp)
         return mod
-    except AttributeError, mesg:
-        raise ImportError(mesg)
+    except AttributeError as e:
+        raise ImportError("{0} (module={1})".format(e, name))
 
 
 def this_module():
