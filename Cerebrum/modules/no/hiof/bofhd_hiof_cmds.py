@@ -34,6 +34,7 @@ from Cerebrum.modules.no.hiof import bofhd_hiof_help
 
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
+from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 
 
 # BofhdRequests are unfortunately very UiO specific. Let's try to keep
@@ -47,10 +48,7 @@ class HiofBofhdRequests(BofhdRequests):
 
 
 uio_helpers = [
-    '_find_persons',
-    '_format_ou_name',
-    '_get_constant',
-    '_parse_date',
+    '_parse_date'
 ]
 
 uio_commands = [
@@ -69,6 +67,10 @@ uio_commands = [
 @copy_func(
     UiOBofhdExtension,
     methods=uio_helpers + uio_commands)
+@copy_func(
+    BofhdUserCreateMethod,
+    methods=['_user_create_set_account_type']
+)
 class BofhdExtension(BofhdCommonMethods):
 
     OU_class = Utils.Factory.get('OU')

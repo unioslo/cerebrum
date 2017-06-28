@@ -79,8 +79,7 @@ copy_helpers = [
     '_get_cached_passwords',
     '_get_group_opcode',
     '_group_add_entity',
-    '_group_count_memberships',
-    '_get_constant',
+    '_group_count_memberships'
 ]
 
 # Methods and command definitions from uio

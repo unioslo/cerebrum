@@ -42,9 +42,11 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PhrasePasswordNotGoodEnough)
 from Cerebrum.modules.pwcheck.history import PasswordHistory
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
+from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
                                          AuthConstants,
                                          BofhdAuthOpTarget,
@@ -127,6 +129,10 @@ class UiOAuth(BofhdAuth):
     can_rt_address_remove = can_rt_address_add
 
 
+@copy_func(
+    BofhdUserCreateMethod,
+    methods=['_user_create_set_account_type']
+)
 class BofhdExtension(BofhdCommonMethods):
     """All CallableFuncs take user as first arg, and are responsible
     for checking necessary permissions"""
@@ -9722,14 +9728,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             raise CerebrumError, "Could not find op set with name %s" % opset
         return aos
 
-    def _format_ou_name(self, ou):
-        short_name = ou.get_name_with_language(
-                            name_variant=self.const.ou_name_short,
-                            name_language=self.const.language_nb,
-                            default="")
-        return "%02i%02i%02i (%s)" % (ou.fakultet, ou.institutt, ou.avdeling,
-                                      short_name)
-
     def _get_group_opcode(self, operator):
         if operator is None:
             return self.const.group_memberop_union
@@ -9762,51 +9760,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             ety = Entity.Entity(self.db)
             return ety.get_subclassed_object(ident)
         raise CerebrumError("Invalid idtype")
-
-    def _find_persons(self, arg):
-        if arg.isdigit() and len(arg) > 10:  # finn personer fra fnr
-            arg = 'fnr:%s' % arg
-        ret = []
-        person = Utils.Factory.get('Person')(self.db)
-        person.clear()
-        if arg.find(":") != -1:
-            idtype, value = arg.split(":", 1)
-            if not value:
-                raise CerebrumError, "Unable to parse person id %r" % arg
-            if idtype == 'exp':
-                if not value.isdigit():
-                    raise CerebrumError, "Export id must be a number"
-                person.clear()
-                try:
-                    person.find_by_export_id(value)
-                    ret.append({'person_id': person.entity_id})
-                except Errors.NotFoundError:
-                    raise CerebrumError, "Unkown person id %r" % arg
-            elif idtype == 'entity_id':
-                if not value.isdigit():
-                    raise CerebrumError, "Entity id must be a number"
-                person.clear()
-                try:
-                    person.find(value)
-                    ret.append({'person_id': person.entity_id})
-                except Errors.NotFoundError:
-                    raise CerebrumError, "Unkown person id %r" % arg
-            elif idtype == 'fnr':
-                for ss in cereconf.SYSTEM_LOOKUP_ORDER:
-                    try:
-                        person.clear()
-                        person.find_by_external_id(
-                            self.const.externalid_fodselsnr, value,
-                            source_system=getattr(self.const, ss))
-                        ret.append({'person_id': person.entity_id})
-                    except Errors.NotFoundError:
-                        pass
-        elif arg.find("-") != -1:
-            ret = person.find_persons_by_bdate(self._parse_date(arg))
-
-        else:
-            raise CerebrumError, "Unable to parse person id %r" % arg
-        return ret
 
     def _get_entity_name(self, entity_id, entity_type=None):
         """Fetch a human-friendly name for the specified entity.
@@ -9874,14 +9827,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             return c
         except Errors.NotFoundError:
             raise CerebrumError("Unknown affiliation status")
-
-    def _get_constant(self, code_cls, code_str, code_type="value"):
-        c = code_cls(code_str)
-        try:
-            int(c)
-        except Errors.NotFoundError:
-            raise CerebrumError("Unknown %s: %s" % (code_type, code_str))
-        return c
 
 
     hidden_commands['get_constant_description'] = Command(
