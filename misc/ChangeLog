@@ -1,3 +1,9 @@
+2017-06-28    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* join_persons.py: new cerebrum version has discontinued the
+	logger import. logger objects are now created with the factory
+	method
+
 2017-03-20    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* groupadd.py: removed old comments
