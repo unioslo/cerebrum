@@ -26,7 +26,7 @@ import sys
 import os
 import getopt
 
-from mx.DateTime import now
+from mx.DateTime import now, DateTimeDelta
 
 import cereconf
 from Cerebrum import Errors
@@ -283,9 +283,13 @@ def send_sms(phone, message, commit=False):
 
 
 def skip_if_password_set(ac, trait):
+    """ Has the password been changed after the trait was set? """
+    # The trait and initial password is set in the same transaction. We add
+    # a minute to skip this initial password change event.
+    after = trait['date'] + DateTimeDelta(0, 0, 1)  # delta = 1 minute
     return True if [x for x in db.get_log_events(
         subject_entity=ac.entity_id,
-        sdate=trait['date'],
+        sdate=after,
         types=co.account_password)] else False
 
 
