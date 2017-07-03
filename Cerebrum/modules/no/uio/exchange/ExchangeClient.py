@@ -345,6 +345,9 @@ class ExchangeClient(PowershellClient):
                                        out['stdout'])
             elif not hit_eob:
                 out['stdout'] = ''
+            # Recover if the command hangs/crashes on the Windows-side:
+            if 'stderr' in out and 'The session availability is Busy' in out['stderr']:
+                self.kill_session()
             if 'stderr' in out:
                 for pat in self.wash_output_patterns:
                     out['stderr'] = re.sub(pat, 'PATTERN EXCLUDED',
