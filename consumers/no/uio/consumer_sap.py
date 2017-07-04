@@ -878,8 +878,13 @@ def perform_update(database, source_system, hr_person, cerebrum_person):
     update_reservation(database, hr_person, cerebrum_person)
 
 
-def perform_delete(database, source_system, cerebrum_person):
+def perform_delete(database, source_system, hr_person, cerebrum_person):
     """Delete a person."""
+    # Update person, external IDs, names
+    update_person(database, source_system, hr_person, cerebrum_person)
+    update_external_ids(database, source_system, hr_person, cerebrum_person)
+    update_names(database, source_system, hr_person, cerebrum_person)
+    # Delete everything else
     update_addresses(database,
                      source_system,
                      {u'addresses': []},
@@ -920,7 +925,7 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
     if hr_person.get('affiliations') or hr_person.get('roles'):
         perform_update(database, source_system, hr_person, cerebrum_person)
     elif cerebrum_person.entity_type:  # entity_type as indication of instance
-        perform_delete(database, source_system, cerebrum_person)
+        perform_delete(database, source_system, hr_person, cerebrum_person)
     else:
         return
 
