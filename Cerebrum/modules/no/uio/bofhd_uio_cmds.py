@@ -1287,6 +1287,15 @@ class BofhdExtension(BofhdCommonMethods):
         fw.write_db()
         return "OK, forward to %s turned %s" % (addr, on_off)
 
+    def __email_forward_destination_allowed(self, account, address):
+        """ Check if the forward is compilant with Norwegian law"""
+        if account.is_employee():
+            try:
+                self._get_email_domain(address.split('@')[-1])
+            except CerebrumError:
+                return False
+        return True
+
     # email add_forward <account>+ <address>+
     # account can also be an e-mail address for pure forwardtargets
     all_commands['email_add_forward'] = Command(
@@ -1312,8 +1321,13 @@ class BofhdExtension(BofhdCommonMethods):
             fw.enable_local_delivery()
             return 'OK, local delivery turned on'
         addr = self._check_email_address(address)
+
         if self._forward_exists(fw, addr):
             raise CerebrumError("Forward address added already (%s)" % addr)
+
+        if not self.__email_forward_destination_allowed(account, address):
+            raise CerebrumError(
+                "Employees cannot forward e-mail to external addresses")
 
         if fw.get_forward():
             raise CerebrumError("Only one forward allowed at a time")
