@@ -1289,7 +1289,12 @@ class BofhdExtension(BofhdCommonMethods):
 
     def __email_forward_destination_allowed(self, account, address):
         """ Check if the forward is compilant with Norwegian law"""
-        if account.is_employee():
+        person = Utils.Factory.get('Person')(self.db)
+        if (account.owner_type == self.const.entity_person and
+                person.list_affiliations(
+                    person_id=account.owner_id,
+                    source_system=self.const.system_sap,
+                    affiliation=self.const.affiliation_ansatt)):
             try:
                 self._get_email_domain(address.split('@')[-1])
             except CerebrumError:
