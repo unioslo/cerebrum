@@ -81,8 +81,8 @@ def handle_person(database, source_system, affiliations, data):
 
         if not pe.list_affiliations(
                 person_id=ident,
-                source_system=co.system_sap,
-                affiliation=co.affiliation_ansatt):
+                source_system=source_system,
+                affiliation=affiliations):
             return
 
         pe.clear()
