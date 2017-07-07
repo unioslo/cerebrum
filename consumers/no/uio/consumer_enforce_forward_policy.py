@@ -142,11 +142,11 @@ def main(args=None):
                         metavar='FILE',
                         default=None,
                         help='Use a custom configuration file')
-    parser.add_argument(u'--dryrun',
-                        dest=u'dryrun',
+    parser.add_argument(u'--commit',
+                        dest=u'commit',
                         action=u'store_true',
                         default=False,
-                        help=u'Do not commit changes')
+                        help=u'Commit changes')
     args = parser.parse_args(args)
     prog_name = parser.prog.rsplit(u'.', 1)[0]
 
@@ -164,7 +164,7 @@ def main(args=None):
     assert int(source_system) and int(affiliation), \
         "Error, source system or affiliation identifier is non-existent"
 
-    if args.dryrun:
+    if not args.commit:
         database.commit = database.rollback
 
     logger.info('Starting {}'.format(prog_name))
