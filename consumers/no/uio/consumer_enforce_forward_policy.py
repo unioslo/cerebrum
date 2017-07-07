@@ -129,12 +129,12 @@ def handle_person(database, source_system, affiliations, send_notifications,
                         'Deleted forward {} from {}'.format(
                             forward, ac.account_name))
         if send_notifications:
-            for k, v in removed_forwards:
+            for k, v in removed_forwards.items():
                 Utils.sendmail(
-                    to_addr=k,
+                    toaddr=k,
                     fromaddr=email_config.sender,
                     subject=email_config.subject,
-                    body=email_config.body_template.format(' '.join(v)))
+                    body=email_config.body_template.format('\n'.join(v)))
     database.commit()
 
 
