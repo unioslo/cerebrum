@@ -120,6 +120,8 @@ class Constants(Constants.Constants):
     affiliation_status_flyt_hin_ansatt_faculty = _PersonAffStatusCode(affiliation_ansatt,'Ansatt HiN','Vitenskapelig')
     affiliation_status_flyt_hin_ansatt_tekadm = _PersonAffStatusCode(affiliation_ansatt,'ansatt HiN','Teknisk/administrativt')
 
+    affiliation_status_timelonnet_fast = _PersonAffStatusCode(affiliation_ansatt, 'Timelønnet fast', 'Fast ansatt på timelønn')
+    affiliation_status_timelonnet_midlertidig = _PersonAffStatusCode(affiliation_ansatt, 'Timelønnet midl', 'Midlertidig ansatt på timelønn')
 
     affiliation_status_ansatt_perm = _PersonAffStatusCode(
         affiliation_ansatt, 'permisjon', 'Ansatt, for tiden i permisjon')
