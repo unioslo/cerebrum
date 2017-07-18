@@ -1,3 +1,7 @@
+2017-07-18    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Account.py: create date has been removed from account_info. it is now found in the entity_info table as created_at. sql in list_all() has been changed to reflect this change
+
 2017-06-12  Karen   <cerebrum@metius.uit.no>
 
     * cim_datasource.py: Adding dist_list stuff. WORK IN PROGRESS.
