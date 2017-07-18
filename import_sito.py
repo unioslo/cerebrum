@@ -818,7 +818,9 @@ def import_OU(ou_list,dryrun):
                     ou.write_db()
                     populate_the_rest(sito_ou['Name'],sito_ou['Name'],sito_ou['Name'],sito_ou['Name'],1) #KEB
                 else:
-                    ou.populate_withouth_sko()
+                    #ou.populate_withouth_sko()
+                    ou.populate()
+                    ou.write_db()
                     populate_the_rest(sito_ou['Name'],sito_ou['Name'],sito_ou['Name'],sito_ou['Name'],1) #KEB
                 ou.write_db()
                 ou.affect_external_id(const.system_sito,const.externalid_sito_ou)
