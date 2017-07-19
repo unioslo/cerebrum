@@ -34,10 +34,12 @@ import cereconf
 from Cerebrum import Constants
 from Cerebrum import Errors
 #from Cerebrum import Entity
-from Cerebrum.Utils import Factory, simple_memoize
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.no.uit.Stedkode import StedkodeMixin
 
 logger = Factory.get_logger('cronjob')
 today_tmp=mx.DateTime.today()
@@ -54,7 +56,8 @@ co = Factory.get('Constants')(db)
 person = Factory.get('Person')(db)
 account = Factory.get('Account')(db)
 ou=Factory.get('OU')(db)
-sko=Factory.get('Stedkode')(db)
+#sko=Factory.get('Stedkode')(db)
+sko = StedkodeMixin(db)
 
 
 def get_sko(ou_id):
@@ -63,14 +66,16 @@ def get_sko(ou_id):
     return "%s%s%s" % (str(sko.fakultet).zfill(2),
                        str(sko.institutt).zfill(2),
                        str(sko.avdeling).zfill(2))
-get_sko=simple_memoize(get_sko)
+get_sko=memoize(get_sko)
 
 
 def get_ouinfo(ou_id,perspective):
     #logger.debug("Enter get_ouinfo with id=%s,persp=%s" % (ou_id,perspective))
-    sko=Factory.get('Stedkode')(db)
+    #sko=Factory.get('Stedkode')(db)
+    sko=StedkodeMixin(db)
     sko.clear()
     sko.find_by_perspective(ou_id,perspective)
+    #sko.find(ou_id)
     res=dict()
     res['name']=str(sko.name)
     res['short_name']=str(sko.short_name)
@@ -96,7 +101,7 @@ def get_ouinfo(ou_id,perspective):
             break
         sko.clear()
         #logger.debug("Lookup %s in %s" % (parent_id,perspective))
-        sko.find_by_perspective(parent_id,perspective)
+        sko.find(parent_id)
         #logger.debug("Lookup returned: id=%s,name=%s" % (sko.entity_id,sko.name))
         # Detect infinite loops
         if sko.entity_id in visited:
@@ -109,7 +114,7 @@ def get_ouinfo(ou_id,perspective):
     res['path']=".".join(acropath)
     logger.debug("get_ouinfo: return %s" % res)
     return res
-get_ouinfo=simple_memoize(get_ouinfo)
+get_ouinfo=memoize(get_ouinfo)
 
 
 def wash_sitosted(name):
@@ -147,7 +152,7 @@ def get_samskipnadstedinfo(ou_id,perspective):
         res.setdefault('parents',list()).append(parentname)
     res['acropath'].remove(res['company'])
     return res
-get_samskipnadstedinfo=simple_memoize(get_samskipnadstedinfo)
+get_samskipnadstedinfo=memoize(get_samskipnadstedinfo)
 
 
 num2const=dict()

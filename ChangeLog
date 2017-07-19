@@ -1,3 +1,13 @@
+2017-07-19    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* export_safecom.py: several changes. fixed import of
+	memoize. Fixed import of Stedkode. At this time the script is
+	still not working. this because it tries to collected ou info with
+	a different perspective (Harstad).If this script is to export
+	safecom data for Harstad, the perspective code has to be
+	changed. Then again.. should Harstad have its own perspective
+	code?
+
 2017-07-18    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* import_sito.py (import_OU): use ou.populate(), not
