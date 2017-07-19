@@ -1,3 +1,8 @@
+2017-07-19  Karen   <cerebrum@cleomedes.uit.no>
+
+    * export_oid.py (load_cb_data): Added co.affiliation_status_timelonnet_midlertidig 
+    to aff_status_filter.
+
 2017-07-19    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* export_safecom.py: several changes. fixed import of
