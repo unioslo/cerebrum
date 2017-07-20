@@ -24,7 +24,8 @@ from Cerebrum.modules.no import Stedkode
 from Cerebrum import Utils
 from Cerebrum.Utils import NotSet
 from Cerebrum.modules import Email
-from Cerebrum.modules import PasswordHistory
+from Cerebrum.modules.pwcheck.history import PasswordHistory
+#from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Utils import pgp_encrypt, Factory, prepare_string
 from Cerebrum.modules.no.uit.Email import email_address
@@ -69,20 +70,27 @@ class StedkodeMixin(Stedkode.Stedkode):
     def find_by_perspective(self, ou_id,perspective):
         name_variant = co.ou_name
         #perspective = co.perspective_fs
-
         self.__super.find(ou_id)
         (self.ou_id, self.name) = self.query_1("""SELECT os.ou_id, eln.name FROM [:table schema=cerebrum name=entity_language_name] eln, [:table schema=cerebrum name=ou_structure] os WHERE eln.name_variant=:name_variant_1 AND eln.entity_id = os.ou_id AND os.ou_id=:ou_id_1 AND os.perspective=:perspective_1""",{'name_variant_1' : name_variant,'ou_id_1' : ou_id, 'perspective_1' : perspective})
 
-        name_variant = co.ou_name_acronym
-        self.acronym = self.query_1("""SELECT eln.name FROM [:table schema=cerebrum name=entity_language_name] eln, [:table schema=cerebrum name=ou_structure] os WHERE eln.name_variant=:name_variant_1 AND eln.entity_id = os.ou_id AND os.ou_id=:ou_id_1 AND os.perspective=:perspective_1""",{'name_variant_1' : name_variant,'ou_id_1' : ou_id, 'perspective_1' : perspective})
-
-        name_variant = co.ou_name_short
-        self.short_name = self.query_1("""SELECT eln.name FROM [:table schema=cerebrum name=entity_language_name] eln, [:table schema=cerebrum name=ou_structure] os WHERE eln.name_variant=:name_variant_1 AND eln.entity_id = os.ou_id AND os.ou_id=:ou_id_1 AND os.perspective=:perspective_1""",{'name_variant_1' : name_variant,'ou_id_1' : ou_id, 'perspective_1' : perspective})
-
-
-        name_variant = co.ou_name_display
-        self.display_name = self.query_1("""SELECT eln.name FROM [:table schema=cerebrum name=entity_language_name] eln, [:table schema=cerebrum name=ou_structure] os WHERE eln.name_variant=:name_variant_1 AND eln.entity_id = os.ou_id AND os.ou_id=:ou_id_1 AND os.perspective=:perspective_1""",{'name_variant_1' : name_variant,'ou_id_1' : ou_id, 'perspective_1' : perspective})
-
+        try:
+            name_variant = co.ou_name_acronym
+            self.acronym = self.query_1("""SELECT eln.name FROM [:table schema=cerebrum name=entity_language_name] eln, [:table schema=cerebrum name=ou_structure] os WHERE eln.name_variant=:name_variant_1 AND eln.entity_id = os.ou_id AND os.ou_id=:ou_id_1 AND os.perspective=:perspective_1""",{'name_variant_1' : name_variant,'ou_id_1' : ou_id, 'perspective_1' : perspective})
+        except Errors.NotFoundError:
+            self.acronym=""
+            #print "unable to find acronym for %s" % ou_id
+        try:
+            name_variant = co.ou_name_short
+            self.short_name = self.query_1("""SELECT eln.name FROM [:table schema=cerebrum name=entity_language_name] eln, [:table schema=cerebrum name=ou_structure] os WHERE eln.name_variant=:name_variant_1 AND eln.entity_id = os.ou_id AND os.ou_id=:ou_id_1 AND os.perspective=:perspective_1""",{'name_variant_1' : name_variant,'ou_id_1' : ou_id, 'perspective_1' : perspective})
+        except Errors.NotFoundError:
+            self.short_name=""
+            #print "unable to find short name for %s" % ou_id
+        try:
+            name_variant = co.ou_name_display
+            self.display_name = self.query_1("""SELECT eln.name FROM [:table schema=cerebrum name=entity_language_name] eln, [:table schema=cerebrum name=ou_structure] os WHERE eln.name_variant=:name_variant_1 AND eln.entity_id = os.ou_id AND os.ou_id=:ou_id_1 AND os.perspective=:perspective_1""",{'name_variant_1' : name_variant,'ou_id_1' : ou_id, 'perspective_1' : perspective})
+        except Errors.NotFoundError:
+            self.display_name=""
+            #print "unable to find display name for %s" % ou_id
 
         #print "having collected ou names:"
         #print "ou_name:%s" % self.name
@@ -97,7 +105,6 @@ class StedkodeMixin(Stedkode.Stedkode):
             pass
         self.__in_db = True
         self.__updated = []
-
 # 785 = name
 # 784 = acronym
 # 787 = short
