@@ -35,7 +35,8 @@ import adutils
 from Cerebrum import Constants
 from Cerebrum import Errors
 #from Cerebrum import Entity
-from Cerebrum.Utils import Factory, simple_memoize
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
@@ -45,22 +46,16 @@ from Cerebrum.modules.no.uit.Stedkode import StedkodeMixin
 #from Cerebrum.modules import PosixUser
 #from Cerebrum.modules import PosixGroup
 #from Cerebrum.modules.no.uit import Email
+from Cerebrum.modules.no.uit.sito_utils import sitoFactory
 
-
-max_nmbr_users = 20000
 logger = Factory.get_logger('console')
-
 today_tmp=mx.DateTime.today()
 tomorrow_tmp=today_tmp + 1
 TODAY=today_tmp.strftime("%Y-%m-%d")
 TOMORROW=tomorrow_tmp.strftime("%Y-%m-%d")
-
-
 default_user_file = os.path.join(cereconf.DUMPDIR,'AD','ad_export_%s.xml' % (TODAY))
-#default_user_file = 'ad_export_%s.xml' % (TODAY,)
 default_employees_file = '/cerebrum/var/dumps/employees/paga_persons_%s.xml' % (TODAY,)
 #default_employees_file = '/cerebrum/var/dumps/employees/paga_persons_latest.xml' 
-
 
 
 db = Factory.get('Database')()
@@ -68,10 +63,12 @@ co = Factory.get('Constants')(db)
 person = Factory.get('Person')(db)
 account = Factory.get('Account')(db)
 ou=Factory.get('OU')(db)
+sito_ou = sitoFactory.get('sito_ou')(db)
 #sko=Factory.get('Stedkode')(db)
 sko = StedkodeMixin(db)
 ef = EmailForward(db)
 et = EmailTarget(db)
+name_language = co.language_nb
 
 def get_sko(ou_id):
     sko.clear()
@@ -79,71 +76,100 @@ def get_sko(ou_id):
     return "%s%s%s" % (str(sko.fakultet).zfill(2),
                        str(sko.institutt).zfill(2),
                        str(sko.avdeling).zfill(2))
-get_sko=simple_memoize(get_sko)
+get_sko=memoize(get_sko)
+
 
 def get_ouinfo(ou_id,perspective):
-
     #logger.debug("Enter get_ouinfo with id=%s,persp=%s" % (ou_id,perspective))
     #sko=Factory.get('Stedkode')(db)
     sko = StedkodeMixin(db)
     sko.clear()
     sko.find_by_perspective(ou_id,perspective)
+    #sko.find(ou_id)
     res=dict()
     #res['name']=str(sko.name)
-    res['name']= sko.get_name_with_language(co.ou_name_display,name_language=co.language_nb)    
-    #res['short_name']=str(sko.short_name)
-    res['short_name']= sko.get_name_with_language(co.ou_name_short,name_language=co.language_nb)    
-    #res['acronym']=str(sko.acronym)
-    res['short_name']= sko.get_name_with_language(co.ou_name_acronym,name_language=co.language_nb)    
-    #logger.debug("short name is:%s" % res['short_name'])
+    res['name']=str(sko.get_name_with_language(co.ou_name,name_language))
+    res['short_name']=str(sko.get_name_with_language(co.ou_name_short,name_language))
+    res['acronym']=str(sko.get_name_with_language(co.ou_name_acronym,name_language))
+
     sko.clear()
     #logger.debug("got basic info about id=%s,persp=%s" % (ou_id,perspective))
 
     try:
-        sko.find(ou_id)
+        sko.find_by_perspective(ou_id,perspective)
         sted_sko="%s%s%s" % (str(sko.fakultet).zfill(2),
                         str(sko.institutt).zfill(2),
                         str(sko.avdeling).zfill(2))
         #logger.debug("found sko for id=%s,persp=%s" % (ou_id,perspective))
-        
+
     except Errors.NotFoundError:
         sted_sko=""
     res['sko']=sted_sko
-
-    
-    
+    #logger.debug("..processing..")
     # Find company name for this ou_id by going to parent
     visited = []
     parent_id=sko.get_parent(perspective)
     #logger.debug("Find parent to OU id=%s, parent has %s, perspective is %s" % (ou_id,parent_id,perspective))
     while True:
+        #logger.debug("parent_id:%s, sko.entity_id:%s" % (parent_id,sko.entity_id))
         if (parent_id is None) or (parent_id == sko.entity_id):
             #logger.debug("Root for %s is %s, name is  %s" % (ou_id,sko.entity_id,sko.name))
-            #res['company']=sko.name
-            res['company']= sko.get_name_with_language(co.ou_name_display,name_language=co.language_nb)    
+            res['company']=str(sko.get_name_with_language(co.ou_name,name_language))
             break
-
         sko.clear()
         #logger.debug("Lookup %s in %s" % (parent_id,perspective))
         sko.find_by_perspective(parent_id,perspective)
-        sko_name = sko.get_name_with_language(co.ou_name_display,name_language=co.language_nb)   
-        #logger.debug("Lookup returned: id=%s,name=%s" % (sko.entity_id,sko_name))
+        #sko.find(parent_id)
+        #logger.debug("Lookup returned: id=%s,name=%s" % (sko.entity_id,sko.name))
         # Detect infinite loops
         if sko.entity_id in visited:
             raise RuntimeError, "DEBUG: Loop detected: %r" % visited
         visited.append(sko.entity_id)
-
         parent_id = sko.get_parent(perspective)
         #logger.debug("New parentid is %s" % (parent_id,))
-
-
     return res
-get_ouinfo=simple_memoize(get_ouinfo)
+get_ouinfo=memoize(get_ouinfo)
+
+
+def wash_sitosted(name):
+    # removes preceeding and trailing numbers and whitespaces
+    # samskipnaden has a habit of putting metadata (numbers) in the name... :(
+    washed=re.sub(r"^[0-9\ ]+|\,|\&\ |[0-9\ -\.]+$", "",name)
+    #logger.debug("WASH: '%s'->'%s' " % (name,washed))
+    return washed
+
+
+def get_samskipnadstedinfo(ou_id,perspective):
+
+    res=dict()
+    sito_ou.clear()
+    sito_ou.find(ou_id)
+    depname=wash_sitosted(sito_ou.display_name)
+    res['sted']=depname
+    # Find company name for this ou_id by going to parents
+    visited = []
+    while True:
+        parent_id=sito_ou.get_parent(perspective)
+        #logger.debug("Parent to id=%s is %s" % (ou_id,parent_id))
+        if (parent_id is None) or (parent_id == sito_ou.entity_id):
+            #logger.debug("Root for %s is %s, name is  %s" % (ou_id,sito_ou.entity_id,sito_ou.name))
+            res['company']=sito_ou.name
+            break
+        sito_ou.clear()
+        sito_ou.find(parent_id)
+        #logger.debug("Current id=%s, name is %s" % (sito_ou.entity_id,sito_ou.name))
+        # Detect infinite loops
+        if sito_ou.entity_id in visited:
+            raise RuntimeError, "DEBUG: Loop detected: %r" % visited
+        visited.append(sito_ou.entity_id)
+        parentname=wash_sitosted(sito_ou.display_name)
+        res.setdefault('parents',list()).append(parentname)
+    res['parents'].remove(res['company'])
+    return res
+get_samskipnadstedinfo=memoize(get_samskipnadstedinfo)
 
 
 num2const=dict()
-
-
 class ad_export:
 
     def __init__(self, userfile):
@@ -153,24 +179,12 @@ class ad_export:
 
     def load_cbdata(self):
 
-
         logger.info("Loading stillingtable")
         self.stillingmap = load_stillingstable()
-
 
         logger.info('Generating dict of PAGA persons affiliations and their stillingskoder, dbh_kat, etc')
         PagaDataParserClass(default_employees_file, scan_person_affs)
 
-        #logger.info("Generating dict of HiFm person affiliations and their stillingskoder")
-        #scan_hifm_person_affs()
-        
-        #logger.info("Loading HiFmIDs")
-        #self.pid2hifmid=dict()
-        #for row in person.list_external_ids(id_type=co.externalid_hifm_ansattnr,
-        #                                    source_system=co.system_hifm):
-        #    self.pid2hifmid[row['entity_id']]=row['external_id']
-
-        
         logger.info("Loading PagaIDs")
         self.pid2pagaid=dict()
         for row in person.list_external_ids(id_type=co.externalid_paga_ansattnr,
@@ -183,19 +197,15 @@ class ad_export:
                                             source_system=co.system_sito):
             self.pid2sitoid[row['entity_id']]=row['external_id']
 
-
-
         logger.info("Start get constants")
         for c in dir(co):
             tmp = getattr(co, c)
             if isinstance(tmp, _CerebrumCode):
                num2const[int(tmp)] = tmp
 
-
-
         logger.info("Cache person affs")
         self.person_affs = self.list_affiliations()
-
+        logger.info("#####") 
         logger.info("Cache person names")
         self.cached_names=person.getdict_persons_names(
                                  source_system=co.system_cached,
@@ -205,7 +215,6 @@ class ad_export:
         self.ad_accounts=account.search(
                               spread=int(co.spread_uit_ad_account),
                               expire_start=TOMORROW)
-
         logger.info("Build helper translation tables")
         self.accid2ownerid = dict()
         self.ownerid2accid = dict()
@@ -213,7 +222,6 @@ class ad_export:
         self.accid2accname=dict()
         self.accid2accaff=dict()
         for acct in self.ad_accounts:
-            logger.debug("Collected account id : %s from database" % int(acct['account_id']))
             self.accid2ownerid[int(acct['account_id'])]=int(acct['owner_id'])
             self.ownerid2accid[int(acct['owner_id'])]=int(acct['account_id'])
             self.accname2accid[acct['name']]=int(acct['account_id'])
@@ -228,7 +236,6 @@ class ad_export:
             aff_cached+=1
         logger.debug("Cached %d affiliations" % (aff_cached,))
 
-
         # quarantines
         logger.info("Loading account quarantines...")
         self.account_quarantines = dict()
@@ -237,18 +244,15 @@ class ad_export:
             q = num2const[int(row['quarantine_type'])]
             self.account_quarantines.setdefault(acc_name,list()).append(q)
 
-
         logger.info("Retrieving account emailaddrs")
         self.uname2mail=account.getdict_uname2mailaddr(primary_only=False)
         logger.info("Retrieving account primaryemailaddrs")
         self.uname2primarymail=account.getdict_uname2mailaddr(primary_only=True)
 
-
         logger.info("Loading email targets")
         self.mailtargetid2entityid=dict()
         for row in et.list_email_targets_ext():
             self.mailtargetid2entityid[row['target_id']]=row['target_entity_id']
-
 
         logger.info("Retreiving email forwards")
         self.email_forwards=dict()
@@ -274,23 +278,19 @@ class ad_export:
         self.person2campus=dict()
         for c in person.list_entity_addresses(entity_type=co.entity_person,source_system=co.system_paga,address_type=co.address_location):
             self.person2campus.setdefault(c['entity_id'], list()).append(c)
-
         logger.info("Cache done")
 
 
     def list_affiliations(self):
         person_affs = dict()
         skip_source = []
-        
         skip_source.append(co.system_lt)
         #skip_source.append(co.system_hitos)
-        logger.warn("for each person affiliation do...")
         for aff in person.list_affiliations():
             # simple filtering
             aff_status_filter=(co.affiliation_status_student_tilbud,)
             if aff['status'] in aff_status_filter:
                continue
-
             if aff['source_system'] in skip_source:
                logger.warn('Skip affiliation, unwanted source system %s' % aff)
                continue
@@ -301,67 +301,25 @@ class ad_export:
                 perspective_code=co.perspective_sito
             else:
                 perspective_code=co.perspective_fs
+
             last_date=aff['last_date'].strftime("%Y-%m-%d")
-            try:                
+            try:
                 ou_info=get_ouinfo(ou_id,perspective_code)
                 sko = ou_info['sko']
                 company=ou_info['company']
-                #logger.debug("Person from %s(company=%s), ID=%s, OU=(%s), sko:%s" %(source_system,ou_info['company'],p_id,ou_id,sko)
+                #logger.debug("Person from %s(company=%s), ID=%s, OU=(%s), sko:%s" %(source_system,ou_info['company'],p_id,ou_id,sko))
             except EntityExpiredError,msg:
                 logger.error("person id:%s affiliated to expired ou:%s. Do not export" % (p_id,ou_id))
                 continue
             except Errors.NotFoundError:
                 logger.error("OU id=%s not found on person %s. DB integrety error!" % (ou_id,p_id))
-                sys.exit(1)
-                
+                continue
             aff_stat=num2const[aff['status']]
             affinfo = {'affstr': str(aff_stat).replace('/','-'),
                        'sko': sko,
                        'lastdate':last_date,
                        'company': company}
 
-            #if (aff['source_system'] == co.system_hifm):
-            #
-            #    logger.info("source is hifm")
-            #elif(aff['source_system'] == co.system_paga):
-            #    paga_id = self.pid2pagaid.get(p_id,None)
-            #    logger.info("source is paga")
-            #else:
-            #    logger.info("unwanted source system:%s" % aff['source_system'])
-            #    continue
-
-            #try:
-            #    logger.info("paga_id is:%s" % paga_id)
-            #    logger.info("hifm_id is:%s" % hifm_id)
-            #except:
-            #    logger.info("unable to write paga and hifm id")
-            # if (aff['source_system'] == co.system_hifm):
-            #     hifm_id = self.pid2hifmid.get(p_id,None)
-            #     #if hifm_id:
-            #     #logger.info("have hifm id:%s" % hifm_id)
-            #     try:
-            #         #logger.info("hifm_id:%s, sko:%s, aff_stat:%s" % (hifm_id,sko,str(aff_stat)))
-            #         aux_key = (hifm_id,sko,str(aff_stat))
-            #         #logger.info("type:%s" % type(aux_key))
-            #         #logger.info("aux key:%s" % (aux_key,))
-            #         tils_info = hifm_aff_to_stilling_map[aux_key]
-            #         #logger.info("tils info:%s" % (tils_info))
-            #     except KeyError:
-            #         #logger.info("unable to get aux_key and or tils_info")
-            #         pass
-            #     else:
-            #         #logger.info("setting affinfo")
-            #         #affinfo['stillingskode']=tils_info['stillingskode']
-            #         affinfo['stillingstittel']=tils_info['stillingstittel']
-
-            #         # Hardcoding hovedarbeidsforhold to H.
-            #         # why? because the AD import script now will correctly process stillingstittel withouth
-            #         # the need for editing the script. This is also ok, since employees from HiFm comes to UiT
-            #         # with at most _ONE_ work affiliation.
-                    
-            #         affinfo['hovedarbeidsforhold'] = 'H'
-                   
-                   
             if(aff['source_system'] == co.system_paga):
                 paga_id = self.pid2pagaid.get(p_id,None)
                 #logger.info("have paga id:%s" % (paga_id))
@@ -376,6 +334,23 @@ class ad_export:
                     affinfo['prosent']=tils_info['prosent']
                     affinfo['dbh_kat']=tils_info['dbh_kat']
                     affinfo['hovedarbeidsforhold']=tils_info['hovedarbeidsforhold']
+            elif(aff['source_system'] == co.system_sito):
+                # get worktitle from person_name table for samskipnaden
+                # Need to look it up  because cached names in script only contains names
+                # from cached name variants, and worktitle is not there
+                person.clear()
+                person.find(p_id)
+                try:
+                    worktitle=person.get_name(co.system_sito,co.name_work_title)
+                    affinfo['stillingstittel']=worktitle
+                except Errors.NotFoundError:
+                    logger.info("Unable to find title for person:%s" % paga_id)
+
+                sitosted=get_samskipnadstedinfo(ou_id,perspective_code)
+                #logger.debug("FROM LOOKUP: %s" % sitosted)
+                affinfo['company']=sitosted['company']
+                affinfo['sted']=sitosted['sted']
+                affinfo['parents']=",".join(sitosted['parents'])
 
             tmp=person_affs.get(p_id,list())
             if affinfo not in tmp:
@@ -387,30 +362,20 @@ class ad_export:
 
 
     def build_cbdata(self):
-
         logger.info("Processing cerebrum info...")
         count = 0
-#        old_forward =''
-        
         self.userexport=list()
         for item in self.ad_accounts:
             count +=1
             if (count%500 == 0):
                 logger.info("Processed %d accounts" % count)
-            
             acc_id = item['account_id']
             name = item['name']
             owner_id = item['owner_id']
             owner_type=item['owner_type']
-            #logger.warn("account id:%s" % item['account_id'])
-            #logger.warn("expire date is:%s" % item['expire_date'])
-            try:
-                    expire_date=item['expire_date'].strftime("%Y-%m-%d")
-            except AttributeError:
-                logger.warn("Account id:%s has no expire date" % item['account_id'])
+            expire_date=item['expire_date'].strftime("%Y-%m-%d")
             emails=self.uname2mail.get(name,"")
             forward=self.uname2forwards.get(name,"")
-
             namelist = self.cached_names.get(owner_id, None)
             first_name=last_name=worktitle=""
             try:
@@ -424,34 +389,20 @@ class ad_export:
                     logger.warn("No name found for a_id/o_id=%s/%s, ownertype was %s" % \
                                  (acc_id,owner_id,owner_type))
 
-
-
             # now to get any email forward addresses
             entry=dict()
-
             entry['name']=name
-
-            #FIXME: hardcoded values is bad!
             if name.endswith(cereconf.USERNAME_POSTFIX['sito']):
                 upndomain = cereconf.SITO_PRIMARY_MAILDOMAIN
-                #upndomain="sito.no"
             else:
                 upndomain = cereconf.INSTITUTION_DOMAIN_NAME
-                #upndomain="uit.no"
             entry['userPrincipalName']="%s@%s" % (name,upndomain)
             entry['givenName'] = first_name
             entry['sn'] = last_name
-            try:
-                entry['expire'] = expire_date
-            except UnboundLocalError:
-                logger.warn("user:%s has no expire date" % entry['userPrincipalName'])
+            entry['expire'] = expire_date
             entry['emails'] = emails
             entry['forward'] = forward
-
             self.userexport.append(entry)
-
-
-
 
 
     def build_xml(self,acctlist=None):
@@ -464,7 +415,6 @@ class ad_export:
         logger.info("Start building export, writing to %s" % self.userfile)
         validate = re.compile('^[a-z][a-z][a-z][0-9][0-9][0-9]$')
         validate_guests = re.compile('^gjest[0-9]{2}$')
-        #validate_sito = re.compile('^[a-z][a-z][a-z][0-9][0-9][0-9]-s$')
         validate_sito = re.compile('^[a-z][a-z][a-z][0-9][0-9][0-9]%s$' % (cereconf.USERNAME_POSTFIX['sito']))
         fh = file(self.userfile,'w')
         xml = xmlprinter(fh,indent_level=2,data_mode=True,input_encoding='ISO-8859-1')
@@ -478,7 +428,6 @@ class ad_export:
             type="fullsync"
         xml.dataElement('type', type)
         xml.endElement('properties')
-
 
         xml.startElement('users')
         for item in self.userexport:
@@ -495,10 +444,7 @@ class ad_export:
             xml.dataElement('userPrincipalName',item['userPrincipalName'])
             xml.dataElement('sn',item['sn'])
             xml.dataElement('givenName',item['givenName'])
-            try:
-                xml.dataElement('accountExpire',str(item['expire']))
-            except KeyError:
-                logger.warn("cannot set expiredate in xml for principalname:%s" % item['userPrincipalName'])
+            xml.dataElement('accountExpire',str(item['expire']))
             xml.startElement('proxyAddresses')
             emtmp=list()
             for email in item['emails']:
@@ -519,9 +465,7 @@ class ad_export:
             if campus:
                 for c in campus:
                     campus_name = str(c['address_text'])
-                    print "campus:%s" % campus_name
                     xml.dataElement('l',str(campus_name))
-                    #sys.exit(1)
             if(item['forward'] !=''):
                 xml.dataElement('targetAddress',str(item['forward']))
             if contact:
@@ -537,13 +481,8 @@ class ad_export:
                                               })
                 xml.endElement('contactinfo')
 
-
-            # This is wrong. need to send only person affs that matches account affs
-            #affs = self.person_affs.get(self.accid2ownerid[accid])
-            
-            
             person_affs = self.person_affs.get(self.accid2ownerid[accid],list())
-            account_affs=self.account_affs.get(accid,list())            
+            account_affs=self.account_affs.get(accid,list())
             #logger.debug("Person Affs : %s " % (person_affs,))
             #logger.debug("Account Affs: %s " % (account_affs,))
             resaffs=list()
@@ -618,8 +557,8 @@ def load_stillingstable():
         stillingskode_map[str(row['stillingskode'])]={'stillingstittel': row['stillingstittel'],
                                          'stillingstype': row['stillingstype']
                                          }
-    #return stillingmap
-    
+
+
 aff_to_stilling_map=dict()
 def scan_person_affs(person):
     global aff_to_stilling_map
@@ -677,102 +616,16 @@ def scan_person_affs(person):
 #        logger.info("From PAGA file: key: %s => %s" % (aux_key,aux_val))
         aff_to_stilling_map[aux_key] = aux_val
 
-#
-# Create a list of dicts containing all affilition information for hifm employees.
-# This is to be used when generating hifm stillingsdata in the ad export file.
-# Key is:   hifm_id,sko,aff_stat.
-# value is:  stillingskode, stillingstittel
-#
-hifm_aff_to_stilling_map = dict()
-def scan_hifm_person_affs():
-    global hifm_aff_to_stilling_map
-    person.clear()
-    person_liest = []
-    #sko = Factory.get('Stedkode')(db)
-    #
-    # list_affiliation returns: person_id,ou_id,affiliation,source_system,status,deleted_date,create_date,last_date
-    #
-    person_list = person.list_affiliations(source_system = co.system_hifm,affiliation=co.affiliation_ansatt)
-    for i in person_list:
-        # Get stedkode
-        ou_id = i[1]
-        stedkode = get_sko(ou_id)
-        #print "ou id is:%s and collected sko:%s" % (ou_id,stedkode)
-
-        # Get aff_stat
-        aff_stat = i[4]
-        if aff_stat == co.affiliation_status_ansatt_tekadm:
-            #print "is tekadm"
-            tilknytning = co.affiliation_status_ansatt_tekadm
-        elif aff_stat == co.affiliation_status_ansatt_vitenskapelig:
-            #print "is vitenskapelig"
-            tilknytning = co.affiliation_status_ansatt_vitenskapelig
-        else:
-            logger.warn("ERROR: unknown  aff stat: %s "% aff_stat)
-
-        # get affiliation
-        #affiliation = i[2]
-        #if affiliation == co.affiliatio
-        
-        # populate person object
-        person_id = i[0]
-        person.clear()
-        person.find(person_id)
-
-        # get hifm stillingstittel
-        logger.info("operating on person_id:%s" % person_id)
-        try:
-            person_title = person.get_name(source_system = co.system_hifm, variant = co.name_work_title)
-        except Errors.NotFoundError:
-            logger.info("person_id:%s has no title from HiFm" % person_id)
-            continue
-        #person_title = person_title.decode("utf-8").encode("iso8859-1")
-
-        # Get hifm employee number        
-        external_ids = person.get_external_id(source_system = co.system_hifm,id_type = co.externalid_hifm_ansattnr)
-        try:
-            #print "external_ids:%s" % external_ids[0][2]
-            hifm_id = external_ids[0][2]
-        except:
-            logger.info("unable to get hifm ansatt nr for person_id:%s" % person_id)
-            hifm_id = ""
-
-        # get affiliation type (staff,factuly)
-        
-
-        # all relevant info collected. populate
-        if hifm_id != "" and (len(person_title) > 2):
-            logger.info("has stillingstittel:%s" % person_title)
-            aux_key = (hifm_id,stedkode,str(tilknytning))
-            aux_val = {'stillingstittel':  person_title}
-
-            #print "aux_key:%s" % (aux_key,)
-            hifm_aff_to_stilling_map[aux_key] = aux_val
-        
-        
-        
-    
-#def get_sko(ou_id):
-#    sko.clear()
-#    try:
-#        sko.find_by_perspective(ou_id,co.perspective_fs)
-#    except Errors.NotFoundError:
-#        # Persons has an affiliation to a non-fs ou.
-#        # Return NoneNoneNone
-#        print "unable to find stedkode. Return NoneNoneNone"
-#        return "NoneNoneNone"
-#    print "returning:%s%s%s" % (sko.fakultet,sko.institutt,sko.avdeling)
-#    return "%02s%02s%02s" % (sko.fakultet,sko.institutt,sko.avdeling)
-#get_sko=simple_memoize(get_sko)
-
 
 #
 # program usage
 #
 def usage(exitcode=0):
     print """Usage: [options]
-    -h | --help show this message
-    -a | --account : export single account.
+    -h | --help             : show this message
+    -a | --account username : export single account. NB DOES NOT WORK!
+    -o | --out filname      : writes to given filename
+    -t | --type [incr|fullsync] : use only fullsync!
     """
     sys.exit(exitcode)
 
@@ -781,14 +634,16 @@ def usage(exitcode=0):
 def main():
     global default_user_file
     global default_group_file
+    global outfile
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'ha:',
-                                   ['account=','help',"type="])
+        opts, args = getopt.getopt(sys.argv[1:], 'ha:o:',
+                                   ['account=','help',"type=","out="])
     except getopt.GetoptError:
         usage(1)
     deftype="fullsync"
     type=deftype
+    outfile=default_user_file
     one_account=acctlist=None
     for opt, val in opts:
         if opt in ['-a', '--account']:
@@ -796,6 +651,8 @@ def main():
         elif opt in ['--type']:
             if (val =="incr" or val == "fullsync"):
                 type=val
+        elif opt in ['-o', '--out']:
+            outfile=val
         elif opt in ['-h', '--help']:
             usage(0)
         else:
@@ -804,17 +661,17 @@ def main():
     if (type=="incr"):
         acctlist=one_account.split(",")
 
-    logger.debug("Type is %s, accts is %s" % (type,acctlist))
-
+        #logger.debug("Type is %s, accts is %s" % (type,acctlist))
 
     start=mx.DateTime.now()
-    worker = ad_export(default_user_file)
+    worker = ad_export(outfile)
     worker.load_cbdata()
     worker.build_cbdata()
     worker.build_xml(acctlist)
     stop=mx.DateTime.now()
     logger.debug("Started %s ended %s" %  (start,stop))
     logger.debug("Script running time was %s " % ((stop-start).strftime("%M minutes %S secs")))
-#.strftime("%Y-%m-%d %H:%M:%S")
+
+
 if __name__ == '__main__':
     main()

@@ -1,3 +1,8 @@
+2017-07-20    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* ad_export.py (get_ouinfo): Major rewrite of this script to make
+	it work with updated cerebrum version.
+
 2017-07-19  Karen   <cerebrum@cleomedes.uit.no>
 
     * export_oid.py (load_cb_data): Added co.affiliation_status_timelonnet_midlertidig 
