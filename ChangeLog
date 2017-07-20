@@ -1,3 +1,9 @@
+2017-07-20  Karen   <cerebrum@cleomedes.uit.no>
+
+    * generate_paga_persons.py (parse_paga_csv): Updated with changes made on Leetah 
+    that are needed here too: Removed ou remapping that is no longer in use, and 
+    updated to collect home adress for all employees.
+
 2017-07-20    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* ad_export.py (get_ouinfo): Major rewrite of this script to make

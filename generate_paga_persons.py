@@ -73,6 +73,9 @@ logger = Factory.get_logger("cronjob")
 KEY_AKSJONKODE='A.kode'
 KEY_AKSJONDATO='A.dato'
 KEY_ANSATTNR='Ansattnr'
+KEY_HJEMSTED_ADRESSE='Adresse'
+KEY_HJEMSTED_POSTSTED='Poststed'
+KEY_HJEMSTED_POSTNR='Postnr'
 KEY_AV='Av'
 KEY_BRUKERNAVN= 'Brukernavn'
 KEY_DBHKAT='DBH stillingskategori'
@@ -126,6 +129,9 @@ def parse_paga_csv(pagafile):
             'brukernavn': detail[KEY_BRUKERNAVN], 
             'kjonn': detail[KEY_KJONN], 
             'fodselsdato': detail[KEY_FODSELSDATO],
+            'adresse' : detail[KEY_HJEMSTED_ADRESSE],
+            'poststed': detail[KEY_HJEMSTED_POSTSTED],
+            'postnr' : detail[KEY_HJEMSTED_POSTNR],
             'lokasjon' : detail[KEY_LOKASJON]
         }
         tilskey="%s:%s"  % (detail[KEY_NR], detail[KEY_AV])
@@ -146,22 +152,22 @@ def parse_paga_csv(pagafile):
         }
         stedkode=detail[KEY_ORGSTED]
         # check if stedkode should be mapped to something else
-        query="""
-        SELECT new_ou_id 
-        FROM [:table schema=cerebrum name=ou_history]
-        where old_ou_id=:stedkode
-        """ 
+        # query="""
+        # SELECT new_ou_id 
+        # FROM [:table schema=cerebrum name=ou_history]
+        # where old_ou_id=:stedkode
+        # """ 
         #query="select new_ou_id from ou_history where old_ou_id='%s'"% stedkode
-        try:
-            new_sko=db.query_1(query,{'stedkode':stedkode})
-        except Errors.TooManyRowsError:
-            logger.error("stedkode %s repeated in ou_history" % stedkode)
-        except Errors.NotFoundError:
-            pass
-        else:            
-            logger.warn("Stedkode %s for person %s remapped to %s" % \
-                (stedkode, ssn, new_sko))
-            stedkode = "%s" % new_sko
+        # try:
+        #     new_sko=db.query_1(query,{'stedkode':stedkode})
+        # except Errors.TooManyRowsError:
+        #     logger.error("stedkode %s repeated in ou_history" % stedkode)
+        # except Errors.NotFoundError:
+        #     pass
+        # else:            
+        #     logger.warn("Stedkode %s for person %s remapped to %s" % \
+        #         (stedkode, ssn, new_sko))
+        #     stedkode = "%s" % new_sko
 
         if persons.get(ssn,None):
             dupes.append(ssn)
