@@ -141,7 +141,7 @@ def parse_paga_csv(pagafile):
             'stillingsandel': detail[KEY_STANDEL],
             'kategori': detail[KEY_UITKAT],
             'hovedkategori': detail[KEY_UNIKAT],
-            'forhold': detail[KEY_TJFORH],            
+            'tjenesteforhold': detail[KEY_TJFORH],            
             'dato_fra':detail[KEY_DATOFRA],
             'dato_til':detail[KEY_DATOTIL],
             'dbh_kat':detail[KEY_DBHKAT],
@@ -185,7 +185,7 @@ def parse_paga_csv(pagafile):
         else:
             tmp=current.get(stedkode)
             if tmp:
-                logger.warn("Several tilsettiger to same place for %s" % (ssn))
+                logger.warn("Several tilsettinger to same place for %s" % (ssn))
                 #
                 #several tilsettinger to same place. Decide which to keep.
                 #
@@ -315,6 +315,7 @@ class person_xml:
                              'dato_til' : aff['dato_til'],
                              'dbh_kat' : aff['dbh_kat'],
                              'hovedarbeidsforhold': aff['hovedarbeidsforhold'],
+                             'tjenesteforhold': aff['tjenesteforhold'],
                           }
                 temp_tils.append(tils_dict)
             writer.startElement("person",person_data)

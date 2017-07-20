@@ -4,6 +4,9 @@
     that are needed here too: Removed ou remapping that is no longer in use, and 
     updated to collect home adress for all employees.
 
+    * generate_paga_persons.py: Added 'tjenesteforhold' to the <tils> data for the 
+    paga_persons file.
+
 2017-07-20    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* ad_export.py (get_ouinfo): Major rewrite of this script to make
