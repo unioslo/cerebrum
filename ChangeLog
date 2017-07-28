@@ -1,5 +1,8 @@
 2017-07-28  Karen   <cerebrum@cleomedes.uit.no>
 
+    * import_PAGA.py (determine_affiliations): Persons with tjenesteforhold = T
+    and stillingsandel = 0.0 now get affiliation status "Timelønnet midl".
+
     * import_PAGA.py (process_person): Personal/home address is now added with 
     populate_address() and the correct address type (const.address_post_private).
 

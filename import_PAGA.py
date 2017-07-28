@@ -147,7 +147,9 @@ def determine_affiliations(person):
         if prosent_tilsetting < pros:
             prosent_tilsetting = pros
             tittel = t['tittel']
-        if t['hovedkategori'] == 'TEKN':
+        if (t['tjenesteforhold'] == 'T') and (pros == 0.0):
+            aff_stat = const.affiliation_status_timelonnet_midlertidig
+        elif t['hovedkategori'] == 'TEKN':
             aff_stat = const.affiliation_status_ansatt_tekadm
         elif t['hovedkategori'] == 'ADM':
             aff_stat = const.affiliation_status_ansatt_tekadm
