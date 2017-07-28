@@ -126,7 +126,8 @@ def scan_person_affs(person):
 
 def load_cache():
     global account2name,owner2account,persons,uname2mail
-    global num2const,name_cache_cached,auth_list,person2contact,person2campus
+    global num2const,name_cache_cached,auth_list
+    global person2contact,person2campus,person2home_address,person2employeeNumber
     global bas_portal_mapping, ou_stedkode_mapping, pid_fnr_dict, aff_to_stilling_map
 
 
@@ -215,6 +216,15 @@ def load_cache():
     for c in p.list_entity_addresses(entity_type=co.entity_person,source_system=co.system_paga,address_type=co.address_location):
         person2campus.setdefault(c['entity_id'], list()).append(c)
 
+    # get person home address
+    person2home_address = dict()
+    for c in p.list_entity_addresses(entity_type=co.entity_person,source_system=co.system_paga,address_type=co.address_post_private):
+        person2home_address.setdefault(c['entity_id'], list()).append(c)
+
+    # get person employee number
+    person2employeeNumber = dict()
+    for c in p.list_external_ids(source_system=co.system_paga,id_type=co.externalid_paga_ansattnr,entity_type=co.entity_person):
+        person2employeeNumber.setdefault(c['entity_id'],list()).append(c)
 
     logger.info("Start get constants")
     num2const=dict()
@@ -351,8 +361,12 @@ def load_cb_data():
         campus = person2campus.get(p_id,None)
         #birth date
         birth_date=persons.get(p_id,"").Format('%d-%m-%Y')
+        # home address
+        home_address = person2home_address.get(p_id,None)
         #email 
         email=uname2mail.get(acc_name,"")
+        # employee number
+        employee_number = person2employeeNumber.get(p_id,None)
 
         attrs = dict()
         for key,val in (('uname',acc_name),
@@ -362,7 +376,9 @@ def load_cb_data():
                         #('worktitle',worktitle),
                         ('contacts',contacts),
                         ('campus', campus),
+                        ('home_address', home_address),
                         ('auth_str',auth_str),
+                        ('employee_number',employee_number),
                         ('email',email)
                         ):
             attrs[key]=val
@@ -389,7 +405,7 @@ def build_csv(outfile):
             affkode,affstatus=affname.split('/')
         
         sep=""
-        for txt in (attrs['sn'],attrs['given'],attrs['birth'],attrs['uname'],
+        for txt in (attrs['sn'],attrs['given'],attrs['birth'],attrs['uname'],attrs['home_address'],
                     attrs['email'],affkode,sko,sko_name):
             fh.write("%s%s" % (sep,txt))
             sep=";"
@@ -407,11 +423,39 @@ def build_xml(outfile):
     xml.endElement('properties')
 
     for person_id in export_attrs:
-        attrs=export_attrs[person_id]                
+        attrs=export_attrs[person_id]
         xml_attr={'given': attrs['given'],
                   'sn': attrs['sn'],
                   'birth': attrs['birth'],
                   }
+
+        # get person employee number
+        employee_number = attrs['employee_number']
+        if employee_number:
+            for c in employee_number:
+                ansattnr =  str(c['external_id'])
+                logger.info("c.str:%s" % ansattnr)
+                if ansattnr != None:
+                    logger.info("collected employee number:%s" % ansattnr)
+                    xml_attr['employee_number'] = ansattnr
+
+        
+        # get home address
+        home_addressinfo = attrs['home_address']
+        if home_addressinfo:
+            for c in home_addressinfo:
+                home_address = str(c['address_text'])
+                home_postalnumber = str(c['postal_number'])
+                home_city = str(c['city'])
+                
+                if home_address != None:
+                    xml_attr['home_address'] = home_address
+                if home_postalnumber != None:
+                    xml_attr['home_postal_code'] = home_postalnumber
+                if home_city != None:
+                    xml_attr['home_city'] = home_city
+
+        # get campus 
         campusinfo=attrs['campus']
         if campusinfo:            
             for c in campusinfo:

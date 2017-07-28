@@ -3,6 +3,10 @@
     * import_PAGA.py (process_person): Personal/home address is now added with 
     populate_address() and the correct address type (const.address_post_private).
 
+    * export_oid.py: Updated with changes made on Leetah that are needed here 
+    too: Each person object in the oid export file will now contain home address, 
+    postal code and city (if they exist).
+
 2017-07-20  Karen   <cerebrum@cleomedes.uit.no>
 
     * generate_paga_persons.py (parse_paga_csv): Updated with changes made on Leetah 
