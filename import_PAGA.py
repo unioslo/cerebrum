@@ -482,7 +482,7 @@ def process_person(person):
         private_address = True
     if(private_address == True):
         logger.info("Setting additional home address:%s %s %s" % (address_text,postal_number,city))
-        new_person.add_entity_address(const.system_paga,const.address_street,address_text,p_o_box,postal_number, city, country)
+        new_person.populate_address(const.system_paga,const.address_post_private,address_text,p_o_box,postal_number, city, country)
 
     # UIT: Update last_date field
     # must be done after write_db() to ensure that affiliation table entry exist

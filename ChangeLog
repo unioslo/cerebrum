@@ -1,3 +1,8 @@
+2017-07-28  Karen   <cerebrum@cleomedes.uit.no>
+
+    * import_PAGA.py (process_person): Personal/home address is now added with 
+    populate_address() and the correct address type (const.address_post_private).
+
 2017-07-20  Karen   <cerebrum@cleomedes.uit.no>
 
     * generate_paga_persons.py (parse_paga_csv): Updated with changes made on Leetah 
