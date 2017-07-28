@@ -460,7 +460,6 @@ def process_person(person):
         pref = c_prefs.get(c_type, 0)
         new_person.populate_contact_info(const.system_paga, c_type, value, pref)
         c_prefs[c_type] = pref + 1
-    op2 = new_person.write_db()
 
     #
     # Also add personal/home street address if it exists in the import file
@@ -483,6 +482,8 @@ def process_person(person):
     if(private_address == True):
         logger.info("Setting additional home address:%s %s %s" % (address_text,postal_number,city))
         new_person.populate_address(const.system_paga,const.address_post_private,address_text,p_o_box,postal_number, city, country)
+
+    op2 = new_person.write_db()
 
     # UIT: Update last_date field
     # must be done after write_db() to ensure that affiliation table entry exist
