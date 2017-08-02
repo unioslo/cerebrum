@@ -423,11 +423,6 @@ def entity_external_id(msg, db=None, **kwargs):
                        **common)
 
 
-@EventFilter.register('person')
-def person(*args, **kwargs):
-    return None
-
-
 _PERSON_ATTRIBUTES = [
     'exportID',
     'birthDate',
@@ -473,8 +468,15 @@ def person_affiliation_ops(msg, **kwargs):
 
 
 @EventFilter.register('person', 'aff_src.*')
-def person_affiliation_source_ops(*args, **kwargs):
-    # TODO: Calculate changes
+def person_affiliation_source_ops(msg, **kwargs):
+    common = _make_common_args(msg)
+    return event.Event(event.MODIFY,
+                       attributes=['affiliation'],
+                       **common)
+
+
+@EventFilter.register('person')
+def person(*args, **kwargs):
     return None
 
 
