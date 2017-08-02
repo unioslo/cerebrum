@@ -1330,7 +1330,7 @@ class BofhdExtension(BofhdCommonMethods):
         if self._forward_exists(fw, addr):
             raise CerebrumError("Forward address added already (%s)" % addr)
 
-        if not self.__email_forward_destination_allowed(account, address):
+        if not self.__email_forward_destination_allowed(acc, address):
             raise CerebrumError(
                 "Employees cannot forward e-mail to external addresses")
 
