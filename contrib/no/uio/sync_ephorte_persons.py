@@ -344,6 +344,8 @@ def select_persons_for_update(selection_spread):
         pers = Factory.get('Person')(db)
         pers.find(p['entity_id'])
         yield pers
+    # TODO: include those without ephorte-spreads too, to include those that
+    # has recently gotten it removed?
 
 
 def select_events_by_person(clh, config, change_types, selection_spread):
@@ -753,14 +755,16 @@ def disable_users(client, selection_spread):
     at_institution = '@' + cereconf.INSTITUTION_DOMAIN_NAME
 
     def should_be_disabled(user_id):
-        """Takes a fully qualified user id and considers
-        whether it should be disabled or not.
+        """Check if given account should be disabled in ePhorte.
+
+        Looks through the account's data in Cerebrum to conclude.
 
         :type user_id: str
         :param user_id: ePhorte user id, including domain
 
         :rtype: bool
-        :returns: Disable?
+        :returns: True if account should be disabled in ePhorte.
+
         """
         user_id = user_id.lower()
 
@@ -775,25 +779,19 @@ def disable_users(client, selection_spread):
             ac.clear()
             ac.find_by_name(account_name)
         except Errors.NotFoundError:
-            # logger.info(u'No such account:%s, user should be disabled',
-            #             account_name)
-            # return True
             logger.info(u'No such account:%s, ignoring user', account_name)
+            # TODO: Check with ePhorte before disabling such accounts!
             return False
 
         try:
             pe.clear()
             pe.find(ac.owner_id)
         except Errors.NotFoundError:
-            # logger.warn(
-            #     u'No such person_id:%s when '
-            #     u'looking for owner of account:%s, user should be disabled',
-            #     ac.owner_id, account_name)
-            # return True
             logger.info(
                 u'No such person_id:%s when '
                 u'looking for owner of account:%s, ignoring user',
                 ac.owner_id, account_name)
+            # TODO: Check with ePhorte before disabling such accounts!
             return False
 
         primary_account_id = pe.get_primary_account()
@@ -825,7 +823,7 @@ def disable_users(client, selection_spread):
 
         return False
 
-    def is_disabled(user_id):
+    def is_disabled_in_ephorte(user_id):
         user_details = client.get_user_details(user_id)
         # consider user as disabled if number of roles + permissions is zero
         disabled = (len(user_details[1]) + len(user_details[2])) == 0
@@ -842,15 +840,17 @@ def disable_users(client, selection_spread):
 
         if should_be_disabled(eph_user_id):
             try:
-                if not is_disabled(eph_user_id):
+                if not is_disabled_in_ephorte(eph_user_id):
                     client.disable_user(eph_user_id)
                     logger.info(u'Successfully disabled user %s', eph_user_id)
+                    client.disable_roles_and_authz_for_user(eph_user_id)
+                    logger.info(u'Successfully disabled roles and authz for %s', eph_user_id)
                     disabled_now += 1
                 else:
-                    logger.info(u'User %s is already disabled', eph_user_id)
+                    logger.debug(u'User %s is already disabled', eph_user_id)
                     disabled_previously += 1
             except EphorteWSError, e:
-                logger.warn(u'Could not disable user %s: %s',
+                logger.warn(u'Failed disabling user %s or its roles/authz: %s',
                             eph_user_id, unicode(e), exc_info=True)
                 failed += 1
 
