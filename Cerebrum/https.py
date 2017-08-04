@@ -25,18 +25,29 @@ classes (from httplib and urrlib2) works internally. When we go for a newer
 version of python, this must be taken into account. """
 
 
-import socket
 import httplib
-import urllib2
-import ssl
+import operator
 import os.path
+import socket
+import ssl
+import urllib2
 
 from backports import ssl_match_hostname
+from collections import OrderedDict
 from warnings import warn
 
 
 SSLError = ssl.SSLError
 u""" Import SSLError directly from https"""
+
+
+# SSL version map, sorted by value
+SSL_VERSION = OrderedDict(
+    sorted(
+        ((attr[len('PROTOCOL_'):], getattr(ssl, attr))
+         for attr in dir(ssl)
+         if attr.startswith('PROTOCOL_')),
+        key=operator.itemgetter(1)))
 
 
 class SSLConfig(object):
@@ -60,14 +71,6 @@ class SSLConfig(object):
       opener = urllib2.build_opener(handler)
 
     """
-
-    # SSL Protocol minimum version constants
-    # See the ssl module documentation for more info.
-    SSLv2 = ssl.PROTOCOL_SSLv2
-    SSLv23 = ssl.PROTOCOL_SSLv23
-    SSLv3 = ssl.PROTOCOL_SSLv3
-    TLSv1 = ssl.PROTOCOL_TLSv1
-
     # Certificate requirement and validation settings.
     # See the ssl module documentation for more info.
     NONE = ssl.CERT_NONE
@@ -168,10 +171,14 @@ class SSLConfig(object):
             module for more info.
 
         """
-        if ssl_version not in (SSLConfig.SSLv2, SSLConfig.SSLv3,
-                               SSLConfig.SSLv23, SSLConfig.TLSv1):
+        # Legacy support: If given a constant (int), look up the name:
+        for k, v in SSL_VERSION.items():
+            if ssl_version == v:
+                ssl_version = k
+
+        if ssl_version not in SSL_VERSION:
             raise ValueError(u'Invalid SSL version %r' % ssl_version)
-        self._wrap_param['ssl_version'] = ssl_version
+        self._wrap_param['ssl_version'] = SSL_VERSION[ssl_version]
 
     def set_verify_hostname(self, do_verify):
         u""" Enable or disable hostname validation.
@@ -257,6 +264,11 @@ class SSLConfig(object):
     def __str__(self):
         u""" Return a string representation of this object. """
         return unicode(self).encode('utf-8')
+
+
+# Backwards compability:
+for const, value in SSL_VERSION.items():
+    setattr(SSLConfig, const, value)
 
 
 class HTTPSConnection(httplib.HTTPSConnection, object):
