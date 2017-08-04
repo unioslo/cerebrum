@@ -344,8 +344,6 @@ def select_persons_for_update(selection_spread):
         pers = Factory.get('Person')(db)
         pers.find(p['entity_id'])
         yield pers
-    # TODO: include those without ephorte-spreads too, to include those that
-    # has recently gotten it removed?
 
 
 def select_events_by_person(clh, config, change_types, selection_spread):
