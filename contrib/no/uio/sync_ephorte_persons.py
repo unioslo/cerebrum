@@ -752,7 +752,6 @@ def disable_users(client, selection_spread):
 
     ac = Factory.get('Account')(db)
     pe = Factory.get('Person')(db)
-    at_institution = '@' + cereconf.INSTITUTION_DOMAIN_NAME
 
     def should_be_disabled(user_id):
         """Check if given account should be disabled in ePhorte.
@@ -766,20 +765,19 @@ def disable_users(client, selection_spread):
         :returns: True if account should be disabled in ePhorte.
 
         """
-        user_id = user_id.lower()
-
-        if not user_id.endswith(at_institution):
-            logger.warn(
-                u'No %s in user_id:%s, ignoring', at_institution, user_id)
-            return False
-
-        account_name = user_id.split(at_institution)[0]
+        account_name = user_id.lower()
 
         try:
             ac.clear()
             ac.find_by_name(account_name)
         except Errors.NotFoundError:
-            logger.info(u'No such account:%s, ignoring user', account_name)
+            # Haven't found a way to separate out internal system accounts from
+            # the output (since ePhorte stopped using realms), so we can for
+            # now only ignore these accounts. If we disabled all of these, we
+            # would probably break something in ePhorte, according to the
+            # sysadmins.
+            logger.info(u'No such account:%s in Cerebrum, ignoring user',
+                        account_name)
             # TODO: Check with ePhorte before disabling such accounts!
             return False
 
