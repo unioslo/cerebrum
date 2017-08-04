@@ -50,6 +50,10 @@ SSL_VERSION = OrderedDict(
         key=operator.itemgetter(1)))
 
 
+# FIXME: Should probably default to list(SSL_VERSION.keys())[-1]
+DEFAULT_SSL_VERSION = 'TLSv1'
+
+
 class SSLConfig(object):
 
     """ Configuration object for SSL parameters.
@@ -100,7 +104,7 @@ class SSLConfig(object):
             self.set_cert(certfile, keyfile)
 
         self.set_verify_hostname(True)
-        self.set_ssl_version(SSLConfig.TLSv1)
+        self.set_ssl_version(DEFAULT_SSL_VERSION)
 
     def set_ca_chain(self, ca_certs):
         """ Set the peer certificate.
