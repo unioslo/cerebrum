@@ -1,3 +1,8 @@
+2017-08-07  Karen   <cerebrum@metius.uit.no>
+
+    * Constants.py: Updated affiliation_status_timelonnet_fast and affiliation_status_timelonnet_midlertidig
+    so that they don't have norwegian character in their status string.
+
 2017-07-20    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* Stedkode.py (StedkodeMixin.find_by_perspective_old): Added try/catch functionality to make the program finish even if some names are missing
