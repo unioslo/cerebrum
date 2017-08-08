@@ -261,16 +261,6 @@ class AccountUiOMixin(Account.Account):
                     eq.email_quota_hard = quota
                     eq.write_db()
 
-    def create(self, owner_type, owner_id, np_type, creator_id,
-               expire_date=None, description=None, parent=None, name=None):
-        """UiO specific functionality for creating a regular account."""
-        self.__super.create(name=name, owner_type=owner_type,
-                            owner_id=owner_id,
-                            np_type=np_type, creator_id=creator_id,
-                            expire_date=expire_date, description=description,
-                            parent=parent)
-        # TODO: use BofhdRequest
-
     def set_home(self, spread, homedir_id):
         self.__super.set_home(spread, homedir_id)
         spreads = [int(r['spread']) for r in self.get_spread()]
