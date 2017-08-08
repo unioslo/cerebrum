@@ -69,7 +69,7 @@ def usage(exitcode=0):
 
     --skip-if-password-set Do not send SMS if the account has had a password
                     set after the account recieved the trait defined by
-                    --trait.
+                    --trait. Also remove the trait defined by --trait.
 
     --message-cereconf If the message is located in cereconf, this is its
                     variable name. Default: AUTOADMIN_WELCOME_SMS
@@ -279,7 +279,10 @@ def skip_if_password_set(ac, trait):
     """ Has the password been changed after the trait was set? """
     # The trait and initial password is set in the same transaction. We add
     # a minute to skip this initial password change event.
-    after = trait['date'] + DateTimeDelta(0, 0, 1)  # delta = 1 minute
+    try:
+        after = trait['date'] + DateTimeDelta(0, 0, 1)  # delta = 1 minute
+    except:
+        after = ac.created_at + DateTimeDelta(0, 0, 1)
     return True if [x for x in db.get_log_events(
         subject_entity=ac.entity_id,
         sdate=after,
