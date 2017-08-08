@@ -31,6 +31,7 @@ from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import pgp_encrypt
 
+
 class AccountIndigoMixin(Account.Account):
     """Account mixin class providing functionality specific to Indigo.
     The methods of the core Account class that are overridden here,
@@ -77,20 +78,20 @@ class AccountIndigoMixin(Account.Account):
                 return True
         return False
 
-
     def enc_auth_type_pgp_crypt(self, plaintext, salt=None):
         return pgp_encrypt(plaintext, cereconf.PGPID)
 
 
 class AccountGiskeMixin(Account.Account):
+
     def populate(self, name, owner_type, owner_id, np_type, creator_id,
-                 expire_date, parent=None):
+                 expire_date, description=None, parent=None):
         if parent is not None:
             self.__xerox__(parent)
         # Override Account.populate in order to register 'primary e-mail
         # address
         self.__super.populate(name, owner_type, owner_id, np_type, creator_id,
-                              expire_date)
+                              expire_date, description=description)
         # register "primary" e-mail address as entity_contact
         c_val = name + '@' + cereconf.EMAIL_DEFAULT_DOMAIN
         desc = "E-mail address exported to LDAP"
@@ -106,10 +107,10 @@ class AccountGiskeMixin(Account.Account):
             f = file(fname, 'r')
             for l in f:
                 words.append(l.rstrip())
-        while(1): 
+        while True:
             pwd.append(words[random.randint(0, len(words)-1)])
             passwd = ' '.join([a for a in pwd])
-            if len(passwd) >= 14 and len(pwd) > 2:               
+            if len(passwd) >= 14 and len(pwd) > 2:
                 if len(passwd) <= 20:
                     return passwd
                 else:
@@ -117,6 +118,7 @@ class AccountGiskeMixin(Account.Account):
 
 
 class AccountGiskeEmailMixin(Account.Account):
+
     def get_primary_mailaddress(self):
         primary = self.get_contact_info(type=self.const.contact_email)
         if primary:
@@ -125,7 +127,7 @@ class AccountGiskeEmailMixin(Account.Account):
             return "<ukjent>"
 
 
-class AccountOfkMixin (Account.Account):
+class AccountOfkMixin(Account.Account):
 
     def add_spread(self, spread):
         #
@@ -150,7 +152,7 @@ class AccountOfkMixin (Account.Account):
         # Pre-remove checks
         #
         spreads = [int(r['spread']) for r in self.get_spread()]
-        if not spread in spreads:  # user doesn't have this spread
+        if spread not in spreads:  # user doesn't have this spread
             return
         if spread == self.const.spread_ad_acc:
             self.delete_trait(self.const.trait_homedb_info)
@@ -159,19 +161,19 @@ class AccountOfkMixin (Account.Account):
         # (Try to) perform the actual spread removal.
         ret = self.__super.delete_spread(spread)
         return ret
-   
+
     def make_passwd(self, uname):
-        pot = string.ascii_letters + string.digits
         count = 0
         pwd = []
         while count < 2:
             pwd.append(string.digits[random.randint(0, len(string.digits)-1)])
             count += 1
         while count < 8:
-            pwd.append(string.ascii_letters[random.randint(0, len(string.ascii_letters)-1)])
+            idx = random.randint(0, len(string.ascii_letters)-1)
+            pwd.append(string.ascii_letters[idx])
             count += 1
         random.shuffle(pwd)
-        return string.join(pwd,'')
+        return string.join(pwd, '')
 
     def verify_password(self, method, plaintext, cryptstring):
         """Returns True if the plaintext matches the cryptstring,
@@ -193,66 +195,6 @@ class AccountOfkMixin (Account.Account):
             return (self.encrypt_password(method, plaintext, salt=salt) ==
                     cryptstring)
         raise ValueError("Unknown method " + repr(method))
-
-##
-## due to the user name space being partially used up, we will start
-## using the default algorithm for suggesting user names. Simon@ØFK
-## confirmed that this should be done in an e-mail 7th of august
-## 2012. The earlier version may be removed after 1st of november 2012
-##
-##    def suggest_unames(self, domain, fname, lname, maxlen=8):
-##        """Returns a tuple with 15 (unused) username suggestions based
-##        on the person's first and last name.
-##        
-##        domain: value domain code
-##        fname:  first name (and any middle names)
-##        lname:  last name
-##        maxlen: maximum length of a username
-##        """
-##        goal = 15       # We may return more than this
-##        prim = ""
-##        potuname = ()
-##        
-##        lastname = self.simplify_name(lname, alt=1)
-##        if lastname == "":
-##            raise ValueError,\
-##                  "Must supply last name, got '%s', '%s'" % (fname, lname)
-##    
-##        firstname = self.simplify_name(fname, alt=1)
-##        if firstname == "":
-##            raise ValueError,\
-##                  "Must supply first name, got '%s', '%s'" % (fname, lname)
-##
-##        fname = firstname
-##        fname = fname.replace('-', '').replace(' ', '')        
-##        lname = lastname
-##        lname = lname.replace('-', '').replace(' ', '')
-##        
-##        if len(fname) >= 3:
-##            if len(lname) >= 3:
-##                prim = fname[0:3] + lname[0:3]
-##            else:
-##                prim = fname[0:3] + lname
-##        elif len(fname) < 3:
-##            if len(lname) < 3:
-##                prim = fname + lname
-##            else:
-##                max_len_lname = 6 - len(fname)
-##                prim = fname + lname[0:max_len_lname]
-##
-##        if self.validate_new_uname(domain, prim):            
-##            potuname += (prim, )
-##
-##        i = 1
-##        prefix = prim
-##        
-##        while len(potuname) < goal and i < 100:
-##            un = prefix + str(i)
-##            i += 1
-##            if self.validate_new_uname(domain, un):
-##                potuname += (un, )
-##                
-##        return potuname
 
     def _get_old_homeMDB(self):
         """
@@ -287,11 +229,11 @@ class AccountOfkMixin (Account.Account):
     def _autopick_homeMDB(self):
         """Return a valid homeMDB value to be used for the account.
 
-        If the account has previously had a HomeMDB, this is reused, but only as
-        long the MDB value is valid today, see
+        If the account has previously had a HomeMDB, this is reused, but only
+        as long the MDB value is valid today, see
         L{cereconf.EXCHANGE_HOMEMDB_VALID}. Otherwise a random HomeMDB is
-        selected. We don't care about the weight of the MDBs, ØFK wants everyone
-        to be equally assigned.
+        selected. We don't care about the weight of the MDBs, ØFK wants
+        everyone to be equally assigned.
 
         @rtype: string
         @return: One of the HomeMDB values from
@@ -299,8 +241,8 @@ class AccountOfkMixin (Account.Account):
 
         """
         mdb_candidates = cereconf.EXCHANGE_HOMEMDB_VALID
-        # Check if account had homeMDB earlier. If so use that, as long as it is
-        # in one of today's valid MDBs.
+        # Check if account had homeMDB earlier. If so use that, as long as it
+        # is in one of today's valid MDBs.
         mdb_choice = self._get_old_homeMDB()
         if mdb_choice and mdb_choice in mdb_candidates:
             return mdb_choice
@@ -338,8 +280,8 @@ class AccountOfkMixin (Account.Account):
                 #
                 # If the default domain is specified, ignore this
                 # affiliation.
-                ## if entdom.entity_email_domain_id == dom.entity_id:
-                ##     continue
+                #     if entdom.entity_email_domain_id == dom.entity_id:
+                #         continue
                 return entdom.entity_email_domain_id
             except Errors.NotFoundError:
                 pass
@@ -356,8 +298,7 @@ class AccountOfkMixin (Account.Account):
         # Still no proper maildomain association has been found; fall
         # back to default maildomain.
         return dom.entity_id
-    
-        
+
     def update_email_addresses(self):
         # Find, create or update a proper EmailTarget for this
         # account.
@@ -367,7 +308,7 @@ class AccountOfkMixin (Account.Account):
             target_type = self.const.email_target_deleted
         changed = False
         try:
-            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            et.find_by_email_target_attrs(target_entity_id=self.entity_id)
             if et.email_target_type != target_type:
                 changed = True
                 et.email_target_type = target_type
@@ -456,6 +397,6 @@ class AccountOfkMixin (Account.Account):
                         epat.populate(ea.entity_id)
                     except Errors.NotFoundError:
                         epat.clear()
-                        epat.populate(ea.entity_id, parent = et)
+                        epat.populate(ea.entity_id, parent=et)
                     epat.write_db()
                     primary_set = True

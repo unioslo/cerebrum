@@ -17,18 +17,14 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import re
 import random
-import string
 import time
-import pickle
 
 import cereconf
 
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
-from Cerebrum.Utils import Factory
 
 
 class AccountHiHMixin(Account.Account):
@@ -50,7 +46,7 @@ class AccountHiHMixin(Account.Account):
             target_type = self.const.email_target_deleted
         changed = False
         try:
-            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            et.find_by_email_target_attrs(target_entity_id=self.entity_id)
             if et.email_target_type != target_type:
                 changed = True
                 et.email_target_type = target_type
@@ -86,7 +82,6 @@ class AccountHiHMixin(Account.Account):
         if target_type == self.const.email_target_deleted:
             return
         self._update_email_address_domains(et)
-
 
     def _update_email_address_domains(self, et):
         # Figure out which domain(s) the user should have addresses
@@ -126,7 +121,9 @@ class AccountHiHMixin(Account.Account):
             ctgs = [int(r['category']) for r in ed.get_categories()]
             local_parts = []
             if int(self.const.email_domain_category_cnaddr) in ctgs:
-                local_parts.append(self.get_email_cn_local_part(given_names=1, max_initials=1))
+                local_parts.append(
+                    self.get_email_cn_local_part(given_names=1,
+                                                 max_initials=1))
                 local_parts.append(self.account_name)
             elif int(self.const.email_domain_category_uidaddr) in ctgs:
                 local_parts.append(self.account_name)
@@ -157,27 +154,15 @@ class AccountHiHMixin(Account.Account):
                         epat.populate(ea.entity_id)
                     except Errors.NotFoundError:
                         epat.clear()
-                        epat.populate(ea.entity_id, parent = et)
+                        epat.populate(ea.entity_id, parent=et)
                     epat.write_db()
                     primary_set = True
-                    
-
-    def populate(self, name, owner_type, owner_id, np_type, creator_id,
-                 expire_date, parent=None):
-        if parent is not None:
-            self.__xerox__(parent)
-        # Override Account.populate in order to register 'primary e-mail
-        # address
-        self.__super.populate(name, owner_type, owner_id, np_type, creator_id,
-                              expire_date)
-
 
     def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
         # Override Account.suggest_unames as HiH allows up to 10 chars
         # in unames
         return self.__super.suggest_unames(domain, fname, lname, maxlen=10)
-    
-                                                                                                                                                
+
     def make_passwd(self, uname):
         words = []
         pwd = []
@@ -186,7 +171,7 @@ class AccountHiHMixin(Account.Account):
             f = file(fname, 'r')
             for l in f:
                 words.append(l.rstrip())
-        while(1): 
+        while True:
             pwd.append(words[random.randint(0, len(words)-1)])
             passwd = ' '.join([a for a in pwd])
             if len(passwd) >= 12 and len(pwd) > 1:
@@ -195,7 +180,7 @@ class AccountHiHMixin(Account.Account):
                     return passwd
                 else:
                     pwd.pop(0)
-                    
+
     def illegal_name(self, name):
         """HiH can only allow max 10 characters in usernames, due to
         restrictions in e.g. TimeEdit.
@@ -203,11 +188,4 @@ class AccountHiHMixin(Account.Account):
         """
         if len(name) > 10:
             return "too long (%s); max 10 chars allowed" % name
-        # TBD: How do these mix with student account automation?
-        # ... and migration? Disable for now.
-        #if re.search("[^a-z]", name):
-        #    return "contains illegal characters (%s); only a-z allowed" % name
-        #if re.search("^\d{6}$", name):
-        #    return "disallowed due to possible conflict with FS-based usernames" % name
-                
         return super(AccountHiHMixin, self).illegal_name(name)

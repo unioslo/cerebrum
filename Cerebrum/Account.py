@@ -42,7 +42,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import (NotSet,
                             argument_to_sql,
                             prepare_string)
-from Cerebrum.utils.gpg import gpgme_encrypt
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough)
 from Cerebrum.modules.password_generator.generator import PasswordGenerator
@@ -522,6 +521,7 @@ class AccountHome(object):
         WHERE ah.homedir_id=ahd.homedir_id AND ah.account_id=:account_id""",
                           {'account_id': self.entity_id})
 
+
 Entity_class = Utils.Factory.get("Entity")
 
 
@@ -532,11 +532,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                      # TODO: Get rid of these.
                      )
     __write_attr__ = ('account_name', 'owner_type', 'owner_id',
-                      'np_type', 'creator_id', 'expire_date',
+                      'np_type', 'creator_id', 'expire_date', 'description',
                       '_auth_info', '_acc_affect_auth_types')
 
     def create(self, name, owner_id, creator_id,
-               expire_date=None, parent=None):
+               expire_date=None, description=None, parent=None):
         """Method for creating a new, regular account with default settings.
 
         Creates a standard account with the spreads defined in
@@ -557,7 +557,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         """
         self.populate(name=name, owner_type=self.const.entity_person,
                       owner_id=owner_id, np_type=None, creator_id=creator_id,
-                      expire_date=expire_date, parent=parent)
+                      expire_date=expire_date, description=description,
+                      parent=parent)
         self.write_db()
 
         # Settings used in every instance
@@ -671,15 +672,18 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def __eq__(self, other):
         assert isinstance(other, Account)
 
-        return (self.account_name == other.account_name and
-                int(self.owner_type) == int(other.owner_type) and
-                self.owner_id == other.owner_id and
-                self.np_type == other.np_type and
-                self.creator_id == other.creator_id and
-                self.expire_date == other.expire_date)
+        if (self.account_name != other.account_name or
+            int(self.owner_type) != int(other.owner_type) or
+            self.owner_id != other.owner_id or
+            self.np_type != other.np_type or
+            self.creator_id != other.creator_id or
+            self.expire_date != other.expire_date or
+            self.description != other.description):
+            return False
+        return True
 
     def populate(self, name, owner_type, owner_id, np_type, creator_id,
-                 expire_date, parent=None):
+                 expire_date, description=None, parent=None):
         if parent is not None:
             self.__xerox__(parent)
         else:
@@ -699,6 +703,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         self.np_type = np_type
         self.creator_id = creator_id
         self.expire_date = expire_date
+        self.description = description
         self.account_name = name
 
     def affect_auth_types(self, *authtypes):
@@ -960,6 +965,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             # Columns that have default values through DDL.
             if self.expire_date is not None:
                 cols.append(('expire_date', ':exp_date'))
+            if self.description is not None:
+                cols.append(('description', ':desc'))
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=account_info] (%(tcols)s)
             VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
@@ -970,7 +977,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                           'c_id': self.creator_id,
                           'o_id': self.owner_id,
                           'np_type': np_type,
-                          'exp_date': self.expire_date})
+                          'exp_date': self.expire_date,
+                          'desc': self.description})
             self._db.log_change(self.entity_id, self.const.account_create,
                                 None, change_params=newvalues)
             self.add_entity_name(
@@ -981,6 +989,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     ('owner_id', ':o_id'),
                     ('np_type', ':np_type'),
                     ('creator_id', ':c_id'),
+                    ('description', ':desc'),
                     ('expire_date', ':exp_date')]
             self.execute("""
             UPDATE [:table schema=cerebrum name=account_info]
@@ -992,6 +1001,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                  'o_id': self.owner_id,
                  'np_type': np_type,
                  'exp_date': self.expire_date,
+                 'desc': self.description,
                  'acc_id': self.entity_id})
             self._db.log_change(self.entity_id, self.const.account_mod,
                                 None, change_params=newvalues)
@@ -1065,9 +1075,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return is_new
 
     def new(self, name, owner_type, owner_id, np_type, creator_id,
-            expire_date):
+            expire_date, description=None):
         self.populate(name, owner_type, owner_id, np_type, creator_id,
-                      expire_date)
+                      expire_date, description=description)
         self.write_db()
         self.find(self.entity_id)
 
@@ -1076,9 +1086,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
         (self.owner_type, self.owner_id,
          self.np_type, self.creator_id,
-         self.expire_date) = self.query_1("""
+         self.expire_date, self.description) = self.query_1("""
         SELECT owner_type, owner_id, np_type,
-               creator_id, expire_date
+               creator_id, expire_date, description
         FROM [:table schema=cerebrum name=account_info]
         WHERE account_id=:a_id""", {'a_id': account_id})
         self.account_name = self.get_name(self.const.account_namespace)
@@ -1223,7 +1233,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return self.query("""
         SELECT ai.account_id, en.entity_name, hd.home,
                ah.spread AS home_spread, d.path, hd.homedir_id, ai.owner_id,
-               hd.status, ai.expire_date, ei.created_at, d.disk_id, d.host_id
+               hd.status, ai.expire_date, ai.description, ei.created_at, d.disk_id, d.host_id
         FROM %s
         WHERE %s""" % (tables, where), {
             'home_spread': int(home_spread or 0),
@@ -1631,6 +1641,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return self.query("""
         SELECT DISTINCT ai.account_id AS account_id, en.entity_name AS name,
                         ai.owner_id AS owner_id, ai.owner_type AS owner_type,
-                        ai.expire_date AS expire_date,
+                        ai.expire_date AS expire_date, ai.description AS description,
                         ai.np_type AS np_type
         FROM %s %s""" % (','.join(tables), where_str), binds)

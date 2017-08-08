@@ -17,18 +17,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import re
 import random
-import string
-import time
-import pickle
 
 import cereconf
 
 from Cerebrum import Account
-from Cerebrum import Errors
-from Cerebrum.modules import Email
-from Cerebrum.Utils import Factory
 
 
 class AccountHiNeMixin(Account.Account):
@@ -40,13 +33,13 @@ class AccountHiNeMixin(Account.Account):
     the policies as stated by the Indigo-project.
     """
     def populate(self, name, owner_type, owner_id, np_type, creator_id,
-                 expire_date, parent=None):
+                 expire_date, description=None, parent=None):
         if parent is not None:
             self.__xerox__(parent)
         # Override Account.populate in order to register 'primary e-mail
         # address
         self.__super.populate(name, owner_type, owner_id, np_type, creator_id,
-                              expire_date)
+                              expire_date, description=description)
         # register "primary" e-mail address as entity_contact
         c_val = name + '@' + cereconf.EMAIL_DEFAULT_DOMAIN
         desc = "E-mail address exported to LDAP"
@@ -62,7 +55,7 @@ class AccountHiNeMixin(Account.Account):
             f = file(fname, 'r')
             for l in f:
                 words.append(l.rstrip())
-        while(1): 
+        while True:
             pwd.append(words[random.randint(0, len(words)-1)])
             passwd = ' '.join([a for a in pwd])
             if len(passwd) >= 15 and len(pwd) > 1:
@@ -71,7 +64,7 @@ class AccountHiNeMixin(Account.Account):
                     return passwd
                 else:
                     pwd.pop(0)
-                    
+
     def illegal_name(self, name):
         """HiNe can only allow max 8 characters in usernames, due to
         restrictions in e.g. TimeEdit.
@@ -79,13 +72,6 @@ class AccountHiNeMixin(Account.Account):
         """
         if len(name) > 8:
             return "too long (%s); max 8 chars allowed" % name
-        # TBD: How do these mix with student account automation?
-        # ... and migration? Disable for now.
-        #if re.search("[^a-z]", name):
-        #    return "contains illegal characters (%s); only a-z allowed" % name
-        #if re.search("^\d{6}$", name):
-        #    return "disallowed due to possible conflict with FS-based usernames" % name
-                
         return super(AccountHiNeMixin, self).illegal_name(name)
 
 
