@@ -34,9 +34,12 @@ DB_AUTH_DIR = pj(prefix, 'etc', 'passwords')
 # Name of the SQL database
 CEREBRUM_DATABASE_NAME = None
 
-CEREBRUM_DATABASE_CONNECT_DATA = {'user': None,
-                                  'table_owner': None,
-                                  'host': None}
+CEREBRUM_DATABASE_CONNECT_DATA = {
+    'user': None,
+    'table_owner': None,
+    'host': None,
+    'client_encoding': None,
+}
 # Default bind name for Cerebrum
 CEREBRUM_SERVER_IP = ""
 
