@@ -1123,7 +1123,7 @@ def migrate_to_email_1_4():
     print 'Fetching all email addresses...'
     addrs = defaultdict(list)
     addrs_count = 0
-    for emad in ea.search():
+    for emad in ea.search(filter_expired=False):
         if not emad['target_id'] in target_ids:
             continue
         addrs[target2account[emad['target_id']]].append(
