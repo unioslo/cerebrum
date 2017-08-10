@@ -69,7 +69,7 @@ def usage(exitcode=0):
 
     --skip-if-password-set Do not send SMS if the account has had a password
                     set after the account recieved the trait defined by
-                    --trait.
+                    --trait. Also remove the trait defined by --trait.
 
     --message-cereconf If the message is located in cereconf, this is its
                     variable name. Default: AUTOADMIN_WELCOME_SMS
@@ -118,7 +118,7 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
 
         # increase attempt counter for this account
         if min_attempts:
-            attempt = inc_attempt(ac, row['entity_id'], trait, commit)
+            attempt = inc_attempt(ac, row, commit)
 
         is_too_old = (row['date'] < (now() - too_old))
 
@@ -126,7 +126,7 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
         if is_too_old and not min_attempts:
             logger.warn('Too old trait %s for entity_id=%s, giving up',
                         trait, row['entity_id'])
-            remove_trait(ac, row['entity_id'], trait, commit)
+            remove_trait(ac, trait, commit)
             continue
 
         # remove trait if more than min_attempts attempts have been made and
@@ -136,7 +136,7 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
                 'Too old trait and too many attempts (%s) for '
                 'entity_id=%s, giving up',
                 attempt, row['entity_id'])
-            remove_trait(ac, row['entity_id'], trait, commit)
+            remove_trait(ac, trait, commit)
             continue
 
         if ac.owner_type != co.entity_person:
@@ -158,7 +158,7 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
                 result = filter_func(ac, row)
 
             if result:
-                remove_trait(ac, row['entity_id'], trait, commit)
+                remove_trait(ac, trait, commit)
                 logger.info(
                     'New user filtered out by {} function, '
                     'removing trait {}'.format(filter_name, row))
@@ -189,7 +189,7 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
         if tr and tr['date'] > (now() - 300):
             logger.debug('User %s already texted last %d days, removing trait',
                          ac.account_name, 180)
-            remove_trait(ac, row['entity_id'], trait, commit)
+            remove_trait(ac, trait, commit)
             continue
 
         # get phone number
@@ -229,10 +229,8 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
     logger.info('send_welcome_sms done')
 
 
-def remove_trait(ac, ac_id, trait, commit=False):
+def remove_trait(ac, trait, commit=False):
     """Remove a given trait from an account."""
-    ac.clear()
-    ac.find(ac_id)
     logger.debug("Deleting trait %s from account %s", trait, ac.account_name)
     ac.delete_trait(code=trait)
     ac.write_db()
@@ -242,20 +240,15 @@ def remove_trait(ac, ac_id, trait, commit=False):
         db.rollback()
 
 
-def inc_attempt(ac, ac_id, trait, commit=False):
+def inc_attempt(ac, row, commit=False):
     """Increase the attempt counter (stored in trait) for a given account."""
-    ac.clear()
-    ac.find(ac_id)
-
-    attempt = ac.get_trait(trait)['numval']
+    attempt = row['numval']
     if not attempt:
         attempt = 1
     else:
         attempt = int(attempt) + 1
-
     logger.debug("Attempt number %s for account %s", attempt, ac.account_name)
-
-    ac.populate_trait(code=trait, numval=attempt)
+    ac.populate_trait(code=row['code'], numval=attempt, date=row['date'])
     ac.write_db()
     if commit:
         db.commit()
@@ -286,7 +279,10 @@ def skip_if_password_set(ac, trait):
     """ Has the password been changed after the trait was set? """
     # The trait and initial password is set in the same transaction. We add
     # a minute to skip this initial password change event.
-    after = trait['date'] + DateTimeDelta(0, 0, 1)  # delta = 1 minute
+    try:
+        after = trait['date'] + DateTimeDelta(0, 0, 1)  # delta = 1 minute
+    except:
+        after = ac.created_at + DateTimeDelta(0, 0, 1)
     return True if [x for x in db.get_log_events(
         subject_entity=ac.entity_id,
         sdate=after,

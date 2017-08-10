@@ -82,51 +82,6 @@ class AccountIndigoMixin(Account.Account):
         return pgp_encrypt(plaintext, cereconf.PGPID)
 
 
-class AccountGiskeMixin(Account.Account):
-
-    def populate(self, name, owner_type, owner_id, np_type, creator_id,
-                 expire_date, description=None, parent=None):
-        if parent is not None:
-            self.__xerox__(parent)
-        # Override Account.populate in order to register 'primary e-mail
-        # address
-        self.__super.populate(name, owner_type, owner_id, np_type, creator_id,
-                              expire_date, description=description)
-        # register "primary" e-mail address as entity_contact
-        c_val = name + '@' + cereconf.EMAIL_DEFAULT_DOMAIN
-        desc = "E-mail address exported to LDAP"
-        self.populate_contact_info(self.const.system_cached,
-                                   type=self.const.contact_email,
-                                   value=c_val, description=desc)
-
-    def make_passwd(self, uname):
-        words = []
-        pwd = []
-        passwd = ""
-        for fname in cereconf.PASSPHRASE_DICTIONARIES:
-            f = file(fname, 'r')
-            for l in f:
-                words.append(l.rstrip())
-        while True:
-            pwd.append(words[random.randint(0, len(words)-1)])
-            passwd = ' '.join([a for a in pwd])
-            if len(passwd) >= 14 and len(pwd) > 2:
-                if len(passwd) <= 20:
-                    return passwd
-                else:
-                    pwd.pop(0)
-
-
-class AccountGiskeEmailMixin(Account.Account):
-
-    def get_primary_mailaddress(self):
-        primary = self.get_contact_info(type=self.const.contact_email)
-        if primary:
-            return primary[0]['contact_value']
-        else:
-            return "<ukjent>"
-
-
 class AccountOfkMixin(Account.Account):
 
     def add_spread(self, spread):
