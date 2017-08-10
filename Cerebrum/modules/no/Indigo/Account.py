@@ -82,50 +82,7 @@ class AccountIndigoMixin(Account.Account):
         return pgp_encrypt(plaintext, cereconf.PGPID)
 
 
-class AccountGiskeMixin(Account.Account):
-    def populate(self, name, owner_type, owner_id, np_type, creator_id,
-                 expire_date, parent=None):
-        if parent is not None:
-            self.__xerox__(parent)
-        # Override Account.populate in order to register 'primary e-mail
-        # address
-        self.__super.populate(name, owner_type, owner_id, np_type, creator_id,
-                              expire_date)
-        # register "primary" e-mail address as entity_contact
-        c_val = name + '@' + cereconf.EMAIL_DEFAULT_DOMAIN
-        desc = "E-mail address exported to LDAP"
-        self.populate_contact_info(self.const.system_cached,
-                                   type=self.const.contact_email,
-                                   value=c_val, description=desc)
-
-    def make_passwd(self, uname):
-        words = []
-        pwd = []
-        passwd = ""
-        for fname in cereconf.PASSPHRASE_DICTIONARIES:
-            f = file(fname, 'r')
-            for l in f:
-                words.append(l.rstrip())
-        while(1): 
-            pwd.append(words[random.randint(0, len(words)-1)])
-            passwd = ' '.join([a for a in pwd])
-            if len(passwd) >= 14 and len(pwd) > 2:               
-                if len(passwd) <= 20:
-                    return passwd
-                else:
-                    pwd.pop(0)
-
-
-class AccountGiskeEmailMixin(Account.Account):
-    def get_primary_mailaddress(self):
-        primary = self.get_contact_info(type=self.const.contact_email)
-        if primary:
-            return primary[0]['contact_value']
-        else:
-            return "<ukjent>"
-
-
-class AccountOfkMixin (Account.Account):
+class AccountOfkMixin(Account.Account):
 
     def add_spread(self, spread):
         #
@@ -193,66 +150,6 @@ class AccountOfkMixin (Account.Account):
             return (self.encrypt_password(method, plaintext, salt=salt) ==
                     cryptstring)
         raise ValueError("Unknown method " + repr(method))
-
-##
-## due to the user name space being partially used up, we will start
-## using the default algorithm for suggesting user names. Simon@ØFK
-## confirmed that this should be done in an e-mail 7th of august
-## 2012. The earlier version may be removed after 1st of november 2012
-##
-##    def suggest_unames(self, domain, fname, lname, maxlen=8):
-##        """Returns a tuple with 15 (unused) username suggestions based
-##        on the person's first and last name.
-##        
-##        domain: value domain code
-##        fname:  first name (and any middle names)
-##        lname:  last name
-##        maxlen: maximum length of a username
-##        """
-##        goal = 15       # We may return more than this
-##        prim = ""
-##        potuname = ()
-##        
-##        lastname = self.simplify_name(lname, alt=1)
-##        if lastname == "":
-##            raise ValueError,\
-##                  "Must supply last name, got '%s', '%s'" % (fname, lname)
-##    
-##        firstname = self.simplify_name(fname, alt=1)
-##        if firstname == "":
-##            raise ValueError,\
-##                  "Must supply first name, got '%s', '%s'" % (fname, lname)
-##
-##        fname = firstname
-##        fname = fname.replace('-', '').replace(' ', '')        
-##        lname = lastname
-##        lname = lname.replace('-', '').replace(' ', '')
-##        
-##        if len(fname) >= 3:
-##            if len(lname) >= 3:
-##                prim = fname[0:3] + lname[0:3]
-##            else:
-##                prim = fname[0:3] + lname
-##        elif len(fname) < 3:
-##            if len(lname) < 3:
-##                prim = fname + lname
-##            else:
-##                max_len_lname = 6 - len(fname)
-##                prim = fname + lname[0:max_len_lname]
-##
-##        if self.validate_new_uname(domain, prim):            
-##            potuname += (prim, )
-##
-##        i = 1
-##        prefix = prim
-##        
-##        while len(potuname) < goal and i < 100:
-##            un = prefix + str(i)
-##            i += 1
-##            if self.validate_new_uname(domain, un):
-##                potuname += (un, )
-##                
-##        return potuname
 
     def _get_old_homeMDB(self):
         """
