@@ -94,13 +94,13 @@ def _load_partial_config(cls, root_name, filepath):
     return config
 
 
-def load_publisher_config(filepath=None):
+def load_publisher_config(name='event_publisher', filepath=None):
     """ Load event publisher config.
 
     Loads config from `filepath` if given, or looks for a config in the default
-    location named 'event_publisher'.
+    location named `name`.
     """
-    return _load_partial_config(PublisherConfig, 'event_publisher', filepath)
+    return _load_partial_config(PublisherConfig, name, filepath)
 
 
 def load_formatter_config(filepath=None):
