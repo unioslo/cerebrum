@@ -131,30 +131,23 @@ def test_find_by_name_missing(entity, domain_foo, domain_bar):
         entity.find_by_name('foo', domain_bar)
 
 
-def test_list_names(database, Entity, EntitySpread, domain_foo, domain_bar, entity_spread):
-    class Ent(Entity, EntitySpread):
-        u""" TODO: This is a hack.
+def test_list_names(database, Entity, domain_foo, domain_bar, entity_type):
+    names = Entity(database)
 
-        Entity should not depend on EntitySpread.
-        """
-        pass
-    first = Ent(database)
-    first.populate(entity_spread.entity_type)
+    first = Entity(database)
+    first.populate(entity_type)
     first.write_db()
-    first.add_spread(entity_spread)
     first.add_entity_name(domain_foo, 'first foo')
 
-    second = Ent(database)
-    second.populate(entity_spread.entity_type)
+    second = Entity(database)
+    second.populate(entity_type)
     second.write_db()
     second.add_entity_name(domain_foo, 'second foo')
     second.add_entity_name(domain_bar, 'second bar')
 
-    assert len(first.list_names(domain_bar)) == 1
-    assert len(first.list_names(domain_foo, spreads=entity_spread)) == 1
-    assert len(first.list_names(domain_bar, spreads=entity_spread)) == 0
+    assert len(names.list_names(domain_bar)) == 1
 
-    results = first.list_names(domain_foo)
+    results = names.list_names(domain_foo)
     assert len(results) == 2
     assert all(name in results[0].dict()
                for name in ['entity_id', 'value_domain', 'entity_name'])

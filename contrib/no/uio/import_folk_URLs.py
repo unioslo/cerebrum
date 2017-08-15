@@ -97,7 +97,7 @@ def main():
     person = Factory.get('Person')(db)
 
     id2acc = {}                 # {account_id: user name}
-    for row in account.list_names(value_domain = co.account_namespace):
+    for row in account.list_names(co.account_namespace):
         id2acc[int(row['entity_id'])] = row['entity_name']
 
     person2URLs = {}            # {person_id: [desired URL, ...]}
