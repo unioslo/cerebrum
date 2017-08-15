@@ -77,6 +77,7 @@ import re
 import sys
 import threading
 import time
+from logging import handlers
 
 from inspect import currentframe
 
@@ -440,6 +441,22 @@ def initialize_logger(name, level, config):
     return logger
 
 
+# logging.config does it like this
+def _resolve(name):
+    """Resolve a dotted name to a global object."""
+    name = name.split('.')
+    used = name.pop(0)
+    found = __import__(used)
+    for n in name:
+        used = used + '.' + n
+        try:
+            found = getattr(found, n)
+        except AttributeError:
+            __import__(used)
+            found = getattr(found, n)
+    return found
+
+
 _handlers = dict()
 """ Cache of initialized log handlers. """
 
@@ -479,10 +496,16 @@ def initialize_handler(name, config):
         formatter = ""
 
     # Look up KLASS in the logging module + this file. The handler could be in
-    # either one.
+    # either one. If that fails, try imported modules and path
     namespace = logging.__dict__.copy()
     namespace.update(globals())
-    klass = namespace[klass]
+    if klass in namespace.keys():
+        klass = namespace[klass]
+    else:
+        try:
+            klass = eval(klass, globals())
+        except (AttributeError, NameError):
+            klass = _resolve(klass)
 
     # We want *all* of our handlers to understand indentation directives. So,
     # we monkey patch the indentation capabilities.
