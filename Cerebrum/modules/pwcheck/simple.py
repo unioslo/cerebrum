@@ -275,11 +275,10 @@ class CheckSimpleEntropyCalculator(PasswordChecker):
         if plength > 20:
             entropy_value += (plength - 20)
         different_groups, chars_per_group = self.__character_groups(password)
-        if different_groups >= self.min_groups:
-            if chars_per_group >= self.min_chars_per_group:
-                entropy_value += 8
-            else:
-                entropy_value += 6
+        if chars_per_group >= self.min_groups:
+            entropy_value += 8
+        elif different_groups >= self.min_groups:
+            entropy_value += 6
         if entropy_value < self.min_required_entropy:
             return [
                 _('Password has only {entropy_value} '
@@ -302,8 +301,9 @@ class CheckSimpleEntropyCalculator(PasswordChecker):
                 if character in group:
                     counters[group] += 1
         different_groups = [value for value in counters.values() if value > 0]
-        min_value = min(different_groups) if different_groups else 0
-        return (len(different_groups), min_value)
+        chars_per_group = [
+            v for v in different_groups if v >= self.min_chars_per_group]
+        return (len(different_groups), len(chars_per_group))
 
 
 @pwchecker('length')
