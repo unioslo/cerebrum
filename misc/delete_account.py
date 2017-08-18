@@ -7,6 +7,7 @@ import cerebrum_path
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
 import cereconf
+from Cerebrum import Errors
 
 class delete:
     def delete_account(self, db, account_id, target_id=None, dryrun=False):
@@ -16,7 +17,11 @@ class delete:
 
 
         ac = Factory.get('Account')(db)
-        ac.find(account_id)
+        try:
+            ac.find(account_id)
+        except Errors.NotFoundError,m:
+            print "error:%s unable to find account:%s" %(m,account_id)
+            return
         pe = Factory.get('Person')(db)
         pe.find(ac.owner_id)
         co = Factory.get('Constants')(db)
@@ -55,29 +60,31 @@ class delete:
                     sys.exit()
 
         delete_tables=[]
-        delete_tables.append({'change_log': 'change_by'})
-        delete_tables.append({'entity_name':'entity_id'})
-        delete_tables.append({'account_home':'account_id'})
-        delete_tables.append({'account_type':'account_id'})
-        delete_tables.append({'account_authentication':'account_id'})
-        delete_tables.append({'posix_user':'account_id'})
-        delete_tables.append({'homedir':'account_id'})
-        delete_tables.append({'group_member':'member_id'})
-        delete_tables.append({'bofhd_session':'account_id'})
-        delete_tables.append({'account_info':'account_id'})
-        delete_tables.append({'spread_expire':'entity_id'})
-        delete_tables.append({'entity_spread':'entity_id'})
-        delete_tables.append({'entity_quarantine':'entity_id'})
-        delete_tables.append({'entity_trait':'entity_id'})
-        delete_tables.append({'entity_contact_info' : 'entity_id'})
-        delete_tables.append({'entity_info':'entity_id'})
-
-        delete_mail_tables=[]
-        delete_mail_tables.append({'email_forward':'target_id'})
-        delete_mail_tables.append({'email_primary_address':'target_id'})
-        delete_mail_tables.append({'email_address':'target_id'})
-        delete_mail_tables.append({'email_target':'target_id'})
-
+        try:
+            delete_tables.append({'change_log': 'change_by'})
+            delete_tables.append({'entity_name':'entity_id'})
+            delete_tables.append({'account_home':'account_id'})
+            delete_tables.append({'account_type':'account_id'})
+            delete_tables.append({'account_authentication':'account_id'})
+            delete_tables.append({'posix_user':'account_id'})
+            delete_tables.append({'homedir':'account_id'})
+            delete_tables.append({'group_member':'member_id'})
+            delete_tables.append({'bofhd_session':'account_id'})
+            delete_tables.append({'account_info':'account_id'})
+            delete_tables.append({'spread_expire':'entity_id'})
+            delete_tables.append({'entity_spread':'entity_id'})
+            delete_tables.append({'entity_quarantine':'entity_id'})
+            delete_tables.append({'entity_trait':'entity_id'})
+            delete_tables.append({'entity_contact_info' : 'entity_id'})
+            delete_tables.append({'entity_info':'entity_id'})
+            
+            delete_mail_tables=[]
+            delete_mail_tables.append({'email_forward':'target_id'})
+            delete_mail_tables.append({'email_primary_address':'target_id'})
+            delete_mail_tables.append({'email_address':'target_id'})
+            delete_mail_tables.append({'email_target':'target_id'})
+        except Errors.NotFoundError,m:
+            print "ERROR:%s unable to delete entry." % m
         if target_id !=None:
             for delete_mail_entry in delete_mail_tables:
                 value = delete_mail_entry.values()
@@ -221,6 +228,7 @@ def main():
 
     for line in accounts:
         if(line[0] != '\n'):
+            line = line.strip()
             foo=line.split(",")
             #print "foo=%s" % foo
             account_id = foo[0]

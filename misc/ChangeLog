@@ -1,3 +1,7 @@
+2017-08-18    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* delete_account.py: Updated script to be more robust
+
 2017-06-28    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* join_persons.py: new cerebrum version has discontinued the
