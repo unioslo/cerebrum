@@ -292,3 +292,151 @@ class AccountTSDMixin(Account.Account):
         ou.clear()
         ou.find(projectid)
         return ou.is_approved()
+
+    def suggest_unames(self,
+                       domain,
+                       fname,
+                       lname,
+                       maxlen=8,
+                       suffix="",
+                       prefix=""):
+        """
+        N.B. This is a legacy method ported from Crebrum/Account.py
+        The `prefix` argument is now deprecated
+
+        Returns a tuple with 15 (unused) username suggestions based
+        on the person's first and last name.
+
+        domain: value domain code
+        fname:  first name (and any middle names)
+        lname:  last name
+        maxlen: maximum length of a username (incl. the suffix)
+        suffix: string to append to every generated username
+        prefix: string to add to every generated username (deprecated)
+        """
+        goal = 15       # We may return more than this
+        maxlen -= len(suffix)
+        maxlen -= len(prefix)
+        assert maxlen > 0, "maxlen - prefix - suffix = no characters left"
+        potuname = ()
+
+        lastname = self.simplify_name(lname, alt=1)
+        if lastname == "":
+            raise ValueError(
+                "Must supply last name, got '%s', '%s'" % (fname, lname))
+
+        fname = self.simplify_name(fname, alt=1)
+        lname = lastname
+
+        if fname == "":
+            # This is a person with no first name.  We "fool" the
+            # algorithm below by switching the names around.  This
+            # will always lead to suggesting names with numerals added
+            # to the end since there are only 8 possible usernames for
+            # a name of length 8 or more.  (assuming maxlen=8)
+            fname = lname
+            lname = ""
+
+        # We ignore hyphens in the last name, but extract the
+        # initials from the first name(s).
+        lname = lname.replace('-', '').replace(' ', '')
+        initials = [n[0] for n in re.split(r'[ -]', fname)]
+
+        # firstinit is set to the initials of the first two names if
+        # the person has three or more first names, so firstinit and
+        # initial never overlap.
+        firstinit = ""
+        initial = None
+        if len(initials) >= 3:
+            firstinit = "".join(initials[:2])
+        # initial is taken from the last first name.
+        if len(initials) > 1:
+            initial = initials[-1]
+
+        # Now remove all hyphens and keep just the first name.  People
+        # called "Geir-Ove Johnsen Hansen" generally prefer "geirove"
+        # to just "geir".
+
+        fname = fname.replace('-', '').split(" ")[0][0:maxlen]
+
+        # For people with many (more than three) names, we prefer to
+        # use all initials.
+        # Example:  Geir-Ove Johnsen Hansen
+        #           ffff fff i       llllll
+        # Here, firstinit is "GO" and initial is "J".
+        #
+        # gohansen gojhanse gohanse gojhanse ... goh gojh
+        # ssllllll ssilllll sslllll ssilllll     ssl ssil
+        #
+        # ("ss" means firstinit, "i" means initial, "l" means last name)
+
+        if len(firstinit) > 1:
+            llen = min(len(lname), maxlen - len(firstinit))
+            for j in range(llen, 0, -1):
+                un = prefix + firstinit + lname[0:j] + suffix
+                if self.validate_new_uname(domain, un):
+                    potuname += (un, )
+
+                if initial and len(firstinit) + 1 + j <= maxlen:
+                    un = prefix + firstinit + initial + lname[0:j] + suffix
+                    if self.validate_new_uname(domain, un):
+                        potuname += (un, )
+
+                if len(potuname) >= goal:
+                    break
+
+        # Now try different substrings from first and last name.
+        #
+        # geiroveh,
+        # fffffffl
+        # geirovjh geirovh geirovha,
+        # ffffffil ffffffl ffffffll
+        # geirojh geiroh geirojha geiroha geirohan,
+        # fffffil fffffl fffffill fffffll ffffflll
+        # geirjh geirh geirjha geirha geirjhan geirhan geirhans
+        # ffffil ffffl ffffill ffffll ffffilll fffflll ffffllll
+        # ...
+        # gjh gh gjha gha gjhan ghan ... gjhansen ghansen
+        # fil fl fill fll filll flll     fillllll fllllll
+
+        flen = min(len(fname), maxlen - 1)
+        for i in range(flen, 0, -1):
+            llim = min(len(lname), maxlen - i)
+            for j in range(1, llim + 1):
+                if initial:
+                    # Is there room for an initial?
+                    if j < llim:
+                        un = prefix + \
+                            fname[0:i] + initial + lname[0:j] + suffix
+                        if self.validate_new_uname(domain, un):
+                            potuname += (un, )
+                un = prefix + fname[0:i] + lname[0:j] + suffix
+                if self.validate_new_uname(domain, un):
+                    potuname += (un, )
+            if len(potuname) >= goal:
+                break
+
+        # Try prefixes of the first name with nothing added.  This is
+        # the only rule which generates usernames for persons with no
+        # _first_ name.
+        #
+        # geirove, geirov, geiro, geir, gei, ge
+
+        flen = min(len(fname), maxlen)
+        for i in range(flen, 1, -1):
+            un = prefix + fname[0:i] + suffix
+            if self.validate_new_uname(domain, un):
+                potuname += (un, )
+            if len(potuname) >= goal:
+                break
+
+        # Absolutely last ditch effort:  geirov1, geirov2 etc.
+        i = 1
+        prefix = (fname + lname)[:maxlen - 2]
+
+        while len(potuname) < goal and i < 100:
+            un = prefix + str(i) + suffix
+            i += 1
+            if self.validate_new_uname(domain, un):
+                potuname += (un, )
+        return potuname

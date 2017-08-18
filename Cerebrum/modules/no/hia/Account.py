@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2004-2015 University of Oslo, Norway
+# Copyright 2004-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -433,15 +433,25 @@ class AccountHiAMixin(Account.Account):
         return et
 
 
-    def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=None,
+    def suggest_unames(self,
+                       domain,
+                       fname,
+                       lname,
+                       maxlen=8,
+                       suffix=None,
                        prefix=""):
+        """
+        """
         if suffix is None:
             from time import localtime
             t = localtime()[0:2]
             year = str(t[0])[2:]
             suffix = year
-        return self.__super.suggest_unames(domain, fname, lname, maxlen,
-                                           suffix=suffix, prefix=prefix)
+        return self.__super.suggest_unames(domain,
+                                           fname,
+                                           lname,
+                                           maxlen,
+                                           suffix=suffix)
 
     def is_employee(self):
         for r in self.get_account_types():
