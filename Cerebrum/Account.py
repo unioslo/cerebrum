@@ -827,7 +827,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             s = ":".join(
                 [self.account_name,
                  cereconf.AUTH_HA1_REALM,
-                 plaintext])
+                 utf8_plaintext])
             return hashlib.md5(s).hexdigest()
         raise Errors.NotImplementedAuthTypeError(
             "Unknown method %r" % method)
