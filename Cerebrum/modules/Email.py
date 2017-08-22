@@ -2505,6 +2505,20 @@ class AccountEmailMixin(Account.Account):
             full = self.get_fullname()
         except Errors.NotFoundError:
             full = self.account_name
+        # A very ugly and hopefully temporary fix for CRB-2170 and CRB-2255
+        # `latin1_to_iso646_60 expects` a latin1 (iso-8859-1) string.
+        # Since `full` may be different depending on the DB connection
+        # backend, we need to make sure that it always ends up being latin-1.
+        if isinstance(full, str):
+            try:
+                full = full.decode('utf-8')
+            except:  # probably latin1
+                full = full.decode('iso-8859-1')
+        try:
+            full = full.encode('iso-8859-1')
+        except UnicodeEncodeError:
+            raise Errors.CerebrumError(
+                'Corrupt input while converting full_name')
         return self.get_email_cn_given_local_part(
             full_name=full, given_names=given_names, max_initials=max_initials)
 
@@ -2787,20 +2801,6 @@ class AccountEmailMixin(Account.Account):
     def wash_email_local_part(self, local_part):
         """
         """
-        # A very ugly and hopefully temporary fix for CRB-2170
-        # `latin1_to_iso646_60 expects` a latin1 (iso-8859-1) string.
-        # Since `local_part` may be different depending on the DB connection
-        # backend, we need to make sure that it always ends up being latin-1.
-        if isinstance(local_part, str):
-            try:
-                local_part = local_part.decode('utf-8')
-            except:  # probably latin1
-                local_part = local_part.decode('iso-8859-1')
-        try:
-            local_part = local_part.encode('iso-8859-1')
-        except UnicodeEncodeError:
-            raise Errors.CerebrumError(
-                'Corrupt input when washing email_local_part')
         lp = Utils.latin1_to_iso646_60(local_part)
         # Translate ISO 646-60 representation of Norwegian characters
         # to the closest single-ascii-letter.
