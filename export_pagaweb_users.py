@@ -35,7 +35,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, AtomicFileWriter
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
 
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
@@ -111,7 +111,8 @@ def parse_paga_csv(pagafile):
         #  U (utdanningsstilling)
         #  V (vikar)
         #  Å (åremål).
-        if detail[KEY_HOVEDARBFORH] == 'H' and detail[KEY_TJFORH].upper() in ['E', 'F', 'K', 'U', 'V', 'Å', 'P','B']:
+        #  ÅP (postdoc)
+        if detail[KEY_HOVEDARBFORH] == 'H' and detail[KEY_TJFORH].upper() in ['E', 'F', 'K', 'U', 'V', 'Å','P','B','ÅP']:
             persons[detail[KEY_ANSATTNR]] = {}
 
     ac = Factory.get('Account')(db)

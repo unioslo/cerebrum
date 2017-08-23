@@ -1,3 +1,11 @@
+2017-08-23  Karen   <cerebrum@cleomedes.uit.no>
+
+    * export_pagaweb_users.py: Updated import of AtomicFileWriter.
+
+    * export_pagaweb_users.py (parse_paga_csv): Updated with changes made on 
+    Leetah that are needed here too: Added postdocs (ÅP) to list of persons to 
+    include in output file.
+
 2017-07-28  Karen   <cerebrum@cleomedes.uit.no>
 
     * import_PAGA.py (determine_affiliations): Persons with tjenesteforhold = T
