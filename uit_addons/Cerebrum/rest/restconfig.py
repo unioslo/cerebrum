@@ -15,7 +15,7 @@ APPNAME = u"cerebrum-rest"
 # to a dict like:
 #     {'key': 'username'}
 #keyfile = '/cerebrum/etc/passwords/api.cerebrum.uio.no/client_api_keys/keys'
-keyfile = '/home/cerebrum/cerebrum/RestAPI/backend_key'
+keyfile = '/home/cerebrum/cerebrum/Cerebrum/rest/backend_key'
 with open(keyfile) as f:
     lines = [x.split(':') for x in f.read().splitlines() if len(x)]
     print lines
