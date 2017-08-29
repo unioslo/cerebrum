@@ -1,3 +1,7 @@
+2017-08-29    <cerebrum@cleomedes.uit.no>
+
+	* delete_account.py (delete.delete_account): Need to delete account_id from mailq table as well
+
 2017-08-18    <cerebrum@cleomedes.uit.no-cleomedes>
 
 	* delete_account.py: Updated script to be more robust

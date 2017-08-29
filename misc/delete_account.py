@@ -14,7 +14,7 @@ class delete:
         mailto_rt = False
         mailto_ad = False
         replacement_username = ""
-
+        print "processing acocunt:%s" % account_id
 
         ac = Factory.get('Account')(db)
         try:
@@ -79,6 +79,7 @@ class delete:
             delete_tables.append({'entity_info':'entity_id'})
             
             delete_mail_tables=[]
+            delete_mail_tables.append({'mailq':'entity_id'})
             delete_mail_tables.append({'email_forward':'target_id'})
             delete_mail_tables.append({'email_primary_address':'target_id'})
             delete_mail_tables.append({'email_address':'target_id'})
