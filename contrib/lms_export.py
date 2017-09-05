@@ -41,7 +41,7 @@ Usage: %s [options]
    -f, --file FILE       Where to generate the exported output. Default: STDOUT
    -h, --help            Prints this message and quits
    -r, --role-file FILE  File that roles should be taken from
-   --host HOST           The host that output should be generated for   
+   --host HOST           The host that output should be generated for
    --no-import           Do not import data from source system and update groups
    --no-export           Do not generate export to LMS
    -d, --dryrun          Do not commit database changes made during import
@@ -165,13 +165,13 @@ def parse_xml_roles(fname):
         elif kind in ("evu", ):
             logger.info("Ignoring roles pertaining to EVU-courses for now")
             return
-        
+
         else:
             logger.warn("%s%s: Wrong role entry kind: %s; '%s'",
                         data["fodselsdato"], data["personnr"], kind, data)
             return
 
-        
+
         result.setdefault(key, list()).append(
             { "fodselsdato" : int(data["fodselsdato"]),
               "personnr"    : int(data["personnr"]), })
@@ -190,7 +190,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
 
     if not enhet_type == 'kurs':
          raise ValueError, "Unable to handle non-'kurs'-enheter yet"
-     
+
     Instnr, emnekode, versjon, termk, aar, termnr = type_id
 
     # Finnes det mer enn en undervisningsenhet knyttet til dette
@@ -225,7 +225,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
         logger.debug("all_resp: '%s'" % all_resp)
     except KeyError:
         # TODO: This might warrant a warning, but we need to discuss it with NMH
-        logger.info("Unable to find any responsibles for '%s'" % kurs_id)                    
+        logger.info("Unable to find any responsibles for '%s'" % kurs_id)
     sync_group(kurs_id, mk_gname("%s:ansvar" % enhet_id),
                "Ansvarlige %s %s %s%s" % (emnekode, termk, aar, enhet_suffix),
                constants.entity_account, all_resp);
@@ -264,7 +264,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                    "Ansvarlige %s %s %s%s %s" % (emnekode, termk, aar, enhet_suffix,
                                              importer.UndervEnhet[enhet_id]['aktivitet'][act_code]),
                    constants.entity_account, act_resp)
-        
+
 
         # Students
         logger.debug(" student:%s" % act_code)
@@ -307,7 +307,7 @@ def process_kursdata(role_mapping):
 
         # Done processing this group; remove it from later iterations
         del AffiliatedGroups[kurs_id]
-        
+
     logger.info(" ... done")
 
     # Now the only remaining group is the root supergroup
@@ -326,16 +326,16 @@ def process_kursdata(role_mapping):
 
 def process_classdata():
     importer.get_classes()
-    
+
     for class_id in importer.classes:
         group_name = mk_gname(class_id)
         group_type, institution, program_code, year, term_code = class_id.split(":")
         group_desc = "%s %s %s" % (program_code, term_code.capitalize(), year)
-        
+
         students = {}
         for student in importer.classes[class_id]:
             students[student] = 1
-            
+
         sync_group(class_supergroup, group_name, group_desc,
                    constants.entity_account, students)
 
@@ -442,7 +442,7 @@ def export_data(output_stream):
     exporter.gather_people_information()
 
     exporter.begin()
-    
+
     exporter.export_people()
 
     group = Factory.get("Group")(db)
@@ -464,7 +464,7 @@ def export_data(output_stream):
         group.clear()
         group.find(enhet_group_id)
         enhet_id = group.group_name
-        enhet_name = group.description 
+        enhet_name = group.description
         logger.debug("Exporting enhet: '%s' - '%s'" % (enhet_id, enhet_name))
         exporter.group_to_xml(id=enhet_id, grouptype="Undenhet",
                               parentcode=fag_id, grouptype_level=2,
@@ -479,7 +479,7 @@ def export_data(output_stream):
             subgroup_groupid = int(subgroup["member_id"])
             group.clear()
             group.find(subgroup_groupid)
-            
+
             subgroup_id = group.group_name
             id_elements = subgroup_id.split(":")
             act_id = ":".join(id_elements[:-1])
@@ -491,7 +491,7 @@ def export_data(output_stream):
             else:
                 activities[act_id] = "act"
                 logger.debug("Found normal activity: '%s'" % act_id)
-            
+
             subgroups[subgroup_id] = subgroup_groupid
 
         logger.debug("Subgroups: '%s'" % subgroups)
@@ -508,7 +508,7 @@ def export_data(output_stream):
                 group.clear()
                 group.find(subgroups[activity + ":ansvar"])
                 name_elements = group.description.split(" ")
-                act_name = " ".join(name_elements[1:])                
+                act_name = " ".join(name_elements[1:])
 
                 logger.debug("Exporting activity: '%s' - '%s'" % (activity_id, act_name))
                 exporter.group_to_xml(id=activity_id,
@@ -534,7 +534,7 @@ def export_data(output_stream):
                           parentcode=exporter.IDstcode, grouptype_level=1,
                           nameshort=root_class_name, namelong=root_class_name,
                           namefull=root_class_name)
-    
+
     group.clear()
     group.find_by_name(class_supergroup)
     for class_group in group.search_members(group_id=group.entity_id):
@@ -542,7 +542,7 @@ def export_data(output_stream):
         group.clear()
         group.find(class_group_id)
         class_id = group.group_name
-        class_name = group.description 
+        class_name = group.description
         logger.debug("Exporting class: '%s' - '%s'" % (class_id, class_name))
         exporter.group_to_xml(id=class_id, grouptype="Class",
                               parentcode=root_class_id, grouptype_level=2,
@@ -577,10 +577,10 @@ def export_data(output_stream):
                  len(faculty_responsibles), len(faculty_members),
                  root_faculty_id)
     exporter.membership_to_xml(root_faculty_id, [], faculty_members)
-    
+
 
     exporter.end()
-    
+
 
 def usage(message=None):
     """Gives user info on how to use the program and its options."""
@@ -627,17 +627,17 @@ def main(argv=None):
             options["import"] = False
         if opt in ('--no-export',):
             options["export"] = False
-   
+
     if options["import"]:
         import_data()
 
     if options["export"]:
         if options["output"] != sys.stdout:
             output_stream = SimilarSizeWriter(options["output"], "w")
-            output_stream.max_pct_change = 10
-            
+            output_stream.max_pct_change = 50
+
         export_data(output_stream)
-        
+
         if output_stream != sys.stdout:
             output_stream.close()
 
