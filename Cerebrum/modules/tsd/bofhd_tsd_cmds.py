@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2016 University of Oslo, Norway
+# Copyright 2013-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -39,7 +39,7 @@ ba.is_superuser is not missing, it's still here, but in a different form.
 """
 
 from mx import DateTime
-from functools import wraps
+from functools import wraps, partial
 
 import cereconf
 
@@ -58,6 +58,7 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,
                                               PhrasePasswordNotGoodEnough)
+from Cerebrum.modules.username_generator.generator import UsernameGenerator
 
 from Cerebrum.modules.tsd.bofhd_auth import TSDBofhdAuth
 from Cerebrum.modules.tsd import bofhd_help
@@ -1645,10 +1646,17 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                         person.get_name(self.const.system_cached, v)
                         for v in (self.const.name_first, self.const.name_last)]
                     ou = self._get_ou(ou_id=affiliation['ou_id'])
-                    sugg = posix_user.suggest_unames(
-                        self.const.account_namespace, fname, lname,
+                    uname_generator = UsernameGenerator()
+                    # create a validation callable (function)
+                    vfunc = partial(posix_user.validate_new_uname,
+                                    self.const.account_namespace)
+                    sugg = uname_generator.suggest_unames(
+                        self.const.account_namespace,
+                        fname,
+                        lname,
                         maxlen=cereconf.USERNAME_MAX_LENGTH,
-                        prefix='%s-' % ou.get_project_id())
+                        prefix='%s-' % ou.get_project_id(),
+                        validate_func=vfunc)
                     if sugg:
                         ret['default'] = sugg[0]
                 except ValueError:
