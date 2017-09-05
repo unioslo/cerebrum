@@ -19,13 +19,14 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
+A dedicated module for username generation
 """
 import re
 import string
 
 import cereconf
 
-from Cerebrum import Errors, Utils
+from Cerebrum import Errors
 from Cerebrum.Entity import EntityName
 
 
@@ -33,20 +34,6 @@ class UsernameGenerator(object):
     """
     Username-generator class
     """
-
-    def __init__(self, logger=None, *args, **kw):
-        """ Constructs a UsernameGenerator.
-
-        :param logging.Logger logger:
-            Logger object to use. If `None`, this object will fetch a new
-            logger with `Factory.get_logger('crontab')`. This is the default.
-        """
-        try:
-            self.logger = logger or Utils.Factory.get_logger('console')
-            self.logger.debug('UsernameGenerator initialized')
-        except Exception as e:
-            raise Errors.CerebrumError('Unable to create a UsernameGenerator '
-                                       'instance: {error}'.format(error=e))
 
     _simplify_name_cache = [None] * 4
 
