@@ -35,7 +35,7 @@ class CollectParser(xml.sax.ContentHandler):
         self.hash_keys = hash_keys
         self.append_file = append_file
         xml.sax.parse(filename, self)
-        
+
     def startElement(self, name, attrs):
         self.level += 1
         if self.level > 1:
@@ -48,10 +48,11 @@ class CollectParser(xml.sax.ContentHandler):
                     tmp[k.encode('iso8859-1')] = attrs[k].encode('iso8859-1')
             tmp['TagName'] = name.encode('iso8859-1')
             self.results.setdefault(hash_key, []).append(tmp)
-                        
+
     def endElement(self, name):
         self.level -= 1
         pass
+
 
 def usage(exitcode=0):
     print """Usage: [options]
@@ -85,12 +86,16 @@ merge_xml_files.py -d fodselsdato:personnr -f person_file.xml -f regkort.xml -t 
 Note that memory usage may equal the total size of all XML files."""
     sys.exit(exitcode)
 
+
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'd:f:o:t:a:', ['delim=', 'file=', 'out=', 'tag=', 'append='])
+        opts, args = getopt.getopt(sys.argv[1:], 'd:f:o:t:a:', ['delim=',
+                                                                'file=',
+                                                                'out=', 'tag=',
+                                                                'append='])
     except getopt.GetoptError:
         usage(2)
-        
+
     big_xml = {}
     for opt, val in opts:
         if opt in ('-t', '--tag'):
@@ -103,26 +108,28 @@ def main():
             CollectParser(val, big_xml, delim, True)
         elif opt in ('-o', '--out'):
             f = SimilarSizeWriter(val, "w")
-            f.max_pct_change = 10
+            f.max_pct_change = 50
             xml = XMLHelper()
             f.write(xml.xml_hdr + "<data>\n")
             for bx_key in big_xml.keys():
                 bx_delim = bx_key.split("¦")
                 f.write("<%s %s>\n" % (
-                    tag, " ".join(["%s=%s" % (
-                    delim[n], xml.escape_xml_attr(bx_delim[n])) for n in range(len(delim))])))
+                    tag, " ".join(["%s=%s" % (delim[n],
+                                              xml.escape_xml_attr(bx_delim[n]))
+                                   for n in range(len(delim))])))
                 for tmp_tag in big_xml[bx_key]:
                     tmp = tmp_tag['TagName']
                     del(tmp_tag['TagName'])
 
                     f.write("  <%s %s/>\n" % (
-                        tmp, " ".join(["%s=%s" % (
-                        tk, xml.escape_xml_attr(tmp_tag[tk])) for tk in tmp_tag.keys()])))
+                        tmp, " ".join(["%s=%s" % (tk,
+                                                  xml.escape_xml_attr(tmp_tag[tk]))
+                                       for tk in tmp_tag.keys()])))
 
                 f.write("</%s>\n" % tag)
             f.write("</data>\n")
             f.close()
 
+
 if __name__ == '__main__':
     main()
-

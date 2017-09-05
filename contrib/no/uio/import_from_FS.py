@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-# 
+#
 # Copyright 2002-2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -145,7 +145,7 @@ def write_edu_info(outfile):
     Advarsel: vi gjør ingen konsistenssjekk på at undervisningselementer nevnt
     i outfile vil faktisk finnes i andre filer genererert av dette
     skriptet. Mao. det er fullt mulig at en student S er registrert ved undakt
-    U1, samtidig som U1 ikke er nevnt i undervisningsaktiveter.xml. 
+    U1, samtidig som U1 ikke er nevnt i undervisningsaktiveter.xml.
 
     fs.undervisning.list_studenter_alle_kull()      <- kull deltagelse
     fs.undervisning.list_studenter_alle_undenh()    <- undenh deltagelse
@@ -155,7 +155,7 @@ def write_edu_info(outfile):
     """
 
     f = SimilarSizeWriter(outfile, "w")
-    f.max_pct_change = 15
+    f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
 
     for triple in (("kull", None, fs.undervisning.list_studenter_alle_kull),
@@ -176,7 +176,7 @@ def write_edu_info(outfile):
             else:
                 tmp_row = dict((f, row[f]) for f in fields)
                 keys = fields
-                
+
             f.write(xml.xmlify_dbrow(tmp_row, keys, kind) + '\n')
 
     f.write("</data>\n")
@@ -188,7 +188,7 @@ def write_forkurs_info(outfile):
     from mx.DateTime import now
     logger.info("Writing pre-course file to '{}'".format(outfile))
     f = SimilarSizeWriter(outfile, "w")
-    f.max_pct_change = 10
+    f.max_pct_change = 50
     cols, course_attendants = _ext_cols(fs.forkurs.list())
     f.write(xml.xml_hdr + "<data>\n")
     for a in course_attendants:
@@ -216,9 +216,9 @@ def write_person_info(outfile):
     # <person> tag?
 
     logger.info("Writing person info to '%s'" % outfile)
-    
+
     f = SimilarSizeWriter(outfile, "w")
-    f.max_pct_change = 10
+    f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     # Fagpersoner
     cols, fagpersoner = _ext_cols(fs.undervisning.list_fagperson_semester())
@@ -284,21 +284,21 @@ def write_person_info(outfile):
 ## inntil videre. Derfor slutter vi på nåværende tidspunkt å hente ut informasjon om
 ## disse. Ettersom det er usikkert om dette vil endre seg igjen i nær fremtid lar vi
 ## koden ligge for nå.
-##        
+##
 ##    # Personer som har fått tilbud
 ##    cols, tilbudstud = _ext_cols(fs.student.list_tilbud())
 ##    for t in tilbudstud:
 ##        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'tilbud') + "\n")
-    
+
     f.write("</data>\n")
     f.close()
 
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
     logger.info("Writing OU info to '%s'" % outfile)
-    
+
     f = SimilarSizeWriter(outfile, "w")
-    f.max_pct_change = 10
+    f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR))  # TODO
     for o in ouer:
@@ -347,7 +347,7 @@ def write_topic_info(outfile):
     # TODO: Denne filen blir endret med det nye opplegget :-(
     logger.info("Writing topic info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.max_pct_change = 10
+    f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, topics = _ext_cols(fs.student.list_eksamensmeldinger())
     for t in topics:
@@ -362,7 +362,7 @@ def write_regkort_info(outfile):
     inneværende semester"""
     logger.info("Writing regkort info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.max_pct_change = 10
+    f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, regkort = _ext_cols(fs.student.list_semreg())
     for r in regkort:
@@ -374,7 +374,7 @@ def write_netpubl_info(outfile):
     """Lager fil med informasjon om status nettpublisering"""
     logger.info("Writing nettpubl info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.max_pct_change = 10
+    f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, nettpubl = _ext_cols(fs.person.list_status_nettpubl())
     for n in nettpubl:
@@ -386,7 +386,7 @@ def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
     logger.info("Writing studprog info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.max_pct_change = 10
+    f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.info.list_studieprogrammer())
     for t in dta:
@@ -398,7 +398,7 @@ def write_emne_info(outfile):
     """Lager fil med informasjon om alle definerte emner"""
     logger.info("Writing emne info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.max_pct_change = 15
+    f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.info.list_emner())
     for t in dta:
@@ -410,7 +410,7 @@ def write_personrole_info(outfile):
     """Lager fil med informasjon om alle roller definer i FS.PERSONROLLE"""
     logger.info("Writing personrolle info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.max_pct_change = 20
+    f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.undervisning.list_alle_personroller())
     for t in dta:
@@ -422,12 +422,7 @@ def write_misc_info(outfile, tag, func_name):
     """Lager fil med data fra gitt funksjon i access_FS"""
     logger.info("Writing misc info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    if tag == 'aktivitet':
-        f.max_pct_change = 20
-    elif tag == 'enhet':
-        f.max_pct_change = 15
-    else:
-        f.max_pct_change = 10
+    f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     # It's still not foolproof, but hopefully much more sane than simply
     # eval'ing.
@@ -462,14 +457,14 @@ def write_fnrupdate_info(outfile):
     for row in data:
         # Make the format resemble the corresponding FS output as close as
         # possible.
-        attributes = { "type" : str(const.externalid_fodselsnr), 
+        attributes = { "type" : str(const.externalid_fodselsnr),
                        "new"  : "%06d%05d" % (row["fodselsdato_naverende"],
                                               row["personnr_naverende"]),
                        "old"  : "%06d%05d" % (row["fodselsdato_tidligere"],
                                               row["personnr_tidligere"]),
                        "date" : str(row["dato_foretatt"]),
                      }
-        
+
         writer.emptyElement("external_id", attributes)
     # od
 
@@ -483,10 +478,10 @@ def write_fnrupdate_info(outfile):
 def write_betalt_papir_info(outfile):
     """Lager fil med informasjon om alle som enten har fritak fra å
     betale kopiavgift eller har betalt kopiavgiften"""
-    
+
     logger.info("Writing betaltpapir info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.max_pct_change = 10
+    f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.betaling.list_kopiavgift_data(kun_fritak=False, semreg=True))
     for t in dta:

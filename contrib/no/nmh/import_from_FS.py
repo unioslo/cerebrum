@@ -50,7 +50,7 @@ def _ext_cols(db_rows):
 
 def write_person_info(outfile):
     f = SimilarSizeWriter(outfile)
-    f.max_pct_change = 20
+    f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
 
     # Aktive fagpersoner ved NMH
@@ -76,7 +76,7 @@ def write_person_info(outfile):
 def write_netpubl_info(outfile):
     """Lager fil med informasjon om status nettpublisering"""
     f = SimilarSizeWriter(outfile, "w")
-    f.max_pct_change = 15
+    f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, nettpubl = _ext_cols(fs.person.list_status_nettpubl())
     for n in nettpubl:
@@ -89,7 +89,7 @@ def write_ou_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
-    cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR)) 
+    cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR))
     for o in ouer:
         sted = {}
         for fs_col, xml_attr in (
@@ -144,7 +144,7 @@ def write_evukurs_info(outfile):
     f.write("</data>\n")
     f.close()
     # end write_evukurs_info
-    
+
 def write_role_info(outfile):
     """Skriv data om alle registrerte roller"""
     f = MinimumSizeWriter(outfile)
@@ -235,14 +235,14 @@ def write_fnrupdate_info(outfile):
     for row in data:
         # Make the format resemble the corresponding FS output as close as
         # possible.
-        attributes = { "type" : str(const.externalid_fodselsnr), 
+        attributes = { "type" : str(const.externalid_fodselsnr),
                        "new"  : "%06d%05d" % (row["fodselsdato_naverende"],
                                               row["personnr_naverende"]),
                        "old"  : "%06d%05d" % (row["fodselsdato_tidligere"],
                                               row["personnr_tidligere"]),
                        "date" : str(row["dato_foretatt"]),
                      }
-        
+
         writer.emptyElement("external_id", attributes)
     # od
 
@@ -319,14 +319,14 @@ def set_filepath(datadir, file):
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "fpsruUoeEn",
-                                   ["personinfo-file=", "studprog-file=", 
+                                   ["personinfo-file=", "studprog-file=",
                                     "roleinfo-file=", "undenh-file=",
                                     "datadir=",
                                     "student-undenh-file=",
                                     "emneinfo-file=",
                                     "netpubl-file=",
                                     "evukursinfo-file=",
-                                    "fnr-update-file=", "misc-func=", 
+                                    "fnr-update-file=", "misc-func=",
                                     "misc-file=", "misc-tag=",
                                     "ou-file=", "db-user=", "db-service="])
     except getopt.GetoptError:
