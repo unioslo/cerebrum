@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2004-2012 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2004-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -187,8 +187,8 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         entry.update(ldapconf('ORG', 'attrs', {}))
         oc = ['top', 'organization', 'eduOrg']
         oc.extend(entry.get('objectClass', ()))
-        entry['objectClass'] = (['top', 'organization', 'eduOrg']
-                                + list(entry.get('objectClass', ())))
+        entry['objectClass'] = (['top', 'organization', 'eduOrg'] +
+                                list(entry.get('objectClass', ())))
         if self.org_dn.lower().startswith('dc='):
             entry['objectClass'].append('dcObject')
         self.update_org_object_entry(entry)
@@ -479,7 +479,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         timer2 = make_timer(self.logger)
         self.acc_name = acc_name = {}
         self.acc_passwd = {}
-        self.acc_locked_quarantines = self.acc_quarantines = acc_quarantines = defaultdict(list)
+        self.acc_locked_quarantines = self.acc_quarantines = defaultdict(list)
         for row in self.account.list_account_authentication(
                 auth_type=int(self.const.auth_type_md5_crypt)):
             account_id = int(row['account_id'])
@@ -491,16 +491,16 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
             int(self.const.Quarantine(code))
             for code in getattr(cereconf, 'QUARANTINE_FEIDE_NONLOCK', ())]
         if nonlock_quarantines:
-            self.acc_locked_quarantines = acc_locked_quarantines = defaultdict(list)
+            self.acc_locked_quarantines = defaultdict(list)
         for row in self.account.list_entity_quarantines(
                 entity_ids=self.accounts,
                 only_active=True,
                 entity_types=self.const.entity_account):
             qt = int(row['quarantine_type'])
             entity_id = int(row['entity_id'])
-            acc_quarantines[entity_id].append(qt)
+            self.acc_quarantines[entity_id].append(qt)
             if nonlock_quarantines and qt not in nonlock_quarantines:
-                acc_locked_quarantines[entity_id].append(qt)
+                self.acc_locked_quarantines[entity_id].append(qt)
         timer("...account information done.")
 
     # If fetching addresses from entity_contact_info, this is True
@@ -527,7 +527,8 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         # Set self.account_mail = None if not use_mail_module, otherwise
         #                         function: account_id -> ('address' or None).
         if use_mail_module:
-            timer = make_timer(self.logger, "Fetching account e-mail addresses...")
+            timer = make_timer(self.logger,
+                               "Fetching account e-mail addresses...")
 
             # Get target types from config
             mail_target_types = []
@@ -573,7 +574,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
                                       cereconf.LDAP['contact_source_system']),
                 address_type=map_constants('_AddressCode', addr_types)):
             entity_id = int(row['entity_id'])
-            if not addr_info.has_key(entity_id):
+            if entity_id not in addr_info:
                 addr_info[entity_id] = {}
             addr_info[entity_id][int(row['address_type'])] = (
                 row['address_text'], row['p_o_box'], row['postal_number'],
@@ -673,10 +674,8 @@ from None and LDAP_PERSON['dn'].""")
             'sn': (lastname,)}
         if givenname:
             entry['givenName'] = (givenname,)
-        try:
+        if account_id in self.acc_name:
             entry['uid'] = (self.acc_name[account_id],)
-        except KeyError:
-            pass
 
         passwd = self.acc_passwd.get(account_id)
         qt = self.acc_quarantines.get(account_id)
@@ -806,10 +805,8 @@ from None and LDAP_PERSON['dn'].""")
         # in the entry, insert it in the entry.
         # If an attribute value can match LDIFutils.dn_escape_re, escape
         # it in the DN: dn_escape_re.sub(hex_escape_match, <value>).
-        #try:
         if 'uid' in entry and len(entry['uid']):
             rdn = "uid=" + entry['uid'][0]
-        #except KeyError:
         else:
             self.logger.warn("Person %d got no account. Skipping.", person_id)
             return None, None
@@ -817,9 +814,9 @@ from None and LDAP_PERSON['dn'].""")
         # that if a person has an alias there, his eduPersonPrimaryOrgUnitDN
         # will refer back to his parent DN just like with other aliases.
         primary_ou_dn = self.ou2DN.get(int(row['ou_id'])) or self.dummy_ou_dn
-        dn = ",".join((rdn, (self.person_parent_dn
-                             or primary_ou_dn
-                             or self.person_dn)))
+        dn = ",".join((rdn, (self.person_parent_dn or
+                             primary_ou_dn or
+                             self.person_dn)))
         return dn, primary_ou_dn
 
     def update_person_entry(entry, row, person_id):
@@ -910,7 +907,7 @@ from None and LDAP_PERSON['dn'].""")
             elif normalize == normalize_phone and '/' in c_list[0]:
                 c_list = c_list[0].split('/')
             key = int(row['entity_id'])
-            if cont_tab.has_key(key):
+            if key in cont_tab:
                 cont_tab[key].extend(c_list)
             else:
                 cont_tab[key] = c_list
@@ -959,7 +956,8 @@ from None and LDAP_PERSON['dn'].""")
                                          % repr(status))
                     else:
                         status_str = status.split("@")[0]
-                        status_id = self.const.PersonAffStatus(aff_id,status_str)
+                        status_id = self.const.PersonAffStatus(
+                            aff_id, status_str)
                         if status_id is not None:
                             status_id = int(status_id)
                         if "@" not in status:
@@ -973,9 +971,9 @@ from None and LDAP_PERSON['dn'].""")
                             ou_str = status.split("@")[1]
                             try:
                                 ou.clear()
-                                ou.find_stedkode(ou_str[0:2], ou_str[2:4],
-                                                 ou_str[4:6],
-                                                 cereconf.INTERNAL_OU_NUMBER, 0)
+                                ou.find_stedkode(
+                                    ou_str[0:2], ou_str[2:4], ou_str[4:6],
+                                    cereconf.INTERNAL_OU_NUMBER, 0)
                                 key = (int(aff_id), status_id,
                                        int(ou.entity_id))
                             except Errors.NotFoundError as e:
@@ -985,7 +983,7 @@ from None and LDAP_PERSON['dn'].""")
                                          " failed because of the following"
                                          " OU search function error: '%s'"
                                          % (ou_str, e))
-                    if mapping.has_key(key):
+                    if key in mapping:
                         raise ValueError("Duplicate selector[%s][%s]" % tuple(
                             [val is True and "True" or repr(val)
                              for val in (affiliation, status)]))
@@ -1035,16 +1033,14 @@ from None and LDAP_PERSON['dn'].""")
             result = []
             for p_affiliation in p_affiliations:
                 # Search selector for p_affiliation or initial part of it.
-                try:
+                if p_affiliation[:3] in selector:
                     ssel = selector[p_affiliation[:3]]
-                except KeyError:
-                    try:
-                        ssel = selector[p_affiliation[:2]]
-                    except KeyError:
-                        # Cache this to avoid more exceptions at the same key
-                        ssel = selector[p_affiliation[:2]] = \
-                               selector.get(p_affiliation[0]) or \
-                               selector.get(None)
+                elif p_affiliation[:2] in selector:
+                    ssel = selector[p_affiliation[:2]]
+                else:
+                    # Cache
+                    ssel = selector[p_affiliation[:2]] = selector.get(
+                        p_affiliation[0]) or selector.get(None)
                 if ssel:
                     result.extend(ssel[0])
             return result
@@ -1082,15 +1078,13 @@ from None and LDAP_PERSON['dn'].""")
         if type(selector) is dict:
             for p_affiliation in p_affiliations:
                 # Search selector for p_affiliation or initial part of it.
-                try:
+                if p_affiliation[:3] in selector:
                     ssel = selector[p_affiliation[:3]]
-                except KeyError:
-                    try:
-                            ssel = selector[p_affiliation[:2]]
-                    except KeyError:
-                        # Cache this to avoid more exceptions at the same key
-                        ssel = selector[p_affiliation[:2]] = \
-                        selector.get(p_affiliation[0]) or selector.get(None)
+                elif p_affiliation[:2] in selector:
+                    ssel = selector[p_affiliation[:2]]
+                else:
+                    ssel = selector[p_affiliation[:2]] = selector.get(
+                        p_affiliation[0]) or selector.get(None)
                 if ssel and ssel[ssel[2](person_id)]:
                     return True
             return False
@@ -1122,12 +1116,14 @@ from None and LDAP_PERSON['dn'].""")
 
     def split_name(self, fullname=None, givenname=None, lastname=None):
         """Return (UTF-8 given name, UTF-8 last name)."""
-        full, given, last = [self._unicode_space_split(unicode(n or '', 'utf-8'))
+        full, given, last = [self._unicode_space_split(
+                                unicode(n or '', 'utf-8'))
                              for n in (fullname, givenname, lastname)]
         if full and not (given and last):
             if last:
                 rest_l = last
-                while full and rest_l and rest_l[-1].lower() == full[-1].lower():
+                while full and rest_l and (
+                        rest_l[-1].lower() == full[-1].lower()):
                     rest_l.pop()
                     full.pop()
                 if full and rest_l:
