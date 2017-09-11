@@ -90,9 +90,7 @@ class Stedkode(OU):
         return identical
 
     def __str__(self):
-        return "landkode=%s, institusjon=%s, stedkode=%s-%s-%s" % (
-            self.landkode, self.institusjon, self.fakultet, self.institutt,
-            self.avdeling)
+        return "%02d%02d%02d" % (self.fakultet, self.institutt, self.avdeling)
 
     def write_db(self):
         """Sync instance with Cerebrum database.
