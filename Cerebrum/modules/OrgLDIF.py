@@ -705,14 +705,19 @@ from None and LDAP_PERSON['dn'].""")
             entry['eduPersonOrgDN'] = (self.org_dn,)
         if primary_ou_dn:
             entry['eduPersonPrimaryOrgUnitDN'] = (primary_ou_dn,)
-        # edu_OUs = [primary_ou_dn] + [self.ou2DN.get(aff[2])
-        #                             for aff in p_affiliations]
+
         edu_OUs = self._calculate_edu_OUs(
             primary_ou_dn,
             [self.ou2DN.get(aff[2]) for aff in p_affiliations])
         entry['eduPersonOrgUnitDN'] = self.attr_unique(filter(None, edu_OUs))
         entry['eduPersonAffiliation'] = self.attr_unique(self.select_list(
             self.eduPersonAff_selector, person_id, p_affiliations))
+
+        # For now, the scoped affiliations are just a mirror of the above
+        # with realm tacked on
+        entry['eduPersonScopedAffiliation'] = list(
+            x + '@' + cereconf.INSTITUTION_DOMAIN_NAME
+            for x in entry.get('eduPersonAffiliation'))
 
         if self.select_bool(self.contact_selector, person_id, p_affiliations):
             # title:
