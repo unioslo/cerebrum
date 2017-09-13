@@ -21,6 +21,7 @@
 """
 A dedicated module for username generation
 """
+import copy
 import re
 import string
 
@@ -28,6 +29,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Entity import EntityName
+from Cerebrum.modules.username_generator.config import load_config
 
 
 class UsernameGenerator(object):
@@ -37,32 +39,61 @@ class UsernameGenerator(object):
 
     _simplify_name_cache = [None] * 4
 
-    def simplify_name(self, s, alt=0, as_gecos=0):
-        """Convert string so that it only contains characters that are
-        legal in a posix username.  If as_gecos=1, it may also be
-        used for the gecos field"""
+    def __init__(self, config=None, **kw):
+        """
+        Constructs a UsernameGenerator.
 
+        :param config: The Configuration-object for the
+                       username_generator module.
+        :type config: Cerebrum.config.configuration.Configuration or None
+        """
+        try:
+            if config is None:
+                self.config = load_config()
+            else:
+                self.config = config
+            self.encoding = kw.get('encoding') or self.config.encoding
+            # Maybe part of the config in the future...
+            self.mappings = {
+                u'Ð': u'Dh',
+                u'ð': u'dh',
+                u'Þ': u'Th',
+                u'þ': u'th',
+                u'ß': u'ss'}
+            self.alt_mappings = {
+                u'Æ': u'ae',
+                u'æ': u'ae',
+                u'Å': u'aa',
+                u'å': u'aa'}
+        except Exception as e:
+            raise Errors.CerebrumError('Unable to create a UsernameGenerator '
+                                       'instance: {error}'.format(error=e))
+
+    def simplify_name(self, s, alt=0, as_gecos=0):
+        """
+        Convert string so that it only contains characters that are
+        legal in a posix username.
+        If as_gecos=1, it may also be used for the gecos field
+        """
         key = bool(alt) + (bool(as_gecos) * 2)
         try:
             (tr, xlate_subst, xlate_match) = self._simplify_name_cache[key]
         except TypeError:
-            xlate = {'Ð': 'Dh', 'ð': 'dh',
-                     'Þ': 'Th', 'þ': 'th',
-                     'ß': 'ss'}
+            xlate = self._encode_dict(self.mappings)
             if alt:
-                xlate.update({'Æ': 'ae', 'æ': 'ae',
-                              'Å': 'aa', 'å': 'aa'})
+                xlate.update(self._encode_dict(self.alt_mappings))
             xlate_subst = re.compile(r'[^a-zA-Z0-9 -]').sub
 
             def xlate_match(match):
                 return xlate.get(match.group(), "")
+
             tr = dict(zip(map(chr, xrange(0200, 0400)), ('x',) * 0200))
             tr.update(dict(zip(
-                'ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝàáâãäçèéêëìíîïñòóôõöùúûüýÿ'
-                '{[}]|¦\\¨­¯´',
-                'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
-                'aAaAooO"--\'')))
-            for ch in filter(tr.has_key, xlate):
+                self._encode(u'ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝàáâãäçèéêëìíîï'
+                             u'ñòóôõöùúûüýÿ{[}]|¦\\¨­¯´'),
+                self._encode(u'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiin'
+                             u'ooooouuuuyyaAaAooO"--\''))))
+            for ch in filter(lambda x: x in tr, xlate):
                 del tr[ch]
             tr = string.maketrans("".join(tr.keys()), "".join(tr.values()))
             if not as_gecos:
@@ -242,3 +273,27 @@ class UsernameGenerator(object):
             if validate_func is None or validate_func(un):
                 potuname += (un, )
         return potuname
+
+    def _encode(self, u):
+        """
+        Returns an encoded (byte) string of the unicode `u` using
+        the defined self.encoding.
+        If self.encoding is empty or None or if `u` is not unicode,
+        u is returned.
+        """
+        if not isinstance(u, unicode) or not self.encoding:
+            return u
+        return u.encode(self.encoding)
+
+    def _encode_dict(self, u_dict):
+        """
+        Returns a *copy* of `u_dict` where all unicode keys and values
+        are encoded using self.encoding.
+        If self.encoding is empty or None, no encoding is attempted and only
+        a copy of `u_dict` is returned.
+        """
+        assert isinstance(u_dict, dict)
+        if not self.encoding:
+            return copy.copy(u_dict)
+        return dict(
+            [(self._encode(k), self._encode(v)) for k, v in u_dict.items()])

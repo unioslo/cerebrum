@@ -36,7 +36,8 @@ class PasswordGenerator(object):
     """
 
     def __init__(self, config=None, *args, **kw):
-        """ Constructs a PasswordGenerator.
+        """
+        Constructs a PasswordGenerator.
 
         :param Cerebrum.config.configuration.Configuration config:
             The Configuration object for the password_generator module.
