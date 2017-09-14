@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-u""" NMH bohfd module. """
+""" NMH bofhd module. """
 
 import mx
 
@@ -31,6 +31,7 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailMixin
+from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 
 from Cerebrum.modules.no.access_FS import make_fs
@@ -161,6 +162,9 @@ email_mixin_commands = ['email_mod_name', ]
     UiOBofhdExtension,
     'all_commands', 'all_commands',
     commands=uio_commands)
+@copy_func(
+    BofhdUserCreateMethod,
+    methods=['_user_create_set_account_type'])
 @copy_func(
     UiOBofhdExtension,
     methods=uio_helpers + uio_commands)
