@@ -25,6 +25,7 @@
 
 import cerebrum_path
 import cereconf
+# from difflib import SequenceMatcher
 
 from Cerebrum.modules.cim.datasource import CIMDataSource
 
@@ -63,7 +64,6 @@ class CIMDataSourceUit(CIMDataSource):
     POLARMUSEET     = 'Polarmuseet'
     REALF           = 'Realfagsbygget'
     RKBU            = 'RKBU'
-    # SKFELT          = 'Skibotn feltstasjon'
     STAKKEVV        = 'Stakkevollvegen 23'
     SVALBARD        = 'Svalbard'
     SVHUM           = 'HSL-bygget'
@@ -199,35 +199,32 @@ class CIMDataSourceUit(CIMDataSource):
                     'unn'                               : UNN,
                     'vitensenteret'                     : VITENSENTERET,
                     'øvre lysthus'                      : OLYSTH,
-                    'Øvre lysthus'                      : OLYSTH,
                     'ølysth'                            : OLYSTH,
-                    'Ølysth'                            : OLYSTH,
                     'åsgård'                            : AASGAARD,
-                    'Åsgård'                            : AASGAARD
                     } 
-                    # Note: words that begin with norwegian letters must be present with both
-                    # upper- and lowercase first letter
 
 # Eiscat? -> HOVEDBYGNING -> is "Hovedbygning" enough to place a person?
+
+    def prepare_for_comparison(self, text):
+        """
+        Converts text to lowercase and correct encoding.
+        The encoding stuff is needed so comparison works with norwegian characters.
+        """
+        return text.strip().decode('utf-8').lower().encode('utf-8')
 
     def room_to_dist_list(self, room_info):
         """
         TODO: describe this method
+        :param string room_info: Name of room. Must be utf-8 and lowercase
         """
         dist_list = None
 
-        # # test
-        # print 'room_info:', room_info
-
-        lower = room_info.lower().strip()
-        fixed = lower.decode('iso-8859-1').encode('utf-8')
-
-        split = fixed.split(' ')
+        split = room_info.split(' ')
         if split[0] in self.loc2distlist.keys():
             dist_list = self.loc2distlist[split[0]]
 
-        if dist_list == None and '_' in fixed:
-            split = fixed.split('_')
+        if dist_list == None and '_' in room_info:
+            split = room_info.split('_')
             if split[0] in self.loc2distlist.keys():
                 dist_list = self.loc2distlist[split[0]]
 
@@ -236,21 +233,15 @@ class CIMDataSourceUit(CIMDataSource):
     def building_to_dist_list(self, building_info):
         """
         TODO: describe this method
+        :param string building_info: Name of building. Must be utf-8 and lowercase
         """
         dist_list = None
 
-        # # test
-        # print 'building_info:', building_info
+        if building_info in self.loc2distlist.keys():
+            dist_list = self.loc2distlist[building_info]
 
-        lower = building_info.lower().strip()
-        fixed = lower.decode('iso-8859-1').encode('utf-8')
-
-        if fixed in self.loc2distlist.keys():
-            dist_list = self.loc2distlist[fixed]
-
-        if dist_list == None and '/' in lower:
-            # don't use 'fixed' for this!
-            split = lower.split('/')
+        if dist_list == None and '/' in building_info:
+            split = building_info.split('/')
             for s in split:
                 res = self.building_to_dist_list(s)
                 if res != None:
@@ -259,15 +250,33 @@ class CIMDataSourceUit(CIMDataSource):
                     elif res not in dist_list:
                         dist_list += ',' + res
 
-        if dist_list == None and ' ' in fixed:
-            split = fixed.split(' ')
+        if dist_list == None and ' ' in building_info:
+            split = building_info.split(' ')
             if split[0] in self.loc2distlist.keys():
                 dist_list = self.loc2distlist[split[0]]
 
-        if dist_list == None and '.' in fixed:
-            split = fixed.split('.')
+        if dist_list == None and '.' in building_info:
+            split = building_info.split('.')
             if split[0] in self.loc2distlist.keys():
                 dist_list = self.loc2distlist[split[0]]
+
+        # # Could run SequenceMatcher for comparing strings, but this may give false positives,
+        # # so we will wait and see if it is needed. 
+        # # If needed: tweaking og min_score is necessary!
+        # if dist_list == None:
+        #     best_match = ''
+        #     best_score = 0.0
+        #     min_score = 0.85
+        #     for location in self.loc2distlist:
+        #         score = SequenceMatcher(None, building_info, location).ratio()
+        #         if score > best_score:
+        #             best_score = score
+        #             best_match = self.loc2distlist[location]
+        #     if best_score > min_score:
+        #         # test
+        #         self.logger.info("SequenceMatcher: best_score: %f, building_info: %s, best_match: %s" 
+        #             % (best_score, building_info.decode('utf-8'), best_match.decode('utf-8'))) #?? move this outside if-test?
+        #         dist_list = best_match
 
         return dist_list
 
@@ -297,25 +306,29 @@ class CIMDataSourceUit(CIMDataSource):
         buildings = self.pe.get_contact_info(type=558)
 
         for r in rooms:
-            room_dist_list = self.room_to_dist_list(r['contact_value'])
+            room_info = self.prepare_for_comparison(r['contact_value'])
+            # # test
+            # self.logger.debug("r['contact_value']: %s" % r['contact_value'].decode('utf-8'))
+            # self.logger.debug('room_info: %s' % room_info.decode('utf-8'))
+
+            room_dist_list = self.room_to_dist_list(room_info)
             if room_dist_list == None:
                 self.logger.info("CIMDataSourceUit: Unrecognized room info, %s, for person_id %s" 
-                                  % (r['contact_value'], person_id))
+                                  % (room_info.decode('utf-8'), person_id))
             else:
-                # # test
-                # print "room_dist_list:", room_dist_list
-
                 dist_lists = self.add_to_dist_lists(dist_lists, room_dist_list)
 
         for b in buildings:
-            building_dist_list = self.building_to_dist_list(b['contact_value'])
+            building_info = self.prepare_for_comparison(b['contact_value'])
+            # # test
+            # self.logger.debug("b['contact_value']: %s" % b['contact_value'].decode('utf-8'))
+            # self.logger.debug('building_info: %s' % building_info.decode('utf-8'))
+
+            building_dist_list = self.building_to_dist_list(building_info)
             if building_dist_list == None:
                 self.logger.info("CIMDataSourceUit: Unrecognized building info, %s, for person_id %s" 
-                                  % (b['contact_value'], person_id))
+                                  % (building_info.decode('utf-8'), person_id))
             else:
-                # # test
-                # print "building_dist_list:", building_dist_list
-
                 dist_lists = self.add_to_dist_lists(dist_lists, building_dist_list)
 
         if dist_lists == "":
@@ -326,9 +339,7 @@ class CIMDataSourceUit(CIMDataSource):
 
 # forts her...
     # Run test with all persons that have cim_person spread...
-    #   ->  check results...
-
-    # need to do more to handle upper/lowercase comparison of words that contain norwegian letters
+    #   ->  check results (how many in 'Ikke plassert'?)...
 
     def get_person_data(self, person_id):
         """

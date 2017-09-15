@@ -1,3 +1,7 @@
+2017-09-15  Karen   <cerebrum@metius.uit.no>
+
+    * cim_datasource.py: Comparison of words that contain norwegian letters should now be correct.
+
 2017-08-07  Karen   <cerebrum@metius.uit.no>
 
     * Constants.py: Updated affiliation_status_timelonnet_fast and affiliation_status_timelonnet_midlertidig
