@@ -423,6 +423,14 @@ def entity_external_id(msg, db=None, **kwargs):
                        **common)
 
 
+@EventFilter.register('consent')
+def entity_consent(msg, **kwargs):
+    common = _make_common_args(msg)
+    return event.Event(event.MODIFY,
+                       attributes=['consent'],
+                       **common)
+
+
 _PERSON_ATTRIBUTES = [
     'exportID',
     'birthDate',
