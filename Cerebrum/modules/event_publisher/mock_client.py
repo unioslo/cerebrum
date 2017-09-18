@@ -30,11 +30,18 @@ class MockClient(object):
     def __init__(self, config):
         self.logger = Factory.get_logger("cronjob")
 
-    def publish(self, messages, durable=True):
-        self.logger.info("Publishing: %s", str(messages))
+    def publish(self, routing_key, message):
+        self.logger.info("Publishing: routing_key={} message={}".format(
+            routing_key, message))
 
     def rollback(self):
         self.logger.info("Rolling back")
 
     def commit(self):
         self.logger.info("Commiting")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, trace):
+        return
