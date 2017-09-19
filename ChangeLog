@@ -1,3 +1,8 @@
+2017-09-19    <cerebrum@cleomedes.uit.no>
+
+	* Constants.py (Constants): added trait for primary accounts. used
+	by brukerinfo
+
 2017-09-15  Karen   <cerebrum@metius.uit.no>
 
     * cim_datasource.py: Comparison of words that contain norwegian letters should now be correct.

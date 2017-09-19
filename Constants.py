@@ -465,6 +465,12 @@ class Constants(Constants.Constants):
         "Trait set on account after account created mail is sent to user"
         )
 
+    trait_primary_aff = _EntityTraitCode(
+        "primary_aff",
+        Constants.Constants.entity_person,
+        "A person's chosen primary affiliation,"
+        " for use at the web presentations")
+
     # ePhorte codes
     spread_ephorte_person = _SpreadCode('ePhorte_person',
                                         Constants.Constants.entity_person,
