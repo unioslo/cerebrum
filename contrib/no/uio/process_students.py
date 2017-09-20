@@ -220,6 +220,7 @@ class AccountUtil(object):
             user.populate(uid, changes[0][1], None, shell,
                           parent=account_obj, expire_date=default_expire_date)
             user.write_db()
+            user.map_user_spreads_to_pg()
             logger.debug("Used dfg2: "+str(changes[0][1]))
             accounts[account_id].append_group(changes[0][1])
             del(changes[0])

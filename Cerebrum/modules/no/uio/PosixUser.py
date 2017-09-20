@@ -158,7 +158,16 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         group.populate_trait(self.const.trait_personal_dfg,
                              target_id=self.entity_id)
 
-        # Syncronizing the groups spreads with the users
+        group.write_db()
+
+    def map_user_spreads_to_pg(self, group=None):
+        """ Maps user's spreads to personal group. """
+        super(PosixUserUiOMixin, self).map_user_spreads_to_pg()
+        if group is None:
+            group = self.find_personal_group()
+        group = self.find_personal_group()
+        if group is None:
+            return
         mapping = [(int(self.const.spread_uio_nis_user),
                     int(self.const.spread_uio_nis_fg)),
                    (int(self.const.spread_uio_ad_account),
@@ -172,8 +181,6 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
                 group.add_spread(gspr)
             if gspr in group_spreads and uspr not in user_spreads:
                 group.delete_spread(gspr)
-
-        group.write_db()
 
     def _set_owner_of_group(self, group):
         op_target = BofhdAuthOpTarget(self._db)

@@ -8104,27 +8104,7 @@ Addresses and settings:
         if not is_moderator:
             return
 
-        mapping = { int(self.const.spread_uio_nis_user):
-                    int(self.const.spread_uio_nis_fg),
-                    int(self.const.spread_uio_ad_account):
-                    int(self.const.spread_uio_ad_group),
-                    int(self.const.spread_ifi_nis_user):
-                    int(self.const.spread_ifi_nis_fg) }
-        wanted = []
-        for r in account.get_spread():
-            spread = int(r['spread'])
-            if spread in mapping:
-                wanted.append(mapping[spread])
-        for r in group.get_spread():
-            spread = int(r['spread'])
-            if not spread in mapping.values():
-                pass
-            elif spread in wanted:
-                wanted.remove(spread)
-            else:
-                group.delete_spread(spread)
-        for spread in wanted:
-            group.add_spread(spread)
+        account.map_user_spreads_to_pg(group)
 
     #
     # trait commands
