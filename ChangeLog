@@ -1,3 +1,7 @@
+2017-09-20  Karen   <cerebrum@metius.uit.no>
+
+    * cim_datasource.py (create_dist_lists): Minor tidy-up of how things are logged when location info is missing or unrecognized.
+
 2017-09-19    <cerebrum@cleomedes.uit.no>
 
 	* Constants.py (Constants): added trait for primary accounts. used

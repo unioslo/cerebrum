@@ -312,10 +312,7 @@ class CIMDataSourceUit(CIMDataSource):
             # self.logger.debug('room_info: %s' % room_info.decode('utf-8'))
 
             room_dist_list = self.room_to_dist_list(room_info)
-            if room_dist_list == None:
-                self.logger.info("CIMDataSourceUit: Unrecognized room info, %s, for person_id %s" 
-                                  % (room_info.decode('utf-8'), person_id))
-            else:
+            if room_dist_list != None:
                 dist_lists = self.add_to_dist_lists(dist_lists, room_dist_list)
 
         for b in buildings:
@@ -325,14 +322,14 @@ class CIMDataSourceUit(CIMDataSource):
             # self.logger.debug('building_info: %s' % building_info.decode('utf-8'))
 
             building_dist_list = self.building_to_dist_list(building_info)
-            if building_dist_list == None:
-                self.logger.info("CIMDataSourceUit: Unrecognized building info, %s, for person_id %s" 
-                                  % (building_info.decode('utf-8'), person_id))
-            else:
+            if building_dist_list != None:
                 dist_lists = self.add_to_dist_lists(dist_lists, building_dist_list)
 
         if dist_lists == "":
             # Information about ROOM@UIT and BYGG@UIT could not be used to place person in dist_lists
+            self.logger.info(
+                "CIMDataSourceUit: Unrecognized or missing location information for person_id %s: room_info: %s, building_info: %s" 
+                % (person_id, rooms, buildings))
             dist_lists = self.IKKE_PLASSERT
 
         return dist_lists
