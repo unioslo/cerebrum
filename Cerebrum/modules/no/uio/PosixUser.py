@@ -165,9 +165,8 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         super(PosixUserUiOMixin, self).map_user_spreads_to_pg()
         if group is None:
             group = self.find_personal_group()
-        group = self.find_personal_group()
-        if group is None:
-            return
+            if group is None:
+                return
         mapping = [(int(self.const.spread_uio_nis_user),
                     int(self.const.spread_uio_nis_fg)),
                    (int(self.const.spread_uio_ad_account),
