@@ -130,6 +130,11 @@ class PosixUser(Account_class):
         self.gecos = gecos
         self.shell = shell
 
+    def map_user_spreads_to_pg(self, group=None):
+        """Syncs self's spreads to default group's spreads.
+        This uses mappings implemented in subclasses. """
+        pass
+
     def write_db(self):
         """Write PosixUser instance to database."""
         self.__super.write_db()

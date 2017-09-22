@@ -1030,6 +1030,7 @@ def proc_delete_user(r):
             with pu._new_personal_group(op.entity_id) as new_group:
                 personal_fg = new_group
                 pu._set_owner_of_group(personal_fg)
+                pu.map_user_spreads_to_pg()
             logger.debug("Created group: '%s'. Group ID = %d",
                          personal_fg.group_name, personal_fg.entity_id)
 
