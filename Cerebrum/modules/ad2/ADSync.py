@@ -32,7 +32,8 @@ variables before the synchronisation should start. Example::
 Subclasses should be made when:
 
 - Active Directory for the instance has extra functionality which requires more
-  than just new attributes. Examples: Exchange, home directories and maybe Lync.
+  than just new attributes. Examples: Exchange, home directories and maybe
+  Lync.
 
 - An instance has special needs which the base sync is not flexible enough to
   support.
@@ -92,10 +93,10 @@ class BaseSync(object):
         - Process each object retrieved from AD:
             - Gets ignored if in an OU we should not touch.
             - Gets removed/disabled in AD if no entity match the object.
-            - If not active in Cerebrum, disable/move object in AD, according to
-              what the config says.
-            - Gets moved to correct OU if put somewhere else, but only if config
-              says so.
+            - If not active in Cerebrum, disable/move object in AD, according
+              to what the config says.
+            - Gets moved to correct OU if put somewhere else, but only if
+              config says so.
             - Attributes gets compared. Those in AD not equal to Cerebrum gets
               updated.
             - Subclasses could add more functionality.
@@ -145,9 +146,7 @@ class BaseSync(object):
                              ('handle_deactivated_objects', ('ignore', None)),
                              ('gpg_recipient_id', None),
                              ('language', ('nb', 'nn', 'en')),
-                             ('changes_too_old_seconds', 60*60*24*365),  # 1 year
-                             # TODO: move these to GroupSync when we have a
-                             # solution for it.
+                             ('changes_too_old_seconds', 60*60*24*365),
                              ('group_type', 'security'),
                              ('group_scope', 'global'),
                              ('ou_mappings', []),
@@ -205,8 +204,8 @@ class BaseSync(object):
 
         This works like Factory.get() but you could specify the list of class
         names yourself. The point of this is to be able to dynamically create a
-        synchronisation class with the features that is needed without having to
-        hardcode it.
+        synchronisation class with the features that is needed without having
+        to hardcode it.
 
         All the given class names gets imported before a new class is created
         out of them. Note that this class is automatically inherited in the
@@ -218,18 +217,20 @@ class BaseSync(object):
         A's methods. The method would then raise an exception.
 
         @type sync_type: string
-        @param sync_type: The name of a AD-sync type which should be defined in the
-            AD configuration. If given, the classes defined for the given type
+        @param sync_type:
+            The name of a AD-sync type which should be defined in the AD
+            configuration. If given, the classes defined for the given type
             will be used for setting up the sync class. This parameter gets
             ignored if L{classes} is set.
 
         @type classes: list or tuple
-        @param classes: The names of all the classes that should be used in the
-            sync class. If this is specified, the L{sync_type} parameter gets
-            ignored. Example on classes:
+        @param classes:
+            The names of all the classes that should be used in the sync class.
+            If this is specified, the L{sync_type} parameter gets ignored.
+            Example on classes:
 
-                Cerebrum.modules.ad2.ADSync/UserSync
-                Cerebrum.modules.no.uio.ADSync/UiOUserSync
+            - Cerebrum.modules.ad2.ADSync/UserSync
+            - Cerebrum.modules.no.uio.ADSync/UiOUserSync
 
         """
         assert classes or sync_type, "Either sync_type or classes needed"
@@ -268,19 +269,19 @@ class BaseSync(object):
     def configure(self, config_args):
         """Read configuration options from given arguments and config file.
 
-        The configuration is for how the ADsync should behave and work. Could be
-        subclassed to support more settings for subclass functionality.
+        The configuration is for how the ADsync should behave and work. Could
+        be subclassed to support more settings for subclass functionality.
 
         Defined basic configuration settings:
 
-        - target_spread: Either a Spread constant or a list of Spread constants.
-          Used to find what entities from Cerebrum to sync with AD.
+        - target_spread: Either a Spread constant or a list of Spread
+          constants. Used to find what entities from Cerebrum to sync with AD.
 
         - root_ou (string): The root OU that should be searched for objects in
           AD.
 
-        - target_ou (string): What OU in AD that should be set as the default OU
-          for the objects.
+        - target_ou (string): What OU in AD that should be set as the default
+          OU for the objects.
 
         - handle_unknown_objects: What to do with objects that are not found in
           Cerebrum. Could either be missing spread, that they're deleted, or if
@@ -292,8 +293,8 @@ class BaseSync(object):
             ('delete', None)    # Delete the object. Can't be restored.
             ('ignore', None)    # Do not do anything with these objects.
 
-        - move_objects (bool): If objects in the wrong OU should be moved to the
-          target_ou, or being left where it is. Other attributes are still
+        - move_objects (bool): If objects in the wrong OU should be moved to
+          the target_ou, or being left where it is. Other attributes are still
           updated for the object. Defaults to False.
 
         - attributes: The attributes to sync. Must be a dict with the name of
@@ -301,10 +302,10 @@ class BaseSync(object):
           attribute. The configuration is different per attribute.
 
         @type config_args: dict
-        @param config_args: Configuration data that should be set. Overrides any
-            settings that is found from config file (adconf). Unknown keys in
-            the dict is not warned about, as it could be targeted at subclass
-            configuration.
+        @param config_args:
+            Configuration data that should be set. Overrides any settings that
+            is found from config file (adconf). Unknown keys in the dict is not
+            warned about, as it could be targeted at subclass configuration.
 
         """
         # Required settings. Will fail if not defined in the config:
@@ -318,13 +319,13 @@ class BaseSync(object):
             self.config[key] = config_args.get(key, default)
 
         # Set what object class type in AD to use, either the config or what is
-        # set in any of the subclasses of the ADSync. Most subclasses should set
-        # a default object class.
+        # set in any of the subclasses of the ADSync. Most subclasses should
+        # set a default object class.
         self.ad_object_class = config_args.get('ad_object_class',
                                                self.default_ad_object_class)
 
-        # The object class is generated dynamically, depending on the given list
-        # of classes:
+        # The object class is generated dynamically, depending on the given
+        # list of classes:
         self.logger.debug2("Using object classes: %s",
                            ', '.join(config_args['object_classes']))
         self._object_class = self._generate_dynamic_class(
@@ -367,7 +368,8 @@ class BaseSync(object):
                                         self.config['language'])
         # Change-types are changed into their constants
         self.config['change_types'] = tuple(self.co.ChangeType(*t) for t in
-                                            config_args.get('change_types', ()))
+                                            config_args.get('change_types',
+                                                            ()))
         # Set the correct port
         if 'port' in config_args:
             self.config['port'] = config_args['port']
@@ -396,8 +398,8 @@ class BaseSync(object):
             for key in adconf.SYNCS:
                 adconf.SYNCS[key]['mock'] = True
 
-        # Messages for AD-administrators should be logged if the config says so,
-        # or if there are no other options set:
+        # Messages for AD-administrators should be logged if the config says
+        # so, or if there are no other options set:
         self.config['log_ad_admin_messages'] = False
         if (not self.config['ad_admin_message'] or
                 any(o in (None, 'log') for o in
@@ -475,22 +477,24 @@ class BaseSync(object):
         @type classes: list of str
         @param classes:
             The list of classes that should get combined and turned into a
-            dynamic class. The classes are represented by strings, starting with
-            the module path, ending with the class name in the module. Example:
+            dynamic class. The classes are represented by strings, starting
+            with the module path, ending with the class name in the module.
+            Example:
 
                 Cerebrum.modules.ad2.ADSync/UserSync
                 Cerebrum.modules.ad2.ADSync/PosixUserSync
 
             Note that the order in the list is important. The last element is
             the superclass, and everyone before is subclasses. This also means
-            that you if add related classes, subclasses must be added before the
-            superclasses.
+            that you if add related classes, subclasses must be added before
+            the superclasses.
 
         @type class_name: str
         @param class_name:
-            The name of the new class, e.g. represented by L{__main__._dynamic}.
-            Not used if only one class is given, as that is then used directly -
-            no need to create a new class that is exactly the same as input.
+            The name of the new class, e.g. represented by
+            L{__main__._dynamic}. Not used if only one class is given, as that
+            is then used directly - no need to create a new class that is
+            exactly the same as input.
 
         @rtype: dynamic class
         @return:
@@ -761,15 +765,15 @@ class BaseSync(object):
 
         @rtype: bool
         @return:
-            The result from the handler. Should be True if the sync succeeded or
-            there was no need for the change to be synced, i.e. the log change
-            could be confirmed. Should only return False if the change needs to
-            be redone.
+            The result from the handler. Should be True if the sync succeeded
+            or there was no need for the change to be synced, i.e. the log
+            change could be confirmed. Should only return False if the change
+            needs to be redone.
 
         @raise UnhandledChangeTypeError?
             TODO: Should we have our own exception class that is used if the
-            method does not know what to do with a given change type? Could then
-            be used by subclasses.
+            method does not know what to do with a given change type? Could
+            then be used by subclasses.
 
         @raise TODO:
             TODO: What exceptions is expected here?
@@ -990,7 +994,7 @@ class BaseSync(object):
 
         """
         for ent in self.entities.itervalues():
-            ent.calculate_ad_values() # exchange=self.exchange_sync)
+            ent.calculate_ad_values()
 
     def cache_entity(self, entity_id, entity_name, *args, **kwargs):
         """Wrapper method for creating a cache object for an entity.
@@ -999,8 +1003,8 @@ class BaseSync(object):
         what subclasses of the sync is in use. This method returns an object
         out of the correct classes.
 
-        You should call this method for new cache objects instead of creating it
-        directly, for easier subclassing.
+        You should call this method for new cache objects instead of creating
+        it directly, for easier subclassing.
 
         @type entity_id: int
         @param entity_id: The entity's entity_id
@@ -1013,7 +1017,8 @@ class BaseSync(object):
             instantiation.
 
         @type *kwargs: mixed
-        @param *kwargs: More arguments that should be passed on to the object at
+        @param *kwargs:
+            More arguments that should be passed on to the object at
             instantiation.
 
         @rtype: Cerebrum.modules.ad2.CerebrumData.CerebrumEntity
@@ -1038,7 +1043,8 @@ class BaseSync(object):
             The attributes defined in the config is already set.
 
         @rtype: string
-        @return: A CommandId that is the servere reference to later get the data
+        @return:
+            A CommandId that is the servere reference to later get the data
             that has been generated.
 
         """
@@ -1137,7 +1143,8 @@ class BaseSync(object):
         # Don't touch others than from the subset, if set:
         if self.config.get('subset'):
             # Convert names to comply with 'name_format':
-            subset_names = (self._format_name(s) for s in self.config['subset'])
+            subset_names = (self._format_name(s) for s in
+                            self.config['subset'])
             if name not in subset_names:
                 self.logger.debug3("Ignoring due to subset: %s", name)
                 return False
@@ -1156,8 +1163,8 @@ class BaseSync(object):
             return False
 
         # If not active in Cerebrum, do something (according to config).
-        # TODO: If downgrade is set to 'move', it conflicts with moving objects.
-        # How to solve this?
+        # TODO: If downgrade is set to 'move', it conflicts with moving
+        # objects. How to solve this?
         if not ent.active:
             self.downgrade_object(ad_object,
                                   self.config['handle_deactivated_objects'])
@@ -1202,9 +1209,9 @@ class BaseSync(object):
 
         :rtype: dict
         :return:
-            The list of attributes that doesn't match and should be updated. The
-            key is the name of the attribute, and the value is a dict with the
-            elements:
+            The list of attributes that doesn't match and should be updated.
+            The key is the name of the attribute, and the value is a dict with
+            the elements:
 
             - *add*: For elements that should be added to the attribute in AD.
             - *remove*: For elements that should be removed from the attribute.
@@ -1260,12 +1267,12 @@ class BaseSync(object):
     def attribute_mismatch(self, ent, atr, c, a):
         """Compare an attribute between Cerebrum and AD.
 
-        This is a generic method. Specific attributes should not be hardcoded in
-        this method, but should rather be configurable, or might be subclassed
-        even though that should be avoided (try to generalize).
+        This is a generic method. Specific attributes should not be hardcoded
+        in this method, but should rather be configurable, or might be
+        subclassed even though that should be avoided (try to generalize).
 
-        The attributes are matched in different ways. The order does for example
-        not matter for multivalued attributes, i.e. lists.
+        The attributes are matched in different ways. The order does for
+        example not matter for multivalued attributes, i.e. lists.
 
         :type ent: CerebrumEntity
         :param ent:
@@ -1300,10 +1307,10 @@ class BaseSync(object):
         if c is None and a == '':
             return (False, None, None)
         # TODO: Should we ignore attributes with extra spaces? AD converts
-        # double spaces into single spaces, e.g. GivenName='First  Last' becomes
-        # in AD 'First Last'. This is issues that should be fixed in the source
-        # system, but the error will make the sync update the attribute
-        # constantly and make the sync slower.
+        # double spaces into single spaces, e.g. GivenName='First  Last'
+        # becomes in AD 'First Last'. This is issues that should be fixed in
+        # the source system, but the error will make the sync update the
+        # attribute constantly and make the sync slower.
 
         # SAMAccountName must be matched case insensitively. TODO: Case
         # sensitivity should rather be configurable.
@@ -1342,8 +1349,8 @@ class BaseSync(object):
     def process_entities_not_in_ad(self):
         """Go through entities that wasn't processed while going through AD.
 
-        This could mean that either the entity doesn't exist in AD and should be
-        created, or that the object is in an OU that we are not processing.
+        This could mean that either the entity doesn't exist in AD and should
+        be created, or that the object is in an OU that we are not processing.
 
         The entities should probably be created in AD, but that is up to a
         subclass to decide.
@@ -1382,8 +1389,8 @@ class BaseSync(object):
     def process_entity_not_in_ad(self, ent):
         """Process an entity that doesn't exist in AD, yet.
 
-        The entity should be created in AD if active, and should then be updated
-        as other, already existing objects.
+        The entity should be created in AD if active, and should then be
+        updated as other, already existing objects.
 
         @type: CerebrumEntity
         @param: An object representing an entity in Cerebrum.
@@ -1400,19 +1407,20 @@ class BaseSync(object):
         try:
             obj = self.create_object(ent)
         except ADUtils.ObjectAlreadyExistsException, e:
-            # It exists in AD, but is probably somewhere out of our search_base.
-            # Will try to get it, so we could still update it, and maybe even
-            # move it to the correct OU.
+            # It exists in AD, but is probably somewhere out of our
+            # search_base. Will try to get it, so we could still update it, and
+            # maybe even move it to the correct OU.
             self.logger.debug("Entity already exists: %s", ent.entity_name)
             ent.in_ad = True
             attrs = self.config['attributes'].copy()
             if self.config['store_sid'] and 'SID' not in attrs:
                 attrs['SID'] = None
 
-            # TODO! Are there more unique attributes that can be used to search?
-            # For user objects it seems it is enough with 'SamAccountName' only.
-            # See http://blogs.msdn.com/b/openspecification/archive/2009/07/10/
-            #     understanding-unique-attributes-in-active-directory.aspx
+            # TODO! Are there more unique attributes that can be used to
+            # search? For user objects it seems it is enough with
+            # 'SamAccountName' only. See
+            # http://blogs.msdn.com/b/openspecification/archive/2009/07/10/\
+            # understanding-unique-attributes-in-active-directory.aspx
             search_attributes = dict((u, ent.attributes[u]) for u
                                      in ['SamAccountName']
                                      if ent.attributes.get(u))
@@ -1460,7 +1468,7 @@ class BaseSync(object):
                 ent.attributes = {}
             try:
                 obj = self.create_object(ent)
-            except Exception, e:
+            except Exception:
                 # Really failed
                 self.logger.exception("Failed creating %s." % ent.ad_id)
                 return False
@@ -1550,16 +1558,17 @@ class BaseSync(object):
         """Do a downgrade of an object in AD.
 
         The object could for instance be unknown in Cerebrum, or be inactive.
-        The AD-object could then be disabled, moved and/or deleted, depending on
-        the setting. The configuration says what should be done with such
+        The AD-object could then be disabled, moved and/or deleted, depending
+        on the setting. The configuration says what should be done with such
         objects, as it could be disabled, moved, deleted or something else.
 
         @type ad_object: dict
         @param: The data about the AD-object to downgrade.
 
         @type action: tuple
-        @param action: A two-element tuple, where the first element is a string,
-            e.g. 'ignore', 'delete', 'move' or 'disable'. The second element
+        @param action:
+            A two-element tuple, where the first element is a string, e.g.
+            'ignore', 'delete', 'move' or 'disable'. The second element
             contains extra information, e.g. to what OU the object should be
             moved to.
 
@@ -1676,8 +1685,8 @@ class BaseSync(object):
         en = self._ent_extid
         en.clear()
         en.find(ent.entity_id)
-        # Since external_id only works for one type of entities, we need to find
-        # out which external_id type to store the SID as:
+        # Since external_id only works for one type of entities, we need to
+        # find out which external_id type to store the SID as:
         sid_type = self.sidtype_map[en.entity_type]
         en.affect_external_id(self.co.system_ad, sid_type)
         en.populate_external_id(self.co.system_ad, sid_type, sid)
@@ -1740,8 +1749,8 @@ class UserSync(BaseSync):
 
     """
 
-    # The default object class of the objects to work on. Used if not the config
-    # says otherwise.
+    # The default object class of the objects to work on. Used if not the
+    # config says otherwise.
     default_ad_object_class = 'user'
 
     # A mapping of what the different UserAccountControl settings map to,
@@ -1864,8 +1873,8 @@ class UserSync(BaseSync):
         super(UserSync, self).fetch_cerebrum_data()
 
         # No need to fetch Cerebrum data if there are no entities to add them
-        # to. Some methods in the Cerebrum API also raises an exception if given
-        # an empty list of entities.
+        # to. Some methods in the Cerebrum API also raises an exception if
+        # given an empty list of entities.
         if not self.entities:
             return
 
@@ -1902,8 +1911,8 @@ class UserSync(BaseSync):
 
         The configuration is used to know what to cache. All data is put in a
         list, and each entity is put into an object from
-        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it easier to
-        later compare them with AD objects.
+        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it easier
+        to later compare them with AD objects.
 
         Could be subclassed to fetch more data about each entity to support
         extra functionality from AD and to override settings, e.g. what contact
@@ -1964,7 +1973,6 @@ class UserSync(BaseSync):
                             uname,
                             row['account_id']))
 
-
     def fetch_names(self):
         """Fetch all the persons' names and store them for the accounts.
 
@@ -2018,9 +2026,9 @@ class UserSync(BaseSync):
         if self.config['subset']:
             ids = self.owner2ent.keys()
         i = 0
-        # TODO: This is not always for persons! Need to also fetch for e.g. OUs.
-        # Do we need to fetch in two rounds? One for the entities and one for
-        # the owners?
+        # TODO: This is not always for persons! Need to also fetch for e.g.
+        # OUs. Do we need to fetch in two rounds? One for the entities and one
+        # for the owners?
         for row in self.pe.search_name_with_language(name_variant=variants,
                                                      entity_type=self.co.entity_person,
                                                      entity_id=ids,
@@ -2455,8 +2463,8 @@ class UserSync(BaseSync):
 
         The passwords are stored in L{self.uname2pasw}, and passwords are only
         fetched for entities where the attribute L{in_ad} is False. This should
-        therefore be called after the processing of existing entities and before
-        processing the entities that doesn't exist in AD yet.
+        therefore be called after the processing of existing entities and
+        before processing the entities that doesn't exist in AD yet.
 
         The passwords are fetched from the changelog, and only the last and
         newest password is used.
@@ -2533,8 +2541,8 @@ class UserSync(BaseSync):
     def process_entity_not_in_ad(self, ent):
         """Process an account that doesn't exist in AD, yet.
 
-        We should create and update a User object in AD for those who are not in
-        AD yet. The object should then be updated as normal objects.
+        We should create and update a User object in AD for those who are not
+        in AD yet. The object should then be updated as normal objects.
 
         @type: CerebrumEntity
         @param: An object representing an entity in Cerebrum.
@@ -2567,8 +2575,8 @@ class UserSync(BaseSync):
                 if ent.active:
                     self.enable_object(ad_object)
 
-        # If more functionality gets put here, you should check if the entity is
-        # active, and not update it if the config says so (downgrade).
+        # If more functionality gets put here, you should check if the entity
+        # is active, and not update it if the config says so (downgrade).
         return ad_object
 
     def process_cl_event(self, row):
@@ -2583,15 +2591,15 @@ class UserSync(BaseSync):
 
         @rtype: bool
         @return:
-            The result from the handler. Should be True if the sync succeeded or
-            there was no need for the change to be synced, i.e. the log change
-            could be confirmed. Should only return False if the change needs to
-            be redone.
+            The result from the handler. Should be True if the sync succeeded
+            or there was no need for the change to be synced, i.e. the log
+            change could be confirmed. Should only return False if the change
+            needs to be redone.
 
         @raise UnhandledChangeTypeError?
             TODO: Should we have our own exception class that is used if the
-            method does not know what to do with a given change type? Could then
-            be used by subclasses.
+            method does not know what to do with a given change type? Could
+            then be used by subclasses.
 
         @raise TODO:
             TODO: What exceptions is expected here?
@@ -2706,8 +2714,8 @@ class GroupSync(BaseSync):
 
     """
 
-    # The default object class of the objects to work on. Used if not the config
-    # says otherwise.
+    # The default object class of the objects to work on. Used if not the
+    # config says otherwise.
     default_ad_object_class = 'group'
 
     def __init__(self, *args, **kwargs):
@@ -2721,8 +2729,8 @@ class GroupSync(BaseSync):
         """Add extra configuration that is specific for groups.
 
         @type config_args: dict
-        @param config_args: Configuration data from cereconf and/or command line
-            options.
+        @param config_args:
+            Configuration data from cereconf and/or command line options.
 
         """
         super(GroupSync, self).configure(config_args)
@@ -2772,8 +2780,8 @@ class GroupSync(BaseSync):
 
         The configuration is used to know what to cache. All data is put in a
         list, and each entity is put into an object from
-        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it easier to
-        later compare with AD objects.
+        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it easier
+        to later compare with AD objects.
 
         Could be subclassed to fetch more data about each entity to support
         extra functionality from AD and to override settings.
@@ -2823,8 +2831,8 @@ class GroupSync(BaseSync):
                     mem_obj = self.get_class(sync_type=spr_name)(self.db,
                                                                  self.logger)
                     mem_config = adconf.SYNCS[spr_name].copy()
-                    # Drain the list of attributes, to avoid fetching too much data
-                    # we don't need when running the sync:
+                    # Drain the list of attributes, to avoid fetching too much
+                    # data we don't need when running the sync:
                     mem_config['attributes'] = {}
                     mem_config['sync_type'] = spr_name
                     mem_obj.configure(mem_config)
@@ -2879,10 +2887,10 @@ class GroupSync(BaseSync):
         cache the data you would otherwise need to ask the db about for each
         group.
 
-        TODO: Note that we are, by specifying L{person2primary} here, overriding
-        the person2primary setting for all member attributes, and does not
-        respect each attribute's setting of this. Might need to handle this
-        later, and not set it globally.
+        TODO: Note that we are, by specifying L{person2primary} here,
+        overriding the person2primary setting for all member attributes, and
+        does not respect each attribute's setting of this. Might need to handle
+        this later, and not set it globally.
 
         @type person2primary: bool
         @param person2primary:
@@ -2909,12 +2917,14 @@ class GroupSync(BaseSync):
                 if account_id:
                     self.logger.debug3("Adding person %s by primary: %s",
                                        row['member_id'], account_id)
-                    mem2group.setdefault(account_id, set()).add(row['group_id'])
+                    mem2group.setdefault(account_id,
+                                         set()).add(row['group_id'])
                 else:
                     self.logger.debug2("Person %s has no primary account",
                                        row['member_id'])
             else:
-                mem2group.setdefault(row['member_id'], set()).add(row['group_id'])
+                mem2group.setdefault(row['member_id'],
+                                     set()).add(row['group_id'])
         return groups, mem2group
 
     def fetch_members_by_spread(self):
@@ -2948,8 +2958,8 @@ class GroupSync(BaseSync):
             """Helper method for returning a group's parent AD groups.
 
             You will get a list of all the groups that is in this AD-sync, i.e.
-            has the correct AD spread, and which has the given group as a direct
-            or indirect member.
+            has the correct AD spread, and which has the given group as a
+            direct or indirect member.
 
             @type groupid: int
             @param groupid:
@@ -2957,10 +2967,10 @@ class GroupSync(BaseSync):
 
             @rtype: set
             @return:
-                List of all the group-ids of the groups that has the given group
-                as a member, either direct or indirect. Could return an empty
-                set if no parents were found, or none of the parent groups were
-                targeted in the AD sync.
+                List of all the group-ids of the groups that has the given
+                group as a member, either direct or indirect. Could return an
+                empty set if no parents were found, or none of the parent
+                groups were targeted in the AD sync.
 
             """
             ret = set()
@@ -2978,7 +2988,8 @@ class GroupSync(BaseSync):
         # proper groups, either directly or indirectly:
         i = 0
         for group_id, members in groups.iteritems():
-            # Target the parent groups if the group is not supposed to be in AD:
+            # Target the parent groups if the group is not supposed to be in
+            # AD:
             if group_id in self.id2entity:
                 target_groups = (group_id,)
             else:
@@ -3035,7 +3046,8 @@ class GroupSync(BaseSync):
         parameters.
 
         @rtype: string
-        @return: A CommandId that is the servere reference to later get the data
+        @return:
+            A CommandId that is the servere reference to later get the data
             that has been generated.
 
         """
@@ -3065,8 +3077,8 @@ class HostSync(BaseSync):
 
     """
 
-    # The default object class of the objects to work on. Used if not the config
-    # says otherwise.
+    # The default object class of the objects to work on. Used if not the
+    # config says otherwise.
     default_ad_object_class = 'computer'
 
     def __init__(self, *args, **kwargs):
@@ -3079,8 +3091,8 @@ class HostSync(BaseSync):
 
         The configuration is used to know what to cache. All data is put in a
         list, and each entity is put into an object from
-        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it easier to
-        later compare with AD objects.
+        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it easier
+        to later compare with AD objects.
 
         Could be subclassed to fetch more data about each entity to support
         extra functionality from AD and to override settings.
@@ -3126,7 +3138,7 @@ class MailTargetSync(BaseSync):
         # E-mail quotas:
         for row in self.mailquota.list_email_quota_ext():
             if row['target_id'] not in targetid2entityid:
-                self.logger.debug2("Ignoring quotas for non-cached target: %s"
+                self.logger.debug2("Ignoring quotas for non-cached target: %s",
                                    row['target_id'])
                 continue
             ent = self.id2entity.get(targetid2entityid[row['target_id']])
