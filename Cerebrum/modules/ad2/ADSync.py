@@ -3126,6 +3126,8 @@ class MailTargetSync(BaseSync):
         # E-mail quotas:
         for row in self.mailquota.list_email_quota_ext():
             if row['target_id'] not in targetid2entityid:
+                self.logger.debug2("Ignoring quotas for non-cached target: %s"
+                                   row['target_id'])
                 continue
             ent = self.id2entity.get(targetid2entityid[row['target_id']])
             if ent:
