@@ -3125,6 +3125,8 @@ class MailTargetSync(BaseSync):
 
         # E-mail quotas:
         for row in self.mailquota.list_email_quota_ext():
+            if row['target_id'] not in targetid2entityid:
+                continue
             ent = self.id2entity.get(targetid2entityid[row['target_id']])
             if ent:
                 ent.maildata['quota_soft'] = row['quota_soft']
