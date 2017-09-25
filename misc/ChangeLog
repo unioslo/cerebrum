@@ -1,3 +1,7 @@
+2017-09-21  Karen   <cerebrum@cleomedes.uit.no>
+
+    * delete_cim_spread.py: Added to repo. Script for deleting cim_spread for a list of persons.
+
 2017-08-29    <cerebrum@cleomedes.uit.no>
 
 	* delete_account.py (delete.delete_account): Need to delete account_id from mailq table as well
