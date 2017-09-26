@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012-2016 University of Oslo, Norway
+# Copyright 2012-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,6 +28,8 @@ trait associates the guest with an existing personal account.
 TODO: More info
 
 """
+import functools
+
 from mx import DateTime
 
 import cereconf
@@ -37,10 +39,16 @@ from Cerebrum import Errors
 from Cerebrum.Utils import NotSet, SMSSender
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.guest.bofhd_guest_auth import BofhdAuth
+from Cerebrum.modules.username_generator.generator import UsernameGenerator
 
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.modules.bofhd.cmd_param import Parameter, Command, AccountName, \
-    Integer, GroupName, PersonName, FormatSuggestion
+from Cerebrum.modules.bofhd.cmd_param import (Parameter,
+                                              Command,
+                                              AccountName,
+                                              Integer,
+                                              GroupName,
+                                              PersonName,
+                                              FormatSuggestion)
 
 
 def format_date(field):
@@ -146,7 +154,7 @@ class BofhdExtension(BofhdCommonMethods):
         @return: The Group object that was found/created.
 
         """
-        if not groupname in guestconfig.GUEST_TYPES:
+        if groupname not in guestconfig.GUEST_TYPES:
             raise CerebrumError('Given group not defined as a guest group')
         try:
             return self._get_group(groupname)
@@ -398,10 +406,18 @@ class BofhdExtension(BofhdCommonMethods):
         settings = guestconfig.GUEST_TYPES[guest_group.group_name]
 
         ac = self.Account_class(self.db)
-        name = ac.suggest_unames(self.const.account_namespace, fname, lname,
-                                 maxlen=guestconfig.GUEST_MAX_LENGTH_USERNAME,
-                                 prefix=settings['prefix'],
-                                 suffix='')[0]
+        uname_generator = UsernameGenerator()
+        # create a validation callable (function)
+        vfunc = functools.partial(ac.validate_new_uname,
+                                  self.const.account_namespace)
+        name = uname_generator.suggest_unames(
+            self.const.account_namespace,
+            fname,
+            lname,
+            maxlen=guestconfig.GUEST_MAX_LENGTH_USERNAME,
+            prefix=settings['prefix'],
+            suffix='',
+            validate_func=vfunc)[0]
         if settings['prefix'] and not name.startswith(settings['prefix']):
             # TODO/FIXME: Seems suggest_unames ditches the prefix setting if
             # there's not a lot of good usernames left with the given

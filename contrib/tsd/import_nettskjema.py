@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -51,14 +51,17 @@ Tags that are important to us:
    The contents is the list of one element -- the ID of the answers.
 """
 
-import sys
-import os
-import shutil
-from os.path import join as pjoin
-import time
+import functools
 import getopt
 import json
+import os
 import re
+import shutil
+import sys
+import time
+
+from os.path import join as pjoin
+
 from mx import DateTime
 
 import cerebrum_path
@@ -68,6 +71,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.tsd import Gateway
+from Cerebrum.modules.username_generator.generator import UsernameGenerator
 
 logger = Factory.get_logger('cronjob')
 db = Factory.get('Database')(client_encoding = 'utf-8')
@@ -656,9 +660,17 @@ class Processing(object):
         """
         fname = pe.get_name(co.system_cached, co.name_first)
         lname = pe.get_name(co.system_cached, co.name_last)
-        for name in ac.suggest_unames(co.account_namespace, fname, lname,
-                                      maxlen=cereconf.USERNAME_MAX_LENGTH,
-                                      prefix='%s-' % pid):
+        uname_generator = UsernameGenerator()
+        # create a validation callable (function)
+        vfunc = functools.partial(ac.validate_new_uname, co.account_namespace)
+        for name in uname_generator.suggest_unames(
+                co.account_namespace,
+                fname,
+                lname,
+                maxlen=cereconf.USERNAME_MAX_LENGTH,
+                prefix='%s-' % pid,
+                validate_func=vfunc
+        ):
             return name
         raise Exception("No available username for %s in %s" % (pe.entity_id,
                         pid))

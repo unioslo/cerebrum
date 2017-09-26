@@ -19,29 +19,28 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
+A dedicated module for password and passphrase generation
 """
 import random
 
 import cereconf
 
-from Cerebrum import Errors, Utils
+from Cerebrum import Errors
 
 from Cerebrum.modules.password_generator.config import load_config
 
 
 class PasswordGenerator(object):
     """
+    Password-generator class
     """
 
-    def __init__(self, config=None, logger=None, *args, **kw):
-        """ Constructs a PasswordGenerator.
+    def __init__(self, config=None, *args, **kw):
+        """
+        Constructs a PasswordGenerator.
 
         :param Cerebrum.config.configuration.Configuration config:
             The Configuration object for the password_generator module.
-
-        :param logging.Logger logger:
-            Logger object to use. If `None`, this object will fetch a new
-            logger with `Factory.get_logger('crontab')`. This is the default.
         """
         try:
             if config is None:
@@ -53,7 +52,6 @@ class PasswordGenerator(object):
             # cryptographically secure pseudo-random number generator."
             # docs.python.org/2.7/library/random.html#random.SystemRandom
             self.lrandom = random.SystemRandom()
-            self.logger = logger or Utils.Factory.get_logger('console')
             self.dict_words = []
             if self.config.passphrase_dictionary:
                 with open(self.config.passphrase_dictionary) as fp:
@@ -64,7 +62,6 @@ class PasswordGenerator(object):
                                 line.strip().decode('utf-8'))
                         except:
                             continue
-            self.logger.debug('PasswordGenerator initialized')
         except Exception as e:
             raise Errors.CerebrumError('Unable to create a PasswordGenerator '
                                        'instance: {error}'.format(error=e))

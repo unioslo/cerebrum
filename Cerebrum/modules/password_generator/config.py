@@ -29,7 +29,7 @@ from Cerebrum.config.settings import Integer, FilePath, String, NotSet
 
 class PasswordGeneratorConfig(Configuration):
     """
-    Configuration for the PasswordNotifier
+    Configuration for the PasswordGenerator
     """
     amount_words = ConfigDescriptor(
         Integer,

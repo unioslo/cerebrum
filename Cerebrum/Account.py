@@ -1050,8 +1050,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                                   'auth_data': self._auth_info[k]})
             elif self.__in_db and what == 'update':
                 self.execute("""
-                    DELETE FROM [:table schema=cerebrum name=account_authentication]
-                    WHERE account_id=:acc_id AND method=:method""",
+                DELETE FROM [:table schema=cerebrum name=account_authentication]
+                WHERE account_id=:acc_id AND method=:method""",
                              {'acc_id': self.entity_id, 'method': k})
 
         try:
@@ -1326,8 +1326,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     return r  # give up and return the last password
                 continue  # make a new attempt
 
-    def suggest_unames(self, domain, fname, lname, maxlen=8, suffix="",
-                       prefix=""):
+    def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
         """Returns a tuple with 15 (unused) username suggestions based
         on the person's first and last name.
 
@@ -1336,12 +1335,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         lname:  last name
         maxlen: maximum length of a username (incl. the suffix)
         suffix: string to append to every generated username
-        prefix: string to add to every generated username
         """
         goal = 15       # We may return more than this
         maxlen -= len(suffix)
-        maxlen -= len(prefix)
-        assert maxlen > 0, "maxlen - prefix - suffix = no characters left"
+        assert maxlen > 0, "maxlen - suffix = no characters left"
         potuname = ()
 
         lastname = self.simplify_name(lname, alt=1)
@@ -1397,12 +1394,12 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         if len(firstinit) > 1:
             llen = min(len(lname), maxlen - len(firstinit))
             for j in range(llen, 0, -1):
-                un = prefix + firstinit + lname[0:j] + suffix
+                un = firstinit + lname[0:j] + suffix
                 if self.validate_new_uname(domain, un):
                     potuname += (un, )
 
                 if initial and len(firstinit) + 1 + j <= maxlen:
-                    un = prefix + firstinit + initial + lname[0:j] + suffix
+                    un = firstinit + initial + lname[0:j] + suffix
                     if self.validate_new_uname(domain, un):
                         potuname += (un, )
 
@@ -1430,11 +1427,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 if initial:
                     # Is there room for an initial?
                     if j < llim:
-                        un = prefix + \
-                            fname[0:i] + initial + lname[0:j] + suffix
+                        un = fname[0:i] + initial + lname[0:j] + suffix
                         if self.validate_new_uname(domain, un):
                             potuname += (un, )
-                un = prefix + fname[0:i] + lname[0:j] + suffix
+                un = fname[0:i] + lname[0:j] + suffix
                 if self.validate_new_uname(domain, un):
                     potuname += (un, )
             if len(potuname) >= goal:
@@ -1448,7 +1444,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
         flen = min(len(fname), maxlen)
         for i in range(flen, 1, -1):
-            un = prefix + fname[0:i] + suffix
+            un = fname[0:i] + suffix
             if self.validate_new_uname(domain, un):
                 potuname += (un, )
             if len(potuname) >= goal:
@@ -1463,7 +1459,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             i += 1
             if self.validate_new_uname(domain, un):
                 potuname += (un, )
-
         return potuname
 
     def validate_new_uname(self, domain, uname):
