@@ -1649,7 +1649,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                     uname_generator = UsernameGenerator()
                     # create a validation callable (function)
                     vfunc = partial(posix_user.validate_new_uname,
-                                    self.const.account_namespace)
+                                    self.const.account_namespace,
+                                    owner_id=owner_id)
                     sugg = uname_generator.suggest_unames(
                         self.const.account_namespace,
                         fname,

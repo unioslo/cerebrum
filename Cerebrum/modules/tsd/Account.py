@@ -294,14 +294,31 @@ class AccountTSDMixin(Account.Account):
         ou.find(projectid)
         return ou.is_approved()
 
-    def validate_new_uname(self, domain, uname):
-        """Check that the requested username is legal and free"""
-        try:
-            # We instantiate EntityName directly because find_by_name
-            # calls self.find() whose result may depend on the class
-            # of self
-            en = EntityName(self._db)
-            en.find_by_name(uname, domain)
+    def validate_new_uname(self, domain, uname, owner_id=None):
+        """
+        Check that the requested username is legal and *globally* free
+
+        Return True if `uname` is available, False otherwise
+        """
+        if not super(AccountTSDMixin, self).validate_new_uname(domain, uname):
             return False
-        except Errors.NotFoundError:
+        try:
+            uname_tokens = re.split(r'^p\d+-', uname)
+            if len(uname_tokens) != 2:
+                # Not a real TSD-username
+                return False
+            existing_accounts = self.search(
+                name='p*-{uname}'.format(uname=uname_tokens[1]))
+            if not existing_accounts:
+                return True
+            owner_id = owner_id or self.owner_id
+            if owner_id is None:
+                # No owner_id provided. Assume the worst
+                return False
+            for account in existing_accounts:
+                if account['owner_id'] != owner_id:
+                    # Same name, two different persons
+                    return False
             return True
+        except:
+            return False
