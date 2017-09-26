@@ -1,14 +1,16 @@
 import uuid
-import ldap
+
 import cereconf
+import ldap
+
 from Cerebrum import Utils
-from Cerebrum.modules.data_fetcher.data_fetcher import CerebrumDataFetcher
-from Cerebrum.modules.event_publisher.config import load_publisher_config
-from Cerebrum.modules.event_publisher.amqp_publisher import AMQP091Publisher
-from Cerebrum.modules.event_publisher.scim import ScimFormatter
 from Cerebrum.config.configuration import Configuration, ConfigDescriptor
 from Cerebrum.config.loader import read
 from Cerebrum.config.settings import String
+from Cerebrum.modules.event_publisher.amqp_publisher import AMQP091Publisher
+from Cerebrum.modules.event_publisher.config import load_publisher_config
+from Cerebrum.modules.event_publisher.scim import ScimFormatter
+from Cerebrum.modules.synctools.data_fetcher import CerebrumDataFetcher
 
 
 class ADLDAPConfig(Configuration):
@@ -44,6 +46,12 @@ class ADLDAPConfig(Configuration):
         doc=u'The DN where to look up users.'
     )
 
+    groups_dn = ConfigDescriptor(
+        String,
+        default=u'ou=groups,dc=ad-example,dc=com',
+        doc=u'The DN where to look up groups.'
+    )
+
 
 def load_ad_ldap_config():
     config = ADLDAPConfig()
@@ -76,11 +84,11 @@ def build_ad_account_data(account_basic_info,
     return ad_account_data
 
 
-def get_ad_account_data(account_id, df):
-    account_basic_info = df.get_account_basic_info(account_id)
+def get_ad_account_data(account_id, df, spread):
+    account_basic_info = df.get_account_data(account_id, spread)
     return build_ad_account_data(
         account_basic_info=account_basic_info,
-        name_data=df.get_person_names(account_basic_info['owner_id']),
+        name_data=df.get_person_basic_info(account_basic_info['owner_id']),
         quarantine_action=df.get_quarantine_data([account_id]),
         posix_data=df.get_posix_data(account_id),
         email=df.get_email_addr(account_id),
@@ -138,14 +146,19 @@ def build_ad_account_obj(account_data, path_req_disks, group_postfix):
     return ad_repr
 
 
+def build_acc_quarantine_data(df, account_ids=None):
+    quarantine_data = df.get_quarantine_data(account_ids=account_ids)
+    return quarantine_data
+
+
 def build_all_ad_objects(df, path_req_disks, group_postfix, spread):
     """Creates a list of AD-objects for all Cerebrum accounts that should
     be present in AD."""
-    accounts = df.get_all_accounts_data(spread)
-    quarantine_data = df.get_quarantine_data(accounts.keys())
+    accounts = df.get_all_account_rows(spread=spread)
+    quarantine_data = build_acc_quarantine_data(df, account_ids=accounts.keys())
     person_names = df.get_all_persons_names()
     email_data = df.get_all_email_addrs()
-    posix_data = df.get_all_posix_data()
+    posix_data = df.get_all_posix_accounts_data()
     accounts_homedir_data = df.get_all_accounts_homedir_data(spread)
 
     account_data_list = [
@@ -163,13 +176,13 @@ def build_all_ad_objects(df, path_req_disks, group_postfix, spread):
             for account_data in account_data_list]
 
 
-def get_ad_account_data_list(account_ids, df):
-    return [get_ad_account_data(account_id, df)
+def get_ad_account_data_list(account_ids, df, spread):
+    return [get_ad_account_data(account_id, df, spread)
             for account_id in account_ids]
 
 
-def get_ad_objects_list(account_ids, df,  path_req_disks, group_postfix):
-    account_data_list = get_ad_account_data_list(account_ids, df)
+def get_ad_objects_list(account_ids, df,  path_req_disks, group_postfix, spread):
+    account_data_list = get_ad_account_data_list(account_ids, df, spread)
     return [build_ad_account_obj(account_data, path_req_disks, group_postfix)
             for account_data in account_data_list]
 
@@ -192,7 +205,7 @@ def build_account_scim_list(account_list):
     return [build_scim_account_msg(account) for account in account_list]
 
 
-def entity_equal(crb_data, ad_data):
+def account_in_sync(crb_data, ad_data):
     attrs = ['sn', 'givenName', 'displayName', 'mail',
              'userPrincipalName', 'homeDrive', 'homeDirectory',
              'uidNumber', 'gidNumber', 'gecos',
@@ -221,7 +234,7 @@ def get_ldap_connection(config):
     password = Utils.read_password(config.ldap_user, 'ceretestad01.uio.no')
     con = ldap.initialize('{0}://{1}'.format(config.ldap_proto,
                                              config.ldap_server))
-    con.bind_s(ldap_config.bind_dn_template.format(config.ldap_user),
+    con.bind_s(config.bind_dn_template.format(config.ldap_user),
                password)
     return con
 
@@ -256,6 +269,31 @@ def get_all_ad_values(ldap_con):
     return ldap_res
 
 
+def get_all_crb_group_data(df, group_postfix):
+    groups_data = df.get_all_groups_data(spread=ad_grp_spread,
+                                         key_attr='name')
+    pf_groups_data = add_group_postfix(groups_data, group_postfix)
+    posix_group_data = df.get_all_posix_group_data()
+    groupid2uids = {}
+    for gid, acc in df.get_all_posix_accounts_rows(
+            spread=ad_acc_spread,
+            key_attr='gid').items():
+        groupid2uids.setdefault(gid, []).append(str(acc['posix_uid']))
+    return pf_groups_data
+
+
+def add_group_postfix(groups_data, postfix):
+    pf_groups_data = {}
+    for group_name, group_data in groups_data.items():
+        grp_name = ''.join([group_name, postfix])
+        pf_groups_data[grp_name] = dict(group_data)
+        pf_groups_data[grp_name].update({
+            'displayName': grp_name,
+            'displayNamePrintable': grp_name
+        })
+    return pf_groups_data
+
+
 if __name__ == '__main__':
     group_postfix = getattr(cereconf, 'AD_GROUP_POSTFIX', '')
     path_req_disks = getattr(cereconf, 'AD_HOMEDIR_HITACHI_DISKS', ())
@@ -271,6 +309,8 @@ if __name__ == '__main__':
     parser.add_argument('--usernames', nargs="*", type=str, help="""A list of usernames to sync""")
     parser.add_argument('--fullsync', help="""Do a complete sync for all
                          accounts/groups""", action='store_true')
+    parser.add_argument('--groups', help="""Do a complete sync for all
+                         accounts/groups""", action='store_true')
     parser.add_argument('--send', help="""send messages""", action='store_true')
     args = parser.parse_args()
 
@@ -281,7 +321,7 @@ if __name__ == '__main__':
     not_in_ad = []
     not_in_crb = []
 
-    if not args.usernames and not args.account_ids and not args.fullsync:
+    if not args.usernames and not args.account_ids and not args.fullsync and not args.groups:
         raise SystemExit(
             'Error: No sync method specified. See --help.'
         )
@@ -302,7 +342,7 @@ if __name__ == '__main__':
                 continue
             try:
                 ad_acc = ad_values.pop(crb_acc['username'])
-                if not entity_equal(crb_acc, parse_ad_acc_data(ad_acc)):
+                if not account_in_sync(crb_acc, parse_ad_acc_data(ad_acc)):
                     desynced_entities.append(crb_acc)
             except KeyError:
                 not_in_ad.append(crb_acc)
@@ -321,7 +361,11 @@ if __name__ == '__main__':
                 accounts.append(account_id)
 
     if accounts:
-        res = get_ad_objects_list(accounts, df, path_req_disks, group_postfix)
+        res = get_ad_objects_list(accounts,
+                                  df,
+                                  path_req_disks,
+                                  group_postfix,
+                                  ad_acc_spread)
         for crb_acc in res:
             if crb_acc.get('quarantine_action') == 'skip':
                 continue
@@ -332,8 +376,15 @@ if __name__ == '__main__':
                 not_in_ad.append(crb_acc)
                 continue
             ad_values = parse_ad_acc_data(ad_data[0][1])
-            if not entity_equal(crb_acc, ad_values):
+            if not account_in_sync(crb_acc, ad_values):
                 desynced_entities.append(ad_values)
+
+    if args.groups:
+        from pprint import pprint
+        lol = df.get_all_account_rows(key_attr='account_id',
+                                      keys=['account_id', 'owner_id'],
+                                      spread=ad_acc_spread)
+        pprint(lol.popitem())
 
     print('# of accounts that are desynced: '.format(len(desynced_entities)))
     print('# of accounts present in Cerebrum, but not in AD:'.format(
