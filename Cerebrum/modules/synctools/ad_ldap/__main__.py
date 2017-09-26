@@ -26,7 +26,7 @@ import ldap
 from Cerebrum import Utils
 from Cerebrum.modules.synctools.ad_ldap import get_client
 from Cerebrum.modules.synctools.ad_ldap import load_ad_ldap_config
-from Cerebrum.modules.synctools.data_fetcher import CerebrumDataFetcher
+from Cerebrum.modules.synctools.ad_ldap.data_fetcher import ADLDAPSyncDataFetcher
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--account_ids', nargs="*", type=int, help="""A list of entity_ids to sync""")
@@ -50,7 +50,7 @@ if (args.usernames or args.account_ids) and args.fullsync:
 
 group_postfix = getattr(cereconf, 'AD_GROUP_POSTFIX', '')
 path_req_disks = getattr(cereconf, 'AD_HOMEDIR_HITACHI_DISKS', ())
-df = CerebrumDataFetcher()
+df = ADLDAPSyncDataFetcher()
 db = Utils.Factory.get('Database')()
 co = Utils.Factory.get('Constants')(db)
 ad_acc_spread = co.Spread(cereconf.AD_ACCOUNT_SPREAD)
@@ -64,7 +64,8 @@ attrs = ['sn', 'givenName', 'displayName', 'mail',
 
 from pprint import pprint
 
-def get_ad_ldap_data():
+
+def get_ad_ldap_acc_data():
     client = get_client()
     config = load_ad_ldap_config()
     client.connect()
@@ -80,9 +81,19 @@ def get_ad_ldap_data():
         }
 
 
+def get_crb_account_data():
+    df = ADLDAPSyncDataFetcher()
+    acc_rows = df.get_all_account_rows(keys=['owner_id', 'account_id'],
+                                       spread=ad_acc_spread)
+    quarantines = df.get_accounts_quarantine_data(account_ids=acc_rows.keys())
+    person_names = df.get_all_persons_names()
+    email_data = df.get_all_email_addrs()
+    posix_data = df.get_all_posix_accounts_data()
+
+
 if args.fullsync:
-    #ad_ldap_data = get_ad_ldap_data()
-    df = CerebrumDataFetcher()
-    acc_rows = df.get_all_account_rows()
-    pprint(acc_rows.popitem())
+    ad_ldap_acc_data = get_ad_ldap_acc_data()
+    crb_acc_data = get_crb_account_data()
+
+
 
