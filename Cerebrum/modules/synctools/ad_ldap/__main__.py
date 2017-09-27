@@ -57,28 +57,43 @@ ad_acc_spread = co.Spread(cereconf.AD_ACCOUNT_SPREAD)
 ad_grp_spread = co.Spread(cereconf.AD_GROUP_SPREAD)
 
 
-attrs = ['sn', 'givenName', 'displayName', 'mail',
-         'userPrincipalName', 'homeDrive', 'homeDirectory',
-         'uidNumber', 'gidNumber', 'gecos',
-         'uid', 'msSFU30Name', 'msSFU30NisDomain']
+def get_from_ldap(search_dn, object_class):
+    client = get_client()
+    client.connect()
+    return client.fetch_data(search_dn,
+                             ldap.SCOPE_SUBTREE,
+                             '(ObjectClass={})'.format(object_class))
 
-from pprint import pprint
+
+def format_ldap_data(ad_data, attrs):
+    r = {}
+    for data in ad_data:
+        r[data[1]['cn'][0]] = {
+            key: data[1].get(key, None)
+            for key in attrs
+        }
+    return r
 
 
 def get_ad_ldap_acc_data():
-    client = get_client()
     config = load_ad_ldap_config()
-    client.connect()
-    raw_ad_data = client.fetch_data(config.users_dn, ldap.SCOPE_SUBTREE, '(ObjectClass=user)')
+    ad_data = get_from_ldap(config.users_dn, 'user')
 
-    pprint(raw_ad_data[0][1])
+    attrs = ['sn', 'givenName', 'displayName', 'mail',
+             'userPrincipalName', 'homeDrive', 'homeDirectory',
+             'uidNumber', 'gidNumber', 'gecos', 'uid', 'msSFU30Name',
+             'msSFU30NisDomain']
+    return format_ldap_data(ad_data, attrs)
 
-    ad_data = {}
-    for acc_data in raw_ad_data:
-        ad_data[acc_data[1]['cn'][0]] = {
-            key: acc_data[1].get(key, None)
-            for key in attrs
-        }
+
+def get_ad_ldap_group_data():
+    config = load_ad_ldap_config()
+    ad_data = get_from_ldap(config.groups_dn, 'group')
+
+    attrs = ['displayName', 'description', 'displayNamePrintable', 'member',
+             'gidNumber', 'msSFU30Name', 'msSFU30NisDomain']
+
+    return format_ldap_data(ad_data, attrs)
 
 
 def get_crb_account_data():
