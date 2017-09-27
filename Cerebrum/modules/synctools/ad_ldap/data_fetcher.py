@@ -23,6 +23,49 @@ from Cerebrum import Errors
 from Cerebrum.modules.synctools.data_fetcher import CerebrumDataFetcher
 
 
+def merge(d1, d2):
+    r = d1
+    for k, v in d2.iteritems():
+        if k not in r:
+            r[k] = v
+        if isinstance(r[k], list):
+            r[k].extend(v)
+        elif isinstance(r[k], dict):
+            r[k] = merge(r[k], v)
+    return r
+
+
+class ADLDAPSyncGroupDataFetcher(CerebrumDataFetcher):
+    def __init__(self, **kwargs):
+        super(ADLDAPSyncGroupDataFetcher, self).__init__(**kwargs)
+        self.group_spread = self.co.Spread(cereconf.AD_GROUP_SPREAD)
+        self.account_spread = self.co.Spread(cereconf.AD_ACCOUNT_SPREAD)
+
+    def get_all_groups(self, indirect_memberships=True):
+        all_group_rows = self.get_all_groups_data(
+            key_attr='name',
+            keys=['name', 'description', 'group_id'],
+            spread=self.group_spread)
+        all_posix_group_rows = self.get_all_posix_group_rows(
+                    key_attr='name',
+                    keys=['posix_gid'],
+                    spread=self.group_spread)
+
+        groups = merge(all_group_rows, all_posix_group_rows)
+
+        for k in groups:
+            groups[k]['members'] = self.get_all_group_members(
+                    groups[k]['group_id'],
+                    key_attr='group_name',
+                    keys=['member_name'],
+                    spread=self.group_spread,
+                    member_spread=[self.group_spread, self.account_spread],
+                    indirect_memberships=indirect_memberships)
+        return dict(map(lambda (k, v): (k, filter(lambda (k2, v2): k2 !=
+                                                  'group_id', v.iteritems())),
+                        groups))
+
+
 class ADLDAPSyncDataFetcher(CerebrumDataFetcher):
     def __init__(self, **kwargs):
         super(ADLDAPSyncDataFetcher, self).__init__(**kwargs)

@@ -1,3 +1,5 @@
+import collections
+
 from Cerebrum import Utils, Errors
 from Cerebrum import QuarantineHandler
 
@@ -50,6 +52,20 @@ class CerebrumDataFetcher(object):
             rows_dict[row[key_attr]] = row_dict
         return rows_dict
 
+    def build_dict_list_from_row_list(self, row_list, key_attr, keys):
+        """
+        Builds a dict with lists as values from a list of Cerebrum db-rows,
+        using row[key_attr] as keys, and keys as values.
+        @param row_list: iterable
+        @param ket_attr: any valid dict-key value
+        @param keys: a list of row-keys to use as values
+        @return: dict of lists
+        """
+        r = collections.defaultdict(list)
+        for row in row_list:
+            r[row[key_attr]].extend([row[attr] for attr in keys])
+        return r
+
     def get_all_account_rows(self, key_attr='account_id',
                              keys=None, spread=None):
         """Builds a dict account[key_attr]: account, filtering on a given
@@ -62,6 +78,17 @@ class CerebrumDataFetcher(object):
         spread if it is passed."""
         group_rows = list(self.gr.search(spread=spread))
         return self.build_dict_from_row_list(group_rows, key_attr, keys)
+
+    def get_all_group_members(self, group_id, key_attr='group_id', keys=None,
+                              spread=None, member_spread=None,
+                              indirect_memberships=False):
+        member_rows = self.gr.search_members(
+            group_id=group_id,
+            spread=spread,
+            member_spread=member_spread,
+            include_member_entity_name=True,
+            indirect_members=indirect_memberships)
+        return [x['member_name'] for x in member_rows]
 
     def get_accounts_quarantine_data(self,
                                      account_ids=None,
@@ -103,9 +130,19 @@ class CerebrumDataFetcher(object):
                                                     filter_expired=True)
         return self.build_dict_from_row_list(posix_users_rows, key_attr, keys)
 
-    def get_all_posix_group_rows(self, spread=None, key_attr='group_id', keys=None):
-        pg_rows = self.pg.search(spread=spread)
-        return self.build_dict_from_row_list(pg_rows, key_attr, keys)
+    def get_all_posix_group_rows(self, spread=None, key_attr='group_id',
+                                 keys=None):
+        pg_rows = self.build_dict_from_row_list(self.pg.search(spread=spread),
+                                                'group_id')
+        for x in self.pg.list_posix_groups():
+            try:
+                pg_rows[x['group_id']]['posix_gid'] = x['posix_gid']
+            except KeyError:
+                # Filtered out due to missing spread
+                pass
+        pg_rows = dict(filter(lambda (k, v): 'posix_gid' in v,
+                              pg_rows.items()))
+        return self.build_dict_from_row_list(pg_rows.values(), key_attr, keys)
 
     def get_all_email_addrs(self):
         """Returns a dict of uname -> primary email mappings."""
