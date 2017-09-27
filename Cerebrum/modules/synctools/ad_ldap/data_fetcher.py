@@ -54,7 +54,7 @@ class ADLDAPSyncGroupDataFetcher(CerebrumDataFetcher):
         groups = merge(all_group_rows, all_posix_group_rows)
 
         for k in groups:
-            groups[k]['members'] = self.get_all_group_members(
+            groups[k]['member'] = self.get_all_group_members(
                     groups[k]['group_id'],
                     key_attr='group_name',
                     keys=['member_name'],
