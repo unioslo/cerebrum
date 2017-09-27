@@ -662,7 +662,9 @@ class Processing(object):
         lname = pe.get_name(co.system_cached, co.name_last)
         uname_generator = UsernameGenerator()
         # create a validation callable (function)
-        vfunc = functools.partial(ac.validate_new_uname, co.account_namespace)
+        vfunc = functools.partial(ac.validate_new_uname,
+                                  co.account_namespace,
+                                  owner_id=pe.entity_id)
         for name in uname_generator.suggest_unames(
                 co.account_namespace,
                 fname,

@@ -1,7 +1,6 @@
-#!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,7 +22,6 @@
 Accounts in TSD needs to be controlled. The most important issue is that one
 account is only allowed to be a part of one single project, which is why we
 should refuse account_types from different OUs for a single account.
-
 """
 
 import base64
@@ -42,6 +40,7 @@ from Cerebrum.modules import dns
 from Cerebrum.Utils import pgp_encrypt, Factory
 
 from Cerebrum.modules.tsd import TSDUtils
+
 
 class AccountTSDMixin(Account.Account):
     """Account mixin class for TSD specific behaviour.
@@ -110,11 +109,13 @@ class AccountTSDMixin(Account.Account):
 
         """
         if affiliation == self.const.affiliation_project:
-            for row in self.list_accounts_by_type(account_id=self.entity_id,
-                                affiliation=self.const.affiliation_project,
-                                # We want the deleted ones too, as the account
-                                # could have previously been part of a project:
-                                filter_expired=False):
+            for row in self.list_accounts_by_type(
+                    account_id=self.entity_id,
+                    affiliation=self.const.affiliation_project,
+                    # We want the deleted ones too, as the account
+                    # could have previously been part of a project:
+                    filter_expired=False
+            ):
                 if row['ou_id'] != ou_id:
                     raise Errors.CerebrumError('Account already part of other '
                                                'project OUs')
@@ -178,8 +179,8 @@ class AccountTSDMixin(Account.Account):
 
         @type length: int
         @param length:
-            The number of bits that should be generated. Note that the number is
-            rounded upwards to be contained in a full byte (8 bits).
+            The number of bits that should be generated. Note that the number
+            is rounded upwards to be contained in a full byte (8 bits).
 
         @rtype: str
         @return:
@@ -188,7 +189,7 @@ class AccountTSDMixin(Account.Account):
 
         """
         # Round upwards to nearest full byte by adding 7 to the number of bits.
-        # This makes sure that it's always rounded upwards if not modulo 0 to 8.
+        # This makes sure that it's always rounded upwards if not modulo 0 to 8
         bytes = (length + 7) / 8
         ret = ''
         f = open('/dev/urandom', 'rb')
@@ -202,8 +203,8 @@ class AccountTSDMixin(Account.Account):
     def regenerate_otpkey(self, tokentype=None):
         """Create a new OTP key for the account.
 
-        Note that we do not store the OTP key in Cerebrum. We only pass it on to
-        the Gateway, so it's only stored one place. Other requirements could
+        Note that we do not store the OTP key in Cerebrum. We only pass it on
+        to the Gateway, so it's only stored one place. Other requirements could
         change this in the future.
 
         The OTP type, e.g. hotp or totp, is retrieved from the person's trait.
@@ -211,8 +212,8 @@ class AccountTSDMixin(Account.Account):
         @type tokentype: str
         @param tokentype:
             What token type the OTP should become, e.g. 'totp' or 'hotp'. Note
-            that it could also be translated by L{cereconf.OTP_MAPPING_TYPES} if
-            it matches a value there.
+            that it could also be translated by L{cereconf.OTP_MAPPING_TYPES}
+            if it matches a value there.
 
             If this parameter is None, the person's default OTP type will be
             used, or 'totp' by default if no value is set for the person.
@@ -292,3 +293,32 @@ class AccountTSDMixin(Account.Account):
         ou.clear()
         ou.find(projectid)
         return ou.is_approved()
+
+    def validate_new_uname(self, domain, uname, owner_id=None):
+        """
+        Check that the requested username is legal and *globally* free
+
+        Return True if `uname` is available, False otherwise
+        """
+        if not super(AccountTSDMixin, self).validate_new_uname(domain, uname):
+            return False
+        try:
+            uname_tokens = re.split(r'^p\d+-', uname)
+            if len(uname_tokens) != 2:
+                # Not a real TSD-username
+                return False
+            existing_accounts = self.search(
+                name='p*-{uname}'.format(uname=uname_tokens[1]))
+            if not existing_accounts:
+                return True
+            owner_id = owner_id or self.owner_id
+            if owner_id is None:
+                # No owner_id provided. Assume the worst
+                return False
+            for account in existing_accounts:
+                if account['owner_id'] != owner_id:
+                    # Same name, two different persons
+                    return False
+            return True
+        except:
+            return False
