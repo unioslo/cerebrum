@@ -620,7 +620,7 @@ class OUGroup(VirtualGroup):
         if spread:
             binds = {'id': group_id}
             res = self.query("""SELECT *
-                             FROM [:table schema=cerebrum name=entity_spread
+                             FROM [:table schema=cerebrum name=entity_spread]
                              WHERE entity_id = :id AND {}"""
                              .format(argument_to_sql(spread, 'spread', binds,
                                                      int)),
@@ -796,7 +796,7 @@ class OUGroup(VirtualGroup):
             tmp = '[:table schema=cerebrum name=entity_name] men'
             tables.append(tmp)
             extra_tables.append(tmp)
-            wheres.extend('men.entity_id = {}'.format(memid))
+            wheres.append('men.entity_id = {}'.format(memid))
             if not indirect and rec == self.const.virtual_group_ou_recursive:
                 extra_where.extend('men.entity_id = vgo.group_id')
             fields.append('men.entity_name AS member_name')
