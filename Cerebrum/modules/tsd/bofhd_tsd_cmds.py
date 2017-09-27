@@ -1713,6 +1713,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         #        raise CerebrumError('Username must have projectid as prefix')
 
         posix_user = Factory.get('PosixUser')(self.db)
+        if not posix_user.validate_new_uname(
+                domain=self.const.account_namespace,
+                uname=uname,
+                owner_id=owner_id):
+            # in case the user overrides the suggested username
+            raise CerebrumError('This Account name is already taken')
         # TODO: disk?
         uid = posix_user.get_free_uid()
         shell = self._get_shell(shell)
