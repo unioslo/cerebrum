@@ -79,16 +79,15 @@ class CerebrumDataFetcher(object):
         group_rows = list(self.gr.search(spread=spread))
         return self.build_dict_from_row_list(group_rows, key_attr, keys)
 
-    def get_all_group_members(self, group_id, key_attr='group_id', keys=None,
-                              spread=None, member_spread=None,
-                              indirect_memberships=False):
+    def get_all_group_members(self, key_attr='group_id', keys=None,
+                              spread=None, member_spread=None):
         member_rows = self.gr.search_members(
-            group_id=group_id,
             spread=spread,
             member_spread=member_spread,
-            include_member_entity_name=True,
-            indirect_members=indirect_memberships)
-        return [x['member_name'] for x in member_rows]
+            include_member_entity_name=True)
+        return self.build_dict_list_from_row_list(member_rows,
+                                                  key_attr=key_attr,
+                                                  keys=['member_name'])
 
     def get_accounts_quarantine_data(self,
                                      account_ids=None,

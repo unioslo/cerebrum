@@ -28,7 +28,7 @@ def merge(d1, d2):
     for k, v in d2.iteritems():
         if k not in r:
             r[k] = v
-        if isinstance(r[k], list):
+        elif isinstance(r[k], list):
             r[k].extend(v)
         elif isinstance(r[k], dict):
             r[k] = merge(r[k], v)
@@ -41,7 +41,7 @@ class ADLDAPSyncGroupDataFetcher(CerebrumDataFetcher):
         self.group_spread = self.co.Spread(cereconf.AD_GROUP_SPREAD)
         self.account_spread = self.co.Spread(cereconf.AD_ACCOUNT_SPREAD)
 
-    def get_all_groups(self, indirect_memberships=True):
+    def get_all_groups(self):
         all_group_rows = self.get_all_groups_data(
             key_attr='name',
             keys=['name', 'description', 'group_id'],
@@ -53,17 +53,13 @@ class ADLDAPSyncGroupDataFetcher(CerebrumDataFetcher):
 
         groups = merge(all_group_rows, all_posix_group_rows)
 
-        for k in groups:
-            groups[k]['member'] = self.get_all_group_members(
-                    groups[k]['group_id'],
-                    key_attr='group_name',
-                    keys=['member_name'],
-                    spread=self.group_spread,
-                    member_spread=[self.group_spread, self.account_spread],
-                    indirect_memberships=indirect_memberships)
-        return dict(map(lambda (k, v): (k, filter(lambda (k2, v2): k2 !=
-                                                  'group_id', v.iteritems())),
-                        groups))
+        members = self.get_all_group_members(
+            key_attr='group_name',
+            keys=['member_name'],
+            spread=self.group_spread,
+            member_spread=[self.account_spread])
+        return merge(groups, dict(map(lambda (k, v): (k, {'member': v}),
+                                      members.items())))
 
 
 class ADLDAPSyncDataFetcher(CerebrumDataFetcher):
