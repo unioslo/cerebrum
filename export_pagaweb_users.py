@@ -111,9 +111,12 @@ def parse_paga_csv(pagafile):
         #  U (utdanningsstilling)
         #  V (vikar)
         #  Å (åremål).
+        #  P (permisjon)
+        #  B (bistilling)
         #  ÅP (postdoc)
         #  L (lærling)
-        if detail[KEY_HOVEDARBFORH] == 'H' and detail[KEY_TJFORH].upper() in ['E', 'F', 'K', 'U', 'V', 'Å','P','B','ÅP','L']:
+        #  T (timelønnet)
+        if detail[KEY_HOVEDARBFORH] == 'H' and detail[KEY_TJFORH].upper() in ['E', 'F', 'K', 'U', 'V', 'Å','P','B','ÅP','L','T']:
             persons[detail[KEY_ANSATTNR]] = {}
 
     ac = Factory.get('Account')(db)

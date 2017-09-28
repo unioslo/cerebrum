@@ -1,3 +1,7 @@
+2017-09-28  Karen   <cerebrum@cleomedes.uit.no>
+
+    * export_pagaweb_users.py (parse_paga_csv): Added timelønnet to list of valid arbeidsforhold.
+
 2017-08-31  Karen   <cerebrum@cleomedes.uit.no>
 
     * export_pagaweb_users.py (parse_paga_csv): Added lærling to list of valid arbeidsforhold.
