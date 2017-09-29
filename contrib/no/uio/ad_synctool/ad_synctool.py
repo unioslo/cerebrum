@@ -13,53 +13,6 @@ from Cerebrum.modules.event_publisher.scim import ScimFormatter
 from Cerebrum.modules.synctools.data_fetcher import CerebrumDataFetcher
 
 
-class ADLDAPConfig(Configuration):
-    """Configuration for AD-LDAP connections."""
-
-    ldap_proto = ConfigDescriptor(
-        String,
-        default=u'ldap',
-        doc=u'The protocol to use when connecting to the LDAP-server.'
-    )
-
-    ldap_server = ConfigDescriptor(
-        String,
-        default=u'localhost:389',
-        doc=u'The hostname (and port) to connect to.'
-    )
-
-    ldap_user = ConfigDescriptor(
-        String,
-        default=u'cereauth',
-        doc=u'The username of the user to bind with.'
-    )
-
-    bind_dn_template = ConfigDescriptor(
-        String,
-        default=u'cn=cereauth,ou=users,dc=ad-example,dc=com',
-        doc=u'The DN to use when binding the LDAP connection.'
-    )
-
-    users_dn = ConfigDescriptor(
-        String,
-        default=u'ou=users,dc=ad-example,dc=com',
-        doc=u'The DN where to look up users.'
-    )
-
-    groups_dn = ConfigDescriptor(
-        String,
-        default=u'ou=groups,dc=ad-example,dc=com',
-        doc=u'The DN where to look up groups.'
-    )
-
-
-def load_ad_ldap_config():
-    config = ADLDAPConfig()
-    read(config, 'ad_ldap')
-    config.validate()
-    return config
-
-
 def build_ad_account_data(account_basic_info,
                           name_data,
                           quarantine_action,
@@ -88,9 +41,9 @@ def get_ad_account_data(account_id, df, spread):
     account_basic_info = df.get_account_data(account_id, spread)
     return build_ad_account_data(
         account_basic_info=account_basic_info,
-        name_data=df.get_person_basic_info(account_basic_info['owner_id']),
+        name_data=df.get_person_names(account_basic_info['owner_id']),
         quarantine_action=df.get_quarantine_data([account_id]),
-        posix_data=df.get_posix_data(account_id),
+        posix_data=df.get_posix_account_data(account_id),
         email=df.get_email_addr(account_id),
         home_dir_data=df.get_homedir_data(account_id)
     )
@@ -386,7 +339,8 @@ if __name__ == '__main__':
                                       spread=ad_acc_spread)
         pprint(lol.popitem())
 
-    print('# of accounts that are desynced: '.format(len(desynced_entities)))
+    print('# of accounts that were skipped: {}'.format(asdasd))
+    print('# of accounts that are desynced: {}'.format(len(desynced_entities)))
     print('# of accounts present in Cerebrum, but not in AD:'.format(
         len(not_in_ad)
     ))

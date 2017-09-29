@@ -41,7 +41,7 @@ class ADLDAPSyncGroupDataFetcher(CerebrumDataFetcher):
         self.group_spread = self.co.Spread(cereconf.AD_GROUP_SPREAD)
         self.account_spread = self.co.Spread(cereconf.AD_ACCOUNT_SPREAD)
 
-    def get_all_groups(self):
+    def get_all_groups_data(self):
         all_group_rows = self.get_all_groups_data(
             key_attr='name',
             keys=['name', 'description', 'group_id'],

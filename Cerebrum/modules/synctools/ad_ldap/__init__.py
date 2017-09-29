@@ -18,14 +18,3 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from .config import load_ad_ldap_config
-from .ad_ldap_client import ADLDAPClient
-
-
-def get_client(config=None):
-    """
-    Instantiante AD-LDAP client with the default or passed config.
-    """
-    config = config or load_ad_ldap_config()
-    return ADLDAPClient(config)

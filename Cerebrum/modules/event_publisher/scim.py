@@ -57,7 +57,7 @@ class EntityTypeToApiRouteMapConfig(Configuration):
         default=u'entities',
         doc=u'API Route for group entities')
 
-    ous = ConfigDescriptor(
+    ou = ConfigDescriptor(
         String,
         default=u'ous',
         doc=u'API Route for OU entities')
@@ -75,7 +75,7 @@ class ScimFormatterConfig(Configuration):
         String,
         default=u'https://cerebrum.example.com/v1/{entity_type}/{entity_id}',
         doc=u'Format string for URL (use {entity_type} and {entity_id} as '
-        'placeholders')
+        u'placeholders')
 
     keytemplate = ConfigDescriptor(
         String,
@@ -97,6 +97,7 @@ class ScimFormatterConfig(Configuration):
 class ScimFormatter(object):
     def __init__(self, config=None):
         self.config = config or ScimFormatterConfig()
+        print(self.config.uri_prefix)
 
     @staticmethod
     def make_timestamp(dt_object=None):
@@ -117,8 +118,6 @@ class ScimFormatter(object):
     def get_uri(self, action):
         """ Format an uri for the message. """
         return '{}:{}'.format(self.config.uri_prefix, action)
-
-    #def __call__(self, data):
 
 
 class EventScimFormatter(ScimFormatter):

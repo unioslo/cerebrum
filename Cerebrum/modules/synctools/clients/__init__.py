@@ -19,20 +19,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from Cerebrum.modules.synctools.clients.ad_ldap_client import ADLDAPClient
+from .ad_ldap_config import load_ad_ldap_config
 
-def equal(dict1, dict2, attrs):
+
+def get_ad_ldapclient(config=None):
     """
-    Compares the passed attributes on two dicts, and returns True if they
-    are all equal, and False if not.
-    @param dict1: dict
-    @param dict2: dict
-    @param attrs: list
-    @return: bool
+    Instantiante AD-LDAP client with the default or passed config.
     """
-    for attr in attrs:
-        try:
-            if dict1[attr] != dict2[attr]:
-                return False
-        except KeyError:
-            return False
-    return True
+    config = config or load_ad_ldap_config()
+    return ADLDAPClient(config)
