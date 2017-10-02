@@ -33,22 +33,6 @@ from Cerebrum.modules.synctools.base_data_fetchers import get_account_id_by_user
 from Cerebrum.modules.synctools.ad_ldap import mappers
 from Cerebrum.modules.synctools.ad_ldap import functions
 
-logger = Utils.Factory.get_logger("console")
-db = Utils.Factory.get('Database')()
-co = Utils.Factory.get('Constants')(db)
-group_postfix = getattr(cereconf, 'AD_GROUP_POSTFIX', '')
-path_req_disks = getattr(cereconf, 'AD_HOMEDIR_HITACHI_DISKS', ())
-ad_acc_spread = co.Spread(cereconf.AD_ACCOUNT_SPREAD)
-ad_grp_spread = co.Spread(cereconf.AD_GROUP_SPREAD)
-
-acc_attrs = ['sn', 'givenName', 'displayName', 'mail',
-             'userPrincipalName', 'homeDirectory', 'homeDrive',
-             'gidNumber', 'gecos', 'uidNumber',
-             'uid', 'msSFU30Name', 'msSFU30NisDomain']
-
-grp_attrs = ['displayName', 'description', 'displayNamePrintable', 'member',
-             'gidNumber', 'msSFU30Name', 'msSFU30NisDomain']
-
 parser = argparse.ArgumentParser(prog='ad_ldap')
 parser.add_argument('--send', help="send events", action='store_true')
 parser.add_argument('--queue-name', help="Queue name to send events to.",
@@ -78,8 +62,19 @@ accounts_sync_parsers.add_argument(
 accounts_sync_parsers.add_argument(
     '--usernames', nargs="*", type=str,
     help="A list of account usernames to sync")
+
 args = parser.parse_args()
-print(args)
+
+logger = Utils.Factory.get_logger("console")
+db = Utils.Factory.get('Database')()
+co = Utils.Factory.get('Constants')(db)
+group_postfix = getattr(cereconf, 'AD_GROUP_POSTFIX', '')
+path_req_disks = getattr(cereconf, 'AD_HOMEDIR_HITACHI_DISKS', ())
+ad_acc_spread = co.Spread(cereconf.AD_ACCOUNT_SPREAD)
+ad_grp_spread = co.Spread(cereconf.AD_GROUP_SPREAD)
+acc_attrs = cereconf.AD_ATTRIBUTES
+grp_attrs = cereconf.AD_GRP_ATTRIBUTES
+
 ad_ldap_config = load_ad_ldap_config()
 client = get_ad_ldapclient(ad_ldap_config)
 client.connect()
@@ -112,6 +107,8 @@ if args.sub_command == 'accounts':
         )
 
 if args.sub_command == 'fullsync':
+    if not (args.all or args.groups or args.accounts):
+        raise SystemExit('See "ad_ldap fullsync -h" for usage. Exiting...')
     if args.all:
         if args.groups or args.accounts:
             raise SystemExit(
