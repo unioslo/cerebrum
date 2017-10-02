@@ -71,6 +71,7 @@ def build_all_account_events(db,
     crb_acc_ad_values = [
         mappers.crb_acc_values_to_ad_values(crb_acc_data,
                                             path_req_disks,
+                                            client.config.nis_domain,
                                             group_postfix,
                                             db.encoding)
         for crb_acc_data in all_crb_accs_data]
@@ -214,6 +215,7 @@ def get_account_events(db,
     crb_acc_ad_values = [
         mappers.crb_acc_values_to_ad_values(crb_acc_data,
                                             path_req_disks,
+                                            client.config.nis_domain,
                                             group_postfix,
                                             db.encoding)
         for crb_acc_data in crb_accs_data]
