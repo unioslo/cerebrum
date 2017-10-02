@@ -63,6 +63,20 @@ class ADLDAPConfig(Configuration):
         doc=u'The DN where to look up groups.'
     )
 
+    nis_domain = ConfigDescriptor(
+        String,
+        default=u'uio',
+        doc=u'The NIS-domain to set on accounts/groups to be exported to AD '
+            u'or diffed with AD objects.'
+    )
+
+    user_principal_postfix = ConfigDescriptor(
+        String,
+        default=u'uio@no',
+        doc=u'The postfix to set on the userPrincipalName-value of'
+            u'accounts to be exported to AD or diffed with AD objects.'
+    )
+
 
 def load_ad_ldap_config():
     config = ADLDAPConfig()

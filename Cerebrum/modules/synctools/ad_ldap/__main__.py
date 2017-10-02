@@ -20,7 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import argparse
-import ldap
 import cereconf
 
 from Cerebrum import Utils
@@ -30,35 +29,11 @@ from Cerebrum.modules.event_publisher.config import load_publisher_config
 from Cerebrum.modules.event_publisher.config import load_formatter_config
 from Cerebrum.modules.synctools.clients import get_ad_ldapclient
 from Cerebrum.modules.synctools.clients import load_ad_ldap_config
-from Cerebrum.modules.synctools.compare import equal
-from Cerebrum.modules.synctools.data_fetchers import get_account_id_by_username
-from Cerebrum.modules.synctools.ad_ldap import data_fetchers as df
-from Cerebrum.modules.synctools.ad_ldap.mappers \
-    import (crb_acc_values_to_ad_values,
-            crb_grp_values_to_ad_values,
-            build_scim_event_msg)
+from Cerebrum.modules.synctools.base_data_fetchers import get_account_id_by_username
+from Cerebrum.modules.synctools.ad_ldap import mappers
+from Cerebrum.modules.synctools.ad_ldap import functions
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--account_ids', nargs="*", type=int, help="""A list of entity_ids to sync""")
-parser.add_argument('--usernames', nargs="*", type=str, help="""A list of usernames to sync""")
-parser.add_argument('--fullsync', help="""Do a complete sync for all
-                         accounts/groups""", action='store_true')
-parser.add_argument('--groups', help="""Do a complete sync for all
-                         accounts/groups""", action='store_true')
-parser.add_argument('--test', help="""Do a complete sync for all
-                         accounts/groups""", action='store_true')
-parser.add_argument('--send', help="""send messages""", action='store_true')
-args = parser.parse_args()
-
-#if not args.usernames and not args.account_ids and not args.fullsync and not args.groups:
-#    raise SystemExit(
-#        'Error: No sync method specified. See --help.'
-#    )
-#if (args.usernames or args.account_ids) and args.fullsync:
-#    raise SystemExit(
-#        'Error: --fullsync cannot be used with --account_ids or --usernames'
-#    )
-
+logger = Utils.Factory.get_logger("console")
 db = Utils.Factory.get('Database')()
 co = Utils.Factory.get('Constants')(db)
 group_postfix = getattr(cereconf, 'AD_GROUP_POSTFIX', '')
@@ -74,197 +49,124 @@ acc_attrs = ['sn', 'givenName', 'displayName', 'mail',
 grp_attrs = ['displayName', 'description', 'displayNamePrintable', 'member',
              'gidNumber', 'msSFU30Name', 'msSFU30NisDomain']
 
+parser = argparse.ArgumentParser(prog='ad_ldap')
+parser.add_argument('--send', help="send events", action='store_true')
+parser.add_argument('--queue-name', help="Queue name to send events to.",
+                    required=True)
 
-def format_ldap_data(ad_data, attrs):
-    r = {}
-    for data in ad_data:
-        r[data[1]['cn'][0]] = {
-            key: data[1].get(key, None)
-            for key in attrs
-        }
-    return r
+subparsers = parser.add_subparsers(dest='sub_command')
 
+fullsync_parser = subparsers.add_parser(
+    'fullsync',
+    help='Do a fullsync. See "ad_ldap fullsync --help" for usage.'
+)
+fullsync_parser.add_argument('--all', action='store_true',
+                             help='sync all accounts/groups.')
+fullsync_parser.add_argument('--groups', action='store_true',
+                             help='sync all groups.')
+fullsync_parser.add_argument('--accounts', action='store_true',
+                             help='sync all accounts.')
 
-def get_ad_ldap_acc_values(client, config, attrs, username):
-    raw_ad_data = client.fetch_data(config.users_dn,
-                                    ldap.SCOPE_SUBTREE,
-                                    '(cn={})'.format(username))
-    return format_ldap_data(raw_ad_data, attrs)
+accounts_sync_parsers = subparsers.add_parser(
+    'accounts',
+    help='Only sync some specified accounts. '
+         'See "ad_ldap accounts --help" for usage.')
 
-
-def get_all_ad_ldap_acc_values(client, config, attrs):
-    ad_data = client.fetch_data(config.users_dn,
-                                ldap.SCOPE_SUBTREE,
-                                '(objectClass=user)')
-    return format_ldap_data(ad_data, attrs)
-
-
-def get_all_ad_ldap_grp_values(client, config, attrs):
-    ad_data = client.fetch_data(config.groups_dn,
-                                ldap.SCOPE_SUBTREE,
-                                '(objectClass=group)')
-    return format_ldap_data(ad_data, attrs)
-
+accounts_sync_parsers.add_argument(
+    '--ids', nargs="*", type=int,
+    help="A list of account_ids to sync")
+accounts_sync_parsers.add_argument(
+    '--usernames', nargs="*", type=str,
+    help="A list of account usernames to sync")
+args = parser.parse_args()
+print(args)
+ad_ldap_config = load_ad_ldap_config()
+client = get_ad_ldapclient(ad_ldap_config)
+client.connect()
 
 events = []
-account_ids = []
 
-if args.usernames:
-    for username in args.usernames:
-        account_id = get_account_id_by_username(db, username)
-        if account_id:
-            account_ids.append(account_id)
+if args.sub_command == 'accounts':
+    if not (args.usernames or args.ids):
+        raise SystemExit('See "ad_ldap accounts -h" for usage. Exiting...')
+    account_ids = []
+    if args.usernames:
+        for username in args.usernames:
+            account_id = get_account_id_by_username(db, username)
+            if account_id:
+                account_ids.append(account_id)
+            else:
+                raise SystemExit('Error: account "{}" not found! '
+                                 'Exiting...'.format(username))
 
-if account_ids:
-    print(account_ids)
-    ad_ldap_config = load_ad_ldap_config()
-    client = get_ad_ldapclient(ad_ldap_config)
-    client.connect()
-    crb_accs_data = [
-        df.get_crb_account_data(db, acc_id, ad_acc_spread)
-        for acc_id in account_ids
-    ]
-    crb_acc_ad_values = [
-        crb_acc_values_to_ad_values(crb_acc_data,
-                                    path_req_disks,
-                                    group_postfix,
-                                    db.encoding)
-        for crb_acc_data in crb_accs_data]
+    if args.ids:
+        account_ids.extend(args.ids)
+        events = functions.get_account_events(
+            db=db,
+            client=client,
+            account_ids=account_ids,
+            ad_acc_spread=ad_acc_spread,
+            group_postfix=group_postfix,
+            path_req_disks=path_req_disks,
+            acc_attrs=acc_attrs
+        )
 
-    desynced_accs = []
-    not_in_ad = []
+if args.sub_command == 'fullsync':
+    if args.all:
+        if args.groups or args.accounts:
+            raise SystemExit(
+                'Error: --all cannot be used along --accounts/--groups. '
+                'Exiting..'
+            )
+        events = functions.build_all_acc_and_grp_events(
+            db=db,
+            client=client,
+            ad_acc_spread=ad_acc_spread,
+            ad_grp_spread=ad_grp_spread,
+            group_postfix=group_postfix,
+            path_req_disks=path_req_disks,
+            acc_attrs=acc_attrs,
+            grp_attrs=grp_attrs)
 
-    for crb_acc in crb_acc_ad_values:
-        if crb_acc.get('quarantine_action') == 'skip':
-            continue
-        ad_ldap_acc_values = get_ad_ldap_acc_values(client,
-                                                    ad_ldap_config,
-                                                    acc_attrs,
-                                                    crb_acc['username'])
-        if crb_acc['username'] not in ad_ldap_acc_values:
-            not_in_ad.append(crb_acc['account_id'])
-            continue
-        if not equal(crb_acc, ad_ldap_acc_values[crb_acc['username']], acc_attrs):
-            desynced_accs.append(crb_acc['account_id'])
-        # Remove from dict to get number of accounts not present in AD,
-        # but not Cerebrum when this for-loop is done.
-        ad_ldap_acc_values.pop(crb_acc['username'])
-        print('# of accounts that are desynced: {}'.format(len(desynced_accs)))
-        print('# of accounts present in Cerebrum, but not in AD: {}'.format(
-            len(not_in_ad)
-        ))
-        print('# of accounts present in AD, but not in Cerebrum: {}'.format(
-            len(ad_ldap_acc_values)
-        ))
-    for acc in desynced_accs:
-        events.append({'entity_id': acc,
-                       'event_type': 'modify',
-                       'entity_type': 'account'})
+    if args.accounts and args.groups:
+        raise SystemExit(
+            'Error: Use --all instead of both --accounts & --groups. '
+            'Exiting..'
+        )
+    if args.groups:
+        events = functions.build_all_group_events(
+            db=db,
+            client=client,
+            ad_acc_spread=ad_acc_spread,
+            ad_grp_spread=ad_grp_spread,
+            group_postfix=group_postfix,
+            grp_attrs=grp_attrs
+        )
 
-if args.fullsync:
-    print('Getting data from AD-LDAP....')
-    ad_ldap_config = load_ad_ldap_config()
-    client = get_ad_ldapclient(ad_ldap_config)
-    ad_ldap_acc_values = get_all_ad_ldap_acc_values(client,
-                                                    ad_ldap_config,
-                                                    acc_attrs)
-    print('Getting data from Cerebrum...')
-    all_crb_accs_data = df.get_all_crb_accounts_data(db,
-                                                     ad_acc_spread,
-                                                     ad_grp_spread)
-    crb_acc_ad_values = [
-        crb_acc_values_to_ad_values(crb_acc_data,
-                                    path_req_disks,
-                                    group_postfix,
-                                    db.encoding)
-        for crb_acc_data in all_crb_accs_data]
+    if args.accounts:
+        events = functions.build_all_account_events(
+            db=db,
+            client=client,
+            ad_acc_spread=ad_acc_spread,
+            ad_grp_spread=ad_grp_spread,
+            group_postfix=group_postfix,
+            path_req_disks=path_req_disks,
+            acc_attrs=acc_attrs
+        )
 
-    skipped = len(all_crb_accs_data) - len(crb_acc_ad_values)
-    desynced_accs = []
-    not_in_ad = []
-
-    print('Diffing account data...')
-    for crb_acc in crb_acc_ad_values:
-        if crb_acc['username'] not in ad_ldap_acc_values:
-            not_in_ad.append(crb_acc['account_id'])
-            continue
-        if not equal(crb_acc, ad_ldap_acc_values[crb_acc['username']], acc_attrs):
-            desynced_accs.append(crb_acc['account_id'])
-        # Remove from dict to get number of accounts not present in AD,
-        # but not Cerebrum when this for-loop is done.
-        ad_ldap_acc_values.pop(crb_acc['username'])
-
-    print('# of accounts that were skipped: {}'.format(skipped))
-    print('# of accounts that are desynced: {}'.format(len(desynced_accs)))
-    print('# of accounts present in Cerebrum, but not in AD: {}'.format(
-        len(not_in_ad)
-    ))
-    print('# of accounts present in AD, but not in Cerebrum: {}'.format(
-        len(ad_ldap_acc_values)
-    ))
-    for crb_acc in desynced_accs:
-        events.append({'entity_id': crb_acc,
-                       'event_type': 'modify',
-                       'entity_type': 'account'})
-
-from pprint import pprint
-
-if args.groups:
-    ad_ldap_config = load_ad_ldap_config()
-    client = get_ad_ldapclient(ad_ldap_config)
-    client.connect()
-    all_ad_ldap_grp_values = get_all_ad_ldap_grp_values(client,
-                                                        ad_ldap_config,
-                                                        grp_attrs)
-
-    all_crb_groups_data = df.get_all_groups_values(db,
-                                                   ad_grp_spread,
-                                                   ad_acc_spread)
-    all_crb_groups_values = {}
-    for grp_name, grp_data in all_crb_groups_data.iteritems():
-        values = crb_grp_values_to_ad_values(grp_data,
-                                             db.encoding,
-                                             ad_ldap_config.users_dn,
-                                             group_postfix)
-        all_crb_groups_values[values['displayName']] = values
-
-    skipped = 0
-    not_in_ad = []
-    desynced_grps = []
-
-    for grp, group_data in all_crb_groups_values.items():
-        if grp not in all_ad_ldap_grp_values:
-            not_in_ad.append(group_data['group_id'])
-            continue
-        if not equal(group_data, all_ad_ldap_grp_values[grp], grp_attrs):
-            desynced_grps.append(group_data['group_id'])
-        all_ad_ldap_grp_values.pop(grp)
-    print('# of groups that are desynced: {}'.format(len(desynced_grps)))
-    print('# of groups present in Cerebrum, but not in AD: {}'.format(
-        len(not_in_ad)
-    ))
-
-    #pprint(grp_values)
-
-
-print('# of scim-events to be sent: {}'.format(len(events)))
-
-formatter_config = load_formatter_config()
-formatter = ScimFormatter(formatter_config)
-scim_events = [build_scim_event_msg(event,
-                                    formatter,
-                                    str(ad_acc_spread),
-                                    str(ad_grp_spread))
-               for event in events]
-pprint(scim_events)
+logger.info('# of generated scim-events to be sent: {}'.format(len(events)))
 
 if args.send:
+    formatter_config = load_formatter_config()
+    formatter = ScimFormatter(formatter_config)
+    scim_events = [mappers.build_scim_event_msg(event,
+                                                formatter,
+                                                str(ad_acc_spread),
+                                                str(ad_grp_spread))
+                   for event in events]
     pub_config = load_publisher_config()
     c = AMQP091Publisher(pub_config)
     c.open()
     for msg in events:
-        c.publish('omglol', events)
+        c.publish(args.queue_name, events)
     c.close()
-
-if args.test:
-    pass

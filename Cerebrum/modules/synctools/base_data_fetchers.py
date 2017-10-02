@@ -78,36 +78,21 @@ def get_all_group_members(db, key_attr='group_id', keys=None,
     member_rows = gr.search_members(spread=spread,
                                     member_spread=member_spread,
                                     include_member_entity_name=True)
+
     return build_dict_list_from_row_list(member_rows,
                                          key_attr=key_attr,
                                          keys=['member_name'])
 
 
-def get_all_posix_group_gid_rows(db, key_attr='group_id', keys=None):
+def get_all_posix_group_gids(db, key_attr='group_id', keys=None):
     pg = Utils.Factory.get('PosixGroup')(db)
     return build_dict_from_row_list(pg.list_posix_groups(), key_attr, keys)
 
 
-def get_all_posix_groups_rows(db, spread=None, key_attr='group_id', keys=None):
+def get_all_posix_groups(db, spread=None, key_attr='group_id', keys=None):
     pg = Utils.Factory.get('PosixGroup')(db)
     return build_dict_from_row_list(pg.search(spread=spread),
                                     key_attr=key_attr, keys=keys)
-
-#def get_all_posix_group_gid_rows(db, spread=None,
-#                                 key_attr='group_id', keys=None):
-#    pg = Utils.Factory.get('PosixGroup')(db)
-#    return build_dict_from_row_list(pg.search(spread=spread),
-#                                    key_attr=key_attr)
-
-    #for x in pg.list_posix_groups():
-    #    try:
-    #        pg_rows[x['group_id']]['posix_gid'] = x['posix_gid']
-    #    except KeyError:
-    #        # Filtered out due to missing spread
-    #        pass
-    #pg_rows = dict(filter(lambda (k, v): 'posix_gid' in v,
-    #                      pg_rows.items()))
-    #return build_dict_from_row_list(pg_rows.values(), key_attr, keys)
 
 
 def get_all_posix_accounts_rows(db, spread=None,
@@ -116,12 +101,6 @@ def get_all_posix_accounts_rows(db, spread=None,
     posix_users_rows = pu.list_posix_users(spread=spread,
                                            filter_expired=True)
     return build_dict_from_row_list(posix_users_rows, key_attr, keys)
-
-
-#def get_all_posix_group_rows(db, spread=None, key_attr='group_id', keys=None):
-#    pg = Utils.Factory.get('PosixGroup')(db)
-#    pg_rows = pg.search(spread=spread)
-#    return build_dict_from_row_list(pg_rows, key_attr, keys)
 
 
 def get_all_host_rows(db, key_attr='host_id', keys=None):
@@ -138,6 +117,16 @@ def get_account_id_by_username(db, username):
     except Errors.NotFoundError:
         return None
     return int(ac.entity_id)
+
+
+def get_group_id_by_name(db, group_name):
+    """Get the entity_id of a group by name."""
+    gr = Utils.Factory.get('Group')(db)
+    try:
+        gr.find_by_name(group_name)
+    except Errors.NotFoundError:
+        return None
+    return int(gr.entity_id)
 
 
 def get_email_addr(db, account_id):

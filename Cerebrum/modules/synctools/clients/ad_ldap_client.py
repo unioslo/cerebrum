@@ -29,9 +29,14 @@ class ADLDAPClient(object):
         """
         self.config = config
         self.connection = None
+        self.scope_base = ldap.SCOPE_BASE
+        self.scope_onelevel = ldap.SCOPE_ONELEVEL
+        self.scope_subtree = ldap.SCOPE_SUBTREE
+        self.scope_subordinate = ldap.SCOPE_SUBORDINATE
 
     def connect(self):
-        password = read_password(self.config.ldap_user, 'ceretestad01.uio.no')
+        password = read_password(self.config.ldap_user,
+                                 self.config.ldap_server)
         self.connection = ldap.initialize('{0}://{1}'.format(
             self.config.ldap_proto,
             self.config.ldap_server

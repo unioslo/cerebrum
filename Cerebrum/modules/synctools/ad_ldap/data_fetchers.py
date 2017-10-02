@@ -20,19 +20,25 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum import Errors, Utils
-from Cerebrum.modules.synctools import data_fetchers as df
+from Cerebrum.modules.synctools import base_data_fetchers as df
 
 
-def merge(d1, d2):
-    r = d1
-    for k, v in d2.iteritems():
-        if k not in r:
-            r[k] = v
-        elif isinstance(r[k], list):
-            r[k].extend(v)
-        elif isinstance(r[k], dict):
-            r[k] = merge(r[k], v)
-    return r
+def get_ad_ldap_acc_values(client, username):
+    return client.fetch_data(client.config.users_dn,
+                             client.scope_subtree,
+                             '(cn={})'.format(username))
+
+
+def get_all_ad_ldap_acc_values(client):
+    return client.fetch_data(client.config.users_dn,
+                             client.scope_subtree,
+                             '(objectClass=user)')
+
+
+def get_all_ad_ldap_grp_values(client):
+    return client.fetch_data(client.config.groups_dn,
+                             client.scope_subtree,
+                             '(objectClass=group)')
 
 
 def get_person_names(db, person_id):
@@ -67,22 +73,20 @@ def get_all_persons_names(db):
 
 
 def get_all_posix_accounts_data(db, acc_spread, grp_spread):
-    pg = Utils.Factory.get('PosixGroup')(db)
-    pu = Utils.Factory.get('PosixUser')(db)
-    account_data = df.get_all_posix_accounts_rows(pu, spread=acc_spread)
-    grp_gids = df.get_all_posix_group_data(pg)
-    grp_names = df.get_all_posix_group_rows(pg,
-                                            spread=grp_spread,
-                                            keys=['name'])
+    account_data = df.get_all_posix_accounts_rows(db, spread=acc_spread)
+    grp_gids = df.get_all_posix_group_gids(db)
+    grp_names = df.get_all_posix_groups(db,
+                                        spread=grp_spread,
+                                        keys=['name'])
     posix_data = {}
     for acc_id, acc_data in account_data.items():
-        posix_group_gid = grp_gids[acc_data['gid']]
+        pg_gid = grp_gids[acc_data['gid']]
         posix_group_name = None
         if grp_names.get(acc_data['gid']) is not None:
             posix_group_name = grp_names[acc_data['gid']]['name']
         posix_data[acc_id] = dict(acc_data)
         posix_data[acc_id].update(
-            {'posix_gid': posix_group_gid.get('posix_gid') or '',
+            {'posix_gid': pg_gid.get('posix_gid') or '',
              'posix_group_name': posix_group_name or ''}
         )
     return posix_data
@@ -117,16 +121,13 @@ def get_posix_account_data(db, account_id):
 
 def get_all_accounts_homedir_data(db, acc_spread):
     ac = Utils.Factory.get('Account')(db)
-    ho = Utils.Factory.get('Host')(db)
-    host_data = df.get_all_host_rows(ho)
-    from pprint import pprint
-    pprint(host_data.popitem())
+    host_data = df.get_all_host_rows(db)
     return {
         home['account_id']: {'home_host': host_data[home['host_id']]['name'],
                              'home_path': home['path']}
         for home in ac.list_account_home(
-        account_spread=acc_spread
-    )
+            account_spread=acc_spread
+        )
         if home['host_id'] and home['host_id'] in host_data
     }
 
@@ -224,35 +225,18 @@ def get_all_crb_accounts_data(db, ad_acc_spread, ad_grp_spread):
 def get_all_groups_values(db, group_spread, account_spread):
     grp_dict = df.get_all_groups_data(db,
                                       spread=group_spread,
-                                      keys=['name', 'description'])
-    pg_dict = df.get_all_posix_groups_rows(db,
-                                           keys=['name',
-                                                 'description'],
-                                           spread=group_spread)
-    pg_group_id_to_gid_dict = df.get_all_posix_group_gid_rows(db)
-    combined_rows = {}
-    #users_dict = df.get_all_posix_accounts_rows(db,
-    #                                            spread=group_spread,
-    #                                            key_attr='gid',
-    #                                            keys='posix_uid')
-
-# def get_all_groups_values(db, group_spread, account_spread):
-#    all_group_rows = get_all_groups_data(
-#        db,
-#        key_attr='name',
-#        keys=['name', 'description', 'group_id'],
-#        spread=group_spread
-#    )
-#    all_posix_group_rows = get_all_posix_group_rows(db,
-#                                                    key_attr='name',
-#                                                    keys=['posix_gid'],
-#                                                    spread=group_spread)
-#    groups = merge(all_group_rows, all_posix_group_rows)
-#    members = get_all_group_members(db,
-#                                    key_attr='group_name',
-#                                    keys=['member_name'],
-#                                    spread=group_spread,
-#                                    member_spread=[account_spread]
-#                                    )
-#    return merge(groups, dict(map(lambda (k, v): (k, {'member': v}),
-#                                  members.items())))
+                                      keys=['name',
+                                            'description',
+                                            'group_id'])
+    gid_dict = df.get_all_posix_group_gids(db)
+    combined_dicts = {}
+    members = df.get_all_group_members(db,
+                                       spread=group_spread,
+                                       member_spread=account_spread)
+    for grp_id, grp_data in grp_dict.items():
+        combined_dicts[grp_id] = grp_data
+        if grp_id in members:
+            combined_dicts[grp_id].update({'member': members[grp_id]})
+        if grp_id in gid_dict:
+            combined_dicts[grp_id].update(gid_dict[grp_id])
+    return combined_dicts

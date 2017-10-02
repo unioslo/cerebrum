@@ -21,8 +21,18 @@
 import uuid
 
 
+def format_ldap_data(ad_data, attrs):
+    r = {}
+    for data in ad_data:
+        r[data[1]['cn'][0]] = {
+            key: data[1].get(key, None)
+            for key in attrs
+        }
+    return r
+
+
 def crb_acc_values_to_ad_values(account_data, path_req_disks,
-                                group_postfix, encoding):
+                                nis_domain, group_postfix, encoding):
     first_name = unicode(account_data.get('first_name') or '', encoding)
     last_name = unicode(account_data.get('last_name') or '', encoding)
 
@@ -66,7 +76,7 @@ def crb_acc_values_to_ad_values(account_data, path_req_disks,
         'primaryGroup_groupname': build_group_name(account_data),
         'uid': account_data['name'],
         'msSFU30Name': account_data['name'],
-        'msSFU30NisDomain': 'uio',
+        'msSFU30NisDomain': nis_domain,
         'homeDirectory': build_homedir(account_data),
         'userPrincipalName': ''.join([account_data['name'], '@uio.no']),
         'homeDrive': 'M:'
@@ -75,8 +85,8 @@ def crb_acc_values_to_ad_values(account_data, path_req_disks,
     return ad_values
 
 
-def crb_grp_values_to_ad_values(group_data, encoding, users_dn, group_postfix=''):
-    print(group_data)
+def crb_grp_values_to_ad_values(group_data, encoding, users_dn, nis_domain,
+                                group_postfix=''):
     name = unicode(''.join([group_data['name'], group_postfix]), encoding)
     if 'member' in group_data:
         members = [u'cn={0},{1}'.format(member, users_dn)
@@ -84,18 +94,19 @@ def crb_grp_values_to_ad_values(group_data, encoding, users_dn, group_postfix=''
     else:
         members = None
     return {
+        # We include group_id so we can reference it during diffing.
+        'group_id': group_data['group_id'],
         'displayName': name,
         'description': unicode(group_data['description'], encoding),
         'displayNamePrintable': name,
         'member': members,
         'gidNumber': group_data.get('posix_gid'),
         'msSFU30Name': name,
-        'msSFU30NisDomain': 'uio'
+        'msSFU30NisDomain': nis_domain
     }
 
 
 def build_scim_event_msg(event, formatter, ad_acc_spread, ad_grp_spread):
-    print('EVENT ', event)
     entity_route = formatter.get_entity_type_route(event['entity_type'])
     aud = [ad_acc_spread]
     if event['entity_type'] == 'group':
