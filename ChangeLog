@@ -1,3 +1,7 @@
+2017-10-02    <cerebrum@cleomedes.uit.no>
+
+	* Constants.py (Constants): added constant to identify new students
+
 2017-09-20  Karen   <cerebrum@metius.uit.no>
 
     * cim_datasource.py (create_dist_lists): Minor tidy-up of how things are logged when location info is missing or unrecognized.

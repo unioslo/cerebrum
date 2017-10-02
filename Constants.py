@@ -179,6 +179,10 @@ class Constants(Constants.Constants):
         affiliation_student, 
         'opptak', 
         'Har studierett ved studieprogram')
+    affiliation_status_student_ny = Constants._PersonAffStatusCode(
+        affiliation_student,
+        'ny',
+        'Registrert med ny, gyldig studierett i FS')
     affiliation_status_student_perm = _PersonAffStatusCode(
         affiliation_student, 
         'permisjon', 
