@@ -294,6 +294,18 @@ def set_person_spreads(person, new_person):
             if s['spread'] in spreads_to_remove:
                 new_person.delete_spread(s['spread'])
 
+def is_y2k_problem(year_chk, year):
+    y2k_problem = False
+    curr_year = datetime.datetime.now().year
+
+    # If the difference between year_chk and year is exactly 100, 
+    # and year_chk is 100 years or more in the past,
+    # it is highly likely that there is a y2k problem with year_chk.
+    if (abs(year_chk - year) == 100) and (year_chk <= (curr_year - 100)):
+        y2k_problem = True
+
+    return y2k_problem
+
 def process_person(person):
     fnr = person['fnr']
 
@@ -337,8 +349,11 @@ def process_person(person):
         (year_chk, mon_chk, day_chk) = fodselsnr.fodt_dato(fnr)
 
         if year_chk != year:
-            logger.error("Year inconsistent between XML (%s) and FNR (%s) for PAGA person %s" % (year, year_chk, paga_nr))
-            return
+            # check if the year difference is because of the y2k problem in the fodselsnr module
+            # ignore if it is.
+            if not is_y2k_problem(year_chk, year):
+                logger.error("Year inconsistent between XML (%s) and FNR (%s) for PAGA person %s" % (year, year_chk, paga_nr))
+                return
         if mon_chk != mon:
             logger.error("Month inconsistent between XML (%s) and FNR (%s) for PAGA person %s" % (mon, mon_chk, paga_nr))
             return
