@@ -1,3 +1,7 @@
+2017-10-03    <cerebrum@cleomedes.uit.no>
+
+	* rename_account.py (main): removed sendmail code. cleomedes is not so send out email until after leetag is removed
+
 2017-09-21  Karen   <cerebrum@cleomedes.uit.no>
 
     * delete_cim_spread.py: Added to repo. Script for deleting cim_spread for a list of persons.

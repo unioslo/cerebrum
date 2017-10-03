@@ -319,15 +319,16 @@ def main():
                 if ac.is_expired():
                     account_expired = ' Imidlertid er ikke kontoen aktiv, men kan reaktiveres når som helst.'
             
-                Utils.sendmail('star-gru@orakel.uit.no', #TO
-                               'bas-admin@cc.uit.no', #SENDER
-                               'Brukernavn endret (%s erstattes av %s)' % (old_name, new_name), #TITLE
-                               'Brukernavnet %s er endret til %s. Videresend e-post, flytt filer, e-post, osv. fra %s til %s.%s' %
-                               (old_name, new_name, old_name, new_name, account_expired), #BODY
-                               cc=None,
-                               charset='iso-8859-1',
-                               debug=False)
-                print "mail sent to star-gru@orakel.uit.no\n"
+                # TBD : remove comment below when leetah is removed
+                #Utils.sendmail('star-gru@orakel.uit.no', #TO
+                #               'bas-admin@cc.uit.no', #SENDER
+                #               'Brukernavn endret (%s erstattes av %s)' % (old_name, new_name), #TITLE
+                #               'Brukernavnet %s er endret til %s. Videresend e-post, flytt filer, e-post, osv. fra %s til %s.%s' %
+                #               (old_name, new_name, old_name, new_name, account_expired), #BODY
+                #               cc=None,
+                #               charset='iso-8859-1',
+                #               debug=False)
+                #print "mail sent to star-gru@orakel.uit.no\n"
 
 
             # Sending email to PORTAL queue in RT
@@ -385,11 +386,12 @@ def main():
 
                 template = cereconf.CB_SOURCEDATA_PATH + '/templates/rename_account.tmpl'
 
-                result = Utils.mail_template(recipient, template, sender=sender, cc=cc,
-                                        substitute=send_user_mail, charset='utf-8', debug=dryrun)
+                # TBD: remove below comment when leetah is removed
+                #result = Utils.mail_template(recipient, template, sender=sender, cc=cc,
+                #                        substitute=send_user_mail, charset='utf-8', debug=dryrun)
                 
-                print "Mail sent to: %s" % (recipient)
-                print "cc to %s" % (cc)
+                #print "Mail sent to: %s" % (recipient)
+                #print "cc to %s" % (cc)
                 
                 if dryrun:
                     print "\nDRYRUN: mailmsg=\n%s" % result
