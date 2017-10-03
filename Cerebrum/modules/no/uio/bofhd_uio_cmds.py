@@ -120,8 +120,8 @@ class UiOAuth(BofhdAuth):
         if self.is_superuser(operator, query_run_any):
             return True
         if query_run_any:
-            return self._has_operation_perm_somewhere(operator,
-                                                      self.const.auth_rt_addr_add)
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_rt_addr_add)
         return self._query_maildomain_permissions(operator,
                                                   self.const.auth_rt_addr_add,
                                                   domain, None)
@@ -268,7 +268,8 @@ class BofhdExtension(BofhdCommonMethods):
         u""" Fetch all commands in all superclasses. """
         commands = super(BofhdExtension, cls).list_commands(attr)
         if attr == 'all_commands':
-            from Cerebrum.modules.dns.bofhd_dns_cmds import BofhdExtension as Dns
+            from Cerebrum.modules.dns.bofhd_dns_cmds import BofhdExtension as\
+                Dns
             # FIXME: This hack is needed until we have a proper architecture
             # for bofhd which allows mixins.
             # We know that the format suggestion in dns has no hdr, so we only
@@ -277,7 +278,8 @@ class BofhdExtension(BofhdCommonMethods):
                 ("host", "info"),
                 SimpleString(help_ref='string_host'),
                 YesNo(optional=True, help_ref='show_policy'),
-                fs=FormatSuggestion(Dns.all_commands['host_info'].get_fs()['str_vars'] +
+                fs=FormatSuggestion(Dns.all_commands['host_info']
+                                    .get_fs()['str_vars'] +
                                     [("Hostname:              %s\n"
                                       "Description:           %s",
                                       ("hostname", "desc")),
@@ -297,13 +299,13 @@ class BofhdExtension(BofhdCommonMethods):
     def _ldap_init(self):
         """This helper function connects and binds to LDAP-servers
         specified in cereconf."""
-        if self._ldap_connect.connection == None:
+        if self._ldap_connect.connection is None:
             # We import here, as not everyone got LDAP.
             try:
                 import ldap
                 from ldap import ldapobject
             except ImportError:
-                raise CerebrumError, ('ldap module could not be imported')
+                raise CerebrumError('ldap module could not be imported')
 
             # Store the LDAP module in a LDAPStruct, this way we'll keep the
             # options between functions. These options are lost if we import
@@ -328,32 +330,27 @@ class BofhdExtension(BofhdCommonMethods):
 
             server = cereconf.LDAP_MASTER
 
-            con = ldapobject.ReconnectLDAPObject("ldaps://%s/" % server,
-                                                 retry_max = \
-                                                 cereconf.LDAP_RETRY_MAX,
-                                                 retry_delay = \
-                                                 cereconf.LDAP_RETRY_DELAY)
-
-
+            con = ldapobject.ReconnectLDAPObject(
+                "ldaps://%s/" % server,
+                retry_max=cereconf.LDAP_RETRY_MAX,
+                retry_delay=cereconf.LDAP_RETRY_DELAY)
 
             try:
                 con.simple_bind_s(who=ld_binddn, cred=passwd)
             except ldap.CONFIDENTIALITY_REQUIRED:
-                self.logger.warn('TLS could not be established to %s' % server)
-                raise CerebrumError, ('TLS could not be established to %s' % \
-                                      server)
+                self.logger.warn('TLS could not be established to %s', server)
+                raise CerebrumError('TLS could not be established to {}'.format(
+                    server))
             except ldap.INVALID_CREDENTIALS:
-                rep_str = 'Connection aborted to %s, invalid credentials' \
-                           % server
-                self.logger.error(rep_str)
-                raise CerebrumError, (rep_str)
+                rep = ('Connection aborted to {}, invalid credentials'
+                       .format(server))
+                self.logger.error(rep)
+                raise CerebrumError(rep)
             except ldap.SERVER_DOWN:
                 con = None
 
             # And we store the connection in our LDAPStruct
             self._ldap_connect.connection = con
-
-
 
     def _ldap_modify(self, dn, attribute, *values):
         """This function modifies an LDAP entry defined by 'id' to contain an
@@ -486,7 +483,7 @@ class BofhdExtension(BofhdCommonMethods):
                 disk_id = int(r['disk_id'])
             except TypeError:
                 continue
-            if not disk_id in disks:
+            if disk_id not in disks:
                 disk.clear()
                 disk.find(disk_id)
                 disks[disk_id] = disk.path
@@ -516,8 +513,8 @@ class BofhdExtension(BofhdCommonMethods):
                         ret.append(candidate)
                         break
         # TODO: check user's ou(s)
-        ret.sort(lambda x,y: (cmp(x['opset'].lower(), y['opset'].lower()) or
-                              cmp(x['name'], y['name'])))
+        ret.sort(lambda x, y: (cmp(x['opset'].lower(), y['opset'].lower()) or
+                               cmp(x['name'], y['name'])))
         return ret
 
     # access global_group
@@ -571,8 +568,8 @@ class BofhdExtension(BofhdCommonMethods):
 
     def _list_access(self, target_type, target_name=None, decode_attr=str,
                      empty_result="None"):
-        target_id, target_type, target_auth = \
-                   self._get_access_id(target_type, target_name)
+        target_id, target_type, target_auth = self._get_access_id(target_type,
+                                                                  target_name)
         ret = []
         ar = BofhdAuthRole(self.db)
         aos = BofhdAuthOpSet(self.db)
@@ -590,10 +587,9 @@ class BofhdExtension(BofhdCommonMethods):
                             'attr': attr,
                             'type': str(self.const.EntityType(ety.entity_type)),
                             'name': self._get_name_from_object(ety)})
-        ret.sort(lambda a,b: (cmp(a['opset'], b['opset']) or
-                              cmp(a['name'], b['name'])))
+        ret.sort(lambda a, b: (cmp(a['opset'], b['opset']) or
+                               cmp(a['name'], b['name'])))
         return ret or empty_result
-
 
     # access grant <opset name> <who> <type> <on what> [<attr>]
     all_commands['access_grant'] = Command(
@@ -619,7 +615,7 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(optional=True, help_ref="auth_attribute"),
         perm_filter='can_grant_access')
     def access_revoke(self, operator, opset, group, entity_type, target_name,
-                     attr=None):
+                      attr=None):
         return self._manipulate_access(self._revoke_auth, operator, opset,
                                        group, entity_type, target_name, attr)
 
@@ -639,8 +635,8 @@ class BofhdExtension(BofhdCommonMethods):
         opset = self._get_opset(opset)
         gr = self.util.get_target(group, default_lookup="group",
                                   restrict_to=['Account', 'Group'])
-        target_id, target_type, target_auth = \
-                   self._get_access_id(entity_type, target_name)
+        target_id, target_type, target_auth = self._get_access_id(
+            entity_type, target_name)
         operator_id = operator.get_entity_id()
         if target_auth is None and not self.ba.is_superuser(operator_id):
             raise PermissionDenied("Currently limited to superusers")
@@ -667,14 +663,14 @@ class BofhdExtension(BofhdCommonMethods):
 
         """
         func_name = "_get_access_id_%s" % target_type
-        if not func_name in dir(self):
-            raise CerebrumError, "Unknown id type %s" % target_type
+        if func_name not in dir(self):
+            raise CerebrumError("Unknown id type {}".format(target_type))
         return self.__getattribute__(func_name)(target_name)
 
     def _validate_access(self, target_type, opset, attr):
         func_name = "_validate_access_%s" % target_type
-        if not func_name in dir(self):
-            raise CerebrumError, "Unknown type %s" % target_type
+        if func_name not in dir(self):
+            raise CerebrumError("Unknown type {}".format(target_type))
         return self.__getattribute__(func_name)(opset, attr)
 
     def _get_access_id_disk(self, target_name):
@@ -684,7 +680,7 @@ class BofhdExtension(BofhdCommonMethods):
     def _validate_access_disk(self, opset, attr):
         # TODO: check if the opset is relevant for a disk
         if attr is not None:
-            raise CerebrumError, "Can't specify attribute for disk access"
+            raise CerebrumError("Can't specify attribute for disk access")
 
     def _get_access_id_group(self, target_name):
         target = self._get_group(target_name)
@@ -693,7 +689,7 @@ class BofhdExtension(BofhdCommonMethods):
     def _validate_access_group(self, opset, attr):
         # TODO: check if the opset is relevant for a group
         if attr is not None:
-            raise CerebrumError, "Can't specify attribute for group access"
+            raise CerebrumError("Can't specify attribute for group access")
 
     # These three should *really* not be here, but due to this being the
     # place that "access grant" & friends are defined, this is where
@@ -745,14 +741,14 @@ class BofhdExtension(BofhdCommonMethods):
                 ret.append(accessor)
         return ret
 
-
     def _get_access_id_global_group(self, group):
         if group is not None and group != "":
-            raise CerebrumError, "Cannot set domain for global access"
+            raise CerebrumError("Cannot set domain for global access")
         return None, self.const.auth_target_type_global_group, None
+
     def _validate_access_global_group(self, opset, attr):
         if attr is not None:
-            raise CerebrumError, "Can't specify attribute for global group"
+            raise CerebrumError("Can't specify attribute for global group")
 
     def _get_access_id_host(self, target_name):
         target = self._get_host(target_name)
@@ -761,21 +757,20 @@ class BofhdExtension(BofhdCommonMethods):
     def _validate_access_host(self, opset, attr):
         if attr is not None:
             if attr.count('/'):
-                raise CerebrumError, ("The disk pattern should only contain "+
-                                      "the last component of the path.")
+                raise CerebrumError("The disk pattern should only contain "
+                                    "the last component of the path.")
             try:
                 re.compile(attr)
             except re.error, e:
-                raise CerebrumError, ("Syntax error in regexp: %s" % e)
+                raise CerebrumError("Syntax error in regexp: {}".format(e))
 
     def _get_access_id_global_host(self, target_name):
         if target_name is not None and target_name != "":
-            raise CerebrumError, ("You can't specify a hostname")
+            raise CerebrumError("You can't specify a hostname")
         return None, self.const.auth_target_type_global_host, None
     def _validate_access_global_host(self, opset, attr):
         if attr is not None:
-            raise CerebrumError, ("You can't specify a pattern with "
-                                  "global_host.")
+            raise CerebrumError("You can't specify a pattern with global_host.")
 
     def _get_access_id_maildom(self, dom):
         ed = self._get_email_domain(dom)
@@ -783,15 +778,15 @@ class BofhdExtension(BofhdCommonMethods):
                 self.const.auth_grant_maildomain)
     def _validate_access_maildom(self, opset, attr):
         if attr is not None:
-            raise CerebrumError, ("No attribute with maildom.")
+            raise CerebrumError("No attribute with maildom.")
 
     def _get_access_id_global_maildom(self, dom):
         if dom is not None and dom != '':
-            raise CerebrumError, "Cannot set domain for global access"
+            raise CerebrumError("Cannot set domain for global access")
         return None, self.const.auth_target_type_global_maildomain, None
     def _validate_access_global_maildom(self, opset, attr):
         if attr is not None:
-            raise CerebrumError, ("No attribute with global maildom.")
+            raise CerebrumError("No attribute with global maildom.")
 
     def _get_access_id_ou(self, ou):
         ou = self._get_ou(stedkode=ou)
@@ -802,17 +797,17 @@ class BofhdExtension(BofhdCommonMethods):
             try:
                 int(self.const.PersonAffiliation(attr))
             except Errors.NotFoundError:
-                raise CerebrumError, "Unknown affiliation '%s'" % attr
+                raise CerebrumError("Unknown affiliation '{}'".format(attr))
 
     def _get_access_id_global_ou(self, ou):
         if ou is not None and ou != '':
-            raise CerebrumError, "Cannot set OU for global access"
+            raise CerebrumError("Cannot set OU for global access")
         return None, self.const.auth_target_type_global_ou, None
     def _validate_access_global_ou(self, opset, attr):
         if not attr:
             # This is a policy decision, and should probably be
             # elsewhere.
-            raise CerebrumError, "Must specify affiliation for global ou access"
+            raise CerebrumError("Must specify affiliation for global ou access")
         try:
             int(self.const.PersonAffiliation(attr))
         except Errors.NotFoundError:
@@ -830,7 +825,6 @@ class BofhdExtension(BofhdCommonMethods):
             ret.append({'opset': r['name']})
         ret.sort(lambda x, y: cmp(x['opset'].lower(), y['opset'].lower()))
         return ret
-
 
     # access list_alterable [group/maildom/host/disk] [username]
     hidden_commands['access_list_alterable'] = Command(
@@ -851,14 +845,16 @@ class BofhdExtension(BofhdCommonMethods):
 
         if not (account_id == operator.get_entity_id() or
                 self.ba.is_superuser(operator.get_entity_id())):
-            raise PermissionDenied("You do not have permission for this operation")
+            raise PermissionDenied("You do not have permission for this"
+                                   " operation")
 
         result = list()
         matches = self.ba.list_alterable_entities(account_id, target_type)
         if len(matches) > cereconf.BOFHD_MAX_MATCHES_ACCESS:
-            raise CerebrumError("More than %d (%d) matches. Refusing to return "
-                                "result" %
-                                (cereconf.BOFHD_MAX_MATCHES_ACCESS, len(matches)))
+            raise CerebrumError("More than {:d} ({:d}) matches. Refusing to "
+                                "return result".format(
+                                    cereconf.BOFHD_MAX_MATCHES_ACCESS,
+                                    len(matches)))
         for row in matches:
             try:
                 entity = self._get_entity(ident=row["entity_id"])
@@ -871,14 +867,13 @@ class BofhdExtension(BofhdCommonMethods):
             ename = self._get_entity_name(entity.entity_id, entity.entity_type)
             tmp = {"entity_id": row["entity_id"],
                    "entity_type": etype,
-                   "entity_name": ename,}
+                   "entity_name": ename}
             if entity.entity_type == self.const.entity_group:
                 tmp["description"] = entity.description
 
             result.append(tmp)
         return result
     # end access_list_alterable
-
 
     # access show_opset <opset name>
     all_commands['access_show_opset'] = Command(
@@ -893,7 +888,7 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             baos.find_by_name(opset)
         except Errors.NotFoundError:
-            raise CerebrumError, "Unknown operation set: '%s'" % opset
+            raise CerebrumError("Unknown operation set: '{}'".format(opset))
         ret = []
         for r in baos.list_operations():
             entry = {'op': str(self.const.AuthRoleOp(r['op_code'])),
@@ -907,7 +902,8 @@ class BofhdExtension(BofhdCommonMethods):
                 entry_with_attr = entry.copy()
                 entry_with_attr['attr'] = a
                 ret += [entry_with_attr]
-        ret.sort(lambda x,y: cmp(x['op'], y['op']) or cmp(x['attr'], y['attr']))
+        ret.sort(lambda x, y: (cmp(x['op'], y['op']) or
+                               cmp(x['attr'], y['attr'])))
         return ret
 
     # TODO
@@ -955,9 +951,10 @@ class BofhdExtension(BofhdCommonMethods):
                     try:
                         ed.find(r['entity_id'])
                     except (Errors.NotFoundError, ValueError):
-                        self.logger.warn("Non-existing entity (e-mail domain) in "
-                                         "auth_op_target %s:%d" %
-                                         (r['target_type'], r['entity_id']))
+                        self.logger.warn("Non-existing entity (e-mail domain) "
+                                         "in auth_op_target {}:{:d}"
+                                         .format(r['target_type'],
+                                                 r['entity_id']))
                         continue
                     target_name = ed.email_domain_name
                 elif r['target_type'] == self.const.auth_target_type_ou:
@@ -970,9 +967,9 @@ class BofhdExtension(BofhdCommonMethods):
                                          (r['target_type'], r['entity_id']))
                         continue
                     target_name = "%02d%02d%02d (%s)" % (ou.fakultet,
-                                                    ou.institutt,
-                                                    ou.avdeling,
-                                                    ou.short_name)
+                                                         ou.institutt,
+                                                         ou.avdeling,
+                                                         ou.short_name)
                 elif r['target_type'] == self.const.auth_target_type_dns:
                     s = Subnet(self.db)
                     # TODO: should Subnet.find() support ints as input?
@@ -997,8 +994,8 @@ class BofhdExtension(BofhdCommonMethods):
                             'target_type': r['target_type'],
                             'target': target_name,
                             'attr': r['attr'] or ""})
-        ret.sort(lambda a,b: (cmp(a['target_type'], b['target_type']) or
-                              cmp(a['target'], b['target'])))
+        ret.sort(lambda a, b: (cmp(a['target_type'], b['target_type']) or
+                               cmp(a['target'], b['target'])))
         return ret
 
     def _get_auth_op_target(self, entity_id, target_type, attr=None,
@@ -1056,8 +1053,8 @@ class BofhdExtension(BofhdCommonMethods):
                      entity_name, target_name):
         op_target_id = self._get_auth_op_target(target_id, target_type, attr)
         if not op_target_id:
-            raise CerebrumError, ("No one has matching access to %s" %
-                                  target_name)
+            raise CerebrumError("No one has matching access to {}"
+                                .format(target_name))
         ar = BofhdAuthRole(self.db)
         rows = ar.list(entity_id, opset.op_set_id, op_target_id)
         if len(rows) == 0:
@@ -1100,9 +1097,8 @@ class BofhdExtension(BofhdCommonMethods):
                 et, grp = self._get_email_target_and_dlgroup(name)
             except CerebrumError, e:
                 raise e
-        ttype = et.email_target_type
         if et.email_target_type == self.const.email_target_deleted:
-            raise CerebrumError, "Can't add e-mail address to deleted target"
+            raise CerebrumError("Can't add e-mail address to deleted target")
         ea = Email.EmailAddress(self.db)
         lp, dom = self._split_email_address(address)
         ed = self._get_email_domain(dom)
@@ -1111,18 +1107,18 @@ class BofhdExtension(BofhdCommonMethods):
         # however, being "postmaster" trumps this, so assertion will be
         # correct
         self.ba.can_email_address_add(operator.get_entity_id(),
-                                      account=acc, domain=ed) or \
-                                      self.ba.is_postmaster(operator.get_entity_id())
+                                      account=acc, domain=ed) \
+            or self.ba.is_postmaster(operator.get_entity_id())
         ea.clear()
         try:
             ea.find_by_address(address)
-            raise CerebrumError, "Address already exists (%s)" % address
+            raise CerebrumError("Address already exists ({})".format(address))
         except Errors.NotFoundError:
             pass
         ea.clear()
         ea.populate(lp, ed.entity_id, et.entity_id)
         ea.write_db()
-        return "OK, added '%s' as email-address for '%s'" % (address, name)
+        return "OK, added '{}' as email-address for '{}'".format(address, name)
 
     # email remove_address <account> <address>+
     # exchange-relatert-jazz
@@ -1146,8 +1142,8 @@ class BofhdExtension(BofhdCommonMethods):
         lp, dom = self._split_email_address(address, with_checks=False)
         ed = self._get_email_domain(dom)
         self.ba.can_email_address_delete(operator.get_entity_id(),
-                                      account=acc, domain=ed) or \
-                                      self.ba.is_postmaster(operator.get_entity_id())
+                                         account=acc, domain=ed) \
+            or self.ba.is_postmaster(operator.get_entity_id())
         return self._remove_email_address(et, address)
 
     def _remove_email_address(self, et, address):
@@ -1155,10 +1151,10 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             ea.find_by_address(address)
         except Errors.NotFoundError:
-            raise CerebrumError, "No such e-mail address <%s>" % address
+            raise CerebrumError("No such e-mail address <{}>".format(address))
         if ea.get_target_id() != et.entity_id:
-            raise CerebrumError, ("<%s> is not associated with that target" %
-                                  address)
+            raise CerebrumError("<{}> is not associated with that target"
+                                .format(address))
         addresses = et.get_addresses()
         epat = Email.EmailPrimaryAddressTarget(self.db)
         try:
@@ -1171,16 +1167,15 @@ class BofhdExtension(BofhdCommonMethods):
                 # We're down to the last address, remove the primary
                 epat.delete()
             else:
-                raise CerebrumError, \
-                      "Can't remove primary address <%s>" % address
+                raise CerebrumError("Can't remove primary address <{}>".format(
+                    address))
         ea.delete()
         if len(addresses) > 1:
             # there is at least one address left
-            return "OK, removed '%s'" % address
+            return "OK, removed '{}'".format(address)
         # clean up and remove the target.
         et.delete()
         return "OK, also deleted e-mail target"
-
 
     # email reassign_address <address> <destination>
     all_commands['email_reassign_address'] = Command(
@@ -1193,26 +1188,26 @@ class BofhdExtension(BofhdCommonMethods):
         ttype = source_et.email_target_type
         if ttype not in (self.const.email_target_account,
                          self.const.email_target_deleted):
-            raise CerebrumError, ("Can't reassign e-mail address from target "+
-                                  "type %s") % self.const.EmailTarget(ttype)
+            raise CerebrumError("Can't reassign e-mail address from target "
+                                "type {}".format(self.const.EmailTarget(ttype)))
         dest_acc = self._get_account(dest)
         if dest_acc.is_deleted():
-            raise CerebrumError, ("Can't reassign e-mail address to deleted "+
-                                  "account %s") % dest
+            raise CerebrumError("Can't reassign e-mail address to deleted "
+                                "account {}".format(dest))
         dest_et = Email.EmailTarget(self.db)
         try:
             dest_et.find_by_target_entity(dest_acc.entity_id)
         except Errors.NotFoundError:
-            raise CerebrumError, "Account %s has no e-mail target" % dest
+            raise CerebrumError("Account {} has no e-mail target".format(dest))
         if dest_et.email_target_type != self.const.email_target_account:
-            raise CerebrumError, ("Can't reassign e-mail address to target "+
-                                  "type %s") % self.const.EmailTarget(ttype)
+            raise CerebrumError("Can't reassign e-mail address to target "
+                                "type {}".format(self.const.EmailTarget(ttype)))
         if source_et.entity_id == dest_et.entity_id:
             return "%s is already connected to %s" % (address, dest)
         if (source_acc.owner_type != dest_acc.owner_type or
-            source_acc.owner_id != dest_acc.owner_id):
-            raise CerebrumError, ("Can't reassign e-mail address to a "+
-                                  "different person.")
+                source_acc.owner_id != dest_acc.owner_id):
+            raise CerebrumError("Can't reassign e-mail address to a "
+                                "different person.")
 
         self.ba.can_email_address_reassign(operator.get_entity_id(),
                                            dest_acc)
@@ -8104,7 +8099,13 @@ Addresses and settings:
         if not is_moderator:
             return
 
-        account.map_user_spreads_to_pg(group)
+        if isinstance(account, PosixUser):
+            pu = account
+        else:
+            pu = Factory.get('PosixUser')(self.db)
+            pu.find(account.entity_id)
+
+        pu.map_user_spreads_to_pg(group)
 
     #
     # trait commands
