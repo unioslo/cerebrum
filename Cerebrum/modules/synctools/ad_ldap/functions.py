@@ -22,9 +22,8 @@ from Cerebrum.modules.synctools.ad_ldap import data_fetchers as df
 from Cerebrum.modules.synctools import base_data_fetchers as base_df
 from Cerebrum.modules.synctools.ad_ldap import mappers
 from Cerebrum.modules.synctools.compare import equal
-from Cerebrum.modules.synctools.ad_ldap.mappers import format_ldap_data
 from Cerebrum.Utils import Factory
-logger = Factory.get_logger("cronjob")
+logger = Factory.get_logger("console")
 
 
 def build_event_dict(entity_id, entity_type, event_type):
@@ -59,11 +58,10 @@ def build_all_account_events(db,
                              path_req_disks,
                              acc_attrs):
     logger.info('Getting account data from AD-LDAP....')
-    ad_ldap_acc_values = format_ldap_data(
+    ad_ldap_acc_values = mappers.format_ldap_acc_data(
         df.get_all_ad_ldap_acc_values(client),
         acc_attrs
     )
-
     logger.info('Getting account data from Cerebrum...')
     all_crb_accs_data = df.get_all_crb_accounts_data(db,
                                                      ad_acc_spread,
@@ -75,7 +73,6 @@ def build_all_account_events(db,
                                             group_postfix,
                                             db.encoding)
         for crb_acc_data in all_crb_accs_data]
-
     skipped = len(all_crb_accs_data) - len(crb_acc_ad_values)
     desynced_accounts = []
     accounts_not_in_ad = []
@@ -121,7 +118,7 @@ def build_all_group_events(db,
                            group_postfix,
                            grp_attrs):
     logger.info('Getting group data from AD-LDAP....')
-    all_ad_ldap_grp_values = format_ldap_data(
+    all_ad_ldap_grp_values = mappers.format_ldap_grp_data(
         df.get_all_ad_ldap_grp_values(client),
         grp_attrs
     )
@@ -201,13 +198,13 @@ def build_all_acc_and_grp_events(db,
     return events
 
 
-def get_account_events(db,
-                       client,
-                       account_ids,
-                       ad_acc_spread,
-                       group_postfix,
-                       path_req_disks,
-                       acc_attrs):
+def build_account_events(db,
+                         client,
+                         account_ids,
+                         ad_acc_spread,
+                         group_postfix,
+                         path_req_disks,
+                         acc_attrs):
     crb_accs_data = [
         df.get_crb_account_data(db, acc_id, ad_acc_spread)
         for acc_id in account_ids
@@ -227,10 +224,11 @@ def get_account_events(db,
         if crb_acc.get('quarantine_action') == 'skip':
             skipped += 1
             continue
-        ad_ldap_acc_values = mappers.format_ldap_data(
+        ad_ldap_acc_values = mappers.format_ldap_acc_data(
             df.get_ad_ldap_acc_values(client,
                                       crb_acc['username']),
-            acc_attrs)
+            acc_attrs
+        )
         if crb_acc['username'] not in ad_ldap_acc_values:
             not_in_ad.append(crb_acc['account_id'])
             continue
@@ -238,13 +236,13 @@ def get_account_events(db,
                      acc_attrs):
             desynced.append(crb_acc['account_id'])
 
-    generate_stats('accounts', desynced, not_in_ad, skipped=skipped)
+    generate_stats('accounts', len(desynced), len(not_in_ad), skipped=skipped)
 
     events = []
     for acc in desynced:
         events.append(build_event_dict(acc, 'account', 'modify'))
 
     for acc in not_in_ad:
-        events.append(build_event_dict(acc, 'account', 'modify'))
+        events.append(build_event_dict(acc, 'account', 'add'))
 
     return events

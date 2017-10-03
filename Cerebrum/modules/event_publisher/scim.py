@@ -75,7 +75,7 @@ class ScimFormatterConfig(Configuration):
         String,
         default=u'https://cerebrum.example.com/v1/{entity_type}/{entity_id}',
         doc=u'Format string for URL (use {entity_type} and {entity_id} as '
-        u'placeholders')
+            u'placeholders')
 
     keytemplate = ConfigDescriptor(
         String,
@@ -97,7 +97,6 @@ class ScimFormatterConfig(Configuration):
 class ScimFormatter(object):
     def __init__(self, config=None):
         self.config = config or ScimFormatterConfig()
-        print(self.config.uri_prefix)
 
     @staticmethod
     def make_timestamp(dt_object=None):
@@ -118,6 +117,10 @@ class ScimFormatter(object):
     def get_uri(self, action):
         """ Format an uri for the message. """
         return '{}:{}'.format(self.config.uri_prefix, action)
+
+    def get_key(self, entity_type, event):
+        return self.config.keytemplate.format(entity_type=entity_type,
+                                              event=event)
 
 
 class EventScimFormatter(ScimFormatter):
@@ -148,8 +151,9 @@ class EventScimFormatter(ScimFormatter):
     def get_key(self, event_type, entity_ref):
         """ Format a event key from the Event and EntityRef. """
         entity_type = self.get_entity_type(entity_ref)
-        return self.config.keytemplate.format(entity_type=entity_type,
-                                              event=event_type.verb)
+        return super(EventScimFormatter, self).get_key(
+            entity_type=entity_type,
+            event=event_type.verb)
 
     def __call__(self, event):
         """Create and return payload as jsonable dict."""

@@ -35,8 +35,6 @@ from Cerebrum.modules.synctools.ad_ldap import functions
 
 parser = argparse.ArgumentParser(prog='ad_ldap')
 parser.add_argument('--send', help="send events", action='store_true')
-parser.add_argument('--queue-name', help="Queue name to send events to.",
-                    required=True)
 
 subparsers = parser.add_subparsers(dest='sub_command')
 
@@ -72,7 +70,8 @@ group_postfix = getattr(cereconf, 'AD_GROUP_POSTFIX', '')
 path_req_disks = getattr(cereconf, 'AD_HOMEDIR_HITACHI_DISKS', ())
 ad_acc_spread = co.Spread(cereconf.AD_ACCOUNT_SPREAD)
 ad_grp_spread = co.Spread(cereconf.AD_GROUP_SPREAD)
-acc_attrs = cereconf.AD_ATTRIBUTES
+acc_attrs = list(cereconf.AD_ATTRIBUTES)
+acc_attrs.append('disabled')
 grp_attrs = cereconf.AD_GRP_ATTRIBUTES
 
 ad_ldap_config = load_ad_ldap_config()
@@ -96,15 +95,16 @@ if args.sub_command == 'accounts':
 
     if args.ids:
         account_ids.extend(args.ids)
-        events = functions.get_account_events(
-            db=db,
-            client=client,
-            account_ids=account_ids,
-            ad_acc_spread=ad_acc_spread,
-            group_postfix=group_postfix,
-            path_req_disks=path_req_disks,
-            acc_attrs=acc_attrs
-        )
+
+    events = functions.build_account_events(
+        db=db,
+        client=client,
+        account_ids=account_ids,
+        ad_acc_spread=ad_acc_spread,
+        group_postfix=group_postfix,
+        path_req_disks=path_req_disks,
+        acc_attrs=acc_attrs
+    )
 
 if args.sub_command == 'fullsync':
     if not (args.all or args.groups or args.accounts):
@@ -164,6 +164,6 @@ if args.send:
     pub_config = load_publisher_config()
     c = AMQP091Publisher(pub_config)
     c.open()
-    for msg in events:
-        c.publish(args.queue_name, events)
+    for scim_event in scim_events:
+        c.publish(scim_event['routing_key'], scim_event['payload'])
     c.close()

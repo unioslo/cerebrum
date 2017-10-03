@@ -31,6 +31,37 @@ def format_ldap_data(ad_data, attrs):
     return r
 
 
+def format_ldap_acc_data(ad_data, attrs):
+    extended_attrs = list(attrs)
+    extended_attrs.append('userAccountControl')
+    formatted_ad_data = format_ldap_data(ad_data, extended_attrs)
+    formatted_acc_data = {}
+    for username, acc_data in formatted_ad_data.items():
+        fmt_acc_data = dict(acc_data)
+        fmt_acc_data['disabled'] = deduct_acc_disabled(
+            acc_data['userAccountControl']
+        )
+        formatted_acc_data[username] = fmt_acc_data
+    return formatted_acc_data
+
+
+def format_ldap_grp_data(ad_data, attrs):
+    formatted_ad_data = format_ldap_data(ad_data, attrs)
+    formatted_grp_data = {}
+    for grp, grp_data in formatted_ad_data.items():
+        fmt_grp_data = dict(grp_data)
+        if grp_data['member'] is not None:
+            fmt_grp_data['member'] = sorted(grp_data['member'])
+        formatted_grp_data[grp] = fmt_grp_data
+    return formatted_grp_data
+
+
+def deduct_acc_disabled(ldap_uac_value):
+    if hex(int(ldap_uac_value[0]))[-1] == '2':
+        return True
+    return False
+
+
 def crb_acc_values_to_ad_values(account_data, path_req_disks,
                                 nis_domain, group_postfix, encoding):
     first_name = unicode(account_data.get('first_name') or '', encoding)
@@ -107,6 +138,7 @@ def crb_grp_values_to_ad_values(group_data, encoding, users_dn, nis_domain,
 
 
 def build_scim_event_msg(event, formatter, ad_acc_spread, ad_grp_spread):
+    routing_key = formatter.get_key(event['entity_type'], event['event_type'])
     entity_route = formatter.get_entity_type_route(event['entity_type'])
     aud = [ad_acc_spread]
     if event['entity_type'] == 'group':
@@ -120,5 +152,5 @@ def build_scim_event_msg(event, formatter, ad_acc_spread, ad_grp_spread):
         'aud': aud,
         'resourceType': entity_route
     }
-    return payload
+    return {'routing_key': routing_key, 'payload': payload}
 
