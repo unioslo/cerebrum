@@ -8099,7 +8099,13 @@ Addresses and settings:
         if not is_moderator:
             return
 
-        account.map_user_spreads_to_pg(group)
+        if isinstance(account, PosixUser):
+            pu = account
+        else:
+            pu = Factory.get('PosixUser')(self.db)
+            pu.find(account.entity_id)
+
+        pu.map_user_spreads_to_pg(group)
 
     #
     # trait commands
