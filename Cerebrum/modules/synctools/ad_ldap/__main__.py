@@ -19,6 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import sys
 import argparse
 import cereconf
 
@@ -82,7 +83,7 @@ events = []
 
 if args.sub_command == 'accounts':
     if not (args.usernames or args.ids):
-        raise SystemExit('See "ad_ldap accounts -h" for usage. Exiting...')
+        sys.exit('See "ad_ldap accounts -h" for usage. Exiting...')
     account_ids = []
     if args.usernames:
         for username in args.usernames:
@@ -90,8 +91,8 @@ if args.sub_command == 'accounts':
             if account_id:
                 account_ids.append(account_id)
             else:
-                raise SystemExit('Error: account "{}" not found! '
-                                 'Exiting...'.format(username))
+                sys.exit('Error: account "{}" not found! '
+                         'Exiting...'.format(username))
 
     if args.ids:
         account_ids.extend(args.ids)
@@ -108,13 +109,13 @@ if args.sub_command == 'accounts':
 
 if args.sub_command == 'fullsync':
     if not (args.all or args.groups or args.accounts):
-        raise SystemExit('See "ad_ldap fullsync -h" for usage. Exiting...')
-    if args.all:
-        if args.groups or args.accounts:
-            raise SystemExit(
-                'Error: --all cannot be used along --accounts/--groups. '
-                'Exiting..'
-            )
+        sys.exit('See "ad_ldap fullsync -h" for usage. Exiting...')
+    if args.all and (args.groups or args.accounts):
+        sys.exit(
+            'Error: --all cannot be used along --accounts/--groups. '
+            'Exiting..'
+        )
+    if args.all or (args.accounts and args.groups):
         events = functions.build_all_acc_and_grp_events(
             db=db,
             client=client,
@@ -124,13 +125,7 @@ if args.sub_command == 'fullsync':
             path_req_disks=path_req_disks,
             acc_attrs=acc_attrs,
             grp_attrs=grp_attrs)
-
-    if args.accounts and args.groups:
-        raise SystemExit(
-            'Error: Use --all instead of both --accounts & --groups. '
-            'Exiting..'
-        )
-    if args.groups:
+    elif args.groups:
         events = functions.build_all_group_events(
             db=db,
             client=client,
@@ -140,7 +135,7 @@ if args.sub_command == 'fullsync':
             grp_attrs=grp_attrs
         )
 
-    if args.accounts:
+    elif args.accounts:
         events = functions.build_all_account_events(
             db=db,
             client=client,
