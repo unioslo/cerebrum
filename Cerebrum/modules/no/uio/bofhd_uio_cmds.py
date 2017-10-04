@@ -8099,10 +8099,10 @@ Addresses and settings:
         if not is_moderator:
             return
 
-        if isinstance(account, PosixUser):
+        pu = Utils.Factory.get('PosixUser')(self.db)
+        if account is pu:
             pu = account
         else:
-            pu = Factory.get('PosixUser')(self.db)
             pu.find(account.entity_id)
 
         pu.map_user_spreads_to_pg(group)
