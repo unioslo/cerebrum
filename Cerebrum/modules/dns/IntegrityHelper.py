@@ -33,13 +33,14 @@ from Cerebrum.modules import dns
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.dns import Utils
 
+
 class Validator(object):
     def __init__(self, db, default_zone):
         self._db = db
         self._default_zone = default_zone
         self._find = Utils.Find(self._db, default_zone)
 
-    def dns_reg_owner_ok(self, name, record_type):
+    def dns_reg_owner_ok(self, name, record_type, allow_underscores=False):
         """Checks if it is legal to register a record of type
         record_type with given name.  Raises an exception if record_type
         is illegal, or name is illegal.  Returns:
@@ -47,7 +48,7 @@ class Validator(object):
           - same_type: boolean set to true if a record of the same type exists."""
 
         dns_owner = DnsOwner.DnsOwner(self._db)
-        self.legal_dns_owner_name(name, record_type)
+        self.legal_dns_owner_name(name, record_type, allow_underscores)
         try:
             dns_owner.find_by_name(name)
         except Errors.NotFoundError:
@@ -73,11 +74,10 @@ class Validator(object):
 
         return dns_owner.entity_id, False
 
-
-    def legal_dns_owner_name(self, name, record_type):
+    def legal_dns_owner_name(self, name, record_type, allow_underscores=False):
         uber_hyphen = re.compile(r'---+')
         uber_underscore = re.compile(r'__+')
-        if record_type == dns.SRV_OWNER:
+        if record_type == dns.SRV_OWNER or allow_underscores:
             valid_chars = re.compile(r'^[a-zA-Z\-_0-9]*$')
         else:
             valid_chars = re.compile(r'^[a-zA-Z\-0-9]+$')
@@ -86,6 +86,7 @@ class Validator(object):
             raise DNSError, "Name not fully qualified"
 
         for n in name[:-1].split("."):
+            print(n)
             if n.startswith("-") or n.endswith("-"):
                 raise DNSError, "Illegal name: '%s'; Cannot start or end with '-'" % name
             if uber_hyphen.search(n):
@@ -95,13 +96,12 @@ class Validator(object):
             if record_type == dns.SRV_OWNER:
                 if uber_underscore.search(n):
                     raise DNSError, "Illegal name: '%s'; More than one '_' in a row" % name
-                
-            
 
     def legal_mx_target(self, target_id):
         owner_types = self._find.find_dns_owners(target_id)
         if not dns.A_RECORD in owner_types:
             raise errors.CerebrumError("MX target must be an A-record")
+
 
 class Updater(object):
     def __init__(self, db):
