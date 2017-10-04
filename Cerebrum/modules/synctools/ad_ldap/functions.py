@@ -23,7 +23,6 @@ from Cerebrum.modules.synctools import base_data_fetchers as base_df
 from Cerebrum.modules.synctools.ad_ldap import mappers
 from Cerebrum.modules.synctools.compare import equal
 from Cerebrum.Utils import Factory
-logger = Factory.get_logger()
 
 
 def build_event_dict(entity_id, entity_type, event_type):
@@ -34,7 +33,7 @@ def build_event_dict(entity_id, entity_type, event_type):
     }
 
 
-def generate_stats(entity_type, desynced, not_in_ad,
+def generate_stats(logger, entity_type, desynced, not_in_ad,
                    not_in_crb=None, skipped=None):
     if skipped:
         logger.info('# of {0} that were skipped: {1}'.format(entity_type, skipped))
@@ -57,6 +56,7 @@ def build_all_account_events(db,
                              group_postfix,
                              path_req_disks,
                              acc_attrs):
+    logger = Factory.get_logger("console")
     logger.info('Getting account data from AD-LDAP....')
     ad_ldap_acc_values = mappers.format_ldap_acc_data(
         df.get_all_ad_ldap_acc_values(client),
@@ -88,7 +88,8 @@ def build_all_account_events(db,
         # but not Cerebrum when this for-loop is done.
         ad_ldap_acc_values.pop(crb_acc['username'])
 
-    generate_stats('accounts',
+    generate_stats(logger,
+                   'accounts',
                    len(desynced_accounts),
                    len(accounts_not_in_ad),
                    len(ad_ldap_acc_values),
@@ -117,6 +118,7 @@ def build_all_group_events(db,
                            ad_grp_spread,
                            group_postfix,
                            grp_attrs):
+    logger = Factory.get_logger("console")
     logger.info('Getting group data from AD-LDAP....')
     all_ad_ldap_grp_values = mappers.format_ldap_grp_data(
         df.get_all_ad_ldap_grp_values(client),
@@ -162,7 +164,8 @@ def build_all_group_events(db,
     grps_not_in_crb = [base_df.get_group_id_by_name(db, group_name)
                        for group_name in all_ad_ldap_grp_values.keys()]
 
-    generate_stats('groups',
+    generate_stats(logger,
+                   'groups',
                    len(desynced_groups),
                    len(not_in_ad),
                    len(grps_not_in_crb))
@@ -236,7 +239,9 @@ def build_account_events(db,
                      acc_attrs):
             desynced.append(crb_acc['account_id'])
 
-    generate_stats('accounts', len(desynced), len(not_in_ad), skipped=skipped)
+    logger = Factory.get_logger("console")
+    generate_stats(logger, 'accounts', len(desynced), len(not_in_ad),
+                   skipped=skipped)
 
     events = []
     for acc in desynced:

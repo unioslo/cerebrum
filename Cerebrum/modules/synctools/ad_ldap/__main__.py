@@ -36,6 +36,8 @@ from Cerebrum.modules.synctools.ad_ldap import functions
 
 parser = argparse.ArgumentParser(prog='ad_ldap')
 parser.add_argument('--send', help="send events", action='store_true')
+# This is needed to prevent argparse from complaining about unknown arg.
+parser.add_argument('--logger-name', help="Cerebrum-logger name")
 
 subparsers = parser.add_subparsers(dest='sub_command')
 
