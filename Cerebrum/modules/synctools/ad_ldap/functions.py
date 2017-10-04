@@ -23,7 +23,7 @@ from Cerebrum.modules.synctools import base_data_fetchers as base_df
 from Cerebrum.modules.synctools.ad_ldap import mappers
 from Cerebrum.modules.synctools.compare import equal
 from Cerebrum.Utils import Factory
-logger = Factory.get_logger("console")
+logger = Factory.get_logger()
 
 
 def build_event_dict(entity_id, entity_type, event_type):
