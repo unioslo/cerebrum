@@ -43,12 +43,13 @@ fullsync_parser = subparsers.add_parser(
     'fullsync',
     help='Do a fullsync. See "ad_ldap fullsync --help" for usage.'
 )
-fullsync_parser.add_argument('--all', action='store_true',
-                             help='sync all accounts/groups.')
-fullsync_parser.add_argument('--groups', action='store_true',
-                             help='sync all groups.')
-fullsync_parser.add_argument('--accounts', action='store_true',
-                             help='sync all accounts.')
+fullsync_group = fullsync_parser.add_mutually_exclusive_group(required=True)
+fullsync_group.add_argument('--all', action='store_true',
+                            help='sync all accounts/groups.')
+fullsync_group.add_argument('--groups', action='store_true',
+                            help='sync all groups.')
+fullsync_group.add_argument('--accounts', action='store_true',
+                            help='sync all accounts.')
 
 accounts_sync_parsers = subparsers.add_parser(
     'accounts',
@@ -108,14 +109,7 @@ if args.sub_command == 'accounts':
     )
 
 if args.sub_command == 'fullsync':
-    if not (args.all or args.groups or args.accounts):
-        sys.exit('See "ad_ldap fullsync -h" for usage. Exiting...')
-    if args.all and (args.groups or args.accounts):
-        sys.exit(
-            'Error: --all cannot be used along --accounts/--groups. '
-            'Exiting..'
-        )
-    if args.all or (args.accounts and args.groups):
+    if args.all:
         events = functions.build_all_acc_and_grp_events(
             db=db,
             client=client,
@@ -134,7 +128,6 @@ if args.sub_command == 'fullsync':
             group_postfix=group_postfix,
             grp_attrs=grp_attrs
         )
-
     elif args.accounts:
         events = functions.build_all_account_events(
             db=db,
@@ -146,9 +139,10 @@ if args.sub_command == 'fullsync':
             acc_attrs=acc_attrs
         )
 
-logger.info('# of generated scim-events to be sent: {}'.format(len(events)))
+logger.info('# of generated events: {}'.format(len(events)))
 
 if args.send:
+    logger.info('Building SCIM-events out of events...')
     formatter_config = load_formatter_config()
     formatter = ScimFormatter(formatter_config)
     scim_events = [mappers.build_scim_event_msg(event,
@@ -159,6 +153,7 @@ if args.send:
     pub_config = load_publisher_config()
     c = AMQP091Publisher(pub_config)
     c.open()
+    logger.info('Sending events...')
     for scim_event in scim_events:
         c.publish(scim_event['routing_key'], scim_event['payload'])
     c.close()
