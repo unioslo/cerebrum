@@ -320,9 +320,7 @@ def parse_external_ids(d):
 def _get_ou(database, sap_id, placecode):
     """Populate a Cerebrum-OU-object from the DB."""
     if not placecode:
-        raise ErroneousSourceData(
-            u'locationId is {} for organizationalUnitId {}'.format(
-                placecode, sap_id))
+        return None
     import cereconf
     ou = Factory.get('OU')(database)
     ou.clear()
