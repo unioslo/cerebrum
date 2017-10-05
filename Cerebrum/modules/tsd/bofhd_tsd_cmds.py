@@ -40,6 +40,7 @@ ba.is_superuser is not missing, it's still here, but in a different form.
 
 from mx import DateTime
 from functools import wraps, partial
+import json
 
 import cereconf
 
@@ -109,6 +110,33 @@ class ProjectShortName(cmd.Parameter):
     """Bofhd Parameter for specifying a project's short name."""
     _type = 'projectShortName'
     _help_ref = 'project_shortname'
+
+
+class ProjectPrice(cmd.Parameter):
+    """Bofhd parameter for specifying project's price group.
+    Initial spec: price: "UIO" | "UH" | "OTHER"
+    """
+
+    _type = 'projectPrice'
+    _help_ref = 'project_price'
+
+
+class ProjectInstitution(cmd.Parameter):
+    """Bofhd parameter for specifying project's institution.
+    Initial spec: institution: "UIO" | "HSØ" | "HIOA" | "UIT" | "NTNU" | "OTHER"
+    """
+
+    _type = 'projectInstitution'
+    _help_ref = 'project_institution'
+
+
+class ProjectHpc(cmd.Parameter):
+    """Bofhd parameter for specifying if project has hpc flag.
+    Initial spec: HPC: "HPC_YES" | "HPC_NO"
+    """
+
+    _type = 'projectHpc'
+    _help_ref = 'project_hpc'
 
 
 class GroupDescription(cmd.SimpleString):  # SimpleString inherits from cmd.Parameter
@@ -1130,6 +1158,105 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou.write_db()
         return "Project %s updated with short name: %s" % (ou.get_project_id(),
                                                            shortname)
+
+    all_commands['project_set_price'] = cmd.Command(
+        ('project', 'set_price'), ProjectID(), ProjectPrice(),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_set_price(self, operator, projectid, price):
+        proj = self._get_project(projectid)
+        status = proj.populate_trait(self.const.trait_project_price,
+                                     strval=price)
+        proj.write_db()
+        return 'Project price {} to {}'.format('set' if status == 'INSERT'
+                                               else 'changed',
+                                               price)
+
+    all_commands['project_set_institution'] = cmd.Command(
+        ('project', 'set_institution'), ProjectID(), ProjectInstitution(),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_set_institution(self, operator, projectid, institution):
+        proj = self._get_project(projectid)
+        status = proj.populate_trait(self.const.trait_project_institution,
+                                     strval=institution)
+        proj.write_db()
+        return 'Project institution {} to {}'.format('set' if status == 'INSERT'
+                                                     else 'changed',
+                                                     institution)
+
+    all_commands['project_set_hpc'] = cmd.Command(
+        ('project', 'set_hpc'), ProjectID(), ProjectHpc(),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_set_hpc(self, operator, projectid, hpc):
+        if hpc.lower() in ['hpc_yes', 'yes', 'true', 'y',
+                           'j', '1', 't', 's', '+']:
+            hpc = 'HPC_YES'
+        elif hpc.lower() in ['hpc_no', 'no', 'false',
+                             'n', '0', 'f', 'u', '-', 'nil']:
+            hpc = 'HPC_NO'
+        else:
+            return 'HPC must be HPC_YES or HPC_NO'
+        proj = self._get_project(projectid)
+        status = proj.populate_trait(self.const.trait_project_hpc,
+                                     strval=hpc)
+        proj.write_db()
+        return 'Project hpc {} to {}'.format('set' if status == 'INSERT'
+                                             else 'changed',
+                                             hpc)
+
+    @staticmethod
+    def _get_project_metadata(project):
+        """ Get a project's metadata field (use EntityNote). """
+        for note in sorted(filter(lambda x: x['subject'] == 'project_metadata',
+                                  project.get_notes()),
+                           reverse=True,
+                           key=lambda x: x['note_id']):
+            return json.loads(note['description'])
+
+    @staticmethod
+    def _set_project_metadata(operator, project, metadata):
+        """ Set a project's metadata """
+        project.add_note(operator.get_entity_id(),
+                         'project_metadata',
+                         json.dumps(metadata, sort_keys=True))
+
+    @staticmethod
+    def _add_project_metadata_field(operator, project, key, value):
+        meta = AdministrationBofhdExtension._get_project_metadata(project)
+        if key not in meta:
+            if value == '':
+                return 'not set'
+            ret = 'inserted'
+        elif value == '':
+            ret = 'unset'
+        elif meta[key] != value:
+            ret = 'updated'
+        else:
+            return 'not changed'
+        if value == '':
+            del meta[key]
+        else:
+            meta[key] = value
+        AdministrationBofhdExtension._set_project_metadata(operator,
+                                                           project, meta)
+        return ret
+
+    all_commands['project_set_metadata'] = cmd.Command(
+        ('project', 'set_metadata'), ProjectID(), cmd.SimpleString(
+            help_ref='project_metadata'),
+        cmd.SimpleString(),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_set_metadata(self, operator, projectid, key, value):
+        proj = self._get_project(projectid)
+        status = self._add_project_metadata_field(operator, proj, key, value)
+        return 'Value for {} {}'.format(key, status)
 
     all_commands['project_freeze'] = cmd.Command(
         ('project', 'freeze'), ProjectID(),
