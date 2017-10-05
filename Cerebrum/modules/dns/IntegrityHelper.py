@@ -86,7 +86,6 @@ class Validator(object):
             raise DNSError, "Name not fully qualified"
 
         for n in name[:-1].split("."):
-            print(n)
             if n.startswith("-") or n.endswith("-"):
                 raise DNSError, "Illegal name: '%s'; Cannot start or end with '-'" % name
             if uber_hyphen.search(n):
