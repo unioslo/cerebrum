@@ -156,6 +156,12 @@ class Constants(Constants.Constants):
                                                       Constants.Constants.entity_ou,
                                                       'FNRs of non-existing persons that has been '
                                                       'accepted as members of the project')
+    trait_project_price = _EntityTraitCode('price',
+                                           Constants.Constants.entity_ou,
+                                           "Project's price table")
+    trait_project_hpc = _EntityTraitCode('hpc',
+                                         Constants.Constants.entity_ou,
+                                         'Use HPC flag')
 
     # Authentication codes (password types):
 
