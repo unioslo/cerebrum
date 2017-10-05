@@ -28,7 +28,7 @@ This module exposes two parts: An AMQP 0-9-1 client, and a SCIM-formatter.
 from Cerebrum.Utils import Factory
 from .config import load_publisher_config
 from .config import load_formatter_config
-from .scim import ScimFormatter
+from .scim import EventScimFormatter
 
 __version__ = '1.0'
 
@@ -52,4 +52,4 @@ def get_client(config=None):
 
 def get_formatter(config=None):
     config = config or load_formatter_config()
-    return ScimFormatter(config)
+    return EventScimFormatter(config)

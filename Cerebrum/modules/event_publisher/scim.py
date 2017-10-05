@@ -28,8 +28,39 @@ import calendar
 import datetime
 import uuid
 
-from Cerebrum.config.configuration import Configuration, ConfigDescriptor
+from Cerebrum.config.configuration import (Configuration,
+                                           ConfigDescriptor,
+                                           Namespace)
 from Cerebrum.config.settings import String
+
+
+class EntityTypeToApiRouteMapConfig(Configuration):
+    """Configuration for Entity Type -> API Route"""
+
+    entity = ConfigDescriptor(
+        String,
+        default=u'entities',
+        doc=u'API Route for entities')
+
+    person = ConfigDescriptor(
+        String,
+        default=u'persons',
+        doc=u'API Route for person entities')
+
+    account = ConfigDescriptor(
+        String,
+        default=u'accounts',
+        doc=u'API Route for account entities')
+
+    group = ConfigDescriptor(
+        String,
+        default=u'entities',
+        doc=u'API Route for group entities')
+
+    ou = ConfigDescriptor(
+        String,
+        default=u'ous',
+        doc=u'API Route for OU entities')
 
 
 class ScimFormatterConfig(Configuration):
@@ -44,7 +75,7 @@ class ScimFormatterConfig(Configuration):
         String,
         default=u'https://cerebrum.example.com/v1/{entity_type}/{entity_id}',
         doc=u'Format string for URL (use {entity_type} and {entity_id} as '
-        'placeholders')
+            u'placeholders')
 
     keytemplate = ConfigDescriptor(
         String,
@@ -52,62 +83,83 @@ class ScimFormatterConfig(Configuration):
         doc=(u'Format string for routing key (use {entity_type} and {event} '
              u'as placeholders'))
 
+    entity_type_map = ConfigDescriptor(
+        Namespace,
+        config=EntityTypeToApiRouteMapConfig)
 
-def make_timestamp(dt_object):
-    """ Make a timestamp from a datetime object. """
-    if dt_object is None:
-        dt_object = datetime.datetime.utcnow()
-    return int(calendar.timegm(dt_object.utctimetuple()))
+    uri_prefix = ConfigDescriptor(
+        String,
+        default=u'urn:ietf:params:event:SCIM',
+        doc=u'Default URI Prefix for SCIM-events'
+    )
 
 
 class ScimFormatter(object):
-    """ Generate SCIM payload from Event objects. """
-
-    URI_PREFIX = 'urn:ietf:params:event:SCIM'
-    ENTITY_TYPE_MAP = {
-        'entity': 'entities',
-        'person': 'persons',
-        'account': 'accounts',
-        'group': 'groups',
-        'ou': 'ous',
-    }
-
     def __init__(self, config=None):
         self.config = config or ScimFormatterConfig()
 
+    @staticmethod
+    def make_timestamp(dt_object=None):
+        """ Make a timestamp from a datetime object. """
+        if dt_object is None:
+            dt_object = datetime.datetime.utcnow()
+        return int(calendar.timegm(dt_object.utctimetuple()))
+
+    def get_entity_type_route(self, entity_type):
+        """ Get the API route for the given entity type. """
+        default = self.config.entity_type_map.entity
+        return getattr(self.config.entity_type_map, entity_type, default)
+
+    def build_url(self, entity_type, entity_id):
+        return self.config.urltemplate.format(entity_type=entity_type,
+                                              entity_id=entity_id)
+
+    def get_uri(self, action):
+        """ Format an uri for the message. """
+        return '{}:{}'.format(self.config.uri_prefix, action)
+
+    def get_key(self, entity_type, event):
+        return self.config.keytemplate.format(entity_type=entity_type,
+                                              event=event)
+
+
+class EventScimFormatter(ScimFormatter):
+    """ Generate SCIM payload from Event objects. """
+
+    def __init__(self, config=None):
+        super(EventScimFormatter, self).__init__(config)
+
     def get_entity_type(self, entity_ref):
         """ Get and translate the entity_type of an EntityRef. """
-        default = self.ENTITY_TYPE_MAP['entity']
-        return self.ENTITY_TYPE_MAP.get(entity_ref.entity_type, default)
+        return super(EventScimFormatter, self).get_entity_type_route(
+            entity_ref.entity_type
+        )
 
-    def get_entity_id(self, entity_ref):
+    @staticmethod
+    def get_entity_id(entity_ref):
         """ Get and translate the entity_id of an EntityRef. """
         if entity_ref.entity_type in ('account', 'group'):
             return entity_ref.ident
         return str(entity_ref.entity_id)
 
-    def get_uri(self, event_type):
-        """ Format an uri for the event type. """
-        return '{}:{}'.format(self.URI_PREFIX, event_type.verb)
-
     def get_url(self, entity_ref):
         """ Format an url to the EntityRef. """
         entity_type = self.get_entity_type(entity_ref)
         entity_id = self.get_entity_id(entity_ref)
-        return self.config.urltemplate.format(entity_type=entity_type,
-                                              entity_id=entity_id)
+        return self.build_url(entity_type, entity_id)
 
     def get_key(self, event_type, entity_ref):
         """ Format a event key from the Event and EntityRef. """
         entity_type = self.get_entity_type(entity_ref)
-        return self.config.keytemplate.format(entity_type=entity_type,
-                                              event=event_type.verb)
+        return super(EventScimFormatter, self).get_key(
+            entity_type=entity_type,
+            event=event_type.verb)
 
     def __call__(self, event):
         """Create and return payload as jsonable dict."""
         jti = str(uuid.uuid4())
-        event_uri = self.get_uri(event.event_type)
-        issued_at = make_timestamp(event.timestamp)
+        event_uri = self.get_uri(event.event_type.verb)
+        issued_at = self.make_timestamp(event.timestamp)
         issuer = self.config.issuer
         audience = event.context
         subject = self.get_url(event.subject)
@@ -131,6 +183,6 @@ class ScimFormatter(object):
         if event.scheduled is not None:
             # assume datetime.datetime, although mx.DateTime will also work
             # .strftime('%s') is not official and it will not work in Windows
-            payload['nbf'] = make_timestamp(event.scheduled)
+            payload['nbf'] = self.make_timestamp(event.scheduled)
         payload['resourceType'] = self.get_entity_type(event.subject)
         return payload

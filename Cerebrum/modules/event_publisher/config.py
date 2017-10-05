@@ -114,10 +114,10 @@ def load_formatter_config(filepath=None):
                                 filepath)
 
 
-def load_daemon_config(filepath=None):
+def load_daemon_config(name='event_daemon', filepath=None):
     """ Load event daemon config.
 
     Loads config from `filepath` if given, or looks for a config in the default
     location named 'event_daemon'.
     """
-    return _load_partial_config(EventDaemonConfig, 'event_daemon', filepath)
+    return _load_partial_config(EventDaemonConfig, name, filepath)
