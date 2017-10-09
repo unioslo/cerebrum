@@ -111,10 +111,11 @@ class DnsBofhdUtils(object):
     # host, cname, entity-note
     #
 
-    def alloc_host(self, name, hinfo, mx_set, comment, contact):
+    def alloc_host(self, name, hinfo, mx_set, comment, contact,
+                   allow_underscores=False):
         name = self._parser.qualify_hostname(name)
         dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
-            name, dns.HOST_INFO)
+            name, dns.HOST_INFO, allow_underscores)
 
         self._dns_owner.clear()
         self._dns_owner.find(dns_owner_ref)
@@ -466,11 +467,12 @@ class DnsBofhdUtils(object):
                     ip_id, old_a_records[0]['dns_owner_id'])
         return self._arecord.entity_id
 
-    def alloc_arecord(self, host_name, subnet, ip, force):
+    def alloc_arecord(self, host_name, subnet, ip, force,
+                      allow_underscores=False):
         host_name = self._parser.qualify_hostname(host_name)
         # Check for existing record with same name
         dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
-            host_name, dns.A_RECORD)
+            host_name, dns.A_RECORD, allow_underscores)
 
         # Check to see if this has been added before
         try:
@@ -534,11 +536,12 @@ class DnsBofhdUtils(object):
                     ip_id, old_aaaa_records[0]['dns_owner_id'])
         return self._aaaarecord.entity_id
 
-    def alloc_aaaa_record(self, host_name, subnet_ip, ip, force):
+    def alloc_aaaa_record(self, host_name, subnet_ip, ip, force,
+                          allow_underscores=False):
         host_name = self._parser.qualify_hostname(host_name)
         # Check for existing record with same name
         dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
-            host_name, dns.AAAA_RECORD)
+            host_name, dns.AAAA_RECORD, allow_underscores)
 
         # Check to see if this has been added before
         try:

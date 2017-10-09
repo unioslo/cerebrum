@@ -212,6 +212,12 @@ class Force(Parameter):
     _type = 'force'
     _help_ref = 'force'
 
+
+class AllowDnsUnderscores(Parameter):
+    _type = 'allow_dns_underscores',
+    _help_ref = 'allow_dns_underscores'
+
+
 def int_or_none_as_str(val):
     # Unfortunately the client don't understand how to
     # format: "%i" % None
@@ -409,6 +415,9 @@ class BofhdExtension(BofhdCommandBase):
                 'policy', 'Show policies? (policy)',
                 'If argument is "policy", all hostpolicies related to the'
                 ' given host will be listed'],
+            'allow_dns_underscores': [
+                'allow_dns_underscores', 'Allow underscores in DNS-entries',
+                'Enter y to allow underscores'],
         }
         return (group_help,
                 command_help,
@@ -558,12 +567,13 @@ class BofhdExtension(BofhdCommandBase):
     all_commands['host_add'] = Command(
             ('host', 'add'), HostNameRepeat(), SubNetOrIP(), Hinfo(),
             Contact(), Comment(), Force(optional=True),
+            AllowDnsUnderscores(optional=True),
             fs = FormatSuggestion('%-30s %s', ('name', 'ip'),
                                   hdr='%-30s %s' % ('name', 'ip')),
             perm_filter='is_dns_superuser')
 
     def host_add(self, operator, hostname, subnet_or_ip, hinfo,
-                 contact, comment, force=False):
+                 contact, comment, force=False, allow_underscores=False):
         """
         Adds a record for a new host.
 
@@ -582,7 +592,8 @@ class BofhdExtension(BofhdCommandBase):
         :param force: Indicates if the method should force the operation, even
                       if the entered IP is not part of any registered subnet,
                       or is part of a subnet handled by an external DNS-server.
-
+        :param allow_underscores: Allow underscores in the resulting DNS-record
+                                  when adding the host.
         :returns: A list of dictionaries, containing the added hostnames and
                   their related IPs.
         :rtype: list
@@ -590,6 +601,7 @@ class BofhdExtension(BofhdCommandBase):
         """
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
+        allow_underscores = self.dns_parser.parse_force(allow_underscores)
         hostnames = self.dns_parser.parse_hostname_repeat(hostname)
         hinfo = self._map_hinfo_code(hinfo)
 
@@ -641,9 +653,10 @@ class BofhdExtension(BofhdCommandBase):
             # TODO: bruk hinfo ++ for å se etter passende sekvens uten
             # hull (i en passende klasse)
             ip = a_alloc(
-                name, subnet, free_ip_numbers.pop(0), force)
+                name, subnet, free_ip_numbers.pop(0), force, allow_underscores
+            )
             self.mb_utils.alloc_host(
-                name, hinfo, mx_set_id, comment, contact)
+                name, hinfo, mx_set_id, comment, contact, allow_underscores)
             ret.append({'name': name, 'ip': ip})
         return ret
 
