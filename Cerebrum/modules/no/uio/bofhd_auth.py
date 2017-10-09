@@ -201,32 +201,26 @@ class BofhdAuth(auth.BofhdAuth):
         if query_run_any:
             return True
 
-        # last name must match primary one
-        # TBD: only _primary_ family name, or can others be accepted?
-        found = False
-        for sys in cereconf.SYSTEM_LOOKUP_ORDER:
-            try:
-                if lastname != person.get_name(getattr(self.const, sys),
-                                               self.const.name_last):
-                    raise PermissionDenied("Invalid family name")
-                found = True
-                break
-            except NotFoundError:
-                continue
-        if not found:
-            raise PermissionDenied('No family name registered')
+        # Operator can only modify name if owner
+        account = Factory.get('Account')(self._db)
+        account.find(operator_id)
+        if person.entity_id != account.owner_id:
+            raise PermissionDenied('Cannot modify name for other persons')
 
-        # check that all names already exists
-        names = []
-        for row in person.get_all_names():
-            if row['name_variant'] != self.const.name_first:
-                continue
-            names.extend(row['name'].split(' '))
-        if not names:
-            raise PermissionDenied('No given names registered')
+        all_names = person.get_all_names()
+
+        # Last name must match one of the registered last names
+        last_names = [x['name'] for x in all_names
+                      if x['name_variant'] == self.const.name_last]
+        if lastname not in last_names:
+            raise PermissionDenied("Invalid family name")
+
+        # All parts of the given name must exist somewhere
+        first_names = sum([x['name'].split(' ') for x in all_names
+                          if x['name_variant'] == self.const.name_first], [])
         for n in firstname.split(' '):
-            if n not in names:
-                raise PermissionDenied('Unregistered name: %s' % n)
+            if n not in first_names:
+                raise PermissionDenied('Invalid given name: {}'.format(n))
         return True
 
     def can_email_forward_info(self, operator, query_run_any=False):
