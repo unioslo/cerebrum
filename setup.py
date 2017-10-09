@@ -492,7 +492,7 @@ setup(
         'Cerebrum/modules/printutils',
         'Cerebrum/modules/synctools',
         'Cerebrum/modules/synctools/ad_ldap',
-        'Cerebrum/modules/synctools/client',
+        'Cerebrum/modules/synctools/clients',
         'Cerebrum/modules/tsd',
         'Cerebrum/modules/templates',
         'Cerebrum/modules/xmlutils',
