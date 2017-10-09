@@ -490,6 +490,7 @@ setup(
         'Cerebrum/modules/posix',
         'Cerebrum/modules/pwcheck',
         'Cerebrum/modules/printutils',
+        'Cerebrum/modules/synctools',
         'Cerebrum/modules/tsd',
         'Cerebrum/modules/templates',
         'Cerebrum/modules/xmlutils',
