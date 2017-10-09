@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum.config.configuration import Configuration, ConfigDescriptor
-from Cerebrum.config.loader import read
+from Cerebrum.config.loader import read, read_config
 from Cerebrum.config.settings import String
 
 
@@ -78,8 +78,11 @@ class ADLDAPConfig(Configuration):
     )
 
 
-def load_ad_ldap_config():
+def load_ad_ldap_config(name='ad_ldap', filepath=None):
     config = ADLDAPConfig()
-    read(config, 'ad_ldap')
+    if filepath:
+        config.load_dict(read_config(filepath))
+    else:
+        read(config, name)
     config.validate()
     return config

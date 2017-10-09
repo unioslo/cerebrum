@@ -19,6 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import os
 import sys
 import argparse
 import cereconf
@@ -38,7 +39,11 @@ parser = argparse.ArgumentParser(prog='ad_ldap')
 parser.add_argument('--send', help="send events", action='store_true')
 # This is needed to prevent argparse from complaining about unknown arg.
 parser.add_argument('--logger-name', help="Cerebrum-logger name")
-
+parser.add_argument('--ad-ldap-config', help="Path to ad-ldap config file")
+parser.add_argument('--formatter-config', help="Path to event-formatter "
+                                               "config file.")
+parser.add_argument('--publisher-config', help="Path to event-formatter "
+                                               "config file.")
 subparsers = parser.add_subparsers(dest='sub_command')
 
 fullsync_parser = subparsers.add_parser(
@@ -78,7 +83,20 @@ acc_attrs = list(cereconf.AD_ATTRIBUTES)
 acc_attrs.append('disabled')
 grp_attrs = cereconf.AD_GRP_ATTRIBUTES
 
-ad_ldap_config = load_ad_ldap_config()
+
+def load_config(loader, filepath=None):
+    if filepath is not None:
+        if os.path.isfile(filepath):
+            return loader(filepath=filepath)
+        else:
+            sys.exit('Error: {} does not exist.'.format(filepath))
+    else:
+        return loader()
+
+
+ad_ldap_config = load_config(load_ad_ldap_config, args.ad_ldap_config)
+formatter_config = load_config(load_formatter_config, args.formatter_config)
+publisher_config = load_config(load_publisher_config, args.publisher_config)
 client = get_ad_ldapclient(ad_ldap_config)
 client.connect()
 
@@ -145,15 +163,13 @@ logger.info('# of generated events: {}'.format(len(events)))
 
 if args.send:
     logger.info('Building SCIM-events out of events...')
-    formatter_config = load_formatter_config()
     formatter = ScimFormatter(formatter_config)
     scim_events = [mappers.build_scim_event_msg(event,
                                                 formatter,
                                                 str(ad_acc_spread),
                                                 str(ad_grp_spread))
                    for event in events]
-    pub_config = load_publisher_config()
-    c = AMQP091Publisher(pub_config)
+    c = AMQP091Publisher(publisher_config)
     c.open()
     logger.info('Sending events...')
     for scim_event in scim_events:
