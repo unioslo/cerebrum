@@ -1423,7 +1423,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ('project_id', 'project_name', 'entity_id', 'long_name',
              'short_name', 'start_date', 'end_date', 'quarantines', 'spreads')),
             ('REK-number:       %s', ('rek',)),
+            ('Price:            %s', ('price',)),
             ('Institution:      %s', ('institution',)),
+            ('Hpc:              %s', ('hpc',)),
+            ('Metadata:         %s', ('metadata',)),
             ('VM-type:          %s', ('vm_type',)),
             ('VLAN, Subnet:     %-4s, %s', ('vlan_number', 'subnet')),
         ]),
@@ -1478,12 +1481,24 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ret.append({'rek': trait['strval']})
         else:
             ret.append({'rek': '<Not Set>'})
+        # Price
+        trait = project.get_trait(self.const.trait_project_price)
+        if trait:
+            ret.append({'price': trait['strval']})
         # Institution
         trait = project.get_trait(self.const.trait_project_institution)
         if trait:
             ret.append({'institution': trait['strval']})
         else:
             ret.append({'institution': '<Not Set>'})
+        # HPC
+        trait = project.get_trait(self.const.trait_project_hpc)
+        if trait:
+            ret.append({'hpc': trait['strval']})
+        # Metadata
+        meta = self._get_project_metadata(project)
+        if meta is not None:
+            ret.append({'metadata': json.dumps(meta)})
         # VM type
         trait = project.get_trait(self.const.trait_project_vm_type)
         if trait:
@@ -1516,6 +1531,20 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         for subnet in sorted(subnets, key=lambda x: x['subnet']):
             ret.append(subnet)
 
+        return ret
+
+    all_commands['project_metadata'] = cmd.Command(
+        ('project', 'metadata'), ProjectID(),
+        fs=cmd.FormatSuggestion('%-10s%-10s', ('key', 'value'),
+                                '{:10}{:10}'.format('Field', 'Value')),
+        perm_filter='is_superuser')
+
+    def project_metadata(self, operator, project_id):
+        project = self._get_project(project_id)
+        ret = []
+        for key, val in sorted((self._get_project_metadata(project) or {})
+                               .items()):
+            ret.append(dict(key=key, value=val))
         return ret
 
     all_commands['project_affiliate_entity'] = cmd.Command(
