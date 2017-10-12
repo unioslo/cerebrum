@@ -8698,6 +8698,21 @@ Addresses and settings:
         account.update_email_addresses()
         return "OK, set gecos for %s to '%s'" % (accountname, gecos)
 
+    # filtered user History
+    all_commands['user_history_filtered'] = Command(
+        ("user", "history"), AccountName(),
+        perm_filter='can_show_history')
+    def user_history_filtered(self, operator,accountname):
+        self.logger.warn("in user history filtered")
+        account = self._get_account(accountname)
+        self.ba.can_show_history(operator.get_entity_id(), account)
+        ret = []
+        timedelta = "%s" % (DateTime.mxDateTime.now() -  DateTime.DateTimeDelta(7))
+        timeperiod = timedelta.split(" ")
+        for r in self.db.get_log_events(0, subject_entity=account.entity_id,sdate=timeperiod[0]):
+            ret.append(self._format_changelog_entry(r))
+        return "\n".join(ret)
+
     # user history
     all_commands['user_history'] = Command(
         ("user", "history"), AccountName(),
