@@ -154,8 +154,6 @@ def crb_grp_values_to_ad_values(group_data, users_dn, groups_dn, nis_domain,
                                                       groups_dn))
             else:
                 member_set.add('CN={0},{1}'.format(member['name'], users_dn))
-        if len(member_set) == 0:
-            print(grp_data)
         return member_set
 
     def build_gid_number(grp_data):
