@@ -139,6 +139,12 @@ class ProjectHpc(cmd.Parameter):
     _help_ref = 'project_hpc'
 
 
+class ProjectMetadata(cmd.Parameter):
+    """Bofhd parameter for specifying project metadata."""
+    _type = 'jsonObject'
+    _help_ref = 'project_metadata'
+
+
 class GroupDescription(cmd.SimpleString):  # SimpleString inherits from cmd.Parameter
     """Bofhd Parameter for specifying a group description."""
     _type_ = 'groupDescription'
@@ -907,12 +913,14 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['project_create'] = cmd.Command(
         ('project', 'create'), ProjectName(), ProjectLongName(),
         ProjectShortName(), cmd.Date(help_ref='project_start_date'),
-        cmd.Date(help_ref='project_end_date'), VMType(),
-        VLANParam(optional=True), perm_filter='is_superuser')
+        cmd.Date(help_ref='project_end_date'), ProjectPrice(),
+        ProjectInstitution(), VMType(), ProjectHpc(),
+        ProjectMetadata(), VLANParam(optional=True), perm_filter='is_superuser')
 
     @superuser
     def project_create(self, operator, projectname, longname, shortname,
-                       startdate, enddate, vm_type, vlan=None):
+                       startdate, enddate, price, inst, vm_type,
+                       hpc, meta, vlan=None):
         """Create a new TSD project.
 
         :param BofhdSession operator:
@@ -930,6 +938,22 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             raise CerebrumError(
                 "Project can not end before it has begun: from %s to %s" %
                 (str(start).split()[0], str(end).split()[0]))
+
+        try:
+            meta = json.loads(meta)
+        except:
+            raise CerebrumError('Project metadata should be valid json')
+        if not isinstance(meta, dict):
+            raise CerebrumError('Project metadat should be a dictionary')
+
+        if hpc.lower() in ['hpc_yes', 'yes', 'true', 'y',
+                           'j', '1', 't', 's', '+']:
+            hpc = 'HPC_YES'
+        elif hpc.lower() in ['hpc_no', 'no', 'false',
+                             'n', '0', 'f', 'u', '-', 'nil']:
+            hpc = 'HPC_NO'
+        else:
+            raise CerebrumError('HPC must be HPC_YES or HPC_NO')
 
         if vm_type not in cereconf.TSD_VM_TYPES:
             raise CerebrumError("Invalid VM-type.")
@@ -960,6 +984,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                  creator=operator.get_entity_id(), start=end,
                                  description='Initial end set by superuser')
 
+        # set metadata traits
+        ou.populate_trait(self.const.trait_project_price, strval=price)
+        ou.populate_trait(self.const.trait_project_institution, strval=inst)
+        ou.populate_trait(self.const.trait_project_hpc, strval=hpc)
+
         # Set trait for vm_type
         ou.populate_trait(self.const.trait_project_vm_type, strval=vm_type)
 
@@ -968,6 +997,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ou.setup_project(operator.get_entity_id(), vlan)
         except Errors.CerebrumError, e:
             raise CerebrumError(e)
+
+        self._set_project_metadata(operator, ou, meta)
 
         return "New project created: %s" % pid
 
@@ -1200,7 +1231,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                              'n', '0', 'f', 'u', '-', 'nil']:
             hpc = 'HPC_NO'
         else:
-            return 'HPC must be HPC_YES or HPC_NO'
+            raise CerebrumError('HPC must be HPC_YES or HPC_NO')
         proj = self._get_project(projectid)
         status = proj.populate_trait(self.const.trait_project_hpc,
                                      strval=hpc)
