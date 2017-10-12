@@ -214,7 +214,7 @@ class Force(Parameter):
 
 
 class AllowDnsUnderscores(Parameter):
-    _type = 'allow_dns_underscores',
+    _type = 'allow_dns_underscores'
     _help_ref = 'allow_dns_underscores'
 
 
@@ -416,8 +416,8 @@ class BofhdExtension(BofhdCommandBase):
                 'If argument is "policy", all hostpolicies related to the'
                 ' given host will be listed'],
             'allow_dns_underscores': [
-                'allow_dns_underscores', 'Allow underscores in DNS-entries',
-                'Enter y to allow underscores'],
+                'allow_dns_underscores', 'Allow underscores in DNS entries?',
+                'Enter y to allow underscores. If in doubt, do not enter y.'],
         }
         return (group_help,
                 command_help,
