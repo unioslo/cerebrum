@@ -34,17 +34,22 @@ class ADLDAPClient(object):
         self.scope_subtree = ldap.SCOPE_SUBTREE
         self.scope_subordinate = ldap.SCOPE_SUBORDINATE
 
-    def connect(self):
-        password = read_password(self.config.ldap_user,
-                                 self.config.ldap_server)
+    def connect(self, username=None, password=None):
+        if username:
+            ldap_user = username
+        else:
+            ldap_user = self.config.ldap_user
+        if password:
+            ldap_pass = password
+        else:
+            ldap_pass = read_password(ldap_user,
+                                      self.config.ldap_server)
         self.connection = ldap.initialize('{0}://{1}'.format(
             self.config.ldap_proto,
             self.config.ldap_server
         ))
-        self.connection.bind_s(self.config.bind_dn_template.format(
-            self.config.ldap_user),
-            password
-        )
+        self.connection.bind_s(self.config.bind_dn_template.format(ldap_user),
+                               ldap_pass)
 
     def fetch_data(self, dn, scope, filter):
         ctrltype = ldap.controls.SimplePagedResultsControl.controlType
