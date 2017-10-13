@@ -933,7 +933,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         end = self._parse_date(enddate)
 
         if end < DateTime.now():
-            raise CerebrumError("End date of project has passed: %s" % str(end).split()[0])
+            raise CerebrumError("End date of project has passed: %s"
+                                % str(end).split()[0])
         elif end < start:
             raise CerebrumError(
                 "Project can not end before it has begun: from %s to %s" %
@@ -977,8 +978,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         # Storing start date
         ou.add_entity_quarantine(qtype=self.const.quarantine_project_start,
-                                 creator=operator.get_entity_id(), start=DateTime.now(),
-                                 end=start, description='Initial start set by superuser')
+                                 creator=operator.get_entity_id(),
+                                 start=DateTime.now(),
+                                 end=start,
+                                 description='Initial start set by superuser')
         # Storing end date
         ou.add_entity_quarantine(qtype=self.const.quarantine_project_end,
                                  creator=operator.get_entity_id(), start=end,

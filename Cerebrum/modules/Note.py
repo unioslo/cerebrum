@@ -22,7 +22,8 @@
 from Cerebrum.Entity import Entity
 from Cerebrum.Utils import argument_to_sql
 
-__version__ = "1.0"
+__version__ = "1.1"
+
 
 class EntityNote(Entity):
     "Mixin class, attach notes to any entity"
@@ -48,20 +49,20 @@ class EntityNote(Entity):
         INSERT INTO [:table schema=cerebrum name=entity_note]
           (note_id, entity_id, creator_id, subject, description)
         VALUES (:n_id, :e_id, :c_id, :subject, :description)""",
-            {'n_id': int(note_id),
-             'e_id': int(self.entity_id),
-             'c_id': int(operator),
-             'subject': subject,
-             'description': description,
-            })
+                     {'n_id': int(note_id),
+                      'e_id': int(self.entity_id),
+                      'c_id': int(operator),
+                      'subject': subject,
+                      'description': description,
+                      })
 
-        self._db.log_change(self.entity_id, self.const.entity_note_add, None, 
+        self._db.log_change(self.entity_id, self.const.entity_note_add, None,
                             change_params={
                                 'note_id': int(note_id),
                             })
 
         return note_id
-        
+
     def get_notes(self):
         """Returns all notes associated with this entity.
 
@@ -70,14 +71,11 @@ class EntityNote(Entity):
 
         return self.query("""
         SELECT note_id, create_date, creator_id, subject, description
-        FROM [:table schema=cerebrum name=entity_note] 
-        WHERE entity_id=:e_id""",
-            {
-              'e_id': int(self.entity_id)
-            })
+        FROM [:table schema=cerebrum name=entity_note]
+        WHERE entity_id=:e_id""", {'e_id': int(self.entity_id)})
 
     def list_all_notes(self, entity_type=None):
-        """If entity_type is None, returns all notes associated with all 
+        """If entity_type is None, returns all notes associated with all
         entities. If entity_type is set, it filters on this entity type.
 
         @param entity_type: Only return notes for entities of this type
@@ -105,7 +103,7 @@ class EntityNote(Entity):
             FROM %s %s""" % (", ".join(tables), where_str)
 
         return self.query(query_str, binds, fetchall=True)
-    
+
     def delete_note(self, note_id):
         """Deletes a note.
 
@@ -113,14 +111,14 @@ class EntityNote(Entity):
         @type note_id: Integer"""
 
         self.execute("""
-        DELETE FROM [:table schema=cerebrum name=entity_note] 
-        WHERE entity_id=:e_id AND note_id=:n_id""", 
-            {
-              'e_id': self.entity_id,
-              'n_id': note_id
-            })
+        DELETE FROM [:table schema=cerebrum name=entity_note]
+        WHERE entity_id=:e_id AND note_id=:n_id""",
+                     {
+                         'e_id': self.entity_id,
+                         'n_id': note_id
+                     })
 
-        self._db.log_change(self.entity_id, self.const.entity_note_del, None, 
+        self._db.log_change(self.entity_id, self.const.entity_note_del, None,
                             change_params={
                                 'note_id': int(note_id),
                             })
