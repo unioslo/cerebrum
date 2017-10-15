@@ -428,6 +428,9 @@ BOFHD_REQUEST_LOCK_DIR = pj(prefix, 'var', 'lock', 'bofhreq', 'lock-%d')
 BOFHD_NONLOCK_QUARANTINES = ()
 BOFHD_QUARANTINE_DISABLE_LIMIT = None  # days a quarantine can be disabled
 
+# If set, new unpersonal accounts gets this quarantine by default
+BOFHD_CREATE_UNPERSONAL_QUARANTINE = None
+
 # INDIGO-/CWEB-related bofhd settings, only used by bofhd_go_cmds
 # Auth. system that contains the info on people considered 'active'
 INDIGO_ACTIVE_SOURCE_SYSTEM = 'system'

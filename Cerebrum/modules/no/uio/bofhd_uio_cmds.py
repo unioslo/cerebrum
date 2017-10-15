@@ -8298,12 +8298,13 @@ Addresses and settings:
         AccountName(), GroupName(), EmailAddress(),
         SimpleString(help_ref="string_np_type"),
         fs=FormatSuggestion("Created account_id=%i", ("account_id",)),
-        perm_filter='is_superuser')
+        perm_filter='can_create_user')
 
     def user_create_unpersonal(self, operator, account_name, group_name,
                                contact_address, account_type):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Only superusers may reserve users")
+        if not self.ba.can_create_user(operator.get_entity_id(),
+                                       query_run_any=True):
+            raise PermissionDenied("Permission denied")
         account_type = self._get_constant(self.const.Account, account_type,
                                           "account type")
         account = self.Account_class(self.db)
@@ -8332,6 +8333,14 @@ Addresses and settings:
                     account_name,
                     cereconf.EMAIL_DEFAULT_DOMAIN),
                 contact_address)
+
+        quar = cereconf.BOFHD_CREATE_UNPERSONAL_QUARANTINE
+        if quar:
+            qconst = self._get_constant(self.const.Quarantine, quar,
+                                        "quarantine")
+            account.add_entity_quarantine(qconst, operator.get_entity_id(),
+                                          "Created unpersonal account",
+                                          self._today())
 
         operator.store_state("new_account_passwd",
                              {'account_id': int(account.entity_id),
@@ -9316,7 +9325,7 @@ Addresses and settings:
                 map.append((('%s', name), {'ou_id': int(aff['ou_id']),
                                            'aff': int(aff['affiliation'])}))
             if not len(map) > 1:
-                raise CerebrumError('Person has no affiliations.') 
+                raise CerebrumError('Person has no affiliations.')
             return {'prompt': 'Choose affiliation from list', 'map': map}
         arg = all_args.pop(0)
         if isinstance(arg, type({})) and arg.has_key('aff') and \
