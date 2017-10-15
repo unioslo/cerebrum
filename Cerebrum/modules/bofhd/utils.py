@@ -65,6 +65,10 @@ class Constants(Constants.Constants):
         'create_group', 'Create groups')
     auth_search_group = _AuthRoleOpCode(
         'search_group', 'Search for groups')
+    auth_delete_group = _AuthRoleOpCode(
+        'delete_group', 'Delete groups')
+    auth_expire_group = _AuthRoleOpCode(
+        'expire_group', 'Expire groups')
     auth_disk_def_quota_set = _AuthRoleOpCode(
         'disk_def_quota', 'Set default disk quota')
     auth_disk_quota_set = _AuthRoleOpCode(
@@ -291,7 +295,7 @@ class BofhdRequests(object):
             conflicts.append(op)
         # Make sure all elements in the returned list are integers
         return [int(c) for c in conflicts]
-    
+
 
     def add_request(self, operator, when, op_code, entity_id,
                     destination_id, state_data=None):
@@ -305,7 +309,7 @@ class BofhdRequests(object):
                     raise CerebrumError, ("Conflicting request exists (%s)" %
                                           self.co.BofhdRequestOp(r['operation']).
                                           description)
-                
+
         reqid = int(self._db.nextval('request_id_seq'))
         cols = {
             'requestee_id': operator,
@@ -316,7 +320,7 @@ class BofhdRequests(object):
             'state_data': state_data,
             'request_id': reqid
             }
-        
+
         self._db.execute("""
         INSERT INTO [:table schema=cerebrum name=bofhd_request] (%(tcols)s)
         VALUES (%(binds)s)""" % {
@@ -517,7 +521,7 @@ class BofhdUtils(object):
                                     "[entity_ids=%s]" % (ext_id, only_ids))
             return get_target_entity(only_ids.pop())
         # end get_target_by_external_id
-        
+
         def get_target_person_by_account_name(name):
             account = get_target_posix_by_name(name)
             if isinstance(account, Factory.get("Account")):
@@ -589,7 +593,7 @@ class BofhdUtils(object):
                 except Errors.NotFoundError:
                     raise CerebrumError, "Unknown %s %s" % (clstype, name)
             return obj
-         
+
         def get_target_person_fnr(id):
             person = Factory.get("Person")(self.db)
             found = {}
@@ -647,7 +651,7 @@ class BofhdUtils(object):
                 ou.find_stedkode(
                     stedkode[0:2],
                     stedkode[2:4],
-                    stedkode[4:6], 
+                    stedkode[4:6],
                     cereconf.DEFAULT_INSTITUSJONSNR
                 )
             except Errors.NotFoundError:
