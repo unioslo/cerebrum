@@ -235,3 +235,21 @@ class BofhdAuth(auth.BofhdAuth):
         if query_run_any:
             return False
         raise PermissionDenied('Restricted access')
+
+    def can_create_sysadm(self, operator, query_run_any=False):
+        """Allow sysadmins to create sysadmin accounts.
+
+        Note that we don't check for OU or disk or anything. This is to avoid
+        edge cases that requires manual work, and no security benefits. If one
+        sysadmin creates a sysadmin account on a different OU, there is most
+        likely a reason for that.
+
+        """
+        if self.is_superuser(operator):
+            return True
+        if self._has_operation_perm_somewhere(operator,
+                                              self.const.auth_create_user):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied('Not allowed to create sysadmin accounts')
