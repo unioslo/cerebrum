@@ -37,8 +37,7 @@ progname = __file__.split("/")[-1]
 __doc__ = """
 Usage: %s [options]
    --datafile, -d   File containing info about subnets
-   --vlanfile, -v   File containing info about VLANs. VLAN-info is only
-                    used for new subnet, nor for updating existing subnets
+   --vlanfile, -v   File containing info about VLAN
    --force, -f      Force import to make non-erronous changes,
                     even if other parts of the import fail
    --help, -h       Prints this message and quits
@@ -149,7 +148,7 @@ def parse_vlan_file(filename):
             vlan_ID = result.group(1)
             subnet = result.group(2)
             logger.debug("Found: VLAN: '%s'; Subnet: '%s'" % (vlan_ID, subnet))
-            subnet_to_vlan[subnet] = vlan_ID
+            subnet_to_vlan[subnet] = long(vlan_ID)
 
     infile.close()
     logger.info("Done parsing VLAN-file '%s'; %i VLANs found" %
@@ -180,7 +179,7 @@ def parse_data_file(filename, subnet_to_vlan):
             logger.debug("Found: Subnet: '%s'; VLAN: '%s'; "
                          "Desc:'%s'" % (subnet, vlan, desc))
 
-            subnets_in_file[subnet] = (subnet, desc, vlan)
+            subnets_in_file[subnet] = (desc, vlan)
         else:
             logger.warning("Unknown format for line: '%s'" % line)
     
@@ -205,39 +204,50 @@ def compare_file_to_db(subnets_in_file, force):
     subnets_in_db = s.search()
     
     for row in subnets_in_db:
-        subnet_ID = "%s/%s" % (row['subnet_ip'], row['subnet_mask'])
+        subnet = "%s/%s" % (row['subnet_ip'], row['subnet_mask'])
 
-        if subnet_ID in subnets_in_file:
-            # Subnet is in file; nothing should be done with it
-            if row['description'] != subnets_in_file[subnet_ID][1]:
+        if subnet in subnets_in_file:
+            (description, vlan) = subnets_in_file[subnet]
+            # Subnet is in file. Check if description or vlan have changed
+            if row['description'] != description:
                 s.clear()
                 s.find(row['entity_id'])
-                s.description = subnets_in_file[subnet_ID][1]
+                s.description = description
                 s.write_db(perform_checks=False)
-                logger.debug("Updating description of subnet '%s'" % subnet_ID)
-                changes.append("Updated description of subnet '%s'" %subnet_ID)
+                logger.debug("Updating description of subnet '%s'" % subnet)
+                changes.append("Updated description of subnet '%s'" %subnet)
             else:
-                logger.debug("Subnet '%s' in both DB and file; " % subnet_ID +
+                logger.debug("Subnet '%s' in both DB and file; " % subnet +
                                 "no description update")
-            del subnets_in_file[subnet_ID]
+            if vlan and row['vlan_number'] != vlan:
+                s.clear()
+                s.find(row['entity_id'])
+                s.vlan_number = vlan
+                s.write_db(perform_checks=False)
+                logger.debug("Updating vlan for subnet '%s'" % subnet)
+                changes.append("Updated vlan for subnet '%s'" %subnet)
+            else:
+                logger.debug("Subnet '%s' in both DB and file; " % subnet +
+                                "no vlan update")
+            del subnets_in_file[subnet]
         else:
             # Subnet is in DB, but not in file; try to remove it from DB
             try:
-                logger.info("Deleting subnet '%s'" % subnet_ID)
+                logger.info("Deleting subnet '%s'" % subnet)
                 s.clear()
-                s.find(subnet_ID)
+                s.find(subnet)
                 description = s.description
                 s.delete(perform_checks=perform_checks)
-                changes.append("Deleted subnet '%s' (%s)" % (subnet_ID,
+                changes.append("Deleted subnet '%s' (%s)" % (subnet,
                                                                 description))
             except CerebrumError, ce:
                 logger.error(str(ce))
                 errors.append(str(ce))
 
     # What is left in subnets_in_file now are subnets that should be added
-    for new_subnet in subnets_in_file:
+    for subnet in subnets_in_file:
         try:
-            subnet, description, vlan = subnets_in_file[new_subnet]
+            description, vlan = subnets_in_file[subnet]
             logger.info("Adding subnet '%s' (%s)" % (subnet, description))
             add_subnet(subnet, description, vlan, perform_checks=perform_checks)
             changes.append("Added subnet '%s' (%s)" % (subnet, description))
