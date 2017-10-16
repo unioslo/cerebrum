@@ -46,13 +46,16 @@ def write_subnet_ldif():
     for row in Subnet(db).search():
         cn   = "%s/%s" % (row['subnet_ip'], row['subnet_mask'])
         desc = row['description']
-        f.write(entry_string("cn=%s,%s" % (cn, DN), {
+        entry = {
             'objectClass':     objectClasses,
             'description':     (desc and (iso2utf(desc),) or ()),
             'ipNetworkNumber': (row['subnet_ip'],),
             'ipNetmaskNumber': (netmask_to_ip(row['subnet_mask']),),
             startAttr:         (str(int(row['ip_min'])),),
-            endAttr:           (str(int(row['ip_max'])),)}))
+            endAttr:           (str(int(row['ip_max'])),)}
+        if row['vlan_number']:
+            entry['uioIpVlanID'] = str(int(row['vlan_number']))
+        f.write(entry_string("cn=%s,%s" % (cn, DN), entry))
     end_ldif_outfile('SUBNETS', f)
 
 if __name__ == '__main__':
