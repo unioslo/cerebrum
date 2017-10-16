@@ -10031,10 +10031,20 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                 dest = self._get_entity_name(dest)
             except Errors.NotFoundError:
                 dest = repr(dest)
+
         this_cl_const = self.const.ChangeType(row['change_type_id'])
-        msg = this_cl_const.msg_string % {
-            'subject': self._get_entity_name(row['subject_entity']),
-            'dest': dest}
+        if this_cl_const.msg_string is None:
+            self.logger.warn('Formatting of change log entry of type %s failed, '
+                             'no description defined in change type',
+                             str(this_cl_const))
+            msg = '{}, subject {}, destination {}'.format(
+                str(this_cl_const),
+                self._get_entity_name(row['subject_entity']),
+                dest)
+        else:
+            msg = this_cl_const.msg_string % {
+                'subject': self._get_entity_name(row['subject_entity']),
+                'dest': dest}
 
         # Append information from change_params to the string.  See
         # _ChangeTypeCode.__doc__
