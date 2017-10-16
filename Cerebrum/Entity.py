@@ -147,11 +147,12 @@ class Entity(DatabaseAccessor):
         is_new = not self.__in_db
         if is_new:
             self.entity_id = int(self.nextval('entity_id_seq'))
-            self.execute("""
+            self.created_at = self.query_1("""
             INSERT INTO [:table schema=cerebrum name=entity_info]
               (entity_id, entity_type)
-            VALUES (:e_id, :e_type)""", {'e_id': self.entity_id,
-                                         'e_type': int(self.entity_type)})
+            VALUES (:e_id, :e_type)
+            RETURNING created_at""", {'e_id': self.entity_id,
+                                      'e_type': int(self.entity_type)})
             self._db.log_change(self.entity_id, self.const.entity_add, None)
         else:
             # Don't need to do anything as entity type can't change
