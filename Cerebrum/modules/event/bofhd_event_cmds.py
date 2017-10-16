@@ -301,7 +301,7 @@ class BofhdExtension(BofhdCommandBase):
         TargetSystem(),
         SimpleString(repeat=True, help_ref='search_pattern'),
         fs=FormatSuggestion(
-            'Deleted %d of %d matching events (%d failed/vanished)',
+            'Deleted %s of %s matching events (%s failed/vanished)',
             ('success', 'total', 'failed')),
         perm_filter='is_postmaster')
 
