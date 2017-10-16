@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014-2016 University of Oslo, Norway
+# Copyright 2014-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,6 +30,8 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import Command, Parameter, \
     FormatSuggestion, SimpleString
 from Cerebrum.modules.bofhd.errors import PermissionDenied
+
+from collections import defaultdict
 
 import eventconf
 import pickle
@@ -76,6 +78,7 @@ class BofhdExtension(BofhdCommandBase):
                      'target system'),
                 'event_unlock': 'Unlock a previously locked event',
                 'event_delete': 'Delete an event',
+                'event_delete_where': 'Delete events matching search',
                 'event_search': 'Search for events'
             },
         }
@@ -98,21 +101,20 @@ class BofhdExtension(BofhdCommandBase):
                 '  type:spread:add        Matches events of type spread:add\n'
                 '  param:Joe              Matches events where the string'
                 ' "Joe" is found in the change params\n'
-                '  target_system:Exchange Matches events for a target system\n'
                 '  from_ts:2016-01-01     Matches events from after a '
                 'timestamp\n'
                 '  to_ts:2016-12-31       Matches events from before a '
                 'timestamp\n'
-                'In combination, these patterns form a boolean AND expression.'
+                'In combination, these patterns form a boolean AND\n'
+                'expression. Multiple event types forms an OR expression.'
                 '\nTimestamps can also be \'today\', \'yesterday\' or precise'
                 ' to the second.']
         }
 
         return (group_help, command_help, arg_help)
 
-    # Validate that the target system exists, and that the operator is
-    # allowed to perform operations on it.
     def _validate_target_system(self, operator, target_sys):
+        """Validate that the target system exists."""
         # TODO: Check for perms on target system.
         ts = self.const.TargetSystem(target_sys)
         try:
@@ -122,9 +124,9 @@ class BofhdExtension(BofhdCommandBase):
             raise CerebrumError('No such target system: {}'.format(target_sys))
         return ts
 
-    # Convert dictionary entries known to contain contant codes,
-    # to human-readable text
     def _make_constants_human_readable(self, data):
+        """Convert dictionary entries known to contain contant codes,
+        to human-readable text."""
         constant_keys = ['spread', 'entity_type', 'code', 'affiliation',
                          'src', 'name_variant', 'action', 'level']
         try:
@@ -136,6 +138,44 @@ class BofhdExtension(BofhdCommandBase):
         except TypeError:
             pass
         return data
+
+    def _parse_search_params(self, *args):
+        """Convert string search pattern to a dict."""
+        # TODO: Make the param-search handle spaces and stuff?
+        params = defaultdict(list)
+        for arg in args:
+            try:
+                key, value = arg.split(':', 1)
+            except ValueError:
+                # Ignore argument
+                continue
+            if key == 'type':
+                try:
+                    cat, typ = value.split(':')
+                except ValueError:
+                    raise CerebrumError('Search pattern incomplete')
+                try:
+                    type_code = int(self.const.ChangeType(cat, typ))
+                except Errors.NotFoundError:
+                    raise CerebrumError('EventType does not exist')
+                params['type'].append(type_code)
+            else:
+                params[key] = value
+        return params
+
+    def _search_events(self, **params):
+        """Find rows matching search params."""
+        try:
+            return self.db.search_events(**params)
+        except TypeError:
+            # If the user spells an argument wrong, we tell them that they have
+            # done so. They can always type '?' at the pattern-prompt to get
+            # help.
+            raise CerebrumError('Invalid arguments')
+        except self.db.DataError as e:
+            # E.g. bogus timestamp
+            message = e.args[0].split("\n")[0]
+            raise CerebrumError('Database does not approve: ' + message)
 
     # event stat
     all_commands['event_stat'] = Command(
@@ -255,6 +295,46 @@ class BofhdExtension(BofhdCommandBase):
             state = False
         return {'state': 'failed' if not state else 'succeeded'}
 
+    # event delete_where
+    all_commands['event_delete_where'] = Command(
+        ('event', 'delete_where',),
+        TargetSystem(),
+        SimpleString(repeat=True, help_ref='search_pattern'),
+        fs=FormatSuggestion(
+            'Deleted %s of %s matching events (%s failed/vanished)',
+            ('success', 'total', 'failed')),
+        perm_filter='is_postmaster')
+
+    def event_delete_where(self, operator, target_sys, *args):
+        """Delete events matching a search query.
+
+        :param str target_sys: Target system to search
+        :param str args: Pattern(s) to search for.
+        """
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to event')
+
+        # TODO: Fetch an ACL of which target systems can be searched by this
+        ts = self._validate_target_system(operator, target_sys)
+
+        params = self._parse_search_params(*args)
+        if not params:
+            raise CerebrumError('Must specify search pattern.')
+
+        params['target_system'] = ts
+        event_ids = [row['event_id'] for row in self._search_events(**params)]
+        stats = {}
+        stats['total'] = len(event_ids)
+        stats['success'] = stats['failed'] = 0
+
+        for event_id in event_ids:
+            try:
+                self.db.remove_event(event_id)
+                stats['success'] += 1
+            except Errors.NotFoundError:
+                stats['failed'] += 1
+        return stats
+
     # event info
     all_commands['event_info'] = Command(
         ('event', 'info',), EventId(),
@@ -313,7 +393,7 @@ class BofhdExtension(BofhdCommandBase):
                         en.entity_id, en.entity_type)
                     ret[key] = '{} {} (id:{:d})'.format(
                         entity_type, entity_name, en.entity_id)
-                except:
+                except Exception:
                     pass
 
         return ret
@@ -321,6 +401,7 @@ class BofhdExtension(BofhdCommandBase):
     # event search
     all_commands['event_search'] = Command(
         ('event', 'search',),
+        TargetSystem(),
         SimpleString(repeat=True, help_ref='search_pattern'),
         fs=FormatSuggestion(
             '%-8d %-35s %-15s %-15s %-25s %-6d %s',
@@ -332,56 +413,24 @@ class BofhdExtension(BofhdCommandBase):
         ),
         perm_filter='is_postmaster')
 
-    def event_search(self, operator, *args):
+    def event_search(self, operator, target_sys, *args):
         """Search for events in the database.
 
-        :param str search_str: A pattern to search for.
+        :param str target_sys: Target system to search
+        :param str args: Pattern(s) to search for.
         """
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to event')
+
         # TODO: Fetch an ACL of which target systems can be searched by this
-        # TODO: Make the param-search handle spaces and stuff?
-        params = {}
+        ts = self._validate_target_system(operator, target_sys)
 
-        # Parse search patterns
-        for arg in args:
-            try:
-                key, value = arg.split(':', 1)
-            except ValueError:
-                # Ignore argument
-                continue
-            if key == 'type':
-                try:
-                    cat, typ = value.split(':')
-                except ValueError:
-                    raise CerebrumError('Search pattern incomplete')
-                try:
-                    type_code = int(self.const.ChangeType(cat, typ))
-                except Errors.NotFoundError:
-                    raise CerebrumError('EventType does not exist')
-                params['type'] = type_code
-            elif key == 'target_system':
-                ts = self._validate_target_system(operator, value)
-                params['target_system'] = ts
-            else:
-                params[key] = value
-
-        # Raise if we do not have any search patterns
+        params = self._parse_search_params(*args)
         if not params:
             raise CerebrumError('Must specify search pattern.')
 
-        # Fetch matching event ids
-        try:
-            event_ids = self.db.search_events(**params)
-        except TypeError:
-            # If the user spells an argument wrong, we tell them that they have
-            # done so. They can always type '?' at the pattern-prompt to get
-            # help.
-            raise CerebrumError('Invalid arguments')
-        except self.db.DataError as e:
-            # E.g. bogus timestamp
-            message = e.args[0].split("\n")[0]
-            raise CerebrumError('Database does not approve: ' + message)
+        params['target_system'] = ts
+        event_ids = self._search_events(**params)
 
         # Fetch information about the event ids, and present it to the user.
         r = []
