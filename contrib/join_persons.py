@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,13 +23,9 @@ import getopt
 import sys
 import time
 
-import cerebrum_path
-
 from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-
-del cerebrum_path
 
 
 def get_constants_by_type(co, class_type):
@@ -213,6 +209,13 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
                           indirect_members=False):
         group.clear()
         group.find(g['group_id'])
+        # Skip virtual groups
+        if hasattr(group, 'virtual_group_type'):
+            if group.virtual_group_type != co.vg_normal_group:
+                logger.debug(
+                    "group_member: {} (virtual group, skipping)".format(
+                        group.group_name))
+                continue
         logger.debug("group_member: %s" % group.group_name)
         if not group.has_member(new_person.entity_id):
             group.add_member(new_person.entity_id)
