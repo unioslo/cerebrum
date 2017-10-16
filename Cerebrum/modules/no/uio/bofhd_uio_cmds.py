@@ -10053,9 +10053,9 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                     try:
                         repl['%%(%s:%s)s' % (fmt_type, key)] = self._format_from_cl(
                             fmt_type, params.get(key, None))
-                    except Exception, e:
+                    except Exception:
                         self.logger.warn("Failed applying %s to %s for change-id: %d" % (
-                            part, repr(params.get(key)), row['change_id']), exc_info=1)
+                            part, repr(params.get(key)), row['change_id']))
                 if [x for x in repl.values() if x]:
                     for k, v in repl.items():
                         f = f.replace(k, v)
