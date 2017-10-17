@@ -237,7 +237,7 @@ def join_consents(old_person, new_person):
     old_consents = old_person.list_consents(
         entity_id=old_person.entity_id, filter_expired=False)
     if not old_consents:
-        pass
+        return
     for old_consent in old_consents:
         new_consent = new_person.list_consents(
             entity_id=new_person.entity_id,
