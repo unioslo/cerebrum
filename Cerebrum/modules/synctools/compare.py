@@ -53,10 +53,10 @@ def equal(crb_data, ext_system_data, attrs,
                 break
         except KeyError:
             is_equal = False
-        if not is_equal and show_diff:
-            log_diff(entity_id=entity_id,
-                     entity_type=entity_type,
-                     crb_data=crb_data,
-                     ext_system_data=ext_system_data,
-                     attrs=attrs)
+    if not is_equal and show_diff:
+        log_diff(entity_id=entity_id,
+                 entity_type=entity_type,
+                 crb_data=crb_data,
+                 ext_system_data=ext_system_data,
+                 attrs=attrs)
     return is_equal

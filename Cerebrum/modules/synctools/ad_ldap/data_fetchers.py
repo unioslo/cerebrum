@@ -152,7 +152,8 @@ def get_homedir_data(db, account_id):
         return None
     di.find(home['disk_id'])
     ho.find(di.host_id)
-    return {'home_path': ac.get_homepath(home['spread']),
+    # Remove \\<username> from end of home_path-string
+    return {'home_path': ac.get_homepath(home['spread']).rsplit('/', 1)[0],
             'home_host': ho.name}
 
 
