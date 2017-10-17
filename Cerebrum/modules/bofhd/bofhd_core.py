@@ -624,6 +624,9 @@ class BofhdCommandBase(object):
         if entity_type == self.const.entity_account:
             acc = self._get_account(entity_id, idtype='id')
             return acc.account_name
+        elif entity_type == self.const.entity_ou:
+            ou = self._get_ou(ou_id=entity_id)
+            return self._format_ou_name(ou)
         elif entity_type in (self.const.entity_group, ):
             group = self._get_group(entity_id, idtype='id')
             return group.group_name
