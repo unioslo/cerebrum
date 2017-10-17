@@ -9761,35 +9761,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             return ety.get_subclassed_object(ident)
         raise CerebrumError("Invalid idtype")
 
-    def _get_entity_name(self, entity_id, entity_type=None):
-        """Fetch a human-friendly name for the specified entity.
-
-        Overridden to return names only used at UiO.
-
-        @type entity_id: int
-        @param entity_id:
-          entity_id we are looking for.
-
-        @type entity_type: const.EntityType instance (or None)
-        @param entity_type:
-          Restrict the search to the specifide entity. This parameter is
-          really a speed-up only -- entity_id in Cerebrum uniquely determines
-          the entity_type. However, should we know it, we save 1 db lookup.
-
-        @rtype: str
-        @return:
-          Entity's name, obviously :) If none is found a magic string
-          'notfound:<entity id>' is returned (it's not perfect, but it's better
-          than nothing at all).
-
-        """
-        if entity_type == self.const.entity_ou:
-            ou = self._get_ou(ou_id=entity_id)
-            return self._format_ou_name(ou)
-        # Use default values for types like account and group:
-        return super(BofhdExtension, self)._get_entity_name(entity_id=entity_id,
-                entity_type=entity_type)
-
     def _get_disk(self, path, host_id=None, raise_not_found=True):
         disk = Utils.Factory.get('Disk')(self.db)
         try:
