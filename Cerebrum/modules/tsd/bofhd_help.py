@@ -118,6 +118,17 @@ arg_help.update({
     'project_statusfilter':
         ['filter', 'Filter on project status',
                    'Not implemented yet'],
+    'project_price':
+        ['price', "Project's price", "Price, e.g. UIO, UH or OTHER"],
+    'project_institution':
+        ['institution', "Project's institution",
+         "Institution, e.g. UIO, HSØ, HIOA, UIT, NTNU or OTHER"],
+    'project_hpc':
+        ['hpc', "Project's HPC flag",
+         'If project uses HPC'],
+    'project_metadata':
+        ['metadata', "User defined metadata field",
+         'User defined meta data field for project'],
     'vlan':
         ['vlan', 'VLAN number',
          'A number between 0-4094, or a blank value, which defaults to the '

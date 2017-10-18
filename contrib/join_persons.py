@@ -227,6 +227,40 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
     if with_uio_voip:
         join_uio_voip_objects(old_id, new_id)
 
+    # EntityConsentMixin
+    join_consents(old_person, new_person)
+
+
+def join_consents(old_person, new_person):
+    if not hasattr(new_person, 'list_consents'):
+        return
+    old_consents = old_person.list_consents(
+        entity_id=old_person.entity_id, filter_expired=False)
+    if not old_consents:
+        return
+    for old_consent in old_consents:
+        new_consent = new_person.list_consents(
+            entity_id=new_person.entity_id,
+            consent_code=old_consent['consent_code'],
+            filter_expired=False)
+        replace_expired = (new_consent and new_consent['expiry'] and
+                           not old_consent['expiry'])
+        old_expires_later = (new_consent and old_consent['expiry'] and
+                             new_consent['expiry'] and
+                             (old_consent['expiry'] > new_consent['expiry']))
+        keep = not new_consent or replace_expired or old_expires_later
+        logger.info(
+            'consent: old person has consent. '
+            'joining with new? {} consent={}'.format(keep, dict(old_consent)))
+        if keep:
+            new_person.set_consent(
+                consent_code=old_consent['consent_code'],
+                description=old_consent['description'],
+                expiry=old_consent['expiry'])
+        old_person.remove_consent(consent_code=old_consent['consent_code'])
+    old_person.write_db()
+    new_person.write_db()
+
 
 def join_ephorte_roles(old_id, new_id):
     # All ephorte roles belonging to old_person must be deleted.
