@@ -1,8 +1,0 @@
-nose
-coverage
-pep8
-pylint
-pytest
-pytest-cov
-pytest-flask
-pytest-watch
