@@ -10,3 +10,6 @@ TAGS
 *coverage.xml
 *xunit.xml
 *pytestconfig.ini
+*.retry
+.coverage
+root.log

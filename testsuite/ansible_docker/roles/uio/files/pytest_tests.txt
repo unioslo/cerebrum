@@ -1,0 +1,13 @@
+/src/testsuite/tests/test_core/test_config
+/src/testsuite/tests/test_core/test_core_Account.py
+/src/testsuite/tests/test_core/test_core_Constants.py
+/src/testsuite/tests/test_core/test_core_Database.py
+/src/testsuite/tests/test_core/test_core_Entity
+/src/testsuite/tests/test_core/test_core_Group.py
+/src/testsuite/tests/test_core/test_core_OU.py
+/src/testsuite/tests/test_core/test_core_Utils.py
+/src/testsuite/tests/test_core/test_utils
+/src/testsuite/tests/test_extended/test_bofhd_session.py
+/src/testsuite/tests/test_extended/test_bofhd_utils.py
+/src/testsuite/tests/test_extended/test_dns
+/src/testsuite/tests/test_event/
