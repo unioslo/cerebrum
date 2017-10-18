@@ -26,6 +26,7 @@ deleting and updating mailboxes and distribution groups in Exchange 2013."""
 
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
 from Cerebrum.modules.no.uio.exchange.ExchangeClient import ExchangeClient
+from Cerebrum.modules.exchange.Exceptions import AlreadyPerformedException
 
 
 class UiAExchangeClient(ExchangeClient):
