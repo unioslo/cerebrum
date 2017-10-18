@@ -942,10 +942,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         try:
             meta = json.loads(meta)
-        except:
-            raise CerebrumError('Project metadata should be valid json')
+        except ValueError as e:
+            raise CerebrumError('Project metadata should be valid json: {}'.
+                                format(e))
         if not isinstance(meta, dict):
-            raise CerebrumError('Project metadat should be a dictionary')
+            raise CerebrumError('Project metadata should be a dictionary')
 
         hpc = self._parse_hpc_yesno(hpc)
 
