@@ -947,14 +947,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         if not isinstance(meta, dict):
             raise CerebrumError('Project metadat should be a dictionary')
 
-        if hpc.lower() in ['hpc_yes', 'yes', 'true', 'y',
-                           'j', '1', 't', 's', '+']:
-            hpc = 'HPC_YES'
-        elif hpc.lower() in ['hpc_no', 'no', 'false',
-                             'n', '0', 'f', 'u', '-', 'nil']:
-            hpc = 'HPC_NO'
-        else:
-            raise CerebrumError('HPC must be HPC_YES or HPC_NO')
+        hpc = self._parse_hpc_yesno(hpc)
 
         if vm_type not in cereconf.TSD_VM_TYPES:
             raise CerebrumError("Invalid VM-type.")
@@ -1221,20 +1214,24 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                                      else 'changed',
                                                      institution)
 
+    @staticmethod
+    def _parse_hpc_yesno(hpc):
+        if hpc.lower() in ['hpc_yes', 'yes', 'true', 'y',
+                           'j', '1', 't', 's', '+']:
+            return 'HPC_YES'
+        elif hpc.lower() in ['hpc_no', 'no', 'false',
+                             'n', '0', 'f', 'u', '-', 'nil']:
+            return 'HPC_NO'
+        else:
+            raise CerebrumError('HPC must be HPC_YES or HPC_NO')
+
     all_commands['project_set_hpc'] = cmd.Command(
         ('project', 'set_hpc'), ProjectID(), ProjectHpc(),
         perm_filter='is_superuser')
 
     @superuser
     def project_set_hpc(self, operator, projectid, hpc):
-        if hpc.lower() in ['hpc_yes', 'yes', 'true', 'y',
-                           'j', '1', 't', 's', '+']:
-            hpc = 'HPC_YES'
-        elif hpc.lower() in ['hpc_no', 'no', 'false',
-                             'n', '0', 'f', 'u', '-', 'nil']:
-            hpc = 'HPC_NO'
-        else:
-            raise CerebrumError('HPC must be HPC_YES or HPC_NO')
+        hpc = self._parse_hpc_yesno(hpc)
         proj = self._get_project(projectid)
         status = proj.populate_trait(self.const.trait_project_hpc,
                                      strval=hpc)
