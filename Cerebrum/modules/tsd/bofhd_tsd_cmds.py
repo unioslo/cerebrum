@@ -40,6 +40,7 @@ ba.is_superuser is not missing, it's still here, but in a different form.
 
 from mx import DateTime
 from functools import wraps, partial
+import json
 
 import cereconf
 
@@ -109,6 +110,39 @@ class ProjectShortName(cmd.Parameter):
     """Bofhd Parameter for specifying a project's short name."""
     _type = 'projectShortName'
     _help_ref = 'project_shortname'
+
+
+class ProjectPrice(cmd.Parameter):
+    """Bofhd parameter for specifying project's price group.
+    Initial spec: price: "UIO" | "UH" | "OTHER"
+    """
+
+    _type = 'projectPrice'
+    _help_ref = 'project_price'
+
+
+class ProjectInstitution(cmd.Parameter):
+    """Bofhd parameter for specifying project's institution.
+    Initial spec: institution: "UIO" | "HSØ" | "HIOA" | "UIT" | "NTNU" | "OTHER"
+    """
+
+    _type = 'projectInstitution'
+    _help_ref = 'project_institution'
+
+
+class ProjectHpc(cmd.Parameter):
+    """Bofhd parameter for specifying if project has hpc flag.
+    Initial spec: HPC: "HPC_YES" | "HPC_NO"
+    """
+
+    _type = 'projectHpc'
+    _help_ref = 'project_hpc'
+
+
+class ProjectMetadata(cmd.Parameter):
+    """Bofhd parameter for specifying project metadata."""
+    _type = 'jsonObject'
+    _help_ref = 'project_metadata'
 
 
 class GroupDescription(cmd.SimpleString):  # SimpleString inherits from cmd.Parameter
@@ -879,12 +913,14 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['project_create'] = cmd.Command(
         ('project', 'create'), ProjectName(), ProjectLongName(),
         ProjectShortName(), cmd.Date(help_ref='project_start_date'),
-        cmd.Date(help_ref='project_end_date'), VMType(),
-        VLANParam(optional=True), perm_filter='is_superuser')
+        cmd.Date(help_ref='project_end_date'), ProjectPrice(),
+        ProjectInstitution(), VMType(), ProjectHpc(),
+        ProjectMetadata(), VLANParam(optional=True), perm_filter='is_superuser')
 
     @superuser
     def project_create(self, operator, projectname, longname, shortname,
-                       startdate, enddate, vm_type, vlan=None):
+                       startdate, enddate, price, inst, vm_type,
+                       hpc, meta, vlan=None):
         """Create a new TSD project.
 
         :param BofhdSession operator:
@@ -897,11 +933,22 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         end = self._parse_date(enddate)
 
         if end < DateTime.now():
-            raise CerebrumError("End date of project has passed: %s" % str(end).split()[0])
+            raise CerebrumError("End date of project has passed: %s"
+                                % str(end).split()[0])
         elif end < start:
             raise CerebrumError(
                 "Project can not end before it has begun: from %s to %s" %
                 (str(start).split()[0], str(end).split()[0]))
+
+        try:
+            meta = json.loads(meta)
+        except ValueError as e:
+            raise CerebrumError('Project metadata should be valid json: {}'.
+                                format(e))
+        if not isinstance(meta, dict):
+            raise CerebrumError('Project metadata should be a dictionary')
+
+        hpc = self._parse_hpc_yesno(hpc)
 
         if vm_type not in cereconf.TSD_VM_TYPES:
             raise CerebrumError("Invalid VM-type.")
@@ -925,12 +972,19 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         # Storing start date
         ou.add_entity_quarantine(qtype=self.const.quarantine_project_start,
-                                 creator=operator.get_entity_id(), start=DateTime.now(),
-                                 end=start, description='Initial start set by superuser')
+                                 creator=operator.get_entity_id(),
+                                 start=DateTime.now(),
+                                 end=start,
+                                 description='Initial start set by superuser')
         # Storing end date
         ou.add_entity_quarantine(qtype=self.const.quarantine_project_end,
                                  creator=operator.get_entity_id(), start=end,
                                  description='Initial end set by superuser')
+
+        # set metadata traits
+        ou.populate_trait(self.const.trait_project_price, strval=price)
+        ou.populate_trait(self.const.trait_project_institution, strval=inst)
+        ou.populate_trait(self.const.trait_project_hpc, strval=hpc)
 
         # Set trait for vm_type
         ou.populate_trait(self.const.trait_project_vm_type, strval=vm_type)
@@ -940,6 +994,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ou.setup_project(operator.get_entity_id(), vlan)
         except Errors.CerebrumError, e:
             raise CerebrumError(e)
+
+        self._set_project_metadata(operator, ou, meta)
 
         return "New project created: %s" % pid
 
@@ -1131,6 +1187,109 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return "Project %s updated with short name: %s" % (ou.get_project_id(),
                                                            shortname)
 
+    all_commands['project_set_price'] = cmd.Command(
+        ('project', 'set_price'), ProjectID(), ProjectPrice(),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_set_price(self, operator, projectid, price):
+        proj = self._get_project(projectid)
+        status = proj.populate_trait(self.const.trait_project_price,
+                                     strval=price)
+        proj.write_db()
+        return 'Project price {} to {}'.format('set' if status == 'INSERT'
+                                               else 'changed',
+                                               price)
+
+    all_commands['project_set_institution'] = cmd.Command(
+        ('project', 'set_institution'), ProjectID(), ProjectInstitution(),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_set_institution(self, operator, projectid, institution):
+        proj = self._get_project(projectid)
+        status = proj.populate_trait(self.const.trait_project_institution,
+                                     strval=institution)
+        proj.write_db()
+        return 'Project institution {} to {}'.format('set' if status == 'INSERT'
+                                                     else 'changed',
+                                                     institution)
+
+    @staticmethod
+    def _parse_hpc_yesno(hpc):
+        if hpc.lower() in ['hpc_yes', 'yes', 'true', 'y',
+                           'j', '1', 't', 's', '+']:
+            return 'HPC_YES'
+        elif hpc.lower() in ['hpc_no', 'no', 'false',
+                             'n', '0', 'f', 'u', '-', 'nil']:
+            return 'HPC_NO'
+        else:
+            raise CerebrumError('HPC must be HPC_YES or HPC_NO')
+
+    all_commands['project_set_hpc'] = cmd.Command(
+        ('project', 'set_hpc'), ProjectID(), ProjectHpc(),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_set_hpc(self, operator, projectid, hpc):
+        hpc = self._parse_hpc_yesno(hpc)
+        proj = self._get_project(projectid)
+        status = proj.populate_trait(self.const.trait_project_hpc,
+                                     strval=hpc)
+        proj.write_db()
+        return 'Project hpc {} to {}'.format('set' if status == 'INSERT'
+                                             else 'changed',
+                                             hpc)
+
+    @staticmethod
+    def _get_project_metadata(project):
+        """ Get a project's metadata field (use EntityNote). """
+        for note in sorted(filter(lambda x: x['subject'] == 'project_metadata',
+                                  project.get_notes()),
+                           reverse=True,
+                           key=lambda x: x['note_id']):
+            return json.loads(note['description'])
+
+    @staticmethod
+    def _set_project_metadata(operator, project, metadata):
+        """ Set a project's metadata """
+        project.add_note(operator.get_entity_id(),
+                         'project_metadata',
+                         json.dumps(metadata, sort_keys=True))
+
+    @staticmethod
+    def _add_project_metadata_field(operator, project, key, value):
+        meta = AdministrationBofhdExtension._get_project_metadata(project)
+        if key not in meta:
+            if value == '':
+                return 'not set'
+            ret = 'inserted'
+        elif value == '':
+            ret = 'unset'
+        elif meta[key] != value:
+            ret = 'updated'
+        else:
+            return 'not changed'
+        if value == '':
+            del meta[key]
+        else:
+            meta[key] = value
+        AdministrationBofhdExtension._set_project_metadata(operator,
+                                                           project, meta)
+        return ret
+
+    all_commands['project_set_metadata'] = cmd.Command(
+        ('project', 'set_metadata'), ProjectID(), cmd.SimpleString(
+            help_ref='project_metadata'),
+        cmd.SimpleString(),
+        perm_filter='is_superuser')
+
+    @superuser
+    def project_set_metadata(self, operator, projectid, key, value):
+        proj = self._get_project(projectid)
+        status = self._add_project_metadata_field(operator, proj, key, value)
+        return 'Value for {} {}'.format(key, status)
+
     all_commands['project_freeze'] = cmd.Command(
         ('project', 'freeze'), ProjectID(),
         perm_filter='is_superuser')
@@ -1296,7 +1455,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ('project_id', 'project_name', 'entity_id', 'long_name',
              'short_name', 'start_date', 'end_date', 'quarantines', 'spreads')),
             ('REK-number:       %s', ('rek',)),
+            ('Price:            %s', ('price',)),
             ('Institution:      %s', ('institution',)),
+            ('Hpc:              %s', ('hpc',)),
+            ('Metadata:         %s', ('metadata',)),
             ('VM-type:          %s', ('vm_type',)),
             ('VLAN, Subnet:     %-4s, %s', ('vlan_number', 'subnet')),
         ]),
@@ -1351,12 +1513,24 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ret.append({'rek': trait['strval']})
         else:
             ret.append({'rek': '<Not Set>'})
+        # Price
+        trait = project.get_trait(self.const.trait_project_price)
+        if trait:
+            ret.append({'price': trait['strval']})
         # Institution
         trait = project.get_trait(self.const.trait_project_institution)
         if trait:
             ret.append({'institution': trait['strval']})
         else:
             ret.append({'institution': '<Not Set>'})
+        # HPC
+        trait = project.get_trait(self.const.trait_project_hpc)
+        if trait:
+            ret.append({'hpc': trait['strval']})
+        # Metadata
+        meta = self._get_project_metadata(project)
+        if meta is not None:
+            ret.append({'metadata': json.dumps(meta)})
         # VM type
         trait = project.get_trait(self.const.trait_project_vm_type)
         if trait:
@@ -1389,6 +1563,20 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         for subnet in sorted(subnets, key=lambda x: x['subnet']):
             ret.append(subnet)
 
+        return ret
+
+    all_commands['project_metadata'] = cmd.Command(
+        ('project', 'metadata'), ProjectID(),
+        fs=cmd.FormatSuggestion('%-10s%-10s', ('key', 'value'),
+                                '{:10}{:10}'.format('Field', 'Value')),
+        perm_filter='is_superuser')
+
+    def project_metadata(self, operator, project_id):
+        project = self._get_project(project_id)
+        ret = []
+        for key, val in sorted((self._get_project_metadata(project) or {})
+                               .items()):
+            ret.append(dict(key=key, value=val))
         return ret
 
     all_commands['project_affiliate_entity'] = cmd.Command(
