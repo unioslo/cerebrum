@@ -1,0 +1,35 @@
+- name: create cerebrum test database user
+  postgresql_user:
+    name: "{{ crb_db_user }}"
+    password: "{{ crb_db_user_pass }}"
+    login_host: "{{ crb_db_host }}"
+    login_user: "{{ pg_db_user }}"
+    login_password: "{{ pg_db_user_pass }}"
+    encrypted: yes
+
+- name: dump cerebrum test database if it exists
+  postgresql_db:
+    name: "{{ crb_db_name }}"
+    login_host: "{{ crb_db_host }}"
+    login_user: "{{ pg_db_user }}"
+    login_password: "{{ pg_db_user_pass }}"
+    owner: "{{ crb_db_user }}"
+    state: absent
+
+- name: create cerebrum test database
+  postgresql_db:
+    name: "{{ crb_db_name }}"
+    login_host: "{{ crb_db_host }}"
+    login_user: "{{ pg_db_user }}"
+    login_password: "{{ pg_db_user_pass }}"
+    owner: "{{ crb_db_user }}"
+    state: present
+
+- name: move extra files to host
+  copy:
+      src: extra_db_files.txt
+      dest: /etc/cerebrum/extra_db_files.txt
+
+- name: create cerebrum schema with makedb
+  shell: python /usr/local/sbin/makedb.py $(cat /etc/cerebrum/extra_db_files.txt) chdir=/usr/local/share/cerebrum/design
+

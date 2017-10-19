@@ -2,7 +2,7 @@
 import cereconf
 
 
-__version__ = "1.4"
+__version__ = "1.5"
 
 IP_NUMBER = 'IPNumber'
 IPv6_NUMBER = 'IPv6Number'
