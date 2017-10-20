@@ -68,7 +68,7 @@ from xml.sax import make_parser
 from Cerebrum import Errors
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import SimilarSizeWriter
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules import Email
 from Cerebrum.modules.no import fodselsnr
@@ -620,10 +620,10 @@ def output_organization(writer, db):
     writer.endElement("institusjonsnr")
 
     writer.startElement("navnBokmal")
-    writer.data("Universitetet i Tromsø")
+    writer.data("UiT - Norges arktiske universitet")
     writer.endElement("navnBokmal")
     writer.startElement("navnEngelsk")
-    writer.data("Universitetet of Tromsoe")
+    writer.data("UiT The Arctic University of Norway")
     writer.endElement("navnEngelsk")
 
     writer.startElement("akronym")
@@ -1245,7 +1245,10 @@ def output_person(writer, pobj, phd_cache, system_source):
     if len(contact) > 0:
        contact = contact[0]['contact_value']
        if len(contact) == 5:
-           contact = cereconf.INTERNAL_PHONE_PREFIX + contact
+           if((contact[0] == '5') and (contact[1] == '0')):
+               contact = cereconf.INTERNAL_PHONE_PREFIX_FINMARK + contact
+           else:
+               contact = cereconf.INTERNAL_PHONE_PREFIX + contact
     else:
        contact = ''
 
