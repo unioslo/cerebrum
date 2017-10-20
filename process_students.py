@@ -320,6 +320,7 @@ class AccountUtil(object):
         have_fagperson = False
         have_student = False
 
+
         #
         # kennethj:20161214
         # UiT need to create fagperson accounts in this script. therefore we also
@@ -334,12 +335,11 @@ class AccountUtil(object):
         for aff, ou, status in persons[fnr].get_affiliations():
             assert aff in [const.affiliation_student,const.affiliation_tilknyttet]
             if aff == const.affiliation_tilknyttet:
-                #logger.debug("populate account affiliation = fagperson")
                 #fagperson = True
                 #save_fagperson = True
                 have_fagperson = True
+
                 if not ou in account_fagperson_ous:                
-                    logger.debug("adding tilknyttet affiliation to ou:%s" % ou)
                     changes.append(('set_ac_type', (ou, const.affiliation_tilknyttet)))
                 else:
                     account_fagperson_ous.remove(ou)
@@ -348,7 +348,6 @@ class AccountUtil(object):
             if aff == const.affiliation_student:
                 have_student = True
                 if not ou in account_student_ous:                
-                    logger.debug("adding student affiliation to ou:%s" % ou)
                     changes.append(('set_ac_type', (ou, const.affiliation_student)))
                 else:
                     account_student_ous.remove(ou)
@@ -362,15 +361,11 @@ class AccountUtil(object):
         # kennethj:20161214
         # Do not delete tilknyttet affiliation if its the last account affiliation
         #
-        logger.debug("student idx: %s" % remove_student_idx)
-        logger.debug("fagperson idx: %s" % remove_fagperson_idx)
         if have_fagperson:
             for ou in account_fagperson_ous[remove_fagperson_idx:]:
-                logger.debug("delete tilknyttet affiliation to ou:%s" % ou)
                 changes.append(('del_ac_type', (ou, const.affiliation_tilknyttet)))
         if have_student:
             for ou in account_student_ous[remove_student_idx:]:
-                logger.debug("delete student affiliation to ou:%s" % ou)
                 changes.append(('del_ac_type', (ou, const.affiliation_student)))
         #    else:
         #        logger.debug("delete tilknyttet affiliation to ou:%s" % ou)
@@ -415,7 +410,6 @@ class AccountUtil(object):
             user.populate(uid, changes[0][1], None, shell,
                           parent=account_obj, expire_date=default_expire_date)
             user.write_db()
-            logger.debug("Used dfg2: "+str(changes[0][1]))
             accounts[account_id].append_group(changes[0][1])
             del(changes[0])
         else:
@@ -430,14 +424,12 @@ class AccountUtil(object):
         for c_id, dta in changes:
             if c_id == 'dfg':
                 user.gid_id = dta
-                logger.debug("Used dfg: "+str(dta))
                 accounts[account_id].append_group(dta)
             elif c_id == 'expire':
                 user.expire_date = dta
             elif c_id == 'disk':
                 current_disk_id, disk_spread, new_disk = dta
                 if current_disk_id is None:
-                    logger.debug("Set home: %s" % new_disk)
                     homedir_id = user.set_homedir(
                         disk_id=new_disk, status=const.home_status_not_created)
                     user.set_home(disk_spread, homedir_id)
@@ -467,6 +459,7 @@ class AccountUtil(object):
             elif c_id == 'set_ac_type':
                 user.set_account_type(dta[0], dta[1])
             elif c_id == 'del_ac_type':
+                logger.debug("delete account type: account_id:%s, ou_id:%s, affiliation:%s" % (account_id,dta[0],dta[1]))
                 user.del_account_type(dta[0], dta[1])
             elif c_id == 'add_quarantine':
                 start_at = strftime('%Y-%m-%d', localtime(dta[1] + time()))
@@ -493,7 +486,6 @@ class AccountUtil(object):
         for group_id in accounts[account_id].get_groups():
             already_member[group_id] = True
 
-        logger.debug("%i already in %s" % (account_id, repr(already_member)))
         for g in profile.get_grupper():
             if not already_member.has_key(g):
                 group_obj.clear()
@@ -705,7 +697,6 @@ class RecalcQuota(object):
                 logger.warn("Error for %s: %s" %  (fnr, msg))
                 logger.set_indent(0)
                 return
-            logger.debug("Setting %s as pquotas for %s" % (quota, account_id))
             if dryrun:
                 continue
             pq.clear()
@@ -888,6 +879,7 @@ class BuildAccounts(object):
             if int(spread) in posix_spreads:
                 as_posix = True
         for account_id in account_ids:
+            logger.debug("update account for account id%s" % account_id)
             AccountUtil.update_account(account_id, fnr, profile, as_posix)
     _update_persons_accounts=staticmethod(_update_persons_accounts)
 
@@ -1193,7 +1185,7 @@ def get_existing_accounts():
                 int(row['affiliation']), int(row['ou_id']), int(row['status']))
 
     #
-    # Hent ut info om eksisterende og reserverte konti
+    # Hent ut info om eksisterende og reserverte konti 
     #
     logger.info("Listing accounts...")
     tmp_ac = {}
@@ -1201,10 +1193,11 @@ def get_existing_accounts():
 
     for row in account_obj.list(filter_expired=False, fetchall=False):
         if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
+            logger.info("skipping accounts for owner id:%s" % row['owner_id'] )
             continue
         tmp_ac[int(row['account_id'])] = ExistingAccount(pid2fnr[int(row['owner_id'])],
                                                          row['expire_date'])
-
+        logger.info("adding account:%s to tmp_ac" % int(row['owner_id']))
     # PosixGid
     for row in posix_user_obj.list_posix_users():
         tmp = tmp_ac.get(int(row['account_id']), None)
@@ -1235,6 +1228,10 @@ def get_existing_accounts():
     
 
     # Spreads
+    # also collect accounts with sito spread. the spread code for these accounts
+    # will be used later on, to filter these accounts out when looking for existing accounts
+    spread_list = autostud.pc.spread_defs
+    spread_list.append(const.spread_sito)
     for spread_id in autostud.pc.spread_defs:
         spread = const.Spread(spread_id)
         if spread.entity_type == const.entity_account:
@@ -1298,6 +1295,7 @@ def get_existing_accounts():
         affiliation=const.affiliation_student, fetchall=False):
         tmp = tmp_ac.get(int(row['account_id']), None)
         if tmp is not None:
+            logger.info("append_affiliation for student account:%s" % (int(row['account_id'])))
             tmp.append_affiliation(int(row['affiliation']), int(row['ou_id']))
 
     #
@@ -1309,32 +1307,41 @@ def get_existing_accounts():
             affiliation = const.affiliation_tilknyttet, status=const.affiliation_tilknyttet_fagperson, fetchall=False):
         tmp = tmp_ac.get(int(row['account_id']), None)
         if tmp is not None:
+            logger.info("append_affiliation for tilknyttet account:%s" % (int(row['account_id'])))
             tmp.append_affiliation(int(row['affiliation']), int(row['ou_id']))
 
 
     for ac_id, tmp in tmp_ac.items():
+        logger.info("now entering routine that sets other_ac for account:%s" % ac_id)
         fnr = tmp_ac[ac_id].get_fnr()
         affs = tmp.get_affiliations()
-        #logger.debug("affs:%s" % (affs))
-        #logger.debug(pformat(tmp))
-        if tmp.is_reserved():
+        #get_expire_date = tmp.get_expire_date()
+        #get_fnr = tmp.get_fnr()
+        get_spreads = tmp.get_spreads()
+        logger.debug(pformat(tmp))        
+        # do not process accounts with sito spread
+        if const.spread_sito in get_spreads:
+            logger.debug("account:%s has sito spread, do nothing" % ac_id)
+            continue
+        elif tmp.is_reserved():
             tmp_persons[fnr].append_reserved_ac(ac_id)
+            logger.info("reserved account: %s" % ac_id)
         elif tmp.is_deleted():
             tmp_persons[fnr].append_deleted_ac(ac_id)
+            logger.info("deleted account: %s" % ac_id)
         elif tmp.has_affiliation(int(const.affiliation_student)):
             tmp_persons[fnr].append_stud_ac(ac_id)
+            logger.info("student account: %s" % ac_id)
         elif tmp.has_affiliation(int(const.affiliation_tilknyttet)):
             tmp_persons[fnr].append_stud_ac(ac_id)            
+            logger.info("tilknyttet account: %s" % ac_id)
         elif tmp_persons[fnr].get_affiliations():
             # get_affiliations() only returns STUDENT affiliations.
             # Accounts on student disks are handled as if they were
             # students if the person has at least one STUDENT
             # affiliation.  The STUDENT affiliation(s) will be added
             # later during this run.
-
-            #
-            # get home_spreads() returns nothing for account id:740117 ....why?
-            # 
+            logger.info("no match, try get_affiliations(): %s" % ac_id)
             for s in tmp.get_home_spreads():
                 disk_id = tmp.get_home(s)[0]
                 foo = autostud.disk_tool.get_diskdef_by_diskid(disk_id)
@@ -1342,8 +1349,10 @@ def get_existing_accounts():
                     tmp_persons[fnr].append_stud_ac(ac_id)
                     break
             else:
+                logger.info("1. has other account: %s" % ac_id)
                 tmp_persons[fnr].append_other_ac(ac_id)
         else:
+            logger.info("2. has other account: %s" % ac_id)
             tmp_persons[fnr].append_other_ac(ac_id)
 
     logger.info(" found %i persons and %i accounts" % (

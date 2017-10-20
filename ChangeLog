@@ -1,4 +1,10 @@
-2017-10-03  Karen  <cerebrum@leetah.uit.no>
+2017-10-20    <cerebrum@cleomedes.uit.no>
+
+	* process_students.py (get_existing_accounts): added code to
+	filter out accounts with sito spread, they are not to be processed
+	by process_students.py
+
+2017-10-03  Karen  <cerebrum@cleomedes.uit.no>
 
     * import_PAGA.py (process_person): Fixed y2k bug. The problem is really in 
     Cerebrum.modules.no.fodselsnr, but is now handled in import_PAGA.
