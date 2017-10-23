@@ -5796,10 +5796,11 @@ Addresses and settings:
 
     # group set_expire
     all_commands['group_set_expire'] = Command(
-        ("group", "set_expire"), GroupName(), Date(), perm_filter='can_delete_group')
+        ("group", "set_expire"), GroupName(), Date(),
+        perm_filter='can_expire_group')
     def group_set_expire(self, operator, group, expire):
         grp = self._get_group(group)
-        self.ba.can_delete_group(operator.get_entity_id(), grp)
+        self.ba.can_expire_group(operator.get_entity_id(), grp)
         grp.expire_date = self._parse_date(expire)
         grp.write_db()
         return "OK, set expire-date for '%s'" % group
@@ -9316,7 +9317,7 @@ Addresses and settings:
                 map.append((('%s', name), {'ou_id': int(aff['ou_id']),
                                            'aff': int(aff['affiliation'])}))
             if not len(map) > 1:
-                raise CerebrumError('Person has no affiliations.') 
+                raise CerebrumError('Person has no affiliations.')
             return {'prompt': 'Choose affiliation from list', 'map': map}
         arg = all_args.pop(0)
         if isinstance(arg, type({})) and arg.has_key('aff') and \
