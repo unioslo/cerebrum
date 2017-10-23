@@ -480,7 +480,7 @@ def main():
     else:
         db.commit()
 
-logger = Factory.get_logger("console")
+logger = Factory.get_logger("tee")
 db = Factory.get('Database')()
 db.cl_init(change_program="join_persons")
 co = Factory.get('Constants')(db)
