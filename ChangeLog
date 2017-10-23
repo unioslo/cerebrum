@@ -1,3 +1,14 @@
+2017-10-23    <cerebrum@cleomedes.uit.no>
+
+	* export_safecom.py (safecom_export.list_affiliations): Fixed
+	numerous errors. all names are now collected with the
+	ou.get_name_with_language() function. Updated sito path
+	name. Although this script works for both uit and sito persons,
+	the sito part is only partially successfull when collecting ou
+	info. in paricular sito units does not have stedkode and thus
+	sko.whatever() will fail. rewrite this script to use ou.whatever()
+	when processing sito org units
+
 2017-10-20    <cerebrum@cleomedes.uit.no>
 
 	* process_students.py (get_existing_accounts): added code to

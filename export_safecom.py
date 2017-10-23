@@ -75,11 +75,14 @@ def get_ouinfo(ou_id,perspective):
     sko=StedkodeMixin(db)
     sko.clear()
     sko.find_by_perspective(ou_id,perspective)
+    ou_short_name = sko.get_name_with_language(name_variant=co.ou_name_short,name_language=co.language_nb)
+    ou_name = sko.get_name_with_language(name_variant=co.ou_name,name_language=co.language_nb)
+    ou_acronym = sko.get_name_with_language(name_variant=co.ou_name_acronym,name_language=co.language_nb)
     #sko.find(ou_id)
     res=dict()
-    res['name']=str(sko.name)
-    res['short_name']=str(sko.short_name)
-    res['acronym']=str(sko.acronym)
+    res['name']=ou_name
+    res['short_name']=ou_short_name
+    res['acronym']=ou_acronym
     acropath=[]
     acropath.append(res['acronym'])
     #logger.debug("got basic info about id=%s,persp=%s" % (ou_id,perspective))
@@ -97,22 +100,24 @@ def get_ouinfo(ou_id,perspective):
     while True:
         if (parent_id is None) or (parent_id == sko.entity_id):
             #logger.debug("Root for %s is %s, name is  %s" % (ou_id,sko.entity_id,sko.name))
-            res['company']=sko.name
+            res['company']=ou_name
             break
         sko.clear()
         #logger.debug("Lookup %s in %s" % (parent_id,perspective))
         sko.find(parent_id)
+        #logger.debug("THIS line is never reached when processing sito orgunits")
+        ou_acronym = sko.get_name_with_language(name_variant=co.ou_name_acronym,name_language=co.language_nb)
         #logger.debug("Lookup returned: id=%s,name=%s" % (sko.entity_id,sko.name))
         # Detect infinite loops
         if sko.entity_id in visited:
             raise RuntimeError, "DEBUG: Loop detected: %r" % visited
         visited.append(sko.entity_id)
-	acropath.append(str(sko.acronym))
+	acropath.append(ou_acronym)
         parent_id = sko.get_parent(perspective)
         #logger.debug("New parentid is %s" % (parent_id,))
     acropath.reverse()
     res['path']=".".join(acropath)
-    logger.debug("get_ouinfo: return %s" % res)
+    #logger.debug("get_ouinfo: return %s" % res)
     return res
 get_ouinfo=memoize(get_ouinfo)
 
@@ -130,6 +135,7 @@ def get_samskipnadstedinfo(ou_id,perspective):
     res=dict()
     ou.clear()
     ou.find(ou_id)
+    ou_name = ou.get_name_with_language(name_variant=co.ou_name,name_language=co.language_nb)
     depname=wash_sitosted(ou.display_name)
     res['sted']=depname
     # Find company name for this ou_id by going to parents
@@ -138,12 +144,13 @@ def get_samskipnadstedinfo(ou_id,perspective):
         parent_id=ou.get_parent(perspective)
         logger.debug("Parent to id=%s is %s" % (ou_id,parent_id))
         if (parent_id is None) or (parent_id == ou.entity_id):
-            logger.debug("Root for %s is %s, name is  %s" % (ou_id,ou.entity_id,ou.name))
-            res['company']=ou.name
+            logger.debug("Root for %s is %s, name is  %s" % (ou_id,ou.entity_id,ou_name))
+            res['company']=ou_name
             break
         ou.clear()
         ou.find(parent_id)
-        logger.debug("Current id=%s, name is %s" % (ou.entity_id,ou.name))
+        ou_name = ou.get_name_with_language(name_variant=co.ou_name,name_language=const.language_nb)
+        logger.debug("Current id=%s, name is %s" % (ou.entity_id,ou_name))
         # Detect infinite loops
         if ou.entity_id in visited:
             raise RuntimeError, "DEBUG: Loop detected: %r" % visited
@@ -218,7 +225,7 @@ class safecom_export:
 	for person in self.person_affs.keys():
 	    logger.debug("Checking person %s with affs=%s" % (person,self.person_affs[person]))
 	    for aff in self.person_affs[person]:
-                logger.debug("Aff is: %s" % aff)
+                #logger.debug("Aff is: %s" % aff)
 		pay=True
 		if aff['affstatus'] not in pay_filter:
                     logger.debug("Aff not in payfilter: %s" % aff['affstatus'])
@@ -249,20 +256,24 @@ class safecom_export:
                 perspective_code=co.perspective_sito
             else:
                 perspective_code=co.perspective_fs
-
+            #logger.debug("perspective code is:%s" % perspective_code) 
             try:
+
                 ou_info=get_ouinfo(ou_id,perspective_code)
+                #logger.debug("-- line check --")
                 sko = ou_info['sko']
+                #logger.debug("sko is:%s" % sko)
 	        path=ou_info['path']
+                #logger.debug("path is:%s" % path)
             except EntityExpiredError,msg:
                 logger.error("person id:%s affiliated to expired ou:%s. Do not export" % (p_id,ou_id))
                 continue
             except Errors.NotFoundError:
-                logger.error("OU id=%s not found on person %s. DB integrety error!" % (ou_id,p_id))
-                sys.exit(1)
+                logger.error("OU id=%s not found on person %s. DB integrety error (this MAY be caused by parent sito ou not having stedkode..FIX!!" % (ou_id,p_id))
+                #sys.exit(1)
 
 	    if source_system==co.system_sito:
-		path="Samskipnaden" # TODO fix hardcoding!!
+		path="Norges arktiske studentsamskipnad" # TODO fix hardcoding!!
             aff_stat=num2const[aff['status']]
             affinfo = {'affstr': str(aff_stat),
 		       'affiliation':aff['affiliation'],
@@ -292,8 +303,8 @@ class safecom_export:
 
 	    accaffs=self.account_affs.get(acc_id,None)
 	    persaffs=self.person_affs.get(owner_id,None)
-	    logger.debug("%s: ACCAFF: %s" % (name,accaffs))
-	    logger.debug("%s: PERAFF: %s" % (name,persaffs))
+	    #logger.debug("%s: ACCAFF: %s" % (name,accaffs))
+	    #logger.debug("%s: PERAFF: %s" % (name,persaffs))
 	    costcode=""
 	    if accaffs==None:
 		costcode=""
