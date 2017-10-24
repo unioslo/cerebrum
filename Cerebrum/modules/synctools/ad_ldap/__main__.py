@@ -98,8 +98,7 @@ acc_attrs = list(cereconf.AD_ATTRIBUTES)
 acc_attrs.append('disabled')
 grp_attrs = cereconf.AD_GRP_ATTRIBUTES
 
-print(acc_attrs)
-print(grp_attrs)
+
 def load_config(loader, filepath=None):
     if filepath is not None:
         if os.path.isfile(filepath):
