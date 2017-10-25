@@ -186,15 +186,18 @@ def build_scim_event_msg(event, formatter, ad_acc_spread, ad_grp_spread):
     routing_key = formatter.get_key(event['entity_type'], event['event_type'])
     entity_route = formatter.get_entity_type_route(event['entity_type'])
     aud = [ad_acc_spread]
+    event_uri = formatter.get_uri(event['event_type'])
     if event['entity_type'] == 'group':
         aud = [ad_grp_spread]
     payload = {
         'jti': str(uuid.uuid4()),
-        'eventUris': [formatter.get_uri(event['event_type'])],
+        'eventUris': [event_uri],
         'iat': formatter.make_timestamp(),
         'iss': formatter.config.issuer,
         'sub': formatter.build_url(entity_route, event['entity_id']),
         'aud': aud,
         'resourceType': entity_route
     }
+    if event.get('attrs'):
+        payload[event_uri] = event['attrs']
     return {'routing_key': routing_key, 'payload': payload}

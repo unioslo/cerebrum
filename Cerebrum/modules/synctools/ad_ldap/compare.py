@@ -37,7 +37,7 @@ def equal(crb_data, ad_data, attrs,
     """
     # Some accounts exported to AD don't get homeDrives and this is done at
     # AD's own discretion, so skip the check if homeDrive in AD is None.
-    if crb_data['homeDrive'] and ad_data['homeDrive'] is None:
+    if crb_data.get('homeDrive') is not None and ad_data['homeDrive'] is None:
         massaged_crb_data = dict(crb_data)
         massaged_crb_data['homeDrive'] = None
         return base_equal(massaged_crb_data, ad_data, attrs,

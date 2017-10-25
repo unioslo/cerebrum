@@ -43,7 +43,14 @@ parser.add_argument('--formatter-config', help="Path to event-formatter "
                                                "config file.")
 parser.add_argument('--publisher-config', help="Path to event-formatter "
                                                "config file.")
-parser.add_argument('--log-diff', help='Log diff data', action='store_true',
+parser.add_argument('--log-diff',
+                    help='Log diff data. This will be ignored '
+                         'during password sync.',
+                    action='store_true',
+                    default=False)
+parser.add_argument('--password-sync',
+                    help="Sync password on targeted account(s)",
+                    action='store_true',
                     default=False)
 parser.add_argument('--ldap-user', help='User to make LDAP connection with. '
                                         'This will also require that you '
@@ -91,11 +98,6 @@ acc_attrs = list(cereconf.AD_ATTRIBUTES)
 acc_attrs.append('disabled')
 grp_attrs = cereconf.AD_GRP_ATTRIBUTES
 
-ldap_pass = None
-if args.ldap_user:
-    ldap_pass = getpass.getpass(prompt='Enter password for {}: '
-                                       ''.format(args.ldap_user))
-
 
 def load_config(loader, filepath=None):
     if filepath is not None:
@@ -110,8 +112,21 @@ def load_config(loader, filepath=None):
 ad_ldap_config = load_config(load_ad_ldap_config, args.ad_ldap_config)
 formatter_config = load_config(load_formatter_config, args.formatter_config)
 publisher_config = load_config(load_publisher_config, args.publisher_config)
+
+
+ldap_pass = None
+if not args.password_sync and args.ldap_user:
+    ldap_pass = getpass.getpass(prompt='Enter password for {}: '
+                                       ''.format(args.ldap_user))
+
 client = get_ad_ldapclient(ad_ldap_config)
-client.connect(username=args.ldap_user, password=ldap_pass)
+
+if args.password_sync:
+    if args.sub_command == 'fullsync' and args.all or args.groups:
+        sys.exit('Option --password-sync can be used with accounts only.\n'
+                 'See "ad_ldap accounts -h" for usage. Exiting...')
+else:
+    client.connect(username=args.ldap_user, password=ldap_pass)
 
 events = []
 
@@ -139,9 +154,10 @@ if args.sub_command == 'accounts':
         group_postfix=group_postfix,
         path_req_disks=path_req_disks,
         acc_attrs=acc_attrs,
+        password_sync=args.password_sync,
         show_diff=args.log_diff)
 
-if args.sub_command == 'fullsync':
+elif args.sub_command == 'fullsync':
     if args.all:
         events = functions.build_all_group_events(
             db=db,
@@ -181,6 +197,7 @@ if args.sub_command == 'fullsync':
             group_postfix=group_postfix,
             path_req_disks=path_req_disks,
             acc_attrs=acc_attrs,
+            password_sync=args.password_sync,
             show_diff=args.log_diff
         )
 
