@@ -24,6 +24,10 @@
 Write IP subnet information from Cerebrum
 to an LDIF file, which can then be loaded into LDAP.
 See Cerebrum/default_config.py:LDAP_SUBNETS for configuration.
+
+See design/ldap/uioIpNetwork.schema for information about the
+uioIpAddressRangeStart, uioIpAddressRangeEnd and uioVlanID
+attributes.
 """
 
 import cerebrum_path
@@ -38,10 +42,7 @@ netmask_to_ip = IPCalc().netmask_to_ip
 
 def write_subnet_ldif():
     DN = ldapconf('SUBNETS', 'dn')
-    startAttr, endAttr, rangeClasses = ldapconf('SUBNETS', 'rangeSchema')
-    vlanAttr, vlanClasses = ldapconf('SUBNETS', 'vlanSchema')
-    objectClasses = ('top', 'ipNetwork') + tuple(rangeClasses) + \
-                    tuple(vlanClasses)
+    objectClasses = ('top', 'ipNetwork', 'uioIpNetwork')
     db = Factory.get('Database')()
     f  = ldif_outfile('SUBNETS')
     f.write(container_entry_string('SUBNETS'))
@@ -53,10 +54,10 @@ def write_subnet_ldif():
             'description':     (desc and (iso2utf(desc),) or ()),
             'ipNetworkNumber': (row['subnet_ip'],),
             'ipNetmaskNumber': (netmask_to_ip(row['subnet_mask']),),
-            startAttr:         (str(int(row['ip_min'])),),
-            endAttr:           (str(int(row['ip_max'])),)}
+            'uioIpAddressRangeStart': (str(int(row['ip_min'])),),
+            'uioIpAddressRangeEnd': (str(int(row['ip_max'])),)}
         if row['vlan_number']:
-            entry[vlanAttr] = (str(int(row['vlan_number'])),)
+            entry['uioVlanID'] = (str(int(row['vlan_number'])),)
         f.write(entry_string("cn=%s,%s" % (cn, DN), entry))
     end_ldif_outfile('SUBNETS', f)
 
