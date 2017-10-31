@@ -1,0 +1,47 @@
+# LDAP 'uioIpNetwork' schema version 2 (2017-10-31).
+# Extensions to rfc2307's object class ipNetwork.
+# Used by Cerebrum:contrib/dns/generate_subnet_ldif.py
+#
+# History:
+# Version 2, 2017-10-31: Add uioVlanID.
+# Version 1, 2008-08-27: Initial version.
+
+# uioIpAddressRangeStart and uioIpAddressRangeEnd are a hack to let us
+# search LDAP for whether an IPv4 address is in the given network:
+#
+#  (&(uioIpAddressRangeStart<=ADDR_INT)(uioIpAddressRangeEnd>=ADDR_INT)).
+#
+# For IP address A.B.C.D, the value should be (((A*256)+B)*256+C)*256+D.
+#
+# The attributes should be indexed for "<=" search in the server.
+# In OpenLDAP, an 'eq' index does that (for attrs with an ORDERING rule).
+#
+# This approach is infeasible for IPv6 addresses, unless olcIndexIntLen in
+# OpenLDAP is configured to be big enough to differentiate between networks
+# (i.e. typically set it to 16).
+
+attributetype ( 1.3.6.1.4.1.2428.10000.971.35854.11.1.40
+	NAME 'uioIpAddressRangeStart'
+	DESC 'Lowest IPv4 address in an address range, stored as an integer'
+	EQUALITY integerMatch
+	ORDERING integerOrderingMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.4.1.2428.10000.971.35854.11.1.41
+	NAME 'uioIpAddressRangeEnd'
+	DESC 'Highest IPv4 address in an address range, stored as an integer'
+	EQUALITY integerMatch
+	ORDERING integerOrderingMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.4.1.2428.10000.971.35854.11.1.58
+	NAME 'uioVlanID'
+	DESC 'ID number of a Virtual LAN'
+	EQUALITY integerMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 SINGLE-VALUE )
+
+objectClass ( 1.3.6.1.4.1.2428.10000.971.35854.2.106
+	NAME 'uioIpNetwork'
+	DESC 'Information about IP networks'
+	AUXILIARY
+	MAY ( uioIpAddressRangeStart $ uioIpAddressRangeEnd $ uioVlanID ) )
