@@ -19,7 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """Set quarantine auto_inaktiv on people with only STUDENT/opptak as
-affiliation and a valid registerkort."""
+affiliation and (optionally) a invalid registerkort."""
 
 import datetime
 import collections
