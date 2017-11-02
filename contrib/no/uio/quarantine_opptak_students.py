@@ -88,7 +88,6 @@ def regkort_ok(db, fs_db, person_id):
 
 def get_targets(db, regkort_check=True):
     fs_db = make_fs()
-    print regkort_check
     co = Factory.get('Constants')(db)
     pe = Factory.get('Person')(db)
     t = collections.defaultdict(list)
