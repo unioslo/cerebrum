@@ -1,3 +1,8 @@
+2017-10-27    <cerebrum@cleomedes.uit.no>
+
+	* process_ou_groups.py: rewrote script to collect Stedkode class
+	from import instead of factory.
+
 2017-10-23    <cerebrum@cleomedes.uit.no>
 
 	* export_safecom.py (safecom_export.list_affiliations): Fixed
