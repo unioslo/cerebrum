@@ -39,14 +39,18 @@ def notify(commit, logger, days_to_start, ac):
         logger.warning('No E-mail address for {}'.format(ac.account_name))
         return
 
-    mail_template(mailaddress,
-                  'no_NO/email/karantenesetting.txt',
-                  'noreply@usit.uio.no',
-                  substitute={
-                      'USERNAME': ac.account_name,
-                      'DAYS_TO_START': str(days_to_start)
-                  },
-                  debug=not commit)
+    try:
+        mail_template(mailaddress,
+                      'no_NO/email/karantenesetting.txt',
+                      'noreply@usit.uio.no',
+                      substitute={
+                          'USERNAME': ac.account_name,
+                          'DAYS_TO_START': str(days_to_start)
+                      },
+                      debug=not commit)
+    except Exception as e:
+        logger.warning('Could not send email to {}: {}'.format(mailaddress, e))
+
     if commit:
         logger.info('Sent email to {}'.format(mailaddress))
     else:
