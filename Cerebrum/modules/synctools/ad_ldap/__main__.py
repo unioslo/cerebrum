@@ -23,6 +23,7 @@ import os
 import sys
 import argparse
 import cereconf
+import getpass
 
 from Cerebrum import Utils
 from Cerebrum.modules.event_publisher.amqp_publisher import AMQP091Publisher
@@ -37,13 +38,27 @@ from Cerebrum.modules.synctools.ad_ldap import functions
 
 parser = argparse.ArgumentParser(prog='ad_ldap')
 parser.add_argument('--send', help="send events", action='store_true')
-# This is needed to prevent argparse from complaining about unknown arg.
-parser.add_argument('--logger-name', help="Cerebrum-logger name")
 parser.add_argument('--ad-ldap-config', help="Path to ad-ldap config file")
 parser.add_argument('--formatter-config', help="Path to event-formatter "
                                                "config file.")
 parser.add_argument('--publisher-config', help="Path to event-formatter "
                                                "config file.")
+parser.add_argument('--log-diff',
+                    help='Log diff data. This will be ignored '
+                         'during password sync.',
+                    action='store_true',
+                    default=False)
+parser.add_argument('--password-sync',
+                    help="Sync password on targeted account(s)",
+                    action='store_true',
+                    default=False)
+parser.add_argument('--ldap-user', help='User to make LDAP connection with. '
+                                        'This will also require that you '
+                                        'specify the user\'s password when '
+                                        'the script starts.')
+
+# This is needed to prevent argparse from complaining about unknown arg.
+parser.add_argument('--logger-name', help="Cerebrum-logger name")
 subparsers = parser.add_subparsers(dest='sub_command')
 
 fullsync_parser = subparsers.add_parser(
@@ -73,7 +88,7 @@ accounts_sync_parsers.add_argument(
 args = parser.parse_args()
 
 logger = Utils.Factory.get_logger("console")
-db = Utils.Factory.get('Database')()
+db = Utils.Factory.get('Database')(client_encoding='utf-8')
 co = Utils.Factory.get('Constants')(db)
 group_postfix = getattr(cereconf, 'AD_GROUP_POSTFIX', '')
 path_req_disks = getattr(cereconf, 'AD_HOMEDIR_HITACHI_DISKS', ())
@@ -97,8 +112,21 @@ def load_config(loader, filepath=None):
 ad_ldap_config = load_config(load_ad_ldap_config, args.ad_ldap_config)
 formatter_config = load_config(load_formatter_config, args.formatter_config)
 publisher_config = load_config(load_publisher_config, args.publisher_config)
+
+
+ldap_pass = None
+if not args.password_sync and args.ldap_user:
+    ldap_pass = getpass.getpass(prompt='Enter password for {}: '
+                                       ''.format(args.ldap_user))
+
 client = get_ad_ldapclient(ad_ldap_config)
-client.connect()
+
+if args.password_sync:
+    if args.sub_command == 'fullsync' and args.all or args.groups:
+        sys.exit('Option --password-sync can be used with accounts only.\n'
+                 'See "ad_ldap accounts -h" for usage. Exiting...')
+else:
+    client.connect(username=args.ldap_user, password=ldap_pass)
 
 events = []
 
@@ -125,12 +153,22 @@ if args.sub_command == 'accounts':
         ad_acc_spread=ad_acc_spread,
         group_postfix=group_postfix,
         path_req_disks=path_req_disks,
-        acc_attrs=acc_attrs
-    )
+        acc_attrs=acc_attrs,
+        password_sync=args.password_sync,
+        show_diff=args.log_diff)
 
-if args.sub_command == 'fullsync':
+elif args.sub_command == 'fullsync':
     if args.all:
-        events = functions.build_all_acc_and_grp_events(
+        events = functions.build_all_group_events(
+            db=db,
+            client=client,
+            ad_acc_spread=ad_acc_spread,
+            ad_grp_spread=ad_grp_spread,
+            group_postfix=group_postfix,
+            grp_attrs=grp_attrs,
+            show_diff=args.log_diff
+        )
+        events.extend(functions.build_all_account_events(
             db=db,
             client=client,
             ad_acc_spread=ad_acc_spread,
@@ -138,7 +176,8 @@ if args.sub_command == 'fullsync':
             group_postfix=group_postfix,
             path_req_disks=path_req_disks,
             acc_attrs=acc_attrs,
-            grp_attrs=grp_attrs)
+            show_diff=args.log_diff
+        ))
     elif args.groups:
         events = functions.build_all_group_events(
             db=db,
@@ -146,7 +185,8 @@ if args.sub_command == 'fullsync':
             ad_acc_spread=ad_acc_spread,
             ad_grp_spread=ad_grp_spread,
             group_postfix=group_postfix,
-            grp_attrs=grp_attrs
+            grp_attrs=grp_attrs,
+            show_diff=args.log_diff
         )
     elif args.accounts:
         events = functions.build_all_account_events(
@@ -156,7 +196,9 @@ if args.sub_command == 'fullsync':
             ad_grp_spread=ad_grp_spread,
             group_postfix=group_postfix,
             path_req_disks=path_req_disks,
-            acc_attrs=acc_attrs
+            acc_attrs=acc_attrs,
+            password_sync=args.password_sync,
+            show_diff=args.log_diff
         )
 
 logger.info('# of generated events: {}'.format(len(events)))

@@ -152,8 +152,9 @@ def get_homedir_data(db, account_id):
         return None
     di.find(home['disk_id'])
     ho.find(di.host_id)
-    return {'home_path': ac.get_homepath(home['spread']),
-            'host_name': ho.name}
+    # Remove \\<username> from end of home_path-string
+    return {'home_path': ac.get_homepath(home['spread']).rsplit('/', 1)[0],
+            'home_host': ho.name}
 
 
 def combine_crb_acc_values(acc_data,
@@ -223,20 +224,56 @@ def get_all_crb_accounts_data(db, ad_acc_spread, ad_grp_spread):
 
 
 def get_all_groups_values(db, group_spread, account_spread):
+    co = Utils.Factory.get('Constants')(db)
+    person_type = int(co.entity_person)
+    account_type = int(co.entity_account)
+    group_type = int(co.entity_group)
     grp_dict = df.get_all_groups_data(db,
                                       spread=group_spread,
                                       keys=['name',
                                             'description',
                                             'group_id'])
     gid_dict = df.get_all_posix_group_gids(db)
-    combined_dicts = {}
-    members = df.get_all_group_members(db,
-                                       spread=group_spread,
-                                       member_spread=account_spread)
-    for grp_id, grp_data in grp_dict.items():
-        combined_dicts[grp_id] = grp_data
-        if grp_id in members:
-            combined_dicts[grp_id].update({'member': members[grp_id]})
-        if grp_id in gid_dict:
-            combined_dicts[grp_id].update(gid_dict[grp_id])
-    return combined_dicts
+
+    # Fetch all group members data and person/account rows with AD-spread
+    all_grp_members = df.get_all_group_members(
+        db,
+        keys=['member_id', 'member_name', 'member_type'],
+        spread=group_spread
+    )
+    persons_dict = df.get_all_persons_accounts(
+        db,
+        keys=['account_id'],
+        account_spread=account_spread,
+        primary_only=True
+    )
+    accounts_dict = df.get_all_account_rows(db,
+                                            keys=['name'],
+                                            spread=account_spread)
+    # Build a members dict where we only add entities with AD-spread
+    grp_ad_members = dict()
+    for group_id, members in all_grp_members.items():
+        ad_members = []
+        for m in members:
+            if m['member_type'] == account_type and \
+               m['member_id'] in accounts_dict:
+                ad_members.append({'name': m['member_name'],
+                                   'type': 'account'})
+            elif m['member_type'] == group_type and \
+                    m['member_id'] in grp_dict:
+                ad_members.append({'name': m['member_name'],
+                                   'type': 'group'})
+            elif m['member_type'] == person_type and \
+                    m['member_id'] in persons_dict:
+                acc_id = persons_dict[m['member_id']]['account_id']
+                ad_members.append({'name': accounts_dict[acc_id]['name'],
+                                   'type': 'account'})
+        grp_ad_members[group_id] = ad_members
+    all_grp_values = dict()
+    for group_id, grp_data in grp_dict.items():
+        all_grp_values[group_id] = grp_data
+        if group_id in gid_dict:
+            all_grp_values[group_id].update(gid_dict[group_id])
+        if group_id in grp_ad_members:
+            all_grp_values[group_id]['members'] = grp_ad_members[group_id]
+    return all_grp_values

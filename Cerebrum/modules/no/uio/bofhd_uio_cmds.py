@@ -5796,10 +5796,11 @@ Addresses and settings:
 
     # group set_expire
     all_commands['group_set_expire'] = Command(
-        ("group", "set_expire"), GroupName(), Date(), perm_filter='can_delete_group')
+        ("group", "set_expire"), GroupName(), Date(),
+        perm_filter='can_expire_group')
     def group_set_expire(self, operator, group, expire):
         grp = self._get_group(group)
-        self.ba.can_delete_group(operator.get_entity_id(), grp)
+        self.ba.can_expire_group(operator.get_entity_id(), grp)
         grp.expire_date = self._parse_date(expire)
         grp.write_db()
         return "OK, set expire-date for '%s'" % group
@@ -9770,35 +9771,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             return ety.get_subclassed_object(ident)
         raise CerebrumError("Invalid idtype")
 
-    def _get_entity_name(self, entity_id, entity_type=None):
-        """Fetch a human-friendly name for the specified entity.
-
-        Overridden to return names only used at UiO.
-
-        @type entity_id: int
-        @param entity_id:
-          entity_id we are looking for.
-
-        @type entity_type: const.EntityType instance (or None)
-        @param entity_type:
-          Restrict the search to the specifide entity. This parameter is
-          really a speed-up only -- entity_id in Cerebrum uniquely determines
-          the entity_type. However, should we know it, we save 1 db lookup.
-
-        @rtype: str
-        @return:
-          Entity's name, obviously :) If none is found a magic string
-          'notfound:<entity id>' is returned (it's not perfect, but it's better
-          than nothing at all).
-
-        """
-        if entity_type == self.const.entity_ou:
-            ou = self._get_ou(ou_id=entity_id)
-            return self._format_ou_name(ou)
-        # Use default values for types like account and group:
-        return super(BofhdExtension, self)._get_entity_name(entity_id=entity_id,
-                entity_type=entity_type)
-
     def _get_disk(self, path, host_id=None, raise_not_found=True):
         disk = Utils.Factory.get('Disk')(self.db)
         try:
@@ -9956,11 +9928,24 @@ Password altered. Use misc list_password to print or view the new password.%s'''
         return self._parse_date("%d-%d-%d" % time.localtime()[:3])
 
     def _format_from_cl(self, format, val):
+        def _get_code(get, code, fallback=None):
+            def f(get, code, fallback):
+                try:
+                    return (1, str(get(code)))
+                except Errors.NotFoundError:
+                    if fallback:
+                        return (2, fallback)
+                    else:
+                        return (2, str(code))
+            if not isinstance(get, (tuple, list)):
+                get = [get]
+            return str(sorted([f(c, code, fallback) for c in get])[0][1])
+
         if val is None:
             return ''
 
         if format == 'affiliation':
-            return str(self.const.PersonAffiliation(val))
+            return _get_code(self.const.PersonAffiliation, val)
         elif format == 'disk':
             disk = Utils.Factory.get('Disk')(self.db)
             try:
@@ -9975,50 +9960,40 @@ Password altered. Use misc list_password to print or view the new password.%s'''
         elif format == 'entity':
             return self._get_entity_name(int(val))
         elif format == 'extid':
-            return str(self.const.EntityExternalId(val))
+            return _get_code(self.const.EntityExternalId, val)
         elif format == 'homedir':
             return 'homedir_id:%s' % val
         elif format == 'id_type':
-            return str(self.const.ChangeType(val))
+            return _get_code(self.const.ChangeType, val)
         elif format == 'home_status':
-            return str(self.const.AccountHomeStatus(val))
+            return _get_code(self.const.AccountHomeStatus, val)
         elif format == 'int':
             return str(val)
         elif format == 'name_variant':
             # Name variants are stored in two separate code-tables; if
             # one doesn't work, try the other
-            try:
-                name_variant = str(self.const.PersonName(val))
-                return name_variant
-            except:
-                return str(self.const.EntityNameCode(val))
+            return _get_code((self.const.PersonName, self.const.EntityNameCode), val)
         elif format == 'ou':
             ou = self._get_ou(ou_id=val)
             return self._format_ou_name(ou)
         elif format == 'quarantine_type':
-            return str(self.const.Quarantine(val))
+            return _get_code(self.const.Quarantine, val)
         elif format == 'source_system':
-            return str(self.const.AuthoritativeSystem(val))
+            return _get_code(self.const.AuthoritativeSystem, val)
         elif format == 'spread_code':
-            return str(self.const.Spread(val))
+            return _get_code(self.const.Spread, val)
         elif format == 'string':
             return str(val)
         elif format == 'trait':
-            try:
-                return str(self.const.EntityTrait(val))
-            except Errors.NotFoundError:
-                # Trait has been deleted from the DB, so we can't know which it was
-                return "<unknown>"
+            # Trait has been deleted from the DB, so we can't know which it
+            # was. Therefore we return '<unknown>'
+            return _get_code(self.const.EntityTrait, val, '<unknown>')
         elif format == 'value_domain':
-            return str(self.const.ValueDomain(val))
+            return _get_code(self.const.ValueDomain, val)
         elif format == 'rolle_type':
-            try:
-                val = int(val)
-            except ValueError:
-                pass
-            return str(self.const.EphorteRole(val))
+            return _get_code(self.const.EphorteRole, val)
         elif format == 'perm_type':
-            return str(self.const.EphortePermission(val))
+            return _get_code(self.const.EphortePermission, val)
         elif format == 'bool':
             if val == 'T':
                 return str(True)
@@ -10037,10 +10012,20 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                 dest = self._get_entity_name(dest)
             except Errors.NotFoundError:
                 dest = repr(dest)
+
         this_cl_const = self.const.ChangeType(row['change_type_id'])
-        msg = this_cl_const.msg_string % {
-            'subject': self._get_entity_name(row['subject_entity']),
-            'dest': dest}
+        if this_cl_const.msg_string is None:
+            self.logger.warn('Formatting of change log entry of type %s failed, '
+                             'no description defined in change type',
+                             str(this_cl_const))
+            msg = '{}, subject {}, destination {}'.format(
+                str(this_cl_const),
+                self._get_entity_name(row['subject_entity']),
+                dest)
+        else:
+            msg = this_cl_const.msg_string % {
+                'subject': self._get_entity_name(row['subject_entity']),
+                'dest': dest}
 
         # Append information from change_params to the string.  See
         # _ChangeTypeCode.__doc__
@@ -10062,9 +10047,9 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                     try:
                         repl['%%(%s:%s)s' % (fmt_type, key)] = self._format_from_cl(
                             fmt_type, params.get(key, None))
-                    except Exception, e:
+                    except Exception:
                         self.logger.warn("Failed applying %s to %s for change-id: %d" % (
-                            part, repr(params.get(key)), row['change_id']), exc_info=1)
+                            part, repr(params.get(key)), row['change_id']))
                 if [x for x in repl.values() if x]:
                     for k, v in repl.items():
                         f = f.replace(k, v)

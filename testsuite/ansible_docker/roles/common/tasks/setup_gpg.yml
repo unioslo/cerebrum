@@ -1,0 +1,39 @@
+#
+# Set up GnuPG environment
+#
+
+- name: Create GnuPG home directory
+  when: gnupgtest is defined
+  file:
+      path: "{{ gnupg_home_dir }}"
+      state: directory
+      mode: 0700
+
+- name: Copy GnuPG pubkeys
+  when: gnupgtest is defined
+  copy:
+      src: pubring.gpg
+      dest: "{{ gnupg_home_dir }}"
+      mode: 0700
+
+- name: Copy GnuPG privkeys
+  when: gnupgtest is defined
+  copy:
+      src: secring.gpg
+      dest: "{{ gnupg_home_dir }}"
+      mode: 0700
+
+- name: Copy GnuPG trustdb
+  when: gnupgtest is defined
+  copy:
+      src: trustdb.gpg
+      dest: "{{ gnupg_home_dir }}"
+      mode: 0700
+
+# - name: Generate GnuPG keys
+#   when: gnupgtest is defined
+#   command: /usr/bin/gpg --homedir {{ gnupg_home_dir }} --batch --gen-key {{ gnupg_home_dir }}/gpg_gen_key.tmpl
+
+- name: Convert GnuPG keys to GnuPG2 keys if GnuPG2 installed
+  when: gnupgtest is defined
+  command: /usr/bin/gpg2 -q --homedir {{ gnupg_home_dir }} -K removes=/usr/bin/gpg2

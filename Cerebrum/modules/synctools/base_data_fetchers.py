@@ -12,32 +12,45 @@ def build_row_dict(row, keys=None):
     @param keys: list
     @return: dict
     """
-    row_dict = {}
     if keys is not None:
+        row_dict = {}
         for key in keys:
             row_dict.update({key: row[key]})
+        return row_dict
     else:
-        for key in row.keys():
-            row_dict.update({key: row[key]})
-    return row_dict
+        return row.dict()
 
 
-def build_dict_from_row_list(row_list, key_attr, keys=None):
+def build_dict_from_row_list(rows, key_attr, keys=None):
     """
     Builds a dict from a list of Cerebrum db-rows, using row[key_attr]
     as keys, and setting the specified keys (and corresponding values)
     from each row as values.
     If no keys are specified, all the keys/values in the row are used.
-    @param row_list: list
+    @param rows: list
     @param key_attr: any valid dict-key value
     @param keys: a list of row-keys to use as values.
     @return: dict
     """
     rows_dict = {}
-    for row in row_list:
+    for row in rows:
         row_dict = build_row_dict(row, keys)
         rows_dict[row[key_attr]] = row_dict
     return rows_dict
+
+
+def build_concatenated_dict_from_row_list(row_list, key_attr, keys=None):
+    concat_dict = dict()
+    for row in row_list:
+        if keys is None:
+            values = row
+        else:
+            values = {key: row[key] for key in keys}
+        if row[key_attr] not in concat_dict:
+            concat_dict[row[key_attr]] = [values]
+        else:
+            concat_dict[row[key_attr]].append(values)
+    return concat_dict
 
 
 def build_dict_list_from_row_list(row_list, key_attr, keys):
@@ -72,16 +85,31 @@ def get_all_groups_data(db, key_attr='group_id', keys=None, spread=None):
     return build_dict_from_row_list(group_rows, key_attr, keys)
 
 
-def get_all_group_members(db, key_attr='group_id', keys=None,
-                          spread=None, member_spread=None):
+def get_all_group_members(db,
+                          key_attr='group_id',
+                          keys=None,
+                          spread=None,
+                          member_spread=None):
     gr = Utils.Factory.get('Group')(db)
-    member_rows = gr.search_members(spread=spread,
-                                    member_spread=member_spread,
-                                    include_member_entity_name=True)
+    return build_concatenated_dict_from_row_list(
+        row_list=gr.search_members(spread=spread,
+                                   member_spread=member_spread,
+                                   include_member_entity_name=True),
+        key_attr=key_attr,
+        keys=keys)
 
-    return build_dict_list_from_row_list(member_rows,
-                                         key_attr=key_attr,
-                                         keys=['member_name'])
+
+def get_all_persons_accounts(db,
+                             key_attr='person_id',
+                             keys=None,
+                             account_spread=None,
+                             primary_only=False):
+    ac = Utils.Factory.get('Account')(db)
+    return build_dict_from_row_list(
+        rows=ac.list_accounts_by_type(primary_only=primary_only,
+                                      account_spread=account_spread),
+        key_attr=key_attr,
+        keys=keys)
 
 
 def get_all_posix_group_gids(db, key_attr='group_id', keys=None):
@@ -147,7 +175,6 @@ def get_accounts_quarantine_data(db,
     Builds a dict: account_id -> quarantine_action, filtering on
     account IDs in account_ids if it is passed.
     @param db: Cerebrum db-object
-    @param ac: Cerebrum ad-object
     @param account_ids: list of account_ids
     @param only_active: boolean
     @return: dict

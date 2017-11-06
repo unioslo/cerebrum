@@ -1,0 +1,12 @@
+{{ crb_db_user + "\t" + crb_db_user_pass }}
+
+# We use ident authentication, so no password is needed. However, we *do* need
+# this file to exist, and the username within the file must match the username
+# in the filename.
+# 
+# The filename format is:
+#   "%(username)s@%(db_name)s@%(hostname)s"
+# 
+# The format of the file content is:
+#   "%(username)s\t%(password)s"
+# 

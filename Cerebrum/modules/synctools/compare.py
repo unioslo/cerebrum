@@ -18,21 +18,45 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from Cerebrum.modules.synctools.diff import log_diff
 
 
-def equal(dict1, dict2, attrs):
+def equal(crb_data, ext_system_data, attrs,
+          show_diff=False, entity_id=None, entity_type=None):
     """
+    This is a base implementation of how comparisons
+    of data from Cerebrum and an external system should take place.
+    Entity data from both systems should be built into dicts with matching
+    attributes, and then compared.
+    Most syncs will probably however need more a granularized comparison
+    logic, which should take place before preferably calling this function
+    in the end.
+
     Compares the passed attributes on two dicts, and returns True if they
     are all equal, and False if not.
-    @param dict1: dict
-    @param dict2: dict
+    @param crb_data: dict
+    @param ext_system_data: dict
     @param attrs: list
+    @param show_diff: bool
+    @param entity_type: str
+    @param entity_id: int or str
     @return: bool
     """
+    if show_diff and entity_id is None or entity_type is None:
+        raise TypeError('entity_id and entity_type must be passed when '
+                        'show_diff is True.')
+    is_equal = True
     for attr in attrs:
         try:
-            if dict1[attr] != dict2[attr]:
-                return False
+            if crb_data[attr] != ext_system_data[attr]:
+                is_equal = False
+                break
         except KeyError:
-            return False
-    return True
+            is_equal = False
+    if not is_equal and show_diff:
+        log_diff(entity_id=entity_id,
+                 entity_type=entity_type,
+                 crb_data=crb_data,
+                 ext_system_data=ext_system_data,
+                 attrs=attrs)
+    return is_equal

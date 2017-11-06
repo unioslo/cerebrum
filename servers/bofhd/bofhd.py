@@ -203,7 +203,7 @@ if __name__ == '__main__':
                       default=False,
                       action='store_true',
                       dest='multi_threaded',
-                      help='Run multi-threaded (experimental)')
+                      help='Run multi-threaded')
     argp.add_argument('-t', '--test-help',
                       default=None,
                       dest='test_help',
