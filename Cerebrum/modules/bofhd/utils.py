@@ -93,6 +93,8 @@ class Constants(Constants.Constants):
         'modify_spread', 'Modify spread')
     auth_create_user = _AuthRoleOpCode(
         'create_user', 'Create user')
+    auth_create_user_unpersonal = _AuthRoleOpCode(
+        'create_unpersonal', 'Create unpersonal user')
     auth_remove_user = _AuthRoleOpCode(
         'remove_user', 'Remove user')
     auth_search_user = _AuthRoleOpCode(
