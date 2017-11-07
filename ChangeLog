@@ -1,3 +1,11 @@
+2017-11-07    <cerebrum@cleomedes.uit.no>
+
+	* process_uit_email.py (calculate_uit_emails): updated script to
+	run propperly on cleomedes withouth breaking. Also fixed function
+	that calculates current and new primary email address. The
+	previous version was not able to calculate new preimary correctly.
+
+
 2017-10-27    <cerebrum@cleomedes.uit.no>
 
 	* process_ou_groups.py: rewrote script to collect Stedkode class

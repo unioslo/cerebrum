@@ -44,18 +44,21 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, simple_memoize
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.Email import EmailDomain,EmailAddress
 from  Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.no import Stedkode
+from Cerebrum.modules.no.uit.account_bridge import AccountBridge
 db = Factory.get('Database')()
 ac = Factory.get('Account')(db)
 p = Factory.get('Person')(db)
 co = Factory.get('Constants')(db)
-sko=Factory.get('Stedkode')(db)
-
+#sko=Factory.get('Stedkode')(db)
+sko = Stedkode.Stedkode(db)
 db.cl_init(change_program=progname)
 
 logger=Factory.get_logger('cronjob')
@@ -79,7 +82,7 @@ def get_sko(ou_id):
     return "%s%s%s" % (str(sko.fakultet).zfill(2),
                        str(sko.institutt).zfill(2),
                        str(sko.avdeling).zfill(2))
-get_sko=simple_memoize(get_sko)
+get_sko=memoize(get_sko)
 
 
 def _get_alternatives(account_name):
@@ -117,7 +120,7 @@ def get_domainid(domain_part):
     domain = EmailDomain(db)
     domain.find_by_domain(domain_part)
     return domain.entity_id
-get_domainid=simple_memoize(get_domainid)
+get_domainid=memoize(get_domainid)
 
 tmp_ac=Factory.get('Account')(db)
 
@@ -270,9 +273,10 @@ def process_mail():
                                          primary_only=False,
                                          fetchall=False):
         # get person_id
+        #logger.debug("person id is:%s" % row['person_id'])
         #logger.debug("row is:%s" % row)
         p.clear()
-        #logger.debug("person id is:%s" % row['person_id'])
+
         p.find(row['person_id'])
 
 
@@ -294,8 +298,8 @@ def process_mail():
 
         
         #i_am_drgrad = False
-        person_affs = p.get_affiliations()
-        #logger.debug("aff:%s, aff status:%s" % (person_affs[0]['affiliation'],person_affs[0]['status']))
+        person_affs = p.get_affiliations(include_deleted = True)
+        #logger.debug("aff:%s,aff status:%s" % (person_affs[0]['affiliation'],person_affs[0]['status']))
         #pprint("person_affs=%s" % person_affs)
         aff_status = {}
         for item in person_affs:
@@ -313,6 +317,7 @@ def process_mail():
         #logger.debug("aff_status:%s" % aff_status)
         # is this a UiT affiliation? or am i a drgrad student ?
         #logger.debug("aff status dict:%s"% aff_status)
+        #logger.debug("affiliation:%s" % (row['affiliation']))
         if row['affiliation'] in (co.affiliation_ansatt,
                                   co.affiliation_student,
                                   co.affiliation_tilknyttet,
@@ -334,6 +339,18 @@ def process_mail():
         tmp=getattr(co,c)
         if isinstance(tmp,_CerebrumCode):
             num2const[int(tmp)]=tmp
+
+    # kbj005/V2017
+    # Cache email addresses from Caesar
+    logger.info("Caching all email addresses from Caesar")
+    with AccountBridge() as bridge:            
+        primary_emails_from_caesar = bridge.get_all_primary_emails()
+        email_aliases_from_caesar = bridge.get_all_email_aliases()
+
+    if (len(primary_emails_from_caesar) < 1) or (len(email_aliases_from_caesar) < 1):
+        logger.error("Problem when getting email addresses from Caesar. Cannot continue.")
+        return
+    # kbj005/V2017
 
     logger.info("Get all accounts with AD_account spread")
     count=0
@@ -367,6 +384,10 @@ def process_mail():
     logger.debug("Caching primary mailaddrs")
     current_primaryemail=ac.getdict_uname2mailaddr(primary_only=True)
 
+    # kbj005/V2017
+    addr_expire = dict() # dict for storing expire date of email addresses - {<email-address> : <expire_date>}
+    # kbj005/V2017
+
     #variabled holding whoom shall we build emailaddrs for?
     all_emails = dict()
     new_primaryemail=dict()
@@ -378,7 +399,40 @@ def process_mail():
         old_addrs=uit_mails.get(uname,None)
         logger.debug("old addrs=%s" % (old_addrs,))
         old_addrs_set=Set(old_addrs)
-        should_have_addrs,new_primary_addr=calculate_uit_emails(uname,uit_account_affs.get(account_id))
+        
+        # kaj000/H2016 + kbj005/V2017
+        # use email addresses from caesar instead of creating new ones
+        #should_have_addrs,new_primary_addr=calculate_uit_emails(uname,uit_account_affs.get(account_id))
+        
+        try:
+            new_primary_addr = primary_emails_from_caesar[uname]['email']
+        except KeyError:
+            logger.error("No primary email address found for %s. Skipping this account." % uname)
+            continue
+        
+        addr_expire[new_primary_addr] = primary_emails_from_caesar[uname]['expire_date']
+
+        should_have_addrs = list()
+        try:
+            alias_list = email_aliases_from_caesar[uname]
+        except KeyError:
+            # no aliases found for this account.
+            alias_list = list()
+
+        for a in alias_list:
+            should_have_addrs.append(a['email'])
+            addr_expire[a['email']] = a['expire_date']
+
+        # Need to restructure the data a bit so we can compare correctly
+        if new_primary_addr not in should_have_addrs:
+            should_have_addrs.append(new_primary_addr)
+        
+        pprint("primary email from clavius: %s" % new_primary_addr)
+        #pprint("primary email from caesar:%s" % old_primary_addr)
+        pprint("all emails from clavius: %s" % should_have_addrs)
+        pprint("all emails from caesar:%s" % old_addrs_set)
+        # kaj000/H2016
+
         new_primaryemail[account_id]=new_primary_addr
 
         logger.debug("should have addrs=%s" % 
@@ -485,7 +539,12 @@ def process_mail():
                     is_primary=True
             logger.debug("Set mailaddr %s/%s/%s/%s(%s)" % 
                 (account_id,exch_users[account_id],addr,is_primary,exchange_controlled))
-            emdb.process_mail(account_id,addr, is_primary=is_primary)
+
+            # kbj005/V2017
+            # include expire_date
+            # emdb.process_mail(account_id,addr, is_primary=is_primary)
+            emdb.process_mail(account_id,addr, is_primary=is_primary, expire_date = addr_expire[addr])
+            # kbj005/V2017
 
 
 #
