@@ -1481,7 +1481,7 @@ class BofhdAuth(DatabaseAccessor):
         if person:
             return self.is_account_owner(operator, self.const.auth_create_user,
                                          person)
-        raise PermissionDenied, "No access"
+        raise PermissionDenied("No access")
 
     def can_delete_user(self, operator, account=None,
                         query_run_any=False):

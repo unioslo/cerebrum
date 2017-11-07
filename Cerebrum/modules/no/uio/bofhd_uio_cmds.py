@@ -8537,9 +8537,12 @@ Addresses and settings:
 
     all_commands['user_create_sysadm'] = Command(
         ("user", "create_sysadm"), AccountName(), OU(optional=True),
+        YesNo(help_ref="yes_no_force", optional=True, default="No"),
         fs=FormatSuggestion('OK, created %s', ('accountname',)),
-        perm_filter='is_superuser')
-    def user_create_sysadm(self, operator, accountname, stedkode=None):
+        perm_filter='can_create_sysadm')
+
+    def user_create_sysadm(self, operator, accountname, stedkode=None,
+                           force=None):
         """ Create a sysadm account with the given accountname.
 
         TBD, requirements?
@@ -8555,16 +8558,16 @@ Addresses and settings:
             person have multipile valid affiliations.
 
         """
-        SYSADM_TYPES = ('adm','drift','null',)
+        SYSADM_TYPES = ('adm', 'drift', 'null')
         VALID_STATUS = (self.const.affiliation_status_ansatt_tekadm,
                         self.const.affiliation_status_ansatt_vitenskapelig)
         DOMAIN = '@ulrik.uio.no'
 
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied('Only superuser can create sysadm accounts')
+        self.ba.can_create_sysadm(operator.get_entity_id())
+
         res = re.search('^([a-z]+)-([a-z]+)$', accountname)
         if res is None:
-            raise CerebrumError('Username must be on the form "foo-adm"')
+            raise CerebrumError('Username must be on the form "foo-drift"')
         user, suffix = res.groups()
         if suffix not in SYSADM_TYPES:
             raise CerebrumError(
@@ -8581,22 +8584,37 @@ Addresses and settings:
         if account_owner.owner_type != self.const.entity_person:
             raise CerebrumError('Can only create personal sysadm accounts')
         person = self._get_person('account_name', user)
+
+        # Need to force if person already has a sysadm account
+        if not self._is_yes(force):
+            ac = self.Account_class(self.db)
+            suffix = '-{}'.format(suffix)
+            existing = filter(lambda x: x['name'].endswith(suffix),
+                              ac.search(owner_id=person.entity_id))
+            if existing:
+                self.logger.debug2("Existing accounts: {}".format(existing))
+                raise CerebrumError(
+                    'Person already has a sysadm account: {} (need to '
+                    'force)'.format(existing[0]['name']))
+
         if stedkode is not None:
             ou = self._get_ou(stedkode=stedkode)
             ou_id = ou.entity_id
         else:
             ou_id = None
         valid_aff = person.list_affiliations(person_id=person.entity_id,
-                                               source_system=self.const.system_sap,
-                                               status=VALID_STATUS,
-                                               ou_id=ou_id)
-        status_blob = ', '.join(map(str,VALID_STATUS))
+                                             source_system=self.const.system_sap,
+                                             status=VALID_STATUS,
+                                             ou_id=ou_id)
+        status_blob = ', '.join(map(str, VALID_STATUS))
         if valid_aff == []:
             raise CerebrumError('Person has no %s affiliation' % status_blob)
         elif len(valid_aff) > 1:
             raise CerebrumError('More than than one %s affiliation, '
                                 'add stedkode as argument' % status_blob)
-        self.user_reserve_personal(operator, 'entity_id:{}'.format(person.entity_id), accountname)
+        self.user_reserve_personal(operator,
+                                   'entity_id:{}'.format(person.entity_id),
+                                   accountname)
         self._user_create_set_account_type(self._get_account(accountname),
                                            person.entity_id,
                                            valid_aff[0]['ou_id'],
@@ -8605,10 +8623,11 @@ Addresses and settings:
         self.user_promote_posix(operator, accountname, shell='bash', home=':/')
         account = self._get_account(accountname)
         account.add_spread(self.const.spread_uio_ad_account)
-        self.entity_contactinfo_add(operator, accountname, 'EMAIL', user+DOMAIN)
-        self.email_create_forward_target(operator, accountname+DOMAIN, user+DOMAIN)
+        self.entity_contactinfo_add(operator, accountname, 'EMAIL',
+                                    user+DOMAIN)
+        self.email_create_forward_target(operator, accountname+DOMAIN,
+                                         user+DOMAIN)
         return {'accountname': accountname}
-
 
     def _check_for_pipe_run_as(self, account_id):
         et = Email.EmailTarget(self.db)
