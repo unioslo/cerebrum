@@ -1,3 +1,9 @@
+2017-11-08    <cerebrum@cleomedes.uit.no>
+
+	* access_FS.py (studieprog_xml_parser): Added this function to
+	override similar function in no tree. this to make
+	ad_export_autogroups_undervisning run withouth failure
+
 2017-20-12	Håvard <cerebrum@cleomedes.uit.no>
 
         * bofhd_uit_cmds.py: Added user_history_filtered command from our old fork.

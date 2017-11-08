@@ -48,6 +48,14 @@ def get_semester(uppercase = False):
         next_sem = spring
     return ((str(this_year), this_sem), (str(next_year), next_sem))
 
+class studieprog_xml_parser(access_FS.non_nested_xml_parser):
+    "Parserklasse for studieprog.xml."
+
+    elements = {'data': False,
+                'studprog': True,
+                }
+
+
 class underv_enhet_xml_parser(access_FS.underv_enhet_xml_parser):
     "Utvidelse av parserklasse for underv_enhet.xml."
 
