@@ -52,7 +52,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.Constants import _CerebrumCode
-from Cerebrum.modules.no import access_FS
+from Cerebrum.modules.no.uit import access_FS
 from Cerebrum.modules.no.Stedkode import Stedkode
 
 db = Factory.get('Database')()
@@ -141,8 +141,8 @@ def GetUndenhFile(xmlfile):
                                'emnenavn':emnenavn
                                } 
         fak_emner.setdefault(faknr, []).append(emnekode)
-    access_FS.underv_enhet_xml_parser(xmlfile,
-                                      finn_emne_info)
+        
+    access_FS.underv_enhet_xml_parser(xmlfile,finn_emne_info)
 
     
 def GetStudieprogFile(xmlfile):
@@ -160,8 +160,7 @@ def GetStudieprogFile(xmlfile):
                                    'avd':avdnr,
 							       'navn':navn
 							      }
-    access_FS.studieprog_xml_parser(xmlfile,
-                                    finn_stprog_info)
+    access_FS.studieprog_xml_parser(xmlfile,finn_stprog_info)
 
 uname2accid=dict()
 accid2uname=dict()
