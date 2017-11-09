@@ -44,6 +44,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.bofhd.handler import BofhdRequestHandler
 from Cerebrum.modules.bofhd.help import Help
+from Cerebrum.modules.statsd import config as statsd_config
 
 
 format_addr = lambda addr: ':'.join([str(x) for x in addr or ['err', 'err']])
@@ -117,6 +118,17 @@ class BofhdServerImplementation(object):
         u""" A cache that maps session id to entity id. """
         # Needed? Only used to throw ServerRestartedError...
         return Cache.Cache()
+
+    @property
+    @memoize
+    def stats_config(self):
+        """ Config for storing metrics using statsd. """
+        try:
+            return statsd_config.load_config()
+        except Exception as e:
+            self.logger.error("could not load statsd config ({0})".format(e))
+            # default config
+            return statsd_config.StatsConfig()
 
     def _log_help_text_mismatch(self):
         u""" Verify consistency of `self.cmdhelp`.
