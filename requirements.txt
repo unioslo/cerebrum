@@ -26,3 +26,4 @@ Flask>=0.11.0
 flask-restplus
 gunicorn
 celery
+statsd>=3.2.1
