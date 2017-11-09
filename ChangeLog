@@ -1,3 +1,8 @@
+2017-11-09    <cerebrum@cleomedes.uit.no>
+
+	* import_PAGA.py (process_person): Added code that will collect
+	campus information for all paga persons
+
 2017-11-08    <cerebrum@cleomedes.uit.no>
 
 	* ad_export_autogroups_undervisning.py: need to import access_FS

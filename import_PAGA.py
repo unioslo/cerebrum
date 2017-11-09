@@ -308,6 +308,10 @@ def is_y2k_problem(year_chk, year):
 
 def process_person(person):
     fnr = person['fnr']
+    try:
+        location = person['lokasjon']
+    except:
+        logger.warn("Person has no location.")
 
     try:
        paga_nr = int(person['ansattnr'])
@@ -316,10 +320,13 @@ def process_person(person):
        return
     gender = person['kjonn']
     fodselsdato = person['fodselsdato']
-    year = int(fodselsdato[0:4])
-    mon = int(fodselsdato[5:7])
-    day = int(fodselsdato[8:10])
-    
+    try:
+        year = int(fodselsdato[0:4])
+        mon = int(fodselsdato[5:7])
+        day = int(fodselsdato[8:10])
+    except ValueError,m:
+        logger.warning("%s - Is not a valid ssn. skipping" %(m))
+        return
 
     logger.info("Process %d" % (paga_nr))
 
@@ -463,6 +470,19 @@ def process_person(person):
                 # to person's contact info.
                 contact.append((const.contact_fax, sted['fax']))
                 got_fax = True
+    if person.has_key('lokasjon'):
+
+        #
+        # Populate person address with:
+        # source_system = const.system_paga
+        # type = const.address_location
+        # address_text = person['location']
+        # 
+        #
+        logger.warn('populating person address with:source:%s, type:%s, text:%s' % (const.system_paga,const.address_location,person['lokasjon']))
+        new_person.populate_address(source_system=const.system_paga, type=const.address_location,address_text=person['lokasjon'])
+
+            
     for k,v in affiliations.items():
         ou_id, aff, aff_stat = v
         new_person.populate_affiliation(const.system_paga, ou_id,\
@@ -552,6 +572,16 @@ def clean_affi_s_list():
                     "person_id=%s,ou=%s,affi=%s last_date=%s,grace=%s" % \
                         (ent_id,ou,affi,last_date,cereconf.GRACEPERIOD_EMPLOYEE))
                     new_person.delete_affiliation(ou, affi, const.system_paga)
+
+                # if datetime.datetime.today() > last_date:
+                #     # person is no longer an employee, delete employee spreads for this person.
+                #     # Spreads to delete are listed in cereconf.EMPLOYEE_PERSON_SPREADS
+                #     employee_person_spreads = [int(const.Spread(x)) for x in cereconf.EMPLOYEE_PERSON_SPREADS]
+                #     for s in employee_person_spreads:
+                #         new_person.delete_spread(s)
+
+                #     # TODO 1: need to test this
+                #     # TODO 2: check if this will be ok for a person that "returns" before affil is deleted
 
 
 def main():
