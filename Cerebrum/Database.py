@@ -910,6 +910,9 @@ class Database(object):
     #
     def close(self):
         """ Close the database connection. """
+        if self._cursor:
+            self._cursor.close()
+            self._cursor = None
         self._db.close()
         self._db = None
 
