@@ -1,3 +1,10 @@
+2017-11-13    <cerebrum@cleomedes.uit.no>
+
+	* export_ad.py: this script will now use 2 different functions to
+	collect ou information. one for regular UiT (with stedekode) for
+	employees and students. One for sito (withouth stedkode) for sito
+	employees
+
 2017-11-09    <cerebrum@cleomedes.uit.no>
 
 	* import_PAGA.py (process_person): Added code that will collect

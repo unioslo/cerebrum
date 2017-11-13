@@ -43,6 +43,7 @@ from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.modules.Email import EmailTarget, EmailForward
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 from Cerebrum.modules.no.uit.Stedkode import StedkodeMixin
+from Cerebrum.modules.no.uit import OU
 #from Cerebrum.modules import PosixUser
 #from Cerebrum.modules import PosixGroup
 #from Cerebrum.modules.no.uit import Email
@@ -79,12 +80,18 @@ def get_sko(ou_id):
 get_sko=memoize(get_sko)
 
 
-def get_ouinfo(ou_id,perspective):
+def get_ouinfo_sito(ou_id,perspective):
     #logger.debug("Enter get_ouinfo with id=%s,persp=%s" % (ou_id,perspective))
     #sko=Factory.get('Stedkode')(db)
-    sko = StedkodeMixin(db)
+
+    #sko = StedkodeMixin(db)
+    #sko.clear()
+    #sko.find_by_perspective(ou_id,perspective)
+    ou = OU.OUMixin(db)
+    sko = ou
     sko.clear()
-    sko.find_by_perspective(ou_id,perspective)
+    sko.find(ou_id)
+
     #sko.find(ou_id)
     res=dict()
     #res['name']=str(sko.name)
@@ -92,6 +99,65 @@ def get_ouinfo(ou_id,perspective):
     res['short_name']=str(sko.get_name_with_language(co.ou_name_short,name_language))
     res['acronym']=str(sko.get_name_with_language(co.ou_name_acronym,name_language))
 
+    #sko.clear()
+    #logger.debug("got basic info about id=%s,persp=%s" % (ou_id,perspective))
+
+    # try:
+    #     sko.find_by_perspective(ou_id,perspective)
+    #     sted_sko="%s%s%s" % (str(sko.fakultet).zfill(2),
+    #                     str(sko.institutt).zfill(2),
+    #                     str(sko.avdeling).zfill(2))
+    #     #logger.debug("found sko for id=%s,persp=%s" % (ou_id,perspective))
+
+    # except Errors.NotFoundError:
+    sted_sko=""
+    res['sko']=sted_sko
+    #logger.debug("..processing..")
+    # Find company name for this ou_id by going to parent
+    visited = []
+    parent_id=sko.get_parent(perspective)
+    #logger.debug("Find parent to OU id=%s, parent has %s, perspective is %s" % (ou_id,parent_id,perspective))
+    while True:
+        #logger.debug("parent_id:%s, sko.entity_id:%s" % (parent_id,sko.entity_id))
+        if (parent_id is None) or (parent_id == sko.entity_id):
+            #logger.debug("Root for %s is %s, name is  %s" % (ou_id,sko.entity_id,sko.name))
+            res['company']=str(sko.get_name_with_language(co.ou_name,name_language))
+            break
+        sko.clear()
+        #logger.debug("Lookup %s in %s" % (parent_id,perspective))
+        sko.find(parent_id)
+        #sko.find(parent_id)
+        #logger.debug("Lookup returned: id=%s,name=%s" % (sko.entity_id,sko.name))
+        # Detect infinite loops
+        if sko.entity_id in visited:
+            raise RuntimeError, "DEBUG: Loop detected: %r" % visited
+        visited.append(sko.entity_id)
+        parent_id = sko.get_parent(perspective)
+        #logger.debug("New parentid is %s" % (parent_id,))
+    return res
+get_ouinfo=memoize(get_ouinfo_sito)
+
+
+def get_ouinfo(ou_id,perspective):
+    #logger.debug("Enter get_ouinfo with id=%s,persp=%s" % (ou_id,perspective))
+    #sko=Factory.get('Stedkode')(db)
+
+    sko = StedkodeMixin(db)
+    sko.clear()
+    sko.find_by_perspective(ou_id,perspective)
+
+    #sko.find(ou_id)
+    res=dict()
+    #res['name']=str(sko.name)
+    res['name']=str(sko.get_name_with_language(co.ou_name,name_language))
+    try:
+        res['short_name']=str(sko.get_name_with_language(co.ou_name_short,name_language))
+    except Errors.NotFoundError:
+        res['short_name'] = ""
+    try:
+        res['acronym']=str(sko.get_name_with_language(co.ou_name_acronym,name_language))
+    except Errors.NotFoundError:
+        res['acronym'] = ""
     sko.clear()
     #logger.debug("got basic info about id=%s,persp=%s" % (ou_id,perspective))
 
@@ -192,18 +258,15 @@ class ad_export:
             self.pid2pagaid[row['entity_id']]=row['external_id']
 
         logger.info("Loading Sito IDs")
-        self.pid2sitoid=dict
-        for row in person.list_external_ids(id_type=co.externalid_paga_ansattnr,
+        self.pid2sitoid=dict()
+        for row in person.list_external_ids(id_type=co.externalid_sito_ansattnr,
                                             source_system=co.system_sito):
             self.pid2sitoid[row['entity_id']]=row['external_id']
-
         logger.info("Start get constants")
         for c in dir(co):
             tmp = getattr(co, c)
             if isinstance(tmp, _CerebrumCode):
                num2const[int(tmp)] = tmp
-
-        logger.info("Cache person affs")
         self.person_affs = self.list_affiliations()
         logger.info("#####") 
         logger.info("Cache person names")
@@ -287,6 +350,8 @@ class ad_export:
         skip_source.append(co.system_lt)
         #skip_source.append(co.system_hitos)
         for aff in person.list_affiliations():
+            logger.debug("now processing person id:%s" % aff['person_id'])
+            logger.debug("affs are:%s" % aff)
             # simple filtering
             aff_status_filter=(co.affiliation_status_student_tilbud,)
             if aff['status'] in aff_status_filter:
@@ -299,12 +364,14 @@ class ad_export:
             source_system = aff['source_system']
             if (source_system==co.system_sito):
                 perspective_code=co.perspective_sito
+                ou_info = get_ouinfo_sito(ou_id,perspective_code)
             else:
                 perspective_code=co.perspective_fs
-
+                ou_info=get_ouinfo(ou_id,perspective_code)
             last_date=aff['last_date'].strftime("%Y-%m-%d")
             try:
-                ou_info=get_ouinfo(ou_id,perspective_code)
+                logger.debug("ou id:%s, perspective code:%s" % (ou_id,perspective_code))
+
                 sko = ou_info['sko']
                 company=ou_info['company']
                 #logger.debug("Person from %s(company=%s), ID=%s, OU=(%s), sko:%s" %(source_system,ou_info['company'],p_id,ou_id,sko))
@@ -319,7 +386,7 @@ class ad_export:
                        'sko': sko,
                        'lastdate':last_date,
                        'company': company}
-
+            logger.debug("person id:%s, has affiliation:%s" %(p_id,aff['source_system']))
             if(aff['source_system'] == co.system_paga):
                 paga_id = self.pid2pagaid.get(p_id,None)
                 #logger.info("have paga id:%s" % (paga_id))
@@ -338,19 +405,22 @@ class ad_export:
                 # get worktitle from person_name table for samskipnaden
                 # Need to look it up  because cached names in script only contains names
                 # from cached name variants, and worktitle is not there
+                sito_id = self.pid2sitoid.get(p_id,None)
                 person.clear()
                 person.find(p_id)
                 try:
                     worktitle=person.get_name(co.system_sito,co.name_work_title)
                     affinfo['stillingstittel']=worktitle
                 except Errors.NotFoundError:
-                    logger.info("Unable to find title for person:%s" % paga_id)
+                    logger.info("Unable to find title for person:%s" % sito_id)
 
                 sitosted=get_samskipnadstedinfo(ou_id,perspective_code)
                 #logger.debug("FROM LOOKUP: %s" % sitosted)
                 affinfo['company']=sitosted['company']
                 affinfo['sted']=sitosted['sted']
                 affinfo['parents']=",".join(sitosted['parents'])
+                logger.debug("processing sito person:%s", sito_id)
+                logger.debug("affs:%s", affinfo )
 
             tmp=person_affs.get(p_id,list())
             if affinfo not in tmp:
