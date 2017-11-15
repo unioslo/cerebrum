@@ -8767,7 +8767,8 @@ Addresses and settings:
         except CerebrumError:
             account = self._get_account(accountname)
         if account.is_deleted() and not self.ba.is_superuser(operator.get_entity_id()):
-            raise CerebrumError("User is deleted")
+            raise CerebrumError("User '{}' is deleted".format(
+                account.account_name))
         affiliations = []
         for row in account.get_account_types(filter_expired=False):
             ou = self._get_ou(ou_id=row['ou_id'])
