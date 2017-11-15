@@ -1306,6 +1306,11 @@ class BofhdExtension(BofhdCommonMethods):
 
     def email_add_forward(self, operator, uname, address):
         """Add an email-forward to a email-target asociated with an account."""
+        acc = self.Account_class(self.db)
+        try:
+            acc.find_by_name(uname)
+        except Errors.NotFoundError:
+            return 'Account {} does not exist.'.format(uname)
         et, acc = self._get_email_target_and_account(uname)
         if uname.count('@') and not acc:
             lp, dom = uname.split('@')
