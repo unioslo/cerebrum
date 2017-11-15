@@ -54,7 +54,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum.modules import ADutilMixIn
 from Cerebrum.modules import CLHandler
-
+    
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 logger = Factory.get_logger("cronjob")
@@ -83,27 +83,20 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
 
         self.logger.info('Retreiving changelog entries')
         answer = self.cl.get_events('AD', (self.co.account_password,))
-        self.logger.info('Found %s changes to process' % len(answer))
+        self.logger.info('Found %s changes to process' % len(answer))        
         retval = True
         for ans in answer:
-            print "test2"
             if ans['change_type_id'] == self.co.account_password:
                 try:
-                   print "test3"
 		   pw = cPickle.loads(ans['change_params'])['password']
 		except KeyError,m:
-                   print "test4"
                    logger.warn("Password probably wiped already for change_id %s" % (ans['change_id'],))
 		else:
-                   print "test5"
                    retval = self.change_pw(ans['subject_entity'],spread, pw, dry_run)
-                   print "test6"
             else:
-               print "test7"
                self.logger.debug("unknown change_type_id %i" % ans['change_type_id'])
             #We always confirm event, but only if it was successfull
             if retval == True:
-                print "test1"
                 self.cl.confirm_event(ans)
             else:
                  self.logger.warn('password change for account id:%s was not completed' % (ans['subject_entity']))
