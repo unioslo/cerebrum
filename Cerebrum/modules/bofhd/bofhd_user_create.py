@@ -179,6 +179,30 @@ class BofhdUserCreateMethod(BofhdCommonMethods):
                 "Owner did not have any affiliation {}".format(affiliation))
         account.set_account_type(ou_id, affiliation)
 
+    def _user_create_basic(self, operator, owner, uname, np_type=None):
+        account = self.Account_class(self.db)
+        account.populate(uname,
+                         owner.entity_type,
+                         owner.entity_id,
+                         np_type,
+                         operator.get_entity_id(),
+                         None)
+        account.write_db()
+        return account
+
+    def _user_password(self, operator, account, passwd=None):
+        """Set new (random) password for account and store in bofhd session"""
+        if not passwd:
+            passwd = account.make_passwd(account.account_name)
+        account.set_password(passwd)
+        try:
+            account.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError('Database error: {}'.format(m))
+        operator.store_state('new_account_passwd',
+                             {'account_id': int(account.entity_id),
+                              'password': passwd})
+
     all_commands['user_create'] = cmd.Command(
         ('user', 'create'),
         prompt_func=_user_create_prompt_func_helper,
@@ -187,46 +211,33 @@ class BofhdUserCreateMethod(BofhdCommonMethods):
         perm_filter='is_superuser')
 
     def user_create(self, operator, *args):
+        np_type = None
+        affiliation = None
+
         if args[0].startswith('group:'):
             group_id, np_type, uname = args
-            owner_type = self.const.entity_group
-            owner_id = self._get_group(group_id.split(":")[1]).entity_id
+            owner = self._get_group(group_id.split(":")[1])
             np_type = self._get_constant(self.const.Account, np_type,
                                          "account type")
-            affiliation = None
-            owner_type = self.const.entity_group
         else:
             if len(args) == 4:
                 idtype, person_id, affiliation, uname = args
             else:
                 idtype, person_id, yes_no, affiliation, uname = args
-            person = self._get_person("entity_id", person_id)
-            owner_type, owner_id = self.const.entity_person, person.entity_id
-            np_type = None
-        account = self.Account_class(self.db)
-        account.clear()
+            owner = self._get_person("entity_id", person_id)
+
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("only superusers may reserve users")
-        account.populate(uname,
-                         owner_type,
-                         owner_id,
-                         np_type,
-                         operator.get_entity_id(),
-                         None)
-        account.write_db()
+        account = self._user_create_basic(operator, owner, uname, np_type)
+        self._user_password(operator, account)
         for spread in cereconf.BOFHD_NEW_USER_SPREADS:
             account.add_spread(self.const.Spread(spread))
-        passwd = account.make_passwd(uname)
-        account.set_password(passwd)
         try:
             account.write_db()
             if affiliation is not None:
                 ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
                 self._user_create_set_account_type(
-                    account, person.entity_id, ou_id, affiliation)
+                    account, owner.entity_id, ou_id, affiliation)
         except self.db.DatabaseError as m:
             raise CerebrumError("Database error: %s" % m)
-        operator.store_state(
-            "new_account_passwd",
-            {'account_id': int(account.entity_id), 'password': passwd})
         return {'account_id': int(account.entity_id)}
