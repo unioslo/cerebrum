@@ -97,6 +97,29 @@ PersonAccountList = api.model('PersonAccountList', {
         description='List of accounts'),
 })
 
+
+class AddressType(object):
+    """ Address type translation. """
+
+    _map = {
+        'POST': 'postal_address',
+        'OTHER_POST': 'other_postal_address',
+        'PRIVPOST': 'private_postal_address',
+        'STREET': 'visiting_address',
+        'OTHER_STREET': 'other_visiting_address'
+    }
+
+    _rev_map = dict((v, k) for k, v in _map.iteritems())
+
+    @classmethod
+    def serialize(cls, strval):
+        return cls._map[strval]
+
+    @classmethod
+    def unserialize(cls, input_):
+        return db.const.Address(cls._rev_map[input_.lower()])
+
+
 PersonAddress = api.model('PersonAddress', {
     'id': fields.base.Integer(
         default=None,
@@ -106,7 +129,8 @@ PersonAddress = api.model('PersonAddress', {
         description='Source system'),
     'address_type': fields.Constant(
         ctype='Address',
-        description='Address type'
+        description='Address type',
+        transform=AddressType.serialize
     ),
     'address_text': fields.base.String(
         default=None,
