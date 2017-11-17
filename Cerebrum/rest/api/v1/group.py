@@ -204,13 +204,19 @@ class GroupResource(Resource):
 
     @staticmethod
     def group_info(group):
+        name = group.group_name
+        if isinstance(name, str):
+            name = utils._db_decode(group.group_name)
+        desc = group.description
+        if isinstance(desc, str):
+            desc = utils._db_decode(group.description)
         return {
-            'name': utils._db_decode(group.group_name),
+            'name': name,
             'id': group.entity_id,
             'created_at': group.created_at,
             'expire_date': group.expire_date,
             'visibility': group.visibility,
-            'description': utils._db_decode(group.description),
+            'description': desc,
             'contexts': [row['spread'] for row in group.get_spread()],
         }
 
@@ -271,9 +277,8 @@ class GroupResource(Resource):
         """ Create or update group. """
         args = self.new_group_parser.parse_args()
         args['visibility'] = GroupVisibility.unserialize(args['visibility'])
-        name = name.encode(db.encoding)
-
         result_code = 200
+        name = name.encode(db.encoding)
         try:
             # find and update all attributes
             group = utils.get_group(name, 'name', 'Group')
@@ -281,8 +286,9 @@ class GroupResource(Resource):
             if group.visibility != args['visibility']:
                 group.visibility = args['visibility']
                 changes = True
+            group.description = group.description.decode('utf-8')
             if group.description != args['description']:
-                group.description = args['description'].encode(db.encoding)
+                group.description = args['description']
                 changes = True
             if changes:
                 group.write_db()
