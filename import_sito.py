@@ -237,6 +237,7 @@ def import_person(person_list):
         person_processed['Firstname'] = person['Firstname']
         person_processed['Lastname'] = person['Lastname']
         person_processed['PositionName'] = person['PositionName']
+        person_processed['title'] = person['title']
         try:
             person['Middlename']
             person_processed['Middlename'] = person['Middlename']
@@ -287,7 +288,7 @@ def import_person(person_list):
             logger.error("Person: %s populate failed: %s" %(person_processed['ssn'] or person_processed['ansattnr'],m))
             # population of person object failes. Continue
             continue
-        new_person.affect_names(const.system_sito, const.name_first, const.name_last, const.name_personal_title)
+        new_person.affect_names(const.system_sito, const.name_first, const.name_last, const.name_work_title)
         new_person.affect_external_id(const.system_sito, const.externalid_fodselsnr, const.externalid_sito_ansattnr)
         try:
             person_processed['Middlename']
@@ -300,8 +301,9 @@ def import_person(person_list):
         new_person.populate_name(const.name_first, person_processed['Firstname'])
         new_person.populate_name(const.name_last, person_processed['Lastname'])
 
-        if(person_processed['PositionName'] != ''):
-            new_person.populate_name(const.name_personal_title, person_processed['PositionName'])
+        logger.warning("person_processed title is:%s" % person_processed['title'])
+        if(person_processed['title'] != ''):
+            new_person.populate_name(const.name_work_title, person_processed['title'])
         if(person_processed['ssn'] != ''):
             new_person.populate_external_id(const.system_sito, const.externalid_fodselsnr, person_processed['ssn'])
             logger.info("setting external_id to:%s" %(person_processed['ssn']))
@@ -310,7 +312,7 @@ def import_person(person_list):
         # In case this is a new person, we will need to write to DB before we can continue.
         op = new_person.write_db()
 
-        new_person.affect_names(const.system_sito, const.name_work_title)
+        #new_person.affect_names(const.system_sito, const.name_work_title)
         #print "##PERSON##"
         #pprint(person)
         affiliation = determine_affiliations(person)
@@ -351,7 +353,7 @@ def import_person(person_list):
         for k,v in affiliation.items():
             ou_id, aff, aff_stat = v
             new_person.set_affiliation_last_date(const.system_sito, ou_id, int(aff), int(aff_stat))
-            
+        op2 = new_person.write_db()
         logger.info("WriteDB after affs: %s" % (op2,))
 
 
@@ -623,6 +625,11 @@ def generate_person_list(personfile,person_list):
             except:
                 logger.debug("\t has no To date")
 
+            try:
+                title  = aff.xpathEval('Position/Name')[0].getContent()
+                #logger.info("3. title is calculated to:%s" % title)
+            except:
+                logger.info("Unable to get title for unit:%s" % unit)
             #logger.debug("\t has %s percentage on:%s" % (pp_from_xml,unit))                    
             if to_date !='':
                 if from_date_conv <= TODAY_conv < to_date_conv:
@@ -631,6 +638,11 @@ def generate_person_list(personfile,person_list):
                     logger.debug("\t appending: %s to aff_list" % (unit))
                     if unit not in afflist:
                         afflist.append(unit)
+                        try:
+                            person_dict['title'] =  title
+                            logger.info("setting title to :%s" % person_dict['title'])
+                        except:
+                             logger.info("Unable to get title for position:%s" % unit)
                     else:
                         logger.debug("\t %s is already in this list" % (unit))
                 else:
@@ -643,6 +655,11 @@ def generate_person_list(personfile,person_list):
                     if unit not in afflist:
                         logger.debug("I am actually appending ")
                         afflist.append(unit)
+                        try:
+                            person_dict['title'] =  title
+                            logger.info("setting title to :%s" % person_dict['title'])
+                        except:
+                             logger.info("Unable to get title for position:%s" % unit)
                     else:
                         logger.debug("\t %s is already in this list" % (unit))
                         #afflist.append(unit)
@@ -757,10 +774,11 @@ def encode_decode_text(list,type):
             
             new_lastname = unicode(person['Lastname'],'utf-8').encode('iso-8859-1')
             new_positionname = unicode(person['PositionName'],'utf-8').encode('iso-8859-1')
+            new_title = unicode(person['title'],'utf-8').encode('iso-8859-1')
             person['Firstname'] = new_firstname
             person['Lastname'] = new_lastname
             person['PositionName'] = new_positionname
-            
+            person['title'] = new_title
     return list
 
 # KEB
@@ -774,7 +792,6 @@ def populate_the_rest(name, acronym, short_name, display_name, sort_name):
     ou.add_name_with_language(const.ou_name_acronym, name_language, acronym)
     ou.add_name_with_language(const.ou_name_short, name_language, short_name)
     ou.add_name_with_language(const.ou_name_display, name_language, display_name)
-    
     # TODO: don't know what to do with sort_name, ignoring it for now.
     
 def import_OU(ou_list,dryrun):

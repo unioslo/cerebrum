@@ -1,3 +1,8 @@
+2017-11-21    <cerebrum@cleomedes.uit.no>
+
+	* import_sito.py (import_person): Script will now also import
+	person work titles
+
 2017-11-15    <cerebrum@cleomedes.uit.no>
 
 	* wipe.py: Added to repo. it deletes passwords from the change_log table
