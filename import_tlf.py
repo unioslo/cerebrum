@@ -85,7 +85,6 @@ ac_phone = Factory.get('Account')(db)
 logger=Factory.get_logger("cronjob")
 num_changes = 0
 max_changes_allowed = int(cereconf.MAX_NUM_ALLOWED_CHANGES)
-
 def str_upper_no(string, encoding='iso-8859-1'):
     '''Converts Norwegian iso strings to upper correctly. Eg. æøå -> ÆØÅ
     Ex. Usage: my_string = str_upper_no('aæeøå')'''
@@ -292,9 +291,11 @@ def process_telefoni(filename,checknames,checkmail,notify_recipient):
         ("45",  "776"),
         ("46",  "776"),
         ("483", "776"),
+        ("490", "776"),
         ("491", "776"),
         ("492", "776"),
         ("50",  "784"),
+        ("505",  "784"),
         ("55",  "DELETE"),
         ("58",  "770"),
         ("602", "776"),
@@ -332,6 +333,7 @@ def process_telefoni(filename,checknames,checkmail,notify_recipient):
             # Set phone extension or mark for deletion based on the first internal number's digits
             #
             added_prefix = False
+            changed_phone = False
             for internal_first_digits, prefix in prefix_table:
                 if len(data['phone']) == 5 and data['phone'].startswith(internal_first_digits):
                     if prefix == "DELETE":
@@ -341,6 +343,7 @@ def process_telefoni(filename,checknames,checkmail,notify_recipient):
                     else:
                         logger.debug('unmodified phone:%s' % (data['phone']))
                         data['phone'] = "%s%s" % (prefix, data['phone'])
+                        changed_phone = True
                         logger.debug('modified phone:%s' % (data['phone']))
                         update_phonenr(row[USERID],data['phone'])
                     added_prefix = True
@@ -350,7 +353,18 @@ def process_telefoni(filename,checknames,checkmail,notify_recipient):
                                'or a number that does not have a match '
                                'in our number prefix table:%s' % (row[USERID], data))
                 logger.debug("INVALID: %s - %s" % (row[USERID], data['phone']))
-                    
+
+            # add "+47" phone number prefix
+            if not data['phone']:
+                logger.warning("Can't add +47 prefix to %s's phone number because "
+                              "%s has no phone number" % (row[USERID], row[USERID]))
+            else:
+                changed_phone = True
+                data['phone'] = "%s%s" % ("+47", data['phone'])
+                logger.debug("%s's phone number with +47 prefix: %s" % (row[USERID], data['phone']))
+
+            if changed_phone:
+                update_phonenr(row[USERID], data['phone'])
             phonedata.setdefault(row[USERID].strip(),list()).append(data)
 
     for userid,pdata in phonedata.items():

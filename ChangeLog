@@ -1,5 +1,8 @@
 2017-11-21    <cerebrum@cleomedes.uit.no>
 
+	* import_tlf.py (init_cache): all workphones will now have the
+	prefix +47 added to their number
+
 	* import_sito.py (import_person): Script will now also import
 	person work titles
 
