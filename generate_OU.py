@@ -70,7 +70,7 @@ class ou:
         # FS 
         user="I0186_UIT_BAS"
         #user="i0186_uit_bas"
-        service="fsdmo.uio.no"
+        service="FSUIT.uio.no"
         logger.info("Connecting to FS db")
         self.fs_db = Database.connect(user=user,service=service,DB_driver='cx_Oracle')
         self.fs = FS(self.fs_db)

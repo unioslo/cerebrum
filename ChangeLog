@@ -1,5 +1,7 @@
 2017-11-21    <cerebrum@cleomedes.uit.no>
 
+	* generate_OU.py (ou.__init__): updated FS source database
+
 	* import_tlf.py (init_cache): all workphones will now have the
 	prefix +47 added to their number
 
