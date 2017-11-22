@@ -29,6 +29,7 @@ import sys
 import cerebrum_path
 import cereconf
 from Cerebrum.modules import Email
+from Cerebrum.Errors import CerebrumError
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.LDIFutils import \
      ldapconf, ldif_outfile, end_ldif_outfile, container_entry_string
@@ -195,6 +196,7 @@ def write_mail_dns():
     domains = email_domain.values()
     domains.sort()
     domain_dict = {}
+    domain_wo_mx = set()
     for domain in domains:
         domain_dict[domain.lower()] = True
         # Verify that domains have a MX-record.
@@ -203,9 +205,15 @@ def write_mail_dns():
             if domain.endswith(zone) and not (domain in hosts_only_mx or
                                               domain in hosts):
                 logger.error("email domain without MX defined: %s" % domain)
+                domain_wo_mx.add(domain.lower())
         # Valid email domains only requires MX
         if domain in hosts_only_mx:
             del hosts_only_mx[domain]
+
+    if domain_wo_mx:
+        cause = "{0:d} email domains without mx".format(len(domain_wo_mx))
+        logger.error("{0}, this must be rectified manually!".format(cause))
+        raise CerebrumError(cause)
 
     for host in hosts_only_mx:
         logger.warn("MX defined but no A/AAAA record or valid email domain: %s" % host)
@@ -250,4 +258,3 @@ cn: %s
 
 
 write_mail_dns()
-
