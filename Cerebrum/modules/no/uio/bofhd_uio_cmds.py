@@ -8618,7 +8618,8 @@ Addresses and settings:
         self._user_create_set_account_type(self._get_account(accountname),
                                            person.entity_id,
                                            valid_aff[0]['ou_id'],
-                                           valid_aff[0]['affiliation'])
+                                           valid_aff[0]['affiliation'],
+                                           priority=900)
         self.trait_set(operator, accountname, 'sysadm_account', 'strval=on')
         self.user_promote_posix(operator, accountname, shell='bash', home=':/')
         account = self._get_account(accountname)

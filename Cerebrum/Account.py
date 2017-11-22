@@ -100,9 +100,18 @@ class AccountType(object):
                           {col: val})
 
     def set_account_type(self, ou_id, affiliation, priority=None):
-        """Insert of update the new account type, with the given
-        priority increasing priority for conflicting elements.  If
-        priority is None, insert priority=max+5"""
+        """Insert or update the given account type.
+
+        :type priority: int
+        :param priority:
+            Priorities the account type if the account has more than one. The
+            highest priority, i.e. lowest value, is the primary affiliation.
+            Defaults to 5 higher than highest value amongst existing account
+            type priorities.
+
+        :rtype: tuple
+
+        """
         all_pris = {}
         orig_pri = None
         max_pri = 0
