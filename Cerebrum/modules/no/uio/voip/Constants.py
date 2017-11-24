@@ -154,6 +154,11 @@ class VoipConstants(Constants.Constants):
         "voip_service_calling",
         "calling",
     )
+
+    voip_service_autodial = VoipServiceTypeCode(
+        "voip_service_autodial",
+        "autodial",
+    )
     
     ########################################################################
     # voip-client

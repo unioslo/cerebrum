@@ -1307,6 +1307,11 @@ class BofhdExtension(BofhdCommonMethods):
 
     def email_add_forward(self, operator, uname, address):
         """Add an email-forward to a email-target asociated with an account."""
+        acc = self.Account_class(self.db)
+        try:
+            acc.find_by_name(uname)
+        except Errors.NotFoundError:
+            return 'Account {} does not exist.'.format(uname)
         et, acc = self._get_email_target_and_account(uname)
         if uname.count('@') and not acc:
             lp, dom = uname.split('@')
@@ -8608,7 +8613,8 @@ Addresses and settings:
         self._user_password(operator, account)
         self._user_create_set_account_type(account, person.entity_id,
                                            valid_aff[0]['ou_id'],
-                                           valid_aff[0]['affiliation'])
+                                           valid_aff[0]['affiliation'],
+                                           priority=900)
         account.populate_trait(code=self.const.trait_sysadm_account,
                                strval='on')
         account.write_db()
@@ -8773,7 +8779,8 @@ Addresses and settings:
         except CerebrumError:
             account = self._get_account(accountname)
         if account.is_deleted() and not self.ba.is_superuser(operator.get_entity_id()):
-            raise CerebrumError("User is deleted")
+            raise CerebrumError("User '{}' is deleted".format(
+                account.account_name))
         affiliations = []
         for row in account.get_account_types(filter_expired=False):
             ou = self._get_ou(ou_id=row['ou_id'])
