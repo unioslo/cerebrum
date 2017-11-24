@@ -56,6 +56,7 @@ targets = {
     'printer_quota': ('printer_quota_1_1', 'printer_quota_1_2',),
     'entity_trait': ('entity_trait_1_1',),
     'hostpolicy': ('hostpolicy_1_1',),
+    'note': ('note_1_1',),
 }
 
 # Global variables
@@ -1236,6 +1237,15 @@ def migrate_to_ephorte_1_2():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_ephorte", "1.2")
     print "Migration to ephorte 1.2 completed successfully"
+    db.commit()
+
+
+def migrate_to_note_1_1():
+    assert_db_version('1.0', component='note')
+    makedb('note_1_1', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo('sqlmodule_note', '1.1')
+    print('Migration to note 1.1 completed successfully')
     db.commit()
 
 

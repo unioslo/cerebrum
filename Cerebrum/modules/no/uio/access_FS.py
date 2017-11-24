@@ -32,7 +32,7 @@ class UiOStudent(access_FS.Student):
         """Hent personer med opptak til et studieprogram ved
         institusjonen og som enten har vært registrert siste året
         eller opptak efter 2003-01-01.  Henter ikke de som har
-        fremtidig opptak.  Disse kommer med 14 dager før dato for
+        fremtidig opptak.  Disse kommer med 60 dager før dato for
         tildelt opptak.  Alle disse skal ha affiliation med status
         kode 'opptak' til stedskoden sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.
@@ -43,7 +43,7 @@ class UiOStudent(access_FS.Student):
 
     def _list_gyldigopptak(self, fodselsdato=None, personnr=None):
         """Alle med gyldig opptak tildelt for 2 år eller mindre siden
-        samt alle med opptak som blir gyldig om 14 dager.
+        samt alle med opptak som blir gyldig om 60 dager.
         """
 
         extra = ""
@@ -76,7 +76,7 @@ class UiOStudent(access_FS.Student):
            sps.studieprogramkode=sp.studieprogramkode AND
            NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= SYSDATE AND
            sps.status_privatist = 'N' AND
-           sps.dato_studierett_tildelt < SYSDATE + 14 AND
+           sps.dato_studierett_tildelt < SYSDATE + 60 AND
            sps.dato_studierett_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd')
            AND %s
            """ % (extra, self._is_alive())
@@ -743,7 +743,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
         """Hent personer med opptak til et studieprogram ved
         institusjonen og som enten har vært registrert siste året
         eller opptak efter 2003-01-01.  Henter ikke de som har
-        fremtidig opptak.  Disse kommer med 14 dager før dato for
+        fremtidig opptak.  Disse kommer med 60 dager før dato for
         tildelt opptak.  Alle disse skal ha affiliation med status
         kode 'opptak' til stedskoden sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.
@@ -754,7 +754,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
 
     def _list_gyldigopptak(self, fodselsdato=None, personnr=None):
         """Alle med gyldig opptak tildelt for 2 år eller mindre siden
-        samt alle med opptak som blir gyldig om 14 dager.
+        samt alle med opptak som blir gyldig om 60 dager.
         """
 
         extra = ""
@@ -789,7 +789,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            sps.studieprogramkode=sp.studieprogramkode AND
            NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= SYSDATE AND
            sps.status_privatist = 'N' AND
-           sps.dato_studierett_tildelt < SYSDATE + 14 AND
+           sps.dato_studierett_tildelt < SYSDATE + 60 AND
            sps.dato_studierett_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd')
            AND %s
            """ % (extra, self._is_alive())

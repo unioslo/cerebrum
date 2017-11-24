@@ -1,0 +1,25 @@
+version: "2"
+
+services:
+  uio:
+    image: harbor.uio.no/usit-int/cerebrum_uio:latest
+    volumes:
+      - .:/src:z
+    networks:
+      - cerebrum
+    working_dir: /src/testsuite/ansible_docker
+    depends_on:
+      - db
+    environment:
+      - ANSIBLE_TAG=uio
+      - DB_HOST=db
+    command: /src/testsuite/ansible_docker/docker-test-entrypoint
+
+  db:
+    image: harbor.uio.no/library/postgres:latest
+    networks:
+      - cerebrum
+
+networks:
+  cerebrum:
+    driver: bridge

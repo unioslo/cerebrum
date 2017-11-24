@@ -42,6 +42,8 @@ DB_AUTH_DIR
 """
 import cereconf
 
+import operator
+import os
 import thread
 import threading
 
@@ -58,11 +60,13 @@ import Cerebrum.modules.bofhd.config as bofhd_config
 # logger. Otherwise, depending on the logger used, the physical entity
 # representing the log (typically a file) may not cope with multiple processes
 # writing to it simultaneously.
-logger = Utils.Factory.get_logger("bofhd")  # The import modules use the "import" logger
+logger = Utils.Factory.get_logger("bofhd")
 
 
-thread_name = lambda: threading.currentThread().getName()
-""" Get thread name. """
+def thread_name():
+    """ Get current thread name. """
+    # FIXME: Used in log messages, fix log format to get this automatically
+    return threading.currentThread().getName()
 
 _db_pool_lock = thread.allocate_lock()
 
@@ -126,7 +130,9 @@ def test_help(config, target):
     db = Utils.Factory.get('Database')()
     server = bofhd_server.BofhdServerImplementation(logger=logger,
                                                     bofhd_config=config)
-    error = lambda reason: SystemExit("Cannot list help texts: %s" % reason)
+
+    def error(reason):
+        return SystemExit("Cannot list help texts: {0}".format(reason))
 
     # Fetch superuser
     try:
@@ -166,17 +172,12 @@ def test_help(config, target):
         print server.cmdhelp.get_group_help(commands, target)
 
 
+def auth_dir(filename):
+    return os.path.join(getattr(cereconf, 'DB_AUTH_DIR', '.'), filename)
+
+
 if __name__ == '__main__':
     import argparse
-
-    auth_dir = lambda f: "%s/%s" % (getattr(cereconf, 'DB_AUTH_DIR', '.'), f)
-
-    ssl_version_map = {
-        'SSLv2': https.SSLConfig.SSLv2,
-        'SSLv23': https.SSLConfig.SSLv23,
-        'SSLv3': https.SSLConfig.SSLv3,
-        'TLSv1': https.SSLConfig.TLSv1,
-    }
 
     argp = argparse.ArgumentParser(description=u"The Cerebrum bofh server")
     argp.add_argument('-c', '--config-file',
@@ -203,7 +204,7 @@ if __name__ == '__main__':
                       default=False,
                       action='store_true',
                       dest='multi_threaded',
-                      help='Run multi-threaded (experimental)')
+                      help='Run multi-threaded')
     argp.add_argument('-t', '--test-help',
                       default=None,
                       dest='test_help',
@@ -220,11 +221,12 @@ if __name__ == '__main__':
                       metavar='<PEM-file>',
                       help='Server certificate and private key')
     argp.add_argument('--ssl-version',
-                      default='TLSv1',
+                      default=list(https.SSL_VERSION.values())[-1],
                       dest='ssl_version',
                       metavar='<version>',
-                      choices=ssl_version_map.keys(),
-                      help='SSL protocol version (default: %(default)s, available: %(choices)s)')
+                      choices=list(https.SSL_VERSION.keys()),
+                      help='SSL protocol version (default: %(default)s, '
+                           'available: %(choices)s)')
 
     args = argp.parse_args()
 
@@ -250,7 +252,7 @@ if __name__ == '__main__':
         ssl_config = https.SSLConfig(ca_certs=args.ca_file,
                                      certfile=args.cert_file)
         ssl_config.set_ca_validate(ssl_config.OPTIONAL)
-        ssl_config.set_ssl_version(ssl_version_map[args.ssl_version])
+        ssl_config.set_ssl_version(args.ssl_version)
         server_args['ssl_config'] = ssl_config
         logger.info("Server using encryption (%s)", args.ssl_version)
 

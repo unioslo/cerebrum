@@ -1306,6 +1306,11 @@ class BofhdExtension(BofhdCommonMethods):
 
     def email_add_forward(self, operator, uname, address):
         """Add an email-forward to a email-target asociated with an account."""
+        acc = self.Account_class(self.db)
+        try:
+            acc.find_by_name(uname)
+        except Errors.NotFoundError:
+            return 'Account {} does not exist.'.format(uname)
         et, acc = self._get_email_target_and_account(uname)
         if uname.count('@') and not acc:
             lp, dom = uname.split('@')
@@ -5796,10 +5801,11 @@ Addresses and settings:
 
     # group set_expire
     all_commands['group_set_expire'] = Command(
-        ("group", "set_expire"), GroupName(), Date(), perm_filter='can_delete_group')
+        ("group", "set_expire"), GroupName(), Date(),
+        perm_filter='can_expire_group')
     def group_set_expire(self, operator, group, expire):
         grp = self._get_group(group)
-        self.ba.can_delete_group(operator.get_entity_id(), grp)
+        self.ba.can_expire_group(operator.get_entity_id(), grp)
         grp.expire_date = self._parse_date(expire)
         grp.write_db()
         return "OK, set expire-date for '%s'" % group
@@ -8545,9 +8551,12 @@ Addresses and settings:
 
     all_commands['user_create_sysadm'] = Command(
         ("user", "create_sysadm"), AccountName(), OU(optional=True),
+        YesNo(help_ref="yes_no_force", optional=True, default="No"),
         fs=FormatSuggestion('OK, created %s', ('accountname',)),
-        perm_filter='is_superuser')
-    def user_create_sysadm(self, operator, accountname, stedkode=None):
+        perm_filter='can_create_sysadm')
+
+    def user_create_sysadm(self, operator, accountname, stedkode=None,
+                           force=None):
         """ Create a sysadm account with the given accountname.
 
         TBD, requirements?
@@ -8563,16 +8572,16 @@ Addresses and settings:
             person have multipile valid affiliations.
 
         """
-        SYSADM_TYPES = ('adm','drift','null',)
+        SYSADM_TYPES = ('adm', 'drift', 'null')
         VALID_STATUS = (self.const.affiliation_status_ansatt_tekadm,
                         self.const.affiliation_status_ansatt_vitenskapelig)
         DOMAIN = '@ulrik.uio.no'
 
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied('Only superuser can create sysadm accounts')
+        self.ba.can_create_sysadm(operator.get_entity_id())
+
         res = re.search('^([a-z]+)-([a-z]+)$', accountname)
         if res is None:
-            raise CerebrumError('Username must be on the form "foo-adm"')
+            raise CerebrumError('Username must be on the form "foo-drift"')
         user, suffix = res.groups()
         if suffix not in SYSADM_TYPES:
             raise CerebrumError(
@@ -8589,34 +8598,51 @@ Addresses and settings:
         if account_owner.owner_type != self.const.entity_person:
             raise CerebrumError('Can only create personal sysadm accounts')
         person = self._get_person('account_name', user)
+
+        # Need to force if person already has a sysadm account
+        if not self._is_yes(force):
+            ac = self.Account_class(self.db)
+            suffix = '-{}'.format(suffix)
+            existing = filter(lambda x: x['name'].endswith(suffix),
+                              ac.search(owner_id=person.entity_id))
+            if existing:
+                self.logger.debug2("Existing accounts: {}".format(existing))
+                raise CerebrumError(
+                    'Person already has a sysadm account: {} (need to '
+                    'force)'.format(existing[0]['name']))
+
         if stedkode is not None:
             ou = self._get_ou(stedkode=stedkode)
             ou_id = ou.entity_id
         else:
             ou_id = None
         valid_aff = person.list_affiliations(person_id=person.entity_id,
-                                               source_system=self.const.system_sap,
-                                               status=VALID_STATUS,
-                                               ou_id=ou_id)
-        status_blob = ', '.join(map(str,VALID_STATUS))
+                                             source_system=self.const.system_sap,
+                                             status=VALID_STATUS,
+                                             ou_id=ou_id)
+        status_blob = ', '.join(map(str, VALID_STATUS))
         if valid_aff == []:
             raise CerebrumError('Person has no %s affiliation' % status_blob)
         elif len(valid_aff) > 1:
             raise CerebrumError('More than than one %s affiliation, '
                                 'add stedkode as argument' % status_blob)
-        self.user_reserve_personal(operator, 'entity_id:{}'.format(person.entity_id), accountname)
+        self.user_reserve_personal(operator,
+                                   'entity_id:{}'.format(person.entity_id),
+                                   accountname)
         self._user_create_set_account_type(self._get_account(accountname),
                                            person.entity_id,
                                            valid_aff[0]['ou_id'],
-                                           valid_aff[0]['affiliation'])
+                                           valid_aff[0]['affiliation'],
+                                           priority=900)
         self.trait_set(operator, accountname, 'sysadm_account', 'strval=on')
         self.user_promote_posix(operator, accountname, shell='bash', home=':/')
         account = self._get_account(accountname)
         account.add_spread(self.const.spread_uio_ad_account)
-        self.entity_contactinfo_add(operator, accountname, 'EMAIL', user+DOMAIN)
-        self.email_create_forward_target(operator, accountname+DOMAIN, user+DOMAIN)
+        self.entity_contactinfo_add(operator, accountname, 'EMAIL',
+                                    user+DOMAIN)
+        self.email_create_forward_target(operator, accountname+DOMAIN,
+                                         user+DOMAIN)
         return {'accountname': accountname}
-
 
     def _check_for_pipe_run_as(self, account_id):
         et = Email.EmailTarget(self.db)
@@ -8756,7 +8782,8 @@ Addresses and settings:
         except CerebrumError:
             account = self._get_account(accountname)
         if account.is_deleted() and not self.ba.is_superuser(operator.get_entity_id()):
-            raise CerebrumError("User is deleted")
+            raise CerebrumError("User '{}' is deleted".format(
+                account.account_name))
         affiliations = []
         for row in account.get_account_types(filter_expired=False):
             ou = self._get_ou(ou_id=row['ou_id'])
@@ -9770,35 +9797,6 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             return ety.get_subclassed_object(ident)
         raise CerebrumError("Invalid idtype")
 
-    def _get_entity_name(self, entity_id, entity_type=None):
-        """Fetch a human-friendly name for the specified entity.
-
-        Overridden to return names only used at UiO.
-
-        @type entity_id: int
-        @param entity_id:
-          entity_id we are looking for.
-
-        @type entity_type: const.EntityType instance (or None)
-        @param entity_type:
-          Restrict the search to the specifide entity. This parameter is
-          really a speed-up only -- entity_id in Cerebrum uniquely determines
-          the entity_type. However, should we know it, we save 1 db lookup.
-
-        @rtype: str
-        @return:
-          Entity's name, obviously :) If none is found a magic string
-          'notfound:<entity id>' is returned (it's not perfect, but it's better
-          than nothing at all).
-
-        """
-        if entity_type == self.const.entity_ou:
-            ou = self._get_ou(ou_id=entity_id)
-            return self._format_ou_name(ou)
-        # Use default values for types like account and group:
-        return super(BofhdExtension, self)._get_entity_name(entity_id=entity_id,
-                entity_type=entity_type)
-
     def _get_disk(self, path, host_id=None, raise_not_found=True):
         disk = Utils.Factory.get('Disk')(self.db)
         try:
@@ -9956,11 +9954,24 @@ Password altered. Use misc list_password to print or view the new password.%s'''
         return self._parse_date("%d-%d-%d" % time.localtime()[:3])
 
     def _format_from_cl(self, format, val):
+        def _get_code(get, code, fallback=None):
+            def f(get, code, fallback):
+                try:
+                    return (1, str(get(code)))
+                except Errors.NotFoundError:
+                    if fallback:
+                        return (2, fallback)
+                    else:
+                        return (2, str(code))
+            if not isinstance(get, (tuple, list)):
+                get = [get]
+            return str(sorted([f(c, code, fallback) for c in get])[0][1])
+
         if val is None:
             return ''
 
         if format == 'affiliation':
-            return str(self.const.PersonAffiliation(val))
+            return _get_code(self.const.PersonAffiliation, val)
         elif format == 'disk':
             disk = Utils.Factory.get('Disk')(self.db)
             try:
@@ -9975,50 +9986,40 @@ Password altered. Use misc list_password to print or view the new password.%s'''
         elif format == 'entity':
             return self._get_entity_name(int(val))
         elif format == 'extid':
-            return str(self.const.EntityExternalId(val))
+            return _get_code(self.const.EntityExternalId, val)
         elif format == 'homedir':
             return 'homedir_id:%s' % val
         elif format == 'id_type':
-            return str(self.const.ChangeType(val))
+            return _get_code(self.const.ChangeType, val)
         elif format == 'home_status':
-            return str(self.const.AccountHomeStatus(val))
+            return _get_code(self.const.AccountHomeStatus, val)
         elif format == 'int':
             return str(val)
         elif format == 'name_variant':
             # Name variants are stored in two separate code-tables; if
             # one doesn't work, try the other
-            try:
-                name_variant = str(self.const.PersonName(val))
-                return name_variant
-            except:
-                return str(self.const.EntityNameCode(val))
+            return _get_code((self.const.PersonName, self.const.EntityNameCode), val)
         elif format == 'ou':
             ou = self._get_ou(ou_id=val)
             return self._format_ou_name(ou)
         elif format == 'quarantine_type':
-            return str(self.const.Quarantine(val))
+            return _get_code(self.const.Quarantine, val)
         elif format == 'source_system':
-            return str(self.const.AuthoritativeSystem(val))
+            return _get_code(self.const.AuthoritativeSystem, val)
         elif format == 'spread_code':
-            return str(self.const.Spread(val))
+            return _get_code(self.const.Spread, val)
         elif format == 'string':
             return str(val)
         elif format == 'trait':
-            try:
-                return str(self.const.EntityTrait(val))
-            except Errors.NotFoundError:
-                # Trait has been deleted from the DB, so we can't know which it was
-                return "<unknown>"
+            # Trait has been deleted from the DB, so we can't know which it
+            # was. Therefore we return '<unknown>'
+            return _get_code(self.const.EntityTrait, val, '<unknown>')
         elif format == 'value_domain':
-            return str(self.const.ValueDomain(val))
+            return _get_code(self.const.ValueDomain, val)
         elif format == 'rolle_type':
-            try:
-                val = int(val)
-            except ValueError:
-                pass
-            return str(self.const.EphorteRole(val))
+            return _get_code(self.const.EphorteRole, val)
         elif format == 'perm_type':
-            return str(self.const.EphortePermission(val))
+            return _get_code(self.const.EphortePermission, val)
         elif format == 'bool':
             if val == 'T':
                 return str(True)
@@ -10037,10 +10038,20 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                 dest = self._get_entity_name(dest)
             except Errors.NotFoundError:
                 dest = repr(dest)
+
         this_cl_const = self.const.ChangeType(row['change_type_id'])
-        msg = this_cl_const.msg_string % {
-            'subject': self._get_entity_name(row['subject_entity']),
-            'dest': dest}
+        if this_cl_const.msg_string is None:
+            self.logger.warn('Formatting of change log entry of type %s failed, '
+                             'no description defined in change type',
+                             str(this_cl_const))
+            msg = '{}, subject {}, destination {}'.format(
+                str(this_cl_const),
+                self._get_entity_name(row['subject_entity']),
+                dest)
+        else:
+            msg = this_cl_const.msg_string % {
+                'subject': self._get_entity_name(row['subject_entity']),
+                'dest': dest}
 
         # Append information from change_params to the string.  See
         # _ChangeTypeCode.__doc__
@@ -10062,9 +10073,9 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                     try:
                         repl['%%(%s:%s)s' % (fmt_type, key)] = self._format_from_cl(
                             fmt_type, params.get(key, None))
-                    except Exception, e:
+                    except Exception:
                         self.logger.warn("Failed applying %s to %s for change-id: %d" % (
-                            part, repr(params.get(key)), row['change_id']), exc_info=1)
+                            part, repr(params.get(key)), row['change_id']))
                 if [x for x in repl.values() if x]:
                     for k, v in repl.items():
                         f = f.replace(k, v)

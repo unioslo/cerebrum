@@ -22,7 +22,7 @@
 category:metainfo;
 name=note;
 category:metainfo;
-version=1.0;
+version=1.1;
 
 category:drop;
 drop TABLE entity_note;
@@ -51,8 +51,5 @@ CREATE TABLE entity_note
                   CONSTRAINT note_entity_id
                     REFERENCES entity_info(entity_id),
   subject       CHAR VARYING(70),
-  description   CHAR VARYING(1024)
+  description   TEXT
 );
-
-/* arch-tag: 285dc8de-aa86-4720-be3e-33b8fae0a84c
-   (do not change this comment) */

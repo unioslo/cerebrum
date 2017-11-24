@@ -1,0 +1,12 @@
+- hosts: localhost # Docker-container's localhost
+  vars:
+    - crb_src_dir: /src/cerebrum
+    - crb_db_user: ceretest
+    - crb_db_user_pass: ceretest
+    - pg_db_user: postgres
+    - pg_db_user_pass: postgres
+    - gnupg_home_dir: /gnupghome/.gnupg
+  roles:
+    - { role: common, tags: ['common'] }
+    - { role: uio, tags: ['uio'] }
+    - { role: uio-rest, tags: ['uio-rest'] }

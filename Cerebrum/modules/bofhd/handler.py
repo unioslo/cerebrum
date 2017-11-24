@@ -41,6 +41,25 @@ BOFHD_CLIENTS
     MOTD.
 
 
+Metrics
+-------
+
+<prefix>.bofhd.dispatch.<method>
+    Each dispatch to a function 'bofhd_<method>' is counted (e.g. bofhd_motd or
+    bofhd_logout).
+
+<prefix>.bofhd.login.<result>
+    Each call to bofhd_login is counted per <result> (allow, deny-creds,
+    deny-expire, deny-quarantine, deny-error).
+
+<prefix>.bofhd.command.<func>
+    Each call to bofhd_run_command is timed and counted per command:
+
+    <prefix>.bofhd.command.<func>.time measures command duration
+    <prefix>.bofhd.command.<func>.success counts successful executions
+    <prefix>.bofhd.command.<func>.error counts failed executions
+
+
 History
 -------
 This class used to be a part of the bofhd server script itself. It was
@@ -69,6 +88,8 @@ from Cerebrum.modules.bofhd.errors import SessionExpiredError
 from Cerebrum.modules.bofhd.errors import ServerRestartedError
 from Cerebrum.modules.bofhd.errors import UnknownError
 from Cerebrum.modules.bofhd.session import BofhdSession
+
+from Cerebrum.modules import statsd
 
 
 format_addr = lambda addr: ':'.join([str(x) for x in addr or ['err', 'err']])
@@ -145,6 +166,10 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             func = getattr(self, 'bofhd_' + method)
         except AttributeError:
             raise NotImplementedError('method "%s" is not supported' % method)
+
+        stats_client = statsd.make_client(self.server.stats_config,
+                                          prefix="bofhd.dispatch")
+        stats_client.incr(method)
 
         try:
             ret = apply(func, xmlrpc_to_native(params))
@@ -329,59 +354,72 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         :raise CerebrumError: If the user is not allowed to log in.
 
         """
+        stats_client = statsd.make_client(self.server.stats_config,
+                                          prefix="bofhd.login")
+
         account = Factory.get('Account')(self.db)
-        try:
-            account.find_by_name(uname)
-        except Errors.NotFoundError:
-            if isinstance(uname, unicode):
-                uname = uname.encode('utf-8')
-            self.logger.info(
-                u'Failed login for %s from %s: unknown username',
-                uname, format_addr(self.client_address))
-            raise CerebrumError("Unknown username or password")
+        with stats_client.pipeline() as stats:
+            try:
+                account.find_by_name(uname)
+            except Errors.NotFoundError:
+                stats.incr('deny-creds')
+                if isinstance(uname, unicode):
+                    uname = uname.encode('utf-8')
+                self.logger.info(
+                    u'Failed login for %s from %s: unknown username',
+                    uname, format_addr(self.client_address))
+                raise CerebrumError("Unknown username or password")
 
-        if isinstance(password, unicode):  # crypt.crypt don't like unicode
-            # TODO: ideally we should not hardcode charset here.
-            password = password.encode('iso8859-1')
-        if not account.verify_auth(password):
-            self.logger.info(
-                u'Failed login for %s from %s: password mismatch',
-                uname, format_addr(self.client_address))
-            raise CerebrumError("Unknown username or password")
+            if isinstance(password, unicode):  # crypt.crypt don't like unicode
+                # TODO: ideally we should not hardcode charset here.
+                password = password.encode('iso8859-1')
+            if not account.verify_auth(password):
+                stats.incr('deny-creds')
+                self.logger.info(
+                    u'Failed login for %s from %s: password mismatch',
+                    uname, format_addr(self.client_address))
+                raise CerebrumError("Unknown username or password")
 
-        # Check quarantines
-        quarantines = self._get_quarantines(account)
-        if quarantines:
-            self.logger.info(
-                'Failed login for %s from %s: quarantines %s',
-                uname, format_addr(self.client_address),
-                ', '.join(quarantines))
-            raise CerebrumError(
-                'User has active quarantines, login denied: %s' %
-                ', '.join(quarantines))
+            # Check quarantines
+            quarantines = self._get_quarantines(account)
+            if quarantines:
+                stats.incr('deny-quarantine')
+                self.logger.info(
+                    'Failed login for %s from %s: quarantines %s',
+                    uname, format_addr(self.client_address),
+                    ', '.join(quarantines))
+                raise CerebrumError(
+                    'User has active quarantines, login denied: %s' %
+                    ', '.join(quarantines))
 
-        # Check expire_date
-        if account.is_expired():
-            self.logger.info(u'Failed login for %s from %s: account expired',
-                             uname, format_addr(self.client_address))
-            raise CerebrumError('User is expired, login denied')
+            # Check expire_date
+            if account.is_expired():
+                stats.incr('deny-expire')
+                self.logger.info(
+                    'Failed login for %s from %s: account expired',
+                    uname, format_addr(self.client_address))
+                raise CerebrumError('User is expired, login denied')
 
-        try:
-            self.logger.info(u'Successful login for %s from %s',
-                             uname, format_addr(self.client_address))
-            session = BofhdSession(self.db, self.logger)
-            session_id = session.set_authenticated_entity(
-                account.entity_id, self.client_address[0])
-            self.db_commit()
-            self.server.sessions[session_id] = str(account.entity_id)
-            return session_id
-        except Exception:
-            self.db_rollback()
-            raise
+            try:
+                self.logger.info(
+                    'Successful login for %s from %s',
+                    uname, format_addr(self.client_address))
+                session = BofhdSession(self.db, self.logger)
+                session_id = session.set_authenticated_entity(
+                    account.entity_id, self.client_address[0])
+                self.db_commit()
+                self.server.sessions[session_id] = str(account.entity_id)
+                stats.incr('allow')
+                return session_id
+            except Exception:
+                stats.incr('deny-error')
+                self.db_rollback()
+                raise
 
     def bofhd_logout(self, session_id):
         """ The bofhd logout function. """
         session = BofhdSession(self.db, self.logger, session_id)
+        # TODO: statsd - gauge active user sessions?
         try:
             session.clear_session()
             if session_id in self.server.sessions:
@@ -520,23 +558,33 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         implementation = self.server.classmap[cmd](self.db, self.logger)
         func = getattr(implementation, cmd)
 
-        try:
-            has_tuples = False
-            for x in args:
-                if isinstance(x, (tuple, list)):
-                    has_tuples = True
-                    break
-            ret = []
-            self._run_command_with_tuples(func, session, args, ret)
-            if not has_tuples:
-                ret = ret[0]
-            self.db_commit()
-            # TBD: What should be returned if `args' contains tuple,
-            # indicating that `func` should be called multiple times?
-            return self.db.pythonify_data(ret)
-        except Exception:
-            self.db_rollback()
-            raise
+        # We know cmd is a safe statsd-prefix, since it's also a valid
+        # attribute name
+        stats_client = statsd.make_client(
+            self.server.stats_config,
+            prefix='bofhd.command.{0}'.format(cmd))
+
+        with stats_client.pipeline() as stats:
+            with stats.timer('time'):
+                try:
+                    has_tuples = False
+                    for x in args:
+                        if isinstance(x, (tuple, list)):
+                            has_tuples = True
+                            break
+                    ret = []
+                    self._run_command_with_tuples(func, session, args, ret)
+                    if not has_tuples:
+                        ret = ret[0]
+                    self.db_commit()
+                    # TBD: What should be returned if `args' contains tuple,
+                    # indicating that `func` should be called multiple times?
+                    stats.incr('success')
+                    return self.db.pythonify_data(ret)
+                except Exception:
+                    self.db_rollback()
+                    stats.incr('error')
+                    raise
 
     def bofhd_call_prompt_func(self, session_id, cmd, *args):
         """Return a dict with information on how to prompt for a

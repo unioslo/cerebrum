@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2015 University of Oslo, Norway
+# Copyright 2013-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,9 +30,6 @@ import re
 import string
 
 from urllib2 import URLError
-
-import cerebrum_path
-getattr(cerebrum_path, "linter", "must be supressed!")
 
 from Cerebrum.Utils import read_password
 from Cerebrum.modules.ad2.winrm import PowershellClient
@@ -1098,11 +1095,14 @@ class ExchangeClient(PowershellClient):
             it does not.
 
         :raise ExchangeException: If it fails to run."""
+        assert(isinstance(self.exchange_commands, dict) and
+               'execute_on_add_distgroup_member' in self.exchange_commands)
+        cmd_template = string.Template(
+            self.exchange_commands['execute_on_add_distgroup_member'])
         cmd = self._generate_exchange_command(
-            'Add-DistributionGroupMember',
-            {'Identity': gname,
-             'Member': member},
-            ('BypassSecurityGroupManagerCheck',))
+            cmd_template.safe_substitute(
+                member=member,
+                gname=gname))
         out = self.run(cmd)
         if 'stderr' in out:
             # If this matches, we have performed a duplicate operation. Notify
@@ -1124,13 +1124,14 @@ class ExchangeClient(PowershellClient):
         :param member: The members username.
 
         :raises ExchangeException: If it fails."""
-        # TODO: Add DomainController arg.
+        assert(isinstance(self.exchange_commands, dict) and
+               'execute_on_remove_distgroup_member' in self.exchange_commands)
+        cmd_template = string.Template(
+            self.exchange_commands['execute_on_remove_distgroup_member'])
         cmd = self._generate_exchange_command(
-            'Remove-DistributionGroupMember',
-            {'Identity': gname,
-             'Member': member},
-            ('BypassSecurityGroupManagerCheck',
-             'Confirm:$false'))
+            cmd_template.safe_substitute(
+                member=member,
+                gname=gname))
         out = self.run(cmd)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])

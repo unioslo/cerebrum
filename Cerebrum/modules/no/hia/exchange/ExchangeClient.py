@@ -26,6 +26,7 @@ deleting and updating mailboxes and distribution groups in Exchange 2013."""
 
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
 from Cerebrum.modules.no.uio.exchange.ExchangeClient import ExchangeClient
+from Cerebrum.modules.exchange.Exceptions import AlreadyPerformedException
 
 
 class UiAExchangeClient(ExchangeClient):
@@ -257,6 +258,59 @@ class UiAExchangeClient(ExchangeClient):
         # mailboxes. But, we don't need to do this if we change the description
         # after the mailbox has been created! Very strange behaviour. Think
         # about this and fix it (whatever that means).
+        out = self.run(cmd)
+        if 'stderr' in out:
+            raise ExchangeException(out['stderr'])
+        else:
+            return True
+
+    def add_distgroup_member(self, gname, member):
+        """Add member to a distgroup.
+
+        :type gname: string
+        :param gname: The groups name.
+
+        :type member: string
+        :param member: The members name.
+
+        :rtype: bool
+        :return: Returns True if the operation resulted in an update, False if
+            it does not.
+
+        :raise ExchangeException: If it fails to run."""
+        cmd = self._generate_exchange_command(
+            'Add-DistributionGroupMember',
+            {'Identity': gname,
+             'Member': member},
+            ('BypassSecurityGroupManagerCheck',))
+        out = self.run(cmd)
+        if 'stderr' in out:
+            # If this matches, we have performed a duplicate operation. Notify
+            # the caller of this trough raise.
+            if 'MemberAlreadyExistsException' in out['stderr']:
+                raise AlreadyPerformedException
+            else:
+                raise ExchangeException(out['stderr'])
+        else:
+            return True
+
+    def remove_distgroup_member(self, gname, member):
+        """Remove a member from a distributiongroup.
+
+        :type gname: string
+        :param gname: The groups name.
+
+        :type member: string
+        :param member: The members username.
+
+        :raises ExchangeException: If it fails."""
+        # TODO: Add DomainController arg.
+        cmd = self._generate_exchange_command(
+            'Remove-DistributionGroupMember',
+            {'Identity': gname,
+             'Member': member},
+            ('BypassSecurityGroupManagerCheck',
+             'Confirm:$false'))
         out = self.run(cmd)
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])

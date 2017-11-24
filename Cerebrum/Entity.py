@@ -147,11 +147,12 @@ class Entity(DatabaseAccessor):
         is_new = not self.__in_db
         if is_new:
             self.entity_id = int(self.nextval('entity_id_seq'))
-            self.execute("""
+            self.created_at = self.query_1("""
             INSERT INTO [:table schema=cerebrum name=entity_info]
               (entity_id, entity_type)
-            VALUES (:e_id, :e_type)""", {'e_id': self.entity_id,
-                                         'e_type': int(self.entity_type)})
+            VALUES (:e_id, :e_type)
+            RETURNING created_at""", {'e_id': self.entity_id,
+                                      'e_type': int(self.entity_type)})
             self._db.log_change(self.entity_id, self.const.entity_add, None)
         else:
             # Don't need to do anything as entity type can't change
@@ -287,12 +288,18 @@ class EntitySpread(Entity):
         WHERE entity_id=:e_id AND spread=:spread""", {'e_id': self.entity_id,
                                                       'spread': int(spread)})
 
-    def list_all_with_spread(self, spreads=None):
+    def list_all_with_spread(self, spreads=None, entity_types=None):
         """Return sequence of all 'entity_id's that has ``spread``."""
         binds = dict()
+        where = []
         sel = ""
         if spreads:
-            sel = "WHERE " + argument_to_sql(spreads, 'spread', binds, int)
+            where.append(argument_to_sql(spreads, 'spread', binds, int))
+        if entity_types:
+            where.append(argument_to_sql(entity_types, 'entity_type',
+                                         binds, int))
+        if where:
+            sel = 'WHERE ' + ' AND '.join(where)
         return self.query("""
         SELECT entity_id, spread
         FROM [:table schema=cerebrum name=entity_spread]""" + sel, binds)

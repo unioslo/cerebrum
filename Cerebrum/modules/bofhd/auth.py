@@ -1290,8 +1290,28 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_delete_group)
+        if self._has_target_permissions(operator,
+                                        self.const.auth_delete_group,
+                                        self.const.auth_target_type_group,
+                                        group.entity_id, group.entity_id):
+            return True
+        raise PermissionDenied("Not allowed to delete group")
+
+    def can_expire_group(self, operator, group=None, query_run_any=False):
+        """Check if operator is allowed to set expire date for a group"""
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_expire_group)
+        if self._has_target_permissions(operator,
+                                        self.const.auth_expire_group,
+                                        self.const.auth_target_type_group,
+                                        group.entity_id, group.entity_id):
+            return True
+        raise PermissionDenied("Not allowed to set expire date for group")
 
     def can_search_group(self, operator, query_run_any=False):
         if self.is_superuser(operator):
@@ -1461,7 +1481,7 @@ class BofhdAuth(DatabaseAccessor):
         if person:
             return self.is_account_owner(operator, self.const.auth_create_user,
                                          person)
-        raise PermissionDenied, "No access"
+        raise PermissionDenied("No access")
 
     def can_delete_user(self, operator, account=None,
                         query_run_any=False):

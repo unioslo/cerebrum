@@ -163,7 +163,8 @@ class BofhdUserCreateMethod(BofhdCommonMethods):
         raise CerebrumError("Too many arguments")
 
     def _user_create_set_account_type(self, account,
-                                      owner_id, ou_id, affiliation):
+                                      owner_id, ou_id, affiliation,
+                                      priority=None):
         person = self._get_person('entity_id', owner_id)
         try:
             affiliation = self.const.PersonAffiliation(affiliation)
@@ -177,7 +178,7 @@ class BofhdUserCreateMethod(BofhdCommonMethods):
         else:
             raise CerebrumError(
                 "Owner did not have any affiliation {}".format(affiliation))
-        account.set_account_type(ou_id, affiliation)
+        account.set_account_type(ou_id, affiliation, priority=priority)
 
     all_commands['user_create'] = cmd.Command(
         ('user', 'create'),

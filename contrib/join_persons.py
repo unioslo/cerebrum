@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,13 +23,9 @@ import getopt
 import sys
 import time
 
-import cerebrum_path
-
 from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-
-del cerebrum_path
 
 
 def get_constants_by_type(co, class_type):
@@ -213,6 +209,13 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
                           indirect_members=False):
         group.clear()
         group.find(g['group_id'])
+        # Skip virtual groups
+        if hasattr(group, 'virtual_group_type'):
+            if group.virtual_group_type != co.vg_normal_group:
+                logger.debug(
+                    "group_member: {} (virtual group, skipping)".format(
+                        group.group_name))
+                continue
         logger.debug("group_member: %s" % group.group_name)
         if not group.has_member(new_person.entity_id):
             group.add_member(new_person.entity_id)
@@ -223,6 +226,40 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
 
     if with_uio_voip:
         join_uio_voip_objects(old_id, new_id)
+
+    # EntityConsentMixin
+    join_consents(old_person, new_person)
+
+
+def join_consents(old_person, new_person):
+    if not hasattr(new_person, 'list_consents'):
+        return
+    old_consents = old_person.list_consents(
+        entity_id=old_person.entity_id, filter_expired=False)
+    if not old_consents:
+        return
+    for old_consent in old_consents:
+        new_consent = new_person.list_consents(
+            entity_id=new_person.entity_id,
+            consent_code=old_consent['consent_code'],
+            filter_expired=False)
+        replace_expired = (new_consent and new_consent['expiry'] and
+                           not old_consent['expiry'])
+        old_expires_later = (new_consent and old_consent['expiry'] and
+                             new_consent['expiry'] and
+                             (old_consent['expiry'] > new_consent['expiry']))
+        keep = not new_consent or replace_expired or old_expires_later
+        logger.info(
+            'consent: old person has consent. '
+            'joining with new? {} consent={}'.format(keep, dict(old_consent)))
+        if keep:
+            new_person.set_consent(
+                consent_code=old_consent['consent_code'],
+                description=old_consent['description'],
+                expiry=old_consent['expiry'])
+        old_person.remove_consent(consent_code=old_consent['consent_code'])
+    old_person.write_db()
+    new_person.write_db()
 
 
 def join_ephorte_roles(old_id, new_id):
@@ -443,7 +480,7 @@ def main():
     else:
         db.commit()
 
-logger = Factory.get_logger("console")
+logger = Factory.get_logger("tee")
 db = Factory.get('Database')()
 db.cl_init(change_program="join_persons")
 co = Factory.get('Constants')(db)

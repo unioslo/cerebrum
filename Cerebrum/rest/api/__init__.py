@@ -25,6 +25,12 @@ def create_app(config):
     app.wsgi_app = ProxyFix(app.wsgi_app)
     logging.config.dictConfig(app.config['LOGGING'])
 
+    # As of Flask 0.11, Flask sets up a logger by itself, logging to stderr.
+    # Add handlers from '' logger to log here, too.
+    logger = logging.getLogger('')
+    for handler in logger.handlers:
+        app.logger.addHandler(handler)
+
     from Cerebrum.rest.api import v1
     app.register_blueprint(v1.blueprint, url_prefix='/v1')
 

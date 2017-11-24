@@ -1,0 +1,25 @@
+- name: create cerebrum folder
+  file: dest=/etc/cerebrum state=directory
+
+- name: place cereconf
+  template:
+      src: cereconf.py.j2
+      dest: /etc/cerebrum/cereconf.py
+
+# TODO: ldapconf, other configs?
+
+- name: place log config
+  copy:
+      src: logging.ini
+      dest: /etc/cerebrum/logging.ini
+
+- name: create dummy file for database password
+  template:
+      src: passwd.j2
+      dest: "/etc/cerebrum/passwd-{{ crb_db_user }}@{{ crb_db_name }}@{{crb_db_host}}"
+      validate: "grep {{crb_db_user}} %s"
+
+- name: place adconf
+  copy:
+      src: adconf.py
+      dest: /etc/cerebrum/adconf.py
