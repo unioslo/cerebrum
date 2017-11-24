@@ -232,14 +232,16 @@ DEFAULT_HOME_SPREAD = None
 ACCOUNT_PRIORITY_RANGES = None
 
 # Decides the precedence rules for entries in person_affiliation_source.
-# Should be a dict with keys matching AuthoritativeSystem code, or '*' (Default)
+# Should be a dict with keys matching AuthoritativeSystem code, or '*'
+# (Default).
 # The values being
 # - start, end - a range, or
 # - dict with keys matching PersonAffiliation code, some other key
 #   or '*', values being
 #
 #   * a range, or
-#   * dict with keys matching PersonAffStatus code or '*', with range as values.
+#   * dict with keys matching PersonAffStatus code or '*', with range as
+#     values.
 #   * in the case of a value for a key, value should be an int suggesting a
 #     precedence. E.g. object2cerebrum (import_HR_person.py) uses
 #     «xmlutils:main» for hovedstilling
@@ -269,15 +271,15 @@ SIMILARSIZE_LIMIT_MULTIPLIER = 1.0
 # What encoding the database data is encoded in. This must be set to be able to
 # decode the data to Unicode, which is needed in some exports. If the database
 # contains data in other encodings, an attempt of unicodifying it would raise
-# exceptions when special characters occur, like æøå. Note that this is not used
-# everywhere - It started with the AD sync, but should be expanded to other jobs
-# too.
+# exceptions when special characters occur, like æøå. Note that this is not
+# used everywhere - It started with the AD sync, but should be expanded to
+# other jobs too.
 #
 # If you want to change the encoding, you would need to:
 # 1. Make sure that all functionality that puts data into the database respects
 #    the set encoding.
-# 2. Migrate the database by re-encode the data to the new encoding, if it's not
-#    automatically taken care of by the database.
+# 2. Migrate the database by re-encode the data to the new encoding, if it's
+#    not automatically taken care of by the database.
 ENCODING = 'ISO-8859-1'
 
 # Active directory specific settings.
@@ -467,20 +469,21 @@ AUTOADMIN_MAKE_ABROAD_LETTERS = False
 # directory where the letter templates used by proc_stud are found
 AUTOADMIN_PRINT_LETTER_DIRECTORY = 'no_NO/letter'
 
-# Default message: can contain either of those 2 variables: 'username' / 'email'
+# Default message: can contain either of those 2 variables: 'username' /
+# 'email'
 AUTOADMIN_WELCOME_SMS = 'Welcome\nYour username is: %(username)s'
 
-# The default directory for where the data from FS is put. This could be used by
-# jobs that needs to get many of the XML files with data from FS. If this is not
-# defined, you need to specify the absolute path to each XML file.
+# The default directory for where the data from FS is put. This could be used
+# by jobs that needs to get many of the XML files with data from FS. If this is
+# not defined, you need to specify the absolute path to each XML file.
 FS_DATA_DIR = pj(prefix, 'var', 'cache', 'FS')
 
 # Sets the number of days after a student is considered not active anymore,
 # before the STUDENT affiliation gets removed. This is not the correct way of
 # solving the problem with students loosing their affiliations too quick - a
-# alumni solution would be preferred, but requires more work, so this is a quick
-# way out. The default value, 0, removes the affiliations at once after the end
-# date for the student.
+# alumni solution would be preferred, but requires more work, so this is a
+# quick way out. The default value, 0, removes the affiliations at once after
+# the end date for the student.
 # Note: The instance' import_FS script must be updated to handle this, this is
 # mainly implemented for UiO (and UiA).
 FS_STUDENT_REMOVE_AFF_GRACE_DAYS = 0
@@ -490,8 +493,8 @@ FS_STUDENT_REMOVE_AFF_GRACE_DAYS = 0
 # and status, i.e. ['STUDENT/evu', 'TILKNYTTET/fagperson']
 FS_EXCLUDE_AFFILIATIONS_FROM_GRACE = []
 
-# Sets the default name and description of the group used for students in FS who
-# have given their consent to be published in the catalogue.
+# Sets the default name and description of the group used for students in FS
+# who have given their consent to be published in the catalogue.
 FS_GROUP_NAME = "FS-aktivt-samtykke"
 FS_GROUP_DESC = "Internal group for students which will be shown online."
 
@@ -843,14 +846,15 @@ LDAP_PERSON = {
     # needs to be defined in eduPersonPrimaryAffiliation.
     'eduPersonPrimaryAffiliation_selector': {},
 
-    # Path to the file containing a pickle of entitlements mapped to person IDs.
-    # The file itself should be created by an external cron job.
+    # Path to the file containing a pickle of entitlements mapped to person
+    # IDs. The file itself should be created by an external cron job.
     # Entitlements are used in Norway to specify and later publish in LDAP-tree
-    # some extra information in about person roles and admissions
-    # at the institution.
+    # some extra information in about person roles and admissions at the
+    # institution.
     #
-    # This parameter acts simultaneously as a switch: empty path value means the
-    # publication of entitlements in LDIF is turned off (default behaviour).
+    # This parameter acts simultaneously as a switch: empty path value means
+    # the publication of entitlements in LDIF is turned off (default
+    # behaviour).
     'entitlements_pickle_file': '',
     #
     # Selects which contact info to use for norEduPersonAuthnMethod (sms).
@@ -1011,8 +1015,8 @@ DEFAULT_RESERVED_BY_NET_SIZE = {
     32: 0,
 }
 
-# The default DNS zone to use for bofhd commands and others. Must reference to a
-# Cerebrum constant of type DnsZoneCode:
+# The default DNS zone to use for bofhd commands and others. Must reference to
+# a Cerebrum constant of type DnsZoneCode:
 DNS_DEFAULT_ZONE = 'uio'
 
 DEFAULT_RESERVED_BY_IPv6_NET_SIZE = {64: 4}
@@ -1201,9 +1205,9 @@ INDIVIDUATION_AFF_GRACE_PERIOD = 7  # in days
 #    affiliations from the highest priority is used, the rest is ignored. This
 #    is used for the scenario where employees which also studies should not be
 #    able to use the phone number registered in the student system for setting
-#    new passwords. The HR system should then have priority 1, while the student
-#    system is at 2. If a person then have an affiliation from the HR system,
-#    the student system is then ignored.
+#    new passwords. The HR system should then have priority 1, while the
+#    student system is at 2. If a person then have an affiliation from the HR
+#    system, the student system is then ignored.
 #
 #    To let employees be able to use their student registrations, the HR and
 #    student systems should have the same priority.
@@ -1213,10 +1217,10 @@ INDIVIDUATION_AFF_GRACE_PERIOD = 7  # in days
 #    contain:
 #
 #     - delay: (default: 0) Sets the number of days that numbers from this
-#       system will be "quarantined" for use in the password service. This is to
-#       slow down attacks where a user is compromised and the phone number is
-#       changed - the attacker would then have to wait some time before they can
-#       use the phone number for getting the password.
+#       system will be "quarantined" for use in the password service. This is
+#       to slow down attacks where a user is compromised and the phone number
+#       is changed - the attacker would then have to wait some time before they
+#       can use the phone number for getting the password.
 #
 INDIVIDUATION_PHONE_TYPES = {}
 # Example: {
@@ -1251,8 +1255,8 @@ BUILDING_CODES = {}
 # guestconfig.py, in the same location as cereconf.py.
 
 # The maximum number of days a guest account can live. The set expire date for
-# guest accounts can not be longer than this. It is, however, possible to set it
-# lower than this.
+# guest accounts can not be longer than this. It is, however, possible to set
+# it lower than this.
 GUEST_MAX_DAYS = 30
 
 # The different types of guests. This is a dict where each element is a type
@@ -1277,8 +1281,8 @@ GUEST_TYPES = {}
 GUEST_TYPES_DEFAULT = ''
 
 # The group that stands as the 'owner' of the guest accounts. Note that this is
-# the owner group, and not the 'responsible' for the guest, which is a different
-# thing which is stored in a trait.
+# the owner group, and not the 'responsible' for the guest, which is a
+# different thing which is stored in a trait.
 GUEST_OWNER_GROUP = 'guestaccounts'
 
 # The maximum number of simultaneously active guest accounts a given person
