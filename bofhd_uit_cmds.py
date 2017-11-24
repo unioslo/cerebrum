@@ -4690,6 +4690,7 @@ Addresses and settings:
 
         for r in rows[-limit:]:
             ret.append(self._format_changelog_entry(r))
+
         return ret
 
 
@@ -7443,10 +7444,12 @@ Addresses and settings:
         fs=FormatSuggestion([
         ("Name:          %s\n" +
          "Entity-id:     %i\n" +
+         "Export ID:     %s\n" +
          "Birth:         %s\n" +
+         "Deceased:      %s\n" +
          "Spreads:       %s\n" +
          "Affiliations:  %s [from %s]",
-         ("name", "entity_id", "birth", "spreads",
+         ("name", "entity_id", "export_id", "birth", "deceased", "spreads",
           "affiliation_1", "source_system_1")),
         ("               %s [from %s]",
          ("affiliation", "source_system")),
@@ -7472,13 +7475,18 @@ Addresses and settings:
             raise CerebrumError("No name is registered for this person")
         data = [{'name': p_name,
                  'entity_id': person.entity_id,
+                 'export_id': person.export_id,
                  'birth': date_to_string(person.birth_date),
+                 'deceased_date': date_to_string(person.deceased_date),
                  'spreads': ", ".join([str(self.const.Spread(x['spread']))
                                 for x in person.get_spread()])}]
         affiliations = []
         sources = []
+        last_dates = []
         for row in person.get_affiliations():
             ou = self._get_ou(ou_id=row['ou_id'])
+            date = row['last_date'].strftime("%Y-%m-%d")
+            last_dates.append(date)
             affiliations.append("%s@%s" % (
                 self.const.PersonAffStatus(row['status']),
                 self._format_ou_name(ou)))
@@ -7498,12 +7506,15 @@ Addresses and settings:
         if affiliations:
             data[0]['affiliation_1'] = affiliations[0]
             data[0]['source_system_1'] = sources[0]
+            data[0]['last_date_1'] = last_dates[0]
         else:
             data[0]['affiliation_1'] = "<none>"
             data[0]['source_system_1'] = "<nowhere>"
+            data[0]['last_date_1'] = "<none>"
         for i in range(1, len(affiliations)):
             data.append({'affiliation': affiliations[i],
-                         'source_system': sources[i]})
+                         'source_system': sources[i],
+                         'last_date': last_dates[i]})
         account = self.Account_class(self.db)
         account_ids = [int(r['account_id'])
                        for r in account.list_accounts_by_owner_id(person.entity_id)]
@@ -7522,6 +7533,20 @@ Addresses and settings:
                 data.append({'fnr': row['external_id'],
                              'fnr_src': str(
                     self.const.AuthoritativeSystem(row['source_system']))})
+
+            for row in person.get_external_id(id_type=self.const.externalid_studentnr):
+                data.append({'studentnr' : row['external_id'],
+                             'studentnr_src' : str(
+                    self.const.AuthoritativeSystem(row['source_system']))})
+            for row in person.get_external_id(id_type=self.const.externalid_hifm_ansattnr):
+                data.append({'Hif_ansattnr': row['external_id'],
+                             'ansattnr_src': str(
+                    self.const.AuthoritativeSystem(row['source_system']))})
+            for row in person.get_external_id(id_type=self.const.externalid_paga_ansattnr):
+                data.append({'uit_ansattnr': row['external_id'],
+                             'ansattnr_src': str(
+                    self.const.AuthoritativeSystem(row['source_system']))})
+
             # Show external id from FS and SAP
             for extid in ('externalid_sap_ansattnr',
                           'externalid_studentnr',
@@ -8709,9 +8734,15 @@ Addresses and settings:
         ret = []
         timedelta = "%s" % (DateTime.mxDateTime.now() -  DateTime.DateTimeDelta(7))
         timeperiod = timedelta.split(" ")
+
         for r in self.db.get_log_events(0, subject_entity=account.entity_id,sdate=timeperiod[0]):
             ret.append(self._format_changelog_entry(r))
-        return "\n".join(ret)
+        ret_val = ""
+        for item in ret:
+            ret_val +="\n"
+            for key,value in item.iteritems():
+                ret_val+="%s\t"  % str(value) 
+        return ret_val
 
     # user history
     all_commands['user_history'] = Command(
@@ -10030,7 +10061,7 @@ Password altered. Use misc list_password to print or view the new password.%s'''
             except Errors.NotFoundError:
                 return "deleted_disk:%s" % val
         elif format == 'date':
-            return val.date
+            return val
         elif format == 'timestamp':
             return str(val)
         elif format == 'entity':

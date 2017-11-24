@@ -1,3 +1,13 @@
+2017-11-24    <cerebrum@cleomedes.uit.no>
+
+	* bofhd_uit_cmds.py (BofhdExtension.user_history_filtered): this
+	function was unable to return a string on the right format. the
+	join() function did not work as intended on the list containing
+	all the dicts holding changelog info. rewrote the function to
+	return a single string as it should be
+	(BofhdExtension._format_from_cl): val does not have a .date
+	field. returning val instead
+
 2017-11-08    <cerebrum@cleomedes.uit.no>
 
 	* access_FS.py (studieprog_xml_parser): Added this function to
