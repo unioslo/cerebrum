@@ -200,16 +200,17 @@ PasswordVerification = api.model('PasswordVerification', {
 })
 
 
-@api.route('/<string:id>', endpoint='account')
-@api.doc(params={'id': 'Account name or ID'})
+@api.route('/<string:name>', endpoint='account')
+@api.doc(params={'name': 'account name'})
 class AccountResource(Resource):
     """Resource for a single account."""
+
     @api.marshal_with(Account)
     @api.response(404, 'Not Found')
     @auth.require()
-    def get(self, id):
+    def get(self, name):
         """Get account information."""
-        ac = find_account(id)
+        ac = find_account(name)
         try:
             primary_email = ac.get_primary_mailaddress()
         except Errors.NotFoundError:
@@ -229,15 +230,15 @@ class AccountResource(Resource):
         }
 
 
-@api.route('/<string:id>/posix', endpoint="posixaccount")
-@api.doc(params={'id': 'Account name or ID'})
+@api.route('/<string:name>/posix', endpoint="posixaccount")
+@api.doc(params={'name': 'account name'})
 class PosixAccountResource(Resource):
     """Resource for a single POSIX account."""
     @api.marshal_with(PosixAccount)
     @auth.require()
-    def get(self, id):
+    def get(self, name):
         """Get POSIX account information."""
-        ac = find_account(id)
+        ac = find_account(name)
 
         return {
             'name': ac.account_name,
@@ -253,8 +254,8 @@ class PosixAccountResource(Resource):
         }
 
 
-@api.route('/<string:id>/quarantines', endpoint='account-quarantines')
-@api.doc(params={'id': 'Account name or ID'})
+@api.route('/<string:name>/quarantines', endpoint='account-quarantines')
+@api.doc(params={'name': 'account name'})
 class AccountQuarantineListResource(Resource):
     """Quarantines for a single account."""
 
@@ -266,7 +267,7 @@ class AccountQuarantineListResource(Resource):
     @api.marshal_with(AccountQuarantineList)
     @api.doc(parser=account_quarantines_filter)
     @auth.require()
-    def get(self, id):
+    def get(self, name):
         """Get account quarantines."""
         args = self.account_quarantines_filter.parse_args()
 
@@ -278,7 +279,7 @@ class AccountQuarantineListResource(Resource):
                 abort(404, message=u'Unknown context {!r}'.format(
                     args.context))
 
-        ac = find_account(id)
+        ac = find_account(name)
 
         qh = QuarantineHandler.check_entity_quarantines(
             db=db.connection,
@@ -302,15 +303,16 @@ class AccountQuarantineListResource(Resource):
         }
 
 
-@api.route('/<string:id>/emailaddresses', endpoint='account-emailaddresses')
-@api.doc(params={'id': 'Account name or ID'})
+@api.route('/<string:name>/emailaddresses', endpoint='account-emailaddresses')
+@api.doc(params={'name': 'account name'})
 class AccountEmailAddressResource(Resource):
     """Resource for the email addresses of a single account."""
+
     @api.marshal_with(AccountEmailAddress)
     @auth.require()
-    def get(self, id):
+    def get(self, name):
         """Get the email addresses for an account."""
-        ac = find_account(id)
+        ac = find_account(name)
         addresses = emailaddress.list_email_addresses(
             ac.get_primary_mailaddress())
         return {
@@ -377,8 +379,8 @@ class AccountListResource(Resource):
         return {'accounts': accounts}
 
 
-@api.route('/<string:id>/groups')
-@api.doc(params={'id': 'Account name or ID'})
+@api.route('/<string:name>/groups')
+@api.doc(params={'name': 'account name'})
 class AccountGroupListResource(Resource):
     """Resource for account group memberships."""
 
@@ -397,9 +399,9 @@ class AccountGroupListResource(Resource):
     @api.marshal_with(group.GroupListItem, as_list=True, envelope='groups')
     @api.doc(parser=account_groups_filter)
     @auth.require()
-    def get(self, id):
+    def get(self, name):
         """List groups an account is a member of."""
-        ac = find_account(id)
+        ac = find_account(name)
         args = self.account_groups_filter.parse_args()
         filters = {key: value for (key, value) in args.items()
                    if value is not None}
@@ -419,28 +421,30 @@ class AccountGroupListResource(Resource):
         return groups
 
 
-@api.route('/<string:id>/contacts')
-@api.doc(params={'id': 'Account name or ID'})
+@api.route('/<string:name>/contacts')
+@api.doc(params={'name': 'account name'})
 class AccountContactInfoListResource(Resource):
     """Resource for account contact information."""
+
     @api.marshal_with(models.EntityContactInfoList)
     @auth.require()
-    def get(self, id):
+    def get(self, name):
         """Lists contact information for an account."""
-        ac = find_account(id)
+        ac = find_account(name)
         contacts = ac.get_contact_info()
         return {'contacts': contacts}
 
 
-@api.route('/<string:id>/affiliations')
-@api.doc(params={'id': 'Account name or ID'})
+@api.route('/<string:name>/affiliations')
+@api.doc(params={'name': 'account name'})
 class AccountAffiliationListResource(Resource):
     """Resource for account affiliations."""
+
     @api.marshal_with(AccountAffiliationList)
     @auth.require()
-    def get(self, id):
+    def get(self, name):
         """List affiliations for an account."""
-        ac = find_account(id)
+        ac = find_account(name)
 
         affiliations = list()
 
@@ -452,15 +456,16 @@ class AccountAffiliationListResource(Resource):
         return {'affiliations': affiliations}
 
 
-@api.route('/<string:id>/homes')
-@api.doc(params={'id': 'Account name or ID'})
+@api.route('/<string:name>/homes')
+@api.doc(params={'name': 'account name'})
 class AccountHomeListResource(Resource):
     """Resource for account home directories."""
+
     @api.marshal_with(AccountHomeList)
     @auth.require()
-    def get(self, id):
+    def get(self, name):
         """List home directories for an account."""
-        ac = find_account(id)
+        ac = find_account(name)
 
         homes = list()
 
@@ -475,18 +480,19 @@ class AccountHomeListResource(Resource):
         return {'homes': homes}
 
 
-@api.route('/<string:id>/password')
-@api.doc(params={'id': 'Account name or ID'})
+@api.route('/<string:name>/password')
+@api.doc(params={'name': 'account name'})
 class AccountPasswordResource(Resource):
     """Resource for account password change."""
+
     @db.autocommit
     @auth.require()
     @api.expect(PasswordChangePayload)
     @api.response(200, 'Password changed', PasswordChanged)
     @api.response(400, 'Invalid password')
-    def post(self, id):
+    def post(self, name):
         """Change the password for this account."""
-        ac = find_account(id)
+        ac = find_account(name)
         data = request.json
         plaintext = data.get('password', None)
         plaintext_unicode = None  # used for utf-8 conversion
@@ -528,17 +534,18 @@ class AccountPasswordResource(Resource):
         return {'password': plaintext_unicode.encode('utf-8')}
 
 
-@api.route('/<string:id>/password/verify')
-@api.doc(params={'id': 'Account name or ID'})
+@api.route('/<string:name>/password/verify')
+@api.doc(params={'name': 'account name'})
 class AccountPasswordVerifierResource(Resource):
     """Resource for account password verification."""
+
     @auth.require()
     @api.expect(PasswordPayload)
     @api.response(200, 'Password verification', PasswordVerification)
     @api.response(400, 'Password missing or contains unsupported characters')
-    def post(self, id):
+    def post(self, name):
         """Verify the password for this account."""
-        ac = find_account(id)
+        ac = find_account(name)
         data = request.json
         plaintext = data.get('password', None)
         if plaintext is None:
@@ -567,17 +574,18 @@ class AccountPasswordVerifierResource(Resource):
         return {'verified': verified}
 
 
-@api.route('/<string:id>/password/check')
-@api.doc(params={'id': 'Account name or ID'})
+@api.route('/<string:name>/password/check')
+@api.doc(params={'name': 'account name'})
 class AccountPasswordCheckerResource(Resource):
     """Resource for account password checking."""
+
     @auth.require()
     @api.expect(PasswordPayload)
     @api.response(200, 'Password check result')
     @api.response(400, 'Password missing or contains unsupported characters')
-    def post(self, id):
+    def post(self, name):
         """Check if a password is valid according to rules."""
-        ac = find_account(id)
+        ac = find_account(name)
         data = request.json
         plaintext = data.get('password', None)
         if plaintext is None:
@@ -606,16 +614,17 @@ class AccountPasswordCheckerResource(Resource):
                               structured=True)
 
 
-@api.route('/<string:id>/gpg/<string:tag>/<string:key_id>/latest', doc=False)
-@api.doc(params={'id': 'Account name or ID',
+@api.route('/<string:name>/gpg/<string:tag>/<string:key_id>/latest', doc=False)
+@api.doc(params={'name': 'account name',
                  'tag': 'GPG data tag',
                  'key_id': 'Public key fingerprint (40-bit)'})
 class AccountGPGResource(Resource):
     """Resource for GPG data for accounts."""
+
     @auth.require()
-    def get(self, id, tag, key_id):
+    def get(self, name, tag, key_id):
         """Get latest GPG data for an account."""
-        ac = find_account(id)
+        ac = find_account(name)
         gpg_data = ac.search_gpg_data(entity_id=ac.entity_id,
                                       tag=tag,
                                       recipient=key_id,
@@ -628,13 +637,14 @@ class AccountGPGResource(Resource):
         return response
 
 
-@api.route('/<string:id>/traits', doc=False)
-@api.doc(params={'id': 'Account name or ID'})
+@api.route('/<string:name>/traits', doc=False)
+@api.doc(params={'name': 'account name'})
 class AccountTraitResource(Resource):
     """Resource for account traits."""
+
     @auth.require()
     @api.marshal_with(models.EntityTrait, as_list=True, envelope='traits')
-    def get(self, id):
-        ac = find_account(id)
+    def get(self, name):
+        ac = find_account(name)
         traits = ac.get_traits()
         return traits.values()
