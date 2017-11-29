@@ -741,17 +741,15 @@ class BofhdVoipCommands(BofhdCommonMethods):
             sip_enabled = self._get_boolean(sip_enabled)
 
         # Does that mac_address point to something?
-        client = None
         try:
-            client = self._get_voip_client(mac_address)
+            self._get_voip_client(mac_address)
         except CerebrumError:
             pass
-        # Nasty, as _get_voip_client raises CerebrumError, we can't
+        else:
+        # As _get_voip_client raises CerebrumError, we can't
         # just raise that in the try clause.
-        finally:
-            if client:
-                raise CerebrumError("Mac address %s is already bound to a "
-                                    "voip_client." % str(mac_address))
+            raise CerebrumError("Mac address %s is already bound to a "
+                                "voip_client." % str(mac_address))
 
         # Check that info/type_code make sense...
         ct = self._get_constant(client_type, self.const.VoipClientTypeCode)
