@@ -102,11 +102,11 @@ class AddressType(object):
     """ Address type translation. """
 
     _map = {
-        'POST': 'postal_address',
-        'OTHER_POST': 'other_postal_address',
-        'PRIVPOST': 'private_postal_address',
-        'STREET': 'visiting_address',
-        'OTHER_STREET': 'other_visiting_address'
+        'POST': 'postalAddress',
+        'OTHER_POST': 'otherPostalAddress',
+        'PRIVPOST': 'privatePostalAddress',
+        'STREET': 'visitingAddress',
+        'OTHER_STREET': 'otherVisitingAddress'
     }
 
     _rev_map = dict((v, k) for k, v in _map.iteritems())
