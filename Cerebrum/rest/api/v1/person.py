@@ -62,6 +62,8 @@ PersonAccount = api.model('PersonAccount', {
     'href': fields.href('.account'),
     'id': fields.base.String(
         description='Account ID'),
+    'name': fields.base.String(
+        description='Account name'),
     'primary': fields.base.Boolean(
         description='Is this a primary account?'),
 })
@@ -199,7 +201,10 @@ class PersonAccountListResource(Resource):
             account_name = utils.get_entity_name(row['account_id'])
             accounts.append({
                 'href': url_for('.account', id=account_name),
+                # TODO: Make the 'id' field contain the actual ID!
                 'id': account_name,
+                # 'id': row['account_id'],
+                'name': account_name,
                 'primary': (row['account_id'] == primary_account_id),
             })
 
