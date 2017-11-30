@@ -27,3 +27,5 @@ flask-restplus
 gunicorn
 celery
 statsd>=3.2.1
+pytz
+aniso8601

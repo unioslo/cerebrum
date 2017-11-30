@@ -75,6 +75,7 @@ class ExternalIdType(object):
     def valid_types(cls):
         return cls._rev_map.keys()
 
+
 # Model for data from entity.get_external_id()
 EntityExternalId = api.model('EntityExternalId', {
     'external_id': fields.base.String(
@@ -94,17 +95,19 @@ EntityQuarantine = api.model('EntityQuarantine', {
     'type': fields.Constant(
         ctype='Quarantine',
         description='Type of quarantine'),
-    # 'description': fields.base.String(
-    #     description='Description of quarantine'),
+    'comment': fields.base.String(
+        description='Reason of quarantine'),
     'start': fields.DateTime(
         dt_format='iso8601',
         description='Quarantine start date'),
     'end': fields.DateTime(
         dt_format='iso8601',
         description='Quarantine end date'),
-    # 'disable_until': fields.DateTime(
-    #     dt_format='iso8601',
-    #     description='Quarantine disabled until'),
+    'disable_until': fields.DateTime(
+        dt_format='iso8601',
+        description='Quarantine disabled until'),
+    'active': fields.base.Boolean(
+        description='Quarantine currently active'),
 })
 
 

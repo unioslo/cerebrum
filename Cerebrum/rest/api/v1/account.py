@@ -22,6 +22,8 @@
 from flask import make_response, request
 from flask_restplus import Namespace, Resource, abort
 
+import mx.DateTime
+
 from Cerebrum.rest.api import db, auth, fields, utils
 from Cerebrum.rest.api.v1 import group
 from Cerebrum.rest.api.v1 import models
@@ -29,6 +31,7 @@ from Cerebrum.rest.api.v1 import emailaddress
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import date
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough)
@@ -121,7 +124,7 @@ AccountQuarantineList = api.model('AccountQuarantineList', {
     'quarantines': fields.base.List(
         fields.base.Nested(models.EntityQuarantine),
         description='List of quarantines'),
-    })
+})
 
 AccountEmailAddress = api.model('AccountEmailAddress', {
     'primary': fields.base.String(
@@ -254,6 +257,35 @@ class PosixAccountResource(Resource):
         }
 
 
+def _in_range(date, start=None, end=None):
+    if start and date < start:
+        return False
+    if end and end < date:
+        return False
+    return True
+
+
+def _format_quarantine(q):
+    """ Format a quarantine db_row for models.EntityQuarantine. """
+
+    def _tz_aware(dt):
+        if dt is None:
+            return None
+        return date.mx2datetime(dt)
+
+    return {
+        'type': q['quarantine_type'],
+        'start': _tz_aware(q['start_date']),
+        'end': _tz_aware(q['end_date']),
+        'disable_until': _tz_aware(q['disable_until']),
+        'comment': q['description'] or None,
+        'active': _in_range(
+            mx.DateTime.now(),
+            start=(q['disable_until'] or q['start_date']),
+            end=q['end_date']),
+    }
+
+
 @api.route('/<string:name>/quarantines', endpoint='account-quarantines')
 @api.doc(params={'name': 'account name'})
 class AccountQuarantineListResource(Resource):
@@ -287,20 +319,164 @@ class AccountQuarantineListResource(Resource):
             spreads=spreads)
         locked = qh.is_locked()
 
+        # TODO: Replace with list of hrefs to quarantines resource?
         quarantines = []
         for q in ac.get_entity_quarantine(only_active=True):
-            quarantines.append({
-                'type': q['quarantine_type'],
-                # 'description': q['description'],
-                'end': q['end_date'],
-                'start': q['start_date'],
-                # 'disable_until': q['disable_until'],
-            })
+            quarantines.append(_format_quarantine(q))
 
         return {
             'locked': locked,
             'quarantines': quarantines
         }
+
+
+@api.route('/<string:name>/quarantines/<string:quarantine>',
+           endpoint='account-quarantines-items')
+@api.doc(params={'name': 'account name',
+                 'quarantine': 'quarantine type'},)
+class AccountQuarantineItemResource(Resource):
+    """Quarantine for a single account."""
+
+    def get_qtype(self, value):
+        # TODO: If not str/bytes, constants will try to look up the constant
+        # using 'code = value'
+        c = db.const.Quarantine(bytes(value))
+        try:
+            int(c)
+        except Errors.NotFoundError:
+            # TODO: Or should this be 404 as well?
+            #       doesn't make sense to have 404 on this when using PUT
+            abort(400, message="quarantine type does not exist")
+        return c
+
+    # GET /<account>/quarantines/<quarantine>
+    #
+    @api.marshal_with(models.EntityQuarantine)
+    @api.response(400, 'invalid quarantine type')
+    @api.response(404, 'account or quarantine not found')
+    @auth.require()
+    def get(self, name, quarantine):
+        """Get account quarantines."""
+        ac = find_account(name)
+        qtype = self.get_qtype(quarantine)
+
+        q = ac.get_entity_quarantine(
+            qtype,
+            only_active=False,
+            ignore_disable_until=False,
+            filter_disable_until=False)
+
+        if len(q) == 0:
+            abort(404, message="quarantine not set")
+        elif len(q) == 1:
+            q = q[0]
+        else:
+            raise Exception("more than one quarantine of a given type?")
+
+        return _format_quarantine(q)
+
+    # PUT /<account>/quarantines/<quarantine>
+    #
+    quarantine_parser = api.parser()
+    quarantine_parser.add_argument(
+        'start',
+        type=lambda v, k, s: date.parse(v),
+        required=True,
+        nullable=False,
+        help='when the quarantine should take effect (ISO8601 datetime)')
+    quarantine_parser.add_argument(
+        'end',
+        type=lambda v, k, s: date.parse(v),
+        nullable=True,
+        help='if/when the quarantine should end (ISO8601 datetime)')
+    quarantine_parser.add_argument(
+        'disable_until',
+        type=lambda v, k, s: date.parse(v),
+        nullable=True,
+        help='if/when the quarantine should really start (ISO8601 datetime)')
+    quarantine_parser.add_argument(
+        'comment',
+        nullable=True,
+        help='{error_msg}')
+
+    @api.expect(quarantine_parser)
+    @api.response(200, 'quarantine updated')
+    @api.response(201, 'quarantine added')
+    @api.response(400, 'invalid quarantine type')
+    @api.response(404, 'account not found')
+    @api.marshal_with(models.EntityQuarantine)
+    @db.autocommit
+    @auth.require()
+    def put(self, name, quarantine):
+        """ Add quarantine on account.
+
+        Note that all datetime inputs are stripped of time info, and turned
+        into dates (in local time). E.g.
+
+        - 2017-01-01T00+08 -> 2016-12-31T17+01 -> 2016-12-31
+
+        """
+        ac = find_account(name)
+        qtype = self.get_qtype(quarantine)
+        args = self.quarantine_parser.parse_args()
+
+        if args['end'] and args['end'] < args['start']:
+            raise ValueError("end date before start date")
+
+        is_update = bool(ac.get_entity_quarantine(
+            qtype,
+            only_active=False,
+            ignore_disable_until=False,
+            filter_disable_until=False))
+
+        if is_update:
+            # TODO: Implement an actual update?
+            ac.delete_entity_quarantine(qtype)
+
+        ac.add_entity_quarantine(
+            qtype,
+            auth.account.entity_id,
+            description=args['comment'],
+            start=args['start'],
+            end=args['end'])
+
+        if args['disable_until']:
+            if not _in_range(args['disable_until'],
+                             start=args['start'],
+                             end=args['end']):
+                raise ValueError("invalid disable_until date")
+            ac.disable_entity_quarantine(qtype, args['disable_until'])
+
+        return (
+            _format_quarantine(
+                ac.get_entity_quarantine(
+                    qtype,
+                    only_active=False,
+                    ignore_disable_until=False,
+                    filter_disable_until=False)[0]),
+            200 if is_update else 201)
+
+    # DELETE /<account>/quarantines/<quarantine>
+    #
+    @api.response(204, 'quarantine removed')
+    @api.response(400, 'invalid quarantine type')
+    @api.response(404, 'account or quarantine not found')
+    @db.autocommit
+    @auth.require()
+    def delete(self, name, quarantine):
+        """ Remove quarantine from account. """
+        ac = find_account(name)
+        qtype = self.get_qtype(quarantine)
+
+        if not ac.get_entity_quarantine(
+                qtype,
+                only_active=False,
+                ignore_disable_until=False,
+                filter_disable_until=False):
+            abort(404, message='quarantine not found')
+
+        ac.delete_entity_quarantine(qtype)
+        return None, 204
 
 
 @api.route('/<string:name>/emailaddresses', endpoint='account-emailaddresses')
