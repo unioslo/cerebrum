@@ -100,6 +100,64 @@ PersonAccountList = api.model('PersonAccountList', {
 })
 
 
+class AddressType(object):
+    """ Address type translation. """
+
+    _map = {
+        'POST': 'postalAddress',
+        'OTHER_POST': 'otherPostalAddress',
+        'PRIVPOST': 'privatePostalAddress',
+        'STREET': 'visitingAddress',
+        'OTHER_STREET': 'otherVisitingAddress'
+    }
+
+    _rev_map = dict((v, k) for k, v in _map.iteritems())
+
+    @classmethod
+    def serialize(cls, strval):
+        return cls._map[strval]
+
+    @classmethod
+    def unserialize(cls, input_):
+        return db.const.Address(cls._rev_map[input_.lower()])
+
+
+PersonAddress = api.model('PersonAddress', {
+    'id': fields.base.Integer(
+        default=None,
+        description='Person entity ID'),
+    'source_system': fields.Constant(
+        ctype='AuthoritativeSystem',
+        description='Source system'),
+    'address_type': fields.Constant(
+        ctype='Address',
+        description='Address type',
+        transform=AddressType.serialize
+    ),
+    'address_text': fields.base.String(
+        default=None,
+        description='Address text'
+    ),
+    'p_o_box': fields.base.String(
+        default=None,
+        description='Postal box'
+    ),
+    'postal_number': fields.base.String(
+        default=None,
+        description='Postal number'
+    ),
+    'city': fields.base.String(
+        default=None,
+        description='City'
+    ),
+    'country': fields.base.String(
+        default=None,
+        description='Country'
+    ),
+
+})
+
+
 @api.route('/<int:id>', endpoint='person')
 @api.doc(params={'id': 'Person entity ID'})
 class PersonResource(Resource):
@@ -243,3 +301,22 @@ class PersonConsentListResource(Resource):
                 'expires': None,
             })
         return consents
+
+
+@api.route('/<int:id>/addresses', endpoint='person-addresses')
+@api.doc(params={'id': 'Person entity ID'})
+class PersonAddressListResource(Resource):
+    """Resource for person addresses."""
+    @auth.require()
+    @api.marshal_list_with(PersonAddress)
+    def get(self, id):
+        """Get the accounts of a person."""
+        pe = find_person(id)
+        addrs = pe.get_entity_address()
+        data = []
+        for addr in addrs:
+            addr_dict = addr.dict()
+            addr_dict['id'] = addr_dict['entity_id']
+            del addr_dict['entity_id']
+            data.append(addr_dict)
+        return data
