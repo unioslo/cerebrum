@@ -50,11 +50,6 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.Email import EmailDomain,EmailAddress
 
-# kbj005/H2016
-# Temporary addition to use while running old and new Cerebrum in parallel.
-# TODO: revert/remove all things "labelled" with kbj005/H2016 when we no longer need this.
-from Cerebrum.modules.no.uit.account_bridge import AccountBridge
-# kbj005/H2016
 
 #initialise Cerebrum objects
 db = Factory.get('Database')()
@@ -128,27 +123,9 @@ def is_cnaddr_free_old(local_part,domain_part):
     return True
     
 
-# kbj005/H2016
-# Temporary addition to use while running old and new Cerebrum in parallel.
-# TODO: revert/remove all things "labelled" with kbj005/H2016 when we no longer need this.
-def get_cn_addr_tmp(username):
-    with AccountBridge() as bridge:
-        email = bridge.get_email(username)
-    if email == None:
-        logger.warn("Cannot add email for sito account %s. Couldn't find email for this account in Caesar database." % username)
-        return None, None
-
-    split_email = email.split('@')
-    em_addr = split_email[0]
-    dom_part = split_email[1]
-    return (em_addr, dom_part)
-# kbj005/H2016
 
 
 def get_cn_addr(username,domain):
-# kbj005/H2016
-    return get_cn_addr_tmp(username)
-# kbj005/H2016
 
     dom_part=domain
     
@@ -162,23 +139,6 @@ def get_cn_addr(username,domain):
     else:
         logger.error("NOT IMPLEMENTET. Using more than first suggested emailaddr")
     return None,dom_part
-
-
-# kbj005/H2016
-# Temporary addition to use while running old and new Cerebrum in parallel.
-# TODO: revert/remove all things "labelled" with kbj005/H2016 when we no longer need this.
-# Returns a list of tuples of uname and domain_name (e.g.: [('karina', 'driv.no'), ('karina', 'sito.no')])
-def get_email_aliases_tmp(username):
-    aliases = list()
-    with AccountBridge() as bridge:
-        email_aliases = bridge.get_email_aliases(username)
-        for email in email_aliases:
-            split_email = email.split('@')
-            em_addr = split_email[0]
-            dom_part = split_email[1]
-            aliases.append((em_addr, dom_part))
-    return aliases
-# kbj005/H2016
 
 
 def process_mail():
@@ -251,12 +211,6 @@ def process_mail():
                 logger.debug("Will use %s for %s"  % (cn_addr,uname))
                 all_emails.setdefault(account_id,list()).append(cn_addr)
                 sito_addresses_new.append(cn_addr)
-
-# kbj005/H2016
-                # Add email aliases
-                email_aliases = get_email_aliases_tmp(uname)
-                all_emails.setdefault(account_id,list()).extend(email_aliases)
-# kbj005/H2016
             else:
                 logger.error("Got NOADRESS for %s, check logs" %(uname,))
 
@@ -264,22 +218,9 @@ def process_mail():
     # update all email addresses
     logger.debug("Ready to update %s sito addresses" % (len(all_emails)))
     for acc_id,emaillist in all_emails.iteritems():
-
-# kbj005/H2016
-        cnt = 0
-# kbj005/H2016
-
         for addr in emaillist:
             #TBD: is_primary always set to True?   
             is_primary=True
-
-# kbj005/H2016
-            # if there is more than one email for this account only the first is primary
-            if cnt > 0:
-                is_primary = False
-            cnt += 1
-# kbj005/H2016
-
             addr="@".join((addr[0],addr[1]))
             logger.info("Set mailaddr: %s/%s, primary=%s" % (acc_id,addr,is_primary))
             em.process_mail(acc_id,addr, is_primary=is_primary)

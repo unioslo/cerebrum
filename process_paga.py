@@ -61,12 +61,6 @@ from Cerebrum.modules.xmlutils import GeneralXMLParser
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 from mx.DateTime import now
 
-# kaj000/H2016
-# Temporary addition to use while running old and new Cerebrum in parallel.
-# TODO: revert/remove all things "labelled" with kaj000/H2016 when we no longer need this.
-from Cerebrum.modules.no.uit.account_bridge import AccountBridge
-# kaj000/H2016
-
 #init variables
 db = Factory.get('Database')()
 db.cl_init(change_program=progname)
@@ -479,9 +473,6 @@ def _promote_posix(acc_obj):
 
 
 def create_employee_account(fnr):
-# kaj000/H2016
-    return create_employee_account_tmp(fnr)
-# kaj000/H2016
     owner=persons.get(fnr)
     if not owner:
         logger.error("Cannot create account to person %s, not from paga" % fnr)
@@ -518,67 +509,6 @@ def create_employee_account(fnr):
     accounts[acc_obj.entity_id]=ExistingAccount(fnr, uname, None)
     return acc_obj.entity_id
 
-# kaj000/H2016
-# Temporary addition to use while running old and new Cerebrum in parallel.
-# TODO: revert/remove all things "labelled" with kbj005/H2016 when we no longer need this.
-def create_employee_account_tmp(fnr):
-
-    owner=persons.get(fnr)
-    if not owner:
-        logger.error("Cannot create account to person %s, not from paga" % fnr)
-        return None
-
-    p_obj=Factory.get('Person')(db)
-    p_obj.find(owner.get_personid())
-    
-    first_name=p_obj.get_name(const.system_cached, const.name_first)
-    last_name=p_obj.get_name(const.system_cached, const.name_last)    
-
-    acc_obj = Factory.get('Account')(db)    
-    #uname = acc_obj.suggest_unames(fnr, first_name, last_name)[0]
-    with AccountBridge() as bridge:
-        uname = bridge.get_uname(fnr)
-    if uname == None:
-          # This account isn't in old Cerebrum yet, ignore it for now
-        logger.warn("Cannot create account for %s. Couldn't find uname for this account in Caesar database." % fnr)
-        return -1
-    else:
-        logger.warn("KB, uname from Caesar: %s" % uname)
-        
-        # Sanity check. Is username already used in new cerebrum?
-        validate_uname = acc_obj.validate_new_uname(const.account_namespace,uname)
-        logger.warn("username %s is validated to:%s" % (uname,validate_uname))
-        if validate_uname == False:
-            return -1
-    acc_obj.populate(uname,
-                     const.entity_person,
-                     p_obj.entity_id,
-                     None,
-                     get_creator_id(), 
-                     get_expire_date())
-    
-    try:
-        acc_obj.write_db()
-    except Exception,m:
-        logger.error("Failed create for %s, uname=%s, reason: %s" % \
-            (fnr, uname, m))
-    else:
-        #password = acc_obj.make_passwd(uname)
-        #acc_obj.set_password(password)
-        with AccountBridge() as bridge:
-            auth_data = bridge.get_auth_data(uname)
-        if auth_data == None:
-            # This account isn't in old Cerebrum yet, ignore it for now
-            logger.warn("Cannot create employee account for %s. Couldn't find auth_data for this account in Caesar database." % fnr)
-            return -1
-        acc_obj.set_auth_data(auth_data)
-        tmp = acc_obj.write_db()
-        logger.debug("Created account %s(%s), write_db=%s" % \
-                     (uname,acc_obj.entity_id,tmp))
-    #register new account obj in existing accounts list
-    accounts[acc_obj.entity_id]=ExistingAccount(fnr, uname, None)
-    return acc_obj.entity_id
-# kaj000/H2016
 
 def _handle_changes(a_id,changes):
         
@@ -703,13 +633,6 @@ class Build:
         if not p_obj.has_account():
             logger.warn("fnr: %s does not have an account" % fnr)
             acc_id=create_employee_account(fnr)
-
-            # kaj000/H2016
-            if acc_id == -1:
-                # uname as not found in old Cerebrum, must ignore this person for now
-                logger.warn("Unable to find account on old cerebrum for person:%s. (or the username was already taken by someone else)" % fnr)
-                return None
-            # kaj000/H2016
         else:
             acc_id=p_obj.get_primary_account()
         acc_obj=accounts[acc_id]

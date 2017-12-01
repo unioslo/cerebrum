@@ -51,12 +51,6 @@ from Cerebrum.modules.no.uit import OU
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 from pprint import pprint
 
-# kbj005/H2016
-# Temporary addition to use while running old and new Cerebrum in parallel.
-# TODO: revert/remove all things "labelled" with kbj005/H2016 when we no longer need this.
-from Cerebrum.modules.no.uit.account_bridge import AccountBridge
-# kbj005/H2016
-
 accounts=persons=logger=None
 sito=None
 skipped=added=updated=unchanged=deletedaff=0
@@ -500,11 +494,6 @@ class Build:
             acc_id=create_sito_account(fnr)
             #logger.debug("person does not have an account. create one")
             
-            # kbj005/H2016
-            if acc_id == -1:
-                # uname was not found in old Cerebrum, must ignore this person for now
-                return None
-            # kbj005/H2016
         else:
             # person has account(s)
             sito_account = 0
@@ -540,12 +529,6 @@ class Build:
             elif(sito_account == 0):
                 logger.debug("Person:%s does not have account with sitø affiliation. Create new sitø account" % p_obj._personid)
                 acc_id = create_sito_account(fnr)
-
-                # kbj005/H2016
-                if acc_id == -1:
-                    # uname was not found in old Cerebrum, must ignore this person for now
-                    return None
-                # kbj005/H2016
         
         #acc_id=p_obj.get_primary_account()
 
@@ -619,78 +602,9 @@ class Build:
             _handle_changes(acc_id,changes)
 
 
-# kbj005/H2016
-# Temporary addition to use while running old and new Cerebrum in parallel.
-# TODO: revert/remove all things "labelled" with kbj005/H2016 when we no longer need this.
-def create_sito_account_tmp(fnr):
-    
-    owner=persons.get(fnr)
-    if not owner:
-        logger.error("Cannot create account to person %s, not from sito" % fnr)
-        return None
-
-    p_obj=Factory.get('Person')(db)
-    p_obj.find(owner.get_personid())
-    
-    first_name=p_obj.get_name(co.system_cached, co.name_first)
-    last_name=p_obj.get_name(co.system_cached, co.name_last)    
-
-    acc_obj = Factory.get('Account')(db)
-
-    with AccountBridge() as bridge:
-        uname = bridge.get_sito_uname(fnr)
-    if uname == None:
-        # This account isn't in old Cerebrum yet, ignore it for now
-        logger.warn("Cannot create sito account for %s. Couldn't find uname for this account in Caesar database." % fnr)
-        return -1
-    else:
-        logger.warn("KB, uname from Caesar: %s" % uname)
-
-        # Sanity check. Is username already used in new cerebrum?
-        validate_uname = acc_obj.validate_new_uname(co.account_namespace, uname)
-        if validate_uname == False:
-            logger.warn("Cannot create account for %s. Username is already used in Clavius database." % fnr)
-            return -1
-
-    acc_obj.populate(uname,
-                     co.entity_person,
-                     p_obj.entity_id,
-                     None,
-                     get_creator_id(), 
-                     get_expire_date())
-    
-    try:
-        acc_obj.write_db()
-    except Exception,m:
-        logger.error("Failed create for %s, uname=%s, reason: %s" % \
-            (fnr, uname, m))
-    else:
-        with AccountBridge() as bridge:
-            auth_data = bridge.get_auth_data(uname)
-        if auth_data == None:
-            # This account isn't in old Cerebrum yet, ignore it for now
-            logger.warn("Cannot create sito account for %s. Couldn't find auth_data for this account in Caesar database." % fnr)
-            return -1
-        acc_obj.set_auth_data(auth_data)
-
-    tmp = acc_obj.write_db()
-    logger.debug("Created account %s(%s), write_db=%s" % \
-            (uname,acc_obj.entity_id,tmp))
-
-    #if(Quarantine == co.quarantine_sito):
-    #    acc_obj.add_entity_quarantine(co.quarantine_sito,get_creator_id())
-    #    logger.info("adding sito quarantine for account:%s" % acc_obj.entity_id)
-    #register new account obj in existing accounts list
-    accounts[acc_obj.entity_id]=ExistingAccount(fnr, uname, None)
-
-    return acc_obj.entity_id
-# kbj005/H2016
 
 
 def create_sito_account(fnr):
-# kbj005/H2016
-    return create_sito_account_tmp(fnr)
-# kbj005/H2016
     
     owner=persons.get(fnr)
     if not owner:

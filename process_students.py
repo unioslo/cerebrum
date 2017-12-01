@@ -47,11 +47,6 @@ from Cerebrum.modules.no.uit import DiskQuota
 from Cerebrum.modules.no.uit import PrinterQuotas
 from Cerebrum.modules.templates.letters import TemplateHandler
 
-# kbj005/H2016
-# Temporary addition to use while running old and new Cerebrum in parallel.
-# TODO: revert/remove all things "labelled" with kbj005/H2016 when we no longer need this.
-from Cerebrum.modules.no.uit.account_bridge import AccountBridge
-# kbj005/H2016
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_students')
@@ -108,44 +103,9 @@ class AccountUtil(object):
     """Collection of methods that operate on a single account to make
     it conform to a profile """
 
-# kbj005/H2016
-# Temporary addition to use while running old and new Cerebrum in parallel.
-# TODO: revert/remove all things "labelled" with kbj005/H2016 when we no longer need this.
-    def restore_uname_tmp(account_id, profile):
-        logger.info("RESTORE")
-        account = Factory.get('Account')(db)
-        account.find(account_id)
 
-        homes = account.get_homes()
-
-        for h in homes:
-            disk_quota_obj.clear(h['homedir_id'])
-            account.clear_home(h['spread'])
-        account.expire_date = None
-
-        with AccountBridge() as bridge:
-            auth_data = bridge.get_auth_data(account.account_name)
-        if auth_data == None:
-            # This account isn't in old Cerebrum yet, ignore it for now
-            logger.warn("Cannot refresh password for %s. Couldn't find auth_data for this account in Caesar database." % account.account_name)
-            return
-        account.set_auth_data(auth_data)
-        logger.debug("refreshing password for %s" % account.account_name)
-        account.write_db()
-        
-        account.populate_trait(code=const.trait_student_new, date=now())
-        account.write_db()
-        password = 'Password collected from Caesar. Not available here.'
-        all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
-    restore_uname_tmp=staticmethod(restore_uname_tmp)
-# kbj005/H2016
 
     def restore_uname(account_id, profile):
-# kbj005/H2016
-        AccountUtil.restore_uname_tmp(account_id, profile)
-        return
-# kbj005/H2016
-
         logger.info("RESTORE")
         account = Factory.get('Account')(db)
         account.find(account_id)
@@ -165,88 +125,8 @@ class AccountUtil(object):
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
     restore_uname=staticmethod(restore_uname)
 
-# kbj005/H2016
-# Temporary addition to use while running old and new Cerebrum in parallel.
-# TODO: revert/remove all things "labelled" with kbj005/H2016 when we no longer need this.
-    def create_user_tmp(fnr, profile):
-        # dryrunning this method is unfortunately a bit tricky
-        assert not dryrun
-        uname = None
-        logger.info("CREATE")
-        person = Factory.get('Person')(db)
-        try:
-            person.find_by_external_id(const.externalid_fodselsnr, fnr,
-                                       const.system_fs)
-        except Errors.NotFoundError:
-            logger.warn("OUCH! person %s not found" % fnr)
-            return None
-
-        account = Factory.get('Account')(db)
-
-        if not persons[fnr].get_affiliations():
-            logger.error("The person %s has no student affiliations" % fnr)
-            return None
-
-        with AccountBridge() as bridge:
-            uname = bridge.get_uit_uname(fnr)
-        if uname == None:
-            # This account isn't in old Cerebrum yet, ignore it for now
-            logger.warn("Cannot create account for %s. Couldn't find uname for this account in Caesar database." % fnr)
-            return None
-        else:
-            logger.warn("KB, uname from Caesar: %s" % uname)
-
-            # Sanity check. Is username already used in new cerebrum?
-            validate_uname = account.validate_new_uname(const.account_namespace, uname)
-            if validate_uname == False:
-                logger.warn("Cannot create account for %s. Username is already used in Clavius database." % fnr)
-                return None
-
-        logger.info("uname %s will be used", uname)
-        account.populate(uname,
-                         const.entity_person,
-                         person.entity_id,
-                         None,
-                         default_creator_id, default_expire_date)
-        try:
-            tmp = account.write_db()
-            logger.debug("new Account, write_db=%s" % tmp)
-        except Exception,m:
-            logger.error("Failed create for %s, uname=%s, reason: %s" % \
-                (fnr, uname, m))
-        else:
-            with AccountBridge() as bridge:
-                auth_data = bridge.get_auth_data(uname)
-            if auth_data == None:
-                # This account isn't in old Cerebrum yet, ignore it for now
-                logger.warn("Cannot create account for %s. Couldn't find auth_data for this account in Caesar database." % fnr)
-                return None
-            account.set_auth_data(auth_data)
-
-
-        tmp = account.write_db()
-        logger.debug("Created account %s(%s), write_db=%s" % (uname,account.entity_id,tmp))
-
-        account.populate_trait(code=const.trait_student_new, date=now())
-        account.write_db()
-
-        password = 'Password collected from Caesar, so not available here.'
-        all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
-        as_posix = False
-        for spread in profile.get_spreads():
-            if int(spread) in posix_spreads:
-                as_posix = True
-        accounts[int(account.entity_id)] = ExistingAccount(fnr, None)
-        AccountUtil.update_account(account.entity_id, fnr, profile, as_posix)
-        return account.entity_id
-    create_user_tmp=staticmethod(create_user_tmp)
-# kbj005/H2016
 
     def create_user(fnr, profile):
-# kbj005/H2016
-        return AccountUtil.create_user_tmp(fnr, profile)
-# kbj005/H2016
-
         # dryruning this method is unfortunately a bit tricky
         assert not dryrun
         uname = None
@@ -837,8 +717,9 @@ class BuildAccounts(object):
             if (create_users and not pinfo.has_student_ac() and
                 profile.get_build()['action']):
                 if pinfo.has_other_ac():
-                    logger.debug("Has active non-student account, skipping")
-                    return
+                    logger.debug("Has active non-student account, lets update the account information")
+                    BuildAccounts._update_persons_accounts(profile, fnr, [pinfo._other_ac[0]])
+                    #return
                 elif pinfo.has_reserved_ac():  # has a reserved account
                     logger.debug("using reserved: %s" % pinfo.get_best_reserved_ac())
                     BuildAccounts._update_persons_accounts(
@@ -1191,9 +1072,34 @@ def get_existing_accounts():
     tmp_ac = {}
  
 
-    for row in account_obj.list(filter_expired=False, fetchall=False):
+   
+
+    #
+    # This is really ugly, but:
+    # we need to remove all sito accounts from the account_list that process_student creates. These accounts are not to be processed at all, not even added to the list of "other_accounts"
+    # The problem is that these sito accounts may have lost their sito spread and affiliation(account type) and the ONLY way to make 100% sure that these accounts are skipped is to look
+    # at their username. its on the form "aaa111s" with the trailing 's' indicating its a sito account. As such.. we need to get the account name, and remove the account from the tmp_ac list 
+    # if it is 7 characters long and ends with an 's'. To avoid creating an account object everytime we need to get the account names,we will use search instead of account.list(). 
+    # this entire problem could have been avoided if sito had their own cerebrum instance..
+    # 
+
+    # for row in account_obj.list(filter_expired=False, fetchall=False):
+    #     if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
+    #         logger.info("skipping accounts for owner id:%s" % row['owner_id'] )
+    #         continue
+    #     tmp_ac[int(row['account_id'])] = ExistingAccount(pid2fnr[int(row['owner_id'])],
+    #                                                      row['expire_date'])
+    #     logger.info("adding account:%s to tmp_ac" % int(row['owner_id']))
+
+    for row in account_obj.search(expire_start=None):
         if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
-            logger.info("skipping accounts for owner id:%s" % row['owner_id'] )
+            continue
+        if row['name'].endswith("999"):
+            logger.debug("we do not want to process admin account:%s" % (row['name']))
+            continue
+        if (row['name'].endswith(cereconf.USERNAME_POSTFIX['sito'])):
+            # we only want to process uit accounts
+            logger.debug("account name:%s is a sito account, do not add to list" % row['name'])
             continue
         tmp_ac[int(row['account_id'])] = ExistingAccount(pid2fnr[int(row['owner_id'])],
                                                          row['expire_date'])
@@ -1231,7 +1137,7 @@ def get_existing_accounts():
     # also collect accounts with sito spread. the spread code for these accounts
     # will be used later on, to filter these accounts out when looking for existing accounts
     spread_list = autostud.pc.spread_defs
-    spread_list.append(const.spread_sito)
+    #spread_list.append(const.spread_sito)
     for spread_id in autostud.pc.spread_defs:
         spread = const.Spread(spread_id)
         if spread.entity_type == const.entity_account:
@@ -1319,11 +1225,8 @@ def get_existing_accounts():
         #get_fnr = tmp.get_fnr()
         get_spreads = tmp.get_spreads()
         logger.debug(pformat(tmp))        
-        # do not process accounts with sito spread
-        if const.spread_sito in get_spreads:
-            logger.debug("account:%s has sito spread, do nothing" % ac_id)
-            continue
-        elif tmp.is_reserved():
+
+        if tmp.is_reserved():
             tmp_persons[fnr].append_reserved_ac(ac_id)
             logger.info("reserved account: %s" % ac_id)
         elif tmp.is_deleted():

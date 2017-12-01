@@ -47,12 +47,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 from Cerebrum.modules.no.Stedkode import Stedkode
-            
-# kbj005/H2016
-# Temporary addition to use while running old and new Cerebrum in parallel.
-# TODO: revert/remove all things "labelled" with kbj005/H2016 when we no longer need this.
-from Cerebrum.modules.no.uit.account_bridge import AccountBridge
-# kbj005/H2016
 
 accounts=persons=logger=None
 sysx=None
@@ -511,101 +505,9 @@ class Build(object):
             self._process_sysx(int(sysx_id),sysx_person)
 
 
-# kbj005/H2016
-# Temporary addition to use while running old and new Cerebrum in parallel.
-# TODO: revert/remove all things "labelled" with kbj005/H2016 when we no longer need this.
-    def _CreateAccount_tmp(self,sysx_id):
-        today=mx.DateTime.today()
-        default_creator_id=self.bootstrap_id
-        default_group_id=self.posix_group
-        p_obj=Factory.get('Person')(db)
-        logger.info("Try to create user for person with sysx_id=%s" % sysx_id)
-        try:
-            p_obj.find_by_external_id(co.externalid_sys_x_id, str(sysx_id), co.system_x, co.entity_person)
-            #p_obj.find_by_external_id(co.entity_person,sysx_id,co.externalid_sys_x_id)
-        except Errors.NotFoundError:
-            logger.warn("OUCH! person (sysx_id=%s) not found" % sysx_id)
-            return None
-        else:
-            person_id=p_obj.entity_id
-
-        if not persons[sysx_id].get_affiliations():
-            logger.error("Person (sysx_id=%s) has no sysX affs" % sysx_id)
-            return None
-
-        try:
-            first_name=p_obj.get_name(co.system_cached, co.name_first)
-        except Errors.NotFoundError:
-            # This can happen if the person has no first name and no
-            # authoritative system has set an explicit name_first variant.
-            first_name=""
-        try:
-            last_name=p_obj.get_name(co.system_cached, co.name_last)
-        except Errors.NotFoundError:
-            # See above.  In such a case, name_last won't be set either,
-            # but name_full will exist.
-            last_name=p_obj.get_name(co.system_cached, co.name_full)
-            assert last_name.count(' ') == 0
-        full_name=" ".join((first_name,last_name))
-
-        try:
-            fnr=p_obj.get_external_id(id_type=co.externalid_fodselsnr)[0]['external_id']
-        except IndexError:
-            fnr=sysx_id
-
-        account=PosixUser.PosixUser(db)
-        fnr = str(fnr)
-
-        with AccountBridge() as bridge:
-            uname = bridge.get_uit_uname(fnr)
-        if uname == None:
-            # This account isn't in old Cerebrum yet, ignore it for now
-            logger.warn("Cannot create account for %s. Couldn't find uname for this account in Caesar database." % fnr)
-            return None
-        else:
-            logger.warn("KB, uname from Caesar: %s" % uname)
-
-            # Sanity check. Is username already used in new cerebrum?
-            validate_uname = s_acc.validate_new_uname(co.account_namespace, uname)
-            if validate_uname == False:
-                logger.warn("Cannot create account for %s. Username is already used in Clavius database." % fnr)
-                return None
-
-        account.populate(name=uname,
-            owner_id=person_id,
-            owner_type=co.entity_person,
-            np_type=None,
-            creator_id=default_creator_id,
-            expire_date=today,
-            posix_uid=account.get_free_uid(),
-            gid_id=self.posix_group,
-            gecos=account.simplify_name(full_name,as_gecos=True),
-            shell=co.posix_shell_bash
-            )
-        
-        with AccountBridge() as bridge:
-            auth_data = bridge.get_auth_data(uname)
-        if auth_data == None:
-            # This account isn't in old Cerebrum yet, ignore it for now
-            logger.warn("Cannot create account for %s. Couldn't find auth_data for this account in Caesar database." % fnr)
-            return None
-        account.set_auth_data(auth_data)
-
-        tmp=account.write_db()
-        logger.debug("new Account=%s, write_db=%s" % (account.account_name,tmp))
-
-        acc_obj= ExistingAccount(sysx_id,today)
-        #register new account as posix
-        acc_obj.set_posix(int(account.posix_uid))
-        accounts[account.entity_id]=acc_obj
-        return account.entity_id
-# kbj005/H2016
 
 
     def _CreateAccount(self,sysx_id):
-# kbj005/H2016
-        return self._CreateAccount_tmp(sysx_id)
-# kbj005/H2016
 
         today=mx.DateTime.today()
         default_creator_id=self.bootstrap_id
