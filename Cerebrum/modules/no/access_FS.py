@@ -327,9 +327,13 @@ class FSObject(object):
         if t[1] <= 6:
             self.sem = 'V'
             self.semester = u'VÅR'.encode(compatibility_encoding)
+            self.prev_semester = u'HØST'.encode(compatibility_encoding)
+            self.prev_semester_year = t[0] - 1
         else:
             self.sem = 'H'
             self.semester = u'HØST'.encode(compatibility_encoding)
+            self.prev_semester = u'VÅR'.encode(compatibility_encoding)
+            self.prev_semester_year = t[0]
         self.year = t[0]
         self.mndnr = t[1]
         self.dday = t[2]
