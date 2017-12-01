@@ -118,6 +118,16 @@ class EphorteConstants(ConstantsBase):
         'STUDAV UIO', 'Avsluttede studentmapper ved UiO')
     ephorte_arkivdel_sak_fsat = _EphorteArkivdelCode(
         'SAK FSAT', 'Saksarkiv ved Felles studieadministrativt tjenestesenter')
+    ephorte_arkivdel_sak_kdto = _EphorteArkivdelCode(
+        'SAK KDTO', 'Saksarkiv ved KDTO - KDs tjenesteorgan')
+    ephorte_arkivdel_pers_kdto = _EphorteArkivdelCode(
+        'PERS KDTO', 'Personalarkiv ved KDTO - KDs tjenesteorgan')
+    ephorte_arkivdel_nasjonklag_kdto = _EphorteArkivdelCode(
+        'NASJONKLAG KDTO', 'Nasjonal klagenemnd')
+    ephorte_arkivdel_nasjonfag_kdto = _EphorteArkivdelCode(
+        'NASJONFAG KDTO', 'Nasjonal klagenemnd for fagskoleutdanning')
+    ephorte_arkivdel_fellesklag_kdto = _EphorteArkivdelCode(
+        'FELLESKLAG KDTO', 'Felles klagenemnd')
 
     # Values from the ePhorte table JOURNENHET
     ephorte_journenhet_uio = _EphorteJournalenhetCode(
@@ -130,6 +140,8 @@ class EphorteConstants(ConstantsBase):
         'J-ROMANI', 'Journalenhet for ROMANI - prosjektet')
     ephorte_journenhet_fsat = _EphorteJournalenhetCode(
         'J-FSAT', 'Journalenhet for FSAT - Felles studieadministrativt tjenestesenter')
+    ephorte_journenhet_kdto = _EphorteJournalenhetCode(
+        'J-KDTO', 'Journalenhet for KDTO - KDs tjenesteorgan')
 
     # Spreads relevant for ephorte
     spread_ephorte_person = _SpreadCode('ePhorte_person',
