@@ -1,3 +1,8 @@
+2017-12-01    <cerebrum@cleomedes.uit.no>
+
+	* process_uit_email.py (process_mail): we cannot iterate over an
+	empty object. create if test first
+
 2017-11-21    <cerebrum@cleomedes.uit.no>
 
 	* generate_OU.py (ou.__init__): updated FS source database

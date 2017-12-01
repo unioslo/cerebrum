@@ -52,7 +52,7 @@ from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.Email import EmailDomain,EmailAddress
 from  Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 from Cerebrum.modules.no import Stedkode
-from Cerebrum.modules.no.uit.account_bridge import AccountBridge
+
 db = Factory.get('Database')()
 ac = Factory.get('Account')(db)
 p = Factory.get('Person')(db)
@@ -340,17 +340,6 @@ def process_mail():
         if isinstance(tmp,_CerebrumCode):
             num2const[int(tmp)]=tmp
 
-    # kbj005/V2017
-    # Cache email addresses from Caesar
-    logger.info("Caching all email addresses from Caesar")
-    with AccountBridge() as bridge:            
-        primary_emails_from_caesar = bridge.get_all_primary_emails()
-        email_aliases_from_caesar = bridge.get_all_email_aliases()
-
-    if (len(primary_emails_from_caesar) < 1) or (len(email_aliases_from_caesar) < 1):
-        logger.error("Problem when getting email addresses from Caesar. Cannot continue.")
-        return
-    # kbj005/V2017
 
     logger.info("Get all accounts with AD_account spread")
     count=0
@@ -377,16 +366,11 @@ def process_mail():
                     mail_addr_cache+=1
                     uit_mails.setdefault(uname,list()).append("@".join((em['local_part'],em['domain'])))
                     uit_addresses_in_use.append("@".join((em['local_part'],em['domain'])))
-                    if(uname == 'emf000'):
-                        print "emf000 has email address:%s@%s" % (em['local_part'],em['domain'])
     logger.debug("Cached %d mailaddrs" % (mail_addr_cache,))
 
     logger.debug("Caching primary mailaddrs")
     current_primaryemail=ac.getdict_uname2mailaddr(primary_only=True)
 
-    # kbj005/V2017
-    addr_expire = dict() # dict for storing expire date of email addresses - {<email-address> : <expire_date>}
-    # kbj005/V2017
 
     #variabled holding whoom shall we build emailaddrs for?
     all_emails = dict()
@@ -399,40 +383,7 @@ def process_mail():
         old_addrs=uit_mails.get(uname,None)
         logger.debug("old addrs=%s" % (old_addrs,))
         old_addrs_set=Set(old_addrs)
-        
-        # kaj000/H2016 + kbj005/V2017
-        # use email addresses from caesar instead of creating new ones
-        #should_have_addrs,new_primary_addr=calculate_uit_emails(uname,uit_account_affs.get(account_id))
-        
-        try:
-            new_primary_addr = primary_emails_from_caesar[uname]['email']
-        except KeyError:
-            logger.error("No primary email address found for %s. Skipping this account." % uname)
-            continue
-        
-        addr_expire[new_primary_addr] = primary_emails_from_caesar[uname]['expire_date']
-
-        should_have_addrs = list()
-        try:
-            alias_list = email_aliases_from_caesar[uname]
-        except KeyError:
-            # no aliases found for this account.
-            alias_list = list()
-
-        for a in alias_list:
-            should_have_addrs.append(a['email'])
-            addr_expire[a['email']] = a['expire_date']
-
-        # Need to restructure the data a bit so we can compare correctly
-        if new_primary_addr not in should_have_addrs:
-            should_have_addrs.append(new_primary_addr)
-        
-        pprint("primary email from clavius: %s" % new_primary_addr)
-        #pprint("primary email from caesar:%s" % old_primary_addr)
-        pprint("all emails from clavius: %s" % should_have_addrs)
-        pprint("all emails from caesar:%s" % old_addrs_set)
-        # kaj000/H2016
-
+        should_have_addrs,new_primary_addr=calculate_uit_emails(uname,uit_account_affs.get(account_id))
         new_primaryemail[account_id]=new_primary_addr
 
         logger.debug("should have addrs=%s" % 
@@ -481,7 +432,8 @@ def process_mail():
             #
             
             new_email_style = contains_digits(new_primary_addr)
-            old_email_style = contains_digits(current_primaryemail.get(uname,None))
+            if ((current_primaryemail.get(uname,None) != None)):
+                old_email_style = contains_digits(current_primaryemail.get(uname,None))
         
             logger.debug("old email style:%s ,new email style:%s for email:%s" % (old_email_style,new_email_style,new_primary_addr))
 
@@ -540,11 +492,8 @@ def process_mail():
             logger.debug("Set mailaddr %s/%s/%s/%s(%s)" % 
                 (account_id,exch_users[account_id],addr,is_primary,exchange_controlled))
 
-            # kbj005/V2017
-            # include expire_date
-            # emdb.process_mail(account_id,addr, is_primary=is_primary)
-            emdb.process_mail(account_id,addr, is_primary=is_primary, expire_date = addr_expire[addr])
-            # kbj005/V2017
+            emdb.process_mail(account_id,addr, is_primary=is_primary)
+
 
 
 #
