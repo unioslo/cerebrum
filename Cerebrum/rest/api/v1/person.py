@@ -123,9 +123,6 @@ class AddressType(object):
 
 
 PersonAddress = api.model('PersonAddress', {
-    'id': fields.base.Integer(
-        default=None,
-        description='Person entity ID'),
     'source_system': fields.Constant(
         ctype='AuthoritativeSystem',
         description='Source system'),
@@ -308,15 +305,13 @@ class PersonConsentListResource(Resource):
 class PersonAddressListResource(Resource):
     """Resource for person addresses."""
     @auth.require()
-    @api.marshal_list_with(PersonAddress)
+    @api.marshal_list_with(PersonAddress, envelope='addresses')
     def get(self, id):
-        """Get the accounts of a person."""
+        """Get the addresses of a person."""
         pe = find_person(id)
-        addrs = pe.get_entity_address()
+        addrs = map(dict, pe.get_entity_address())
         data = []
         for addr in addrs:
-            addr_dict = addr.dict()
-            addr_dict['id'] = addr_dict['entity_id']
-            del addr_dict['entity_id']
-            data.append(addr_dict)
+            del addr['entity_id']
+            data.append(addr)
         return data
