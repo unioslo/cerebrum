@@ -80,7 +80,7 @@ class String(object):
         self.trim = trim
 
     def __call__(self, value):
-        value = str(value)
+        value = unicode(value)
         if self.trim:
             value = value.strip()
         l = len(value)
