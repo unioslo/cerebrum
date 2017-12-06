@@ -131,7 +131,8 @@ class UiOAuth(BofhdAuth):
 
 @copy_func(
     BofhdUserCreateMethod,
-    methods=['_user_create_set_account_type']
+    methods=['_user_create_set_account_type', '_user_create_basic',
+             '_user_password']
 )
 class BofhdExtension(BofhdCommonMethods):
     """All CallableFuncs take user as first arg, and are responsible
@@ -2596,26 +2597,21 @@ class BofhdExtension(BofhdCommonMethods):
         eed.delete()
         return "OK, removed domain-affiliation for '%s'" % domainname
 
-    # email create_forward_target <local-address> <remote-address>
-    all_commands['email_create_forward_target'] = Command(
-        ("email", "create_forward_target"),
-        EmailAddress(),
-        EmailAddress(help_ref='email_forward_address'),
-        perm_filter="can_email_forward_create")
-    def email_create_forward_target(self, operator, localaddr, remoteaddr):
-        """Create a forward target, add localaddr as an address
-        associated with that target, and add remoteaddr as a forward
-        addresses."""
+    def _email_create_forward_target(self, localaddr, remoteaddr):
+        """Helper method for creating a forward target.
+
+        No auth is checked here.
+
+        """
         lp, dom = self._split_email_address(localaddr)
         ed = self._get_email_domain(dom)
-        self.ba.can_email_forward_create(operator.get_entity_id(), ed)
         ea = Email.EmailAddress(self.db)
         try:
             ea.find_by_local_part_and_domain(lp, ed.entity_id)
         except Errors.NotFoundError:
             pass
         else:
-            raise CerebrumError, "Address %s already exists" % localaddr
+            raise CerebrumError("Address %s already exists" % localaddr)
         et = Email.EmailTarget(self.db)
         et.populate(self.const.email_target_forward)
         et.write_db()
@@ -2631,11 +2627,26 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             ef.add_forward(addr)
         except Errors.TooManyRowsError:
-            raise CerebrumError, "Forward address added already (%s)" % addr
+            raise CerebrumError("Forward address added already (%s)" % addr)
         self._register_spam_settings(localaddr, self.const.email_target_forward)
         self._register_filter_settings(localaddr, self.const.email_target_forward)
-        return "OK, created forward address '%s'" % localaddr
+        return ef
 
+    # email create_forward_target <local-address> <remote-address>
+    all_commands['email_create_forward_target'] = Command(
+        ("email", "create_forward_target"),
+        EmailAddress(),
+        EmailAddress(help_ref='email_forward_address'),
+        perm_filter="can_email_forward_create")
+    def email_create_forward_target(self, operator, localaddr, remoteaddr):
+        """Create a forward target, add localaddr as an address
+        associated with that target, and add remoteaddr as a forward
+        addresses."""
+        lp, dom = self._split_email_address(localaddr)
+        ed = self._get_email_domain(dom)
+        self.ba.can_email_forward_create(operator.get_entity_id(), ed)
+        self._email_create_forward_target(localaddr, remoteaddr)
+        return "OK, created forward address '%s'" % localaddr
 
     def _register_spam_settings(self, address, target_type):
         """Register spam settings (level/action) associated with an address."""
@@ -8523,31 +8534,12 @@ Addresses and settings:
         fs=FormatSuggestion('Created account_id=%i', ('account_id',)),
         perm_filter='is_superuser')
 
-    def user_reserve_personal(self, operator, *args):
-        person_id, uname = args
-
+    def user_reserve_personal(self, operator, person_id, uname):
         person = self._get_person(*self._map_person_id(person_id))
-
-        account = self.Account_class(self.db)
-        account.clear()
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied('Only superusers may reserve users')
-        account.populate(uname,
-                         self.const.entity_person,
-                         person.entity_id,
-                         None,
-                         operator.get_entity_id(),
-                         None)
-        account.write_db()
-        passwd = account.make_passwd(uname)
-        account.set_password(passwd)
-        try:
-            account.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError('Database error: {}'.format(m))
-        operator.store_state('new_account_passwd',
-                             {'account_id': int(account.entity_id),
-                              'password': passwd})
+        account = self._user_create_basic(operator, person, uname)
+        self._user_password(operator, account)
         return {'account_id': int(account.entity_id)}
 
     all_commands['user_create_sysadm'] = Command(
@@ -8627,22 +8619,36 @@ Addresses and settings:
         elif len(valid_aff) > 1:
             raise CerebrumError('More than than one %s affiliation, '
                                 'add stedkode as argument' % status_blob)
-        self.user_reserve_personal(operator,
-                                   'entity_id:{}'.format(person.entity_id),
-                                   accountname)
-        self._user_create_set_account_type(self._get_account(accountname),
-                                           person.entity_id,
+        account = self._user_create_basic(operator, person, accountname)
+        self._user_password(operator, account)
+        self._user_create_set_account_type(account, person.entity_id,
                                            valid_aff[0]['ou_id'],
                                            valid_aff[0]['affiliation'],
                                            priority=900)
-        self.trait_set(operator, accountname, 'sysadm_account', 'strval=on')
-        self.user_promote_posix(operator, accountname, shell='bash', home=':/')
-        account = self._get_account(accountname)
+        account.populate_trait(code=self.const.trait_sysadm_account,
+                               strval='on')
+        account.write_db()
+        # Promote POSIX:
+        pu = Utils.Factory.get('PosixUser')(self.db)
+        pu.populate(pu.get_free_uid(), None, None,
+                    shell=self.const.posix_shell_bash, parent=account,
+                    creator_id=operator.get_entity_id())
+        pu.write_db()
+        default_home_spread = self._get_constant(self.const.Spread,
+                                                 cereconf.DEFAULT_HOME_SPREAD,
+                                                 "spread")
+        pu.add_spread(default_home_spread)
+        homedir_id = pu.set_homedir(home='/',
+                                    status=self.const.home_status_not_created)
+        pu.set_home(default_home_spread, homedir_id)
+        pu.write_db()
+
         account.add_spread(self.const.spread_uio_ad_account)
-        self.entity_contactinfo_add(operator, accountname, 'EMAIL',
-                                    user+DOMAIN)
-        self.email_create_forward_target(operator, accountname+DOMAIN,
-                                         user+DOMAIN)
+        account.add_contact_info(self.const.system_manual,
+                                 type=self.const.contact_email,
+                                 value=user+DOMAIN)
+        account.write_db()
+        self._email_create_forward_target(accountname+DOMAIN, user+DOMAIN)
         return {'accountname': accountname}
 
     def _check_for_pipe_run_as(self, account_id):
