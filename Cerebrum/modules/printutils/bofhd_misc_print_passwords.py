@@ -206,6 +206,15 @@ class BofhdExtension(BofhdCommonMethods):
         """
         return None
 
+    def _can_set_spool_user(self, session, template):
+        u""" Check if spool user can be set for a given operator/template.
+
+        :param BofhdSession session: The current session/operator
+        :param dict template: The selected template
+
+        :return bool: True if spool user can be set, else False"""
+        return False
+
     def _get_mappings(self, account, tpl):
         u""" Get mappings for a given template.
 
@@ -342,8 +351,8 @@ class BofhdExtension(BofhdCommonMethods):
                 if self._get_default_printer(session):
                     ret['default'] = self._get_default_printer(session)
                 return ret
-            skriver = all_args.pop(0)
-            self._set_default_printer(session, skriver)
+            printer = all_args.pop(0)
+            self._set_default_printer(session, printer)
 
         # Ask for password change from history
         if not all_args:
@@ -363,7 +372,7 @@ class BofhdExtension(BofhdCommonMethods):
         all_args.pop(0)
 
         # Ask for print user
-        if not self._get_printer(session, tpl):
+        if self._can_set_spool_user(session, tpl):
             if not all_args:
                 operator = self._get_account(session.get_entity_id(),
                                              idtype='id')

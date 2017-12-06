@@ -39,7 +39,11 @@ class BofhdExtension(base.BofhdExtension):
         u""" Get printer preset. """
         if template.get('lang', '').endswith("letter"):
             return cereconf.PRINT_PRINTER
-        return None
+        return 'pullprint'
+
+    def _can_set_spool_user(self, session, template):
+        u""" Can spool user be set? """
+        return self._get_printer(session, template) == 'pullprint'
 
     def _get_mappings(self, account, tpl):
         u""" Get mappings for a given template.
