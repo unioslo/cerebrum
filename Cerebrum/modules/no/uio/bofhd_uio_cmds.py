@@ -8304,19 +8304,21 @@ Addresses and settings:
         AccountName(), GroupName(), EmailAddress(),
         SimpleString(help_ref="string_np_type"),
         fs=FormatSuggestion("Created account_id=%i", ("account_id",)),
-        perm_filter='is_superuser')
+        perm_filter='can_create_user_unpersonal')
 
     def user_create_unpersonal(self, operator, account_name, group_name,
                                contact_address, account_type):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Only superusers may reserve users")
+        owner_group = self._get_group(group_name)
+        self.ba.can_create_user_unpersonal(operator.get_entity_id(),
+                                           group=owner_group)
+
         account_type = self._get_constant(self.const.Account, account_type,
                                           "account type")
         account = self.Account_class(self.db)
         account.clear()
         account.populate(account_name,
                          self.const.entity_group,
-                         self._get_group(group_name).entity_id,
+                         owner_group.entity_id,
                          account_type,
                          operator.get_entity_id(),
                          None)
@@ -8338,6 +8340,14 @@ Addresses and settings:
                     account_name,
                     cereconf.EMAIL_DEFAULT_DOMAIN),
                 contact_address)
+
+        quar = cereconf.BOFHD_CREATE_UNPERSONAL_QUARANTINE
+        if quar:
+            qconst = self._get_constant(self.const.Quarantine, quar,
+                                        "quarantine")
+            account.add_entity_quarantine(qconst, operator.get_entity_id(),
+                                          "Created unpersonal account",
+                                          self._today())
 
         operator.store_state("new_account_passwd",
                              {'account_id': int(account.entity_id),

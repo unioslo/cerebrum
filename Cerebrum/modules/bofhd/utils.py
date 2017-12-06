@@ -25,20 +25,22 @@ from Cerebrum import Constants
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum import Errors
-import xmlrpclib
 from mx import DateTime
 try:
     set()
 except NameError:
     from Cerebrum.extlib.sets import Set as set
 
+
 class _BofhdRequestOpCode(Constants._CerebrumCode):
     "Mappings stored in the auth_role_op_code table"
     _lookup_table = '[:table schema=cerebrum name=bofhd_request_code]'
 
+
 class _AuthRoleOpCode(Constants._CerebrumCode):
     "Mappings stored in the auth_role_op_code table"
     _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
+
 
 class Constants(Constants.Constants):
 
@@ -93,6 +95,8 @@ class Constants(Constants.Constants):
         'modify_spread', 'Modify spread')
     auth_create_user = _AuthRoleOpCode(
         'create_user', 'Create user')
+    auth_create_user_unpersonal = _AuthRoleOpCode(
+        'create_unpersonal', 'Create unpersonal user')
     auth_remove_user = _AuthRoleOpCode(
         'remove_user', 'Remove user')
     auth_search_user = _AuthRoleOpCode(
@@ -165,7 +169,7 @@ class Constants(Constants.Constants):
     # These are wildcards, allowing access to _all_ objects of that type
     auth_target_type_global_dns = "global_dns"
     auth_target_type_global_group = "global_group"
-    auth_target_type_global_host = "global_host" # also "disk"
+    auth_target_type_global_host = "global_host"
     auth_target_type_global_maildomain = "global_maildom"
     auth_target_type_global_ou = "global_ou"
     auth_target_type_global_person = "global_person"
@@ -227,7 +231,8 @@ class BofhdRequests(object):
         now = DateTime.now()
         # if we are past 22:00 this day, schedule for tomorrow evening
         if (now - midnight) > DateTime.TimeDeltaFrom(hours=22):
-            self.batch_time = midnight + DateTime.TimeDeltaFrom(days=1, hours=22)
+            self.batch_time = midnight + DateTime.TimeDeltaFrom(days=1,
+                                                                hours=22)
         # ... otherwise, schedule for this day
         else:
             self.batch_time = midnight + DateTime.TimeDeltaFrom(hours=22)
@@ -281,8 +286,6 @@ class BofhdRequests(object):
                                               const.bofh_delete_user]
             }
 
-
-
     def get_conflicts(self, op):
         """Returns a list of conflicting operation types.  op can be
         an integer or a constant."""
@@ -296,7 +299,6 @@ class BofhdRequests(object):
         # Make sure all elements in the returned list are integers
         return [int(c) for c in conflicts]
 
-
     def add_request(self, operator, when, op_code, entity_id,
                     destination_id, state_data=None):
 
@@ -306,9 +308,9 @@ class BofhdRequests(object):
             # No need to check for conflicts when no entity is given
             for r in self.get_requests(entity_id=entity_id):
                 if int(r['operation']) in conflicts:
-                    raise CerebrumError, ("Conflicting request exists (%s)" %
-                                          self.co.BofhdRequestOp(r['operation']).
-                                          description)
+                    raise CerebrumError("Conflicting request exists (%s)" %
+                                        self.co.BofhdRequestOp(r['operation']).
+                                        description)
 
         reqid = int(self._db.nextval('request_id_seq'))
         cols = {
@@ -359,7 +361,8 @@ class BofhdRequests(object):
         if operation is not None:
             cols['operation'] = int(operation)
         self._db.execute("""DELETE FROM [:table schema=cerebrum name=bofhd_request]
-        WHERE %s""" % " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()]), cols)
+        WHERE %s""" % " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()]),
+                         cols)
 
     def get_requests(self, request_id=None, operator_id=None, entity_id=None,
                      operation=None, destination_id=None, given=False,
@@ -397,7 +400,6 @@ class BofhdRequests(object):
                                       {'op': int(self.co.bofh_move_give)}))
         return ret
 
-
     def get_operations(self):
         """Retrieves the various types/operations that it is possible
         to generate bofhd-requests for.
@@ -409,7 +411,6 @@ class BofhdRequests(object):
         ORDER BY code_str
         """
         return self._db.query(qry)
-
 
 
 class BofhdUtils(object):
@@ -460,16 +461,17 @@ class BofhdUtils(object):
         """
 
         # This mapping restricts the possible values get_target returns.
-        entity_lookup_types = { "account": ("Account",),
-                                "fnr": ("Person",),
-                                "group": ("Group",),
-                                "host": ("Host",),
-                                "disk": ("Disk",),
-                                "stedkode": ("OU",),
-                                "person": ("Person",),
-                                "entity_id": None,
-                                "id": None,
-                                "external_id": None,}
+        entity_lookup_types = {"account": ("Account",),
+                               "fnr": ("Person",),
+                               "group": ("Group",),
+                               "host": ("Host",),
+                               "disk": ("Disk",),
+                               "stedkode": ("OU",),
+                               "person": ("Person",),
+                               "entity_id": None,
+                               "id": None,
+                               "external_id": None,
+                               }
 
         def get_target_find_lookup(name, default_lookup):
             if isinstance(name, int):
@@ -505,7 +507,8 @@ class BofhdUtils(object):
             elif ltype == 'person':
                 return get_target_person_by_account_name(name)
             else:
-                raise CerebrumError, "Lookup type %s not implemented yet" % ltype
+                raise CerebrumError("Lookup type %s not implemented yet" %
+                                    ltype)
 
         def get_target_by_external_id(ext_id):
             # This does not have to be person, but cereconf.CLASS_ENTITY is
@@ -528,7 +531,8 @@ class BofhdUtils(object):
                 if account.owner_type == self.co.entity_person:
                     return get_target_entity(account.owner_id)
                 else:
-                    raise CerebrumError("Account %s is not owned by a person" % name)
+                    raise CerebrumError("Account %s is not owned by a person" %
+                                        name)
 
         def get_target_entity(ety_id):
             try:
@@ -536,14 +540,14 @@ class BofhdUtils(object):
             except ValueError:
                 # TBD: This triggers if the numeric value can't fit in
                 # 32 bits, too.  Should we use a regexp instead?
-                raise CerebrumError, "Non-numeric id lookup (%s)" % ety_id
+                raise CerebrumError("Non-numeric id lookup (%s)" % ety_id)
             en = Factory.get("Entity")(self.db)
             try:
                 en = en.get_subclassed_object(ety_id)
             except Errors.NotFoundError:
-                raise CerebrumError, "No such entity (%d)" % ety_id
+                raise CerebrumError("No such entity (%d)" % ety_id)
             except ValueError, e:
-                raise CerebrumError, "Can't handle entity (%s)" % e
+                raise CerebrumError("Can't handle entity (%s)" % e)
             if en.entity_type == self.co.entity_account:
                 return get_target_posix_by_object(en)
             elif en.entity_type == self.co.entity_group:
@@ -591,7 +595,7 @@ class BofhdUtils(object):
                     obj = plain_cls(self.db)
                     obj.find_by_name(name)
                 except Errors.NotFoundError:
-                    raise CerebrumError, "Unknown %s %s" % (clstype, name)
+                    raise CerebrumError("Unknown %s %s" % (clstype, name))
             return obj
 
         def get_target_person_fnr(id):
@@ -608,11 +612,11 @@ class BofhdUtils(object):
                     pass
             found = found.keys()
             if len(found) == 0:
-                raise CerebrumError, "No person with fnr %s" % id
+                raise CerebrumError("No person with fnr %s" % id)
             if len(found) > 1:
                 raise CerebrumError("More than one person with fnr %s found "
-                                    "(all ids: %s)" % (id, ", ".join(str(x)
-                                                                     for x in found)))
+                                    "(all ids: %s)" % (id, ", ".join(
+                                                    str(x) for x in found)))
             person.clear()
             person.find(found[0])
             return person
@@ -659,12 +663,12 @@ class BofhdUtils(object):
 
             return ou
 
-         #
-         # Finally, here is the start of the function itself
-         #
+        #
+        # Finally, here is the start of the function itself
+        #
 
         if name is None or name == "":
-            raise CerebrumError, "Empty value given"
+            raise CerebrumError("Empty value given")
 
         ltype, name = get_target_find_lookup(name, default_lookup)
         obj = get_target_lookup(ltype, name)
@@ -682,16 +686,14 @@ class BofhdUtils(object):
         # The object isn't strictly acceptable according to
         # restrict_to, but let's be user-friendly and turn an account
         # into a person and a disk into a host.
-        if ("Person" in restrict_to and
-            isinstance(obj, Factory.get("Account")) and
-            obj.owner_type == self.co.entity_person):
+        if ("Person" in restrict_to and isinstance(obj, Factory.get("Account"))
+                and obj.owner_type == self.co.entity_person):
             return get_target_entity(obj.owner_id)
         if "Host" in restrict_to and isinstance(obj, Factory.get("Disk")):
             return get_target_entity(obj.host_id)
 
-        raise CerebrumError, ("Wrong argument type '%s' returned by %s:%s" %
-                              (self.co.EntityType(obj.entity_type),
-                               ltype, name))
+        raise CerebrumError("Wrong argument type '%s' returned by %s:%s" %
+                            (self.co.EntityType(obj.entity_type), ltype, name))
 
     def get_abbr_type(self, type_name, valid_types):
         """Looks for type_name in valid_types, and returns the full
@@ -707,6 +709,5 @@ class BofhdUtils(object):
                                         (type_name, found, v))
                 found = v
         if found is None:
-            raise CerebrumError, "Unknown value '%s'" % type_name
+            raise CerebrumError("Unknown value '%s'" % type_name)
         return found
-
