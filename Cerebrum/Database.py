@@ -813,9 +813,7 @@ class Database(object):
     param_converter = None
     """The bind parameter converter class used by this driver class."""
 
-    # Not sure that this is the proper default, but as a quick hack it
-    # seems to work for us here in Norway.
-    encoding = 'ISO_8859_1'
+    encoding = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('client_encoding') or 'ISO_8859_1'
     """The default character set encoding to use."""
 
     def __init__(self, do_connect=True, *db_params, **db_kws):
