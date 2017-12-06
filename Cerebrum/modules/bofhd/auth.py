@@ -1506,6 +1506,9 @@ class BofhdAuth(DatabaseAccessor):
         """
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_create_user_unpersonal)
         if disk:
             return self._query_disk_permissions(
                 operator, self.const.auth_create_user_unpersonal,
