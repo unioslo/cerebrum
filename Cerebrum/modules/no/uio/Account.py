@@ -29,6 +29,7 @@ from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Utils import pgp_encrypt, Factory
 
+
 class AccountUiOMixin(Account.Account):
     """Account mixin class providing functionality specific to UiO.
 
@@ -46,10 +47,10 @@ class AccountUiOMixin(Account.Account):
         spreads = [int(r['spread']) for r in self.get_spread()]
         # All users in the 'ifi' NIS domain must also exist in the
         # 'uio' NIS domain.
-        if spread == self.const.spread_ifi_nis_user \
-               and int(self.const.spread_uio_nis_user) not in spreads:
-            raise self._db.IntegrityError, \
-                  "Can't add ifi spread to an account without uio spread."
+        if (spread == self.const.spread_ifi_nis_user and
+                int(self.const.spread_uio_nis_user) not in spreads):
+            raise self._db.IntegrityError(
+                "Can't add ifi spread to an account without uio spread.")
 
         # Gather information on present state, to be used later.  Note
         # that this information gathering must be done before we pass
@@ -59,7 +60,7 @@ class AccountUiOMixin(Account.Account):
         # exchange-relatert-jazz
         # this code (up to and including 'pass') may be removed
         # after Exchange roll-out, as it has been decided that all
-        # new mail-boxes will be created in Exchange and any old 
+        # new mail-boxes will be created in Exchange and any old
         # mailboxes restored to Exchange
         # Jazz (2013-11)
         state = {}
@@ -68,8 +69,8 @@ class AccountUiOMixin(Account.Account):
             # no account should have both IMAP and Exchange spread at the
             # same time, as this will create a double mailbox
             if self.has_spread(self.const.spread_exchange_account):
-                raise self._db.IntegrityError, \
-                    "Can't add IMAP-spread to an account with Exchange-spread."
+                raise self._db.IntegrityError("Can't add IMAP-spread to an "
+                                              "account with Exchange-spread.")
             # Is this account already associated with an Cyrus
             # EmailTarget?
             et = Email.EmailTarget(self._db)
@@ -84,10 +85,10 @@ class AccountUiOMixin(Account.Account):
             # no account should have both IMAP and Exchange spread at the
             # same time, as this will create a double mailbox
             if self.has_spread(self.const.spread_uio_imap):
-                raise self._db.IntegrityError, \
-                    "Can't add Exchange-spread to an account with IMAP-spread."
-            # Check if there is an existing email-target for this account (entity)
-            # before we actually add the spread.
+                raise self._db.IntegrityError("Can't add Exchange-spread to "
+                                              "an account with IMAP-spread.")
+            # Check if there is an existing email-target for this account
+            # (entity) before we actually add the spread.
             is_new_target = not self._has_email_target()
 
         # (Try to) perform the actual spread addition.
@@ -120,20 +121,20 @@ class AccountUiOMixin(Account.Account):
             try:
                 et.find_by_target_entity(self.entity_id)
                 et.email_server_id = es.entity_id
-                et.email_target_type =  self.const.email_target_account
+                et.email_target_type = self.const.email_target_account
             except Errors.NotFoundError:
                 # No EmailTarget found for account, creating one
                 # after the migration to Exchange is completed this
                 # part may be done by update_email_addresses,
                 # but since we need to support both exchange and
-                # imap for a while, it's easiest to create the 
+                # imap for a while, it's easiest to create the
                 # target manually
                 et.populate(self.const.email_target_account,
                             self.entity_id,
                             self.const.entity_account,
                             server_id=es.entity_id)
             et.write_db()
-            self.update_email_quota(force=True, 
+            self.update_email_quota(force=True,
                                     spread=self.const.spread_exchange_account)
             # register default spam and filter settings
             self._UiO_default_spam_settings(et)
@@ -144,17 +145,16 @@ class AccountUiOMixin(Account.Account):
             # target.
             self.update_email_addresses()
         # exchange-relatert-jazz
-        # this code (up to and including 'update_email_addresse') 
-        # may be removed after Exchange roll-out, as it has been 
+        # this code (up to and including 'update_email_addresse')
+        # may be removed after Exchange roll-out, as it has been
         # decided that all new mail-boxes will be created in Exchange
         # and any old mailboxes restored to Exchange
         # Jazz (2013-11)
         if spread == self.const.spread_uio_imap:
             # Unless this account already has been associated with an
             # Cyrus EmailTarget, we need to do so.
-            if et.email_server_id:
-                old_server = et.email_server_id
-            et = self._UiO_update_email_server(self.const.email_server_type_cyrus)
+            et = self._UiO_update_email_server(
+                self.const.email_server_type_cyrus)
             # Make sure that Cyrus is told about the quota, the
             # previous call probably didn't change the database value
             # and therefore didn't add a request.
@@ -185,17 +185,17 @@ class AccountUiOMixin(Account.Account):
         # Pre-remove checks
         #
         spreads = [int(r['spread']) for r in self.get_spread()]
-        if not spread in spreads:  # user doesn't have this spread
+        if spread not in spreads:  # user doesn't have this spread
             return
         # All users in the 'ifi' NIS domain must also exist in the
         # 'uio' NIS domain.
-        if spread == self.const.spread_uio_nis_user \
-               and int(self.const.spread_ifi_nis_user) in spreads:
+        if (spread == self.const.spread_uio_nis_user and
+                int(self.const.spread_ifi_nis_user) in spreads):
             raise self._db.IntegrityError, \
                   "Can't remove uio spread to an account with ifi spread."
 
-        if spread == self.const.spread_ifi_nis_user \
-               or spread == self.const.spread_uio_nis_user:
+        if (spread == self.const.spread_ifi_nis_user or
+                spread == self.const.spread_uio_nis_user):
             self.clear_home(spread)
 
         # Remove IMAP user
@@ -206,9 +206,9 @@ class AccountUiOMixin(Account.Account):
         # this code, up to and including the TBD should be removed
         # when migration to Exchange is completed as it wil no longer
         # be needed. Jazz (2013-11)
-        # 
+        #
         if (spread == self.const.spread_uio_imap and
-            int(self.const.spread_uio_imap) in spreads):
+                int(self.const.spread_uio_imap) in spreads):
             et = Email.EmailTarget(self._db)
             et.find_by_target_entity(self.entity_id)
             self._UiO_order_cyrus_action(self.const.bofh_email_delete,
@@ -224,7 +224,7 @@ class AccountUiOMixin(Account.Account):
         # email_targets that have had status deleted for a period of
         # time. This will however remove the e-mailaddresses assigned
         # to the target and make their re-use possible. Jazz (2013-11)
-        # 
+        #
         if spread == self.const.spread_exchange_account:
             et = Email.EmailTarget(self._db)
             et.find_by_target_entity(self.entity_id)
@@ -234,7 +234,7 @@ class AccountUiOMixin(Account.Account):
         ret = self.__super.delete_spread(spread)
         return ret
 
-    # exchange-relatert-jazz 
+    # exchange-relatert-jazz
     # update_email_quota is very different for Exchange and we
     # therefore have to override the method defined in
     # Email.AccountEmailQuotaMixin. After migration to Exchange is
@@ -242,17 +242,15 @@ class AccountUiOMixin(Account.Account):
     # this override removed. Jazz (2013-11)
     #
     def update_email_quota(self, force=False, spread=None):
-        if spread == None or spread == self.const.spread_uio_imap:
+        if spread is None or spread == self.const.spread_uio_imap:
             return self.__super.update_email_quota()
         if spread == self.const.spread_exchange_account:
-            change = force
             quota = self._calculate_account_emailquota()
             eq = Email.EmailQuota(self._db)
             try:
                 eq.find_by_target_entity(self.entity_id)
             except Errors.NotFoundError:
                 if quota is not None:
-                    change = True
                     eq.populate(cereconf.EMAIL_SOFT_QUOTA, quota)
                     eq.write_db()
             else:
@@ -260,20 +258,11 @@ class AccountUiOMixin(Account.Account):
                 if quota is None:
                     eq.delete()
                 elif quota > eq.email_quota_hard:
-                    change = True
                     eq.email_quota_hard = quota
                     eq.write_db()
 
-    def create(self, owner_type, owner_id, np_type, creator_id,
-               expire_date=None, parent=None, name=None):
-        """UiO specific functionality for creating a regular account."""
-        self.__super.create(name=name, owner_type=owner_type, owner_id=owner_id,
-                            np_type=np_type, creator_id=creator_id,
-                            expire_date=expire_date, parent=parent)
-        # TODO: use BofhdRequest
-
     def set_home(self, spread, homedir_id):
-        ret = self.__super.set_home(spread, homedir_id)
+        self.__super.set_home(spread, homedir_id)
         spreads = [int(r['spread']) for r in self.get_spread()]
         if spread == self.const.spread_uio_nis_user \
            and int(self.const.spread_ifi_nis_user) in spreads:
@@ -287,7 +276,7 @@ class AccountUiOMixin(Account.Account):
         tt_str = str(Email._EmailTargetCode(email_target.email_target_type))
         # Set default filters if none found on this target
         etf = Email.EmailTargetFilter(self._db)
-        if cereconf.EMAIL_DEFAULT_FILTERS.has_key(tt_str):
+        if tt_str in cereconf.EMAIL_DEFAULT_FILTERS:
             for f in cereconf.EMAIL_DEFAULT_FILTERS[tt_str]:
                 f_id = int(Email._EmailTargetFilterCode(f))
                 try:
@@ -300,17 +289,17 @@ class AccountUiOMixin(Account.Account):
 
     # exchange-realatert-jazz
     # this method should not have to be changes after Exchange roll-out
-    # or at migration completion. Jazz (2013-11)        
+    # or at migration completion. Jazz (2013-11)
     def _UiO_default_spam_settings(self, email_target):
         t_id = email_target.entity_id
         tt_str = str(Email._EmailTargetCode(email_target.email_target_type))
         # Set default spam settings if none found on this target
         esf = Email.EmailSpamFilter(self._db)
-        if cereconf.EMAIL_DEFAULT_SPAM_SETTINGS.has_key(tt_str):
+        if tt_str in cereconf.EMAIL_DEFAULT_SPAM_SETTINGS:
             if not len(cereconf.EMAIL_DEFAULT_SPAM_SETTINGS[tt_str]) == 2:
-                raise Errors.CerebrumError, "Error in " +\
-                      "cereconf.EMAIL_DEFAULT_SPAM_SETTINGS. Expected 'key': " +\
-                      "('val', 'val')"
+                raise Errors.CerebrumError(
+                    "Error in cereconf.EMAIL_DEFAULT_SPAM_SETTINGS. "
+                    "Expected 'key': ('val', 'val')")
             l, a = cereconf.EMAIL_DEFAULT_SPAM_SETTINGS[tt_str]
             lvl = int(Email._EmailSpamLevelCode(l))
             act = int(Email._EmailSpamActionCode(a))
@@ -343,9 +332,8 @@ class AccountUiOMixin(Account.Account):
         # None; it's the best we can do.
         requestor = getattr(self._db, 'change_by', None)
         # Register a BofhdRequest to create the mailbox.
-        reqid = br.add_request(requestor,
-                               br.now, action, self.entity_id, destination,
-                               state_data=state_data)
+        br.add_request(requestor, br.now, action, self.entity_id, destination,
+                       state_data=state_data)
 
     # exchange-relatert-jazz
     # added a check for reservation from electronic listing
@@ -357,12 +345,12 @@ class AccountUiOMixin(Account.Account):
             person.find(self.owner_id)
         except Errors.NotFoundError:
             # no reservation may exist unless account is owned by a
-            # person-object 
+            # person-object
             return False
         return person.has_e_reservation()
 
     def populate(self, name, owner_type, owner_id, np_type, creator_id,
-                 expire_date, parent=None):
+                 expire_date, description=None, parent=None):
         """Override to check that the account name is not already taken by a
         group.
         """
@@ -375,7 +363,8 @@ class AccountUiOMixin(Account.Account):
             raise self._db.IntegrityError('Account name taken by group: %s' %
                                           name)
         return self.__super.populate(name, owner_type, owner_id, np_type,
-                                     creator_id, expire_date, parent=parent)
+                                     creator_id, expire_date,
+                                     description=description, parent=parent)
 
     # exchange-relatert-jazz
     # after Exchange roll-out this method should be removed as it will
@@ -395,7 +384,7 @@ class AccountUiOMixin(Account.Account):
             - create on old server, update target_type = COS
             - move to new server   = MNS
 
-       t_type/srv_type| none| cyrus, active| cyrus,non-active| non-cyrus 
+       t_type/srv_type| none| cyrus, active| cyrus,non-active| non-cyrus
        ------------------------------------------------------------------
        target_deleted | CNS | COS          | CNS             | CNS
        ------------------------------------------------------------------
@@ -427,7 +416,8 @@ class AccountUiOMixin(Account.Account):
             es.find(old_server)
             if es.email_server_type == self.const.email_server_type_cyrus:
                 srv_is_cyrus = True
-            email_server_in_use = es.get_trait(self.const.trait_email_server_weight)
+            email_server_in_use = es.get_trait(
+                self.const.trait_email_server_weight)
         except Errors.NotFoundError:
             pass
         # Different actions for target_type deleted and account
@@ -435,7 +425,7 @@ class AccountUiOMixin(Account.Account):
             if srv_is_cyrus and email_server_in_use:
                 # both target and server type er ok, do nothing
                 pass
-            elif old_server == None:
+            elif old_server is None:
                 # EmailTarget with no registered server
                 new_server = self._pick_email_server()
                 et.email_server_id = new_server
@@ -487,14 +477,14 @@ class AccountUiOMixin(Account.Account):
         for row in es.list_traits(self.const.trait_email_server_weight):
             total_weight += row['numval']
             user_weight[row['entity_id']] = row['numval']
-            
+
         pick = random.randint(0, total_weight - 1)
         for svr_id in user_weight:
             pick -= user_weight[svr_id]
             if pick <= 0:
                 break
         return svr_id
-        
+
     def illegal_name(self, name):
         # Avoid circular import dependency
         from Cerebrum.modules.PosixUser import PosixUser
@@ -597,7 +587,7 @@ class AccountUiOMixin(Account.Account):
         """Remove quota information when the user is moved to a disk
         without quotas or where the default quota is larger than his
         existing explicit quota."""
-        
+
         ret = self.__super.set_homedir(*args, **kw)
         if kw.get('current_id') and kw.get('disk_id'):
             disk = Factory.get("Disk")(self._db)
@@ -617,7 +607,7 @@ class AccountUiOMixin(Account.Account):
                     pass
                 else:
                     if (info['override_expiration'] and
-                        DateTime.now() < info['override_expiration']):
+                            DateTime.now() < info['override_expiration']):
                         old_quota = info['override_quota']
                     else:
                         old_quota = info['quota']
@@ -652,6 +642,7 @@ class AccountUiOMixin(Account.Account):
     def set_password(self, password):
         super(AccountUiOMixin, self).set_password(password)
         if self.is_passphrase(password):
-            self.populate_trait(self.const.trait_has_passphrase, self.entity_id)
+            self.populate_trait(self.const.trait_has_passphrase,
+                                self.entity_id)
         elif self.const.trait_has_passphrase in self.get_traits():
             self.delete_trait(self.const.trait_has_passphrase)

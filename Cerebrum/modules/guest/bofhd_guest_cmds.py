@@ -427,8 +427,6 @@ class BofhdExtension(BofhdCommonMethods):
             # name and come up with new suggestions.
             raise Errors.RealityError("No potential usernames available")
 
-        # TODO: make use of ac.create() instead, when it has been defined
-        # properly.
         ac.populate(name=name, owner_type=self.const.entity_group,
                     owner_id=owner_group.entity_id,
                     np_type=self.const.account_guest,

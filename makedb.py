@@ -307,8 +307,9 @@ def makeInitialUsers(db):
     a = Account.Account(db)
     a.illegal_name = false
     a.populate(cereconf.INITIAL_ACCOUNTNAME, co.entity_group,
-               eg.entity_id, int(co.account_program), ea.entity_id,
-               None, parent=ea)
+               eg.entity_id, int(co.account_program), ea.entity_id, None,
+               description=None,
+               parent=ea)
     # Get rid of errors because of missing prerequisites for password
     # mechanisms not needed for initial setup.
     #

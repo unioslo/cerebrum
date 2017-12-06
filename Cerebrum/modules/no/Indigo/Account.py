@@ -31,6 +31,7 @@ from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import pgp_encrypt
 
+
 class AccountIndigoMixin(Account.Account):
     """Account mixin class providing functionality specific to Indigo.
     The methods of the core Account class that are overridden here,
@@ -77,7 +78,6 @@ class AccountIndigoMixin(Account.Account):
                 return True
         return False
 
-
     def enc_auth_type_pgp_crypt(self, plaintext, salt=None):
         return pgp_encrypt(plaintext, cereconf.PGPID)
 
@@ -107,7 +107,7 @@ class AccountOfkMixin(Account.Account):
         # Pre-remove checks
         #
         spreads = [int(r['spread']) for r in self.get_spread()]
-        if not spread in spreads:  # user doesn't have this spread
+        if spread not in spreads:  # user doesn't have this spread
             return
         if spread == self.const.spread_ad_acc:
             self.delete_trait(self.const.trait_homedb_info)
@@ -116,19 +116,19 @@ class AccountOfkMixin(Account.Account):
         # (Try to) perform the actual spread removal.
         ret = self.__super.delete_spread(spread)
         return ret
-   
+
     def make_passwd(self, uname):
-        pot = string.ascii_letters + string.digits
         count = 0
         pwd = []
         while count < 2:
             pwd.append(string.digits[random.randint(0, len(string.digits)-1)])
             count += 1
         while count < 8:
-            pwd.append(string.ascii_letters[random.randint(0, len(string.ascii_letters)-1)])
+            idx = random.randint(0, len(string.ascii_letters)-1)
+            pwd.append(string.ascii_letters[idx])
             count += 1
         random.shuffle(pwd)
-        return string.join(pwd,'')
+        return string.join(pwd, '')
 
     def verify_password(self, method, plaintext, cryptstring):
         """Returns True if the plaintext matches the cryptstring,
@@ -184,11 +184,11 @@ class AccountOfkMixin(Account.Account):
     def _autopick_homeMDB(self):
         """Return a valid homeMDB value to be used for the account.
 
-        If the account has previously had a HomeMDB, this is reused, but only as
-        long the MDB value is valid today, see
+        If the account has previously had a HomeMDB, this is reused, but only
+        as long the MDB value is valid today, see
         L{cereconf.EXCHANGE_HOMEMDB_VALID}. Otherwise a random HomeMDB is
-        selected. We don't care about the weight of the MDBs, ØFK wants everyone
-        to be equally assigned.
+        selected. We don't care about the weight of the MDBs, ØFK wants
+        everyone to be equally assigned.
 
         @rtype: string
         @return: One of the HomeMDB values from
@@ -196,8 +196,8 @@ class AccountOfkMixin(Account.Account):
 
         """
         mdb_candidates = cereconf.EXCHANGE_HOMEMDB_VALID
-        # Check if account had homeMDB earlier. If so use that, as long as it is
-        # in one of today's valid MDBs.
+        # Check if account had homeMDB earlier. If so use that, as long as it
+        # is in one of today's valid MDBs.
         mdb_choice = self._get_old_homeMDB()
         if mdb_choice and mdb_choice in mdb_candidates:
             return mdb_choice
@@ -235,8 +235,8 @@ class AccountOfkMixin(Account.Account):
                 #
                 # If the default domain is specified, ignore this
                 # affiliation.
-                ## if entdom.entity_email_domain_id == dom.entity_id:
-                ##     continue
+                #     if entdom.entity_email_domain_id == dom.entity_id:
+                #         continue
                 return entdom.entity_email_domain_id
             except Errors.NotFoundError:
                 pass
@@ -253,8 +253,7 @@ class AccountOfkMixin(Account.Account):
         # Still no proper maildomain association has been found; fall
         # back to default maildomain.
         return dom.entity_id
-    
-        
+
     def update_email_addresses(self):
         # Find, create or update a proper EmailTarget for this
         # account.
@@ -264,7 +263,7 @@ class AccountOfkMixin(Account.Account):
             target_type = self.const.email_target_deleted
         changed = False
         try:
-            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            et.find_by_email_target_attrs(target_entity_id=self.entity_id)
             if et.email_target_type != target_type:
                 changed = True
                 et.email_target_type = target_type
@@ -353,6 +352,6 @@ class AccountOfkMixin(Account.Account):
                         epat.populate(ea.entity_id)
                     except Errors.NotFoundError:
                         epat.clear()
-                        epat.populate(ea.entity_id, parent = et)
+                        epat.populate(ea.entity_id, parent=et)
                     epat.write_db()
                     primary_set = True
