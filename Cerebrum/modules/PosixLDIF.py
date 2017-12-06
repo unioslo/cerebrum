@@ -114,10 +114,11 @@ class PosixLDIF(object):
         if len(self.account2name) > 0:
             return
         timer = make_timer(self.logger, 'Starting cache_account2name...')
-        self.account2name = dict([
-            (x['entity_id'], x['entity_name']) for x in
-            self.posuser.list_names(self.const.account_namespace,
-                                    spreads=self.spread_d['user'])])
+        self.account2name = dict(
+            (r['account_id'], r['name']) for r in
+            self.posuser.search(spread=self.spread_d['user'],
+                                expire_start=None,
+                                expire_stop=None))
         timer('... done cache_account2name')
 
     def cache_group2gid(self):

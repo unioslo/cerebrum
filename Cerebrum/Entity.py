@@ -425,21 +425,14 @@ class EntityName(Entity):
         # Populate all of self's class (and base class) attributes.
         self.find(entity_id)
 
-    def list_names(self, value_domain, spreads=None):
-        binds = dict()
-        tables = []
-        where = []
-        tables.append('[:table schema=cerebrum name=entity_name] en')
-        where.append(argument_to_sql(value_domain, 'en.value_domain',
-                                     binds, int))
-        if spreads:
-            tables.append('[:table schema=cerebrum name=entity_spread] es')
-            where.append('en.entity_id = es.entity_id')
-            where.append(argument_to_sql(spreads, 'es.spread', binds, int))
-        return self.query("""
-        SELECT en.entity_id, en.value_domain, en.entity_name
-        FROM %s
-        WHERE %s""" % (','.join(tables), ' AND '.join(where)), binds)
+    def list_names(self, value_domain):
+        return self.query(
+            """
+            SELECT entity_id, value_domain, entity_name
+            FROM [:table schema=cerebrum name=entity_name]
+            WHERE value_domain=:value_domain
+            """,
+            {'value_domain': int(value_domain)})
 
 
 class EntityNameWithLanguage(Entity):
