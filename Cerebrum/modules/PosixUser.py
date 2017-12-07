@@ -325,10 +325,14 @@ class PosixUser(Account_class):
 
     def get_fullname(self):
         """The GECOS contains the full name the user wants to be
-        associated with POSIX account.  If the official name of the
-        person is needed, look up the Person object explicitly."""
-        if self.gecos is not None:
-            return self.gecos
+        associated with POSIX account. This method's return value will
+        also be used to generate an email-address if the posix account
+        is not owned by an actual person."""
+        if self.owner_type != int(self.const.entity_person):
+            if self.gecos is not None:
+                return self.gecos
+            raise Errors.NotFoundError('Name (GECOS) not set for'
+                                       'non-personal PosixUser.')
         return self.__super.get_fullname()
 
     def get_posix_home(self, spread):
