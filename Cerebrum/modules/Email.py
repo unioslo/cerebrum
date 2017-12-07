@@ -2791,7 +2791,6 @@ class AccountEmailMixin(Account.Account):
         """
         """
         lp = Utils.latin1_to_iso646_60(local_part)
-        print('ISO646_60', lp)
         # Translate ISO 646-60 representation of Norwegian characters
         # to the closest single-ascii-letter.
         xlate = {'[': 'A', '{': 'a',
