@@ -1,3 +1,7 @@
+2017-12-07    <cerebrum@cleomedes.uit.no>
+
+	* process_uit_email.py (get_priority): removed 2 printlines
+
 2017-12-01    <cerebrum@cleomedes.uit.no>
 
 	* process_uit_email.py (process_mail): we cannot iterate over an

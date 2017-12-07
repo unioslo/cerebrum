@@ -511,11 +511,9 @@ def get_priority(account_id):
         if ac_entry['priority'] < priority:
             priority = ac_entry['priority']
             
-    print "lowest priority for account id:%s is:%s" % (account_id,priority)
     for key,val in pri_ranges.iteritems():
         for affiliation,range in val.iteritems():
             if priority <= range[1] and priority >= range[0]:
-                print "priority:%s mapps to affiliation:%s" % (priority,key)
                 return key
 
     
