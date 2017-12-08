@@ -1,3 +1,7 @@
+2017-12-08    <cerebrum@cleomedes.uit.no>
+
+	* import_OU.py (set_quaran): add_entity_quarantine need dattime object to be string.
+
 2017-12-07    <cerebrum@cleomedes.uit.no>
 
 	* import_tlf.py (notify_phoneadmin):fixed a bug which would make the rogram crash if dryrun and debug was used at the same time
