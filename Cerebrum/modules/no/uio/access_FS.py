@@ -1614,10 +1614,13 @@ class UiOUndervisning(access_FS.Undervisning):
                 'aar2': year,  # db-driver bug work-around
                 'sem': sem})
 
-    def list_aktiviteter(self, start_aar=time.localtime()[0],
+    def list_aktiviteter(self,
+                         start_aar=None,
                          start_semester=None):
+        if start_aar is None:
+            start_aar = self.prev_semester_year
         if start_semester is None:
-            start_semester = self.semester
+            start_semester = self.prev_semester
 
         return self.db.query("""
         SELECT
