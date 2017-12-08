@@ -47,7 +47,7 @@
       virtualenv: "{{ virtualenv }}"
       name: "{{ item }}"
       extra_args: "{{ pip_extra_args|default(None) }}"
-  when: skip_oracle is undefined or not (skip_oracle and 'cx_Oracle' in item)
+  when: skip_oracle is undefined or not (skip_oracle and ('cx_oracle' in item | lower or 'cx-oracle' in item | lower))
   with_items: "{{ crb_packages }}"
   environment: "{{ proxy_env | default({}) }}"
 
