@@ -17,7 +17,45 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Cerebrum statsd client and factory. """
+""" Cerebrum statsd client and factory.
+
+
+Usage
+-----
+
+    from Cerebrum.modules.statsd import make_client
+    from Cerebrum.modules.statsd.config import load_config
+
+    config = load_config()
+    client = make_client(config, prefix='my-test')
+
+    # Stats will be prefixed '[<config.prefix>.]my-test'
+    # Use according to docs: https://statsd.readthedocs.io/
+
+    client.incr('foo')
+
+    with client.pipeline() as p:
+        p.gauge('bar', 4)
+        p.decr('foo')
+
+    with client.timer('time'):
+        import time
+        time.sleep(0.5)
+
+
+Dummy client
+------------
+If `config.enable` is set to `False`, the `NullStatsClient` will be used.
+
+
+Debug
+-----
+To see what stats are sent/would be sent, add
+`Cerebrum.modules.statsd:StatsLoggerMixin` to `config.mixins`, and make sure
+that log messages to the logger `Cerebrum.modules.statsd` are handled
+somewhere.
+
+"""
 from __future__ import absolute_import
 
 import logging
