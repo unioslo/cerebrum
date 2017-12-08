@@ -406,6 +406,7 @@ def notify_phoneadmin(msg,notify_recipient):
     subject="Import telefoni errors from Cerebrum %s" % time.strftime("%Y%m%d")
     body=msg
     debug=dryrun    
+    ret =''
     # finally, send the message    
     if notify_recipient == True:
         ret=sendmail(recipient,sender,subject,body,debug=debug)
