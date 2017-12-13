@@ -506,9 +506,8 @@ def process_person_callback(person_info):
     information."""
     global no_name
     try:
-        fnr = fodselsnr.personnr_ok(
-            "%06d%05d" % (int(person_info['fodselsdato']),
-                          int(person_info['personnr'])))
+        fnr = "%06d%05d" % (int(person_info['fodselsdato']),
+                            int(person_info['personnr']))
         fnr = fodselsnr.personnr_ok(fnr)
         logger.info("Process %s " % (fnr))
         (year, mon, day) = fodselsnr.fodt_dato(fnr)
