@@ -1,3 +1,7 @@
+2017-12-13    <cerebrum@cleomedes.uit.no>
+
+	* import_OU.py (set_quaran): Remove debug line
+
 2017-12-08    <cerebrum@cleomedes.uit.no>
 
 	* import_OU.py (set_quaran): add_entity_quarantine need dattime object to be string.

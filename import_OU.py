@@ -317,7 +317,6 @@ def set_quaran(cer_ou_tab):
         ous.clear()
         ous.find(k)
         start_date = time.strftime("%Y-%m-%d")
-        print "start date:%s" % start_date
         logger.debug("quarantine old OU:%s" % k)
         if (ous.get_entity_quarantine(qtype=co.quarantine_ou_notvalid) == []):
             logger.debug("Add quarantine for:%s" % ous.entity_id)
