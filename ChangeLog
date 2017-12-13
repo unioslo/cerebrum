@@ -1,5 +1,7 @@
 2017-12-13    <cerebrum@cleomedes.uit.no>
 
+	* export_xml_fronter.py: removed old import line
+
 	* import_OU.py (set_quaran): Remove debug line
 
 2017-12-08    <cerebrum@cleomedes.uit.no>
