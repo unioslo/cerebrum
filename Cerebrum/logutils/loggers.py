@@ -87,9 +87,14 @@ class CerebrumLogger(logging.Logger, object):
             self._log(DEBUG5, msg, args, **kwargs)
 
     def set_indent(self, indent=0):
-        for handle in self.handlers:
-            if hasattr(handle, "set_indent"):
-                handle.set_indent(indent)
+        """ pass indent to any `IdentField` filters in handlers. """
+        # TODO: Deprecate this insanity
+        self._indent = max(0, int(indent))
+
+    def makeRecord(self, *args, **kwargs):
+        r = super(CerebrumLogger, self).makeRecord(*args, **kwargs)
+        setattr(r, 'indent', getattr(self, '_indent', 0))
+        return r
 
     @classmethod
     def install(cls):

@@ -179,3 +179,25 @@ class JsonFormatter(logging.Formatter):
         log_record = self.process_log_record(log_record)
 
         return "%s%s" % (self.prefix, self.jsonify_log_record(log_record))
+
+
+class IndentFormatter(logging.Formatter, object):
+    """ Formatter that adds indent to the formatted log record.  """
+
+    DEFAULT_FIELD_NAME = 'indent'
+    DEFAULT_INDENT = ' '
+
+    def __init__(self,
+                 field_name=DEFAULT_FIELD_NAME,
+                 indent=DEFAULT_INDENT,
+                 **kwargs):
+        self.field_name = field_name
+        self.indent = indent
+        super(IndentFormatter, self).__init__(**kwargs)
+
+    def format_indent(self, record):
+        return self.indent * int(getattr(record, self.field_name, 0))
+
+    def format(self, record):
+        return ''.join((self.format_indent(record),
+                        super(IndentFormatter, self).format(record)))
