@@ -52,13 +52,12 @@ class CimConsumer(evhandlers.EventLogConsumer):
             The event to process.
         """
         key = str(self.get_event_code(event))
-        self.logger.debug3(u'Got event key {!r}', str(key))
+        self.logger.debug3(u'Got event key %r', key)
 
         try:
             event_handlers = self.event_map.get_callbacks(key)
         except EventHandlerNotImplemented:
-            self.logger.info(u'No event handlers for event key {!r}',
-                             str(key))
+            self.logger.info(u'No event handlers for event key %r', key)
             return
 
         for callback in event_handlers:
@@ -66,7 +65,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
                 callback(self, key, event)
             except (EntityTypeError, UnrelatedEvent) as e:
                 self.logger.debug3(
-                    u'Callback {!r} failed for event {!r} ({!r}): {!s}',
+                    u'Callback %r failed for event %r (%r): %s',
                     callback, key, event, e)
 
     @property
@@ -86,7 +85,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
             class _mock_cim_client(object):
                 def __getattribute__(s, n):
                     def _log(*a, **kw):
-                        self.logger.info('MOCK: {!s}({!r}, {!r})', n, a, kw)
+                        self.logger.info('MOCK: %s(%r, %r)', n, a, kw)
                     return _log
             return _mock_cim_client()
         return CIMClient(config=self._config.client,

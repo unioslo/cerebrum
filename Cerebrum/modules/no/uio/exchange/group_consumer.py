@@ -201,14 +201,14 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
             The event to process.
         """
         key = str(self.get_event_code(event))
-        self.logger.debug3(u'Got event key {!r}', str(key))
+        self.logger.debug3(u'Got event key %r', key)
 
         for callback in self.event_map.get_callbacks(key):
             try:
                 callback(self, event)
             except (EntityTypeError, UnrelatedEvent) as e:
                 self.logger.debug3(
-                    u'Callback {!r} failed for event {!r} ({!r}): {!s}',
+                    u'Callback %r failed for event %r (%r): %s',
                     callback, key, event, e)
 
     @event_map('exchange:group_add')

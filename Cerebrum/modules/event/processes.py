@@ -24,12 +24,13 @@ import os
 import time
 import signal
 import ctypes
+import logging
 import multiprocessing
 from multiprocessing.sharedctypes import Synchronized
 from Queue import Empty
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
-from .logutils import QueueLogger
+from .logutils import QueueHandler
 
 
 class ProcessBase(multiprocessing.Process):
@@ -93,16 +94,27 @@ class ProcessLoggingMixin(ProcessBase):
                 ('<source>', '<log-level>', '<message>')
         """
         super(ProcessLoggingMixin, self).__init__(**kwargs)
-        self.logger = QueueLogger(self.name, log_queue)
+        self._handler = QueueHandler(log_queue)
+
+        # Get our custom logger as self.logger, for compability reasonsA
+        self.logger = logging.getLogger(__name__)
 
     def setup(self):
+        # re-configure root logger after the new process has forked, with a
+        # handler that ships data to self._log_queue
         super(ProcessLoggingMixin, self).setup()
-        self.logger.info(u'Process starting (pid={:d}): {!s}',
-                         os.getpid(), str(self))
+
+        root = logging.getLogger()
+        root.handlers = []
+        root.setLevel(self.logger.level)
+        root.addHandler(self._handler)
+
+        self.logger.info(u'Process starting (pid={:d}): {!s}'.format(
+                         os.getpid(), str(self)))
 
     def cleanup(self):
-        self.logger.info(u'Process stopping (pid={:d}): {!s}',
-                         os.getpid(), str(self))
+        self.logger.info(u'Process stopping (pid={:d}): {!s}'.format(
+                         os.getpid(), str(self)))
         super(ProcessLoggingMixin, self).cleanup()
 
 

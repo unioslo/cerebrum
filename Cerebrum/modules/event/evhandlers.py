@@ -102,7 +102,7 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
             self.db.commit()
             return True
         else:
-            self.logger.debug(u'Unable to lock event {!r}', identifier)
+            self.logger.debug(u'Unable to lock event %r', identifier)
             self.db.rollback()
             return False
 
@@ -120,7 +120,7 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
             self.db.commit()
             return True
         else:
-            self.logger.warn(u'Unable to release event {!r}', identifier)
+            self.logger.warn(u'Unable to release event %r', identifier)
             self.db.rollback()
             return False
 
@@ -138,7 +138,7 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
             self.db.commit()
             return True
         else:
-            self.logger.warn(u'Unable to remove event {!r}', identifier)
+            self.logger.warn(u'Unable to remove event %r', identifier)
             self.db.rollback()
             return False
 
@@ -149,10 +149,10 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
             The item fetched from the queue.
         """
         if not isinstance(item, EventItem):
-            self.logger.error(u'Invalid event: {0}', repr(item))
+            self.logger.error(u'Invalid event: %r', item)
 
-        self.logger.debug2(u'Got a new event on channel {0}: id={1} event={2}',
-                           item.channel, item.identifier, repr(item.payload))
+        self.logger.debug2(u'Got a new event on channel %r: id=%r event=%r',
+                           item.channel, item.identifier, item.payload)
 
         if not self.__lock_event(item.identifier):
             return
@@ -166,13 +166,12 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
         except EventExecutionException as e:
             # If an event fails, we just release it, and let the
             # DelayedNotificationCollector enqueue it when appropriate
-            self.logger.debug(u'Failed to process event_id {:d}: {!s}',
-                              item.identifier, str(e))
+            self.logger.debug(u'Failed to process event_id %d: %s',
+                              item.identifier, e)
             self.__release_event(item.identifier)
 
         except EventHandlerNotImplemented as e:
-            self.logger.debug(u'No event handlers for event {!r}: {!s}',
-                              item, str(e))
+            self.logger.debug(u'No event handlers for event %r: %s', item, e)
             self.__release_event(item.identifier)
 
         except Exception as e:
@@ -184,7 +183,7 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
             # is therefore REQUIRED!
             tb = traceback.format_exc()
             tb = '\t' + tb.replace('\n', '\t\n')
-            self.logger.error(u'Unhandled error!\n{!s}\n{!s}',
+            self.logger.error(u'Unhandled error!\n%s\n%s',
                               item.payload, tb)
 
 
@@ -205,8 +204,7 @@ class DBProducer(
         try:
             super(DBProducer, self).push(item)
         except Exception as e:
-            self.logger.error(u'Unable to push db event {!r}: {!s}',
-                              item, str(e))
+            self.logger.error(u'Unable to push db event %r: %s', item, e)
 
 
 class DBListener(DBProducer):
@@ -263,10 +261,9 @@ class DBListener(DBProducer):
                 curs.execute('LISTEN "{!s}";'.format(x))
             self.subscribed = True
         except (psycopg2.OperationalError, RuntimeError) as e:
-            self.logger.warn(u'Unable to subscribe: {!s}', str(e))
+            self.logger.warn(u'Unable to subscribe: %s', e)
         except Exception as e:
-            self.logger.error(u'Unknown subscribe error: {!s} {!s}',
-                              type(e), str(e))
+            self.logger.error(u'Unknown subscribe error: %s %s', type(e), e)
             raise e
         return self.subscribed
 
@@ -279,7 +276,7 @@ class DBListener(DBProducer):
         try:
             sel = select.select([self._conn], [], [], self.timeout)
         except select.error as e:
-            self.logger.info(u'select interrupted: {!s}', str(e))
+            self.logger.info(u'select interrupted: %s', e)
             return False
         return not (sel == ([], [], []))
 
@@ -293,12 +290,12 @@ class DBListener(DBProducer):
         import psycopg2
         try:
             self._conn.poll()
-            self.logger.debug('Notifies: {!r}', self._conn.notifies)
+            self.logger.debug('Notifies: %r', self._conn.notifies)
             while self._conn.notifies:
                 # We pop in the same order as items are added to notifies
                 yield self._conn.notifies.pop(0)
         except psycopg2.OperationalError as e:
-            self.logger.warn(u'Unable to poll source: {!s}', str(e))
+            self.logger.warn(u'Unable to poll source: %s', e)
             self._subscribed = False
         return
 
@@ -367,9 +364,9 @@ class EventLogConsumer(DBConsumer):
         try:
             return self.co.ChangeType(int(event['event_type']))
         except KeyError as e:
-            self.logger.warn(u'Invalid event format for {!r}: {!s}', event, e)
+            self.logger.warn(u'Invalid event format for %r: %s', event, e)
         except Exception as e:
-            self.logger.warn(u'Unable to process event {!r}: {!s}', event, e)
+            self.logger.warn(u'Unable to process event %r: %s', event, e)
         return None
 
     def handle_event(self, event):
@@ -381,7 +378,7 @@ class EventLogConsumer(DBConsumer):
         key = self.get_event_code(event)
         if not key:
             return
-        self.logger.debug3(u'Got event key {!r}', str(key))
+        self.logger.debug3(u'Got event key %r', key)
 
         raise EventHandlerNotImplemented(
             u'Abstract event handler called')
