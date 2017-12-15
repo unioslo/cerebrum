@@ -182,6 +182,12 @@ class BofhdUserCreateMethod(BofhdCommonMethods):
 
     def _user_create_basic(self, operator, owner, uname, np_type=None):
         account = self.Account_class(self.db)
+        try:
+            account.find_by_name(uname)
+        except Errors.NotFoundError:
+            account.clear()
+        else:
+            raise CerebrumError("Username already taken: {}".format(uname))
         account.populate(uname,
                          owner.entity_type,
                          owner.entity_id,
@@ -198,7 +204,7 @@ class BofhdUserCreateMethod(BofhdCommonMethods):
         account.set_password(passwd)
         try:
             account.write_db()
-        except self.db.DatabaseError, m:
+        except self.db.DatabaseError as m:
             raise CerebrumError('Database error: {}'.format(m))
         operator.store_state('new_account_passwd',
                              {'account_id': int(account.entity_id),
