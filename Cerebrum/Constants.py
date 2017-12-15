@@ -73,7 +73,7 @@ class SynchronizedDatabase(Database_class):
 
     # 2009-10-12 IVR This is a bit awkward.  A few of our daemons have a
     # constant object each (actually all of them do). The constant objects
-    # have their own private DB connection (cf. get_sql() below). That db
+    # have their own private DB connection (cf. sql() below). That db
     # connection exists parallel to the connection used by the code (legacy
     # issues. This should be reviewed once spine is gone).
     #
@@ -104,8 +104,6 @@ class SynchronizedDatabase(Database_class):
         finally:
             self.commit()
             SynchronizedDatabase._db_proxy_lock.release()
-    # end query
-# end SynchronizedDatabase
 
 
 class _CerebrumCode(DatabaseAccessor):
@@ -131,28 +129,24 @@ class _CerebrumCode(DatabaseAccessor):
     _db_proxy_lock = threading.Lock()
     _private_db_proxy = None
 
-    def get_sql(self):
-        try:
-            _CerebrumCode._db_proxy_lock.acquire()
+    @property
+    def sql(self):
+        """Private db connection"""
+        with _CerebrumCode._db_proxy_lock:
             try:
                 _CerebrumCode._private_db_proxy.ping()
             except:
                 _CerebrumCode._private_db_proxy = SynchronizedDatabase()
             return _CerebrumCode._private_db_proxy
-        finally:
-            _CerebrumCode._db_proxy_lock.release()
 
-    def set_sql(self, db):
-        try:
-            _CerebrumCode._db_proxy_lock.acquire()
+    @sql.setter
+    def sql(self, db):
+        with _CerebrumCode._db_proxy_lock:
             try:
                 db.ping()
                 _CerebrumCode._private_db_proxy = db
             except:
                 _CerebrumCode._private_db_proxy = SynchronizedDatabase()
-        finally:
-            _CerebrumCode._db_proxy_lock.release()
-    sql = property(get_sql, set_sql, doc="private db connection")
 
     _lookup_table = None                # Abstract class.
     _lookup_code_column = 'code'
