@@ -620,8 +620,13 @@ class _CountryCode(_CerebrumCode):
                 {'code': int(self)}))
         return getattr(self, attr_name)
 
-    country = property(lambda (self): self._fetch_column("country"))
-    phone_prefix = property(lambda (self): self._fetch_column("phone_prefix"))
+    @property
+    def country(self):
+        return self._fetch_column("country")
+
+    @property
+    def phone_prefix(self):
+        return self._fetch_column("phone_prefix")
 
 
 class _AddressCode(_CerebrumCode):
