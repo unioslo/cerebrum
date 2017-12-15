@@ -8357,7 +8357,8 @@ Addresses and settings:
             qconst = self._get_constant(self.const.Quarantine, quar,
                                         "quarantine")
             account.add_entity_quarantine(qconst, operator.get_entity_id(),
-                                          "Created unpersonal account",
+                                          "Not granted for global password "
+                                          "auth (ask IT-sikkerhet)",
                                           self._today())
         return {'account_id': int(account.entity_id)}
 
