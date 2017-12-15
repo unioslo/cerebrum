@@ -888,7 +888,11 @@ class Factory(object):
             for c in import_spec:
                 (mod_name, class_name) = c.split("/", 1)
                 mod = dyn_import(mod_name)
-                cls = getattr(mod, class_name)
+                try:
+                    cls = getattr(mod, class_name)
+                except AttributeError:
+                    raise ImportError("Module '{}' has no class '{}'"
+                                      .format(mod_name, class_name))
                 # The cereconf.CLASS_* tuples control which classes
                 # are used to construct a Factory product class.
                 # Order inside such a tuple is significant for the
