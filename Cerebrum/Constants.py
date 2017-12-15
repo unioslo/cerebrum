@@ -136,7 +136,9 @@ class _CerebrumCode(DatabaseAccessor):
             try:
                 _CerebrumCode._private_db_proxy.ping()
             except:
-                _CerebrumCode._private_db_proxy = SynchronizedDatabase()
+                _CerebrumCode._private_db_proxy = SynchronizedDatabase(
+                    client_encoding='UTF-8'
+                )
             return _CerebrumCode._private_db_proxy
 
     @sql.setter
@@ -146,7 +148,9 @@ class _CerebrumCode(DatabaseAccessor):
                 db.ping()
                 _CerebrumCode._private_db_proxy = db
             except:
-                _CerebrumCode._private_db_proxy = SynchronizedDatabase()
+                _CerebrumCode._private_db_proxy = SynchronizedDatabase(
+                    client_encoding='UTF-8'
+                )
 
     _lookup_table = None                # Abstract class.
     _lookup_code_column = 'code'
