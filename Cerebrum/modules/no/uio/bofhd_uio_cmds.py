@@ -8342,7 +8342,8 @@ Addresses and settings:
         # get a forward target for the account, to be sent to those responsible
         # for the account, preferrably a sysadm mail list.
         if hasattr(self, 'entity_contactinfo_add'):
-            account.add_contact_info(co.system_manual, co.contact_email,
+            account.add_contact_info(self.const.system_manual,
+                                     self.const.contact_email,
                                      contact_address)
         # TBD: Better way of checking if email forwards are in use, by
         # checking if bofhd command is available?
