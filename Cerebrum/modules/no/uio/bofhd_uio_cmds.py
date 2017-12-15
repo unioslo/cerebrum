@@ -3163,20 +3163,24 @@ Addresses and settings:
         """
 
         if addr.count('@') == 0:
-            raise CerebrumError, \
-                  "E-mail address (%s) must include domain" % addr
-        lp, dom = addr.split('@')
-        if addr != addr.lower() and \
-           dom not in cereconf.LDAP['rewrite_email_domain']:
-            raise CerebrumError, \
-                  "E-mail address (%s) can't contain upper case letters" % addr
+            raise CerebrumError("E-mail address ({}) must include domain"
+                                .format(addr))
+        try:
+            lp, dom = addr.split('@')
+        except ValueError:
+            raise CerebrumError("E-mail address ({}) must contain only one @"
+                                .format(addr))
+        if (addr != addr.lower() and dom not in
+                cereconf.LDAP['rewrite_email_domain']):
+            raise CerebrumError("E-mail address ({}) can't contain upper case "
+                                "letters".format(addr))
 
         if not with_checks:
             return lp, dom
 
         ea = Email.EmailAddress(self.db)
         if not ea.validate_localpart(lp):
-            raise CerebrumError, "Invalid localpart '%s'" % lp
+            raise CerebrumError("Invalid localpart '{}'".format(lp))
         return lp, dom
 
     def _validate_sympa_list(self, listname):
