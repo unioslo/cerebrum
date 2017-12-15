@@ -8329,13 +8329,23 @@ Addresses and settings:
                                           account_type)
         self._user_password(operator, account)
 
+        # Validate the contact address
+        # TBD: Check if address is instance-internal?
+        _, domain = self._split_email_address(contact_address)
+        ed = Email.EmailDomain(self.db)
+        try:
+            ed._validate_domain_name(domain)
+        except AttributeError as e:
+            raise CerebrumError("Invalid contact address: {}".format(e))
+
         # Unpersonal accounts shouldn't normally have a mail inbox, but they
         # get a forward target for the account, to be sent to those responsible
         # for the account, preferrably a sysadm mail list.
         if hasattr(self, 'entity_contactinfo_add'):
-            self.entity_contactinfo_add(operator, account_name, 'EMAIL',
-                                        contact_address)
-        # TBD: Better way of checking if email forwards are in use?
+            account.add_contact_info(co.system_manual, co.contact_email,
+                                     contact_address)
+        # TBD: Better way of checking if email forwards are in use, by
+        # checking if bofhd command is available?
         if hasattr(self, 'email_create_forward_target'):
             localaddr = '{}@{}'.format(account_name,
                                        cereconf.EMAIL_DEFAULT_DOMAIN)
