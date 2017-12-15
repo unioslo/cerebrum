@@ -8325,32 +8325,21 @@ Addresses and settings:
 
         account_type = self._get_constant(self.const.Account, account_type,
                                           "account type")
-        account = self.Account_class(self.db)
-        account.clear()
-        account.populate(account_name,
-                         self.const.entity_group,
-                         owner_group.entity_id,
-                         account_type,
-                         operator.get_entity_id(),
-                         None)
-        account.write_db()
-        passwd = account.make_passwd(account_name)
-        account.set_password(passwd)
-        try:
-            account.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError("Database error: %s" % m)
+        account = self._user_create_basic(operator, owner_group, account_name,
+                                          account_type)
+        self._user_password(operator, account)
 
+        # Unpersonal accounts shouldn't normally have a mail inbox, but they
+        # get a forward target for the account, to be sent to those responsible
+        # for the account, preferrably a sysadm mail list.
         if hasattr(self, 'entity_contactinfo_add'):
             self.entity_contactinfo_add(operator, account_name, 'EMAIL',
                                         contact_address)
+        # TBD: Better way of checking if email forwards are in use?
         if hasattr(self, 'email_create_forward_target'):
-            self.email_create_forward_target(
-                operator,
-                '{}@{}'.format(
-                    account_name,
-                    cereconf.EMAIL_DEFAULT_DOMAIN),
-                contact_address)
+            localaddr = '{}@{}'.format(account_name,
+                                       cereconf.EMAIL_DEFAULT_DOMAIN)
+            self._email_create_forward_target(localaddr, contact_address)
 
         quar = cereconf.BOFHD_CREATE_UNPERSONAL_QUARANTINE
         if quar:
@@ -8359,10 +8348,6 @@ Addresses and settings:
             account.add_entity_quarantine(qconst, operator.get_entity_id(),
                                           "Created unpersonal account",
                                           self._today())
-
-        operator.store_state("new_account_passwd",
-                             {'account_id': int(account.entity_id),
-                              'password': passwd})
         return {'account_id': int(account.entity_id)}
 
     def _user_create_prompt_func(self, session, *args):
