@@ -1,3 +1,7 @@
+2017-12-18    <cerebrum@cleomedes.uit.no>
+
+	* rename_account.py (main): Removed 2 email recipients when changing username. star-gru@orakel.uit.no and nybruker2@asp.uit.no are no longer in use
+
 2017-10-03    <cerebrum@cleomedes.uit.no>
 
 	* rename_account.py (main): removed sendmail code. cleomedes is not so send out email until after leetag is removed

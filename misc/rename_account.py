@@ -319,7 +319,6 @@ def main():
                 if ac.is_expired():
                     account_expired = ' Imidlertid er ikke kontoen aktiv, men kan reaktiveres når som helst.'
             
-                # TBD : remove comment below when leetah is removed
                 #Utils.sendmail('star-gru@orakel.uit.no', #TO
                 #               'bas-admin@cc.uit.no', #SENDER
                 #               'Brukernavn endret (%s erstattes av %s)' % (old_name, new_name), #TITLE
@@ -364,16 +363,16 @@ def main():
             if ac.is_expired():
                 riktig_brukernavn += ' Imidlertid er ikke kontoen aktiv, og vil kun sendes til AD når den blir reaktivert.'
 
-            if False and mailto_ad and not dryrun:
-                Utils.sendmail('nybruker2@asp.uit.no', #TO
-                               'bas-admin@cc.uit.no', #SENDER
-                               'Brukernavn endret', #TITLE
-                               'Brukernavnet %s er endret i BAS.%s' %
-                               (old_name, riktig_brukernavn), #BODY
-                               cc=None,
-                               charset='iso-8859-1',
-                               debug=False)
-                print "mail sent to nybruker2@asp.uit.no\n"
+            # if False and mailto_ad and not dryrun:
+            #     Utils.sendmail('nybruker2@asp.uit.no', #TO
+            #                    'bas-admin@cc.uit.no', #SENDER
+            #                    'Brukernavn endret', #TITLE
+            #                    'Brukernavnet %s er endret i BAS.%s' %
+            #                    (old_name, riktig_brukernavn), #BODY
+            #                    cc=None,
+            #                    charset='iso-8859-1',
+            #                    debug=False)
+            #     print "mail sent to nybruker2@asp.uit.no\n"
 
             pe.clear()
             ac.clear()
@@ -386,9 +385,8 @@ def main():
 
                 template = cereconf.CB_SOURCEDATA_PATH + '/templates/rename_account.tmpl'
 
-                # TBD: remove below comment when leetah is removed
-                #result = Utils.mail_template(recipient, template, sender=sender, cc=cc,
-                #                        substitute=send_user_mail, charset='utf-8', debug=dryrun)
+                result = Utils.mail_template(recipient, template, sender=sender, cc=cc,
+                                        substitute=send_user_mail, charset='utf-8', debug=dryrun)
                 
                 #print "Mail sent to: %s" % (recipient)
                 #print "cc to %s" % (cc)
@@ -402,7 +400,7 @@ def main():
                 result = Utils.mail_template(recipient, template, sender=sender,
                                         substitute=send_user_mail, charset='utf-8', debug=dryrun)
 
-                print "BCC sent to: %s" % (recipient)
+                #print "BCC sent to: %s" % (recipient)
             #worker.rollback();
             worker.commit()
         else:
