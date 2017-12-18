@@ -480,12 +480,13 @@ def process_person_callback(person_info):
     new_person = Factory.get('Person')(db)
     if fnr2person_id.has_key(fnr):
         new_person.find(fnr2person_id[fnr])
-
-    try:
-        new_person.populate(mx.DateTime.Date(year, mon, day), gender)
-    except Errors.CerebrumError as e:
-        logger.error("Unable to process person: %s", e)
-        return
+        logger.info("found existing person with fnr:%s" % (fnr))
+    #try:
+    new_person.populate(mx.DateTime.Date(year, mon, day), gender)
+    #logger.info("unable to find person with fnr:%s" % (fnr))
+    #except Errors.CerebrumError as e:
+    #    logger.error("Unable to process person: %s", e)
+    #    return
 
     new_person.affect_names(co.system_fs, co.name_first, co.name_last)
     new_person.populate_name(co.name_first, fornavn)

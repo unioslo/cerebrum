@@ -1,3 +1,7 @@
+2017-12-18    <cerebrum@cleomedes.uit.no>
+
+	* import_FS.py (process_person_callback): new_person.populate() should not be inside try catch
+
 2017-12-13    <cerebrum@cleomedes.uit.no>
 
 	* export_xml_fronter.py: removed old import line
