@@ -635,7 +635,6 @@ class BofhdAuth(DatabaseAccessor):
             is raised instead.
         :raise PermissionDenied:
             If the operator doesn't have access to the entity.
-
         """
         if self._has_target_permissions(operator, operation,
                                         self.const.auth_target_type_group,
@@ -2519,3 +2518,21 @@ class BofhdAuth(DatabaseAccessor):
             except AttributeError:
                 pass
         return None
+
+    def can_get_person_external_id(self, operator, person):
+        if self.is_superuser(operator.get_entity_id()):
+            return True
+        account = Factory.get('Account')(self._db)
+        account_ids = [int(r['account_id']) for r in
+                       account.list_accounts_by_owner_id(person.entity_id)]
+        if operator.get_entity_id() in account_ids:
+            return True
+        is_member_of_privileged_grp = False
+        if cereconf.BOFHD_FNR_ACCESS_GROUP is not None:
+            members = self._get_group_members(cereconf.BOFHD_FNR_ACCESS_GROUP)
+            is_member_of_privileged_grp = operator.get_entity_id() in members
+        if is_member_of_privileged_grp:
+            return True
+        raise PermissionDenied("You don't have permission to view "
+                               "external ids for person entity {}".format(
+                                   person.entity_id))
