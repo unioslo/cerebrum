@@ -9,11 +9,11 @@ import string
 import sys
 import time
 
-from .config import LoggingEnvironment
+from .config import LoggerConfig
 from .stream import CerelogStreamWriter
 
 
-DEFAULT_DIRECTORY = LoggingEnvironment.root_dir.default
+DEFAULT_DIRECTORY = LoggerConfig.logdir.default
 DEFAULT_DIR_PERMS = 0o770
 DEFAULT_ENCODING = 'utf-8'
 
@@ -99,7 +99,7 @@ class FilenameTemplateMixin(BaseFileHandler):
 
     @classmethod
     def configure(cls, config):
-        cls.default_context['root'] = config.root_dir
+        cls.default_context['root'] = config.logdir
 
     def __init__(self, filename, **kwargs):
         """
@@ -171,7 +171,8 @@ class CerelogStreamMixin(BaseFileHandler):
         return self.stream
 
 
-class DelayedFileHandler(MakeDirectoriesMixin,
+class DelayedFileHandler(FilenameTemplateMixin,
+                         MakeDirectoriesMixin,
                          PermissionMixin,
                          CerelogStreamMixin,
                          BaseFileHandler,
@@ -183,6 +184,7 @@ class DelayedFileHandler(MakeDirectoriesMixin,
 
     - Create parent directories, if they are missing
     - Set file permissions, if given as 'persmissions' (see PermissionMixin)
+    - Expand log filename using template variables
     - Use the CerebrumStreamWriter to handle encoding.
 
     """
@@ -191,8 +193,7 @@ class DelayedFileHandler(MakeDirectoriesMixin,
         super(DelayedFileHandler, self).__init__(*args, **kwargs)
 
 
-class OneRunHandler(FilenameTemplateMixin,
-                    DelayedFileHandler):
+class OneRunHandler(DelayedFileHandler):
     """A file handler that logs one job run into exactly one log file.
 
     Basically, this is just like a FileHandler, except that it uses a file
@@ -214,8 +215,7 @@ class OneRunHandler(FilenameTemplateMixin,
 # TODO: Cronjobs should use OneRunHandler
 
 
-class CerebrumRotatingHandler(FilenameTemplateMixin,
-                              DelayedFileHandler):
+class CerebrumRotatingHandler(DelayedFileHandler):
     """ Cerebrum's own rotating handler.
 
     This handler rotates the logs much like handlers.RotatingFileHandler,

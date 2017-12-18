@@ -103,9 +103,9 @@ def autoconf(name, namespace=None):
         if filters is not None:
             c.warnings.filters = filters
 
-        root_dir = getattr(cereconf, 'LOGGING_ROOT_DIR', None)
-        if root_dir is not None:
-            c.root_dir = root_dir
+        logdir = getattr(cereconf, 'LOGGING_ROOT_DIR', None)
+        if logdir is not None:
+            c.loggers.logdir = logdir
 
     # exception logging options
     if override_exc is not None:
@@ -115,7 +115,7 @@ def autoconf(name, namespace=None):
 
     # Configure default values in handler classes
     # TODO: Changing a class, threading locks?
-    handlers.configure(c)
+    handlers.configure(c.logging)
 
     config.configure(c, logger_name or name, logger_level)
     # TODO: Changing a global, should use locks?

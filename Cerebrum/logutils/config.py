@@ -38,8 +38,8 @@ import logging
 import logging.config
 import os
 import sys
-from collections import defaultdict
 from Cerebrum.config import loader
+from Cerebrum.config import parsers
 from Cerebrum.config.configuration import (ConfigDescriptor,
                                            Configuration,
                                            Namespace)
@@ -48,7 +48,7 @@ from Cerebrum.config.settings import String, Boolean, Iterable, Choice
 
 DEFAULT_LOGDIR = os.path.join(sys.prefix, 'var', 'log', 'cerebrum')
 DEFAULT_CONFDIR = os.path.join(sys.prefix, 'etc', 'cerebrum', 'logging')
-DEFAULT_LOGGING_CONFIG = 'logging'
+DEFAULT_LOGGING_CONFIG = 'logenv'
 
 DEFAULT_CAPTURE_EXC = True
 DEFAULT_CAPTURE_WARN = True
@@ -145,18 +145,44 @@ class ExceptionsConfig(Configuration):
         doc="Which log level to log unhandled exceptions with")
 
 
+class LoggerConfig(Configuration):
+    """ Configures how to process named logging setup. """
+
+    logdir = ConfigDescriptor(
+        String,
+        default=DEFAULT_LOGDIR,
+        doc="Root directory for log files (cerebrum handlers only)")
+
+    confdir = ConfigDescriptor(
+        String,
+        default=DEFAULT_CONFDIR,
+        doc="Directory with logger configurations")
+
+    merge = ConfigDescriptor(
+        Boolean,
+        default=False,
+        doc="Merge logger configuration files before applying"
+            " (ini-style configs not supported)")
+
+    common_config = ConfigDescriptor(
+        String,
+        default="logging",
+        doc="Common logger configuration."
+            " This named configuration will always be applied, if available."
+            " Set to an empty string to disable.")
+
+    require_config = ConfigDescriptor(
+        Boolean,
+        default=False,
+        doc="Fail if the named logger configuration file is missing.")
+
+
 class LoggingEnvironment(Configuration):
     """ Configuration of the logging environment. """
 
-    root_dir = ConfigDescriptor(
-        String,
-        default=DEFAULT_LOGDIR,
-        doc="Root directory for log files")
-
-    conf_dir = ConfigDescriptor(
-        String,
-        default=DEFAULT_CONFDIR,
-        doc="Directory with log configurations")
+    logging = ConfigDescriptor(
+        Namespace,
+        config=LoggerConfig)
 
     exceptions = ConfigDescriptor(
         Namespace,
@@ -168,13 +194,16 @@ class LoggingEnvironment(Configuration):
 
 
 def get_config(config_file=None, namespace=DEFAULT_LOGGING_CONFIG):
-    """ Autoload a config.
+    """ Autoload a LoggingEnvironment config file.
 
     :param str config_file:
         Read the logging configuration from this file.
     :param str namespace:
         If no `config_file` is given, look for a config with this basename in
         the configuration directory.
+
+    :return LoggingEnvironment:
+        Returns a configuration object.
     """
     config = LoggingEnvironment()
 
@@ -185,41 +214,146 @@ def get_config(config_file=None, namespace=DEFAULT_LOGGING_CONFIG):
     return config
 
 
-def iter_logging_configs(directory, *basenames):
-    """ Iterate over matching basenames in directory. """
-    # TODO: This is horrible. We really only want two configs: one common
-    # (typically logging.ini or logging.<whatever> and one custom
-    # (--logger-name)
-    sort_pri = defaultdict(
-        lambda: len(basenames),
-        ((b, i) for i, b in enumerate(basenames)))
+def iter_configs(directory, rootnames, extensions):
+    """ Iterate over matching rootnames in directory.
 
-    def _file_sorter(a, b):
-        base_a, ext_a = os.path.splitext(os.path.basename(a))
-        base_b, ext_b = os.path.splitext(os.path.basename(b))
+    Iterates over files in `directory` that matches one of the given
+    `rootnames`, and one of the given `extensions`.
+
+    Matching files will also be ordered by `rootnames` and `extensions`:
+
+        iter_configs('/tmp', ['*', 'foo'], ['*', 'bar'])
+
+    would yield all files in '/tmp', but a file named 'foo.z' would be sorted
+    after any other file '*.z', and a file named 'z.bar' would be
+    ordered after any other file 'z.*'.
+
+    :param list rootnames:
+        An ordered list of file rootnames, (basename without file extension).
+        Additionally, the special value '*' matches all rootnames.
+
+    :param list extensions:
+        An ordered list of file extensions, without the dot-prefix.
+        Additionally, the special value '*' matches all extensions.
+
+    :return generator:
+        Returns a generator that yields matching files in `directory`, ordered
+        by preference.
+    """
+    # File extension priority
+    ext_weights = dict((e, i) for i, e in enumerate(extensions))
+    base_weights = dict((b, i) for i, b in enumerate(rootnames))
+
+    def split(filename):
+        base, ext = os.path.splitext(os.path.basename(filename))
+        return base, ext.lstrip('.')
+
+    def get_weight(weights, item):
+        return weights.get(item, weights.get('*', len(weights)))
+
+    def file_sorter(a, b):
+        base_a, ext_a = split(a)
+        base_b, ext_b = split(b)
         return (
-            # desired basename before other basenames
-            cmp(sort_pri[base_a], sort_pri[base_b]) or
-            # or if same basename, put .ini-files last
-            #   int(base_a == base_b and ext_a == '.ini') * 1 or
-            #   int(base_a == base_b and ext_b == '.ini') * -1 or
-            # or just sort by filename
+            cmp(get_weight(ext_weights, ext_a),
+                get_weight(ext_weights, ext_b)) or
+            cmp(get_weight(base_weights, base_a),
+                get_weight(base_weights, base_b)) or
             cmp(a, b))
 
-    # A set of loaded config basenames
-    # Iterate over matching files in the config directory
+    def valid_name(filename):
+        base, ext = split(filename)
+        return ((base in rootnames or '*' in rootnames) and
+                (ext in extensions or '*' in extensions))
+
     try:
-        for filename in sorted(os.listdir(directory),
-                               cmp=_file_sorter):
-            if os.path.splitext(os.path.basename(filename))[0] in basenames:
+        for filename in sorted(os.listdir(directory), cmp=file_sorter):
+            if valid_name(filename):
                 yield os.path.join(directory, filename)
     except OSError:
         # Directory does not exist, no files to iterate over
         return
 
 
+def find_logging_config(directory, rootname, extensions=None):
+    """ Find the first file in `directory` with rootname `rootname`.
+
+    :param list rootname:
+        A file basename without file extension.
+
+    :param list extensions:
+        An ordered list of acceptable file extensions, see `iter_config`.
+
+    """
+    extensions = extensions or ['*']
+    for filename in iter_configs(directory, [rootname, ], extensions):
+        return filename
+    return None
+
+
+def merge_dict_config(*dict_configs):
+    """ Merge two or more logging dict configs, in a somewhat sane manner.
+
+    This currently does a minimal job of merging. The only actual merged
+    configuration is:
+
+    disable_existing_loggers
+        If set in *any* of the configs, this will also be set in the merged
+        config
+
+    root.handlers
+        Handlers from all dict_configs will be applied to the root logger.
+
+    All other config values from latter config_dicts will overwrite the value
+    from previous config_dicts.
+
+    Note: any dict objects passed in *will* be mutated.
+    """
+    merged_config = {}
+
+    # merge 'version'
+    versions = set(c.pop('version') for c in dict_configs)
+    if len(versions) > 1:
+        raise NotImplementedError(
+            "merge multiple config versions: {0}".format(', '.join(versions)))
+    merged_config['version'] = versions.pop()
+
+    # merge 'disable_existing_loggers'
+    merged_config['disable_existing_loggers'] = any(
+        c.pop('disable_existing_loggers', False) for c in dict_configs)
+
+    for config in dict_configs:
+        # merge root handlers
+        merged_h = merged_config.get('root', {}).get('handlers', [])
+        if 'root' in config:
+            merged_config['root'] = config.pop('root')
+            for h in reversed(merged_h):
+                merged_config['root'].setdefault('handlers', []).insert(0, h)
+
+        # merge filters, loggers, handlers, formatters
+        for k in config:
+            merged_config.setdefault(k, {}).update(config[k])
+
+    return merged_config
+
+
 def configure_logging(filename, disable_existing_loggers=None):
-    """ Configure loggers. """
+    """ Configure loggers.
+
+    This is a wrapper around logging.config.fileConfig and
+    logging.config.dictConfig.
+
+    :param str filename:
+        A logger configuration file to apply.
+
+    :param bool disable_existing_loggers:
+        Enforce a `disable_existing_loggers` setting. The default is `None`
+        which means:
+
+        - do *not* disable exising loggers if ini-style config (this is the
+          opposite of the logging.config.fileConfig() default)
+        - use value from config if dict-style config
+    """
     base, ext = os.path.splitext(filename)
     if ext == '.ini':
         # TODO: Should we even allow using fileConfig
@@ -239,36 +373,65 @@ def configure_logging(filename, disable_existing_loggers=None):
 
 
 def setup_logging(config, config_name, loglevel, disable_existing=False):
-    """ (re)configures logging. """
-    # TODO: this needs some improvements
+    """ (re)configures logging.
+
+    :param LoggerConfig config:
+        A configuration that controls the loading of logger configuration.
+
+    :param str config_name:
+        Which logger configuration to set up.
+
+    :param int loglevel:
+        A default loglevel to use with the default (stderr) handler, if no root
+        handlers are applied through the logger configuration.
+
+    :param bool disable_existing:
+        If any and all existing logger configuration should be disabled.
+    """
+    extensions = list(e for e in parsers.list_extensions() if e != 'ini')
+    if not config.merge:
+        extensions.append('ini')
+
     config_files = []
-    # TODO: Should we do something drastic if config_name does not exist?
-    for filename in iter_logging_configs(config.conf_dir,
-                                         'logging',
-                                         config_name):
-        # TODO: Should we try to join the configs *before* we apply them?
-        #       That would allow one config to refer to common elements in
-        #       another config... We should probably disallow *.ini fileConfig
-        #       then, since it's not compatible with dictConfig...
-        configure_logging(filename, disable_existing_loggers=disable_existing)
-        # When loading multiple configs, we should only disable existing on the
-        # first one. There's still a chance of configs to override this
-        # behaviour though.
-        disable_existing = None
 
-        config_files.append(filename)
+    if config.common_config:
+        common = find_logging_config(config.confdir, config.common_config,
+                                     extensions=extensions)
+        if common:
+            config_files.append(common)
 
-    if not config_files:
-        if loglevel is None:
-            logging.basicConfig()
-        else:
-            logging.basicConfig(level=loglevel)
-        logger.warn(
-            "No logger config '{0}' in config dir {1}".format(config_name,
-                                                              config.conf_dir))
-    else:
-        for c in config_files:
-            logger.debug("Loaded logger config '{0}'".format(c))
+    local = find_logging_config(config.confdir, config_name,
+                                extensions=extensions)
+
+    if local:
+        config_files.append(local)
+    elif config.require_config:
+        raise ValueError(
+            "no configuration '{0}' in '{1}'".format(config_name,
+                                                     config.confdir))
+
+    if config_files and config.merge:
+        # Merge configs and apply
+        config_dict = merge_dict_config(*(loader.read_config(f)
+                                          for f in config_files))
+        config_dict['disable_existing_loggers'] |= disable_existing
+        logging.config.dictConfig(config_dict)
+    elif config_files:
+        # Apply each config in order
+        for config_file in config_files:
+            configure_logging(config_file,
+                              disable_existing_loggers=disable_existing)
+            # The disable_existing is only a default for the first config.
+            # Remaining config files should use whatever is specified in the
+            # file itself.
+            disable_existing = None
+
+    # if no other root handlers have been set up...
+    logging.basicConfig(level=loglevel)
+
+    logger.debug("Logging config {!r}".format(config))
+    for c in config_files:
+        logger.debug("Loaded logger config '{0}'".format(c))
 
 
 def setup_excepthook(exception_config):
@@ -298,15 +461,11 @@ def setup_warnings(warn_config):
     logger.debug("Warnings config {!r}".format(warn_config))
 
 
-def configure(config,
-              logger_name,
-              logger_level=None):
-
-    setup_logging(config, logger_name, logger_level)
+def configure(config, logger_name, logger_level=None):
+    logger_level = logging.NOTSET if logger_level is None else logger_level
+    setup_logging(config.logging, logger_name, logger_level)
     setup_excepthook(config.exceptions)
     setup_warnings(config.warnings)
-    logger.debug("Config logs={0.root_dir!s} loggers={0.conf_dir!s}".format(
-        config))
 
 
 if __name__ == '__main__':

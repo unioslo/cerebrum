@@ -179,6 +179,10 @@ def register_extension(*extensions):
     return _set_parser_and_return_class
 
 
+def list_extensions():
+    return list(_parsers.keys())
+
+
 try:
     import json
 
