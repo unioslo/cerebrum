@@ -3163,20 +3163,24 @@ Addresses and settings:
         """
 
         if addr.count('@') == 0:
-            raise CerebrumError, \
-                  "E-mail address (%s) must include domain" % addr
-        lp, dom = addr.split('@')
-        if addr != addr.lower() and \
-           dom not in cereconf.LDAP['rewrite_email_domain']:
-            raise CerebrumError, \
-                  "E-mail address (%s) can't contain upper case letters" % addr
+            raise CerebrumError("E-mail address ({}) must include domain"
+                                .format(addr))
+        try:
+            lp, dom = addr.split('@')
+        except ValueError:
+            raise CerebrumError("E-mail address ({}) must contain only one @"
+                                .format(addr))
+        if (addr != addr.lower() and dom not in
+                cereconf.LDAP['rewrite_email_domain']):
+            raise CerebrumError("E-mail address ({}) can't contain upper case "
+                                "letters".format(addr))
 
         if not with_checks:
             return lp, dom
 
         ea = Email.EmailAddress(self.db)
         if not ea.validate_localpart(lp):
-            raise CerebrumError, "Invalid localpart '%s'" % lp
+            raise CerebrumError("Invalid localpart '{}'".format(lp))
         return lp, dom
 
     def _validate_sympa_list(self, listname):
@@ -8325,44 +8329,41 @@ Addresses and settings:
 
         account_type = self._get_constant(self.const.Account, account_type,
                                           "account type")
-        account = self.Account_class(self.db)
-        account.clear()
-        account.populate(account_name,
-                         self.const.entity_group,
-                         owner_group.entity_id,
-                         account_type,
-                         operator.get_entity_id(),
-                         None)
-        account.write_db()
-        passwd = account.make_passwd(account_name)
-        account.set_password(passwd)
-        try:
-            account.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError("Database error: %s" % m)
+        account = self._user_create_basic(operator, owner_group, account_name,
+                                          account_type)
+        self._user_password(operator, account)
 
+        # Validate the contact address
+        # TBD: Check if address is instance-internal?
+        _, domain = self._split_email_address(contact_address)
+        ed = Email.EmailDomain(self.db)
+        try:
+            ed._validate_domain_name(domain)
+        except AttributeError as e:
+            raise CerebrumError("Invalid contact address: {}".format(e))
+
+        # Unpersonal accounts shouldn't normally have a mail inbox, but they
+        # get a forward target for the account, to be sent to those responsible
+        # for the account, preferrably a sysadm mail list.
         if hasattr(self, 'entity_contactinfo_add'):
-            self.entity_contactinfo_add(operator, account_name, 'EMAIL',
-                                        contact_address)
+            account.add_contact_info(self.const.system_manual,
+                                     self.const.contact_email,
+                                     contact_address)
+        # TBD: Better way of checking if email forwards are in use, by
+        # checking if bofhd command is available?
         if hasattr(self, 'email_create_forward_target'):
-            self.email_create_forward_target(
-                operator,
-                '{}@{}'.format(
-                    account_name,
-                    cereconf.EMAIL_DEFAULT_DOMAIN),
-                contact_address)
+            localaddr = '{}@{}'.format(account_name,
+                                       cereconf.EMAIL_DEFAULT_DOMAIN)
+            self._email_create_forward_target(localaddr, contact_address)
 
         quar = cereconf.BOFHD_CREATE_UNPERSONAL_QUARANTINE
         if quar:
             qconst = self._get_constant(self.const.Quarantine, quar,
                                         "quarantine")
             account.add_entity_quarantine(qconst, operator.get_entity_id(),
-                                          "Created unpersonal account",
+                                          "Not granted for global password "
+                                          "auth (ask IT-sikkerhet)",
                                           self._today())
-
-        operator.store_state("new_account_passwd",
-                             {'account_id': int(account.entity_id),
-                              'password': passwd})
         return {'account_id': int(account.entity_id)}
 
     def _user_create_prompt_func(self, session, *args):
