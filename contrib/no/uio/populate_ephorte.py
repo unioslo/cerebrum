@@ -6,6 +6,8 @@ This script adds ephorte_roles and ephorte-spreads to persons (employees) in
 Cerebrum according to the rules in ephorte-sync-spec.rst
 """
 import argparse
+import itertools
+
 from mx import DateTime
 
 import cereconf
@@ -256,8 +258,14 @@ class PopulateEphorte(object):
         # Find where an employee has an ANSATT affiliation and check
         # if that ou is an ePhorte ou. If not try to map to nearest
         # ePhorte OU as specified in ephorte-sync-spec.rst
-        for row in pe.list_affiliations(source_system=co.system_sap,
-                                        affiliation=co.affiliation_ansatt):
+        for row in itertools.chain(
+                pe.list_affiliations(
+                    source_system=co.system_sap,
+                    affiliation=co.affiliation_ansatt),
+                pe.list_affiliations(
+                    source_system=co.system_sap,
+                    affiliation=co.affiliation_tilknyttet,
+                    status=co.affiliation_tilknyttet_ekst_forsker)):
             ou_id = int(row['ou_id'])
             if ou_id is not None and ou_id not in self.app_ephorte_ouid2name:
                 if ou_id not in non_ephorte_ous:
