@@ -137,7 +137,8 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
                     self.pg.clear()
                     self.pg.populate(parent=personal_dfg)
                     self.pg.write_db()
-                self.pg = personal_dfg
+                else:
+                    self.pg = personal_dfg
                 gid_id = self.pg.entity_id
 
         return self.__super.populate(posix_uid, gid_id, gecos,
