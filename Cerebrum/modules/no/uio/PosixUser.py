@@ -71,19 +71,20 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
             pass
         return self.__super.clear()
 
-    def find_personal_group(self):
-        """ Find a posix group marked by the trait_personal_dfg trait.
-        If no posix groups with the trait is found, the main account's
-        class-function is called, potentially returning a regular group
-        if one that has the trait is found.
-
-        @return Group or None.
+    def _find_personal_group(self, account_id):
+        """Find a group (either a PosixGroup or a regular Group) with the
+        personal_dfg trait. If a regular Group is found, promote it to
+        a PosixGroup. Auto-promoting is necessary due to the fact that
+        a previously demoted user that is promoted back to a PosixUser,
+        probably already has a personal group that was also demoted at
+        the same time as the user, and we want to reuse this group.
+        Since this function will only be called under the creation (populate)
+        of a PosixUser, or while updating an existing PosixUser, it is safe
+        to assume that we would like to automatically re-promote the user's
+        personal group as well if it hasn't been done yet.
         """
-        # NOTE: UiO Only
-        if not getattr(self, 'entity_id', None):
-            return None
         pg = Factory.get('PosixGroup')(self._db)
-        trait = list(pg.list_traits(target_id=self.entity_id,
+        trait = list(pg.list_traits(target_id=account_id,
                                     code=self.const.trait_personal_dfg))
         if trait:
             group_id = trait[0]['entity_id']
@@ -91,8 +92,22 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
                 pg.find(group_id)
                 return pg
             except Errors.NotFoundError:
-                pass
-        return self.__super.find_personal_group()
+                gr = Factory.get('Group')(self._db)
+                gr.find(group_id)
+                pg.clear()
+                pg.populate(parent=gr)
+                pg.write_db()
+                return pg
+        return None
+
+    def find_personal_group(self):
+        """ Find a posix group marked by the trait_personal_dfg trait.
+
+        @return PosixGroup or None.
+        """
+        if not getattr(self, 'entity_id'):
+            return None
+        return self._find_personal_group(self.entity_id)
 
     def add_spread(self, *args, **kwargs):
         """Override with UiO specific behaviour."""
@@ -128,17 +143,12 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         if gid_id is None:
             personal_dfg = None
             if parent:
-                personal_dfg = parent.find_personal_group()
+                personal_dfg = self._find_personal_group(parent.entity_id)
             if personal_dfg is None:
                 # No dfg, we need to create it
                 self.__create_dfg = creator_id
             else:
-                if not personal_dfg.has_extension('PosixGroup'):
-                    self.pg.clear()
-                    self.pg.populate(parent=personal_dfg)
-                    self.pg.write_db()
-                else:
-                    self.pg = personal_dfg
+                self.pg = personal_dfg
                 gid_id = self.pg.entity_id
 
         return self.__super.populate(posix_uid, gid_id, gecos,
