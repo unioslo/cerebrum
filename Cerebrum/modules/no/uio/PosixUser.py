@@ -58,7 +58,8 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
             for row in pg.get_spread():
                 pg.delete_spread(int(row['spread']))
             pg.write_db()
-            pg.demote_posix()
+            if pg.has_extension('PosixGroup'):
+                pg.demote_posix()
         return ret
 
     def clear(self):
@@ -69,6 +70,41 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         except AttributeError:
             pass
         return self.__super.clear()
+
+    def find_personal_group(self):
+        """ Find a posix group marked by the trait_personal_dfg trait.
+        If no posix groups with the trait is found, the main account's
+        class-function is called, potentially returning a regular group
+        if one that has the trait is found.
+
+        @return Group or None.
+        """
+        # NOTE: UiO Only
+        if not getattr(self, 'entity_id', None):
+            return None
+        pg = Factory.get('PosixGroup')(self._db)
+        trait = list(pg.list_traits(target_id=self.entity_id,
+                                    code=self.const.trait_personal_dfg))
+        if trait:
+            group_id = trait[0]['entity_id']
+            try:
+                pg.find(group_id)
+                return pg
+            except Errors.NotFoundError:
+                pass
+        return self.__super.find_personal_group()
+
+    def add_spread(self, *args, **kwargs):
+        """Override with UiO specific behaviour."""
+        ret = self.__super.add_spread(*args, **kwargs)
+        self.map_user_spreads_to_pg()
+        return ret
+
+    def delete_spread(self, *args, **kwargs):
+        """Override with UiO specific behaviour."""
+        ret = self.__super.delete_spread(*args, **kwargs)
+        self.map_user_spreads_to_pg()
+        return ret
 
     def populate(self, posix_uid, gid_id, gecos, shell,
                  name=None, owner_type=None, owner_id=None, np_type=None,
@@ -90,30 +126,23 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
             creator_id = parent.entity_id
 
         if gid_id is None:
-            personal_dfg = self.find_personal_group()
+            personal_dfg = None
+            if parent:
+                personal_dfg = parent.find_personal_group()
             if personal_dfg is None:
                 # No dfg, we need to create it
                 self.__create_dfg = creator_id
             else:
+                if not personal_dfg.has_extension('PosixGroup'):
+                    self.pg.clear()
+                    self.pg.populate(parent=personal_dfg)
+                    self.pg.write_db()
                 self.pg = personal_dfg
                 gid_id = self.pg.entity_id
 
         return self.__super.populate(posix_uid, gid_id, gecos,
                                      shell, name, owner_type, owner_id,
                                      np_type, creator_id, expire_date, parent)
-
-    def find_personal_group(self):
-        """ Find any group marked by the trait_personal_dfg trait. """
-        # NOTE: UiO Only
-        if not getattr(self, 'entity_id', None):
-            return None
-        group = Factory.get('PosixGroup')(self._db)
-        trait = list(group.list_traits(target_id=self.entity_id,
-                                       code=self.const.trait_personal_dfg))
-        if trait:
-            group.find(trait[0]['entity_id'])
-            return group
-        return None
 
     @contextmanager
     def _new_personal_group(self, creator_id):
@@ -165,7 +194,7 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         super(PosixUserUiOMixin, self).map_user_spreads_to_pg()
         if group is None:
             group = self.find_personal_group()
-            if group is None:
+            if group is None or not group.has_extension('PosixGroup'):
                 return
         mapping = [(int(self.const.spread_uio_nis_user),
                     int(self.const.spread_uio_nis_fg)),
@@ -205,3 +234,5 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
                 self.__super.write_db()
                 self._set_owner_of_group(personal_fg)
                 self.pg = personal_fg
+        finally:
+            self.map_user_spreads_to_pg()

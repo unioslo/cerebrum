@@ -646,3 +646,22 @@ class AccountUiOMixin(Account.Account):
                                 self.entity_id)
         elif self.const.trait_has_passphrase in self.get_traits():
             self.delete_trait(self.const.trait_has_passphrase)
+
+    def find_personal_group(self):
+        """ Find any group marked by the trait_personal_dfg trait.
+        @return Group or None.
+        """
+        # NOTE: UiO Only
+        if not getattr(self, 'entity_id', None):
+            return None
+        gr = Factory.get('Group')(self._db)
+        trait = list(gr.list_traits(target_id=self.entity_id,
+                                    code=self.const.trait_personal_dfg))
+        if trait:
+            group_id = trait[0]['entity_id']
+            try:
+                gr.find(group_id)
+                return gr
+            except Errors.NotFoundError:
+                pass
+        return None

@@ -1021,7 +1021,6 @@ def proc_delete_user(r):
     else:
         # The account is a PosixUser, special care needs to be taken with
         # regards to its default file group (dfg)
-
         personal_fg = pu.find_personal_group()
         if personal_fg is None:
             # Create a new personal file group
@@ -1034,6 +1033,13 @@ def proc_delete_user(r):
             logger.debug("Created group: '%s'. Group ID = %d",
                          personal_fg.group_name, personal_fg.entity_id)
 
+        pg = Utils.Factory.get('PosixUser')(db)
+        # If user has a personal group, but it currently isn't a posix group.
+        # This scenario should never really occur, but hey, this is Cerebrum.
+        if not personal_fg.has_extension('PosixGroup'):
+            pg.populate(parent=personal_fg)
+            pg.write_db()
+        personal_fg = pg
         # Set group to be dfg for the user.
         if personal_fg.entity_id != default_group:
             pu.gid_id = personal_fg.entity_id
