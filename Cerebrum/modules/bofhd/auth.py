@@ -2519,7 +2519,9 @@ class BofhdAuth(DatabaseAccessor):
                 pass
         return None
 
-    def can_get_person_external_id(self, operator, person):
+    def can_get_person_external_id(self, operator, person, query_run_any=True):
+        if query_run_any:
+            return True
         if self.is_superuser(operator.get_entity_id()):
             return True
         account = Factory.get('Account')(self._db)
