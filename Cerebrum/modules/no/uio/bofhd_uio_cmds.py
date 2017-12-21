@@ -5639,7 +5639,7 @@ Addresses and settings:
         acc = self._get_account(uname, actype="PosixUser")
         op = operator.get_entity_id()
         self.ba.can_create_personal_group(op, acc)
-        # 1. Create group
+        # Create group
         group = self.Group_class(self.db)
         try:
             group.find_by_name(uname)
@@ -5650,14 +5650,14 @@ Addresses and settings:
                            name=uname,
                            description=('Personal file group for %s' % uname))
             group.write_db()
-        # 2. Promote to PosixGroup
+        # Promote to PosixGroup
         pg = Utils.Factory.get('PosixGroup')(self.db)
         pg.populate(parent=group)
         try:
             pg.write_db()
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
-        # 3. make user the owner of the group so he can administer it
+        # Make user the owner of the group so he/she can administer it
         op_set = BofhdAuthOpSet(self.db)
         op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
         op_target = BofhdAuthOpTarget(self.db)
@@ -5665,18 +5665,16 @@ Addresses and settings:
         op_target.write_db()
         role = BofhdAuthRole(self.db)
         role.grant_auth(acc.entity_id, op_set.op_set_id, op_target.op_target_id)
-        # 4. make user a member of his personal group
+        # Make user a member of his personal group
         self._group_add(None, uname, uname, member_type="account")
-        # 5. make this group the primary group
-        acc.gid_id = group.entity_id
-        acc.write_db()
-        # 6. add spreads corresponding to its owning user
-        self._spread_sync_group(acc, group)
-        # 7. give personal group a trait
+        # Add personal group-trait to group
         if hasattr(self.const, 'trait_personal_dfg'):
             pg.populate_trait(self.const.trait_personal_dfg,
                               target_id=acc.entity_id)
             pg.write_db()
+        # Set group as primary group
+        acc.gid_id = group.entity_id
+        acc.write_db()
         return {'group_id': int(pg.posix_gid)}
 
     # group posix_create
@@ -8035,6 +8033,27 @@ Addresses and settings:
     # spread commands
     #
 
+    def _get_posix_account(self, account_id):
+        """Helper function to try getting a PosixUser-object from an
+        Account-id. Ideally this should be doable from self._get_entity,
+        and it would probably be reasonable to make PosixUser the default
+        object type to return if the PosixUser-module is used in an instance.
+
+        @param account_id: int
+        @return: a PosixUser object or None
+        """
+        try:
+            pu = Utils.Factory.get('PosixUser')(self.db)
+        except ValueError:
+            return None
+        else:
+            try:
+                pu.find(account_id)
+            except Errors.NotFoundError:
+                return None
+            else:
+                return pu
+
     # spread add
     all_commands['spread_add'] = Command(
         ("spread", "add"), EntityType(default='account'), Id(), Spread(),
@@ -8057,6 +8076,9 @@ Addresses and settings:
         if cereconf.EXCHANGE_GROUP_SPREAD and \
                 str(spread) == cereconf.EXCHANGE_GROUP_SPREAD:
             return "Please create distribution group via 'group exchange_create' in bofh"
+        if entity_type == 'account':
+            pu = self._get_posix_account(entity.entity_id)
+            entity = pu if pu is not None else entity
         if entity.has_spread(spread):
             raise CerebrumError("entity id=%s already has spread=%s" %
                                 (id, spread))
@@ -8065,8 +8087,6 @@ Addresses and settings:
         except (Errors.RequiresPosixError, self.db.IntegrityError) as e:
             raise CerebrumError(str(e))
         entity.write_db()
-        if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
-            self._spread_sync_group(entity)
         if hasattr(self.const, 'spread_uio_nis_fg'):
             if entity_type == 'group' and spread == self.const.spread_uio_nis_fg:
                 ad_spread = self.const.spread_uio_ad_group
@@ -8115,66 +8135,16 @@ Addresses and settings:
                 entity.has_spread(cereconf.EXCHANGE_GROUP_SPREAD)):
             raise CerebrumError(
                 "Cannot remove spread from distribution groups")
+        if entity_type == 'account':
+            pu = self._get_posix_account(entity.entity_id)
+            entity = pu if pu is not None else entity
         if entity.has_spread(spread):
             entity.delete_spread(spread)
         else:
             txt = "Entity '%s' does not have spread '%s'" % (id, str(spread))
             raise CerebrumError, txt
-        if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
-            self._spread_sync_group(entity)
         return "OK, removed spread %s from %s" % (
             spread, self._get_name_from_object(entity))
-
-    def _spread_sync_group(self, account, group=None):
-        """Make sure the group has the NIS spreads corresponding to
-        the NIS spreads of the account.  The account and group
-        arguments may be passed as Entity objects.  If group is None,
-        the group with the same name as account is modified, if it
-        exists."""
-
-        if account.np_type or account.owner_type == self.const.entity_group:
-            return
-
-        if group is None:
-            name = account.get_name(self.const.account_namespace)
-            try:
-                group = self._get_group(name)
-            except CerebrumError:
-                return
-
-        # FIXME: Identifying personal groups is not a very precise
-        # process.  One alternative would be to use the description:
-        #
-        # if not group.description.startswith('Personal file group for '):
-        #     return
-        #
-        # The alternative is to use the bofhd_auth tables to see if
-        # the account has the 'Group-owner' op_set for this group, and
-        # this is implemented below.
-
-        op_set = BofhdAuthOpSet(self.db)
-        op_set.find_by_name('Group-owner')
-
-        baot = BofhdAuthOpTarget(self.db)
-        targets = baot.list(entity_id=group.entity_id)
-        if len(targets) == 0:
-            return
-        bar = BofhdAuthRole(self.db)
-        is_moderator = False
-        for auth in bar.list(op_target_id=targets[0]['op_target_id']):
-            if (auth['entity_id'] == account.entity_id and
-                auth['op_set_id'] == op_set.op_set_id):
-                is_moderator = True
-        if not is_moderator:
-            return
-
-        pu = Utils.Factory.get('PosixUser')(self.db)
-        if account is pu:
-            pu = account
-        else:
-            pu.find(account.entity_id)
-
-        pu.map_user_spreads_to_pg(group)
 
     #
     # trait commands
@@ -9353,10 +9323,10 @@ Addresses and settings:
         else:
             person = None
         self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
-        pu.populate(uid, None, None, shell, parent=account,
-                    creator_id=operator.get_entity_id())
-        pu.write_db()
 
+        pu.populate(uid, None, None, shell,
+                    parent=account, creator_id=operator.get_entity_id())
+        pu.write_db()
         default_home_spread = self._get_constant(self.const.Spread,
                                                  cereconf.DEFAULT_HOME_SPREAD,
                                                  "spread")
