@@ -353,6 +353,8 @@ command_help = {
             'Set a new birth date for a person',
         'person_set_id':
             'Set a new id for a person',
+        'person_get_id':
+            'Get an external id for a person',
         'person_set_name':
             'Change the full name of a manually registered person',
         'person_student_info':

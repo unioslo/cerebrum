@@ -7493,8 +7493,6 @@ Addresses and settings:
          ("affiliation", "source_system")),
         ("Names:         %s[from %s]",
          ("names", "name_src")),
-        ("Fnr:           %s [from %s]",
-         ("fnr", "fnr_src")),
         ("Contact:       %s: %s [from %s]",
          ("contact_type", "contact", "contact_src")),
         ("External id:   %s [from %s]",
@@ -7545,37 +7543,39 @@ Addresses and settings:
         for i in range(1, len(affiliations)):
             data.append({'affiliation': affiliations[i],
                          'source_system': sources[i]})
-        account = self.Account_class(self.db)
-        account_ids = [int(r['account_id'])
-                       for r in account.list_accounts_by_owner_id(person.entity_id)]
-        ## Ugly hack: We use membership in a given group (defined in
-        ## cereconf) to enable viewing fnr in person info.
-        is_member_of_priviliged_group = False
-        if cereconf.BOFHD_FNR_ACCESS_GROUP is not None:
-            g_view_fnr =  Utils.Factory.get("Group")(self.db)
-            g_view_fnr.find_by_name(cereconf.BOFHD_FNR_ACCESS_GROUP)
-            is_member_of_priviliged_group = g_view_fnr.has_member(operator.get_entity_id())
-        if (self.ba.is_superuser(operator.get_entity_id()) or
-            operator.get_entity_id() in account_ids or
-            is_member_of_priviliged_group):
-            # Show fnr
-            for row in person.get_external_id(id_type=self.const.externalid_fodselsnr):
+        try:
+            self.ba.can_get_person_external_id(operator, person)
+            # Include fnr. Note that this is not displayed by the main
+            # bofh-client, but some other clients (Brukerinfo, cweb) rely
+            # on this data.
+            for row in person.get_external_id(
+                    id_type=self.const.externalid_fodselsnr):
                 data.append({'fnr': row['external_id'],
                              'fnr_src': str(
-                    self.const.AuthoritativeSystem(row['source_system']))})
-            # Show external id from FS and SAP
-            for extid in ('externalid_sap_ansattnr',
-                          'externalid_studentnr',
-                          'externalid_pass_number',
-                          'externalid_social_security_number',
-                          'externalid_tax_identification_number',
-                          'externalid_value_added_tax_number'):
-                extid = getattr(self.const, extid, None)
-                if extid:
-                    for row in person.get_external_id(id_type=extid):
-                        data.append({'extid': row['external_id'],
-                                     'extid_src': str(
-                            self.const.AuthoritativeSystem(row['source_system']))})
+                                 self.const.AuthoritativeSystem(
+                                     row['source_system']
+                                 )
+                             )})
+            # Show external ids
+            for extid in (
+                    'externalid_fodselsnr',
+                    'externalid_sap_ansattnr',
+                    'externalid_studentnr',
+                    'externalid_pass_number',
+                    'externalid_social_security_number',
+                    'externalid_tax_identification_number',
+                    'externalid_value_added_tax_number'):
+                extid_const = getattr(self.const, extid, None)
+                if extid_const:
+                    for row in person.get_external_id(id_type=extid_const):
+                        data.append({
+                            'extid': str(extid_const),
+                            'extid_src': str(self.const.AuthoritativeSystem(
+                                row['source_system']
+                            ))
+                        })
+        except PermissionDenied:
+            pass
         # Show contact info
         for row in person.get_contact_info():
             if row['contact_type'] not in (self.const.contact_phone,
@@ -7599,6 +7599,54 @@ Addresses and settings:
             except PermissionDenied:
                 continue
         return data
+
+    # person get_id
+    all_commands['person_get_id'] = Command(
+        ("person", "get_id"), PersonId(help_ref="person_id"),
+        ExternalIdType(), SourceSystem(help_ref="source_system"),
+        fs=FormatSuggestion([("ID %s for person entity %s in %s: %s",
+                              ("ext_id_type",
+                               "person_id",
+                               "source_system",
+                               "ext_id_value"))]))
+    def person_get_id(self, operator, person_id, ext_id, source_system):
+        """
+        Returns an external id value for a person according to the specified
+        source system. The command/function only returns one ID instead of all
+        IDs for a person entity in order to limit the exposure of sensitive
+        personal info to the bare minimum.
+        """
+        try:
+            ext_id_const = int(self.const.EntityExternalId(ext_id))
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown external id: {}".format(ext_id))
+        try:
+            ss_const = int(self.const.AuthoritativeSystem(source_system))
+        except Errors.NotFoundError:
+            raise CerebrumError(
+                "Unknown source system: {}".format(source_system)
+            )
+        try:
+            person = self.util.get_target(person_id, restrict_to=['Person'])
+        except Errors.TooManyRowsError:
+            raise CerebrumError("Unexpectedly found more than one person")
+
+        self.ba.can_get_person_external_id(operator, person)
+
+        external_id_list = person.get_external_id(
+            id_type=ext_id_const,
+            source_system=ss_const
+        )
+        if external_id_list:
+            ext_id_value = external_id_list[0]['external_id']
+            return [{"ext_id_type": ext_id,
+                     "person_id": person.entity_id,
+                     "source_system": source_system,
+                     "ext_id_value": ext_id_value}]
+        else:
+            raise CerebrumError("Could not find id {} for "
+                                "person entity {} in system {}.".format(
+                                    ext_id, person.entity_id, source_system))
 
     # person set_id
     all_commands['person_set_id'] = Command(

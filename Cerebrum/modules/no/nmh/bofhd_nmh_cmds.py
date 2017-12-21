@@ -129,6 +129,7 @@ uio_commands = [
     'person_clear_name',
     'person_create',
     'person_find',
+    'person_get_id',
     'person_info',
     'person_list_user_priorities',
     'person_set_name',
