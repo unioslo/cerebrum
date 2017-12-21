@@ -2519,7 +2519,7 @@ class BofhdAuth(DatabaseAccessor):
                 pass
         return None
 
-    def can_get_person_external_id(self, operator, person, query_run_any=True):
+    def can_get_person_external_id(self, operator, person, query_run_any=False):
         if query_run_any:
             return True
         if self.is_superuser(operator.get_entity_id()):
