@@ -7602,7 +7602,7 @@ Addresses and settings:
     all_commands['person_get_id'] = Command(
         ("person", "get_id"), PersonId(help_ref="person_id"),
         ExternalIdType(), SourceSystem(help_ref="source_system"),
-        fs=FormatSuggestion([("ID %s for person entity %s in %s: %s",
+        fs=FormatSuggestion([("ID %s for person entity %d in %s: %s",
                               ("ext_id_type",
                                "person_id",
                                "source_system",
