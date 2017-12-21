@@ -1,3 +1,8 @@
+2017-12-21  Karen   <cerebrum@cleomedes.uit.no>
+
+    * import_PAGA.py: Added functionality to remove employee person spreads if person no longer has 
+    ANSATT affiliation. Spreads to remove are listed in cereconf.EMPLOYEE_PERSON_SPREADS.
+
 2017-12-18    <cerebrum@cleomedes.uit.no>
 
 	* import_FS.py (process_person_callback): new_person.populate() should not be inside try catch.

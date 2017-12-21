@@ -573,15 +573,12 @@ def clean_affi_s_list():
                         (ent_id,ou,affi,last_date,cereconf.GRACEPERIOD_EMPLOYEE))
                     new_person.delete_affiliation(ou, affi, const.system_paga)
 
-                # if datetime.datetime.today() > last_date:
-                #     # person is no longer an employee, delete employee spreads for this person.
-                #     # Spreads to delete are listed in cereconf.EMPLOYEE_PERSON_SPREADS
-                #     employee_person_spreads = [int(const.Spread(x)) for x in cereconf.EMPLOYEE_PERSON_SPREADS]
-                #     for s in employee_person_spreads:
-                #         new_person.delete_spread(s)
-
-                #     # TODO 1: need to test this
-                #     # TODO 2: check if this will be ok for a person that "returns" before affil is deleted
+                if datetime.datetime.today() > last_date:
+                    # person is no longer an employee, delete employee spreads for this person.
+                    # Spreads to delete are listed in cereconf.EMPLOYEE_PERSON_SPREADS
+                    employee_person_spreads = [int(const.Spread(x)) for x in cereconf.EMPLOYEE_PERSON_SPREADS]
+                    for s in employee_person_spreads:
+                        new_person.delete_spread(s)
 
 
 def main():
