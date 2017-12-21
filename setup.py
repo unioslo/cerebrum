@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2002-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -480,6 +480,7 @@ setup(
         'Cerebrum/modules/no/uio/voip',
         'Cerebrum/modules/no/uio/AutoStud',
         'Cerebrum/modules/no/uio/exchange',
+        'Cerebrum/modules/no/uio/SoapAPI',
         'Cerebrum/modules/no/hia',
         'Cerebrum/modules/no/hia/exchange',
         'Cerebrum/modules/no/hiof',
@@ -521,14 +522,6 @@ setup(
     cmdclass={
         'install_data': my_install_data,
         'install_locales': CerebrumLocales,
-    }
-)
-
-setup(
-    name='SoapAPI',
-    packages=['SoapAPI'],
-    cmdclass={
-        'install_locales': LocaleInstaller,
     }
 )
 
