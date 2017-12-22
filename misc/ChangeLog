@@ -1,3 +1,7 @@
+2017-12-22  Karen   <cerebrum@cleomedes.uit.no>
+
+    * add_cim_spread.py: Added to repo. Script for adding cim_spread for a list of persons.
+
 2017-12-18    <cerebrum@cleomedes.uit.no>
 
 	* rename_account.py (main): Removed 2 email recipients when changing username. star-gru@orakel.uit.no and nybruker2@asp.uit.no are no longer in use
