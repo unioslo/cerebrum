@@ -38,6 +38,7 @@ EPHORTE_EGNE_SAKER_SKO = getattr(cereconf, 'EPHORTE_EGNE_SAKER_SKO')
 EPHORTE_FSAT_SKO = getattr(cereconf, 'EPHORTE_FSAT_SKO')
 EPHORTE_NIKK_SKO = getattr(cereconf, 'EPHORTE_NIKK_SKO')
 EPHORTE_SO_SKO = getattr(cereconf, 'EPHORTE_SO_SKO')
+EPHORTE_KDTO_SKO = getattr(cereconf, 'EPHORTE_KDTO_SKO')
 
 # Day filter (when to allow email warnings), and email template
 EPHORTE_MAIL_TIME = getattr(cereconf, 'EPHORTE_MAIL_TIME', [])
@@ -123,6 +124,11 @@ class PopulateEphorte(object):
                 self.ouid_2roleinfo[ou_id] = (
                     int(co.ephorte_arkivdel_sak_fsat),
                     int(co.ephorte_journenhet_fsat))
+            # Special case, KDTO
+            elif sko in EPHORTE_KDTO_SKO:
+                self.ouid_2roleinfo[ou_id] = (
+                    int(co.ephorte_arkivdel_sak_kdto),
+                    int(co.ephorte_journenhet_kdto))
             # Default case
             else:
                 self.ouid_2roleinfo[ou_id] = (
