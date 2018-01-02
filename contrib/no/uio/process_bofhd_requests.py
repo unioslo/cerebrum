@@ -1039,7 +1039,7 @@ def proc_delete_user(r):
         if not personal_fg.has_extension('PosixGroup'):
             pg.populate(parent=personal_fg)
             pg.write_db()
-        personal_fg = pg
+            personal_fg = pg
         # Set group to be dfg for the user.
         if personal_fg.entity_id != default_group:
             pu.gid_id = personal_fg.entity_id
