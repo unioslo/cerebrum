@@ -105,10 +105,8 @@ def get_skoinfo(fak,inst,avd):
     acrolist=list()
     acrolist.append(res['acronym'])
     while not root:
-        print sko
         currentid=sko.entity_id
         parentid=sko.get_parent(perspective)
-        print "c=%s,p=%s" % ( currentid, parentid)
         if parentid != None:
             sko.clear()
             sko.find(parentid)
@@ -236,7 +234,7 @@ def GetUndenhGroups():
                            #'extensionAttribute14' :'',
                            #'extensionAttribute15' :''
 					       }
-
+        
 
 def GetStudieprogramgroups():
     grp_search_term="%s:studieprogram*:student" % fg_prefix
