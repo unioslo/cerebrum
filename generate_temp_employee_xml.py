@@ -147,7 +147,7 @@ def set_tj_forhold(person_list,paga_data):
 # Write persondata to xml file
 #
 def write_xml(qualified_list,out_file):
-    print "writing xml file..."
+    #print "writing xml file..."
     root_members = []
     ts = time.time()
     st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
@@ -416,7 +416,7 @@ def main():
         verify_file(person_file)
 
         # generate personlist from BAS
-        print "generating person list from BAS...",
+        #print "generating person list from BAS...",
         person_list = get_persons([aff_status])
         #print "done."
         # now set external_id and group membership foreach person in person_list
@@ -430,7 +430,7 @@ def main():
         #pprint(paga_data)
 
         # Add tj.Forhold data for each person
-        print "set employment type"
+        #print "set employment type"
         qualified_list = set_tj_forhold(person_list,paga_data)
         #pprint(qualified_list)
 

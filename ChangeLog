@@ -1,5 +1,7 @@
 2018-01-02    <cerebrum@cleomedes.uit.no>
 
+	* generate_temp_employee_xml.py (write_xml): removed debug lines
+
 	* ad_export_autogroups_undervisning.py (get_skoinfo): removed (debug) print lines.
 
 2017-12-21  Karen   <cerebrum@cleomedes.uit.no>
