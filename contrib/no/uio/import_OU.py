@@ -27,16 +27,13 @@ stored in suitable form in Cerebrum. Presently, this job can accept OU data
 from FS, LT and SAP.
 """
 
-import cerebrum_path
 import cereconf
 
 import sys
 import getopt
-import time
 from mx import DateTime
 from smtplib import SMTPRecipientsRefused, SMTPException
 
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import sendmail
 from Cerebrum.modules.xmlutils.system2parser import system2parser
@@ -310,7 +307,7 @@ def set_quaran(cer_ou_tab):
     """
     
     ous = OU_class(db)
-    now = db.DateFromTicks(time.time())
+    today = DateTime.today()
     acc = Factory.get("Account")(db)
     acc.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     for k in cer_ou_tab.keys():
@@ -320,7 +317,7 @@ def set_quaran(cer_ou_tab):
             ous.add_entity_quarantine(co.quarantine_ou_notvalid,
                                       acc.entity_id,
                                       description='import_OU',
-                                      start = now) 
+                                      start=today) 
     db.commit()
 # end set_quaran
 
