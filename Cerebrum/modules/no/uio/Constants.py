@@ -363,10 +363,6 @@ class Constants(Constants.Constants):
         'NIS_fg@hpc',
         Constants.Constants.entity_group,
         'File group in NIS domain "uio" exported to HPC')
-    spread_uio_ldap_person = Constants._SpreadCode(
-        'LDAP_person',
-        Constants.Constants.entity_person,
-        'Person included in LDAP directory')
     spread_isf_ldap_person = Constants._SpreadCode(
         'LDAP_isf_person',
         Constants.Constants.entity_person,
@@ -395,11 +391,6 @@ class Constants(Constants.Constants):
         'Xpand_group',
         Constants.Constants.entity_group,
         "Group included in Xpand's AD-OU")
-
-    spread_uio_ua = Constants._SpreadCode(
-        'UA@uio',
-        Constants.Constants.entity_person,
-        'Person exported to UA')
 
     # Spreads for Exchange
     spread_exchange_account = Constants._SpreadCode(
