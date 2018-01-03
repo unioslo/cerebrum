@@ -852,11 +852,16 @@ def move_student_callback(person_info):
     Currently we only operate on the disk whose spread is
     default_spread"""
 
-    fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
-                                              int(person_info['personnr'])))
+    fnr = "%06d%05d" % (int(person_info['fodselsdato']),
+                        int(person_info['personnr']))
+    logger.debug("Callback for %s" % fnr)
+    try:
+        fodselsnr.personnr_ok(fnr)
+    except Exception, e:
+        logger.exception(e)
+        return
     if fnr not in fnr2move_student:
         return
-    logger.debug("Callback for %s" % fnr)
     account = Utils.Factory.get('Account')(db)
     group = Utils.Factory.get('Group')(db)
     br = BofhdRequests(db, const)
