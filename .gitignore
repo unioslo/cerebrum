@@ -13,3 +13,4 @@ TAGS
 .coverage
 *.retry
 /testresults
+/pytest.ini

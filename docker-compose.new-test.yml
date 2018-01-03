@@ -1,0 +1,34 @@
+version: "2"
+
+services:
+  uio:
+    build:
+      context: .
+      dockerfile: testsuite/docker/Dockerfile
+    volumes:
+      - .:/src:z
+    networks:
+      - cerebrum
+    working_dir: /src/testsuite/docker
+    depends_on:
+      - db
+    environment:
+      - DB_USER=postgres
+      - DB_PASS=postgres
+      - DB_NAME=cerebrum_uio
+      - DB_HOST=db
+      - INST_DIR=/src/testsuite/docker/uio
+      - INST=uio
+      - CONFIG_DIR=/src/testsuite/docker/uio/config
+    command: /src/testsuite/docker/generate-test-reports.sh
+
+  db:
+    build:
+      context: .
+      dockerfile: testsuite/docker/Dockerfile-db
+    networks:
+      - cerebrum
+
+networks:
+  cerebrum:
+    driver: bridge
