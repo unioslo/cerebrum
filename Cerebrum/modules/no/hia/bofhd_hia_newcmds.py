@@ -101,6 +101,7 @@ uio_helpers = [
     '_get_group_opcode',
     '_get_host',
     '_get_opset',
+    '_get_posix_account',
     '_get_shell',
     '_grant_auth',
     '_group_add',

@@ -64,6 +64,7 @@ uio_helpers = [
     '_get_disk',
     '_get_group_opcode',
     '_get_opset',
+    '_get_posix_account',
     '_grant_auth',
     '_group_add',
     '_group_add_entity',
