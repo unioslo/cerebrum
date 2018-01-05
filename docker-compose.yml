@@ -4,7 +4,7 @@ services:
   uio:
     build:
       context: .
-      dockerfile: testsuite/docker/Dockerfile
+      dockerfile: Dockerfile-testsuite
     volumes:
       - .:/src:z
     networks:
@@ -13,19 +13,20 @@ services:
     depends_on:
       - db
     environment:
+      - DOCKER_ROOT_DIR=/src/testsuite/docker
+      - TEST_CONFIG_DIR=/src/testsuite/docker/test-config
+      - CEREBRUM_CONFIG_DIR=/src/testsuite/docker/cerebrum_config
       - DB_USER=postgres
       - DB_PASS=postgres
-      - DB_NAME=cerebrum_uio
       - DB_HOST=db
-      - INST_DIR=/src/testsuite/docker/uio
       - INST=uio
-      - CONFIG_DIR=/src/testsuite/docker/uio/config
+      - DB_NAME=cerebrum_uio
     command: /src/testsuite/docker/generate-test-reports.sh
 
   db:
     build:
       context: .
-      dockerfile: testsuite/docker/Dockerfile-db
+      dockerfile: Dockerfile-testsuite-db
     networks:
       - cerebrum
 

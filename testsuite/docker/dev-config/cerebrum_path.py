@@ -6,7 +6,10 @@
 import os
 import sys
 
-sys.path.append(os.getenv('CONFIG_DIR'))
+sys.path.append(os.path.join(os.getenv('DOCKER_ROOT_DIR'),
+                             'dev-config'))
+sys.path.append(os.path.join(os.getenv('CEREBRUM_CONFIG_DIR'),
+                             os.getenv('INST')))
 #sys.path.append("/etc/cerebrum")
 #sys.path.append("/usr/local/etc/cerebrum")
 sys.path.append("/src/testsuite/testtools")

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-./setup-cerebrum.sh
+cd $DOCKER_ROOT_DIR/scripts
+./setup-cerebrum-local-test-env.sh
 cd /src
-cp $INST_DIR/pytest.ini .
+cp $TEST_CONFIG_DIR/$INST/pytest.ini .
 ptw
