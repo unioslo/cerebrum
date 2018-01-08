@@ -26,7 +26,6 @@ import sys
 
 from time import time as now
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
@@ -34,8 +33,6 @@ from Cerebrum import Utils
 from Cerebrum import Account
 from Cerebrum import Metainfo
 from Cerebrum.Constants import _SpreadCode
-
-del cerebrum_path
 
 # run migrate_* in this order
 targets = {
