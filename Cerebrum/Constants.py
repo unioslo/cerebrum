@@ -269,7 +269,7 @@ class _CerebrumCode(DatabaseAccessor):
                     {'code': code})
             except Errors.NotFoundError:
                 raise Errors.NotFoundError('Constant %r' % self)
-        if isinstance(self.str, bytes):
+        if hasattr(self, 'str') and isinstance(self.str, bytes):
             try:
                 self.str = self.str.decode('UTF-8')
             except UnicodeDecodeError:
@@ -346,19 +346,19 @@ class _CerebrumCode(DatabaseAccessor):
         return self.str
 
     def __repr__(self):
-        return u"<{class} instance{str}{int} at {id}>".format(**{
+        return "<{class} instance{str}{int} at {id}>".format(**{
             'class': self.__class__.__name__,
-            'str': (u"" if getattr(self, 'str', None) is None
-                    else u" code_str=" + self.str),
-            'int': (u"" if getattr(self, 'int', None) is None
-                    else u" code=" + text(self.int)),
+            'str': ("" if getattr(self, 'str', None) is None
+                    else " code_str=" + self.str.encode('UTF-8')),
+            'int': ("" if getattr(self, 'int', None) is None
+                    else " code=" + str(self.int)),
             'id': hex(id(self) & 2 ** 32 - 1)})
 
     @property
     def description(self):
         """ This code value's description. """
         if self._desc is None:
-            self._desc = desc = self.sql.query_1(
+            desc = self.sql.query_1(
                 """
                 SELECT {0._lookup_desc_column}
                 FROM {0._lookup_table}
@@ -373,6 +373,8 @@ class _CerebrumCode(DatabaseAccessor):
                 except Exception:
                     # UnicodeDecodeError, or TypeError (desc is None)
                     self._desc = None
+            else:
+                self._desc = desc
 
         return self._desc
 
