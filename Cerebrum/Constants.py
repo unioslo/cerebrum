@@ -29,7 +29,8 @@ import copy
 import threading
 
 import cereconf
-from six import string_types as string, text_type as text
+from six import string_types as string, text_type as text, \
+    python_2_unicode_compatible
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -106,6 +107,7 @@ class SynchronizedDatabase(Database_class):
             SynchronizedDatabase._db_proxy_lock.release()
 
 
+@python_2_unicode_compatible
 class _CerebrumCode(DatabaseAccessor):
 
     """Abstract base class for accessing code tables in Cerebrum.
@@ -340,9 +342,6 @@ class _CerebrumCode(DatabaseAccessor):
         return self.description
 
     def __str__(self):
-        return unicode(self).encode('UTF-8')
-
-    def __unicode__(self):
         return self.str
 
     def __repr__(self):
@@ -659,6 +658,7 @@ class _PersonAffiliationCode(_CerebrumCode):
     pass
 
 
+@python_2_unicode_compatible
 class _PersonAffStatusCode(_CerebrumCode):
 
     "Mappings stored in the person_aff_status_code table"
@@ -724,7 +724,7 @@ class _PersonAffStatusCode(_CerebrumCode):
                 raise Errors.NotFoundError('Constant %r' % self)
         return self.int
 
-    def __unicode__(self):
+    def __str__(self):
         return u"{}/{}".format(self.affiliation, self.str)
 
     def _get_status(self):
@@ -840,6 +840,7 @@ class _QuarantineCode(_CerebrumCode):
              'desc': self._desc})
 
 
+@python_2_unicode_compatible
 class _ChangeTypeCode(_CerebrumCode):
     _lookup_code_column = 'change_type_id'
     # _lookup_str_column = 'status_str'
@@ -915,7 +916,7 @@ class _ChangeTypeCode(_CerebrumCode):
                      else " type=%r" % self.type),
             'id': hex(id(self) & 2 ** 32 - 1)}
 
-    def __unicode__(self):
+    def __str__(self):
         return u"{}:{}".format(self.category, self.type)
 
     def __int__(self):

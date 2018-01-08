@@ -25,9 +25,7 @@ PyYAML
 requests
 rpclib==2.7.0-beta
 sasl
-six
 smbpasswd
 statsd>=3.2.1
 suds
 Twisted==10.2.0
-

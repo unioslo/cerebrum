@@ -3163,20 +3163,24 @@ Addresses and settings:
         """
 
         if addr.count('@') == 0:
-            raise CerebrumError, \
-                  "E-mail address (%s) must include domain" % addr
-        lp, dom = addr.split('@')
-        if addr != addr.lower() and \
-           dom not in cereconf.LDAP['rewrite_email_domain']:
-            raise CerebrumError, \
-                  "E-mail address (%s) can't contain upper case letters" % addr
+            raise CerebrumError("E-mail address ({}) must include domain"
+                                .format(addr))
+        try:
+            lp, dom = addr.split('@')
+        except ValueError:
+            raise CerebrumError("E-mail address ({}) must contain only one @"
+                                .format(addr))
+        if (addr != addr.lower() and dom not in
+                cereconf.LDAP['rewrite_email_domain']):
+            raise CerebrumError("E-mail address ({}) can't contain upper case "
+                                "letters".format(addr))
 
         if not with_checks:
             return lp, dom
 
         ea = Email.EmailAddress(self.db)
         if not ea.validate_localpart(lp):
-            raise CerebrumError, "Invalid localpart '%s'" % lp
+            raise CerebrumError("Invalid localpart '{}'".format(lp))
         return lp, dom
 
     def _validate_sympa_list(self, listname):
@@ -5635,7 +5639,7 @@ Addresses and settings:
         acc = self._get_account(uname, actype="PosixUser")
         op = operator.get_entity_id()
         self.ba.can_create_personal_group(op, acc)
-        # 1. Create group
+        # Create group
         group = self.Group_class(self.db)
         try:
             group.find_by_name(uname)
@@ -5646,14 +5650,14 @@ Addresses and settings:
                            name=uname,
                            description=('Personal file group for %s' % uname))
             group.write_db()
-        # 2. Promote to PosixGroup
+        # Promote to PosixGroup
         pg = Utils.Factory.get('PosixGroup')(self.db)
         pg.populate(parent=group)
         try:
             pg.write_db()
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
-        # 3. make user the owner of the group so he can administer it
+        # Make user the owner of the group so he/she can administer it
         op_set = BofhdAuthOpSet(self.db)
         op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
         op_target = BofhdAuthOpTarget(self.db)
@@ -5661,18 +5665,16 @@ Addresses and settings:
         op_target.write_db()
         role = BofhdAuthRole(self.db)
         role.grant_auth(acc.entity_id, op_set.op_set_id, op_target.op_target_id)
-        # 4. make user a member of his personal group
+        # Make user a member of his personal group
         self._group_add(None, uname, uname, member_type="account")
-        # 5. make this group the primary group
-        acc.gid_id = group.entity_id
-        acc.write_db()
-        # 6. add spreads corresponding to its owning user
-        self._spread_sync_group(acc, group)
-        # 7. give personal group a trait
+        # Add personal group-trait to group
         if hasattr(self.const, 'trait_personal_dfg'):
             pg.populate_trait(self.const.trait_personal_dfg,
                               target_id=acc.entity_id)
             pg.write_db()
+        # Set group as primary group
+        acc.gid_id = group.entity_id
+        acc.write_db()
         return {'group_id': int(pg.posix_gid)}
 
     # group posix_create
@@ -7489,8 +7491,6 @@ Addresses and settings:
          ("affiliation", "source_system")),
         ("Names:         %s[from %s]",
          ("names", "name_src")),
-        ("Fnr:           %s [from %s]",
-         ("fnr", "fnr_src")),
         ("Contact:       %s: %s [from %s]",
          ("contact_type", "contact", "contact_src")),
         ("External id:   %s [from %s]",
@@ -7541,37 +7541,39 @@ Addresses and settings:
         for i in range(1, len(affiliations)):
             data.append({'affiliation': affiliations[i],
                          'source_system': sources[i]})
-        account = self.Account_class(self.db)
-        account_ids = [int(r['account_id'])
-                       for r in account.list_accounts_by_owner_id(person.entity_id)]
-        ## Ugly hack: We use membership in a given group (defined in
-        ## cereconf) to enable viewing fnr in person info.
-        is_member_of_priviliged_group = False
-        if cereconf.BOFHD_FNR_ACCESS_GROUP is not None:
-            g_view_fnr =  Utils.Factory.get("Group")(self.db)
-            g_view_fnr.find_by_name(cereconf.BOFHD_FNR_ACCESS_GROUP)
-            is_member_of_priviliged_group = g_view_fnr.has_member(operator.get_entity_id())
-        if (self.ba.is_superuser(operator.get_entity_id()) or
-            operator.get_entity_id() in account_ids or
-            is_member_of_priviliged_group):
-            # Show fnr
-            for row in person.get_external_id(id_type=self.const.externalid_fodselsnr):
+        try:
+            self.ba.can_get_person_external_id(operator, person)
+            # Include fnr. Note that this is not displayed by the main
+            # bofh-client, but some other clients (Brukerinfo, cweb) rely
+            # on this data.
+            for row in person.get_external_id(
+                    id_type=self.const.externalid_fodselsnr):
                 data.append({'fnr': row['external_id'],
                              'fnr_src': str(
-                    self.const.AuthoritativeSystem(row['source_system']))})
-            # Show external id from FS and SAP
-            for extid in ('externalid_sap_ansattnr',
-                          'externalid_studentnr',
-                          'externalid_pass_number',
-                          'externalid_social_security_number',
-                          'externalid_tax_identification_number',
-                          'externalid_value_added_tax_number'):
-                extid = getattr(self.const, extid, None)
-                if extid:
-                    for row in person.get_external_id(id_type=extid):
-                        data.append({'extid': row['external_id'],
-                                     'extid_src': str(
-                            self.const.AuthoritativeSystem(row['source_system']))})
+                                 self.const.AuthoritativeSystem(
+                                     row['source_system']
+                                 )
+                             )})
+            # Show external ids
+            for extid in (
+                    'externalid_fodselsnr',
+                    'externalid_sap_ansattnr',
+                    'externalid_studentnr',
+                    'externalid_pass_number',
+                    'externalid_social_security_number',
+                    'externalid_tax_identification_number',
+                    'externalid_value_added_tax_number'):
+                extid_const = getattr(self.const, extid, None)
+                if extid_const:
+                    for row in person.get_external_id(id_type=extid_const):
+                        data.append({
+                            'extid': str(extid_const),
+                            'extid_src': str(self.const.AuthoritativeSystem(
+                                row['source_system']
+                            ))
+                        })
+        except PermissionDenied:
+            pass
         # Show contact info
         for row in person.get_contact_info():
             if row['contact_type'] not in (self.const.contact_phone,
@@ -7595,6 +7597,54 @@ Addresses and settings:
             except PermissionDenied:
                 continue
         return data
+
+    # person get_id
+    all_commands['person_get_id'] = Command(
+        ("person", "get_id"), PersonId(help_ref="person_id"),
+        ExternalIdType(), SourceSystem(help_ref="source_system"),
+        fs=FormatSuggestion([("ID %s for person entity %d in %s: %s",
+                              ("ext_id_type",
+                               "person_id",
+                               "source_system",
+                               "ext_id_value"))]))
+    def person_get_id(self, operator, person_id, ext_id, source_system):
+        """
+        Returns an external id value for a person according to the specified
+        source system. The command/function only returns one ID instead of all
+        IDs for a person entity in order to limit the exposure of sensitive
+        personal info to the bare minimum.
+        """
+        try:
+            ext_id_const = int(self.const.EntityExternalId(ext_id))
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown external id: {}".format(ext_id))
+        try:
+            ss_const = int(self.const.AuthoritativeSystem(source_system))
+        except Errors.NotFoundError:
+            raise CerebrumError(
+                "Unknown source system: {}".format(source_system)
+            )
+        try:
+            person = self.util.get_target(person_id, restrict_to=['Person'])
+        except Errors.TooManyRowsError:
+            raise CerebrumError("Unexpectedly found more than one person")
+
+        self.ba.can_get_person_external_id(operator, person)
+
+        external_id_list = person.get_external_id(
+            id_type=ext_id_const,
+            source_system=ss_const
+        )
+        if external_id_list:
+            ext_id_value = external_id_list[0]['external_id']
+            return [{"ext_id_type": ext_id,
+                     "person_id": person.entity_id,
+                     "source_system": source_system,
+                     "ext_id_value": ext_id_value}]
+        else:
+            raise CerebrumError("Could not find id {} for "
+                                "person entity {} in system {}.".format(
+                                    ext_id, person.entity_id, source_system))
 
     # person set_id
     all_commands['person_set_id'] = Command(
@@ -7983,6 +8033,27 @@ Addresses and settings:
     # spread commands
     #
 
+    def _get_posix_account(self, account_id):
+        """Helper function to try getting a PosixUser-object from an
+        Account-id. Ideally this should be doable from self._get_entity,
+        and it would probably be reasonable to make PosixUser the default
+        object type to return if the PosixUser-module is used in an instance.
+
+        @param account_id: int
+        @return: a PosixUser object or None
+        """
+        try:
+            pu = Utils.Factory.get('PosixUser')(self.db)
+        except ValueError:
+            return None
+        else:
+            try:
+                pu.find(account_id)
+            except Errors.NotFoundError:
+                return None
+            else:
+                return pu
+
     # spread add
     all_commands['spread_add'] = Command(
         ("spread", "add"), EntityType(default='account'), Id(), Spread(),
@@ -8005,6 +8076,9 @@ Addresses and settings:
         if cereconf.EXCHANGE_GROUP_SPREAD and \
                 str(spread) == cereconf.EXCHANGE_GROUP_SPREAD:
             return "Please create distribution group via 'group exchange_create' in bofh"
+        if entity_type == 'account':
+            pu = self._get_posix_account(entity.entity_id)
+            entity = pu if pu is not None else entity
         if entity.has_spread(spread):
             raise CerebrumError("entity id=%s already has spread=%s" %
                                 (id, spread))
@@ -8013,8 +8087,6 @@ Addresses and settings:
         except (Errors.RequiresPosixError, self.db.IntegrityError) as e:
             raise CerebrumError(str(e))
         entity.write_db()
-        if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
-            self._spread_sync_group(entity)
         if hasattr(self.const, 'spread_uio_nis_fg'):
             if entity_type == 'group' and spread == self.const.spread_uio_nis_fg:
                 ad_spread = self.const.spread_uio_ad_group
@@ -8063,66 +8135,16 @@ Addresses and settings:
                 entity.has_spread(cereconf.EXCHANGE_GROUP_SPREAD)):
             raise CerebrumError(
                 "Cannot remove spread from distribution groups")
+        if entity_type == 'account':
+            pu = self._get_posix_account(entity.entity_id)
+            entity = pu if pu is not None else entity
         if entity.has_spread(spread):
             entity.delete_spread(spread)
         else:
             txt = "Entity '%s' does not have spread '%s'" % (id, str(spread))
             raise CerebrumError, txt
-        if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
-            self._spread_sync_group(entity)
         return "OK, removed spread %s from %s" % (
             spread, self._get_name_from_object(entity))
-
-    def _spread_sync_group(self, account, group=None):
-        """Make sure the group has the NIS spreads corresponding to
-        the NIS spreads of the account.  The account and group
-        arguments may be passed as Entity objects.  If group is None,
-        the group with the same name as account is modified, if it
-        exists."""
-
-        if account.np_type or account.owner_type == self.const.entity_group:
-            return
-
-        if group is None:
-            name = account.get_name(self.const.account_namespace)
-            try:
-                group = self._get_group(name)
-            except CerebrumError:
-                return
-
-        # FIXME: Identifying personal groups is not a very precise
-        # process.  One alternative would be to use the description:
-        #
-        # if not group.description.startswith('Personal file group for '):
-        #     return
-        #
-        # The alternative is to use the bofhd_auth tables to see if
-        # the account has the 'Group-owner' op_set for this group, and
-        # this is implemented below.
-
-        op_set = BofhdAuthOpSet(self.db)
-        op_set.find_by_name('Group-owner')
-
-        baot = BofhdAuthOpTarget(self.db)
-        targets = baot.list(entity_id=group.entity_id)
-        if len(targets) == 0:
-            return
-        bar = BofhdAuthRole(self.db)
-        is_moderator = False
-        for auth in bar.list(op_target_id=targets[0]['op_target_id']):
-            if (auth['entity_id'] == account.entity_id and
-                auth['op_set_id'] == op_set.op_set_id):
-                is_moderator = True
-        if not is_moderator:
-            return
-
-        pu = Utils.Factory.get('PosixUser')(self.db)
-        if account is pu:
-            pu = account
-        else:
-            pu.find(account.entity_id)
-
-        pu.map_user_spreads_to_pg(group)
 
     #
     # trait commands
@@ -8325,44 +8347,41 @@ Addresses and settings:
 
         account_type = self._get_constant(self.const.Account, account_type,
                                           "account type")
-        account = self.Account_class(self.db)
-        account.clear()
-        account.populate(account_name,
-                         self.const.entity_group,
-                         owner_group.entity_id,
-                         account_type,
-                         operator.get_entity_id(),
-                         None)
-        account.write_db()
-        passwd = account.make_passwd(account_name)
-        account.set_password(passwd)
-        try:
-            account.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError("Database error: %s" % m)
+        account = self._user_create_basic(operator, owner_group, account_name,
+                                          account_type)
+        self._user_password(operator, account)
 
+        # Validate the contact address
+        # TBD: Check if address is instance-internal?
+        _, domain = self._split_email_address(contact_address)
+        ed = Email.EmailDomain(self.db)
+        try:
+            ed._validate_domain_name(domain)
+        except AttributeError as e:
+            raise CerebrumError("Invalid contact address: {}".format(e))
+
+        # Unpersonal accounts shouldn't normally have a mail inbox, but they
+        # get a forward target for the account, to be sent to those responsible
+        # for the account, preferrably a sysadm mail list.
         if hasattr(self, 'entity_contactinfo_add'):
-            self.entity_contactinfo_add(operator, account_name, 'EMAIL',
-                                        contact_address)
+            account.add_contact_info(self.const.system_manual,
+                                     self.const.contact_email,
+                                     contact_address)
+        # TBD: Better way of checking if email forwards are in use, by
+        # checking if bofhd command is available?
         if hasattr(self, 'email_create_forward_target'):
-            self.email_create_forward_target(
-                operator,
-                '{}@{}'.format(
-                    account_name,
-                    cereconf.EMAIL_DEFAULT_DOMAIN),
-                contact_address)
+            localaddr = '{}@{}'.format(account_name,
+                                       cereconf.EMAIL_DEFAULT_DOMAIN)
+            self._email_create_forward_target(localaddr, contact_address)
 
         quar = cereconf.BOFHD_CREATE_UNPERSONAL_QUARANTINE
         if quar:
             qconst = self._get_constant(self.const.Quarantine, quar,
                                         "quarantine")
             account.add_entity_quarantine(qconst, operator.get_entity_id(),
-                                          "Created unpersonal account",
+                                          "Not granted for global password "
+                                          "auth (ask IT-sikkerhet)",
                                           self._today())
-
-        operator.store_state("new_account_passwd",
-                             {'account_id': int(account.entity_id),
-                              'password': passwd})
         return {'account_id': int(account.entity_id)}
 
     def _user_create_prompt_func(self, session, *args):
@@ -9304,10 +9323,10 @@ Addresses and settings:
         else:
             person = None
         self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
-        pu.populate(uid, None, None, shell, parent=account,
-                    creator_id=operator.get_entity_id())
-        pu.write_db()
 
+        pu.populate(uid, None, None, shell,
+                    parent=account, creator_id=operator.get_entity_id())
+        pu.write_db()
         default_home_spread = self._get_constant(self.const.Spread,
                                                  cereconf.DEFAULT_HOME_SPREAD,
                                                  "spread")

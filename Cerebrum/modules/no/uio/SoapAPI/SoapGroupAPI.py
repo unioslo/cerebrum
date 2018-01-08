@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014 University of Oslo, Norway
+# Copyright 2014-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,7 +24,8 @@ from rpclib.model.primitive import String, DateTime, Integer, Boolean
 from rpclib.model.complex import Array
 from rpclib.decorator import rpc
 
-from SoapAPI.SoapGroupAPImodel import GroupInfo, GroupMember
+from Cerebrum.modules.no.uio.SoapAPI.SoapGroupAPImodel import GroupInfo, GroupMember
+
 
 NAMESPACE = 'GroupAPI'
 

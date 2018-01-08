@@ -6,6 +6,8 @@ This script adds ephorte_roles and ephorte-spreads to persons (employees) in
 Cerebrum according to the rules in ephorte-sync-spec.rst
 """
 import argparse
+import itertools
+
 from mx import DateTime
 
 import cereconf
@@ -36,6 +38,7 @@ EPHORTE_EGNE_SAKER_SKO = getattr(cereconf, 'EPHORTE_EGNE_SAKER_SKO')
 EPHORTE_FSAT_SKO = getattr(cereconf, 'EPHORTE_FSAT_SKO')
 EPHORTE_NIKK_SKO = getattr(cereconf, 'EPHORTE_NIKK_SKO')
 EPHORTE_SO_SKO = getattr(cereconf, 'EPHORTE_SO_SKO')
+EPHORTE_KDTO_SKO = getattr(cereconf, 'EPHORTE_KDTO_SKO')
 
 # Day filter (when to allow email warnings), and email template
 EPHORTE_MAIL_TIME = getattr(cereconf, 'EPHORTE_MAIL_TIME', [])
@@ -121,6 +124,11 @@ class PopulateEphorte(object):
                 self.ouid_2roleinfo[ou_id] = (
                     int(co.ephorte_arkivdel_sak_fsat),
                     int(co.ephorte_journenhet_fsat))
+            # Special case, KDTO
+            elif sko in EPHORTE_KDTO_SKO:
+                self.ouid_2roleinfo[ou_id] = (
+                    int(co.ephorte_arkivdel_sak_kdto),
+                    int(co.ephorte_journenhet_kdto))
             # Default case
             else:
                 self.ouid_2roleinfo[ou_id] = (
@@ -256,8 +264,14 @@ class PopulateEphorte(object):
         # Find where an employee has an ANSATT affiliation and check
         # if that ou is an ePhorte ou. If not try to map to nearest
         # ePhorte OU as specified in ephorte-sync-spec.rst
-        for row in pe.list_affiliations(source_system=co.system_sap,
-                                        affiliation=co.affiliation_ansatt):
+        for row in itertools.chain(
+                pe.list_affiliations(
+                    source_system=co.system_sap,
+                    affiliation=co.affiliation_ansatt),
+                pe.list_affiliations(
+                    source_system=co.system_sap,
+                    affiliation=co.affiliation_tilknyttet,
+                    status=co.affiliation_tilknyttet_ekst_forsker)):
             ou_id = int(row['ou_id'])
             if ou_id is not None and ou_id not in self.app_ephorte_ouid2name:
                 if ou_id not in non_ephorte_ous:
