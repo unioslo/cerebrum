@@ -85,6 +85,22 @@ class SimpleRole(object):
                 " standard_role={0.standard_role!s}").format(self)
 
 
+def format_role(role):
+    role['role_type'] = co.EphorteRole(role.get('role_type'))
+    return ("role_type={role_type!s}, adm_enhet={adm_enhet!s},"
+            " arkivdel={arkivdel!s}, journalenhet={journalenhet!s},"
+            " person_id={person_id!s}"
+            " standard_role={standard_role!s} auto_role={auto_role!s}"
+            " start_date={start_date!s}, end_date={end_date!s}").format(**role)
+
+
+def format_permission(perm):
+    perm['perm_type'] = co.EphortePermission(perm.get('perm_type'))
+    return ("perm_type={perm_type!s}, adm_enhet={adm_enhet!s},"
+            " requestee_id={requestee_id!s}, person_id={person_id!s},"
+            " start_date={start_date!s}, end_date={end_date!s}").format(**perm)
+
+
 class PopulateEphorte(object):
     """ Ephorte sync client. """
 
@@ -134,8 +150,7 @@ class PopulateEphorte(object):
                     int(co.ephorte_journenhet_uio))
         logger.info("Found info about %d sko in cerebrum" % len(self.ouid2sko))
 
-        logger.info("Find OUs with spread ePhorte_ou "
-                    "(StedType=Arkivsted in POLS)")
+        logger.info("Finding OUs with spread ePhorte_ou")
         self.pols_ephorte_ouid2name = {}
         ou_id2name = dict((r["entity_id"], r["name"])
                           for r in ou.search_name_with_language(
@@ -408,21 +423,26 @@ class PopulateEphorte(object):
         logger.info('{} persons should lose ePhorte spread'.format(
             len(victims)))
         for person_id in victims:
-            logger.info('Removing spread, roles and permissions for '
-                        'person_id:{}'.format(person_id))
+            logger.info('Removing ePhorte data for person_id:{}'.format(
+                person_id))
             pe.clear()
             pe.find(person_id)
             for perm in ephorte_perm.list_permission(person_id=person_id):
+                logger.debug('Removing permission: {}'.format(
+                    format_permission(dict(perm))))
                 ephorte_perm.remove_permission(person_id=person_id,
                                                perm_type=perm['perm_type'],
                                                sko=perm['adm_enhet'])
             for role in ephorte_role.list_roles(person_id=person_id):
+                logger.debug('Removing role: {}'.format(
+                    format_role(dict(role))))
                 ephorte_role.remove_role(person_id=person_id,
                                          role=role['role_type'],
                                          sko=role['adm_enhet'],
                                          arkivdel=role['arkivdel'],
                                          journalenhet=role['journalenhet'])
             pe.delete_spread(co.spread_ephorte_person)
+        logger.info('Done depopulating')
 
 
 def mail_warnings(mailto, debug=False):
@@ -460,7 +480,7 @@ def _make_parser():
         "-r", "--populate-roles",
         action="store_true",
         default=False,
-        help=u"Do populate auto roles in Cerebrum")
+        help=u"Populate auto roles")
     parser.add_argument(
         "--depopulate",
         action="store_true",
