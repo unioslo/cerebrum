@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2008 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,7 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Driver-independent API for accessing databases.
+"""
+Driver-independent API for accessing databases.
 
 This is a DB-API 2.0 (PEP-249) database wrapper, for use with Cerebrum.
 
@@ -30,19 +31,20 @@ database.
 However, one might need to collect data from other databases, possibly using a
 different driver; how could this best be implemented? Currently, the function
 can be told what Database subclass to use in the DB_driver keyword argument.
-
 """
 from __future__ import with_statement
 
+import datetime
+import uuid
+import os
 import re
 import sys
-import os
+
 from types import DictType, StringType
 from cStringIO import StringIO
-from mx import DateTime
-import datetime
 
-import cereconf
+from mx import DateTime
+
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import Cache
@@ -50,16 +52,17 @@ from Cerebrum import SqlScanner
 from Cerebrum.Utils import NotSet, read_password
 from Cerebrum.extlib import db_row
 
+import cereconf
+
 
 class CommonExceptionBase(Exception):
-
-    """ DB-API 2.0 base exception.
+    """
+    DB-API 2.0 base exception.
 
     This base exception and the exception classes below will inherit from the
     exception classes in dynamically imported driver modules. This way we can
     catch any kind of db-specific error exceptions by catching
     Cerebrum.Database.Error (db-independent).
-
     """
 
     def __str__(self):
@@ -72,74 +75,63 @@ class CommonExceptionBase(Exception):
         for attr in ("operation", "sql", "parameters", "binds",):
             if hasattr(self, attr):
                 body.append("%s=%s" % (attr, getattr(self, attr)))
-
         return "\n".join(body)
 
 
 class Warning(CommonExceptionBase):
-
-    """ Driver-independent DB-API 2.0 Warning exception.
+    """
+    Driver-independent DB-API 2.0 Warning exception.
 
     Exception raised for important warnings like data truncations while
     inserting, etc.
-
     """
-
     pass
 
 
 class Error(CommonExceptionBase):
-
-    """ Driver-independent DB-API 2.0 Error exception.
+    """
+    Driver-independent DB-API 2.0 Error exception.
 
     Exception that is the base class of all other error exceptions. You can use
     this to catch all errors with one single 'except' statement.
     Warnings are not considered errors and thus should not use this class as
     base.
-
     """
-
     pass
 
 
 class InterfaceError(Error):
-
-    """ Driver-independent DB-API 2.0 InterfaceError exception.
+    """
+    Driver-independent DB-API 2.0 InterfaceError exception.
 
     Exception raised for errors that are related to the database interface
     rather than the database itself.
-
     """
-
     pass
 
 
 class DatabaseError(Error):
-
-    """ Driver-independent DB-API 2.0 DatabaseError exception.
+    """
+    Driver-independent DB-API 2.0 DatabaseError exception.
 
     Exception raised for errors that are related to the database
-
     """
-
     pass
 
 
 class DataError(DatabaseError):
-
-    """ Driver-independent DB-API 2.0 DataError exception.
+    """
+    Driver-independent DB-API 2.0 DataError exception.
 
     Exception raised for errors that are due to problems with the processed
     data like division by zero, numeric value out of range, etc.
-
     """
-
     pass
 
 
 class OperationalError(DatabaseError):
-
-    """ Driver-independent DB-API 2.0 OperationalError exception.
+    """
+    Driver-independent DB-API 2.0 OperationalError exception.
 
     Exception raised for errors that are related to the database's operation
     and not necessarily under the control of the programmer, e.g.:
@@ -148,61 +140,51 @@ class OperationalError(DatabaseError):
       - a transaction could not be processed
       - a memory allocation error occurred during processing
     etc...
-
     """
-
     pass
 
 
 class IntegrityError(DatabaseError):
-
-    """ Driver-independent DB-API 2.0 IntegrityError exception.
+    """
+    Driver-independent DB-API 2.0 IntegrityError exception.
 
     Exception raised when the relational integrity of the database is affected,
     e.g. a foreign key check fails.
-
     """
-
     pass
 
 
 class InternalError(DatabaseError):
-
-    """ Driver-independent DB-API 2.0 InternalError exception.
+    """
+    Driver-independent DB-API 2.0 InternalError exception.
 
     Exception raised when the database encounters an internal error, e.g. the
     cursor is not valid anymore, the transaction is out of sync, etc.
-
     """
-
     pass
 
 
 class ProgrammingError(DatabaseError):
-
-    """ Driver-independent DB-API 2.0 ProgrammingError exception.
+    """
+    Driver-independent DB-API 2.0 ProgrammingError exception.
 
     Exception raised for programming errors, e.g.:
       - table not found or already exists
       - syntax error in the SQL statement
       - wrong number of parameters specified
     ... etc.
-
     """
-
     pass
 
 
 class NotSupportedError(DatabaseError):
-
-    """ Driver-independent DB-API 2.0 NotSupportedError exception.
+    """
+    Driver-independent DB-API 2.0 NotSupportedError exception.
 
     Exception raised in case a method or database API was used which is not
     supported by the database, e.g. requesting a .rollback() on a connection
     that does not support transaction or has transactions turned off.
-
     """
-
     pass
 
 
@@ -210,33 +192,44 @@ class NotSupportedError(DatabaseError):
 # exceptions in this list. If this is not true, the DatabaseErrorWrapper will
 # re-raise the wrong exception type.
 API_EXCEPTION_NAMES = (
-    'NotSupportedError', 'ProgrammingError', 'InternalError', 'IntegrityError',
-    'OperationalError', 'DataError', 'DatabaseError', 'InterfaceError',
-    'Error', 'Warning')
-""" Tuple holding the names of the standard DB-API exceptions. """
+    'NotSupportedError',
+    'ProgrammingError',
+    'InternalError',
+    'IntegrityError',
+    'OperationalError',
+    'DataError',
+    'DatabaseError',
+    'InterfaceError',
+    'Error',
+    'Warning')
+# Tuple holding the names of the standard DB-API exceptions.
 
-API_TYPE_NAMES = (
-    "STRING", "BINARY", "NUMBER", "DATETIME")
-"""Tuple holding the names of the standard types defined by the DB-API."""
+API_TYPE_NAMES = ("STRING", "BINARY", "NUMBER", "DATETIME")
+# Tuple holding the names of the standard types defined by the DB-API.
 
 API_TYPE_CTOR_NAMES = (
-    "Date", "Time", "Timestamp", "DateFromTicks",
-    "TimeFromTicks", "TimestampFromTicks", "Binary")
-"""Tuple holding the names of the standard DB-API type constructors."""
+    "Date",
+    "Time",
+    "Timestamp",
+    "DateFromTicks",
+    "TimeFromTicks",
+    "TimestampFromTicks",
+    "Binary")
+# Tuple holding the names of the standard DB-API type constructors.
 
 
 class DatabaseErrorWrapper(object):
-
-    """ Exception context wrapper for calls to the database cursor.
+    """
+    Exception context wrapper for calls to the database cursor.
 
     The idea is based on the django.db.utils.DatabaseExceptionWrapper. Calls
     performed in this context will handle PEP-249 exceptions, and reraise as
     Cerebrum-specific exceptions.
-
     """
 
     def __init__(self, database, module, **kwargs):
-        """ Initialize wrapper.
+        """
+        Initialize wrapper.
 
         @type database: Cerebrum.Database
         @param database: The database wrapper object. This object contains
@@ -250,7 +243,6 @@ class DatabaseErrorWrapper(object):
         @param kwargs: Each keyword style argument is added to the exception as
             an attribute. This can be used to piggy-back extra information with
             the exception.
-
         """
         self.db = database  # Should we typecheck this?
         self.mod = module   # Can we typecheck this?
@@ -262,7 +254,8 @@ class DatabaseErrorWrapper(object):
         pass
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """ Convert exception types of type API_EXCEPTION_NAMES.
+        """
+        Convert exception types of type API_EXCEPTION_NAMES.
 
         @type exc_type: type or NoneType
         @param exc_type: The raised exception type, or None if no exception was
@@ -275,7 +268,6 @@ class DatabaseErrorWrapper(object):
         @type traceback: traceback or NoneType
         @param traceback: The exception traceback, if an exception was raised
             in the context.
-
         """
         if exc_type is None:
             return
@@ -314,12 +306,11 @@ class DatabaseErrorWrapper(object):
 
 
 class Cursor(object):
-
-    """ Driver-independent cursor wrapper class.
+    """
+    Driver-independent cursor wrapper class.
 
     Instances are created by calling the Database.cursor() method of an object
     of the appropriate Database subclass.
-
     """
 
     def __init__(self, db):
@@ -367,11 +358,11 @@ class Cursor(object):
     # .callproc() is optional, hence not implemented here.
 
     def close(self):
-        """ Do DB-API 2.0 close. """
+        """Do DB-API 2.0 close."""
         return self._cursor.close()
 
     def execute(self, operation, parameters=()):
-        """ Do DB-API 2.0 execute. """
+        """Do DB-API 2.0 execute."""
         sql, binds = self._translate(operation, parameters)
         #
         # The Python DB-API 2.0 says that the return value of
@@ -393,10 +384,9 @@ class Cursor(object):
                 else:
                     # Not a row-returning query; clear self._row_class.
                     self._row_class = None
-    # end execute
 
     def _translate(self, statement, params):
-        """ Translate SQL and bind params to the driver's dialect. """
+        """Translate SQL and bind params to the driver's dialect."""
         if params:
             #
             # To ease this wrapper's job in converting the bind
@@ -478,7 +468,7 @@ class Cursor(object):
         return (driver_sql, pconv(params))
 
     def executemany(self, operation, seq_of_parameters):
-        """ Do DB-API 2.0 executemany. """
+        """Do DB-API 2.0 executemany."""
         ret = None
         for p in seq_of_parameters:
             ret = self.execute(operation, p)
@@ -491,27 +481,27 @@ class Cursor(object):
 # return self._cursor.executemany(operation, seq_of_parameters)
 
     def fetchone(self):
-        """ Do DB-API 2.0 fetchone. """
+        """Do DB-API 2.0 fetchone."""
         return self._cursor.fetchone()
 
     def fetchmany(self, size=None):
-        """ Do DB-API 2.0 fetchmany. """
+        """Do DB-API 2.0 fetchmany."""
         if size is None:
             size = self.arraysize
         return self._cursor.fetchmany(size)
 
     def fetchall(self):
-        """ Do DB-API 2.0 fetchall. """
+        """Do DB-API 2.0 fetchall."""
         return self._cursor.fetchall()
 
     # .nextset() is optional, hence not implemented here.
 
     def setinputsizes(self, sizes):
-        """ Do DB-API 2.0 setinputsizes. """
+        """Do DB-API 2.0 setinputsizes."""
         return self._cursor.setinputsizes(sizes)
 
     def setoutputsize(self, size, column=None):
-        """ Do DB-API 2.0 setoutputsize."""
+        """Do DB-API 2.0 setoutputsize."""
         if column is None:
             return self._cursor.setoutputsize(size)
         else:
@@ -522,15 +512,16 @@ class Cursor(object):
         return self._cursor
 
     def __iter__(self):
-        """ Return iterator over the current query's results. """
+        """Return iterator over the current query's results."""
         return RowIterator(self)
 
     def wrap_row(self, row):
-        """ Return `row' wrapped in a db_row object. """
+        """Return `row' wrapped in a db_row object."""
         return self._row_class(row)
 
     def query(self, query, params=(), fetchall=True):
-        """ Perform an SQL query, and return all rows it yields.
+        """
+        Perform an SQL query, and return all rows it yields.
 
         If the query produces any result, this can be returned in two
         ways.  In both cases every row is wrapped in a db_row object.
@@ -543,7 +534,6 @@ class Cursor(object):
            object, suitable for e.g. returning one row on demand per
            iteration in a for loop.  This approach can in some cases
            lead to much lower memory consumption.
-
         """
         if not fetchall:
             # If the cursor to iterate over is used for other queries
@@ -565,7 +555,8 @@ class Cursor(object):
             return iter(self)
 
     def query_1(self, query, params=()):
-        """Perform an SQL query that should yield at most one row.
+        """
+        Perform an SQL query that should yield at most one row.
 
         Like query(), but:
 
@@ -579,7 +570,8 @@ class Cursor(object):
 
         3. Otherwise (i.e. the query returns a single row with a
            single column) the method will return the value within the
-           row object (and not the row object itself)."""
+           row object (and not the row object itself).
+        """
 
         res = self.query(query, params)
         if len(res) == 1:
@@ -592,7 +584,8 @@ class Cursor(object):
             raise Errors.TooManyRowsError(repr(params))
 
     def ping(self):
-        """Check that communication with the database works.
+        """
+        Check that communication with the database works.
 
         Do a database-side no-op with the cursor represented by this
         object.  The no-op should result in an exception being raised
@@ -722,7 +715,6 @@ class RowIterator(object):
 # styles.
 #
 class convert_param_base(object):
-
     """Convert bind parameters to appropriate paramstyle."""
 
     __slots__ = ('map',)
@@ -796,27 +788,29 @@ class convert_param_pyformat(convert_param_to_dict):
 
 
 class Database(object):
-
     """Abstract superclass for database driver classes."""
 
     _db_mod = None
-    """The name of the DB-API module to use, or a module object.
+    # The name of the DB-API module to use, or a module object.
 
-    Prior to first instantiation, this class attribute can be a string
-    specifying the full name of the database module that should be
-    imported.
+    # Prior to first instantiation, this class attribute can be a string
+    # specifying the full name of the database module that should be
+    # imported.
 
-    During the first instantiation of a Database subclass, that
-    subclass's _db_mod attribute is set to the module object of the
-    dynamically imported database driver module."""
+    # During the first instantiation of a Database subclass, that
+    # subclass's _db_mod attribute is set to the module object of the
+    # dynamically imported database driver module.
 
     param_converter = None
-    """The bind parameter converter class used by this driver class."""
+    # The bind parameter converter class used by this driver class.
 
-    encoding = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('client_encoding') or 'ISO_8859_1'
-    """The default character set encoding to use."""
+    encoding = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get(
+        'client_encoding') or 'ISO_8859_1'
+    # The default character set encoding to use.
 
     def __init__(self, do_connect=True, *db_params, **db_kws):
+        """
+        """
         if self.__class__ is Database:
             #
             # The 'Database' class itself is purely virtual; no
@@ -842,7 +836,9 @@ class Database(object):
             self.connect(*db_params, **db_kws)
 
     def _kickstart(self, module_name):
-        """ Perform necessary magic after importing a new driver module. """
+        """
+        Perform necessary magic after importing a new driver module.
+        """
         self_class = self.__class__
 
         # We're in the process of instantiating this subclass for the first
@@ -907,7 +903,9 @@ class Database(object):
     #   Methods corresponding to DB-API 2.0 connection object methods.
     #
     def close(self):
-        """ Close the database connection. """
+        """
+        Close the database connection.
+        """
         if self._cursor:
             self._cursor.close()
             self._cursor = None
@@ -915,15 +913,21 @@ class Database(object):
         self._db = None
 
     def commit(self):
-        """ Perform a commit on the connection this instance embodies. """
+        """
+        Perform a commit on the connection this instance embodies.
+        """
         return self._db.commit()
 
     def rollback(self):
-        """ Perform a rollback on the connection this instance embodies. """
+        """
+        Perform a rollback on the connection this instance embodies.
+        """
         return self._db.rollback()
 
     def cursor(self):
-        """ Generate and return a fresh cursor object. """
+        """
+        Generate and return a fresh cursor object.
+        """
         return Cursor(self)
 
     #
@@ -933,12 +937,16 @@ class Database(object):
     #
     def _get_description(self):
         return self._cursor.description
-    description = property(_get_description, None, None,
+    description = property(_get_description,
+                           None,
+                           None,
                            "DB-API 2.0 .description for default cursor.")
 
     def _get_rowcount(self):
         return self._cursor.rowcount
-    rowcount = property(_get_rowcount, None, None,
+    rowcount = property(_get_rowcount,
+                        None,
+                        None,
                         "DB-API 2.0 .rowcount for default cursor.")
 
     def _get_arraysize(self):
@@ -946,7 +954,9 @@ class Database(object):
 
     def _set_arraysize(self, size):
         self._cursor.arraysize = size
-    arraysize = property(_get_arraysize, _set_arraysize, None,
+    arraysize = property(_get_arraysize,
+                         _set_arraysize,
+                         None,
                          "DB-API 2.0 .arraysize for default cursor.")
 
     def execute(self, operation, parameters=()):
@@ -990,7 +1000,8 @@ class Database(object):
         return self._db
 
     def query(self, *params, **kws):
-        """Perform an SQL query, and return all rows it yields.
+        """
+        Perform an SQL query, and return all rows it yields.
 
         If the query produces any result, this can be returned in two
         ways.  In both cases every row is wrapped in a db_row object.
@@ -1003,13 +1014,12 @@ class Database(object):
            object, suitable for e.g. returning one row on demand per
            iteration in a for loop.  This approach can in some cases
            lead to much lower memory consumption.
-
         """
-
         return self._cursor.query(*params, **kws)
 
     def query_1(self, query, params=()):
-        """Perform an SQL query that should yield at most one row.
+        """
+        Perform an SQL query that should yield at most one row.
 
         Like query(), but:
 
@@ -1023,8 +1033,8 @@ class Database(object):
 
         3. Otherwise (i.e. the query returns a single row with a
            single column) the method will return the value within the
-           row object (and not the row object itself)."""
-
+           row object (and not the row object itself).
+        """
         return self._cursor.query_1(query, params)
 
     def pythonify_data(self, data):
@@ -1047,22 +1057,26 @@ class Database(object):
         return data
 
     def nextval(self, seq_name):
-        """Return a new value from sequence SEQ_NAME.
+        """
+        Return a new value from sequence SEQ_NAME.
 
         The sequence syntax varies a bit between RDBMSes, hence there
-        is no default implementation of this method."""
-
+        is no default implementation of this method.
+        """
         return self.query_1("""
         SELECT [:sequence schema=cerebrum name=%s op=next]
         [:from_dual]""" % seq_name)
 
     def currval(self, seq_name):
+        """
+        """
         return self.query_1("""
         SELECT [:sequence schema=cerebrum name=%s op=curr]
         [:from_dual]""" % seq_name)
 
     def setval(self, seq_name, val):
-        """Sets the value of a sequence.
+        """
+        Sets the value of a sequence.
 
         @type seq_name : string
         @param seq_name: The name of the sequence to update
@@ -1072,14 +1086,14 @@ class Database(object):
 
         @rtype: int
         @return: The integer set in the sequence
-
         """
         return self.query_1("""
         SELECT [:sequence schema=cerebrum name=%s op=set val=%d]""" %
                             (seq_name, int(val)))
 
     def ping(self):
-        """Check that communication with the database works.
+        """
+        Check that communication with the database works.
 
         Force the underlying database driver module to raise an
         exception if the database communication channel represented by
@@ -1088,19 +1102,19 @@ class Database(object):
         c = self.cursor()
         c.ping()
         c.close()
-    # end ping
 
     def sql_repr(self, op, *args):
         """Translate SQL portability item to SQL dialect of this driver."""
         method = getattr(self, '_sql_port_%s' % op, None)
         if not method:
-            raise self.ProgrammingError, "Unknown portability op '%s'" % op
+            raise self.ProgrammingError("Unknown portability op '%s'" % op)
         kw_args = {}
         for k, v in [x.split("=", 1) for x in args]:
             if k in kw_args:
-                raise self.ProgrammingError, \
-                    "Keyword argument '%s' use multiple times in '%s' op." \
-                    % (k, op)
+                raise self.ProgrammingError(
+                    "Keyword argument '%s' use multiple times in '%s' op." % (
+                        k,
+                        op))
             kw_args[k] = v
         return method(**kw_args)
 
@@ -1123,9 +1137,13 @@ class Database(object):
     def _read_password(self, database, user):
         return read_password(user, database)
 
-    def sql_pattern(self, column, pattern, ref_name=None,
+    def sql_pattern(self,
+                    column,
+                    pattern,
+                    ref_name=None,
                     case_sensitive=NotSet):
-        """Convert a pattern with wildcards into a tuple consisting of
+        """
+        Convert a pattern with wildcards into a tuple consisting of
         an SQL expression and the value for comparison.
 
         * If pattern is None, test for NULL.
@@ -1135,7 +1153,6 @@ class Database(object):
         * case_sensitive can be explicitly True or False.  If unset,
           the search will be case sensitive if the pattern contains
           upper case letters.
-
         """
         if pattern is None:
             return "%s IS NULL" % column, pattern
@@ -1153,12 +1170,11 @@ class Database(object):
         else:
             operand = "="
         return "%s %s :%s" % (column, operand, ref_name), value
-    # end sql_pattern
-# end class Database
 
 
 def get_pg_savepoint_id():
-    """Return a unique identifier suitable for savepoints.
+    """
+    Return a unique identifier suitable for savepoints.
 
     A valid identifier in Postgres is:
 
@@ -1173,15 +1189,11 @@ def get_pg_savepoint_id():
 
     UUID4 is an easy choice, provided we manipulate it somewhat.
     """
-    import uuid
-
     identifier = "unique" + str(uuid.uuid4()).replace('-', '_')
     return identifier
-# end get_pg_savepoint_id
 
 
 class PostgreSQLBase(Database):
-
     """PostgreSQL driver base class."""
 
     rdbms_id = "PostgreSQL"
@@ -1214,11 +1226,9 @@ class PostgreSQLBase(Database):
 
     def _sql_port_now(self):
         return ['NOW()']
-# end PostgreSQLBase
 
 
 class PgSQL(PostgreSQLBase):
-
     """PostgreSQL driver class."""
 
     _db_mod = "pyPgSQL.PgSQL"
@@ -1244,10 +1254,12 @@ class PgSQL(PostgreSQLBase):
         else:
             self.encoding = client_encoding
 
-        super(PgSQL, self).connect(user=user, password=password,
-                                   database=service,
-                                   client_encoding=client_encoding,
-                                   unicode_results=(client_encoding == 'UTF-8'))
+        super(PgSQL, self).connect(
+            user=user,
+            password=password,
+            database=service,
+            client_encoding=client_encoding,
+            unicode_results=(client_encoding == 'UTF-8'))
 
         # Ensure that pyPgSQL and PostgreSQL client agrees on what
         # encoding to use.
@@ -1295,15 +1307,19 @@ class PgSQL(PostgreSQLBase):
 
 
 class PsycoPGBase(PostgreSQLBase):
-
     """PostgreSQL driver class using psycopg."""
 
     # This is a base class for psycopg-driver family. Set to the appropriate
     # value in the subclasses.
     # _db_mod = None
 
-    def connect(self, user=None, password=None, service=None,
-                client_encoding=None, host=None, port=None):
+    def connect(self,
+                user=None,
+                password=None,
+                service=None,
+                client_encoding=None,
+                host=None,
+                port=None):
         dsn = []
         if service is None:
             service = cereconf.CEREBRUM_DATABASE_NAME
@@ -1345,7 +1361,6 @@ class PsycoPGBase(PostgreSQLBase):
 
 class PsycoPG(PsycoPGBase):
     _db_mod = "psycopg"
-# end class PsycoPG
 
 
 class PsycoPG2(PsycoPGBase):
@@ -1371,11 +1386,9 @@ class PsycoPG2(PsycoPGBase):
         # actions in the transaction...
         if status in (ext.TRANSACTION_STATUS_IDLE,):
             self.rollback()
-    # end ping
 
     def cursor(self):
         return PsycoPG2Cursor(self)
-# end class PsycoPG2
 
 
 class PsycoPGCursor(Cursor):
@@ -1426,7 +1439,7 @@ class PsycoPGCursor(Cursor):
         if self.description is not None:
             for n in range(len(self.description)):
                 if (self.description[n][1] == self._db.NUMBER and
-                        self.description[n][5] <= 0):  # pos 5 = scale in DB-API
+                        self.description[n][5] <= 0):  # pos 5=scale in DB-API
                     self._convert_cols[n] = long
                 elif (self._db.encoding == 'UTF-8' and
                       self.description[n][1] == self._db.STRING):
@@ -1684,9 +1697,12 @@ class cx_OracleCursor(Cursor):
             for j in range(len(item)):
                 field = item[j]
                 if type(field) is datetime.datetime:
-                    item[j] = DateTime.DateTime(field.year, field.month,
-                                                field.day, field.hour,
-                                                field.minute, int(field.second))
+                    item[j] = DateTime.DateTime(field.year,
+                                                field.month,
+                                                field.day,
+                                                field.hour,
+                                                field.minute,
+                                                int(field.second))
         return raw_result
 
     def acquire_lock(self, table=None, mode='exclusive'):
