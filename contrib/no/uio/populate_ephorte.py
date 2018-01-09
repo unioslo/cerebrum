@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
-u""" Sync data bwtween Cerebrum and Ephorte WS.
+u""" This script maintains ePhorte spreads and automatic roles for employees.
 
-This script adds ephorte_roles and ephorte-spreads to persons (employees) in
-Cerebrum according to the rules in ephorte-sync-spec.rst
+It can also send an email report if Cerebrum and ePhorte disagrees about which
+organizational units should be active.
 """
 import argparse
 import itertools
@@ -58,7 +58,7 @@ group = Factory.get('Group')(db)
 ephorte_role = EphorteRole(db)
 ephorte_perm = EphortePermission(db)
 ou = Factory.get("OU")(db)
-ou_mismatch_warnings = {'pols': [], 'ephorte': []}
+ou_mismatch_warnings = {'sap': [], 'ephorte': []}
 
 
 class SimpleRole(object):
@@ -151,12 +151,12 @@ class PopulateEphorte(object):
         logger.info("Found info about %d sko in cerebrum" % len(self.ouid2sko))
 
         logger.info("Finding OUs with spread ePhorte_ou")
-        self.pols_ephorte_ouid2name = {}
+        self.sap_ephorte_ouid2name = {}
         ou_id2name = dict((r["entity_id"], r["name"])
                           for r in ou.search_name_with_language(
-                                  entity_type=co.entity_ou,
-                                  name_language=co.language_nb,
-                                  name_variant=co.ou_name_display))
+                          entity_type=co.entity_ou,
+                          name_language=co.language_nb,
+                          name_variant=co.ou_name_display))
 
         # due to a logical error in ephorte-sync we have to allow
         # non-existing OU's to be assigned roles. the background for
@@ -166,10 +166,10 @@ class PopulateEphorte(object):
         #
         # for row in ou.search(spread=co.spread_ephorte_ou):
         for row in ou.search():
-            self.pols_ephorte_ouid2name[int(row['ou_id'])] = ou_id2name.get(
+            self.sap_ephorte_ouid2name[int(row['ou_id'])] = ou_id2name.get(
                 row["ou_id"], "")
         logger.info("Found %d ous with spread ePhorte_ou" %
-                    len(self.pols_ephorte_ouid2name.keys()))
+                    len(self.sap_ephorte_ouid2name.keys()))
         #
         # GRUSOMT HACK
         #
@@ -199,21 +199,21 @@ class PopulateEphorte(object):
                     len(self.app_ephorte_ouid2name.keys()))
 
         for ou_id in (set(self.app_ephorte_ouid2name.keys()) -
-                      set(self.pols_ephorte_ouid2name.keys())):
+                      set(self.sap_ephorte_ouid2name.keys())):
             # Add ou to list that is sent in warn mail
             ou_mismatch_warnings['ephorte'].append(
                 (self.ouid2sko[ou_id], self.app_ephorte_ouid2name[ou_id]))
             logger.info(
-                "OU (%6s: %s) in ephorte app, but has not ephorte spread" % (
+                "OU (%6s: %s) in ePhorte, but has no ePhorte spread" % (
                     self.ouid2sko[ou_id], self.app_ephorte_ouid2name[ou_id]))
-        for ou_id in (set(self.pols_ephorte_ouid2name.keys()) -
+        for ou_id in (set(self.sap_ephorte_ouid2name.keys()) -
                       set(self.app_ephorte_ouid2name.keys())):
             # Add ou to list that is sent in warn mail
-            ou_mismatch_warnings['pols'].append(
-                (self.ouid2sko[ou_id], self.pols_ephorte_ouid2name[ou_id]))
+            ou_mismatch_warnings['sap'].append(
+                (self.ouid2sko[ou_id], self.sap_ephorte_ouid2name[ou_id]))
             logger.info(
-                "OU (%6s, %s) has ephorte spread, but is not in ephorte" % (
-                    self.ouid2sko[ou_id], self.pols_ephorte_ouid2name[ou_id]))
+                "OU (%6s, %s) has ePhorte spread, but is not in ePhorte" % (
+                    self.ouid2sko[ou_id], self.sap_ephorte_ouid2name[ou_id]))
         #
         # GRUSOMT HACK SLUTT
         #
@@ -454,12 +454,12 @@ def mail_warnings(mailto, debug=False):
     # Check if we should send mail today
     if datetime.datetime.now().strftime('%A') not in EPHORTE_MAIL_TIME:
         return
-    if ou_mismatch_warnings['ephorte'] or ou_mismatch_warnings['pols']:
-        pols_warnings = '\n'.join(["%6s  %s" % x for x in
-                                   ou_mismatch_warnings['pols']])
-        ephorte_warnings = '\n'.join(["%6s  %s" % x for x in
-                                      ou_mismatch_warnings['ephorte']])
-        substitute = {'POLS_WARNINGS': pols_warnings,
+    if ou_mismatch_warnings['ephorte'] or ou_mismatch_warnings['sap']:
+        sap_warnings = '\n'.join([
+            "%6s  %s" % x for x in ou_mismatch_warnings['sap']])
+        ephorte_warnings = '\n'.join([
+            "%6s  %s" % x for x in ou_mismatch_warnings['ephorte']])
+        substitute = {'SAP_WARNINGS': sap_warnings,
                       'EPHORTE_WARNINGS': ephorte_warnings}
         send_mail(mailto, EPHORTE_MAIL_WARNINGS2, substitute,
                   debug=debug)
