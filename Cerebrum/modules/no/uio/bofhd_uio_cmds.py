@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2017 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,7 +29,7 @@ from mx import DateTime
 from flanker.addresslib import address as email_validator
 
 import cereconf
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum import Metainfo
@@ -7780,10 +7780,10 @@ Addresses and settings:
         har_opptak = {}
         ret = []
         try:
-            db = Database.connect(user=cereconf.FS_USER,
+            db = database.connect(user=cereconf.FS_USER,
                                   service=cereconf.FS_DATABASE_NAME,
                                   DB_driver=cereconf.DB_DRIVER_ORACLE)
-        except Database.DatabaseError, e:
+        except database.DatabaseError, e:
             self.logger.warn("Can't connect to FS (%s)" % e)
             raise CerebrumError("Can't connect to FS, try later")
         fs = FS(db)

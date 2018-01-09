@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: iso-8859-1 -*-
 
-# Copyright 2008-2011 University of Oslo, Norway
+# Copyright 2008-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -51,7 +51,7 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum import Errors
 from Cerebrum.utils.funcwrap import memoize
-from Cerebrum import Database
+from Cerebrum import database
 
 
 logger = Factory.get_logger("cronjob")
@@ -761,7 +761,7 @@ def export_person(person_id, info_chunk, fs):
                                  data.name_last, data.email, data.gender,
                                  data.birth_date, data.ansattnr)
 
-        except Database.IntegrityError:
+        except database.IntegrityError:
             logger.info("Insertion of id=%s (fnr=%s, email=%s) failed: %s",
                         person_id, data.fnr11, data.email,
                         exc2message(sys.exc_info()))
@@ -769,7 +769,7 @@ def export_person(person_id, info_chunk, fs):
     elif data.has_key('ansattnr') and data.ansattnr is not None:
         try:
             fs.person.set_ansattnr(data.fnr6, data.pnr, data.ansattnr)
-        except Database.IntegrityError:
+        except database.IntegrityError:
             logger.info("Setting of ansattnr=%d on id=%d failed: %s",
                         data.ansattnr, person_id, exc2message(sys.exc_info()))
 # end export_person

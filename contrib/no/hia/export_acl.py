@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2005 University of Oslo, Norway
+# Copyright 2005-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -42,7 +42,7 @@ import cereconf
 
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum import Errors
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no.hia.access_FS import FS
@@ -504,7 +504,7 @@ def prepare_kull():
     to link up people to their respective 'kull's (i.e. <group>s).
     """
 
-    db = Database.connect(user="I0201_cerebrum", service="FSUIA.uio.no",
+    db = database.connect(user="I0201_cerebrum", service="FSUIA.uio.no",
                           DB_driver=cereconf.DB_DRIVER_ORACLE)
     fs = FS(db)
 
@@ -548,7 +548,7 @@ def prepare_ue():
     The procedure is the same as for kull (prepare_kull).
     """
 
-    db = Database.connect(user="I0201_cerebrum", service="FSUIA.uio.no",
+    db = database.connect(user="I0201_cerebrum", service="FSUIA.uio.no",
                           DB_driver=cereconf.DB_DRIVER_ORACLE)
     fs = FS(db)
 
@@ -906,7 +906,7 @@ def generate_report():
 
     #
     # All the relations
-    db = Database.connect(user="I0201_cerebrum", service="FSUIA.uio.no",
+    db = database.connect(user="I0201_cerebrum", service="FSUIA.uio.no",
                           DB_driver=cereconf.DB_DRIVER_ORACLE)
     fs = FS(db)
 

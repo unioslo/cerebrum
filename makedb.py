@@ -507,7 +507,7 @@ def runfile(fname, db, debug, phase):
     @param fname:
         The file path for the given SQL definition file.
 
-    @type db: Cerebrum.Database
+    @type db: Cerebrum.database.Database
     @param db:
         The Cerebrum database object, used for communicating with the db.
 

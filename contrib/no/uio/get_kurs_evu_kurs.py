@@ -29,7 +29,7 @@ datoer.
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.modules.no.uio.access_FS import FS
 
 import sys
@@ -39,7 +39,7 @@ import sys
 
 
 def main():
-    db_fs = Database.connect(user = "ureg2000", service = "FSPROD.uio.no",
+    db_fs = database.connect(user = "ureg2000", service = "FSPROD.uio.no",
                              DB_driver = cereconf.DB_DRIVER_ORACLE)
     fs = FS(db_fs)
     print "%-20s%-10s%20s%20s" % ("kurskode", "tidskode", "fra", "til")

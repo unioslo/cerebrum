@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,7 +22,7 @@ number of the installed database schema."""
 
 import pickle
 
-from Cerebrum.Database import Errors
+from Cerebrum.database import Errors
 
 SCHEMA_VERSION_KEY = 'cerebrum_database_schema_version'
 

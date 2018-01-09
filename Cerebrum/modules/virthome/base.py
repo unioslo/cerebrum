@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: iso-8859-1 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -63,7 +63,7 @@ class VirthomeBase:
         """ NOTE: This class does not commit any changes to the db. That must
         be done from the calling environment.
 
-        @type db: Cerebrum.Database
+        @type db: Cerebrum.database.Database
         @param db: A database connection.
         """
         self.db = db

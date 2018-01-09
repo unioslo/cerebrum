@@ -23,7 +23,7 @@ import mx
 
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 
@@ -249,7 +249,7 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         ret = []
         try:
             fs_db = make_fs()
-        except Database.DatabaseError, e:
+        except database.DatabaseError, e:
             self.logger.warn("Can't connect to FS (%s)" % e)
             raise CerebrumError("Can't connect to FS, try later")
         for row in fs_db.student.get_studierett(fodselsdato, pnum):

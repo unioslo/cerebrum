@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,11 +23,8 @@ import sys
 import time
 import types
 
-from Cerebrum import Database,Errors
+from Cerebrum import database, Errors
 from Cerebrum.modules.no import fodselsnr
-
-
-
 
 
 class LT(object):
@@ -38,13 +35,8 @@ class LT(object):
 
     """
 
-
-
     def __init__(self, db):
         self.db = db
-    # end __init__
-
-
 
     def GetSteder(self):
         "Henter informasjon om alle ikke-nedlagte steder"

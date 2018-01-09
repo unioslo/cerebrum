@@ -1,6 +1,6 @@
 #!/user/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2014 University of Oslo, Norway
+# Copyright 2014-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -45,7 +45,7 @@ def add_host_to_policy_component(db, dnsowner_id, policy_name):
     to break the system. Instead, unknown policies are simply not added, i.e.
     this method does nothing in such scenarios.
 
-    :param Cerebrum.Database db:
+    :param Cerebrum.database.Database db:
         The Cerebrum database connector.
 
     :param int dnsowner_id:
@@ -83,7 +83,7 @@ def add_cname_record(db, cname_record_name, target_name, fail_on_exists=True):
     can be run several times for the same project when it is reconfigured.
 
     :param db: A Cerebrum-database instance
-    :type db: Cerebrum.Database
+    :type db: Cerebrum.database.Database
     :param cname_record_name: FQDN of the CNAME-record
     :type cname_record_name: str
     :param target_name: FQDN of the target domain

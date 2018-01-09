@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -49,7 +49,7 @@ def auto_freeze_project_accounts(db,
           before a new one is added
         - no changes will be made to the account in all other cases
 
-    :type db: Cerebrum.Database
+    :type db: Cerebrum.database.Database
     :param db: The database connection-object
 
     :type account_ids: list
@@ -107,7 +107,7 @@ def remove_auto_freeze_from_project_accounts(db, account_ids):
     Removes quarantine with type auto_frozen from all
     accounts corresponding to the given `account_ids`
 
-    :type db: Cerebrum.Database db
+    :type db: Cerebrum.database.Database db
     :param db: The database connection-object
 
     :type account_ids: list
@@ -134,7 +134,7 @@ def update_user_freeze(db, dryrun):
     Sets / unsets auto-freeze quarantine for accounts belonging to
     projects with set / unset freeze quarantine
 
-    :type db: Cerebrum.Database db
+    :type db: Cerebrum.database.Database db
     :param db: The database connection-object
 
     :type dryrun: bool

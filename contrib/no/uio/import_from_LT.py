@@ -28,7 +28,7 @@ import time
 import string
 
 from Cerebrum.modules.no.uio.access_LT import LT
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.Utils import XMLHelper
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
@@ -397,7 +397,7 @@ def main():
     if user is None or sid is None:
         usage(1)
 
-    db = Database.connect(user=user, service=sid, DB_driver=cereconf.DB_DRIVER_ORACLE)
+    db = database.connect(user=user, service=sid, DB_driver=cereconf.DB_DRIVER_ORACLE)
     LT = LT(db)
     xml = XMLHelper()
 

@@ -42,7 +42,7 @@ def logger(factory):
 
 @pytest.yield_fixture
 def database(factory):
-    u""" `Cerebrum.Database` with automatic rollback. """
+    u"""`Cerebrum.database.Database` with automatic rollback."""
     db = factory.get('Database')()
     db.commit = db.rollback
     print 'database init', db, db._cursor

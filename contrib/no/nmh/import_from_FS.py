@@ -26,7 +26,7 @@ import getopt
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import XMLHelper
@@ -304,7 +304,7 @@ def assert_connected(user="CEREBRUM", service="FSNMH.uio.no"):
     global fs
     if fs is None:
         DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
-        db = Database.connect(user=user, service=service, DB_driver=DB_driver)
+        db = database.connect(user=user, service=service, DB_driver=DB_driver)
         fs = FS(db)
 
 def set_filepath(datadir, file):

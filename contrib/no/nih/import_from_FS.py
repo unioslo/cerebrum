@@ -26,7 +26,7 @@ import cerebrum_path
 import cereconf
 
 from os.path import join as pj
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import XMLHelper
 from Cerebrum.utils.atomicfile import MinimumSizeWriter
@@ -321,7 +321,7 @@ def usage(exitcode=0):
 def assert_connected(user="CEREBRUM", service="FSNIH.uio.no"):
     global fs
     if fs is None:
-        db = Database.connect(user=user, service=service,
+        db = database.connect(user=user, service=service,
                               DB_driver='cx_Oracle')
         fs = FS(db)
 

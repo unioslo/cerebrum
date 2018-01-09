@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,7 +23,6 @@ import time
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.access_FS import FS
-from Cerebrum import Database
 from Cerebrum.extlib import xmlprinter
 from Cerebrum import Person
 from Cerebrum import Errors

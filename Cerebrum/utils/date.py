@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2017 University of Oslo, Norway
+# Copyright 2017-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -37,9 +37,10 @@ legacy resons.  The mx.DateTime object *does* have basic timezone support, but
 it does not integrate well with iso8601 parsers (including its own
 mx.DateTime.Parser), or datetime objects.
 
-The `Cerebrum.Database` object is set up to accept mx.DateTime objects, and
-convert back to mx.DateTime objects when using execute/query.  In addition, our
-database schema or queries does *not* use tz aware timestamp fields.
+The `Cerebrum.database.Database` object is set up to accept
+mx.DateTime objects, and convert back to mx.DateTime objects when using
+execute/query. In addition, our database schema or queries does *not* use tz
+aware timestamp fields.
 
 The bottom line is; For the time being, all db-communication happens with
 naive mx.DateTime objects, and we cannot use/trust the tz info in mx.DateTime

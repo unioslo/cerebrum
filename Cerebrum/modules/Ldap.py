@@ -26,8 +26,6 @@ from ldap import modlist
 
 import cereconf
  
-from Cerebrum import Database
-from Cerebrum.Database import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.LDIFutils import ldapconf
  

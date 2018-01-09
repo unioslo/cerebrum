@@ -23,7 +23,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 
-import Cerebrum.Database
+import Cerebrum.database
 from functools import wraps
 
 from nose.tools import raises, assert_raises
@@ -64,7 +64,7 @@ def create_table(table_name, *table_defs):
         def wrapper(db, *args, **kwargs):
             """ See help L{%s} for info""" % method.__name__
 
-            assert isinstance(db, Cerebrum.Database.Database)
+            assert isinstance(db, Cerebrum.database.Database)
             db.execute('create table %s (%s)' % (
                 table_name, ','.join(table_defs)))
             method(db, table_name, *args, **kwargs)
@@ -129,7 +129,7 @@ def test_rollback(db, table_name):
     # Only this should generate DatabaseError
     try:
         db.query(select_sql)
-    except Cerebrum.Database.DatabaseError, e:
+    except Cerebrum.database.DatabaseError, e:
         # Note that this test will break if the exception doesn't have an sql
         # attr.
         assert e.operation == repr(select_sql)
@@ -236,10 +236,10 @@ def test_db_exception_types():
     db = Factory.get('Database')()
 
     tests = [
-        (Cerebrum.Database.Error, db.IntegrityError(
-            'Database error is not instance of Cerebrum.Database.Error')),
-        (Cerebrum.Database.Warning, db.Warning(
-            'Database warning is not instance of Cerebrum.Database.Warning')),
+        (Cerebrum.database.Error, db.IntegrityError(
+            'Database error is not instance of Cerebrum.database.Error')),
+        (Cerebrum.database.Warning, db.Warning(
+            'Database warning is not instance of Cerebrum.database.Warning')),
         (db.Error, db.IntegrityError(
             'Database error is not instance of self.Error')), ]
 
@@ -256,7 +256,7 @@ def test_db_exception_types():
 @use_db()
 def test_exception_catch_base(db):
     """ Catch exception raised by the db-driver with Database.Error. """
-    assert_raises(Cerebrum.Database.Error,
+    assert_raises(Cerebrum.database.Error,
                   db.execute,
                   "create table foo")
 
@@ -321,7 +321,7 @@ def test_all_critical_db_attributes(db):
     #pass
 
 
-@raises(Cerebrum.Database.ProgrammingError)
+@raises(Cerebrum.database.ProgrammingError)
 @use_db()
 @create_table('foo', 'x int not null', 'y int null')
 def test_multiple_queries(db, foo_name):
@@ -330,7 +330,7 @@ def test_multiple_queries(db, foo_name):
     db.execute(';'.join((foo_select, foo_select)))
 
 
-@raises(Cerebrum.Database.ProgrammingError)
+@raises(Cerebrum.database.ProgrammingError)
 @use_db()
 def test_missing_table(db):
     """ Database.ProgrammingError for non-existing relation. """

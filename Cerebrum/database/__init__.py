@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,18 +32,11 @@ However, one might need to collect data from other databases, possibly using a
 different driver; how could this best be implemented? Currently, the function
 can be told what Database subclass to use in the DB_driver keyword argument.
 """
-from __future__ import with_statement
 
-import datetime
-import uuid
-import os
-import re
-import sys
+from __future__ import with_statement
 
 from types import DictType, StringType
 from cStringIO import StringIO
-
-from mx import DateTime
 
 from Cerebrum import Errors
 from Cerebrum import Utils
@@ -62,7 +55,7 @@ class CommonExceptionBase(Exception):
     This base exception and the exception classes below will inherit from the
     exception classes in dynamically imported driver modules. This way we can
     catch any kind of db-specific error exceptions by catching
-    Cerebrum.Database.Error (db-independent).
+    Cerebrum.database.postgres.Error.
     """
 
     def __str__(self):
@@ -231,7 +224,7 @@ class DatabaseErrorWrapper(object):
         """
         Initialize wrapper.
 
-        @type database: Cerebrum.Database
+        @type database: Cerebrum.database.Database
         @param database: The database wrapper object. This object contains
             monkey patched exceptions as attributes.
 
@@ -303,6 +296,60 @@ class DatabaseErrorWrapper(object):
             with self:
                 return func(*args, **kwargs)
         return inner
+
+
+class Lock(object):
+    """Driver-independent class for locking. Default: No locking"""
+    def __init__(self, mode='exclusive', **kws):
+        self.aquire(mode)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self):
+        self.release()
+
+    def acquire(self, mode):
+        pass
+
+    def release(self):
+        pass
+
+
+class OraPgLock(Lock):
+    """Lock for Oracle and Postgres.
+    Locks are only released by commit, so no release is actually done.
+
+    Uses the postgres and oracle LOCK TABLE statement.
+    """
+    lock_stmt = "LOCK TABLE %s IN %s MODE"
+
+    def __init__(self, cursor=None, table=None, **kws):
+        """Init will acquire a lock."""
+        self.cursor = cursor
+        self.table = table
+        super(OraPgLock, self).__init__(**kws)
+
+    def acquire(self, mode):
+        self.cursor.execute(OraPgLock.lock_stmt % (self.table, mode))
+
+    def acquire_lock(self, table=None, mode='exclusive'):
+        """
+        Aquire a lock for some table.
+
+        Locking is not a standard sql feature, but some
+        providers have locking. If not implemented, locking
+        is a no-op.
+
+        :param table: Database table to lock
+        :type table: str
+
+        :param mode: locking mode, see database driver
+        :type mode: str
+
+        :rtype: Lock
+        """
+        return Lock(cursor=self, table=table, mode=mode)
 
 
 class Cursor(object):
@@ -618,96 +665,6 @@ class Cursor(object):
         :rtype: Lock
         """
         return Lock(cursor=self, table=table, mode=mode)
-
-
-class Lock(object):
-    """Driver-independent class for locking. Default: No locking"""
-    def __init__(self, mode='exclusive', **kws):
-        self.acquire(mode)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self):
-        self.release()
-
-    def acquire(self, mode):
-        pass
-
-    def release(self):
-        pass
-
-
-class OraPgLock(Lock):
-    """Lock for Oracle and Postgres.
-    Locks are only released by commit, so no release is actually done.
-
-    Uses the postgres and oracle LOCK TABLE statement.
-    """
-    lock_stmt = "LOCK TABLE %s IN %s MODE"
-
-    def __init__(self, cursor=None, table=None, **kws):
-        """Init will acquire a lock."""
-        self.cursor = cursor
-        self.table = table
-        super(OraPgLock, self).__init__(**kws)
-
-    def acquire(self, mode):
-        self.cursor.execute(OraPgLock.lock_stmt % (self.table, mode))
-
-    def acquire_lock(self, table=None, mode='exclusive'):
-        """
-        Aquire a lock for some table.
-
-        Locking is not a standard sql feature, but some
-        providers have locking. If not implemented, locking
-        is a no-op.
-
-        :param table: Database table to lock
-        :type table: str
-
-        :param mode: locking mode, see database driver
-        :type mode: str
-
-        :rtype: Lock
-        """
-        return Lock(cursor=self, table=table, mode=mode)
-
-
-class Lock(object):
-    """Driver-independent class for locking. Default: No locking"""
-    def __init__(self, mode='exclusive', **kws):
-        self.aquire(mode)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self):
-        self.release()
-
-    def acquire(self, mode):
-        pass
-
-    def release(self):
-        pass
-
-
-class RowIterator(object):
-
-    def __init__(self, cursor):
-        self._csr = cursor
-        self._queue = []
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        if not self._queue:
-            self._queue.extend(self._csr.fetchmany())
-        if not self._queue:
-            raise StopIteration
-        row = self._queue.pop(0)
-        return self._csr.wrap_row(row)
 
 
 #
@@ -1172,822 +1129,6 @@ class Database(object):
         return "%s %s :%s" % (column, operand, ref_name), value
 
 
-def get_pg_savepoint_id():
-    """
-    Return a unique identifier suitable for savepoints.
-
-    A valid identifier in Postgres is:
-
-    * <= 63 characters
-    * SQL identifiers and key words must begin with a letter (a-z, but also
-      letters with diacritical marks and non-Latin letters) or an underscore
-      (_). Subsequent characters in an identifier or key word can be letters,
-      underscores, digits (0-9) (...)
-
-    Source:
-    <http://www.postgresql.org/docs/8.1/static/sql-syntax.html#SQL-SYNTAX-IDENTIFIERS>
-
-    UUID4 is an easy choice, provided we manipulate it somewhat.
-    """
-    identifier = "unique" + str(uuid.uuid4()).replace('-', '_')
-    return identifier
-
-
-class PostgreSQLBase(Database):
-    """PostgreSQL driver base class."""
-
-    rdbms_id = "PostgreSQL"
-
-    def __init__(self, *args, **kws):
-        for cls in self.__class__.__mro__:
-            if issubclass(cls, PostgreSQLBase):
-                return super(PostgreSQLBase, self).__init__(*args, **kws)
-        raise NotImplementedError(
-            "Can't instantiate abstract class <PostgreSQLBase>.")
-
-    def _sql_port_table(self, schema, name):
-        return [name]
-
-    def _sql_port_sequence(self, schema, name, op, val=None):
-        if op == 'next':
-            return ["nextval('%s')" % name]
-        elif op == 'curr':
-            return ["currval('%s')" % name]
-        elif op == 'set' and val is not None:
-            return ["setval('%s', %s)" % (name, val)]
-        else:
-            raise ValueError('Invalid sequnce operation: %s' % op)
-
-    def _sql_port_sequence_start(self, value):
-        return ['START', value]
-
-    def _sql_port_from_dual(self):
-        return []
-
-    def _sql_port_now(self):
-        return ['NOW()']
-
-
-class PgSQL(PostgreSQLBase):
-    """PostgreSQL driver class."""
-
-    _db_mod = "pyPgSQL.PgSQL"
-
-    def connect(self, user=None, password=None, service=None,
-                client_encoding=None):
-        call_args = vars()
-        del call_args['self']
-        cdata = self._connect_data
-        cdata.clear()
-        cdata['call_args'] = call_args
-        if service is None:
-            service = cereconf.CEREBRUM_DATABASE_NAME
-        if user is None:
-            user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
-        if password is None and user is not None:
-            password = read_password(user, service)
-        cdata['real_user'] = user
-        cdata['real_password'] = password
-        cdata['real_service'] = service
-        if client_encoding is None:
-            client_encoding = self.encoding
-        else:
-            self.encoding = client_encoding
-
-        super(PgSQL, self).connect(
-            user=user,
-            password=password,
-            database=service,
-            client_encoding=client_encoding,
-            unicode_results=(client_encoding == 'UTF-8'))
-
-        # Ensure that pyPgSQL and PostgreSQL client agrees on what
-        # encoding to use.
-        if client_encoding is not None:
-            if isinstance(client_encoding, str):
-                enc = client_encoding
-            elif isinstance(client_encoding, tuple):
-                enc = client_encoding[0]
-            self.execute("SET CLIENT_ENCODING TO '%s'" % enc)
-            # Need to commit here, and as no real work has been done
-            # yet, it should be safe.
-            #
-            # Without an explicit COMMIT, a ROLLBACK (either explicit
-            # or implicit, e.g. as the result of some statement
-            # causing a failure) will reset the PostgreSQL's client to
-            # CLIENT_ENCODING = 'default charset for database'.
-            self.commit()
-
-    # According to its documentation, this driver module implements
-    # the Binary constructor as a method of the connection object.
-    #
-    # The reason given for this deviance from the DB-API specification
-    # is that in PostgreSQL, Large objects has no meaning outside the
-    # context of a connection.
-    #
-    # However, as it turns out, the connection object of this driver
-    # doesn't really have a Binary constructor, either.  Thus, the
-    # best we can do is to raise a NotImplementedError. :-(
-    def Binary(string):
-        raise NotImplementedError
-    Binary = staticmethod(Binary)
-
-    def pythonify_data(self, data):
-        """Convert type of value(s) in data to native Python types."""
-        if isinstance(data, self._db_mod.PgNumeric):
-            if data.getScale() > 0:
-                data = float(data)
-            elif data <= sys.maxint:
-                data = int(data)
-            else:
-                data = long(data)
-            # Short circuit, no need to involve super here.
-            return data
-        return super(PgSQL, self).pythonify_data(data)
-
-
-class PsycoPGBase(PostgreSQLBase):
-    """PostgreSQL driver class using psycopg."""
-
-    # This is a base class for psycopg-driver family. Set to the appropriate
-    # value in the subclasses.
-    # _db_mod = None
-
-    def connect(self,
-                user=None,
-                password=None,
-                service=None,
-                client_encoding=None,
-                host=None,
-                port=None):
-        dsn = []
-        if service is None:
-            service = cereconf.CEREBRUM_DATABASE_NAME
-        if user is None:
-            user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
-        if host is None:
-            host = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('host')
-        if port is None:
-            port = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('port')
-        if password is None and user is not None:
-            password = read_password(user, service, host)
-
-        if service is not None:
-            dsn.append('dbname=' + service)
-        if user is not None:
-            dsn.append('user=' + user)
-        if password is not None:
-            dsn.append('password=' + password)
-        if host is not None:
-            dsn.append('host=' + host)
-        if port is not None:
-            dsn.append('port=' + str(port))
-
-        dsn_string = ' '.join(dsn)
-
-        if client_encoding is None:
-            client_encoding = self.encoding
-        else:
-            self.encoding = client_encoding
-
-        super(PsycoPGBase, self).connect(dsn_string)
-        self._db.set_isolation_level(1)  # read-committed
-        self.execute("SET CLIENT_ENCODING TO '%s'" % client_encoding)
-        self.commit()
-
-    def cursor(self):
-        return PsycoPGCursor(self)
-
-
-class PsycoPG(PsycoPGBase):
-    _db_mod = "psycopg"
-
-
-class PsycoPG2(PsycoPGBase):
-    _db_mod = "psycopg2"
-
-    def ping(self):
-        """psycopg2-specific version of ping.
-
-        The main issue here is that psycopg2 opens a new transaction upon the
-        first execute(). Unless autocommit is on (which it is not for us),
-        that transaction remains open until a commit/rollback. Constants.py
-        uses its own private connection and that connection+transaction could
-        remain in the <IDLE> state indefinitely.
-        """
-
-        import psycopg2.extensions as ext
-        conn = self.driver_connection()
-        status = conn.get_transaction_status()
-        c = self.cursor()
-        c.ping()
-        c.close()
-        # It is NOT safe to roll back, unless there are just this cursor's
-        # actions in the transaction...
-        if status in (ext.TRANSACTION_STATUS_IDLE,):
-            self.rollback()
-
-    def cursor(self):
-        return PsycoPG2Cursor(self)
-
-
-class PsycoPGCursor(Cursor):
-
-    def ping(self):
-        """Check if the database is still reachable.
-
-        Caveat: regardless of the autocommit settings, we want to make sure
-        that ping-ing happens as its own transaction and DOES NOT affect the
-        state of the environment in which ping has been invoked.
-        """
-
-        identifier = get_pg_savepoint_id()
-        channel = self.driver_cursor()
-        channel.execute("SAVEPOINT %s" % identifier)
-        try:
-            channel.execute("""SELECT 1 AS foo""")
-        finally:
-            channel.execute("ROLLBACK TO SAVEPOINT %s" % identifier)
-    # end ping
-
-    def execute(self, operation, parameters=()):
-        # IVR 2008-10-30 TBD: This is not really how the psycopg framework
-        # is supposed to be used. There is an adapter mechanism, and we should
-        # really register our type conversion hooks there.
-        for k in parameters:
-            if type(parameters[k]) is DateTime.DateTimeType:
-                ts = parameters[k]
-                parameters[k] = self.Timestamp(ts.year, ts.month, ts.day,
-                                               ts.hour, ts.minute,
-                                               int(ts.second))
-            elif (type(parameters[k]) is unicode and
-                  self._db.encoding != 'UTF-8'):
-                # pypgsql1 does not support unicode (only utf-8)
-                parameters[k] = parameters[k].encode(self._db.encoding)
-        if (type(operation) is unicode and
-                self._db.encoding != 'UTF-8'):
-            operation = operation.encode(self._db.encoding)
-
-        # A static method is slightly faster than a lambda.
-        def utf8_decode(s):
-            """Converts a str containing UTF-8 octet sequences into
-            unicode objects."""
-            return s.decode('UTF-8')
-
-        ret = super(PsycoPGCursor, self).execute(operation, parameters)
-        self._convert_cols = {}
-        if self.description is not None:
-            for n in range(len(self.description)):
-                if (self.description[n][1] == self._db.NUMBER and
-                        self.description[n][5] <= 0):  # pos 5=scale in DB-API
-                    self._convert_cols[n] = long
-                elif (self._db.encoding == 'UTF-8' and
-                      self.description[n][1] == self._db.STRING):
-                    self._convert_cols[n] = utf8_decode
-        return ret
-
-    def query(self, query, params=(), fetchall=True):
-        # The PsycoPG driver returns floats for all columns of type
-        # numeric.  The PyPgSQL driver only does this if the column is
-        # defined to have digits.  This method makes PsycoPG behave
-        # the same way
-        ret = super(PsycoPGCursor, self).query(
-            query, params=params, fetchall=fetchall)
-        if fetchall and self._convert_cols:
-            for r in range(len(ret)):
-                for n, conv in self._convert_cols.items():
-                    if ret[r][n] is not None:
-                        ret[r][n] = conv(ret[r][n])
-        return ret
-
-    def wrap_row(self, row):
-        """Return `row' wrapped in a db_row object."""
-        ret = self._row_class(row)
-        for n, conv in self._convert_cols.items():
-            if ret[n] is not None:
-                ret[n] = conv(ret[n])
-        return ret
-
-    def acquire_lock(self, table=None, mode='exclusive'):
-        return OraPgLock(cursor=self, table=table, mode='exclusive')
-
-
-class PsycoPG2Cursor(PsycoPGCursor):
-
-    def execute(self, operation, parameters=()):
-        ret = super(PsycoPG2Cursor, self).execute(operation, parameters)
-        db_mod = self._db._db_mod
-
-        def date_to_mxdatetime(dt):
-            return DateTime.DateTime(dt.year, dt.month, dt.day)
-
-        def datetime_to_mxdatetime(dt):
-            return DateTime.DateTime(dt.year, dt.month, dt.day,
-                                     dt.hour, dt.minute, dt.second)
-
-        if self.description is not None:
-            for n, item in enumerate(self.description):
-                if item[1] == db_mod._psycopg.DATE:
-                    self._convert_cols[n] = date_to_mxdatetime
-                elif item[1] == db_mod._psycopg.DATETIME:
-                    self._convert_cols[n] = datetime_to_mxdatetime
-                # we want to coerce Decimal (python 2.5 + psycopg2) to float,
-                # since we do not know how our code base will react to Decimal
-                # 1 - typecode, 5 - scale. psycopg2 returns decimals for
-                # elements that have scale > 0.
-                elif item[1] == db_mod._psycopg.DECIMAL and item[5] > 0:
-                    self._convert_cols[n] = float
-        return ret
-    # end execute
-# end PsycoPG2Cursor
-
-
-class OracleBase(Database):
-
-    """Oracle database driver class."""
-
-    rdbms_id = "Oracle"
-
-    def __init__(self, *args, **kws):
-        for cls in self.__class__.__mro__:
-            if issubclass(cls, OracleBase):
-                return super(OracleBase, self).__init__(*args, **kws)
-        raise NotImplementedError(
-            "Can't instantiate abstract class <OracleBase>.")
-
-    def _sql_port_table(self, schema, name):
-        return ['%(schema)s.%(name)s' % locals()]
-
-    def _sql_port_sequence(self, schema, name, op):
-        if op == 'next':
-            return ['%(schema)s.%(name)s.nextval' % locals()]
-        elif op == 'current':
-            return ['%(schema)s.%(name)s.currval' % locals()]
-        else:
-            raise self.ProgrammingError, 'Invalid sequence operation: %s' % op
-
-    def _sql_port_sequence_start(self, value):
-        return ['START', 'WITH', value]
-
-    def _sql_port_from_dual(self):
-        return ["FROM", "DUAL"]
-
-    def _sql_port_now(self):
-        return ['SYSDATE']
-
-
-class DCOracle2(OracleBase):
-
-    _db_mod = "DCOracle2"
-
-    def connect(self, user=None, password=None, service=None,
-                client_encoding=None):
-        cdata = self._connect_data
-        cdata.clear()
-        cdata['arg_user'] = user
-        cdata['arg_password'] = password
-        cdata['arg_service'] = service
-        if service is None:
-            service = cereconf.CEREBRUM_DATABASE_NAME
-        if user is None:
-            user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
-        if password is None:
-            password = read_password(user, service)
-        conn_str = '%s/%s@%s' % (user, password, service)
-        cdata['conn_str'] = conn_str
-        if client_encoding is None:
-            client_encoding = self.encoding
-        else:
-            self.encoding = client_encoding
-
-        # The encoding names in Oracle don't look like PostgreSQL's,
-        # so we translate them into a single standard.
-        encoding_names = {'ISO_8859_1': "american_america.we8iso8859p1",
-                          'UTF-8': "american_america.utf8"}
-        os.environ['NLS_LANG'] = encoding_names.get(client_encoding,
-                                                    client_encoding)
-        #
-        # Call superclass .connect with appropriate CONNECTIONSTRING;
-        # this will in turn invoke the connect() function in the
-        # DCOracle2 module.
-        super(Oracle, self).connect(conn_str)
-
-    def pythonify_data(self, data):
-        """Convert type of values in row to native Python types."""
-        # Short circuit; no conversion is necessary for DCOracle2.
-        return data
-
-
-class cx_Oracle(OracleBase):
-
-    _db_mod = "cx_Oracle"
-
-    def connect(self, user=None, password=None, service=None,
-                client_encoding=None):
-        cdata = self._connect_data
-        cdata.clear()
-        cdata['arg_user'] = user
-        cdata['arg_password'] = password
-        cdata['arg_service'] = service
-        if service is None:
-            service = cereconf.CEREBRUM_DATABASE_NAME
-        if user is None:
-            user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
-        if password is None:
-            password = read_password(user, service)
-        conn_str = '%s/%s@%s' % (user, password, service)
-        cdata['conn_str'] = conn_str
-        if client_encoding is None:
-            client_encoding = self.encoding
-        else:
-            self.encoding = client_encoding
-
-        # The encoding names in Oracle don't look like PostgreSQL's,
-        # so we translate them into a single standard.
-        encoding_names = {'ISO_8859_1': "american_america.we8iso8859p1",
-                          'UTF-8': "american_america.utf8"}
-        os.environ['NLS_LANG'] = encoding_names.get(client_encoding,
-                                                    client_encoding)
-
-        # Call superclass .connect with appropriate CONNECTIONSTRING;
-        # this will in turn invoke the connect() function in the
-        # cx_Oracle module.
-        super(cx_Oracle, self).connect(conn_str)
-    # end connect
-
-    def cursor(self):
-        return cx_OracleCursor(self)
-    # end cursor
-
-    def pythonify_data(self, data):
-        """Convert type of value(s) in data to native Python types."""
-        if isinstance(data, datetime.datetime):
-            return DateTime.DateTime(data.year, data.month, data.day,
-                                     data.hour, data.minute, data.second)
-        return super(cx_Oracle, self).pythonify_data(data)
-    # end pythonify_data
-
-    # IVR 2009-02-12 FIXME: We should override nextval() here to query the
-    # schema name directly from the underlying connection object. This should
-    # be possible from cx_Oracle 5.0
-# end cx_Oracle
-
-
-class cx_OracleCursor(Cursor):
-
-    """A special cursor subclass to handle cx_Oracle's quirks.
-
-    This class is a workaround for cx_Oracle's feature where it refuses to
-    accept unused names in bind dictionary in the the execute() method. We
-    redefine a dictionary with 'used-only' bind names, and send that
-    dictionary to the backend's execute(). This hack implies a performance
-    hit, since we parse each statement (at least) twice.
-    """
-
-    def execute(self, operation, parameters=()):
-        # cx_Oracle operates with datetime.
-        for k in parameters:
-            if type(parameters[k]) is DateTime.DateTimeType:
-                tmp = parameters[k]
-                parameters[k] = datetime.datetime(tmp.year, tmp.month, tmp.day,
-                                                  tmp.hour, tmp.minute,
-                                                  int(tmp.second))
-
-        # Translate Cerebrum-specific hacks ([:]-syntax we love, e.g.). We
-        # must do this, before feeding operation to the backend, since we've
-        # effectively extended sql syntax.
-        sql, binds = self._translate(operation, parameters)
-        # Now that we have raw sql, we need to check if binds contains some
-        # superfluous identifiers. If it does, we have to purge them, since
-        # cx_Oracle bails with an error when there are more binds than free
-        # variables.
-
-        # 1. Prepare the statement (so that the backend can report some useful
-        #    information about this.) This costs extra time, but it is
-        #    inevitable, since bindnames() requires a prepared statement.
-        self._cursor.prepare(sql)
-        # 2. Extract the bind names. This is the list we compare to binds. The
-        #    problem is of course that this bastard upcases the names.
-        actual_binds = self._cursor.bindnames()
-
-        mybinds = dict()
-        for next_bind in actual_binds:
-            if next_bind in binds:
-                mybinds[next_bind] = binds[next_bind]
-            elif next_bind.lower() in binds:
-                mybinds[next_bind.lower()] = binds[next_bind.lower()]
-            else:
-                # what to do?
-                raise ValueError("Cannot remap bind name %s to "
-                                 "actual parameter" % next_bind)
-
-        # super().execute will redo a considerable part of the work here. It
-        # is a performance hit (FIXME: how much of a performance hit?), but
-        # right now (2008-06-30) we do not care.
-        retval = super(cx_OracleCursor, self).execute(sql, mybinds)
-        return retval
-    # end execute
-
-    def query(self, query, params=(), fetchall=True):
-        raw_result = list(super(cx_OracleCursor, self).query(
-                          query, params=params, fetchall=fetchall))
-
-        # IVR 2009-02-12 FIXME: respect fetchall while making conversions.
-        for item in raw_result:
-            for j in range(len(item)):
-                field = item[j]
-                if type(field) is datetime.datetime:
-                    item[j] = DateTime.DateTime(field.year,
-                                                field.month,
-                                                field.day,
-                                                field.hour,
-                                                field.minute,
-                                                int(field.second))
-        return raw_result
-
-    def acquire_lock(self, table=None, mode='exclusive'):
-        return OraPgLock(cursor=self, table=None, mode=mode)
-
-
-class SQLite(Database):
-
-    """This class defines an abstraction for the SQLite backend.
-
-    The class is a hairy monstrosity of an enormous hack. SQLite does NOT
-    support a number of elementary sql92 constructs and datatypes. Thus, some
-    of the essentials in Cerebrum have to be remapped into different
-    datatypes.
-
-    Furthermore, SQLite by itself does NOT support value typing in the
-    database (although it parses column types from sql), so any piece of code
-    relying on this will probably not fail when it should have.
-
-    This backend is for testing purposes only, so that people could run
-    elementary tests without a network connection or without a true database
-    to talk to.
-    """
-
-    _db_mod = 'pysqlite2.dbapi2'
-    rdbms_id = 'sqlite'
-    # SQLite does not support datetime, thus we store dates as
-    # ISO8601-formatted strings. One MUST make sure that this format matches
-    # however CURRENT_TIMESTAMP is represented.
-    _mx_format = "%Y-%m-%d %H:%M:%S"
-
-    def _sqlite2mx(self, object):
-        return DateTime.strptime(object, self._mx_format)
-
-    def _mx2sqlite(self, dt):
-        return "%s" % dt.strftime(self._mx_format)
-
-    def __init__(self, *rest, **kwargs):
-        # Python DB-API 2.0 requires certain type ctors to be present in the
-        # module. For some reason these are absent from pysqlite2.
-        if isinstance(self._db_mod, basestring):
-            mod = Utils.dyn_import(self._db_mod)
-            mod.STRING = str
-            mod.BINARY = mod.Binary
-            mod.NUMBER = float
-            mod.DATETIME = DateTime.DateTime
-
-        super(SQLite, self).__init__(*rest, **kwargs)
-
-        # provide seamless operation with mx.DateTime.
-        self._db_mod.register_converter("timestamp", self._sqlite2mx)
-        self._db_mod.register_converter("date", self._sqlite2mx)
-        self._db_mod.register_adapter(DateTime.DateTimeType, self._mx2sqlite)
-    # end __init__
-
-    def connect(self, user=None, password=None, service=None,
-                client_encoding=None):
-        if service is None:
-            service = cereconf.CEREBRUM_DATABASE_NAME
-
-        super(SQLite, self).connect(database=service)
-
-        if client_encoding is not None:
-            self.encoding = client_encoding
-    # end connect
-
-    def cursor(self):
-        return SQLiteCursor(self)
-    # end cursor
-
-    def _sql_port_now(self):
-        return ["CURRENT_TIMESTAMP"]  # self._mx2sqlite(DateTime.now())]
-
-    def _sql_port_table(self, schema, name):
-        return [name]
-
-    # IVR 2007-10-30 FIXME: This craches if sql statements are cached.
-    def _sql_port_sequence(self, schema, name, op):
-        if op == 'next':
-            value = self._nextval_sequence(name)
-            return ["%d" % value]
-        elif op == 'current':
-            value = self._currval_sequence(name)
-            return ["%d" % value]
-        else:
-            raise ValueError('Invalid sequnce operation: %s' % op)
-    # end _sql_port_sequence
-
-    def _nextval_sequence(self, name):
-        self.execute("INSERT INTO %s VALUES (1+(SELECT max(value) FROM %s))" %
-                     (name, name))
-        return self._currval_sequence(name)
-    # end _nextval_sequence
-
-    def _currval_sequence(self, name):
-        return self.query_1("SELECT MAX(value) AS value FROM %s" % name)
-    # end _currval_sequence
-
-    def nextval(self, seq_name):
-        """Return a new value from sequence SEQ_NAME.
-
-        The sequence syntax varies a bit between RDBMSes, hence there
-        is no default implementation of this method."""
-
-        return self._nextval_sequence(seq_name)
-    # end nextval
-
-    def ping(self):
-        """Check that communication with the database works.
-
-        Force the underlying database driver module to raise an
-        exception if the database communication channel represented by
-        this object for some reason isn't working properly.
-        """
-        # it's SQLite -- we are always on!
-        pass
-    # end ping
-
-# end SQLite
-
-
-class SQLiteCursor(Cursor):
-
-    """SQLite-specific cursor hacks.
-
-    This class tries to hide some of the shortcomings of the SQLite backend.
-    """
-    identifier_start = '[a-zA-Z]'
-    identifier_body = '[a-zA-Z0-9_]'
-    sql_special = ' "%&\'()*'
-    delimited_identifier = '"[a-zA-Z0-9%s]+"' % re.escape(sql_special)
-    regular_identifier = '%s%s*' % (identifier_start, identifier_body)
-
-    def _translate(self, statement, params):
-        retval = super(SQLiteCursor, self)._translate(statement, params)
-        # IVR 2007-10-30 FIXME: For the love of Britney's underwear, FIX THIS!
-        # (sequence references cannot be cached.)
-        if statement in self._sql_cache:
-            del self._sql_cache[statement]
-        return retval
-    # end _translate
-
-    def _parameter_fixup(self, parameters):
-        """We want to force utf-8 for our parameters."""
-
-        for param in parameters:
-            if type(parameters[param]) is str:
-                # IVR 2008-03-19 FIXME: This is sooooo broken. How do I know
-                # here if the parameter is in latin-1?
-                parameters[param] = parameters[param].decode("latin-1")
-
-        return parameters
-    # end _parameter_fixup
-
-    def _sequence_initial_fixup(self, operation):
-        """Deep magic to compensate for SQLite's lack of sequences.
-
-        This method converts CREATE SEQUENCE in Cerebrum-syntax to CREATE
-        TABLE in SQL92 and records the initial value.
-
-        @rtype: tuple (of 3 basestring)
-        @return:
-          Returns the modified sql, name of the sequence and its starting
-          value, if any. If L{operation} is not a CREATE SEQUENCE, it is
-          returned unmodified and sequence name/start value are None/None.
-
-          If L{operation} *is* in fact a CREATE SEQUENCE statement, remap it
-          into CREATE TABLE, register the sequence name and the initial value
-          (if any). If no initial value is specified, 1 is assumed.
-        """
-
-        # rex for create sequence statements
-        sequence_rex = re.compile("CREATE SEQUENCE (%s|%s)" %
-                                  (self.delimited_identifier,
-                                   self.regular_identifier),
-                                  re.IGNORECASE)
-        # rex for initial value in create sequence statements
-        sequence_initial = re.compile(
-            "\[:sequence_start\s+value\s*=\s*(\d+)\]",
-            re.IGNORECASE)
-
-        # Since sequences are not supported, we have to hack around them
-        create_sequence = sequence_rex.search(operation)
-        sequence_start_value = None
-        sequence_name = None
-        if create_sequence:
-            sequence_start_value = 0
-            sequence_name = create_sequence.group(1)
-            # here we substitute create table for create sequence...
-            operation = sequence_rex.sub("""
-                           CREATE TABLE \\1
-                           (value INTEGER NOT NULL PRIMARY KEY)
-                           """, operation)
-            # check if the start value has been specified
-            mobj = sequence_initial.search(operation)
-            if mobj:
-                # grab the start value ...
-                # (-1 to compensate for how nextval() works)
-                sequence_start_value = int(mobj.group(1)) - 1
-                # ... and remove the []-junk from the sql statement
-                operation = sequence_initial.sub("", operation)
-
-        return operation, sequence_name, sequence_start_value
-    # end _sequence_initial_fixup
-
-    def _sequence_final_fixup(self, sequence_name, start_value):
-        """Insert the initial value into specified sequence."""
-        # ... and here we make sure that a 'start value' exists
-        super(SQLiteCursor, self).execute("INSERT INTO %s VALUES (%d)" %
-                                          (sequence_name, start_value))
-    # end _sequence_final_fixup
-
-    def _date_fixup(self, operation):
-        """Remap DATE in table creation to TEXT.
-
-        SQLite does not support the date datatype. Thus we remap all
-        occurrences of DATE to TEXT.
-        """
-
-        if re.search("create table", operation,
-                     re.IGNORECASE | re.MULTILINE | re.DOTALL):
-            # Swap all DATE uncritically to TEXT. This is hairy, this is
-            # scary, but I don't see any other way out :(
-            operation = re.sub("\s+DATE(\s+|,)", " TEXT\\1", operation)
-
-        return operation
-    # end _date_fixup
-
-    def _constraint_fixup(self, operation):
-        """Remap some ADD CONSTRAINT statements.
-
-        Actually, since SQLite supports only two, we'll simply ignore all add
-        constraints. This may fail, if this code is used to migrate a database
-        (which occasionally adds columns via add constraint), but for this
-        backend it probably would not matter anyway.
-        """
-
-        constraint_rex = re.compile("ALTER TABLE (%s|%s) ADD CONSTRAINT" %
-                                    (self.delimited_identifier,
-                                     self.regular_identifier),
-                                    re.IGNORECASE)
-        if constraint_rex.search(operation):
-            return ""
-
-        return operation
-    # end _constraint_fixup
-
-    def execute(self, operation, parameters=()):
-        """Execute the specified operation.
-
-        Hmm... a fix of a patch of an extension of a hack. This is badly
-        broken by design, but it will not be better until SQLite starts
-        supporting the much needed datatypes and syntax.
-        """
-
-        parameters = self._parameter_fixup(parameters)
-
-        operation, seq_name, seq_start = self._sequence_initial_fixup(
-            operation)
-
-        operation = self._date_fixup(operation)
-
-        operation = self._constraint_fixup(operation)
-
-        retval = super(SQLiteCursor, self).execute(operation, parameters)
-
-        if seq_name is not None:
-            self._sequence_final_fixup(seq_name, seq_start)
-
-        return retval
-    # end execute
-
-    def ping(self):
-        """Check that communication with the database works."""
-        # it's SQLite -- we are always on!
-        pass
-    # end ping
-# end SQLiteCursor
-
-
-# Define some aliases for driver class names that are already in use.
-PostgreSQL = PgSQL
-Oracle = DCOracle2
-
-
 def connect(*args, **kws):
     """Return a new instance of this installation's Database subclass."""
     if 'DB_driver' in kws:
@@ -1998,6 +1139,7 @@ def connect(*args, **kws):
     else:
         cls = Utils.Factory.get('DBDriver')
     return cls(*args, **kws)
+
 
 if __name__ == '__main__':
     db = connect(database='cerebrum')

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -34,7 +34,7 @@ def _parse_selection_criteria(db, criteria):
     I.e: the string spread:add@account,person will be converted to:
     (co.spread_add, [co.entity_account, co.entity_person])
 
-    :param Cerebrum.Database db: A Database object.
+    :param Cerebrum.database.Database db: A Database object.
     :param basestring criteria: The criteria to parse.
     :rtype: tuple(Cerebrum.Constants._ChangeTypeCode,
                   list(Cerebrum.Constants._EntityTypeCode,))
@@ -53,7 +53,7 @@ def _parse_selection_criteria(db, criteria):
 def _parse_code(db, constant):
     """Parse and error-check a constant.
 
-    :param Cerebrum.Database db: A Database object.
+    :param Cerebrum.database.Database db: A Database object.
     :param basestring constant: The string representation of the constant.
     :rtype: Cerebrum.Constant
     :return: The instantiated constant."""
@@ -78,7 +78,7 @@ def _parse_code(db, constant):
 def convert_events(db, events):
     """Convert an event to a dict.
 
-    :param Cerebrum.Database db: A database object.
+    :param Cerebrum.database.Database db: A database object.
     :param list events: A list of event rows.
     :rtype: list
     :return: A list of converted events."""
@@ -120,7 +120,7 @@ def convert_events(db, events):
 def get_events(db, cl, criterias, key):
     """Get a list of events satisfying a criteria.
 
-    :param Cerebrum.Database db: A database object.
+    :param Cerebrum.database.Database db: A database object.
     :param Cerebrum.modules.CLHandler cl: A CLHandler object.
     :param dict criterias: The criteria to list changes by.
     :param basestring key: The key to acknowledge changes with.

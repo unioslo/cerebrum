@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2015 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -62,7 +62,7 @@ import getopt
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.access_FS import FS
@@ -225,7 +225,7 @@ def main():
             usage(2)
 
     DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
-    fs_db = Database.connect(user=user, service=service, DB_driver=DB_driver)
+    fs_db = database.connect(user=user, service=service, DB_driver=DB_driver)
     fs = FS(fs_db)
 
     db = Factory.get('Database')()

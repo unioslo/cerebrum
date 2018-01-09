@@ -18,7 +18,7 @@ from Cerebrum.modules.dns import Utils
 from Cerebrum.modules.dns.Errors import DNSError
 from Cerebrum.modules import dns
 from Cerebrum import Errors
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.modules.bofhd.errors import CerebrumError
 
 class DnsBofhdUtils(object):
@@ -104,7 +104,7 @@ class DnsBofhdUtils(object):
                     "Multiple records would be deleted, must force (y)")
             try:
                 self._update_helper.full_remove_dns_owner(owner_id)
-            except Database.DatabaseError, m:
+            except database.DatabaseError, m:
                 raise CerebrumError, "Database violation: %s" % m
 
     #

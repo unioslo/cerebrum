@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,7 +25,7 @@ import getopt
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import XMLHelper
 from Cerebrum.utils.atomicfile import AtomicFileWriter
@@ -285,7 +285,7 @@ def assert_connected(user, service):
     global fs
     if fs is None:
         DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
-        db = Database.connect(user=user, service=service,
+        db = database.connect(user=user, service=service,
                               DB_driver=DB_driver)
         fs = FS(db)
 # end assert_connected
