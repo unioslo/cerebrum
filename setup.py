@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2017 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -506,6 +506,7 @@ setup(
         'Cerebrum/modules/cis',
         'Cerebrum/modules/virtualgroup',
         'Cerebrum/config',
+        'Cerebrum/database',
         'Cerebrum/utils',
         'Cerebrum/rest',
         'Cerebrum/rest/api',
