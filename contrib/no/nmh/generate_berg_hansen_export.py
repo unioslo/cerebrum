@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -106,7 +106,7 @@ def _get_phone(db, pe, source_system, telephone_types):
 def get_affiliated(db, source_system, affiliations):
     """Collect entity ids of persons matching filter criterias.
 
-    :param Cerebrum.Database db: DB connection object.
+    :param Cerebrum.database.Database db: DB connection object.
     :param Cerebrum.Constants._AuthoritativeSystemCode source_system: Source
         system to filter by.
     :param Cerebrum.Constants._PersonAffiliationCode affiliations: Filter by
@@ -121,7 +121,7 @@ def get_person_info(db, person, ssn_type, source_system,
                     telephone_types):
     """Collect information about `person`.
 
-    :param Cerebrum.Database db: DB connection object.
+    :param Cerebrum.database.Database db: DB connection object.
     :param Cerebrum.Constants._EntityExternalIdCode ssn_type: External id type
         to filter by.
     :param Cerebrum.Constants._AuthoritativeSystemCode source_system: Source

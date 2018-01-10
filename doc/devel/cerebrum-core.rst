@@ -98,7 +98,7 @@ the scope of this document; they are documented in
    created dynamically from a list of classes.  The parameters
    specifying these class lists are named ``CLASS_*``, e.g.::
 
-     CLASS_DBDRIVER = ('Cerebrum.Database/PostgreSQL',)
+     CLASS_DBDRIVER = ('Cerebrum.database.postgres/PostgreSQL',)
 
    Observe the important comma just before the closing parenthesis --
    without that comma, Python would interpret that value as a string,
@@ -117,7 +117,7 @@ TBD: Hvor mye tekst vil vi egentlig ha her?
   (which must be readable by the (Operating System) user used for
   running Cerebrum's Python scripts.
 
-``CLASS_DBDRIVER = ('Cerebrum.Database/PostgreSQL',)``
+``CLASS_DBDRIVER = ('Cerebrum.database.postgres/PostgreSQL',)``
   Defines that Cerebrum (by default) should use PostgreSQL drivers
   when connecting to databases.
 
@@ -139,7 +139,7 @@ The database layer
 ==================
 
 
-``Cerebrum.Database``
+``Cerebrum.database``
 ~~~~~~~~~~~~~~~~~~~~~
 
 - Provides a compatibility wrapper around various python DB-API 2.0

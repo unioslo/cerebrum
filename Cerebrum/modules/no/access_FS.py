@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002, 2003, 2004 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,7 +30,7 @@ import xml.sax
 import collections
 import operator
 
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, dyn_import
 
@@ -294,7 +294,7 @@ def make_fs(db=None, user=None, database=None, override_version=None):
         user = user or cereconf.FS_USER
         database = database or cereconf.FS_DATABASE_NAME
         DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
-        db = Database.connect(user=user, service=database,
+        db = database.connect(user=user, service=database,
                               DB_driver=DB_driver)
     if override_version:
         version = override_version
@@ -2002,7 +2002,7 @@ class FS(object):
             user = user or cereconf.FS_USER
             database = database or cereconf.FS_DATABASE_NAME
             DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
-            db = Database.connect(user=user, service=database,
+            db = database.connect(user=user, service=database,
                                   DB_driver=DB_driver)
         self.db = db
         self.fsversion = _get_fs_version(self.db)

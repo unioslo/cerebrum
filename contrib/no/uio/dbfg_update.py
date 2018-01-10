@@ -104,7 +104,7 @@ import cerebrum_path
 import cereconf
 
 import Cerebrum
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.modules.no.uio.access_FS import FS, FSvpd
@@ -398,7 +398,7 @@ def perform_synchronization(services):
                      service, user)
 
         try:
-            db = Database.connect(user=user, service=service,
+            db = database.connect(user=user, service=service,
                                   DB_driver=cereconf.DB_DRIVER_ORACLE)
             if db_charset:
                 obj = klass(db, db_charset)
@@ -520,7 +520,7 @@ def make_report(user, report_missing, item, acc_name, *func_list):
     db_cerebrum = Factory.get("Database")()
     account = Factory.get("Account")(db_cerebrum)
     service = item["dbname"]
-    db = Database.connect(user=user, service=service,
+    db = database.connect(user=user, service=service,
                           DB_driver=cereconf.DB_DRIVER_ORACLE)
     source = get_accessor(item["accessor"])(db)
     accessor = getattr(source, acc_name)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2004-2016 University of Oslo, Norway
+# Copyright 2004-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -37,7 +37,7 @@ class UiaPasswordNotifier(EmailPasswordNotifier):
         """
         Constructs a UiaPasswordNotifier.
 
-        @type db: Cerebrum.Database or NoneType
+        @type db: Cerebrum.database.Database or NoneType
         @keyword db: Database object (default use Factory)
 
         @type logger: logging.logger

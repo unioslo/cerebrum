@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014 University of Oslo, Norway
+# Copyright 2014-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -88,7 +88,7 @@ class Utils(object):
     def get_entity_by_id(db, entity_id):
         """Fetch an entity by ID.
 
-        :type db: <Cerebrum.Database.Database>
+        :type db: <Cerebrum.database.Database>
         :param db: A Cerebrum database object.
 
         :type entity_id: int
@@ -105,7 +105,7 @@ class Utils(object):
     def get(db, entity_type, id_type, entity):
         """Fetch an entity by entity and identifier type.
 
-        :type db: <Cerebrum.Database.Database>
+        :type db: <Cerebrum.database.Database>
         :param db: A Cerebrum database object
 
         :type etype: str
@@ -162,7 +162,7 @@ class Utils(object):
     def get_account(db, id_type, account):
         """Fetch a group by id.
 
-        :type db: <Cerebrum.Database.Database>
+        :type db: <Cerebrum.database.Database>
         :param db: A Cerebrum database object.
 
         :type id_type: str
@@ -192,7 +192,7 @@ class Utils(object):
     def get_group(db, id_type, group):
         """Fetch a group by id.
 
-        :type db: <Cerebrum.Database.Database>
+        :type db: <Cerebrum.database.Database>
         :param db: A Cerebrum database object.
 
         :type id_type: str

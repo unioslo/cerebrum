@@ -20,8 +20,7 @@ CEREBRUM_DATABASE_CONNECT_DATA = {'user': 'ceretest',
 # Default bind name for Cerebrum
 #CEREBRUM_SERVER_IP = ""
 
-#CLASS_DBDRIVER = ['Cerebrum.Database/PostgreSQL']
-CLASS_DBDRIVER = ['Cerebrum.Database/PsycoPG2']
+CLASS_DBDRIVER = ['Cerebrum.database.postgres/PsycoPG2']
 CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
 
 

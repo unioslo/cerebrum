@@ -35,7 +35,7 @@ import sys
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.access_LT import LT
 
@@ -200,7 +200,7 @@ def main():
         # fi
     # od
 
-    lt = LT(Database.connect(user="ureg2000", service = "LTPROD.uio.no",
+    lt = LT(database.connect(user="ureg2000", service = "LTPROD.uio.no",
                              DB_driver = cereconf.DB_DRIVER_ORACLE))
     db = Factory.get("Database")()
     person = Factory.get("Person")(db)

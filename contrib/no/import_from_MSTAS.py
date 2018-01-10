@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,12 +26,12 @@ import os
 import sys
 import cereconf
 
-from Cerebrum import Database,Errors
+from Cerebrum import database, Errors
 from Utils import XMLHelper
 
 default_personfile = "/cerebrum/var/cache/MSTAS/persons.dat"
 
-Cerebrum = Database.connect(user="cerebrum", service="MSTAS.hiof.no",
+Cerebrum = database.connect(user="cerebrum", service="MSTAS.hiof.no",
                             DB_driver=cereconf.DB_DRIVER_ORACLE)
 xml = XMLHelper()
 

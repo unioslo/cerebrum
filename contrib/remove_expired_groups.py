@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,7 +27,7 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
-from Cerebrum.Database import DatabaseError
+from Cerebrum.database import DatabaseError
 from mx.DateTime import now
 
 logger = Factory.get_logger('cronjob')
@@ -37,7 +37,7 @@ def remove_expired_groups(db, days, pretend):
     """
     Removes groups that have reached number of `days' past expiration-date.
 
-    :param Cerebrum.Database db: The database connection
+    :param Cerebrum.database.Database db: The database connection
     :param int days: Amount of days after past expiration-date
     :param bool pretend: If True, do not actually remove from DB
     """

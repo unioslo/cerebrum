@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,7 +35,7 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum import Errors
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 

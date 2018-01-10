@@ -172,7 +172,7 @@ CLASS_CONSTANTS = [
 
 CLASS_CL_CONSTANTS = ['Cerebrum.modules.CLConstants/CLConstants']
 
-CLASS_DBDRIVER = ['Cerebrum.Database/PsycoPG2']
+CLASS_DBDRIVER = ['Cerebrum.database.postgres/PsycoPG2']
 CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
 
 # exchange-relatert-jazz

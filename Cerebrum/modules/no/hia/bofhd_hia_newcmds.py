@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 #
-# Copyright 2006-2016 University of Oslo, Norway
+# Copyright 2006-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,7 +27,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum import Database
+from Cerebrum import database
 
 from Cerebrum.modules import Email
 from Cerebrum.modules import Note
@@ -765,7 +765,7 @@ class BofhdExtension(
         fodselsdato, pnum = fodselsnr.del_fnr(fnr[0]['external_id'])
         har_opptak = {}
         ret = []
-        db = Database.connect(user="I0201_cerebrum", service="FSUIA.uio.no",
+        db = database.connect(user="I0201_cerebrum", service="FSUIA.uio.no",
                               DB_driver='cx_Oracle')
         fs = FS(db)
         for row in fs.student.get_studierett(fodselsdato, pnum):

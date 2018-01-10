@@ -51,7 +51,7 @@ Så, i rekkefølge:
        
        # database
        CEREBRUM_DATABASE_NAME="cerebrum_virthome"
-       CLASS_DBDRIVER = ['Cerebrum.Database/PsycoPG2']
+       CLASS_DBDRIVER = ['Cerebrum.database.postgres/PsycoPG2']
        CEREBRUM_DATABASE_CONNECT_DATA["host"] = "dbpg-cereutv.uio.no"
        CEREBRUM_DATABASE_CONNECT_DATA["user"] = "cerebrum"
        DB_AUTH_DIR="/cerebrum/etc/passwords"

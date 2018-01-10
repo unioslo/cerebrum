@@ -63,7 +63,7 @@ import logging
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.no.uio.access_FS import FS
@@ -221,8 +221,8 @@ def output_text(output_file):
     db_cerebrum = Factory.get("Database")()
     logger.debug(cereconf.DB_AUTH_DIR)
     
-    logger.debug(Database.__file__)
-    db = Database.connect(user="ureg2000",
+    logger.debug(database.__file__)
+    db = database.connect(user="ureg2000",
                           service="FSPROD.uio.no",
                           DB_driver=cereconf.DB_DRIVER_ORACLE)
     db_fs = FS(db)

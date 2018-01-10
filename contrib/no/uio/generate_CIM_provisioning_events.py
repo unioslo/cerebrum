@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,7 +35,7 @@ logger = Factory.get_logger('cronjob')
 def uname2pid(db, username):
     """Convert a username to a person_id.
 
-    :param Cerebrum.Database db: The database connection
+    :param Cerebrum.database.Database db: The database connection
     :param basestring username: The username
     """
     ac = Factory.get('Account')(db)
@@ -48,7 +48,7 @@ def uname2pid(db, username):
 def collect_candidates(db):
     """Collect candidates for provisioning to CIM.
 
-    :param Cerebrum.Database db: The database connection
+    :param Cerebrum.database.Database db: The database connection
     """
     pe = Factory.get('Person')(db)
     co = Factory.get('Constants')(db)
@@ -59,7 +59,7 @@ def collect_candidates(db):
 def generate_events(db, collector=collect_candidates):
     """Generate events that should result in provisioning of users in CIM.
 
-    :param Cerebrum.Database db: The database connection
+    :param Cerebrum.database.Database db: The database connection
     :param function collector: The collector for selecting candidates
     """
     co = Factory.get('Constants')(db)

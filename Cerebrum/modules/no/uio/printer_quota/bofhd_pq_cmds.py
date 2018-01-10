@@ -24,7 +24,7 @@ from mx import DateTime
 
 from Cerebrum import Cache
 from Cerebrum import Constants
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import Command, PersonId, SimpleString, FormatSuggestion, Integer
@@ -275,10 +275,10 @@ The currently defined id-types are:
                     # TBD: Can this happen?
                     return person + ": Quota has been blocked, person not in FS"
                 try:
-                    fs = Database.connect(user="I0185_ureg2000",
+                    fs = database.connect(user="I0185_ureg2000",
                                           service="FSPROD.uio.no",
                                           DB_driver=cereconf.DB_DRIVER_ORACLE)
-                except Database.DatabaseError, e:
+                except database.DatabaseError, e:
                     self.logger.warn("Can't connect to FS (%s)" % e)
                     raise CerebrumError("Can't connect to FS, try later")
 

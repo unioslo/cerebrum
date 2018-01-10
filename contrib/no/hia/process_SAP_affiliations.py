@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2007-2015 University of Oslo, Norway
+# Copyright 2007-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -53,7 +53,7 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Database import Database
+from Cerebrum.database import Database
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import NotSet
 from Cerebrum.utils.funcwrap import memoize

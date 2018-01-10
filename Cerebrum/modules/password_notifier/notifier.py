@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -101,7 +101,7 @@ class PasswordNotifier(object):
     def __init__(self, db=None, logger=None, dryrun=False, *rest, **kw):
         """ Constructs a PasswordNotifier.
 
-        :param Cerebrum.Database db:
+        :param Cerebrum.database.Database db:
             Database object to use. If `None`, this object will fetch a new db
             connection with `Factory.get('Database')`. This is the default.
 
@@ -646,7 +646,7 @@ class EmailPasswordNotifier(PasswordNotifier):
     def __init__(self, db=None, logger=None, dryrun=False, *rest, **kw):
         """ Constructs a PasswordNotifier that notifies by E-mail.
 
-        :param Cerebrum.Database db:
+        :param Cerebrum.database.Database db:
             Database object to use. If `None`, this object will fetch a new db
             connection with `Factory.get('Database')`. This is the default.
 
@@ -761,7 +761,7 @@ class SMSPasswordNotifier(PasswordNotifier):
     def __init__(self, db=None, logger=None, dryrun=False, *rest, **kw):
         """ Constructs a PasswordNotifier that notifies by SMS.
 
-        :param Cerebrum.Database db:
+        :param Cerebrum.database.Database db:
             Database object to use. If `None`, this object will fetch a new db
             connection with `Factory.get('Database')`. This is the default.
 

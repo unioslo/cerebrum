@@ -8,7 +8,7 @@ import time
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.access_FS import FS
@@ -221,7 +221,7 @@ def main():
         usage(1)
 
     fs = FS(user=fs_user, database=fs_database)
-    lt_db = Database.connect(user=lt_user, service=lt_database,
+    lt_db = database.connect(user=lt_user, service=lt_database,
                              DB_driver=cereconf.DB_DRIVER_ORACLE)
     lt = LT(lt_db)
     if dryrun:

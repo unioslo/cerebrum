@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -38,7 +38,7 @@ get_uname_emnekode.py INF1000 | sort -k 2 -t '>'
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.no.uio.access_FS import FS
@@ -81,7 +81,7 @@ def fetch_primary_uname(row, person, account, constants):
 
 
 def main():
-    db_fs = Database.connect(user = "ureg2000", service = "FSPROD.uio.no",
+    db_fs = database.connect(user = "ureg2000", service = "FSPROD.uio.no",
                              DB_driver = cereconf.DB_DRIVER_ORACLE)
     fs = FS(db_fs)
     db_cerebrum = Factory.get("Database")()
