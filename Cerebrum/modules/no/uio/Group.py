@@ -20,8 +20,7 @@
 
 import re
 
-from Cerebrum import Group
-from Cerebrum.database import Errors
+from Cerebrum import Errors, Group
 from Cerebrum.modules import Email
 
 

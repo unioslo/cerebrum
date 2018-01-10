@@ -20,9 +20,9 @@
 import re
 import cereconf
 
-from Cerebrum import Group
+from Cerebrum import Errors, Group
 from Cerebrum.Utils import Factory
-from Cerebrum.database import Errors
+
 
 class GroupHiAMixin(Group.Group):
     def add_spread(self, spread):

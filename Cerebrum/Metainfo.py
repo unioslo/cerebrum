@@ -22,7 +22,7 @@ number of the installed database schema."""
 
 import pickle
 
-from Cerebrum.database import Errors
+from Cerebrum import Errors
 
 SCHEMA_VERSION_KEY = 'cerebrum_database_schema_version'
 
