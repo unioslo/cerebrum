@@ -25,13 +25,8 @@ from Cerebrum.modules.no.uio.EphorteWS import make_ephorte_client
 # Ephorte admin group setting
 EPHORTE_ADMINS = getattr(cereconf, 'EPHORTE_ADMINS')
 
-# Ephorte permissing settings (co.EphortePermission)
-EPHORTE_DEFAULT_OLD_PERM = getattr(cereconf, 'EPHORTE_DEFAULT_OLD_PERM')
-EPHORTE_DEFAULT_PERM = getattr(cereconf, 'EPHORTE_DEFAULT_PERM')
-
 # Specific SKOs
 EPHORTE_UIO_ROOT_SKO = getattr(cereconf, 'EPHORTE_UIO_ROOT_SKO')
-EPHORTE_EGNE_SAKER_SKO = getattr(cereconf, 'EPHORTE_EGNE_SAKER_SKO')
 
 # SKO lists
 EPHORTE_FSAT_SKO = getattr(cereconf, 'EPHORTE_FSAT_SKO')
@@ -41,9 +36,7 @@ EPHORTE_KDTO_SKO = getattr(cereconf, 'EPHORTE_KDTO_SKO')
 
 # Day filter (when to allow email warnings), and email template
 EPHORTE_MAIL_TIME = getattr(cereconf, 'EPHORTE_MAIL_TIME', [])
-EPHORTE_MAIL_WARNINGS2 = getattr(cereconf, 'EPHORTE_MAIL_WARNINGS2')
-
-INITIAL_ACCOUNTNAME = getattr(cereconf, 'INITIAL_ACCOUNTNAME')
+EPHORTE_MAIL_OU_MISMATCH = getattr(cereconf, 'EPHORTE_MAIL_OU_MISMATCH')
 
 #
 # Globals
@@ -372,7 +365,7 @@ class PopulateEphorte(object):
                 if ar in existing_roles:
                     existing_roles.remove(ar)
                 else:
-                    logger.debug("Adding role (pid=%i): %s" % (person_id, ar))
+                    logger.info("Adding role (pid=%i): %s" % (person_id, ar))
                     ephorte_role.add_role(person_id, ar.role_type,
                                           ar.adm_enhet, ar.arkivdel,
                                           ar.journalenhet)
@@ -381,8 +374,7 @@ class PopulateEphorte(object):
                 # automatically can be removed. Any other roles have
                 # been given in bofh and should not be touched.
                 if er.auto_role and er.role_type == int(co.ephorte_role_sb):
-                    logger.debug("Removing role (pid=%i): %s" % (person_id,
-                                                                 er))
+                    logger.info("Removing role (pid=%i): %s" % (person_id, er))
                     ephorte_role.remove_role(person_id, er.role_type,
                                              er.adm_enhet, er.arkivdel,
                                              er.journalenhet)
@@ -428,13 +420,13 @@ class PopulateEphorte(object):
             pe.clear()
             pe.find(person_id)
             for perm in ephorte_perm.list_permission(person_id=person_id):
-                logger.debug('Removing permission: {}'.format(
+                logger.info('Removing permission: {}'.format(
                     format_permission(dict(perm))))
                 ephorte_perm.remove_permission(person_id=person_id,
                                                perm_type=perm['perm_type'],
                                                sko=perm['adm_enhet'])
             for role in ephorte_role.list_roles(person_id=person_id):
-                logger.debug('Removing role: {}'.format(
+                logger.info('Removing role: {}'.format(
                     format_role(dict(role))))
                 ephorte_role.remove_role(person_id=person_id,
                                          role=role['role_type'],
@@ -453,6 +445,7 @@ def mail_warnings(mailto, debug=False):
     """
     # Check if we should send mail today
     if datetime.datetime.now().strftime('%A') not in EPHORTE_MAIL_TIME:
+        logger.info('Not mailing warnings today')
         return
     if ou_mismatch_warnings['ephorte'] or ou_mismatch_warnings['sap']:
         sap_warnings = '\n'.join([
@@ -461,8 +454,7 @@ def mail_warnings(mailto, debug=False):
             "%6s  %s" % x for x in ou_mismatch_warnings['ephorte']])
         substitute = {'SAP_WARNINGS': sap_warnings,
                       'EPHORTE_WARNINGS': ephorte_warnings}
-        send_mail(mailto, EPHORTE_MAIL_WARNINGS2, substitute,
-                  debug=debug)
+        send_mail(mailto, EPHORTE_MAIL_OU_MISMATCH, substitute, debug=debug)
 
 
 def send_mail(mailto, mail_template, substitute, debug=False):
@@ -511,7 +503,7 @@ def main(args=None):
     if args.depopulate:
         pop.depopulate()
     if args.mail_warnings_to:
-        mail_warnings(args.mail_warnings_to, debug=args.dryrun)
+        mail_warnings(args.mail_warnings_to, debug=not args.commit)
 
     if args.commit:
         db.commit()
