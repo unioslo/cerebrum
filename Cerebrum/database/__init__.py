@@ -35,6 +35,8 @@ can be told what Database subclass to use in the DB_driver keyword argument.
 
 from __future__ import with_statement
 
+import sys
+
 from types import DictType, StringType
 from cStringIO import StringIO
 
@@ -55,7 +57,7 @@ class CommonExceptionBase(Exception):
     This base exception and the exception classes below will inherit from the
     exception classes in dynamically imported driver modules. This way we can
     catch any kind of db-specific error exceptions by catching
-    Cerebrum.database.postgres.Error.
+    Cerebrum.database.Error.
     """
 
     def __str__(self):
@@ -1135,7 +1137,18 @@ def connect(*args, **kws):
         mod = sys.modules.get(__name__)
         db_driver = kws['DB_driver']
         del kws['DB_driver']
-        cls = getattr(mod, db_driver)
+        try:
+            cls = getattr(mod, db_driver)  # keep the original behaviour
+        except AttributeError:
+            from . import postgres, oracle
+            for submod in (postgres, oracle):
+                if hasattr(submod, db_driver):
+                    cls = getattr(submod, db_driver)
+                    break
+            else:
+                raise Errors.DatabaseConnectionError(
+                    'Unable to load DB_driver: {db_driver}'.format(
+                        db_driver=db_driver))
     else:
         cls = Utils.Factory.get('DBDriver')
     return cls(*args, **kws)
