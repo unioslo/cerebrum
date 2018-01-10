@@ -51,12 +51,12 @@ def get_pg_savepoint_id():
 
     UUID4 is an easy choice, provided we manipulate it somewhat.
     """
-    identifier = "unique" + str(uuid.uuid4()).replace('-', '_')
-    return identifier
+    return "unique" + str(uuid.uuid4()).replace('-', '_')
 
 
-class PsycoPGCursor(Cursor):
-
+class PsycoPG2Cursor(Cursor):
+    """
+    """
     def ping(self):
         """Check if the database is still reachable.
 
@@ -72,7 +72,6 @@ class PsycoPGCursor(Cursor):
             channel.execute("""SELECT 1 AS foo""")
         finally:
             channel.execute("ROLLBACK TO SAVEPOINT %s" % identifier)
-    # end ping
 
     def execute(self, operation, parameters=()):
         # IVR 2008-10-30 TBD: This is not really how the psycopg framework
@@ -98,7 +97,7 @@ class PsycoPGCursor(Cursor):
             unicode objects."""
             return s.decode('UTF-8')
 
-        ret = super(PsycoPGCursor, self).execute(operation, parameters)
+        ret = super(PsycoPG2Cursor, self).execute(operation, parameters)
         self._convert_cols = {}
         if self.description is not None:
             for n in range(len(self.description)):
@@ -108,38 +107,6 @@ class PsycoPGCursor(Cursor):
                 elif (self._db.encoding == 'UTF-8' and
                       self.description[n][1] == self._db.STRING):
                     self._convert_cols[n] = utf8_decode
-        return ret
-
-    def query(self, query, params=(), fetchall=True):
-        # The PsycoPG driver returns floats for all columns of type
-        # numeric.  The PyPgSQL driver only does this if the column is
-        # defined to have digits.  This method makes PsycoPG behave
-        # the same way
-        ret = super(PsycoPGCursor, self).query(
-            query, params=params, fetchall=fetchall)
-        if fetchall and self._convert_cols:
-            for r in range(len(ret)):
-                for n, conv in self._convert_cols.items():
-                    if ret[r][n] is not None:
-                        ret[r][n] = conv(ret[r][n])
-        return ret
-
-    def wrap_row(self, row):
-        """Return `row' wrapped in a db_row object."""
-        ret = self._row_class(row)
-        for n, conv in self._convert_cols.items():
-            if ret[n] is not None:
-                ret[n] = conv(ret[n])
-        return ret
-
-    def acquire_lock(self, table=None, mode='exclusive'):
-        return OraPgLock(cursor=self, table=table, mode='exclusive')
-
-
-class PsycoPG2Cursor(PsycoPGCursor):
-
-    def execute(self, operation, parameters=()):
-        ret = super(PsycoPG2Cursor, self).execute(operation, parameters)
         db_mod = self._db._db_mod
 
         def date_to_mxdatetime(dt):
@@ -162,6 +129,31 @@ class PsycoPG2Cursor(PsycoPGCursor):
                 elif item[1] == db_mod._psycopg.DECIMAL and item[5] > 0:
                     self._convert_cols[n] = float
         return ret
+
+    def query(self, query, params=(), fetchall=True):
+        # The PsycoPG driver returns floats for all columns of type
+        # numeric.  The PyPgSQL driver only does this if the column is
+        # defined to have digits.  This method makes PsycoPG behave
+        # the same way
+        ret = super(PsycoPG2Cursor, self).query(
+            query, params=params, fetchall=fetchall)
+        if fetchall and self._convert_cols:
+            for r in range(len(ret)):
+                for n, conv in self._convert_cols.items():
+                    if ret[r][n] is not None:
+                        ret[r][n] = conv(ret[r][n])
+        return ret
+
+    def wrap_row(self, row):
+        """Return `row' wrapped in a db_row object."""
+        ret = self._row_class(row)
+        for n, conv in self._convert_cols.items():
+            if ret[n] is not None:
+                ret[n] = conv(ret[n])
+        return ret
+
+    def acquire_lock(self, table=None, mode='exclusive'):
+        return OraPgLock(cursor=self, table=table, mode='exclusive')
 
 
 class PostgreSQLBase(Database):
@@ -199,90 +191,10 @@ class PostgreSQLBase(Database):
         return ['NOW()']
 
 
-class PgSQL(PostgreSQLBase):
-    """PostgreSQL driver class."""
-
-    _db_mod = "pyPgSQL.PgSQL"
-
-    def connect(self, user=None, password=None, service=None,
-                client_encoding=None):
-        call_args = vars()
-        del call_args['self']
-        cdata = self._connect_data
-        cdata.clear()
-        cdata['call_args'] = call_args
-        if service is None:
-            service = cereconf.CEREBRUM_DATABASE_NAME
-        if user is None:
-            user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
-        if password is None and user is not None:
-            password = read_password(user, service)
-        cdata['real_user'] = user
-        cdata['real_password'] = password
-        cdata['real_service'] = service
-        if client_encoding is None:
-            client_encoding = self.encoding
-        else:
-            self.encoding = client_encoding
-
-        super(PgSQL, self).connect(
-            user=user,
-            password=password,
-            database=service,
-            client_encoding=client_encoding,
-            unicode_results=(client_encoding == 'UTF-8'))
-
-        # Ensure that pyPgSQL and PostgreSQL client agrees on what
-        # encoding to use.
-        if client_encoding is not None:
-            if isinstance(client_encoding, str):
-                enc = client_encoding
-            elif isinstance(client_encoding, tuple):
-                enc = client_encoding[0]
-            self.execute("SET CLIENT_ENCODING TO '%s'" % enc)
-            # Need to commit here, and as no real work has been done
-            # yet, it should be safe.
-            #
-            # Without an explicit COMMIT, a ROLLBACK (either explicit
-            # or implicit, e.g. as the result of some statement
-            # causing a failure) will reset the PostgreSQL's client to
-            # CLIENT_ENCODING = 'default charset for database'.
-            self.commit()
-
-    # According to its documentation, this driver module implements
-    # the Binary constructor as a method of the connection object.
-    #
-    # The reason given for this deviance from the DB-API specification
-    # is that in PostgreSQL, Large objects has no meaning outside the
-    # context of a connection.
-    #
-    # However, as it turns out, the connection object of this driver
-    # doesn't really have a Binary constructor, either.  Thus, the
-    # best we can do is to raise a NotImplementedError. :-(
-    def Binary(string):
-        raise NotImplementedError
-    Binary = staticmethod(Binary)
-
-    def pythonify_data(self, data):
-        """Convert type of value(s) in data to native Python types."""
-        if isinstance(data, self._db_mod.PgNumeric):
-            if data.getScale() > 0:
-                data = float(data)
-            elif data <= sys.maxint:
-                data = int(data)
-            else:
-                data = long(data)
-            # Short circuit, no need to involve super here.
-            return data
-        return super(PgSQL, self).pythonify_data(data)
-
-
-class PsycoPGBase(PostgreSQLBase):
+class PsycoPG2(PostgreSQLBase):
     """PostgreSQL driver class using psycopg."""
 
-    # This is a base class for psycopg-driver family. Set to the appropriate
-    # value in the subclasses.
-    # _db_mod = None
+    _db_mod = "psycopg2"
 
     def connect(self,
                 user=None,
@@ -321,21 +233,13 @@ class PsycoPGBase(PostgreSQLBase):
         else:
             self.encoding = client_encoding
 
-        super(PsycoPGBase, self).connect(dsn_string)
+        super(PsycoPG2, self).connect(dsn_string)
         self._db.set_isolation_level(1)  # read-committed
         self.execute("SET CLIENT_ENCODING TO '%s'" % client_encoding)
         self.commit()
 
     def cursor(self):
-        return PsycoPGCursor(self)
-
-
-class PsycoPG(PsycoPGBase):
-    _db_mod = "psycopg"
-
-
-class PsycoPG2(PsycoPGBase):
-    _db_mod = "psycopg2"
+        return PsycoPG2Cursor(self)
 
     def ping(self):
         """psycopg2-specific version of ping.
@@ -357,8 +261,3 @@ class PsycoPG2(PsycoPGBase):
         # actions in the transaction...
         if status in (ext.TRANSACTION_STATUS_IDLE,):
             self.rollback()
-
-    def cursor(self):
-        return PsycoPG2Cursor(self)
-
-PostgreSQL = PgSQL
