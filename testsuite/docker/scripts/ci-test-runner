@@ -29,15 +29,18 @@ async def start_test_container(instance):
     proc = await asyncio.create_subprocess_exec(
         *['docker-compose', '-f', 'docker-compose.ci.yml', 'run', '--rm',
           instance],
-        cwd='/src',
         stdout=DEVNULL,
         stderr=DEVNULL)
     await proc.wait()
-    print('Test-container {} done.'.format(instance))
+    if proc.returncode == 0:
+        print('Test-container {} finished successfully.'.format(instance))
+    else:
+        print('Test-container {} failed.'.format(instance))
     return proc.returncode
 
 def main():
-    instances = sys.argv[2:]
+    instances = sys.argv[1:]
+    print(instances)
     loop = asyncio.get_event_loop()
     all_tasks = asyncio.gather(*[start_test_container(inst) for inst in instances])
     print('Launching all test-containers...')
@@ -45,7 +48,9 @@ def main():
     loop.close()
     for result in results:
         if result != 0:
+            print('One or more test-container(s) failed.')
             sys.exit(1)
+    print('All test-containers finished successfully.')
 
 
 if __name__ == '__main__':
