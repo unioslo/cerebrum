@@ -354,6 +354,25 @@ class OraPgLock(Lock):
         return Lock(cursor=self, table=table, mode=mode)
 
 
+class RowIterator(object):
+    """
+    """
+    def __init__(self, cursor):
+        self._csr = cursor
+        self._queue = []
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if not self._queue:
+            self._queue.extend(self._csr.fetchmany())
+        if not self._queue:
+            raise StopIteration
+        row = self._queue.pop(0)
+        return self._csr.wrap_row(row)
+
+
 class Cursor(object):
     """
     Driver-independent cursor wrapper class.
