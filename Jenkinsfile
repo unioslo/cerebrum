@@ -10,7 +10,7 @@ pipeline {
     }
     stage ('Run tests') {
       steps {
-        sh 'testsuite/docker/scripts/ci-test-runner'
+        sh 'python3 testsuite/docker/scripts/ci-test-runner uio uia'
       }
     }
   }
