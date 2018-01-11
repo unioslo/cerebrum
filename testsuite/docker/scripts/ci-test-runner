@@ -37,7 +37,7 @@ async def start_test_container(instance):
     return proc.returncode
 
 def main():
-    instances = sys.argv[1:]
+    instances = sys.argv[2:]
     loop = asyncio.get_event_loop()
     all_tasks = asyncio.gather(*[start_test_container(inst) for inst in instances])
     print('Launching all test-containers...')
