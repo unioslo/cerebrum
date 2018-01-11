@@ -19,28 +19,88 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import os
 import sys
 import asyncio
+import subprocess
 from asyncio.subprocess import DEVNULL
 
+crb_image_name = 'harbor.uio.no/it-usit-int-drift/cerebrum:latest'
+db_image_name = 'harbor.uio.no/library/postgres:latest'
+db_container_name = 'db'
+test_cmd = '/src/testsuite/docker/container-scripts/generate-test-reports.sh'
+
+default_env_vars = [
+    "DOCKER_ROOT_DIR=/src/testsuite/docker",
+    "TEST_CONFIG_DIR=/src/testsuite/docker/test-config",
+    "DB_USER=postgres",
+    "DB_PASS=postgres",
+    "DB_HOST=db"
+]
+
+def build_env_vars(instance):
+    env_vars = []
+    for env_var in default_env_vars:
+        env_vars.append(env_var)
+    env_vars.append("INST={}".format(instance))
+    env_vars.append("DB_NAME=cerebrum_{}".format(instance))
+    return env_vars
+
+def build_docker_env_params(env_vars):
+    env_params = []
+    for env_var in env_vars:
+        env_params.extend(['-e', env_var])
+    return env_params
 
 async def start_test_container(instance):
-    print('Launching %s test-container:'.format(instance))
-    proc = await asyncio.create_subprocess_exec(
-        *['docker-compose', '-f', 'docker-compose.ci.yml', 'run', '--rm',
-          instance],
-        stdout=DEVNULL,
-        stderr=DEVNULL)
+    print('Launching {} test-container..'.format(instance))
+
+    cmd = ['docker', 'run', '--name', instance, '--link', 'db:db']
+    current_dir = os.getenv('PWD')
+
+    # Mount current folder as /src
+    cmd.extend(['-v', '{}:/src'.format(current_dir)])
+    # Set /src as working dir inside container
+    cmd.extend(['-w', '/src'])
+
+    # Add -e env-var=foo params
+    env_vars = build_env_vars(instance)
+    cmd.extend(build_docker_env_params(env_vars))
+
+    cmd.append(crb_image_name)
+
+    # Add script-cmd to run tests inside container
+    cmd.append(test_cmd)
+    print(cmd)
+    proc = await asyncio.create_subprocess_exec(*cmd)
     await proc.wait()
+
     if proc.returncode == 0:
-        print('Test-container %s finished successfully.'.format(instance))
+        print('Test-container {} finished successfully.'.format(instance))
     else:
-        print('Test-container %s failed.'.format(instance))
+        print('Test-container {} failed.'.format(instance))
     return proc.returncode
+
+
+def start_db_container():
+    subprocess.call(['docker', 'run', '-d', '--name',
+                     db_container_name, db_image_name])
+
+def kill_container(container):
+    print('Removing container {} if it exists..'.format(container))
+    subprocess.call(['docker', 'stop', container])
+    subprocess.call(['docker', 'rm', container])
+
 
 def main():
     instances = sys.argv[1:]
-    print(instances)
+
+    # Kill containers from previous runs
+    kill_container(db_container_name)
+    for instance in instances:
+        kill_container(instance)
+
+    start_db_container()
     loop = asyncio.get_event_loop()
     all_tasks = asyncio.gather(*[start_test_container(inst) for inst in instances])
     print('Launching all test-containers...')
