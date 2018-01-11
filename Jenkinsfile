@@ -10,7 +10,7 @@ pipeline {
     }
     stage ('Run tests') {
       steps {
-        sh 'docker-compose -f docker-compose.ci.yml run --rm uio'
+        sh 'testsuite/docker/scripts/ci-test-runner'
       }
     }
   }

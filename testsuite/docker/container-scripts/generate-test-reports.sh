@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-apk --no-cache add postgresql-client # Temporary fix until harbor.uio.no is fixed
-cd $DOCKER_ROOT_DIR/scripts
+cd $DOCKER_ROOT_DIR/container-scripts/helper-scripts
+./wait-for-db.sh
 ./setup-cerebrum-ci-test-env.sh
 cd /src
 cp $TEST_CONFIG_DIR/$INST/pytest.ini .
