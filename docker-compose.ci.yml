@@ -11,9 +11,15 @@ services:
     depends_on:
       - db
     environment:
-      - ANSIBLE_TAG=uio
+      - DOCKER_ROOT_DIR=/src/testsuite/docker
+      - TEST_CONFIG_DIR=/src/testsuite/docker/test-config
+      - CEREBRUM_CONFIG_DIR=/src/testsuite/docker/cerebrum_config
+      - DB_USER=postgres
+      - DB_PASS=postgres
       - DB_HOST=db
-    command: /src/testsuite/ansible_docker/docker-test-entrypoint
+      - INST=uio
+      - DB_NAME=cerebrum_uio
+    command: /src/testsuite/docker/generate-test-reports.sh
 
   db:
     image: harbor.uio.no/library/postgres:latest
