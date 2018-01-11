@@ -25,7 +25,7 @@ from asyncio.subprocess import DEVNULL
 
 
 async def start_test_container(instance):
-    print('Launching test-container: {}..'.format(instance))
+    print('Launching %s test-container:'.format(instance))
     proc = await asyncio.create_subprocess_exec(
         *['docker-compose', '-f', 'docker-compose.ci.yml', 'run', '--rm',
           instance],
@@ -33,9 +33,9 @@ async def start_test_container(instance):
         stderr=DEVNULL)
     await proc.wait()
     if proc.returncode == 0:
-        print('Test-container {} finished successfully.'.format(instance))
+        print('Test-container %s finished successfully.'.format(instance))
     else:
-        print('Test-container {} failed.'.format(instance))
+        print('Test-container %s failed.'.format(instance))
     return proc.returncode
 
 def main():
