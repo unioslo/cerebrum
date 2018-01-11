@@ -167,6 +167,12 @@ class ConstantsCommon(Constants.Constants):
         'new_account', Constants.Constants.entity_account,
         "The account is newly created or restored")
 
+    # Trait for tagging important accounts.
+    # Special permission is needed to change password for these accounts.
+    trait_important_account = _EntityTraitCode(
+        "important_acc", Constants.Constants.entity_account,
+        "The account is important")
+
     # Trait for showing that a student account is either newly created or
     # restored. Used to send welcome message by SMS.
     trait_student_new = _EntityTraitCode(
