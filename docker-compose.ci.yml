@@ -7,7 +7,7 @@ services:
       - .:/src:z
     networks:
       - cerebrum
-    working_dir: /src/testsuite/ansible_docker
+    working_dir: /src/testsuite/docker
     depends_on:
       - db
     environment:
