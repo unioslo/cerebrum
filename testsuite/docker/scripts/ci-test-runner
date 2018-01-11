@@ -25,9 +25,10 @@ import asyncio
 import subprocess
 from asyncio.subprocess import DEVNULL
 
+pwd = os.getenv('PWD')
 crb_image_name = 'harbor.uio.no/it-usit-int-drift/cerebrum:latest'
 db_image_name = 'harbor.uio.no/library/postgres:latest'
-db_container_name = 'db'
+db_container_name = 'db_{}'.format(pwd)
 test_cmd = '/src/testsuite/docker/container-scripts/generate-test-reports.sh'
 
 default_env_vars = [
@@ -35,7 +36,7 @@ default_env_vars = [
     "TEST_CONFIG_DIR=/src/testsuite/docker/test-config",
     "DB_USER=postgres",
     "DB_PASS=postgres",
-    "DB_HOST=db"
+    "DB_HOST={}".format(db_container_name)
 ]
 
 def build_env_vars(instance):
@@ -46,20 +47,21 @@ def build_env_vars(instance):
     env_vars.append("DB_NAME=cerebrum_{}".format(instance))
     return env_vars
 
+
 def build_docker_env_params(env_vars):
     env_params = []
     for env_var in env_vars:
         env_params.extend(['-e', env_var])
     return env_params
 
-async def start_test_container(instance):
-    print('Launching {} test-container..'.format(instance))
 
-    cmd = ['docker', 'run', '--name', instance, '--link', 'db:db']
-    current_dir = os.getenv('PWD')
+async def start_test_container(instance):
+    cmd = ['docker', 'run',
+           '--name', '{0}_{1}'.format(instance, pwd),
+           '--link', 'db:db']
 
     # Mount current folder as /src
-    cmd.extend(['-v', '{}:/src'.format(current_dir)])
+    cmd.extend(['-v', '{}:/src'.format(pwd)])
     # Set /src as working dir inside container
     cmd.extend(['-w', '/src'])
 
@@ -71,7 +73,7 @@ async def start_test_container(instance):
 
     # Add script-cmd to run tests inside container
     cmd.append(test_cmd)
-    print(cmd)
+    print('Launching {0} test-container: {1}'.format(instance, cmd))
     proc = await asyncio.create_subprocess_exec(*cmd)
     await proc.wait()
 
@@ -92,20 +94,28 @@ def kill_container(container):
     subprocess.call(['docker', 'rm', container])
 
 
-def main():
-    instances = sys.argv[1:]
-
-    # Kill containers from previous runs
+def kill_all_containers(instances):
     kill_container(db_container_name)
     for instance in instances:
         kill_container(instance)
 
+
+def main():
+    instances = sys.argv[1:]
+
+    # Kill eventual containers from previous runs
+    kill_all_containers(instances)
+
     start_db_container()
-    loop = asyncio.get_event_loop()
     all_tasks = asyncio.gather(*[start_test_container(inst) for inst in instances])
+
     print('Launching all test-containers...')
+    loop = asyncio.get_event_loop()
     results = loop.run_until_complete(all_tasks)
     loop.close()
+
+    kill_all_containers(instances)
+
     for result in results:
         if result != 0:
             print('One or more test-container(s) failed.')
