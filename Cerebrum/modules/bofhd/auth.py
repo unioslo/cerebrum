@@ -1606,10 +1606,6 @@ class BofhdAuth(DatabaseAccessor):
 
     def _is_important_account(self, operator, account):
         """If an account is considered important."""
-        # Accounts owned by a group, i.e. system account
-        # is_account_owner() will allow this if operator is a group member
-        if account.owner_type == self.const.entity_group:
-            return True
         # Manually tagged important accounts
         if account.get_trait(self.const.trait_important_account):
             return True
