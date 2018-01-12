@@ -56,7 +56,6 @@ copy a working set of config-files into
 Note that there must exist a folder named `/etc/<instance-name>` inside
 your `cerebrum_config`-repo for this to work properly.
 
-
 This is not that useful until a decent amount of test-fixtures have been
 produced, but now at least it's ready to go when the time comes.
 
