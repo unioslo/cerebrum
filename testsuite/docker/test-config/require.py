@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2017 University of Oslo, Norway
+# Copyright 2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,18 +19,24 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from require import require
+from functools import wraps
+from _pytest.outcomes import Skipped
+from Cerebrum.Metainfo import Metainfo
+from Cerebrum.Utils import Factory
+
+db = Factory.get('Database')()
+
+meta = Metainfo(db)
+sql_modules = [item[0] for item in meta.list()]
 
 
-def test_unicode():
-    assert True
+def require(sql_module):
+    def require_decorator(func):
+        @wraps(func)
+        def func_wrapper(*args, **kwargs):
+            if sql_module not in sql_modules:
+                raise Skipped
+            return func(*args, **kwargs)
+        return func_wrapper
+    return require_decorator
 
-
-@require('sqlmodule_posixuser')
-def test_not_skipped():
-    assert True
-
-
-@require('sqlmodule_that_does_not_exist')
-def test_skipped():
-    assert True
