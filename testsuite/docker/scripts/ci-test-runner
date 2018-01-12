@@ -26,9 +26,10 @@ import subprocess
 from asyncio.subprocess import DEVNULL
 
 pwd = os.getenv('PWD')
+dir_name = os.path.basename(pwd)
 crb_image_name = 'harbor.uio.no/it-usit-int-drift/cerebrum:latest'
 db_image_name = 'harbor.uio.no/library/postgres:latest'
-db_container_name = 'db_{}'.format(pwd)
+db_container_name = 'db_{}'.format(dir_name)
 test_cmd = '/src/testsuite/docker/container-scripts/generate-test-reports.sh'
 
 default_env_vars = [
@@ -57,8 +58,8 @@ def build_docker_env_params(env_vars):
 
 async def start_test_container(instance):
     cmd = ['docker', 'run',
-           '--name', '{0}_{1}'.format(instance, pwd),
-           '--link', 'db:db']
+           '--name', '{0}_{1}'.format(instance, dir_name),
+           '--link', '{}:db'.format(db_container_name)]
 
     # Mount current folder as /src
     cmd.extend(['-v', '{}:/src'.format(pwd)])
@@ -103,8 +104,12 @@ def kill_all_containers(instances):
 def main():
     instances = sys.argv[1:]
 
+    container_names = []
+    for instance in instances:
+        container_names.append('{0}_{1}'.format(instance, dir_name))
+
     # Kill eventual containers from previous runs
-    kill_all_containers(instances)
+    kill_all_containers(container_names)
 
     start_db_container()
     all_tasks = asyncio.gather(*[start_test_container(inst) for inst in instances])
