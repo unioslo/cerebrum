@@ -13,3 +13,5 @@ TAGS
 .coverage
 *.retry
 /testresults
+/pytest.ini
+/testsuite/docker/cerebrum_config
