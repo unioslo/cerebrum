@@ -129,8 +129,8 @@ def main():
     ptw_parser.set_defaults(func=start_test_watcher)
 
     report_parser = subparsers.add_parser('get-test-report',
-                                          help='Start a container running '
-                                               'a test watcher.')
+                                          help='Start a container to build '
+                                               'test reports for a given instance.')
     report_parser.add_argument('instance',
                                help="The name of the test-instance to generate report(s) for..",
                                type=str)
