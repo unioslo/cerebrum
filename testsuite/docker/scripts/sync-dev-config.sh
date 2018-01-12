@@ -15,12 +15,12 @@
 
 ######### Configuration #########
 
-LOCAL_CEREBRUM_CONFIG_DIR=cerebrum_config
+LOCAL_CEREBRUM_CONFIG_DIR=../cerebrum_config
 EVENTS="CREATE,CLOSE_WRITE,DELETE,MODIFY,MOVED_FROM,MOVED_TO"
 CEREBRUM_CONFIG_DIR=$1
 COMMAND="rsync -az --delete $CEREBRUM_CONFIG_DIR/etc/ $LOCAL_CEREBRUM_CONFIG_DIR"
 
-POST_COMMAND="touch dev-config/cereconf.py"
+POST_COMMAND="touch ../dev-config/cereconf.py"
 
 
 ## Exclude Git (and other patterns if desired)
@@ -56,6 +56,8 @@ clean_up () {
 ## Execute "clean_up" on exit.
 trap "clean_up" EXIT
 
+# Do an initial sync
+$($COMMAND)
 
 ##
 ## Run inotifywait in a loop that is not blocked on command execution and ignore
