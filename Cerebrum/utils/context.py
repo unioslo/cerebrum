@@ -74,7 +74,6 @@ class EntityContextManager(object):
         self.item = None
 
 
-
 class EntityContext(object):
     """Context manager for entity objects.
     Will make sure clear is called for objects, and only creates
