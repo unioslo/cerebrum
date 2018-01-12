@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2002 University of Oslo, Norway
+# -*- coding: ascii -*-
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,8 +16,15 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" SqlScanner is a SQL lexer for the database module.
 
-from Cerebrum.extlib.Plex import *
+This module is used for:
+- counting/separating statements (can be used to prevent certain sql injection)
+- translating paramformat from 'named' to whatever the database driver uses.
+- TODO: more?
+"""
+
+from Cerebrum.extlib import Plex
 
 
 # Define names of tokens returned by the scanner.
@@ -68,12 +75,12 @@ SQL_FLOAT_LITERAL = 'float'
 SQL_STRING_LITERAL = 'string'
 
 
-class SqlScanner(Scanner):
+class SqlScanner(Plex.Scanner):
 
     def __init__(self, file):
         # TBD: Plex doesn't use new-style classes, can't use super().
         # super(SqlScanner, self).__init__(self.lexicon, file)
-        Scanner.__init__(self, self.lexicon, file)
+        Plex.Scanner.__init__(self, self.lexicon, file)
         self.paren_nesting_level = 0
 
     def open_paren_action(self, text):
@@ -91,34 +98,36 @@ class SqlScanner(Scanner):
     def eof(self):
         assert self.paren_nesting_level == 0
 
-    spaces = Rep1(Any(" \f\t\n"))
-    _letter = Range("AZaz") | Any("_")
-    _digit = Range("09")
-    _sign = Any("+-")
-    _number = Rep1(_digit)
-    integer = Opt(_sign) + _number
-    _exponent = Any("Ee") + integer
-    float = Opt(_sign) + ((_number + _exponent)
-                          | (_number + Any(".") + Rep(_digit) + Opt(_exponent))
-                          | (Any(".") + _number + Opt(_exponent)))
-    name = _letter + Rep(_letter | _digit)
+    spaces = Plex.Rep1(Plex.Any(" \f\t\n"))
+    _letter = Plex.Range("AZaz") | Plex.Any("_")
+    _digit = Plex.Range("09")
+    _sign = Plex.Any("+-")
+    _number = Plex.Rep1(_digit)
+    integer = Plex.Opt(_sign) + _number
+    _exponent = Plex.Any("Ee") + integer
+    float = Plex.Opt(_sign) + (
+        (_number + _exponent)
+        | (_number + Plex.Any(".") + Plex.Rep(_digit) + Plex.Opt(_exponent))
+        | (Plex.Any(".") + _number + Plex.Opt(_exponent)))
+    name = _letter + Plex.Rep(_letter | _digit)
     stringlit = (
-        Str("'")
-        + Rep(AnyBut("'")
-              # Quotes inside SQL strings are escaped by doubling
-              # them.
-              | Str("''"))
-        + Str("'"))
+        Plex.Str("'")
+        + Plex.Rep(
+            Plex.AnyBut("'")
+            # Quotes inside SQL strings are escaped by doubling
+            # them.
+            | Plex.Str("''"))
+        + Plex.Str("'"))
     value = integer | float | name | stringlit
-    open_paren = Any("(")
-    close_paren = Any(")")
-    punctuation = Any(",.*")
-    bind_var = Str(':') + name
-    statement_end = Any(";")
-    operator = Str("+", "-", "*", "/", "||",
-                   "=", "<", "<=", ">", ">=", "<>", "!=")
+    open_paren = Plex.Any("(")
+    close_paren = Plex.Any(")")
+    punctuation = Plex.Any(",.*")
+    bind_var = Plex.Str(':') + name
+    statement_end = Plex.Any(";")
+    operator = Plex.Str("+", "-", "*", "/", "||", "=", "<", "<=", ">", ">=",
+                        "<>", "!=")
 
-    lexicon = Lexicon([
+    lexicon = Plex.Lexicon([
         (name, SQL_WORD),
         (integer, SQL_INTEGER_LITERAL),
         (float, SQL_FLOAT_LITERAL),
@@ -126,21 +135,22 @@ class SqlScanner(Scanner):
         (bind_var, SQL_BIND_PARAMETER),
         (operator, SQL_OPERATOR),
         (punctuation, SQL_SPECIAL_CHAR),
-        (spaces, IGNORE),
+        (spaces, Plex.IGNORE),
         (open_paren, open_paren_action),
         (close_paren, close_paren_action),
         (statement_end, statement_end_action),
-        (Str("--") + Rep(AnyBut("\n")), IGNORE),
-        (Str("/*"), Begin('c_comment')),
-        State('c_comment', [(Str("*/"), Begin('')),
-                            (AnyChar, IGNORE)]),
-        (Str('[:'), Begin('sql_portability')),
-        State('sql_portability',
-              [(Str(']'), Begin('')),
-               (name + Str('=') + value, SQL_PORTABILITY_ARG),
-               (name, SQL_PORTABILITY_FUNCTION),
-               (spaces, IGNORE)
-               ])
+        (Plex.Str("--") + Plex.Rep(Plex.AnyBut("\n")), Plex.IGNORE),
+        (Plex.Str("/*"), Plex.Begin('c_comment')),
+        Plex.State('c_comment', [(Plex.Str("*/"), Plex.Begin('')),
+                                 (Plex.AnyChar, Plex.IGNORE)]),
+        (Plex.Str('[:'), Plex.Begin('sql_portability')),
+        Plex.State(
+            'sql_portability',
+            [(Plex.Str(']'), Plex.Begin('')),
+             (name + Plex.Str('=') + value, SQL_PORTABILITY_ARG),
+             (name, SQL_PORTABILITY_FUNCTION),
+             (spaces, Plex.IGNORE)
+             ])
     ])
 
     def __iter__(self):
@@ -175,4 +185,3 @@ if __name__ == '__main__':
     if stmt:
         print "Tokens found after last SQL_END_OF_STATEMENT:\n\t", \
               " ".join(stmt)
-

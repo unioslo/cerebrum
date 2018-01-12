@@ -19,19 +19,100 @@
 """
 PostgreSQL / PsycoPG2 DB functionality for the people
 """
-
-import datetime
 import uuid
-import os
-import re
-import sys
 
+import psycopg2
+import psycopg2.extensions
 from mx import DateTime
 
-from Cerebrum.database import Cursor, Database, OraPgLock
+from Cerebrum.database import Cursor, Database, OraPgLock, kickstart
 from Cerebrum.Utils import read_password
 
 import cereconf
+
+
+#
+# Postgres data type conversion
+#
+# TODO: Applied 'globally'. Should we support bytestrings in any way? If so,
+# we'd need to register the types on the cursor object after creating it...
+#
+PG_TYPE_UNICODE = psycopg2.extensions.UNICODE
+PG_TYPE_UNICODEARRAY = psycopg2.extensions.UNICODEARRAY
+PG_TYPE_DATE = psycopg2.extensions.DATE
+PG_TYPE_DATETIME = psycopg2.DATETIME
+PG_TYPE_DECIMAL = psycopg2.extensions.DECIMAL
+PG_TYPE_NUMBER = psycopg2.NUMBER
+
+
+# Unicode data types
+psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
+psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
+
+
+# mx.DateTime data types
+# TODO: Look into using a psycopg2 module compiled with mx.DateTime support.
+#       OR, even better, look into getting rid of mx.DateTime?
+def mxdate(value, cursor):
+    """ psycopg2 type, DATE -> mx.DateTime. """
+    dt = PG_TYPE_DATE(value, cursor)
+    if dt is None:
+        return None
+    return DateTime.DateTime(dt.year, dt.month, dt.day)
+
+
+psycopg2.extensions.register_type(
+    psycopg2.extensions.new_type(
+        PG_TYPE_DATE.values, 'MXDATE', mxdate))
+
+
+def mxdatetime(value, cursor):
+    """ psycopg2 type, DATETIME -> mx.DateTime. """
+    dt = PG_TYPE_DATETIME(value, cursor)
+    if dt is None:
+        return None
+    return DateTime.DateTime(dt.year, dt.month, dt.day,
+                             dt.hour, dt.minute, dt.second)
+
+
+psycopg2.extensions.register_type(
+    psycopg2.extensions.new_type(
+        PG_TYPE_DATETIME.values, 'MXDATETIME', mxdatetime))
+
+
+def mxdatetimetype(value):
+    """ psycopg2 adapter, mx.DateTimeType -> Timestamp. """
+    return psycopg2.Timestamp(value.year, value.month, value.day, value.hour,
+                              value.minute, int(value.second))
+
+
+psycopg2.extensions.register_adapter(DateTime.DateTimeType, mxdatetimetype)
+
+
+# floats and longs
+# TODO: Do we really need these?
+def numtype(value, cursor):
+    """ psycopg2 type, DECIMAL/NUMBER -> float/long. """
+    # The PsycoPG driver returns floats for all columns of type
+    # numeric.  The PyPgSQL driver only does this if the column is
+    # defined to have digits.  This method makes PsycoPG behave
+    # the same way
+    desc = cursor.description[0]
+    # DECIMAL is a subtype of NUMBER, so we need to use the same handler here.
+    if desc.type_code == PG_TYPE_DECIMAL and desc.scale > 0:
+        value = PG_TYPE_DECIMAL(value, cursor)
+        if value is not None:
+            value = float(value)
+    else:
+        value = PG_TYPE_NUMBER(value, cursor)
+        if value is not None and cursor.description[0].scale <= 0:
+            value = long(value)
+    return value
+
+
+psycopg2.extensions.register_type(
+    psycopg2.extensions.new_type(
+        PG_TYPE_NUMBER.values, 'PYPGNUM', numtype))
 
 
 def get_pg_savepoint_id():
@@ -64,7 +145,6 @@ class PsycoPG2Cursor(Cursor):
         that ping-ing happens as its own transaction and DOES NOT affect the
         state of the environment in which ping has been invoked.
         """
-
         identifier = get_pg_savepoint_id()
         channel = self.driver_cursor()
         channel.execute("SAVEPOINT %s" % identifier)
@@ -72,85 +152,6 @@ class PsycoPG2Cursor(Cursor):
             channel.execute("""SELECT 1 AS foo""")
         finally:
             channel.execute("ROLLBACK TO SAVEPOINT %s" % identifier)
-
-    def execute(self, operation, parameters=()):
-        # IVR 2008-10-30 TBD: This is not really how the psycopg framework
-        # is supposed to be used. There is an adapter mechanism, and we should
-        # really register our type conversion hooks there.
-        for k in parameters:
-            if type(parameters[k]) is DateTime.DateTimeType:
-                ts = parameters[k]
-                parameters[k] = self.Timestamp(ts.year, ts.month, ts.day,
-                                               ts.hour, ts.minute,
-                                               int(ts.second))
-            elif (type(parameters[k]) is unicode and
-                  self._db.encoding != 'UTF-8'):
-                # pypgsql1 does not support unicode (only utf-8)
-                parameters[k] = parameters[k].encode(self._db.encoding)
-        if (type(operation) is unicode and
-                self._db.encoding != 'UTF-8'):
-            operation = operation.encode(self._db.encoding)
-
-        # A static method is slightly faster than a lambda.
-        def utf8_decode(s):
-            """Converts a str containing UTF-8 octet sequences into
-            unicode objects."""
-            return s.decode('UTF-8')
-
-        ret = super(PsycoPG2Cursor, self).execute(operation, parameters)
-        self._convert_cols = {}
-        if self.description is not None:
-            for n in range(len(self.description)):
-                if (self.description[n][1] == self._db.NUMBER and
-                        self.description[n][5] <= 0):  # pos 5=scale in DB-API
-                    self._convert_cols[n] = long
-                elif (self._db.encoding == 'UTF-8' and
-                      self.description[n][1] == self._db.STRING):
-                    self._convert_cols[n] = utf8_decode
-        db_mod = self._db._db_mod
-
-        def date_to_mxdatetime(dt):
-            return DateTime.DateTime(dt.year, dt.month, dt.day)
-
-        def datetime_to_mxdatetime(dt):
-            return DateTime.DateTime(dt.year, dt.month, dt.day,
-                                     dt.hour, dt.minute, dt.second)
-
-        if self.description is not None:
-            for n, item in enumerate(self.description):
-                if item[1] == db_mod._psycopg.DATE:
-                    self._convert_cols[n] = date_to_mxdatetime
-                elif item[1] == db_mod._psycopg.DATETIME:
-                    self._convert_cols[n] = datetime_to_mxdatetime
-                # we want to coerce Decimal (python 2.5 + psycopg2) to float,
-                # since we do not know how our code base will react to Decimal
-                # 1 - typecode, 5 - scale. psycopg2 returns decimals for
-                # elements that have scale > 0.
-                elif item[1] == db_mod._psycopg.DECIMAL and item[5] > 0:
-                    self._convert_cols[n] = float
-        return ret
-
-    def query(self, query, params=(), fetchall=True):
-        # The PsycoPG driver returns floats for all columns of type
-        # numeric.  The PyPgSQL driver only does this if the column is
-        # defined to have digits.  This method makes PsycoPG behave
-        # the same way
-        ret = super(PsycoPG2Cursor, self).query(
-            query, params=params, fetchall=fetchall)
-        if fetchall and self._convert_cols:
-            for r in range(len(ret)):
-                for n, conv in self._convert_cols.items():
-                    if ret[r][n] is not None:
-                        ret[r][n] = conv(ret[r][n])
-        return ret
-
-    def wrap_row(self, row):
-        """Return `row' wrapped in a db_row object."""
-        ret = self._row_class(row)
-        for n, conv in self._convert_cols.items():
-            if ret[n] is not None:
-                ret[n] = conv(ret[n])
-        return ret
 
     def acquire_lock(self, table=None, mode='exclusive'):
         return OraPgLock(cursor=self, table=table, mode='exclusive')
@@ -191,10 +192,9 @@ class PostgreSQLBase(Database):
         return ['NOW()']
 
 
+@kickstart(psycopg2)
 class PsycoPG2(PostgreSQLBase):
     """PostgreSQL driver class using psycopg."""
-
-    _db_mod = "psycopg2"
 
     def connect(self,
                 user=None,

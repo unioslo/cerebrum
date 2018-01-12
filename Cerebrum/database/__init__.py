@@ -35,16 +35,18 @@ can be told what Database subclass to use in the DB_driver keyword argument.
 
 from __future__ import with_statement
 
+import io
 import sys
+from types import DictType
 
-from types import DictType, StringType
-from cStringIO import StringIO
+import six
 
+from Cerebrum import Cache
 from Cerebrum import Errors
 from Cerebrum import Utils
-from Cerebrum import Cache
-from Cerebrum import SqlScanner
 from Cerebrum.Utils import NotSet, read_password
+from Cerebrum.database import sql_lexer
+from Cerebrum.database.convert_param import get_converter
 from Cerebrum.extlib import db_row
 
 import cereconf
@@ -355,8 +357,6 @@ class OraPgLock(Lock):
 
 
 class RowIterator(object):
-    """
-    """
     def __init__(self, cursor):
         self._csr = cursor
         self._queue = []
@@ -397,7 +397,6 @@ class Cursor(object):
         for exc_name in API_EXCEPTION_NAMES:
             setattr(self, exc_name, getattr(db, exc_name))
 
-    #
     #
     #   Methods corresponding to DB-API 2.0 cursor object methods.
     #
@@ -474,11 +473,15 @@ class Cursor(object):
             return (driver_sql, pconv(params))
         except KeyError:
             pass
+
+        if not isinstance(statement, six.text_type):
+            statement = statement.decode('ascii')
+
         out_sql = []
         pconv = self._db.param_converter()
         sql_done = False
         p_item = None
-        for token, text in SqlScanner.SqlScanner(StringIO(statement)):
+        for token, text in sql_lexer.SqlScanner(io.StringIO(statement)):
             translation = []
             if sql_done:
                 #
@@ -493,7 +496,7 @@ class Cursor(object):
                 # item; collect all of the item's arguments before
                 # trying to translate it into the SQL dialect of this
                 # Cursor's database backend.
-                if token == SqlScanner.SQL_PORTABILITY_ARG:
+                if token == sql_lexer.SQL_PORTABILITY_ARG:
                     p_item.append(text)
                     continue
                 else:
@@ -504,14 +507,14 @@ class Cursor(object):
                     # ... and indicate that we're no longer collecting
                     # arguments for a portability item.
                     p_item = None
-            if token == SqlScanner.SQL_END_OF_STATEMENT:
+            if token == sql_lexer.SQL_END_OF_STATEMENT:
                 sql_done = True
-            elif token == SqlScanner.SQL_PORTABILITY_FUNCTION:
+            elif token == sql_lexer.SQL_PORTABILITY_FUNCTION:
                 #
                 # Set `p_item' to indicate that we should start
                 # collecting portability item arguments.
                 p_item = [text]
-            elif token == SqlScanner.SQL_BIND_PARAMETER:
+            elif token == sql_lexer.SQL_BIND_PARAMETER:
                 # The name of the bind variable is the token without
                 # any preceding ':'.
                 name = text[1:]
@@ -546,7 +549,6 @@ class Cursor(object):
                 raise self.ProgrammingError(
                     "executemany produced result set.")
         return ret
-# return self._cursor.executemany(operation, seq_of_parameters)
 
     def fetchone(self):
         """Do DB-API 2.0 fetchone."""
@@ -560,7 +562,11 @@ class Cursor(object):
 
     def fetchall(self):
         """Do DB-API 2.0 fetchall."""
-        return self._cursor.fetchall()
+        try:
+            return self._cursor.fetchall()
+        except UnicodeDecodeError as e:
+            print repr(e)
+            raise
 
     # .nextset() is optional, hence not implemented here.
 
@@ -667,7 +673,6 @@ class Cursor(object):
         addressed in database-specific manner.
         """
         self.execute("""SELECT 1 AS foo [:from_dual]""")
-    # end ping
 
     def acquire_lock(self, table=None, mode='exclusive'):
         """
@@ -688,81 +693,55 @@ class Cursor(object):
         return Lock(cursor=self, table=table, mode=mode)
 
 
-#
-# Support for conversion from 'named' to the other bind parameter
-# styles.
-#
-class convert_param_base(object):
-    """Convert bind parameters to appropriate paramstyle."""
+def kickstart(module):
+    """ Copy DBAPI 2.0 items from `module` to the decorated class.
 
-    __slots__ = ('map',)
-    # To be overridden in subclasses.
-    param_format = None
+    :param Module module:
+        A DBAPI 2.0 (PEP-249) compatible database module.
 
-    def __init__(self):
-        self.map = []
+    :return callable:
+        Returns a class decorator that copies relevant db-api from the module
+        to the decorated class.
+    """
+    def wrapper(cls):
 
-    def __call__(self, param_dict):
-        #
-        # DCOracle2 does not treat bind parameters passed as a list
-        # the same way it treats params passed as a tuple.  The DB API
-        # states that "Parameters may be provided as sequence or
-        # mapping", so this can be construed as a bug in DCOracle2.
-        return tuple([param_dict[i] for i in self.map])
+        # Make the API exceptions available
+        for name in API_EXCEPTION_NAMES:
+            base = getattr(Utils.this_module(), name)
+            setattr(cls, name, base)
 
-    def register(self, name):
-        return self.param_format % {'name': name}
+        # The type constructors provided by the driver module should
+        # be accessible as (static) methods of the database's
+        # connection objects.
+        for ctor_name in API_TYPE_CTOR_NAMES:
+            if hasattr(cls, ctor_name):
+                # There already is an implementation of this
+                # particular ctor in this class, probably for a good
+                # reason (e.g. the driver module doesn't supply this
+                # type ctor); skip to next ctor.
+                continue
+            f = getattr(module, ctor_name)
+            setattr(cls, ctor_name, staticmethod(f))
 
+        # Likewise we copy the driver-specific type objects to the
+        # connection object's class.
+        for type_name in API_TYPE_NAMES:
+            if hasattr(cls, type_name):
+                # Already present as attribute; skip.
+                continue
+            type_obj = getattr(module, type_name)
+            setattr(cls, type_name, type_obj)
 
-class convert_param_nonrepeat(convert_param_base):
-    __slots__ = ()
+        # Set up a "bind parameter converter" suitable for the driver
+        # module's `paramstyle' constant.
+        if getattr(cls, 'param_converter', None) is None:
+            cls.param_converter = get_converter(module.paramstyle)
 
-    def register(self, name):
-        self.map.append(name)
-        return super(convert_param_nonrepeat, self).register(name)
+        # make the real db module available as db-mod
+        cls._db_mod = module
 
-
-class convert_param_qmark(convert_param_nonrepeat):
-    __slots__ = ()
-    param_format = '?'
-
-
-class convert_param_format(convert_param_nonrepeat):
-    __slots__ = ()
-    param_format = '%%s'
-
-
-class convert_param_numeric(convert_param_base):
-    __slots__ = ()
-
-    def register(self, name):
-        if name not in self.map:
-            self.map.append(name)
-        # Construct return value on our own, as it must include a
-        # numeric index associated with `name` and not `name` itself.
-        return ':' + str(self.map.index(name) + 1)
-
-
-class convert_param_to_dict(convert_param_base):
-    __slots__ = ()
-
-    def __init__(self):
-        # Override to avoid creating self.map; that's not needed here.
-        pass
-
-    def __call__(self, param_dict):
-        # Simply return `param_dict` as is.
-        return param_dict
-
-
-class convert_param_named(convert_param_to_dict):
-    __slots__ = ()
-    param_format = ':%(name)s'
-
-
-class convert_param_pyformat(convert_param_to_dict):
-    __slots__ = ()
-    param_format = '%%(%(name)s)s'
+        return cls
+    return wrapper
 
 
 class Database(object):
@@ -787,22 +766,9 @@ class Database(object):
     # The default character set encoding to use.
 
     def __init__(self, do_connect=True, *db_params, **db_kws):
-        """
-        """
         if self.__class__ is Database:
-            #
-            # The 'Database' class itself is purely virtual; no
-            # instantiation is allowed.
             raise NotImplementedError(
                 "Can't instantiate abstract class <Database>.")
-        # Figure out if we need to import the driver module.
-        mod = self._db_mod or self.__class__.__name__
-        if type(mod) == StringType:
-            #
-            # Yup, need to import; name of driver module is now in
-            # `mod'.  All first-time instantiation magic is done in
-            # _kickstart().
-            self._kickstart(mod)
 
         self._db = None
         self._cursor = None
@@ -812,54 +778,6 @@ class Database(object):
         if do_connect:
             # Start a connection
             self.connect(*db_params, **db_kws)
-
-    def _kickstart(self, module_name):
-        """
-        Perform necessary magic after importing a new driver module.
-        """
-        self_class = self.__class__
-
-        # We're in the process of instantiating this subclass for the first
-        # time; we need to import the DB-API 2.0 compliant module.
-        self_class._db_mod = Utils.dyn_import(module_name)
-
-        # Make the API exceptions available
-        for name in API_EXCEPTION_NAMES:
-            base = getattr(Utils.this_module(), name)
-            setattr(self_class, name, base)
-
-        # The type constructors provided by the driver module should
-        # be accessible as (static) methods of the database's
-        # connection objects.
-        for ctor_name in API_TYPE_CTOR_NAMES:
-            if hasattr(self_class, ctor_name):
-                # There already is an implementation of this
-                # particular ctor in this class, probably for a good
-                # reason (e.g. the driver module doesn't supply this
-                # type ctor); skip to next ctor.
-                # print "Skipping copy of type ctor %s to class %s." % \
-                    # (ctor_name, self_class.__name__)
-                continue
-            f = getattr(self._db_mod, ctor_name)
-            setattr(self_class, ctor_name, staticmethod(f))
-
-        # Likewise we copy the driver-specific type objects to the
-        # connection object's class.
-        for type_name in API_TYPE_NAMES:
-            if hasattr(self_class, type_name):
-                # Already present as attribute; skip.
-                # print "Skipping copy of type %s to class %s." % \
-                    # (type_name, self_class.__name__)
-                continue
-            type_obj = getattr(self._db_mod, type_name)
-            setattr(self_class, type_name, type_obj)
-
-        # Set up a "bind parameter converter" suitable for the driver
-        # module's `paramstyle' constant.
-        if self.param_converter is None:
-            converter_name = 'convert_param_%s' % self._db_mod.paramstyle
-            cls = getattr(Utils.this_module(), converter_name)
-            self_class.param_converter = cls
 
     #
     #   Methods corresponding to DB-API 2.0 module-level interface.

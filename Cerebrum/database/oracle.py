@@ -25,7 +25,7 @@ import os
 
 from mx import DateTime
 
-from Cerebrum.database import Cursor, Database, OraPgLock
+from Cerebrum.database import Cursor, Database, OraPgLock, kickstart
 from Cerebrum.Utils import read_password
 
 import cereconf
@@ -140,101 +140,116 @@ class OracleBase(Database):
         return ['SYSDATE']
 
 
-class DCOracle2(OracleBase):
+try:
+    # TODO: Should we not get rid of the DCOracle2 implementation?
+    import DCOracle2 as dc_oracle2_module
 
-    _db_mod = "DCOracle2"
+    @kickstart(dc_oracle2_module)
+    class DCOracle2(OracleBase):
 
-    def connect(self, user=None, password=None, service=None,
-                client_encoding=None):
-        cdata = self._connect_data
-        cdata.clear()
-        cdata['arg_user'] = user
-        cdata['arg_password'] = password
-        cdata['arg_service'] = service
-        if service is None:
-            service = cereconf.CEREBRUM_DATABASE_NAME
-        if user is None:
-            user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
-        if password is None:
-            password = read_password(user, service)
-        conn_str = '%s/%s@%s' % (user, password, service)
-        cdata['conn_str'] = conn_str
-        if client_encoding is None:
-            client_encoding = self.encoding
-        else:
-            self.encoding = client_encoding
+        def connect(self, user=None, password=None, service=None,
+                    client_encoding=None):
+            cdata = self._connect_data
+            cdata.clear()
+            cdata['arg_user'] = user
+            cdata['arg_password'] = password
+            cdata['arg_service'] = service
+            if service is None:
+                service = cereconf.CEREBRUM_DATABASE_NAME
+            if user is None:
+                user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
+            if password is None:
+                password = read_password(user, service)
+            conn_str = '%s/%s@%s' % (user, password, service)
+            cdata['conn_str'] = conn_str
+            if client_encoding is None:
+                client_encoding = self.encoding
+            else:
+                self.encoding = client_encoding
 
-        # The encoding names in Oracle don't look like PostgreSQL's,
-        # so we translate them into a single standard.
-        encoding_names = {'ISO_8859_1': "american_america.we8iso8859p1",
-                          'UTF-8': "american_america.utf8"}
-        os.environ['NLS_LANG'] = encoding_names.get(client_encoding,
-                                                    client_encoding)
-        #
-        # Call superclass .connect with appropriate CONNECTIONSTRING;
-        # this will in turn invoke the connect() function in the
-        # DCOracle2 module.
-        super(Oracle, self).connect(conn_str)
+            # The encoding names in Oracle don't look like PostgreSQL's,
+            # so we translate them into a single standard.
+            encoding_names = {'ISO_8859_1': "american_america.we8iso8859p1",
+                              'UTF-8': "american_america.utf8"}
+            os.environ['NLS_LANG'] = encoding_names.get(client_encoding,
+                                                        client_encoding)
+            #
+            # Call superclass .connect with appropriate CONNECTIONSTRING;
+            # this will in turn invoke the connect() function in the
+            # DCOracle2 module.
+            super(Oracle, self).connect(conn_str)
 
-    def pythonify_data(self, data):
-        """Convert type of values in row to native Python types."""
-        # Short circuit; no conversion is necessary for DCOracle2.
-        return data
+        def pythonify_data(self, data):
+            """Convert type of values in row to native Python types."""
+            # Short circuit; no conversion is necessary for DCOracle2.
+            return data
+
+    Oracle = DCOracle2
+except ImportError:
+    pass
 
 
-class cx_Oracle(OracleBase):
-    """
-    """
+# TODO: If we can get rid of the DCOracle2 support, we could use Input/Output
+# Type Handlers with cx_Oracle here:
+#   http://www.oracle.com/technetwork/articles/dsl/tuininga-cx-oracle-084866.html
+try:
+    import cx_Oracle as cx_oracle_module
 
-    _db_mod = "cx_Oracle"
+    @kickstart(cx_oracle_module)
+    class cx_Oracle(OracleBase):
+        """
+        """
 
-    def connect(self, user=None, password=None, service=None,
-                client_encoding=None):
-        cdata = self._connect_data
-        cdata.clear()
-        cdata['arg_user'] = user
-        cdata['arg_password'] = password
-        cdata['arg_service'] = service
-        if service is None:
-            service = cereconf.CEREBRUM_DATABASE_NAME
-        if user is None:
-            user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
-        if password is None:
-            password = read_password(user, service)
-        conn_str = '%s/%s@%s' % (user, password, service)
-        cdata['conn_str'] = conn_str
-        if client_encoding is None:
-            client_encoding = self.encoding
-        else:
-            self.encoding = client_encoding
+        # _db_mod = "cx_Oracle"
 
-        # The encoding names in Oracle don't look like PostgreSQL's,
-        # so we translate them into a single standard.
-        encoding_names = {'ISO_8859_1': "american_america.we8iso8859p1",
-                          'UTF-8': "american_america.utf8"}
-        os.environ['NLS_LANG'] = encoding_names.get(client_encoding,
-                                                    client_encoding)
+        def connect(self, user=None, password=None, service=None,
+                    client_encoding=None):
+            cdata = self._connect_data
+            cdata.clear()
+            cdata['arg_user'] = user
+            cdata['arg_password'] = password
+            cdata['arg_service'] = service
+            if service is None:
+                service = cereconf.CEREBRUM_DATABASE_NAME
+            if user is None:
+                user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
+            if password is None:
+                password = read_password(user, service)
+            conn_str = '%s/%s@%s' % (user, password, service)
+            cdata['conn_str'] = conn_str
+            if client_encoding is None:
+                client_encoding = self.encoding
+            else:
+                self.encoding = client_encoding
 
-        # Call superclass .connect with appropriate CONNECTIONSTRING;
-        # this will in turn invoke the connect() function in the
-        # cx_Oracle module.
-        super(cx_Oracle, self).connect(conn_str)
-    # end connect
+            # The encoding names in Oracle don't look like PostgreSQL's,
+            # so we translate them into a single standard.
+            encoding_names = {'ISO_8859_1': "american_america.we8iso8859p1",
+                              'UTF-8': "american_america.utf8"}
+            os.environ['NLS_LANG'] = encoding_names.get(client_encoding,
+                                                        client_encoding)
 
-    def cursor(self):
-        return cx_OracleCursor(self)
-    # end cursor
+            # Call superclass .connect with appropriate CONNECTIONSTRING;
+            # this will in turn invoke the connect() function in the
+            # cx_Oracle module.
+            super(cx_Oracle, self).connect(conn_str)
+        # end connect
 
-    def pythonify_data(self, data):
-        """Convert type of value(s) in data to native Python types."""
-        if isinstance(data, datetime.datetime):
-            return DateTime.DateTime(data.year, data.month, data.day,
-                                     data.hour, data.minute, data.second)
-        return super(cx_Oracle, self).pythonify_data(data)
-    # end pythonify_data
+        def cursor(self):
+            return cx_OracleCursor(self)
+        # end cursor
 
-    # IVR 2009-02-12 FIXME: We should override nextval() here to query the
-    # schema name directly from the underlying connection object. This should
-    # be possible from cx_Oracle 5.0
+        def pythonify_data(self, data):
+            """Convert type of value(s) in data to native Python types."""
+            if isinstance(data, datetime.datetime):
+                return DateTime.DateTime(data.year, data.month, data.day,
+                                         data.hour, data.minute, data.second)
+            return super(cx_Oracle, self).pythonify_data(data)
+        # end pythonify_data
 
-Oracle = DCOracle2
+        # IVR 2009-02-12 FIXME: We should override nextval() here to query the
+        # schema name directly from the underlying connection object. This
+        # should be possible from cx_Oracle 5.0
+
+except ImportError:
+    pass
