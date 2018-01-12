@@ -8,6 +8,6 @@ echo "Database $DB_NAME created."
 
 mkdir /db-auth
 echo "Creating DB auth file..."
-DB_AUTH_FILE_NAME=/db-auth/passwd-$DB_USER@$DB_NAME@$DB_HOST
+DB_AUTH_FILE_NAME=/db-auth/passwd-$DB_USER@$DB_NAME@$(echo "$DB_HOST" | awk '{print tolower($0)}')
 echo -e "$DB_USER\t$DB_PASS" >> $DB_AUTH_FILE_NAME
 echo "DB auth file $DB_AUTH_FILE_NAME created."
