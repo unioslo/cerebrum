@@ -15,13 +15,13 @@
 
 ######### Configuration #########
 
-LOCAL_CEREBRUM_CONFIG_DIR=../cerebrum_config
 EVENTS="CREATE,CLOSE_WRITE,DELETE,MODIFY,MOVED_FROM,MOVED_TO"
 CEREBRUM_CONFIG_DIR=$1
-COMMAND="rsync -az --delete $CEREBRUM_CONFIG_DIR/etc/ $LOCAL_CEREBRUM_CONFIG_DIR"
+LOCAL_CEREBRUM_CONFIG_DIR=$2
+LOCAL_CERECONF=$3
+COMMAND="rsync -az --delete $CEREBRUM_CONFIG_DIR/ $LOCAL_CEREBRUM_CONFIG_DIR"
 
-POST_COMMAND="touch ../dev-config/cereconf.py"
-
+POST_COMMAND="touch $LOCAL_CERECONF"
 
 ## Exclude Git (and other patterns if desired)
 EXCLUDE='(\.git)'
@@ -32,7 +32,7 @@ VERBOSE=0
 ##################################
 
 if [ -z "$1" ]; then
- echo "Usage: $0 cerebrum_config repo-folder"
+ echo "Usage: $0 remote_cerebrum_config local_cerebrum_config cereconf.py"
  exit 1;
 fi
 

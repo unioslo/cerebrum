@@ -20,15 +20,23 @@ Docker-compose:
 
 https://docs.docker.com/compose/install/
 
+The docker-compose dependency could easily be avoided, but is kept for now
+for sake of ease.
+
 ### Generating test-reports:
 
-`docker-compose run --rm <service-name>`
+`./docker-manage get-test-report <instance-name>`
 
 ### Starting a test-watcher:
 
-Where `<service-name>` is a service defined inside `docker-compose.yml`:
+`./docker-manage start-ptw <instance-name>`
 
-`docker-compose run --rm <service-name> /src/testsuite/docker/container-scripts/start-ptw.sh`
+### Which tests to run:
+
+All "instances" requires a folder in `./testsuite/docker/test-config`.
+
+The `pytest.ini`-file within the instance-folder will be used, see how
+this is done in one of the existing instance-folders if setting up a new one.
 
 ### Starting a dev-shell:
 
@@ -37,25 +45,20 @@ This will be the equivalent of today's `cerepy`, with a few bonus features, name
 - Better autocompletion (thanks to ipython).
 - Automatic reloading of changes in cereconf, without needing to restart the shell.
 
-You need to sync your cerebrum_config repo in order to use the dev-shell:
+You need to sync your cerebrum_config repo in order to use the dev-shell, or simply
+copy a working set of config-files into
+`./testsuite/docker/cerebrum_config/<instance-name>`.
 
-- Start a separate terminal/shell
-- `cd testsuite/docker/scripts`
-- `./sync-dev-config.sh <path to cerebrum_config-folder>`
-- Keep the sync-dev-config script running while developing.
-- `docker-compose run --rm <service-name> /src/testsuite/docker/container-scripts/start-dev-shell.sh`
+- Run `docker-manage sync-config <path-to-cerebrum_config-repo>`
+- Keep the sync-config process alive while developing
+- Run `docker-manage start-dev-shell <instance-name>`
 
-Where `<service-name>` is a service defined inside `docker-compose.yml`.
+Note that there must exist a folder named `/etc/<instance-name>` inside
+your `cerebrum_config`-repo for this to work properly.
 
 
 This is not that useful until a decent amount of test-fixtures have been
 produced, but now at least it's ready to go when the time comes.
-
-When running `./testsuite/docker/scripts/sync-dev-config.sh` you can
-also sync your cerebrum_config-repo into the running docker container.
-
-This script will detect changes to your cerebrum_config repo, and reload
-the config inside the running shell.
 
 ### CI-setup
 

@@ -1,0 +1,144 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright 2018 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Tool for starting local development or testing docker-containers.
+"""
+
+import os
+import sys
+import argparse
+from subprocess import Popen
+
+PWD = os.getenv('PWD')
+LOCAL_CEREBRUM_CONFIG_PATH = os.path.join(
+    PWD, 'testsuite/docker/cerebrum_config'
+)
+CRB_CONFIG_PATH = os.path.join(PWD, 'testsuite/docker/cerebrum_config')
+TEST_CONFIG_PATH = os.path.join(PWD, 'testsuite/docker/test-config')
+DEV_CONFIG_PATH = os.path.join(PWD, 'testsuite/docker/dev-config')
+DEV_CERECONF = os.path.join(PWD, DEV_CONFIG_PATH, 'cereconf.py')
+
+SCRIPTS_FOLDER = os.path.join(PWD, 'testsuite/docker/scripts')
+SYNC_SCRIPT = 'sync-dev-config.sh'
+
+CONTAINER_SCRIPTS_FOLDER = '/src/testsuite/docker/container-scripts'
+START_DEV_SHELL_SCRIPT = 'start-dev-shell.sh'
+START_PTW_SCRIPT = 'start-ptw.sh'
+
+
+def exit_if_not_dir(dir_path):
+    if not os.path.isdir(dir_path):
+        print('{} is not a valid directory, exiting..'.format(dir_path))
+        sys.exit(1)
+
+
+def start_config_sync(args_dict):
+    repo_path = args_dict['config-repo']
+
+    exit_if_not_dir(repo_path)
+
+    config_etc_path = os.path.join(repo_path, 'etc')
+    sync_proc = Popen([os.path.join(SCRIPTS_FOLDER, SYNC_SCRIPT),
+                       config_etc_path,
+                       LOCAL_CEREBRUM_CONFIG_PATH,
+                       DEV_CERECONF])
+    sync_proc.wait()
+
+
+def run_container_cmd(instance, cmd):
+    cmd = 'docker-compose run --rm {0} {1}'.format(instance, cmd)
+    cmd_array = cmd.split()
+    proc = Popen(cmd_array, cwd=PWD)
+    return proc
+
+
+def start_dev_shell(args_dict):
+    instance = args_dict['instance']
+    config_path = os.path.join(CRB_CONFIG_PATH, instance)
+
+    exit_if_not_dir(config_path)
+
+    proc = run_container_cmd(instance, os.path.join(CONTAINER_SCRIPTS_FOLDER,
+                                                    START_DEV_SHELL_SCRIPT))
+    proc.wait()
+
+
+def start_test_watcher(args_dict):
+    instance = args_dict['instance']
+    test_config_path = os.path.join(TEST_CONFIG_PATH, instance)
+    exit_if_not_dir(test_config_path)
+
+    proc = run_container_cmd(instance, os.path.join(CONTAINER_SCRIPTS_FOLDER,
+                                                    START_PTW_SCRIPT))
+    proc.wait()
+
+
+def get_test_report(args_dict):
+    instance = args_dict['instance']
+    test_config_path = os.path.join(TEST_CONFIG_PATH, instance)
+    exit_if_not_dir(test_config_path)
+
+    proc = run_container_cmd(instance, '')
+
+    proc.wait()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    subparsers = parser.add_subparsers()
+    sync_parser = subparsers.add_parser('sync-config',
+                                        help='Sync your cerebrum_config repo.')
+    sync_parser.add_argument('config-repo',
+                             help="The path to your cerebrum_config-repo",
+                             type=str)
+    sync_parser.set_defaults(func=start_config_sync)
+
+    dev_parser = subparsers.add_parser('start-dev-shell',
+                                       help='Start a development container '
+                                            'for local development, running '
+                                            'an ipython-shell.')
+    dev_parser.add_argument('instance',
+                            help="The name of the dev-instance to load.",
+                            type=str)
+    dev_parser.set_defaults(func=start_dev_shell)
+
+    ptw_parser = subparsers.add_parser('start-ptw',
+                                       help='Start a container running '
+                                            'a test watcher.')
+    ptw_parser.add_argument('instance',
+                            help="The name of the test-instance to load.",
+                            type=str)
+    ptw_parser.set_defaults(func=start_test_watcher)
+
+    report_parser = subparsers.add_parser('get-test-report',
+                                          help='Start a container running '
+                                               'a test watcher.')
+    report_parser.add_argument('instance',
+                               help="The name of the test-instance to generate report(s) for..",
+                               type=str)
+    report_parser.set_defaults(func=get_test_report)
+
+    args = parser.parse_args()
+    args.func(args.__dict__)
+
+
+if __name__ == '__main__':
+    main()

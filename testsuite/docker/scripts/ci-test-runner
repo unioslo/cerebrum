@@ -89,6 +89,7 @@ def start_db_container():
     subprocess.call(['docker', 'run', '-d', '--name',
                      db_container_name, db_image_name])
 
+
 def kill_container(container):
     print('Removing container {} if it exists..'.format(container))
     subprocess.call(['docker', 'stop', container])
