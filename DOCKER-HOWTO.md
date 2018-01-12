@@ -32,9 +32,20 @@ Where `<service-name>` is a service defined inside `docker-compose.yml`:
 
 ### Starting a dev-shell:
 
-Where `<service-name>` is a service defined inside `docker-compose.yml`:
+This will be the equivalent of today's `cerepy`, with a few bonus features, namely:
 
-`docker-compose run --rm <service-name> /src/testsuite/docker/container-scripts/start-dev-shell.sh`
+- Better autocompletion (thanks to ipython).
+- Automatic reloading of changes in cereconf, without needing to restart the shell.
+
+You need to sync your cerebrum_config repo in order to use the dev-shell:
+
+- Start a separate terminal/shell
+- `cd testsuite/docker/scripts`
+- `./sync-dev-config.sh <path to cerebrum_config-folder>`
+- Keep the sync-dev-config script running while developing.
+- `docker-compose run --rm <service-name> /src/testsuite/docker/container-scripts/start-dev-shell.sh`
+
+Where `<service-name>` is a service defined inside `docker-compose.yml`.
 
 
 This is not that useful until a decent amount of test-fixtures have been

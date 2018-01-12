@@ -56,8 +56,12 @@ clean_up () {
 ## Execute "clean_up" on exit.
 trap "clean_up" EXIT
 
+echo "Syncing from $CEREBRUM_CONFIG_DIR"
+
 # Do an initial sync
 $($COMMAND)
+
+echo "Initial sync complete!"
 
 ##
 ## Run inotifywait in a loop that is not blocked on command execution and ignore
