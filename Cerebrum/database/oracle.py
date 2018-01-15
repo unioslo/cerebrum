@@ -74,20 +74,17 @@ def cx_InputTypeHandler(cursor, value, numElements):
         # inconverter vs outconverter
         return cursor.var(six.text_type,
                           arraysize=numElements,
-                          inconverter=bytes2unicode,
-                          outconverter=bytes2unicode)
+                          inconverter=bytes2unicode)
     elif isinstance(value, six.text_type):
         # TODO: Normalize?
         # return cursor.var(six.text_type,
         #                   arraysize=numElements,
-        #                   inconverter=normalize,
-        #                   outconverter=normalize)
+        #                   inconverter=normalize)
         pass
     elif isinstance(value, DateTime.DateTimeType):
         return cursor.var(datetime.datetime,
                           arraysize=numElements,
-                          inconverter=mx2datetime,
-                          outconverter=mx2datetime)
+                          inconverter=mx2datetime)
 
 
 def cx_OutputTypeHandler(cursor, name, defaultType, size, precision, scale):
@@ -96,7 +93,6 @@ def cx_OutputTypeHandler(cursor, name, defaultType, size, precision, scale):
     if defaultType == cx_oracle_module.DATETIME:
         return cursor.var(datetime.datetime, size,
                           arraysize=cursor.arraysize,
-                          inconverter=mx2datetime,
                           outconverter=datetime2mx)
     if defaultType in (cx_oracle_module.STRING, cx_oracle_module.FIXED_CHAR):
         # TODO: Normalize here? We have no control over the data in FS, but
