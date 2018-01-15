@@ -562,11 +562,7 @@ class Cursor(object):
 
     def fetchall(self):
         """Do DB-API 2.0 fetchall."""
-        try:
-            return self._cursor.fetchall()
-        except UnicodeDecodeError as e:
-            print repr(e)
-            raise
+        return self._cursor.fetchall()
 
     # .nextset() is optional, hence not implemented here.
 
