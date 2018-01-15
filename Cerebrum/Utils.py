@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -871,7 +871,8 @@ class Factory(object):
     def make_class(name, import_spec, conf_var=None):
         """Assemble the class according to spec.
 
-        :param string name: Name of class thing.
+        :param name: Name of class thing.
+        :type name: str, unicode
 
         :param sequence import_spec: Name of classes to assemble into the
             returned class. Each element of the form ``module/classname``.
@@ -926,7 +927,7 @@ class Factory(object):
                 # prefix of "_dynamic_"; the prefix is there to reduce
                 # the probability of `auto_super` name collision
                 # problems.
-                comp_class = type('_dynamic_' + name, tuple(bases), {})
+                comp_class = type('_dynamic_' + str(name), tuple(bases), {})
             Factory.class_cache[name] = comp_class
             return comp_class
         else:
