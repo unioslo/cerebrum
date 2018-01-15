@@ -89,6 +89,18 @@ def mxdatetimetype(value):
 psycopg2.extensions.register_adapter(DateTime.DateTimeType, mxdatetimetype)
 
 
+def safebytes(value):
+    """ psycopg2 adapter, bytes -> unicode.
+
+    This method ensures that no weird, invalid encoded data gets sent to the
+    database. Only ASCII-encoded bytestrings can be used as arguments.
+    """
+    return psycopg2.extensions.adapt(value.decode('ascii'))
+
+
+psycopg2.extensions.register_adapter(bytes, safebytes)
+
+
 # floats and longs
 # TODO: Do we really need these?
 def numtype(value, cursor):
