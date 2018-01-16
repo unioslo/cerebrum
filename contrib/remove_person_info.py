@@ -78,7 +78,7 @@ def clean_fs(logger, person, constants):
                           (constants.personal_title, constants.language_nb)])
 
 
-def perform(cleaner, logger, person, constants, selection):
+def perform(cleaner, committer, logger, person, constants, selection):
     """Call cleaner func for all persons in selection."""
     import functools
 
@@ -97,6 +97,7 @@ def perform(cleaner, logger, person, constants, selection):
 
     for x in selection:
         updator(x)
+        committer()
 
 
 def _collect_candidates(collector, constants, source_system, (ss, attr)):
@@ -173,36 +174,67 @@ def select(person, source_system, constants, grace):
             select_by_stored_data(person, source_system, constants))
 
 
-def clean_it(prog, commit, systems):
+def clean_it(prog, commit, systems, commit_threshold=1):
     """Call funcs based on command line arguments."""
+    class _Committer(object):
+        """Commit changes upon reaching a threshold of N calls to commit()."""
+        def __init__(self, database, commit_mode, commit_threshold=1):
+            self.database = database
+            self.mode = commit_mode
+            self.commit_threshold = commit_threshold
+            self.count = 0
+
+        def commit(self):
+            """Do a commit if commit_threshold is reached."""
+            self.count += 1
+            if self.count == self.commit_threshold:
+                self._do_commit()
+                self.count = 0
+
+        def _do_commit(self):
+            if self.mode:
+                self.database.commit()
+            else:
+                self.database.rollback()
+
     from Cerebrum.Utils import Factory
     grace = 30
     logger = Factory.get_logger('cronjob')
-    db = Factory.get('Database')(client_encoding='UTF-8')
-    db.cl_init(change_program=prog)
-    pe = Factory.get('Person')(db)
-    co = Factory.get('Constants')(db)
-    logger.info('Starting %s', prog)
+    database = Factory.get('Database')(client_encoding='UTF-8')
+    database.cl_init(change_program=prog)
+    person = Factory.get('Person')(database)
+    constants = Factory.get('Constants')(database)
+    logger.info('Starting %s in %s mode',
+                prog,
+                ('commit' if commit else 'rollback'))
+
+    committer = _Committer(database, commit, commit_threshold).commit
+
     if 'SAP' in systems:
         logger.info("Starting to clean data from SAP")
-        perform(clean_sap, logger, pe, co, select(pe,
-                                                  co.system_sap,
-                                                  co,
-                                                  grace))
+        perform(clean_sap,
+                committer,
+                logger,
+                person,
+                constants,
+                select(person,
+                       constants.system_sap,
+                       constants,
+                       grace))
         logger.info('Cleaned data from SAP')
     if 'FS' in systems:
         logger.info("Starting to clean data from FS")
-        perform(clean_fs, logger, pe, co, select(pe,
-                                                 co.system_fs,
-                                                 co,
-                                                 grace))
+        perform(clean_fs,
+                committer,
+                logger,
+                person,
+                constants,
+                select(person,
+                       constants.system_fs,
+                       constants,
+                       grace))
         logger.info('Cleaned data from FS')
-    if commit:
-        logger.info('Commiting changes')
-        db.commit()
-    else:
-        logger.info('Rolling back changes')
-        db.rollback()
+
     logger.info('Stopping %s', prog)
 
 
@@ -215,12 +247,18 @@ def parse_it():
     parser.add_argument('--commit',
                         action='store_true',
                         help='Run in commit-mode (default: off)')
+    parser.add_argument('--commit-threshold',
+                        default=1,
+                        type=int,
+                        metavar='N',
+                        help='Commit per N change (default: 1)')
     parser.add_argument('--systems',
                         nargs='+',
                         metavar='SYSTEM',
                         help='Systems that should be cleaned (e.g. SAP)')
     args = parser.parse_args()
-    clean_it(parser.prog, args.commit, args.systems)
+
+    clean_it(parser.prog, args.commit, args.systems, args.commit_threshold)
 
 
 if __name__ == '__main__':
