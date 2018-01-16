@@ -210,30 +210,25 @@ def clean_it(prog, commit, systems, commit_threshold=1):
 
     committer = _Committer(database, commit, commit_threshold).commit
 
-    if 'SAP' in systems:
-        logger.info("Starting to clean data from SAP")
-        perform(clean_sap,
+    # TODO: Should this be populated by a decorator?
+    function_lut = {
+        constants.system_sap: clean_sap,
+        constants.system_fs: clean_fs
+    }
+
+    for x in systems:
+        system = constants.AuthoritativeSystem(x)
+        logger.info("Starting to clean data from %s", system)
+        perform(function_lut.get(system),
                 committer,
                 logger,
                 person,
                 constants,
                 select(person,
-                       constants.system_sap,
+                       system,
                        constants,
                        grace))
-        logger.info('Cleaned data from SAP')
-    if 'FS' in systems:
-        logger.info("Starting to clean data from FS")
-        perform(clean_fs,
-                committer,
-                logger,
-                person,
-                constants,
-                select(person,
-                       constants.system_fs,
-                       constants,
-                       grace))
-        logger.info('Cleaned data from FS')
+        logger.info('Cleaned data from %s', system)
 
     logger.info('Stopping %s', prog)
 
