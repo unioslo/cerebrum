@@ -21,6 +21,7 @@
 """Delete old data from users."""
 
 import collections
+import functools
 
 
 def clean_names(logger, person, constants, source_system):
@@ -56,22 +57,11 @@ def clean_titles(person, specs):
         person.delete_name_with_language(*spec)
 
 
-def clean_sap(logger, person, constants):
-    """Remove SAP specific information from persons."""
-    clean_names(logger, person, constants, constants.system_sap)
-    clean_addresses(person, constants.system_sap)
-    clean_contact_info(person, constants.system_sap)
-    clean_titles(person, [(constants.work_title, constants.language_en),
-                          (constants.work_title, constants.language_nb),
-                          (constants.personal_title, constants.language_en),
-                          (constants.personal_title, constants.language_nb)])
-
-
-def clean_fs(logger, person, constants):
-    """Remove FS specific information from persons."""
-    clean_names(logger, person, constants, constants.system_fs)
-    clean_addresses(person, constants.system_fs)
-    clean_contact_info(person, constants.system_fs)
+def update_person(logger, person, constants, source_system):
+    """Remove general information from persons."""
+    clean_names(logger, person, constants, source_system)
+    clean_addresses(person, source_system)
+    clean_contact_info(person, source_system)
     clean_titles(person, [(constants.work_title, constants.language_en),
                           (constants.work_title, constants.language_nb),
                           (constants.personal_title, constants.language_en),
@@ -80,8 +70,6 @@ def clean_fs(logger, person, constants):
 
 def perform(cleaner, committer, logger, person, constants, selection):
     """Call cleaner func for all persons in selection."""
-    import functools
-
     def _do_update(person_id, logger, person, constants, cleaner):
         person.clear()
         person.find(person_id)
@@ -178,6 +166,7 @@ def clean_it(prog, commit, systems, commit_threshold=1):
     """Call funcs based on command line arguments."""
     class _Committer(object):
         """Commit changes upon reaching a threshold of N calls to commit()."""
+
         def __init__(self, database, commit_mode, commit_threshold=1):
             self.database = database
             self.mode = commit_mode
@@ -210,16 +199,11 @@ def clean_it(prog, commit, systems, commit_threshold=1):
 
     committer = _Committer(database, commit, commit_threshold).commit
 
-    # TODO: Should this be populated by a decorator?
-    function_lut = {
-        constants.system_sap: clean_sap,
-        constants.system_fs: clean_fs
-    }
-
     for x in systems:
         system = constants.AuthoritativeSystem(x)
         logger.info("Starting to clean data from %s", system)
-        perform(function_lut.get(system),
+        cleaner = functools.partial(update_person, source_system=system)
+        perform(cleaner,
                 committer,
                 logger,
                 person,
