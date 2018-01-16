@@ -162,7 +162,7 @@ def select(person, source_system, constants, grace):
             select_by_stored_data(person, source_system, constants))
 
 
-def clean_it(prog, commit, systems, commit_threshold=1):
+def clean_it(prog, commit, systems, commit_threshold=1, grace=0):
     """Call funcs based on command line arguments."""
     class _Committer(object):
         """Commit changes upon reaching a threshold of N calls to commit()."""
@@ -187,15 +187,15 @@ def clean_it(prog, commit, systems, commit_threshold=1):
                 self.database.rollback()
 
     from Cerebrum.Utils import Factory
-    grace = 30
     logger = Factory.get_logger('cronjob')
     database = Factory.get('Database')(client_encoding='UTF-8')
     database.cl_init(change_program=prog)
     person = Factory.get('Person')(database)
     constants = Factory.get('Constants')(database)
-    logger.info('Starting %s in %s mode',
+    logger.info('Starting %s in %s mode with a grace period of %d days',
                 prog,
-                ('commit' if commit else 'rollback'))
+                ('commit' if commit else 'rollback'),
+                grace)
 
     committer = _Committer(database, commit, commit_threshold).commit
 
@@ -235,9 +235,19 @@ def parse_it():
                         nargs='+',
                         metavar='SYSTEM',
                         help='Systems that should be cleaned (e.g. SAP)')
+    parser.add_argument('--grace',
+                        default=360,
+                        type=int,
+                        metavar='N',
+                        help='Don\'t clean persons who has lost their'
+                             ' affiliation in the last N days')
     args = parser.parse_args()
 
-    clean_it(parser.prog, args.commit, args.systems, args.commit_threshold)
+    clean_it(parser.prog,
+             args.commit,
+             args.systems,
+             args.commit_threshold,
+             args.grace)
 
 
 if __name__ == '__main__':
