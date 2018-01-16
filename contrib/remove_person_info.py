@@ -173,12 +173,16 @@ def clean_it(prog, commit, systems, commit_threshold=1, grace=0):
             self.commit_threshold = commit_threshold
             self.count = 0
 
-        def commit(self):
-            """Do a commit if commit_threshold is reached."""
+        def conditional_commit(self):
+            """Do a commit or rollback if commit_threshold is reached."""
             self.count += 1
             if self.count == self.commit_threshold:
                 self._do_commit()
                 self.count = 0
+
+        def unconditional_commit(self):
+            """Do a commit or rollback."""
+            self._do_commit()
 
         def _do_commit(self):
             if self.mode:
@@ -197,14 +201,16 @@ def clean_it(prog, commit, systems, commit_threshold=1, grace=0):
                 ('commit' if commit else 'rollback'),
                 grace)
 
-    committer = _Committer(database, commit, commit_threshold).commit
+    committer = _Committer(database,
+                           commit,
+                           commit_threshold)
 
     for x in systems:
         system = constants.AuthoritativeSystem(x)
         logger.info("Starting to clean data from %s", system)
         cleaner = functools.partial(update_person, source_system=system)
         perform(cleaner,
-                committer,
+                committer.conditional_commit,
                 logger,
                 person,
                 constants,
@@ -213,6 +219,8 @@ def clean_it(prog, commit, systems, commit_threshold=1, grace=0):
                        constants,
                        grace))
         logger.info('Cleaned data from %s', system)
+
+    committer.unconditional_commit()
 
     logger.info('Stopping %s', prog)
 
