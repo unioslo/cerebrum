@@ -34,7 +34,7 @@ class BofhdAuth(auth.BofhdAuth):
 
     This class only contains special cases for UiA.
     """
-    
+
     def can_set_trait(self, operator, trait=None, ety=None, target=None,
                       query_run_any=False):
         # this should not be necessary, we have to agree on the way
@@ -51,7 +51,7 @@ class BofhdAuth(auth.BofhdAuth):
             account = Factory.get('Account')(self._db)
             account.find(operator)
             if ety.entity_id == account.owner_id:
-                return True        
+                return True
         elif ety and trait in (self.const.trait_reservation_sms_password,):
             if ety.entity_id == operator:
                 return True
@@ -68,10 +68,10 @@ class BofhdAuth(auth.BofhdAuth):
             account = Factory.get('Account')(self._db)
             account.find(operator)
             if ety.entity_id == account.owner_id:
-                return True        
+                return True
         raise PermissionDenied("Not allowed to remove trait")
 
-    def can_add_contact_info(self, operator, entity_id=None, 
+    def can_add_contact_info(self, operator, entity_id=None,
                              contact_type=None, query_run_any=False):
         """Checks if an operator is allowed to manually add contact information
         to an entity."""
@@ -79,7 +79,7 @@ class BofhdAuth(auth.BofhdAuth):
         if self.is_superuser(operator):
             return True
         # Users with auth_add_contactinfo can see and run command
-        if self._has_operation_perm_somewhere(operator, 
+        if self._has_operation_perm_somewhere(operator,
                 self.const.auth_add_contactinfo):
             # Only allow phone numbers to be added
             if contact_type is not None and contact_type not in (
@@ -95,7 +95,7 @@ class BofhdAuth(auth.BofhdAuth):
             return False
         raise PermissionDenied("Not allowed to add contact info")
 
-    def can_remove_contact_info(self, operator, entity_id=None, 
+    def can_remove_contact_info(self, operator, entity_id=None,
                                 contact_type=None, source_system=None,
                                 query_run_any=False):
         """Checks if an operator is allowed to remove contact information."""
@@ -103,7 +103,7 @@ class BofhdAuth(auth.BofhdAuth):
         if self.is_superuser(operator):
             return True
         # Users with auth_rem_contactinfo can see and run command
-        if self._has_operation_perm_somewhere(operator, 
+        if self._has_operation_perm_somewhere(operator,
                 self.const.auth_remove_contactinfo):
             return True
         # Hide command if not in the above groups

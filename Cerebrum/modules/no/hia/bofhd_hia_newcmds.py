@@ -579,7 +579,6 @@ class BofhdExtension(
                 data.append({'fnr': row['external_id'],
                              'fnr_src': str(self.const.AuthoritativeSystem(
                                             row['source_system']))})
-
         # Show contact info, like address and mobile number, and also external
         # ids from FS and SAP.
         # Can only be shown by those that can set passwords for one of the
@@ -990,7 +989,6 @@ class BofhdExtension(
 
         # Contact info
         for row in account.get_contact_info():
-                                    #type=self.const.contact_mobile_phone):
             ret.append({'contact_type': str(self.const.ContactInfo(
                                                         row['contact_type'])),
                         'contact_value': row['contact_value'],
