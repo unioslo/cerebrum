@@ -77,7 +77,7 @@ class BofhdAuth(auth.BofhdAuth):
         # Tagged sysadmin accounts
         if account.get_trait(self.const.trait_sysadm_account):
             return True
-        return super(BofhdAuth)._is_important_account(operator, account)
+        return super(BofhdAuth, self)._is_important_account(operator, account)
 
     def can_set_password(self, operator, account=None,
                          query_run_any=False):
@@ -85,7 +85,7 @@ class BofhdAuth(auth.BofhdAuth):
             return True
         if self._is_guest_owner(operator, account):
             return True
-        return super(BofhdAuth).can_set_password(operator, account,
+        return super(BofhdAuth, self).can_set_password(operator, account,
                                                  query_run_any)
 
     def can_clear_name(self, operator, person=None, source_system=None,
