@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2002-2016 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -163,6 +163,13 @@ class Id(Parameter):
 class Integer(Parameter):
     _type = 'integer'
     _help_ref = 'integer'
+
+class Mobile(Parameter):
+
+    """ Mobile phone Parameter. """
+
+    _type = 'mobilePhone'
+    _help_ref = 'mobile_phone'
 
 class MoveType(Parameter):
     _type = 'moveType'

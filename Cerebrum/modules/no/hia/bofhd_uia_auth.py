@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
-# 
-# Copyright 2003, 2012 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2003, 2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -70,18 +70,6 @@ class BofhdAuth(auth.BofhdAuth):
             if ety.entity_id == account.owner_id:
                 return True        
         raise PermissionDenied("Not allowed to remove trait")
-
-    def can_send_welcome_sms(self, operator, query_run_any=False):
-        # Superusers can see and run command
-        if self.is_superuser(operator):
-            return True
-        # Group members can see and run command
-        if self.is_group_member(operator, 'cerebrum-password'):
-            return True
-        # Hide command if not in the above groups
-        if query_run_any:
-            return False
-        raise PermissionDenied("Not allowed to send Welcome SMS")
 
     def can_add_contact_info(self, operator, entity_id=None, 
                              contact_type=None, query_run_any=False):

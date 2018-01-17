@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,13 +26,36 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import (
     BofhdExtension as UiOBofhdExtension)
 from Cerebrum.modules.bofhd.cmd_param import (
-    Command, AccountName, FormatSuggestion, SimpleString, SMSString)
+    Command, AccountName, FormatSuggestion, SimpleString, SMSString, Mobile)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func
 from Cerebrum.Utils import SMSSender
 from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
+from Cerebrum import Errors
+
+from mx import DateTime
 
 uio_helpers = ['_get_cached_passwords']
+
+
+class BofhdAuth(BofhdAuth):
+    """Defines methods that are used by bofhd to determine wheter
+    an operator is allowed to perform a given action.
+
+    This class only contains special cases for UiA.
+    """
+
+    def can_send_welcome_sms(self, operator, query_run_any=False):
+        # Superusers can see and run command
+        if self.is_superuser(operator):
+            return True
+        # Group members can see and run command
+        if self.is_group_member(operator, 'cerebrum-password'):
+            return True
+        # Hide command if not in the above groups
+        if query_run_any:
+            return False
+        raise PermissionDenied("Not allowed to send Welcome SMS")
 
 
 @copy_func(
@@ -42,6 +65,100 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands = {}
 
     authz = BofhdAuth
+
+    # Helper function, get phone number
+    def _get_phone_number(self, person_id, phone_types):
+        """Search through a person's contact info and return the first found info
+        value as defined by the given types and source systems.
+
+        @type  person_id: integer
+        @param person_id: Entity ID of the person
+
+        @type  phone_types: list
+        @param phone_types: list containing pairs of the source system and
+                            contact type to look for, i.e. on the form:
+                            (_AuthoritativeSystemCode, _ContactInfoCode)
+        """
+        person = self._get_person('entity_id', person_id)
+        for sys, type in phone_types:
+            for row in person.get_contact_info(source=sys, type=type):
+                return row['contact_value']
+
+        return None
+
+    #
+    # user send_welcome_sms <accountname> [<mobile override>]
+    #
+    all_commands['user_send_welcome_sms'] = Command(
+        ("user", "send_welcome_sms"),
+        AccountName(help_ref="account_name", repeat=False),
+        Mobile(optional=True),
+        fs=FormatSuggestion(
+            [('Ok, message sent to %s', ('mobile',)), ]),
+        perm_filter='can_send_welcome_sms')
+
+    def user_send_welcome_sms(self, operator, username, mobile=None):
+        """ Send a (new) welcome SMS to a user.
+
+        Optional mobile override, if what's registered in Cerebrum is wrong or
+        missing. Override must be permitted in the cereconf setting
+        BOFHD_ALLOW_MANUAL_MOBILE.
+
+        """
+        sms = SMSSender(logger=self.logger)
+        account = self._get_account(username)
+        # Access Control
+        self.ba.can_send_welcome_sms(operator.get_entity_id())
+        # Ensure allowed to specify a phone number
+        if not cereconf.BOFHD_ALLOW_MANUAL_MOBILE and mobile:
+            raise CerebrumError('Not allowed to specify number')
+        # Ensure proper formatted phone number
+        if mobile and not (len(mobile) == 8 and mobile.isdigit()):
+            raise CerebrumError('Invalid phone number, must be 8 digits')
+        # Ensure proper account
+        if account.is_deleted():
+            raise CerebrumError("User is deleted")
+        if account.is_expired():
+            raise CerebrumError("User is expired")
+        if account.owner_type != self.const.entity_person:
+            raise CerebrumError("User is not a personal account")
+        # Look up the mobile number
+        if not mobile:
+            phone_types = [(self.const.system_sap,
+                            self.const.contact_private_mobile),
+                           (self.const.system_sap,
+                            self.const.contact_mobile_phone),
+                           (self.const.system_fs,
+                            self.const.contact_mobile_phone)]
+            mobile = self._get_phone_number(account.owner_id, phone_types)
+            if not mobile:
+                raise CerebrumError("No mobile phone number for '%s'" %
+                                    username)
+        # Get primary e-mail address, if it exists
+        mailaddr = ''
+        try:
+            mailaddr = account.get_primary_mailaddress()
+        except:
+            pass
+        # NOTE: There's no need to supply the 'email' entry at the moment,
+        # but contrib/no/send_welcome_sms.py does it as well
+        message = cereconf.AUTOADMIN_WELCOME_SMS % {"username": username,
+                                                    "email": mailaddr}
+        if not sms(mobile, message):
+            raise CerebrumError("Could not send SMS to %s" % mobile)
+
+        # Set sent sms welcome sent-trait, so that it will be ignored by the
+        # scheduled job for sending welcome-sms.
+        try:
+            account.delete_trait(self.const.trait_sms_welcome)
+        except Errors.NotFoundError:
+            pass
+        finally:
+            account.populate_trait(code=self.const.trait_sms_welcome,
+                                   date=DateTime.now())
+            account.write_db()
+        return {'mobile': mobile}
+
 
     all_commands['misc_sms_password'] = Command(
         ('misc', 'sms_password'),
