@@ -199,8 +199,13 @@ def process_contact(userid,data,checknames,checkmail):
             idx="%s:%s" % (type,contact_pref)
             idxlist.append(idx)
             if value:
-                if value !=cinfo.get(idx):
-                    changes.append(('add_contact',(idx,value)))
+                if value != cinfo.get(idx):
+                    if type == int(co.contact_phone): 
+                        # only add contact_phone if it really is a new phone number
+                        if is_new_number(value, ownerid):
+                            changes.append(('add_contact',(idx,value)))
+                    else:
+                        changes.append(('add_contact',(idx,value)))
             else:
                 if cinfo.get(idx):
                     changes.append(('del_contact',(idx,None)))
@@ -268,7 +273,35 @@ def delete_phonenr(uid,phone):
     else:
         logger.debug("Not deleting phonenumber: %s" % phone)
 
-        
+# 
+# Returns true if this phonenumber is new for this ownerid
+# (i.e. it is not registered to this ownerid in the database)
+# 
+# Note: Only checks for phonenumbers of type co.contact_phone.
+# 
+def is_new_number(phonenumber, ownerid):
+    number_found = False
+    is_new_number = False
+    data_phone_len = len(phonenumber)
+
+    for key, val in person2contact[ownerid].iteritems():
+        contact_type = int(key[:3])
+
+        if contact_type == int(co.contact_phone):
+            num_to_compare = val
+
+            if len(num_to_compare) > data_phone_len:
+                num_to_compare = num_to_compare[-data_phone_len:]
+
+            if num_to_compare == phonenumber:
+                number_found = True
+
+    if not number_found:
+        is_new_number = True
+
+    return is_new_number
+
+
 def process_telefoni(filename,checknames,checkmail,notify_recipient):
     #
     # we will add a prefix to internal phone numbers based on their first digits.
@@ -343,9 +376,10 @@ def process_telefoni(filename,checknames,checkmail,notify_recipient):
                     else:
                         logger.debug('unmodified phone:%s' % (data['phone']))
                         data['phone'] = "%s%s" % (prefix, data['phone'])
-                        changed_phone = True
                         logger.debug('modified phone:%s' % (data['phone']))
-                        update_phonenr(row[USERID],data['phone'])
+
+                        if is_new_number(data['phone'], uname2ownerid[row[USERID]]):
+                            changed_phone = True
                     added_prefix = True
                     break
             if not added_prefix:
@@ -359,9 +393,11 @@ def process_telefoni(filename,checknames,checkmail,notify_recipient):
                 logger.warning("Can't add +47 prefix to %s's phone number because "
                               "%s has no phone number" % (row[USERID], row[USERID]))
             else:
-                changed_phone = True
-                data['phone'] = "%s%s" % ("+47", data['phone'])
-                logger.debug("%s's phone number with +47 prefix: %s" % (row[USERID], data['phone']))
+                if is_new_number(data['phone'], uname2ownerid[row[USERID]]):
+                    changed_phone = True
+                    if not data['phone'].startswith('+47'):
+                        data['phone'] = "%s%s" % ("+47", data['phone'])
+                    logger.debug("%s's phone number with +47 prefix: %s" % (row[USERID], data['phone']))
 
             if changed_phone:
                 update_phonenr(row[USERID], data['phone'])
