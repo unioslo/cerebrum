@@ -157,8 +157,19 @@ class AccountUtil(object):
                 # but name_full will exist.
                 last_name = person.get_name(const.system_cached, const.name_full)
                 assert last_name.count(' ') == 0
-            uname = account.suggest_unames(const.account_namespace,
-                                           first_name, last_name)[0]
+            suggestions = account.suggest_unames(const.account_namespace,
+                                                first_name, last_name)
+            for sugg in suggestions:
+                try:
+                    group_obj.clear()
+                    group_obj.find_by_name(sugg)
+                except Errors.NotFoundError:
+                    uname = sugg
+                    break
+        if not uname:
+            logger.error("Failed to find an available username for {}".format(
+                fnr))
+            return None
         logger.info("uname %s will be used", uname)
         account.populate(uname,
                          const.entity_person,
