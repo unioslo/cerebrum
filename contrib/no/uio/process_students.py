@@ -158,7 +158,7 @@ class AccountUtil(object):
                 last_name = person.get_name(const.system_cached, const.name_full)
                 assert last_name.count(' ') == 0
             suggestions = account.suggest_unames(const.account_namespace,
-                                                first_name, last_name)
+                                                 first_name, last_name)
             for sugg in suggestions:
                 try:
                     group_obj.clear()
