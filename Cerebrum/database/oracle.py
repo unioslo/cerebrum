@@ -20,15 +20,79 @@
 Oracle DB functionality for the people
 """
 
+import codecs
 import datetime
 import os
 
+import cx_Oracle as cx_oracle_module
+import six
 from mx import DateTime
 
-from Cerebrum.database import Cursor, Database, OraPgLock
+from Cerebrum.database import Cursor, Database, OraPgLock, kickstart
 from Cerebrum.Utils import read_password
 
 import cereconf
+
+
+#
+# Oracle type conversion
+#
+# Type Handlers with cx_Oracle are documented here:
+#   http://www.oracle.com/technetwork/articles/dsl/tuininga-cx-oracle-084866.html
+#
+# TODO: Should we normalize unicode data in the driver itself? That would kill
+# our ability to read/write and compare unicode data as-is, but would also make
+# sure that anything unicode in Cerebrum is as intended.
+#
+
+
+def normalize(unicode_string):
+    return unicode_string
+
+
+def bytes2unicode(value):
+    return value.decode('ascii')
+
+
+def datetime2mx(value):
+    return DateTime.DateTime(value.year, value.month, value.day, value.hour,
+                             value.minute, int(value.second))
+
+
+def mx2datetime(value):
+    return datetime.datetime(value.year, value.month, value.day,
+                             value.hour, value.minute, int(value.second))
+
+
+def cx_InputTypeHandler(cursor, value, numElements):
+    if isinstance(value, bytes):
+        # inconverter vs outconverter
+        return cursor.var(six.text_type,
+                          arraysize=numElements,
+                          inconverter=bytes2unicode)
+    elif isinstance(value, six.text_type):
+        # TODO: Normalize?
+        # return cursor.var(six.text_type,
+        #                   arraysize=numElements,
+        #                   inconverter=normalize)
+        pass
+    elif isinstance(value, DateTime.DateTimeType):
+        return cursor.var(datetime.datetime,
+                          arraysize=numElements,
+                          inconverter=mx2datetime)
+
+
+def cx_OutputTypeHandler(cursor, name, defaultType, size, precision, scale):
+    """ Type casting handler for the cx_Oracle database. """
+
+    if defaultType == cx_oracle_module.DATETIME:
+        return cursor.var(datetime.datetime, size,
+                          arraysize=cursor.arraysize,
+                          outconverter=datetime2mx)
+    if defaultType in (cx_oracle_module.STRING, cx_oracle_module.FIXED_CHAR):
+        # TODO: Normalize here? We have no control over the data in FS, but
+        # then again, we might need the ability to get the data as-is as well.
+        return cursor.var(six.text_type, size, cursor.arraysize)
 
 
 class cx_OracleCursor(Cursor):
@@ -43,14 +107,6 @@ class cx_OracleCursor(Cursor):
     """
 
     def execute(self, operation, parameters=()):
-        # cx_Oracle operates with datetime.
-        for k in parameters:
-            if type(parameters[k]) is DateTime.DateTimeType:
-                tmp = parameters[k]
-                parameters[k] = datetime.datetime(tmp.year, tmp.month, tmp.day,
-                                                  tmp.hour, tmp.minute,
-                                                  int(tmp.second))
-
         # Translate Cerebrum-specific hacks ([:]-syntax we love, e.g.). We
         # must do this, before feeding operation to the backend, since we've
         # effectively extended sql syntax.
@@ -82,26 +138,7 @@ class cx_OracleCursor(Cursor):
         # super().execute will redo a considerable part of the work here. It
         # is a performance hit (FIXME: how much of a performance hit?), but
         # right now (2008-06-30) we do not care.
-        retval = super(cx_OracleCursor, self).execute(sql, mybinds)
-        return retval
-    # end execute
-
-    def query(self, query, params=(), fetchall=True):
-        raw_result = list(super(cx_OracleCursor, self).query(
-                          query, params=params, fetchall=fetchall))
-
-        # IVR 2009-02-12 FIXME: respect fetchall while making conversions.
-        for item in raw_result:
-            for j in range(len(item)):
-                field = item[j]
-                if type(field) is datetime.datetime:
-                    item[j] = DateTime.DateTime(field.year,
-                                                field.month,
-                                                field.day,
-                                                field.hour,
-                                                field.minute,
-                                                int(field.second))
-        return raw_result
+        return super(cx_OracleCursor, self).execute(sql, mybinds)
 
     def acquire_lock(self, table=None, mode='exclusive'):
         return OraPgLock(cursor=self, table=None, mode=mode)
@@ -140,53 +177,8 @@ class OracleBase(Database):
         return ['SYSDATE']
 
 
-class DCOracle2(OracleBase):
-
-    _db_mod = "DCOracle2"
-
-    def connect(self, user=None, password=None, service=None,
-                client_encoding=None):
-        cdata = self._connect_data
-        cdata.clear()
-        cdata['arg_user'] = user
-        cdata['arg_password'] = password
-        cdata['arg_service'] = service
-        if service is None:
-            service = cereconf.CEREBRUM_DATABASE_NAME
-        if user is None:
-            user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
-        if password is None:
-            password = read_password(user, service)
-        conn_str = '%s/%s@%s' % (user, password, service)
-        cdata['conn_str'] = conn_str
-        if client_encoding is None:
-            client_encoding = self.encoding
-        else:
-            self.encoding = client_encoding
-
-        # The encoding names in Oracle don't look like PostgreSQL's,
-        # so we translate them into a single standard.
-        encoding_names = {'ISO_8859_1': "american_america.we8iso8859p1",
-                          'UTF-8': "american_america.utf8"}
-        os.environ['NLS_LANG'] = encoding_names.get(client_encoding,
-                                                    client_encoding)
-        #
-        # Call superclass .connect with appropriate CONNECTIONSTRING;
-        # this will in turn invoke the connect() function in the
-        # DCOracle2 module.
-        super(Oracle, self).connect(conn_str)
-
-    def pythonify_data(self, data):
-        """Convert type of values in row to native Python types."""
-        # Short circuit; no conversion is necessary for DCOracle2.
-        return data
-
-
+@kickstart(cx_oracle_module)
 class cx_Oracle(OracleBase):
-    """
-    """
-
-    _db_mod = "cx_Oracle"
 
     def connect(self, user=None, password=None, service=None,
                 client_encoding=None):
@@ -210,31 +202,24 @@ class cx_Oracle(OracleBase):
 
         # The encoding names in Oracle don't look like PostgreSQL's,
         # so we translate them into a single standard.
-        encoding_names = {'ISO_8859_1': "american_america.we8iso8859p1",
-                          'UTF-8': "american_america.utf8"}
-        os.environ['NLS_LANG'] = encoding_names.get(client_encoding,
+        # TODO: Fix this, so that all valid encodings will actually work?
+        encoding_names = {'iso8859-1': "american_america.we8iso8859p1",
+                          'utf-8': "american_america.utf8"}
+        codec_info = codecs.lookup(client_encoding)
+        os.environ['NLS_LANG'] = encoding_names.get(codec_info.name,
                                                     client_encoding)
 
         # Call superclass .connect with appropriate CONNECTIONSTRING;
         # this will in turn invoke the connect() function in the
         # cx_Oracle module.
         super(cx_Oracle, self).connect(conn_str)
-    # end connect
+
+        self._db.inputtypehandler = cx_InputTypeHandler
+        self._db.outputtypehandler = cx_OutputTypeHandler
 
     def cursor(self):
         return cx_OracleCursor(self)
-    # end cursor
-
-    def pythonify_data(self, data):
-        """Convert type of value(s) in data to native Python types."""
-        if isinstance(data, datetime.datetime):
-            return DateTime.DateTime(data.year, data.month, data.day,
-                                     data.hour, data.minute, data.second)
-        return super(cx_Oracle, self).pythonify_data(data)
-    # end pythonify_data
 
     # IVR 2009-02-12 FIXME: We should override nextval() here to query the
-    # schema name directly from the underlying connection object. This should
-    # be possible from cx_Oracle 5.0
-
-Oracle = DCOracle2
+    # schema name directly from the underlying connection object. This
+    # should be possible from cx_Oracle 5.0

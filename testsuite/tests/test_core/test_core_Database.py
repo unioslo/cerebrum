@@ -17,10 +17,6 @@
 - Testing 'our' sql-lexer extensions should be put in its own file
   (test_sql_lexer or somesuch)
 """
-
-import sys
-import cerebrum_path
-import cereconf
 from Cerebrum.Utils import Factory
 
 import Cerebrum.database
@@ -30,6 +26,7 @@ from nose.tools import raises, assert_raises
 
 
 # TODO: This could be done better...
+# TODO: This test module should we rewritten to use pytest
 
 def create_table(table_name, *table_defs):
     """ Decorator for tests that creates a temporary tables.
@@ -201,7 +198,7 @@ def test_db_numeric_interaction(db, table_name):
 
     for value in values:
         row = db.query_1(select_sql, {'value': value})
-        #assert type(row['x']) is type(value) # int -> long, for any numerical
+        # assert type(row['x']) is type(value) # int -> long, for any numerical
         assert row['x'] == value
 
 
@@ -300,27 +297,6 @@ def test_all_critical_db_attributes(db):
     # WTF else do we need?
 
 
-#@raises(Exception)
-#@use_db()
-#@create_table('foo', 'x int not null')
-#def test_select_count(db, table_name):
-    #""" Check that select(*) is named.
-
-    #We do not allow nameless select(*) in our code, since the db-row class
-    #will try to somehow dub the attribute corresponding to 'count(*)' of a
-    #'select count(*) from ...' clause. Not sure what kind of exceptions is
-    #thrown at us, though.
-
-    #"""
-    #db.query("select count(*) from %s" % table_name)
-
-
-#def test_check_query_1():
-    #""" Check that query_1(<one attr>) gives that attr"""
-
-    #pass
-
-
 @raises(Cerebrum.database.ProgrammingError)
 @use_db()
 @create_table('foo', 'x int not null', 'y int null')
@@ -336,3 +312,54 @@ def test_missing_table(db):
     """ Database.ProgrammingError for non-existing relation. """
     foo_select = 'select * from efotdzzb'
     db.execute(foo_select)
+
+
+@use_db()
+@create_table('foo', 'x text null')
+def test_unicode(db, table_name):
+    """ Database.rollback() transaction rollback functionality. """
+
+    def insert(x):
+        db.execute('insert into %s(x) values (:x)' % (table_name, ),
+                   {'x': x})
+
+    def select():
+        return [r['x'] for r in db.query('select x from %s' % table_name)]
+
+    tests = [
+        u'blåbærsyltetøy',
+        u'ÆØÅ',
+        u'ʎøʇǝʇʅsʎsɹæqɐ̥ʅq',
+        None,
+        u'Æ̎̉Ø͂̄Å͐̈'
+    ]
+
+    for x in tests:
+        insert(x)
+
+    results = select()
+
+    print('tests', tests)
+    print('results', results)
+
+    assert tests == results
+
+
+@raises(UnicodeError)
+@use_db()
+@create_table('foo', 'x text null')
+def test_assert_latin1_unicode(db, table_name):
+    """ Database.rollback() transaction rollback functionality. """
+    insert = 'insert into %s(x) values (:x)' % (table_name, )
+    base = u'blåbærsyltetøy'
+    db.execute(insert, {'x': base.encode('latin1')})
+
+
+@raises(UnicodeError)
+@use_db()
+@create_table('foo', 'x text null')
+def test_assert_utf8_unicode(db, table_name):
+    """ Database.rollback() transaction rollback functionality. """
+    insert = 'insert into %s(x) values (:x)' % (table_name, )
+    base = u'blåbærsyltetøy'
+    db.execute(insert, {'x': base.encode('utf-8')})
