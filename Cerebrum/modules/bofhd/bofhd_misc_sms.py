@@ -50,8 +50,11 @@ class BofhdAuth(BofhdAuth):
         if self.is_superuser(operator):
             return True
         # Group members can see and run command
-        if self.is_group_member(operator, 'cerebrum-password'):
-            return True
+        try:
+            if self.is_group_member(operator, 'cerebrum-password'):
+                return True
+        except Errors.NotFoundError:
+            pass
         # Hide command if not in the above groups
         if query_run_any:
             return False
