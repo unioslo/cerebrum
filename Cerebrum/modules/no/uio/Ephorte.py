@@ -1,6 +1,7 @@
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2007-2011 University of Oslo, Norway
+# Copyright 2007-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,31 +25,36 @@ from Cerebrum.modules.CLConstants import _ChangeTypeCode
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
 
+
 class _EphorteRoleTypeCode(_CerebrumCode):
     "Mappings stored in the contact_info_code table"
     _lookup_table = '[:table schema=cerebrum name=ephorte_role_type_code]'
     pass
+
 
 class _EphortePermTypeCode(_CerebrumCode):
     "Mappings stored for 'tilgangskoder' i UiOs Ephorte"
     _lookup_table = ' [:table schema=cerebrum name=ephorte_perm_type_code]'
     pass
 
+
 class _EphorteArkivdelCode(_CerebrumCode):
     "Mappings stored in the contact_info_code table"
     _lookup_table = '[:table schema=cerebrum name=ephorte_arkivdel_code]'
     pass
+
 
 class _EphorteJournalenhetCode(_CerebrumCode):
     "Mappings stored in the contact_info_code table"
     _lookup_table = '[:table schema=cerebrum name=ephorte_journalenhet_code]'
     pass
 
+
 class EphorteConstants(ConstantsBase):
     # Values from the ePhorte table ROLE
     ephorte_role_ar1 = _EphorteRoleTypeCode('AR1', 'Arkivansvarlig')
     ephorte_role_ar2 = _EphorteRoleTypeCode('AR2', 'Arkivar')
-    ephorte_role_ar3 = _EphorteRoleTypeCode('AR3', 'Arkivledelsen')    
+    ephorte_role_ar3 = _EphorteRoleTypeCode('AR3', 'Arkivledelsen')
     ephorte_role_ld = _EphorteRoleTypeCode('LD', 'Leder/saksfordeler')
     ephorte_role_ld_les = _EphorteRoleTypeCode('LD LES', 'Leserolle - leder')
     ephorte_role_sb = _EphorteRoleTypeCode('SB', 'Saksbehandler')
@@ -57,10 +63,10 @@ class EphorteConstants(ConstantsBase):
     ephorte_role_mal = _EphorteRoleTypeCode('MAL', 'Mal-ansvarlige')
     ephorte_role_sub = _EphorteRoleTypeCode('SUB', 'Superbruker')
 
-    #Values from the ePhorte table tilgang_type_code
+    # Values from the ePhorte table tilgang_type_code
     ephorte_perm_us = _EphortePermTypeCode('US', 'Unntatt etter offentlighetsloven ved SO')
     ephorte_perm_un = _EphortePermTypeCode('UN', 'Unntatt etter offentlighetsloven ved NIKK')
-    ephorte_perm_ua = _EphortePermTypeCode('UA', 'Under arbeid')    
+    ephorte_perm_ua = _EphortePermTypeCode('UA', 'Under arbeid')
     ephorte_perm_uo = _EphortePermTypeCode('UO', 'Unntatt etter offentlighetsloven')
     ephorte_perm_p = _EphortePermTypeCode('P', 'Personalsaker')
     ephorte_perm_p2 = _EphortePermTypeCode('P2', 'Personers økonomiske forhold')
@@ -70,7 +76,7 @@ class EphorteConstants(ConstantsBase):
     ephorte_perm_s2 = _EphortePermTypeCode('S2', 'Disiplinærsaker studenter')
     ephorte_perm_b = _EphortePermTypeCode('B', 'Begrenset etter sikkerhetsloven')
     ephorte_perm_f = _EphortePermTypeCode('F', 'Fortrolig etter beskyttelsesinstruksen')
-    ephorte_perm_k = _EphortePermTypeCode('K', 'Kontrakter og avtaler')                
+    ephorte_perm_k = _EphortePermTypeCode('K', 'Kontrakter og avtaler')
     ephorte_perm_of = _EphortePermTypeCode('OF', 'Unntatt etter offentlighetsloven')
     ephorte_perm_pv = _EphortePermTypeCode('PV', 'Personalsaker')
     ephorte_perm_po = _EphortePermTypeCode('PO', 'Personers økonomiske forhold')
@@ -78,7 +84,7 @@ class EphorteConstants(ConstantsBase):
     ephorte_perm_pr = _EphortePermTypeCode('PR', 'Rettssaker')
     ephorte_perm_sv = _EphortePermTypeCode('SV', 'Studentsaker')
     ephorte_perm_sd = _EphortePermTypeCode('SD', 'Disiplinærsaker studenter')
-    ephorte_perm_ar = _EphortePermTypeCode('AR', 'Under arbeid')    
+    ephorte_perm_ar = _EphortePermTypeCode('AR', 'Under arbeid')
     ephorte_perm_pa = _EphortePermTypeCode('PA', 'Personalsaker AKAN')
     ephorte_perm_fo = _EphortePermTypeCode('FO', 'Forskningssaker')
     ephorte_perm_st = _EphortePermTypeCode('ST', 'Studenttilrettelegging')
@@ -155,7 +161,7 @@ class EphorteConstants(ConstantsBase):
     EphorteArkivdel = _EphorteArkivdelCode
     EphorteJournalenhet = _EphorteJournalenhetCode
     EphortePermission = _EphortePermTypeCode
-    
+
     # ChangeLog constants
     ephorte_role_add = _ChangeTypeCode(
         'ephorte', 'role_add', 'add ephorte role @ %(dest)s',
@@ -189,7 +195,7 @@ class EphorteConstants(ConstantsBase):
 ##          tilganger og spread fjernes automatisk.
 ##        * Hvis en person får en ny rolle og personen ikke har noen
 ##          standardrolle skal den nye rollen settes som standardrolle
-    
+
 class EphorteRole(DatabaseAccessor):
     def __init__(self, database):
         super(EphorteRole, self).__init__(database)
@@ -198,40 +204,41 @@ class EphorteRole(DatabaseAccessor):
         self.ephorte_perm = EphortePermission(database)
 
     def _add_role(self, person_id, role, sko, arkivdel, journalenhet,
-                  rolletittel='', stilling='', standard_role='F', auto_role='T'):
-        # TBD: når en rolle addes bør vi sette start_date til dd?
+                  rolletittel='', stilling='', standard_role='F',
+                  auto_role='T'):
         binds = {
             'person_id': person_id,
             'role_type': role,
-            # TODO: Hva skal standard_role være? Bør i hvert fall ikke
-            # hardkodes på denne måten.
-            'standard_role': standard_role,  
-            'auto_role': auto_role,  
+            'standard_role': standard_role,
+            'auto_role': auto_role,
             'adm_enhet': sko,
             'arkivdel': arkivdel,
             'journalenhet': journalenhet,
             'rolletittel': rolletittel,
             'stilling': stilling
-            }
+        }
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=ephorte_role]
           (%s) VALUES (%s)""" % (", ".join(binds.keys()),
                                  ", ".join([":%s" % k for k in binds])),
-                                 binds)
-        self._db.log_change(person_id, self.co.ephorte_role_add,
-                            sko, change_params={
-            'arkivdel': arkivdel and str(arkivdel) or '',
-            'rolle_type': str(role)})
+                     binds)
+        self._db.log_change(
+            person_id, self.co.ephorte_role_add, sko,
+            change_params={
+                'arkivdel': arkivdel and str(arkivdel) or '',
+                'rolle_type': str(role)
+            })
 
     # Wrapper for _add_role.
     def add_role(self, person_id, role, sko, arkivdel, journalenhet,
-                 rolletittel='', stilling='', standard_role='F', auto_role='T'):
+                 rolletittel='', stilling='', standard_role='F',
+                 auto_role='T'):
         # If person don't have any roles, set this role as standard_role
         if not self.list_roles(person_id=person_id):
             standard_role = 'T'
         self._add_role(person_id, role, sko, arkivdel, journalenhet,
                        rolletittel, stilling, standard_role, auto_role)
-    
+
     def set_standard_role_val(self, person_id, role, sko, arkivdel,
                               journalenhet, standard_role):
         binds = {
@@ -240,16 +247,16 @@ class EphorteRole(DatabaseAccessor):
             'adm_enhet': sko,
             'arkivdel': arkivdel,
             'journalenhet': journalenhet,
-            }
+        }
         query = """
         UPDATE [:table schema=cerebrum name=ephorte_role]
         SET standard_role='%s'
         WHERE %s""" % (standard_role, " AND ".join(
             ["%s=:%s" % (x, x) for x in binds if binds[x]]))
         self.execute(query, binds)
-        self._db.log_change(person_id, self.co.ephorte_role_upd,
-                            sko, change_params={
-            'standard_role': standard_role})
+        self._db.log_change(
+            person_id, self.co.ephorte_role_upd, sko,
+            change_params={'standard_role': standard_role})
 
     def _remove_role(self, person_id, role, sko, arkivdel, journalenhet):
         binds = {
@@ -258,20 +265,19 @@ class EphorteRole(DatabaseAccessor):
             'adm_enhet': sko,
             'arkivdel': arkivdel,
             'journalenhet': journalenhet
-            }
-            
-        # TBD: Burde vi heller sette end_date i stedet for å slette en rolle
+        }
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=ephorte_role]
         WHERE %s""" % " AND ".join(
             ["%s=:%s" % (x, x) for x in binds if binds[x] is not None] +
             ["%s IS NULL" % x for x in binds if binds[x] is None]),
-                     binds)
-        self._db.log_change(person_id, self.co.ephorte_role_rem,
-                            sko, change_params={
-            'arkivdel': arkivdel and str(arkivdel) or '',
-#            'adm_enhet': adm_enhet and str(adm_enhet) or '',
-            'rolle_type': str(role)})
+            binds)
+        self._db.log_change(
+            person_id, self.co.ephorte_role_rem, sko,
+            change_params={
+                'arkivdel': arkivdel and str(arkivdel) or '',
+                'rolle_type': str(role)
+            })
 
     # Wrapper for _remove_role.
     # This is a bit hackish, see the class comment for more info.
@@ -299,7 +305,7 @@ class EphorteRole(DatabaseAccessor):
             'adm_enhet': sko,
             'arkivdel': arkivdel,
             'journalenhet': journalenhet
-            }
+        }
         if standard_role:
             binds['standard_role'] = standard_role
         return self.query("""
@@ -310,8 +316,8 @@ class EphorteRole(DatabaseAccessor):
         WHERE %s""" % " AND ".join(
             ["%s=:%s" % (x, x) for x in binds if binds[x] is not None] +
             ["%s IS NULL" % x for x in binds if binds[x] is None]),
-                     binds)
-            
+            binds)
+
     def list_roles(self, person_id=None, filter_expired=False):
         where = []
         if person_id:
@@ -338,69 +344,65 @@ class EphorteRole(DatabaseAccessor):
         return False
 
 
-##
-## Vi skal oppdatere tilgangskoder for personer i Ephorte
-## via web-servicen. Denne klassen inneholder metodene
-## nødvendige for å lagre, modifisere/slette tilganskoder
-## for personer i Cerebrum slik at informasjon om disse kan
-## overføres til Ephorte
-##
 class EphortePermission(DatabaseAccessor):
     def __init__(self, database):
         super(EphortePermission, self).__init__(database)
         self.co = Factory.get('Constants')(database)
         self.pe = Factory.get('Person')(database)
 
-    def add_permission(self, person_id, tilgang, sko, requestee):
-        # TBD: should we support permissions starting in the future?
+    def add_permission(self, person_id, perm_type, sko, requestee):
         binds = {
             'person_id': person_id,
-            'perm_type': tilgang,
+            'perm_type': perm_type,
             'adm_enhet': sko,
             'requestee_id': requestee
-            }
+        }
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=ephorte_permission]
           (%s) VALUES (%s)""" % (", ".join(binds.keys()),
                                  ", ".join([":%s" % k for k in binds])),
-                                 binds)
-        self._db.log_change(person_id, self.co.ephorte_perm_add,
-                            sko, change_params={
-            'adm_enhet': sko or '',
-            'perm_type': str(tilgang)})
+                     binds)
+        self._db.log_change(
+            person_id, self.co.ephorte_perm_add, sko,
+            change_params={
+                'adm_enhet': sko or '',
+                'perm_type': str(perm_type)
+            })
 
-    def remove_permission(self, person_id, tilgang, sko):
+    def remove_permission(self, person_id, perm_type, sko):
         binds = {
             'person_id': person_id,
-            'perm_type': tilgang,
+            'perm_type': perm_type,
             'adm_enhet': sko
-            }
+        }
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=ephorte_permission]
         WHERE %s""" % " AND ".join(
             ["%s=:%s" % (x, x) for x in binds if binds[x] is not None] +
             ["%s IS NULL" % x for x in binds if binds[x] is None]),
-                     binds)
-        self._db.log_change(person_id, self.co.ephorte_perm_rem,
-                            sko, change_params={
-            'adm_enhet': sko or '',
-            'perm_type': str(tilgang)})
+            binds)
+        self._db.log_change(
+            person_id, self.co.ephorte_perm_rem, sko,
+            change_params={
+                'adm_enhet': sko or '',
+                'perm_type': str(perm_type)
+            })
 
     # Some permissions can't be removed, but must be deactivated or
     # expired by setting an end_date
-    def expire_permission(self, person_id, tilgang, sko, end_date=None):
+    def expire_permission(self, person_id, perm_type, sko, end_date=None):
         binds = {
             'person_id': person_id,
-            'perm_type': tilgang,
+            'perm_type': perm_type,
             'adm_enhet': sko
-            }
+        }
         query = """
         UPDATE[:table schema=cerebrum name=ephorte_permission]
-        SET end_date=%s 
-        WHERE %s""" % (end_date and ':end_date' or '[:now]',
-                       " AND ".join(
-            ["%s=:%s" % (x, x) for x in binds if binds[x] is not None] +
-            ["%s IS NULL" % x for x in binds if binds[x] is None]))
+        SET end_date=%s
+        WHERE %s""" % (
+            end_date and ':end_date' or '[:now]', " AND ".join(
+                ["%s=:%s" % (x, x) for x in binds if binds[x] is not None] +
+                ["%s IS NULL" % x for x in binds if binds[x] is None]))
         if end_date:
             binds['end_date'] = end_date
         self.execute(query, binds)
@@ -416,7 +418,7 @@ class EphortePermission(DatabaseAccessor):
         if adm_enhet:
             where.append("adm_enhet=:adm_enhet")
         if filter_expired:
-            where.append("start_date <= [:now] AND (end_date IS NULL OR end_date > [:now])")            
+            where.append("start_date <= [:now] AND (end_date IS NULL OR end_date > [:now])")
         if where:
             where = "WHERE %s" % " AND ".join(where)
         else:
@@ -433,15 +435,3 @@ class EphortePermission(DatabaseAccessor):
         if self.list_permission(person_id, perm_type, adm_enhet):
             return True
         return False
-
-    
-## Denne koden er ikke klar ennå
-# class PersonEphorteMixin(Person.Person):
-#     """Ephorte specific methods for Person entities"""
-# 
-#     def delete(self):
-#         """Remove any ephorte roles before deleting"""
-#         for row in ephorte_role.list_roles(person_id=self.entity_id):
-#             ephorte_role.remove_role(old_id, int(row['role_type']), int(row['adm_enhet']),
-#                                      row['arkivdel'], row['journalenhet'])
-#         self.__super.delete()

@@ -1,21 +1,20 @@
 #!/usr/bin/env python
 # coding: utf-8
-u""" Sync data bwtween Cerebrum and Ephorte WS.
+u""" This script maintains ePhorte spreads and automatic roles for employees.
 
-This script adds ephorte_roles and ephorte-spreads to persons (employees) in
-Cerebrum according to the rules in ephorte-sync-spec.rst
+It can also send an email report if Cerebrum and ePhorte disagrees about which
+organizational units should be active.
 """
 import argparse
 import itertools
-
-from mx import DateTime
+import datetime
 
 import cereconf
 
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import CLHandler
+from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 from Cerebrum.modules.no.uio.Ephorte import EphortePermission
 from Cerebrum.modules.no.uio.EphorteWS import make_ephorte_client
@@ -26,13 +25,8 @@ from Cerebrum.modules.no.uio.EphorteWS import make_ephorte_client
 # Ephorte admin group setting
 EPHORTE_ADMINS = getattr(cereconf, 'EPHORTE_ADMINS')
 
-# Ephorte permissing settings (co.EphortePermission)
-EPHORTE_DEFAULT_OLD_PERM = getattr(cereconf, 'EPHORTE_DEFAULT_OLD_PERM')
-EPHORTE_DEFAULT_PERM = getattr(cereconf, 'EPHORTE_DEFAULT_PERM')
-
 # Specific SKOs
 EPHORTE_UIO_ROOT_SKO = getattr(cereconf, 'EPHORTE_UIO_ROOT_SKO')
-EPHORTE_EGNE_SAKER_SKO = getattr(cereconf, 'EPHORTE_EGNE_SAKER_SKO')
 
 # SKO lists
 EPHORTE_FSAT_SKO = getattr(cereconf, 'EPHORTE_FSAT_SKO')
@@ -42,9 +36,7 @@ EPHORTE_KDTO_SKO = getattr(cereconf, 'EPHORTE_KDTO_SKO')
 
 # Day filter (when to allow email warnings), and email template
 EPHORTE_MAIL_TIME = getattr(cereconf, 'EPHORTE_MAIL_TIME', [])
-EPHORTE_MAIL_WARNINGS2 = getattr(cereconf, 'EPHORTE_MAIL_WARNINGS2')
-
-INITIAL_ACCOUNTNAME = getattr(cereconf, 'INITIAL_ACCOUNTNAME')
+EPHORTE_MAIL_OU_MISMATCH = getattr(cereconf, 'EPHORTE_MAIL_OU_MISMATCH')
 
 #
 # Globals
@@ -59,8 +51,7 @@ group = Factory.get('Group')(db)
 ephorte_role = EphorteRole(db)
 ephorte_perm = EphortePermission(db)
 ou = Factory.get("OU")(db)
-cl = CLHandler.CLHandler(db)
-ou_mismatch_warnings = {'pols': [], 'ephorte': []}
+ou_mismatch_warnings = {'sap': [], 'ephorte': []}
 
 
 class SimpleRole(object):
@@ -85,6 +76,22 @@ class SimpleRole(object):
         return ("role_type={0.role_type!s}, adm_enhet={0.adm_enhet!s},"
                 " arkivdel={0.arkivdel!s}, journalenhet={0.journalenhet!s},"
                 " standard_role={0.standard_role!s}").format(self)
+
+
+def format_role(role):
+    role['role_type'] = co.EphorteRole(role.get('role_type'))
+    return ("role_type={role_type!s}, adm_enhet={adm_enhet!s},"
+            " arkivdel={arkivdel!s}, journalenhet={journalenhet!s},"
+            " person_id={person_id!s}"
+            " standard_role={standard_role!s} auto_role={auto_role!s}"
+            " start_date={start_date!s}, end_date={end_date!s}").format(**role)
+
+
+def format_permission(perm):
+    perm['perm_type'] = co.EphortePermission(perm.get('perm_type'))
+    return ("perm_type={perm_type!s}, adm_enhet={adm_enhet!s},"
+            " requestee_id={requestee_id!s}, person_id={person_id!s},"
+            " start_date={start_date!s}, end_date={end_date!s}").format(**perm)
 
 
 class PopulateEphorte(object):
@@ -136,14 +143,13 @@ class PopulateEphorte(object):
                     int(co.ephorte_journenhet_uio))
         logger.info("Found info about %d sko in cerebrum" % len(self.ouid2sko))
 
-        logger.info("Find OUs with spread ePhorte_ou "
-                    "(StedType=Arkivsted in POLS)")
-        self.pols_ephorte_ouid2name = {}
+        logger.info("Finding OUs with spread ePhorte_ou")
+        self.sap_ephorte_ouid2name = {}
         ou_id2name = dict((r["entity_id"], r["name"])
                           for r in ou.search_name_with_language(
-                                  entity_type=co.entity_ou,
-                                  name_language=co.language_nb,
-                                  name_variant=co.ou_name_display))
+                          entity_type=co.entity_ou,
+                          name_language=co.language_nb,
+                          name_variant=co.ou_name_display))
 
         # due to a logical error in ephorte-sync we have to allow
         # non-existing OU's to be assigned roles. the background for
@@ -153,10 +159,10 @@ class PopulateEphorte(object):
         #
         # for row in ou.search(spread=co.spread_ephorte_ou):
         for row in ou.search():
-            self.pols_ephorte_ouid2name[int(row['ou_id'])] = ou_id2name.get(
+            self.sap_ephorte_ouid2name[int(row['ou_id'])] = ou_id2name.get(
                 row["ou_id"], "")
         logger.info("Found %d ous with spread ePhorte_ou" %
-                    len(self.pols_ephorte_ouid2name.keys()))
+                    len(self.sap_ephorte_ouid2name.keys()))
         #
         # GRUSOMT HACK
         #
@@ -186,21 +192,21 @@ class PopulateEphorte(object):
                     len(self.app_ephorte_ouid2name.keys()))
 
         for ou_id in (set(self.app_ephorte_ouid2name.keys()) -
-                      set(self.pols_ephorte_ouid2name.keys())):
+                      set(self.sap_ephorte_ouid2name.keys())):
             # Add ou to list that is sent in warn mail
             ou_mismatch_warnings['ephorte'].append(
                 (self.ouid2sko[ou_id], self.app_ephorte_ouid2name[ou_id]))
             logger.info(
-                "OU (%6s: %s) in ephorte app, but has not ephorte spread" % (
+                "OU (%6s: %s) in ePhorte, but has no ePhorte spread" % (
                     self.ouid2sko[ou_id], self.app_ephorte_ouid2name[ou_id]))
-        for ou_id in (set(self.pols_ephorte_ouid2name.keys()) -
+        for ou_id in (set(self.sap_ephorte_ouid2name.keys()) -
                       set(self.app_ephorte_ouid2name.keys())):
             # Add ou to list that is sent in warn mail
-            ou_mismatch_warnings['pols'].append(
-                (self.ouid2sko[ou_id], self.pols_ephorte_ouid2name[ou_id]))
+            ou_mismatch_warnings['sap'].append(
+                (self.ouid2sko[ou_id], self.sap_ephorte_ouid2name[ou_id]))
             logger.info(
-                "OU (%6s, %s) has ephorte spread, but is not in ephorte" % (
-                    self.ouid2sko[ou_id], self.pols_ephorte_ouid2name[ou_id]))
+                "OU (%6s, %s) has ePhorte spread, but is not in ePhorte" % (
+                    self.ouid2sko[ou_id], self.sap_ephorte_ouid2name[ou_id]))
         #
         # GRUSOMT HACK SLUTT
         #
@@ -220,7 +226,7 @@ class PopulateEphorte(object):
             standard_role=False,
             auto_role=False)
 
-    def map_ou2role(self, ou_id):
+    def map_ou_to_role(self, ou_id):
         arkiv, journal = self.ouid_2roleinfo[ou_id]
         return SimpleRole(int(co.ephorte_role_sb), ou_id, arkiv, journal)
 
@@ -252,15 +258,13 @@ class PopulateEphorte(object):
 
         return ret
 
-    def populate_roles(self):
-        """Automatically add roles and spreads for employees according to
-        rules in ephorte-sync-spec.rst """
-
+    @memoize
+    def map_person_to_ou(self):
+        logger.info("Mapping person affiliations to ePhorte OU")
         # person -> {ou_id:1, ...}
-        person2ou = {}
+        person_to_ou = {}
         non_ephorte_ous = []
 
-        logger.info("Listing affiliations")
         # Find where an employee has an ANSATT affiliation and check
         # if that ou is an ePhorte ou. If not try to map to nearest
         # ePhorte OU as specified in ephorte-sync-spec.rst
@@ -298,23 +302,30 @@ class PopulateEphorte(object):
                 logger.warning(tmp_msg)
                 continue
 
-            person2ou.setdefault(int(row['person_id']), {})[ou_id] = 1
+            person_to_ou.setdefault(int(row['person_id']), {})[ou_id] = 1
+        return person_to_ou
 
-        logger.info("Listing roles")
-        person2roles = {}
-        std_role = False
+    def map_person_to_roles(self):
+        logger.info("Mapping persons to existing ePhorte roles")
+        person_to_roles = {}
         for row in ephorte_role.list_roles():
-            person2roles.setdefault(int(row['person_id']), []).append(
+            person_to_roles.setdefault(int(row['person_id']), []).append(
                 SimpleRole(int(row['role_type']),
                            int(row['adm_enhet']),
                            row['arkivdel'],
                            row['journalenhet'],
                            row['standard_role'],
                            auto_role=(row['auto_role'] == 'T')))
+        return person_to_roles
 
-        has_ephorte_spread = {}
-        for row in pe.list_all_with_spread(co.spread_ephorte_person):
-            has_ephorte_spread[int(row['entity_id'])] = True
+    def populate_roles(self):
+        """Automatically add roles and spreads for employees. """
+        logger.info("Start populating roles")
+        person_to_ou = self.map_person_to_ou()
+        person_to_roles = self.map_person_to_roles()
+        has_ephorte_spread = set([int(row["entity_id"]) for row in
+                                  pe.list_all_with_spread(
+                                      co.spread_ephorte_person)])
 
         # Ideally, the group should have persons as members, but bofh
         # doesn't have much support for that, so we map user->owner_id
@@ -323,9 +334,9 @@ class PopulateEphorte(object):
         group.find_by_name(EPHORTE_ADMINS)
         for account_id in set([int(row["member_id"])
                                for row in group.search_members(
-                                       group_id=group.entity_id,
-                                       indirect_members=True,
-                                       member_type=co.entity_account)]):
+                                   group_id=group.entity_id,
+                                   indirect_members=True,
+                                   member_type=co.entity_account)]):
             ac.clear()
             ac.find(account_id)
             superusers.append(int(ac.owner_id))
@@ -333,17 +344,18 @@ class PopulateEphorte(object):
         # All neccessary data has been fetched. Now we can check if
         # persons have the roles they should have.
         logger.info("Start comparison of roles")
-        for person_id, ous in person2ou.items():
+        std_role = False
+        for person_id, ous in person_to_ou.items():
             auto_roles = []  # The roles an employee automatically should get
-            existing_roles = person2roles.get(person_id, [])
+            existing_roles = person_to_roles.get(person_id, [])
             # Add saksbehandler role for each ephorte ou where an
             # employee has an affiliation
             for t in ous:
-                auto_roles.append(self.map_ou2role(t))
+                auto_roles.append(self.map_ou_to_role(t))
             if person_id in superusers:
                 auto_roles.append(self._superuser_role)
             # All employees shall have ephorte spread
-            if not has_ephorte_spread.get(person_id):
+            if person_id not in has_ephorte_spread:
                 pe.clear()
                 pe.find(person_id)
                 pe.add_spread(co.spread_ephorte_person)
@@ -353,7 +365,7 @@ class PopulateEphorte(object):
                 if ar in existing_roles:
                     existing_roles.remove(ar)
                 else:
-                    logger.debug("Adding role (pid=%i): %s" % (person_id, ar))
+                    logger.info("Adding role (pid=%i): %s" % (person_id, ar))
                     ephorte_role.add_role(person_id, ar.role_type,
                                           ar.adm_enhet, ar.arkivdel,
                                           ar.journalenhet)
@@ -362,8 +374,7 @@ class PopulateEphorte(object):
                 # automatically can be removed. Any other roles have
                 # been given in bofh and should not be touched.
                 if er.auto_role and er.role_type == int(co.ephorte_role_sb):
-                    logger.debug("Removing role (pid=%i): %s" % (person_id,
-                                                                 er))
+                    logger.info("Removing role (pid=%i): %s" % (person_id, er))
                     ephorte_role.remove_role(person_id, er.role_type,
                                              er.adm_enhet, er.arkivdel,
                                              er.journalenhet)
@@ -387,50 +398,43 @@ class PopulateEphorte(object):
                             str(co.EphorteArkivdel(er.arkivdel)),
                             str(co.EphorteJournalenhet(er.journalenhet)))
                         break
-        logger.info("Done")
+        logger.info("Done populating roles")
 
-    def populate_permissions(self):
-        """
-        Check if all persons have the default permissions and populate
-        if not.
-        """
-        logger.debug("Populate default permissions...")
-        default_perm_type = co.EphortePermission(EPHORTE_DEFAULT_PERM)
-        old_default_perm_type = co.EphortePermission(EPHORTE_DEFAULT_OLD_PERM)
-        adm_enhet = self.sko2ou_id[EPHORTE_EGNE_SAKER_SKO]
-        ac.clear()
-        ac.find_by_name(INITIAL_ACCOUNTNAME)
-        requestee = ac.entity_id
-        # Check all ephorte persons
-        for row in pe.list_all_with_spread(co.spread_ephorte_person):
-            # First check the new permission
-            if not ephorte_perm.has_permission(row['entity_id'],
-                                               default_perm_type,
-                                               adm_enhet):
-                ephorte_perm.add_permission(row['entity_id'],
-                                            default_perm_type,
-                                            adm_enhet,
-                                            requestee)
-                logger.debug("Adding permission %s for person %s at %s" % (
-                    default_perm_type, row['entity_id'],
-                    EPHORTE_EGNE_SAKER_SKO))
-            # Then check the old
-            if not ephorte_perm.has_permission(row['entity_id'],
-                                               old_default_perm_type,
-                                               adm_enhet):
-                ephorte_perm.add_permission(row['entity_id'],
-                                            old_default_perm_type,
-                                            adm_enhet,
-                                            requestee)
-                # The perm should be added, and expired
-                ephorte_perm.expire_permission(row['entity_id'],
-                                               old_default_perm_type,
-                                               adm_enhet)
-                logger.debug(
-                    "Adding expired permission %s for person %s at %s" % (
-                        old_default_perm_type, row['entity_id'],
-                        EPHORTE_EGNE_SAKER_SKO))
-        logger.debug("Done")
+    def depopulate(self):
+        """Remove spreads, roles and permissions for non-employees."""
+        logger.info("Start depopulating")
+        should_have_spread = set(self.map_person_to_ou().keys())
+        logger.info("Fetching existing spreads")
+        has_spread = set([int(row["entity_id"]) for row in
+                          pe.list_all_with_spread(co.spread_ephorte_person)])
+        victims = has_spread - should_have_spread
+        logger.info('{} persons should have ePhorte spread'.format(
+            len(should_have_spread)))
+        logger.info('{} persons have ePhorte spread'.format(
+            len(has_spread)))
+        logger.info('{} persons should lose ePhorte spread'.format(
+            len(victims)))
+        for person_id in victims:
+            logger.info('Removing ePhorte data for person_id:{}'.format(
+                person_id))
+            pe.clear()
+            pe.find(person_id)
+            for perm in ephorte_perm.list_permission(person_id=person_id):
+                logger.info('Removing permission: {}'.format(
+                    format_permission(dict(perm))))
+                ephorte_perm.remove_permission(person_id=person_id,
+                                               perm_type=perm['perm_type'],
+                                               sko=perm['adm_enhet'])
+            for role in ephorte_role.list_roles(person_id=person_id):
+                logger.info('Removing role: {}'.format(
+                    format_role(dict(role))))
+                ephorte_role.remove_role(person_id=person_id,
+                                         role=role['role_type'],
+                                         sko=role['adm_enhet'],
+                                         arkivdel=role['arkivdel'],
+                                         journalenhet=role['journalenhet'])
+            pe.delete_spread(co.spread_ephorte_person)
+        logger.info('Done depopulating')
 
 
 def mail_warnings(mailto, debug=False):
@@ -439,66 +443,49 @@ def mail_warnings(mailto, debug=False):
     specified in mailto. If cereconf.EPHORTE_MAIL_TIME is specified,
     just send if time when script is run matches with specified time.
     """
-
     # Check if we should send mail today
-    mail_today = False
-    today = DateTime.today()
-    for day in EPHORTE_MAIL_TIME:
-        if getattr(DateTime, day, None) == today.day_of_week:
-            mail_today = True
-
-    if mail_today and (ou_mismatch_warnings['ephorte'] or
-                       ou_mismatch_warnings['pols']):
-        pols_warnings = '\n'.join(["%6s  %s" % x for x in
-                                   ou_mismatch_warnings['pols']])
-        ephorte_warnings = '\n'.join(["%6s  %s" % x for x in
-                                      ou_mismatch_warnings['ephorte']])
-        substitute = {'POLS_WARNINGS': pols_warnings,
+    if datetime.datetime.now().strftime('%A') not in EPHORTE_MAIL_TIME:
+        logger.info('Not mailing warnings today')
+        return
+    if ou_mismatch_warnings['ephorte'] or ou_mismatch_warnings['sap']:
+        sap_warnings = '\n'.join([
+            "%6s  %s" % x for x in ou_mismatch_warnings['sap']])
+        ephorte_warnings = '\n'.join([
+            "%6s  %s" % x for x in ou_mismatch_warnings['ephorte']])
+        substitute = {'SAP_WARNINGS': sap_warnings,
                       'EPHORTE_WARNINGS': ephorte_warnings}
-        send_mail(mailto, EPHORTE_MAIL_WARNINGS2, substitute,
-                  debug=debug)
+        send_mail(mailto, EPHORTE_MAIL_OU_MISMATCH, substitute, debug=debug)
 
 
 def send_mail(mailto, mail_template, substitute, debug=False):
     ret = Utils.mail_template(mailto, mail_template, substitute=substitute,
                               debug=debug)
     if ret:
-        logger.debug("Not sending mail:\n%s" % ret)
+        logger.info("Not sending mail:\n%s" % ret)
     else:
-        logger.debug("Sending mail to: %s" % mailto)
+        logger.info("Sending mail to: %s" % mailto)
 
 
 def _make_parser():
-    """Make a parser object
-    >>> parser = _make_parser()
-    >>> c = parser.parse_args("-r --mail-warnings-to foo@example.com ".split())
-    >>> c.populate_roles
-    True
-    >>> c.populate_permissions
-    False
-    >>> c.mail_warnings_to
-    'foo@example.com'
-    """
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "-r", "--populate-roles",
         action="store_true",
         default=False,
-        help=u"Do populate auto roles in Cerebrum")
+        help=u"Populate auto roles")
     parser.add_argument(
-        "-p", "--populate-permissions",
+        "--depopulate",
         action="store_true",
         default=False,
-        help=u"Do populate auto permissions in Cerebrum")
+        help=u"Remove ePhorte spread/roles/perms for non-employees")
     parser.add_argument(
         "--mail-warnings-to",
         action="store",
         help=u"Send warnings to (email address)")
     parser.add_argument(
-        "--dryrun",
+        "--commit",
         action="store_true",
-        help=u"Prevent commit to database")
+        help=u"Commit to database")
     parser.add_argument(
         "--config",
         default='sync_ephorte.cfg',
@@ -508,24 +495,22 @@ def _make_parser():
 
 def main(args=None):
     args = _make_parser().parse_args(args)
-
     ephorte_ws_client, ecfg = make_ephorte_client(args.config)
-
     pop = PopulateEphorte(ephorte_ws_client)
 
     if args.populate_roles:
         pop.populate_roles()
-    if args.populate_permissions:
-        pop.populate_permissions()
+    if args.depopulate:
+        pop.depopulate()
     if args.mail_warnings_to:
-        mail_warnings(args.mail_warnings_to, debug=args.dryrun)
+        mail_warnings(args.mail_warnings_to, debug=not args.commit)
 
-    if args.dryrun:
-        db.rollback()
-        logger.info("DRYRUN: Roll back changes")
-    else:
+    if args.commit:
         db.commit()
         logger.info("Committing changes")
+    else:
+        db.rollback()
+        logger.info("DRYRUN: Rolling back changes")
 
 
 if __name__ == '__main__':
