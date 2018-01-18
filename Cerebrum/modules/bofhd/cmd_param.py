@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2002-2016 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -115,7 +115,7 @@ class DiskId(Parameter):
 class EmailAddress(Parameter):
     _type = 'emailAddress'
     _help_ref = 'email_address'
-    
+
 class EntityType(Parameter):
     _type = 'entityType'
     _help_ref = 'entity_type'
@@ -164,6 +164,13 @@ class Integer(Parameter):
     _type = 'integer'
     _help_ref = 'integer'
 
+class Mobile(Parameter):
+
+    """ Mobile phone Parameter. """
+
+    _type = 'mobilePhone'
+    _help_ref = 'mobile_phone'
+
 class MoveType(Parameter):
     _type = 'moveType'
     _help_ref = 'move_type'
@@ -203,7 +210,7 @@ class PosixShell(Parameter):
 class QuarantineType(Parameter):
     _type = 'quarantineType'
     _help_ref= 'quarantine_type'
-    
+
 class SimpleString(Parameter):
     _type = 'simpleString'
     _help_ref = 'string'
@@ -252,7 +259,7 @@ class Command(object):
 class FormatSuggestion(object):
     """FormatSuggestion is used by the client to determine how to
     format a return value from a command."""
-    
+
     def __init__(self, string, vars=None, hdr=None):
         """For description of the parameters, see get_format().  The
         only difference is that string may contain format specifiers
@@ -268,10 +275,10 @@ class FormatSuggestion(object):
         """Returns a dict with the following keys:
 
         - str_vars:
-        
-          - If it is a string, the string is displayed as is. 
+
+          - If it is a string, the string is displayed as is.
           - May also be a list of (string, vars) pairs:
-          
+
             - string is a plain string.  It may contain printf format
               specifiers used by vars.  string may also be a list of
               (string, vars, hdr) pairs.  hdr is optional.  If hdr
