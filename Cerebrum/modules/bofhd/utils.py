@@ -105,6 +105,8 @@ class Constants(Constants.Constants):
         'view_history', 'View history')
     auth_set_password = _AuthRoleOpCode(
         'set_password', 'Set password')
+    auth_set_password_important = _AuthRoleOpCode(
+        'set_password_imp', 'Set password for important accounts')
     auth_set_gecos = _AuthRoleOpCode(
         'set_gecos', "Set account's gecos field")
     auth_set_trait = _AuthRoleOpCode(

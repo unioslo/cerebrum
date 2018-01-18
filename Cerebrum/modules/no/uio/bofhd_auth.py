@@ -77,36 +77,16 @@ class BofhdAuth(auth.BofhdAuth):
         # Tagged sysadmin accounts
         if account.get_trait(self.const.trait_sysadm_account):
             return True
-        # Manually tagged important accounts
-        if account.get_trait(self.const.trait_important_account):
-            return True
-        # Accounts that can set passwords for these accounts are also important
-        if self._has_operation_perm_somewhere(
-                account.entity_id, self.const.auth_set_password_important):
-            return True
-        return False
+        return super(BofhdAuth, self)._is_important_account(operator, account)
 
     def can_set_password(self, operator, account=None,
                          query_run_any=False):
-        if self.is_superuser(operator):
-            return True
         if query_run_any:
-            return True
-        if operator == account.entity_id:
-            return True
-        if self._no_account_home(operator, account):
             return True
         if self._is_guest_owner(operator, account):
             return True
-        important = self._is_important_account(operator, account)
-        operation = (self.const.auth_set_password_important if important
-                     else self.const.auth_set_password)
-        try:
-            return self.is_account_owner(operator, operation, account)
-        except PermissionDenied:
-            raise PermissionDenied(
-                "Not allowed to set password for '{}'".format(
-                    account.account_name))
+        return super(BofhdAuth, self).can_set_password(operator, account,
+                                                 query_run_any)
 
     def can_clear_name(self, operator, person=None, source_system=None,
                        query_run_any=False):

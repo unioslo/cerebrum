@@ -635,11 +635,6 @@ class Constants(Constants.Constants):
         "An account used for system administration,"
         " e.g. foo-adm, foo-drift and foo-null users")
 
-    # Trait for tagging important accounts
-    trait_important_account = _EntityTraitCode(
-        "important_acc", Constants.Constants.entity_account,
-        "An account that is important")
-
     # Trait for passphrase stats
     trait_has_passphrase = _EntityTraitCode(
         'has_passphrase',
