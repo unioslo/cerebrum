@@ -383,22 +383,18 @@ def process_telefoni(filename,checknames,checkmail,notify_recipient):
                             changed_phone = True
                     added_prefix = True
                     break
-            if not added_prefix:
+            if (data['phone']) and (not added_prefix):
                 logger.warning('Userid %s has a malformed internal phone number '
                                'or a number that does not have a match '
                                'in our number prefix table:%s' % (row[USERID], data))
                 logger.debug("INVALID: %s - %s" % (row[USERID], data['phone']))
 
             # add "+47" phone number prefix
-            if not data['phone']:
-                logger.warning("Can't add +47 prefix to %s's phone number because "
-                              "%s has no phone number" % (row[USERID], row[USERID]))
-            else:
-                if is_new_number(data['phone'], uname2ownerid[row[USERID]]):
-                    changed_phone = True
-                    if not data['phone'].startswith('+47'):
-                        data['phone'] = "%s%s" % ("+47", data['phone'])
-                    logger.debug("%s's phone number with +47 prefix: %s" % (row[USERID], data['phone']))
+            if (data['phone']) and (is_new_number(data['phone'], uname2ownerid[row[USERID]])):
+                changed_phone = True
+                if not data['phone'].startswith('+47'):
+                    data['phone'] = "%s%s" % ("+47", data['phone'])
+                logger.debug("%s's phone number with +47 prefix: %s" % (row[USERID], data['phone']))
 
             if changed_phone:
                 update_phonenr(row[USERID], data['phone'])

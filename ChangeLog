@@ -1,5 +1,7 @@
 2018-01-18  Karen   <cerebrum@cleomedes.uit.no>
 
+    * import_tlf.py (process_telefoni): Removed unnecessary logger warnings about empty phone numbers.
+
     * import_tlf.py (is_new_number): Minor bugfix.
 
 2018-01-18    <cerebrum@cleomedes.uit.no>
