@@ -284,17 +284,18 @@ def is_new_number(phonenumber, ownerid):
     is_new_number = False
     data_phone_len = len(phonenumber)
 
-    for key, val in person2contact[ownerid].iteritems():
-        contact_type = int(key[:3])
+    if ownerid in person2contact.keys():
+        for key, val in person2contact[ownerid].iteritems():
+            contact_type = int(key[:3])
 
-        if contact_type == int(co.contact_phone):
-            num_to_compare = val
+            if contact_type == int(co.contact_phone):
+                num_to_compare = val
 
-            if len(num_to_compare) > data_phone_len:
-                num_to_compare = num_to_compare[-data_phone_len:]
+                if len(num_to_compare) > data_phone_len:
+                    num_to_compare = num_to_compare[-data_phone_len:]
 
-            if num_to_compare == phonenumber:
-                number_found = True
+                if num_to_compare == phonenumber:
+                    number_found = True
 
     if not number_found:
         is_new_number = True

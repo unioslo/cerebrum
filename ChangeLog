@@ -1,3 +1,7 @@
+2018-01-18  Karen   <cerebrum@cleomedes.uit.no>
+
+    * import_tlf.py (is_new_number): Minor bugfix.
+
 2018-01-18    <cerebrum@cleomedes.uit.no>
     
     * maillog.py: Added to repo.
