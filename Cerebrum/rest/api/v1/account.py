@@ -669,7 +669,7 @@ class AccountPasswordResource(Resource):
     def post(self, name):
         """Change the password for this account."""
         ac = find_account(name)
-        data = request.json
+        data = request.get_json()
         plaintext = data.get('password', None)
         plaintext_unicode = None  # used for utf-8 conversion
         if plaintext is None:
@@ -722,7 +722,7 @@ class AccountPasswordVerifierResource(Resource):
     def post(self, name):
         """Verify the password for this account."""
         ac = find_account(name)
-        data = request.json
+        data = request.get_json()
         plaintext = data.get('password', None)
         if plaintext is None:
             abort(400, 'No password specified')
@@ -762,7 +762,7 @@ class AccountPasswordCheckerResource(Resource):
     def post(self, name):
         """Check if a password is valid according to rules."""
         ac = find_account(name)
-        data = request.json
+        data = request.get_json()
         plaintext = data.get('password', None)
         if plaintext is None:
             abort(400, 'No password specified')
