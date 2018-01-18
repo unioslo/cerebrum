@@ -183,6 +183,7 @@ def clean_it(prog, commit, systems, commit_threshold=1, grace=0):
         def unconditional_commit(self):
             """Do a commit or rollback."""
             self._do_commit()
+            self.count = 0
 
         def _do_commit(self):
             if self.mode:
@@ -218,9 +219,8 @@ def clean_it(prog, commit, systems, commit_threshold=1, grace=0):
                        system,
                        constants,
                        grace))
+        committer.unconditional_commit()
         logger.info('Cleaned data from %s', system)
-
-    committer.unconditional_commit()
 
     logger.info('Stopping %s', prog)
 
