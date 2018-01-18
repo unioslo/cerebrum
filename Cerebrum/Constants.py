@@ -29,9 +29,25 @@ import copy
 import threading
 
 import cereconf
+from six import string_types as string, text_type as text, \
+    python_2_unicode_compatible
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+
+
+def _uchlp(arg):
+    """ 'Anything' to text (unicode) """
+    if isinstance(arg, text):
+        return arg
+    if isinstance(arg, bytes):
+        try:
+            return arg.decode('UTF-8')
+        except UnicodeDecodeError:
+            return arg.decode('latin-1')
+    if isinstance(arg, _CerebrumCode):
+        return text(arg)
+    raise TypeError('Arguments must be constants or strings')
 
 
 class CodeValuePresentError(RuntimeError):
@@ -58,7 +74,7 @@ class SynchronizedDatabase(Database_class):
 
     # 2009-10-12 IVR This is a bit awkward.  A few of our daemons have a
     # constant object each (actually all of them do). The constant objects
-    # have their own private DB connection (cf. get_sql() below). That db
+    # have their own private DB connection (cf. sql() below). That db
     # connection exists parallel to the connection used by the code (legacy
     # issues. This should be reviewed once spine is gone).
     #
@@ -89,10 +105,9 @@ class SynchronizedDatabase(Database_class):
         finally:
             self.commit()
             SynchronizedDatabase._db_proxy_lock.release()
-    # end query
-# end SynchronizedDatabase
 
 
+@python_2_unicode_compatible
 class _CerebrumCode(DatabaseAccessor):
 
     """Abstract base class for accessing code tables in Cerebrum.
@@ -116,28 +131,28 @@ class _CerebrumCode(DatabaseAccessor):
     _db_proxy_lock = threading.Lock()
     _private_db_proxy = None
 
-    def get_sql(self):
-        try:
-            _CerebrumCode._db_proxy_lock.acquire()
+    @property
+    def sql(self):
+        """Private db connection"""
+        with _CerebrumCode._db_proxy_lock:
             try:
                 _CerebrumCode._private_db_proxy.ping()
             except:
-                _CerebrumCode._private_db_proxy = SynchronizedDatabase()
+                _CerebrumCode._private_db_proxy = SynchronizedDatabase(
+                    client_encoding='UTF-8'
+                )
             return _CerebrumCode._private_db_proxy
-        finally:
-            _CerebrumCode._db_proxy_lock.release()
 
-    def set_sql(self, db):
-        try:
-            _CerebrumCode._db_proxy_lock.acquire()
+    @sql.setter
+    def sql(self, db):
+        with _CerebrumCode._db_proxy_lock:
             try:
                 db.ping()
                 _CerebrumCode._private_db_proxy = db
             except:
-                _CerebrumCode._private_db_proxy = SynchronizedDatabase()
-        finally:
-            _CerebrumCode._db_proxy_lock.release()
-    sql = property(get_sql, set_sql, doc="private db connection")
+                _CerebrumCode._private_db_proxy = SynchronizedDatabase(
+                    client_encoding='UTF-8'
+                )
 
     _lookup_table = None                # Abstract class.
     _lookup_code_column = 'code'
@@ -175,15 +190,11 @@ class _CerebrumCode(DatabaseAccessor):
         # If the key is composite and only one argument is given, it
         # _should_ be the code value as an integer of some sort, and
         # enter the else branch.
-        if isinstance(args[0], (basestring, _CerebrumCode)):
+        if isinstance(args[0], (string, _CerebrumCode)):
             if cls._key_size > 1 and len(args) > 1:
-                code = ()
-                for i in range(cls._key_size):
-                    if isinstance(args[i], int):
-                        raise TypeError("Arguments must be constants or str.")
-                    code += (str(args[i]), )
+                code = tuple(map(_uchlp, args[:cls._key_size]))
             else:
-                code = str(args[0])
+                code = _uchlp(args[0])
             if code in cls._cache:
                 return cls._cache[code]
             new = DatabaseAccessor.__new__(cls)
@@ -193,7 +204,7 @@ class _CerebrumCode(DatabaseAccessor):
                 # Python.  Wasted effort, but not worth worrying
                 # about.
                 new.__init__(*args, **kwargs)
-                cls._cache[str(new)] = new
+                cls._cache[text(new)] = new
         else:
             if cls._key_size > 1 and len(args) > 1:
                 raise ValueError("When initialising a multi key constant, "
@@ -203,7 +214,7 @@ class _CerebrumCode(DatabaseAccessor):
             try:
                 code = int(args[0])
             except ValueError:
-                raise TypeError("Argument 'code' must be int or str.")
+                raise TypeError("Argument 'code' must be int or string.")
             if code in cls._cache:
                 return cls._cache[code]
 
@@ -214,7 +225,7 @@ class _CerebrumCode(DatabaseAccessor):
             # cached one instead.
             new = DatabaseAccessor.__new__(cls)
             new.__init__(*args, **kwargs)
-            code_str = str(new)
+            code_str = text(new)
             if code_str in cls._cache:
                 cls._cache[code] = cls._cache[code_str]
                 return cls._cache[code]
@@ -228,7 +239,7 @@ class _CerebrumCode(DatabaseAccessor):
     # Database arg every time?
     def __init__(self, code, description=None, lang=None):
         # self may be an already initialised singleton.
-        if isinstance(description, basestring):
+        if isinstance(description, string):
             description = description.strip()
 
         # Let's try to keep the value unicode internally
@@ -236,12 +247,12 @@ class _CerebrumCode(DatabaseAccessor):
             # Try to decode as utf-8, latin-1
             try:
                 description = description.decode('utf-8')
-            except UnicodeError:
+            except UnicodeDecodeError:
                 description = description.decode('latin-1')
 
         self._desc = description
 
-        if isinstance(code, str):
+        if isinstance(code, string):
             # We can't initialise self.int here since the database is
             # unavailable while all the constants are defined, nor
             # would we want to, since we often never need the
@@ -260,6 +271,11 @@ class _CerebrumCode(DatabaseAccessor):
                     {'code': code})
             except Errors.NotFoundError:
                 raise Errors.NotFoundError('Constant %r' % self)
+        if hasattr(self, 'str') and isinstance(self.str, bytes):
+            try:
+                self.str = self.str.decode('UTF-8')
+            except UnicodeDecodeError:
+                self.str = self.str.decode('latin-1')
         self._lang = self._build_language_mappings(lang)
 
     @property
@@ -270,13 +286,13 @@ class _CerebrumCode(DatabaseAccessor):
         except AttributeError:
             value = None
 
-        if value is None or isinstance(value, unicode):
+        if value is None or isinstance(value, text):
             return value
         raise AttributeError("no valid _desc set")
 
     @_desc.setter
     def _desc(self, value):
-        if value is None or isinstance(value, unicode):
+        if value is None or isinstance(value, text):
             self.__desc = value
         else:
             raise ValueError("_desc must be unicode or None")
@@ -313,7 +329,7 @@ class _CerebrumCode(DatabaseAccessor):
             key = language.str
         elif isinstance(language, (long, int)):
             key = lang_kls(language).str
-        elif isinstance(language, (str, unicode)):
+        elif isinstance(language, string):
             # Make sure that a string refers to a valid language code
             key = lang_kls(int(lang_kls(language))).str
 
@@ -329,13 +345,13 @@ class _CerebrumCode(DatabaseAccessor):
         return self.str
 
     def __repr__(self):
-        return "<%(class)s instance%(str)s%(int)s at %(id)s>" % {
+        return "<{class} instance{str}{int} at {id}>".format(**{
             'class': self.__class__.__name__,
             'str': ("" if getattr(self, 'str', None) is None
-                    else " code_str=%r" % self.str),
+                    else " code_str=" + self.str.encode('UTF-8')),
             'int': ("" if getattr(self, 'int', None) is None
-                    else " code=%d" % self.int),
-            'id': hex(id(self) & 2 ** 32 - 1)}
+                    else " code=" + str(self.int)),
+            'id': hex(id(self) & 2 ** 32 - 1)})
 
     @property
     def description(self):
@@ -350,11 +366,14 @@ class _CerebrumCode(DatabaseAccessor):
                 {'code': int(self)})
 
             # Decode and cache
-            try:
-                self._desc = desc.decode(self.sql.encoding)
-            except Exception:
-                # UnicodeDecodeError, or TypeError (desc is None)
-                self._desc = None
+            if isinstance(desc, bytes):
+                try:
+                    self._desc = desc.decode(self.sql.encoding)
+                except Exception:
+                    # UnicodeDecodeError, or TypeError (desc is None)
+                    self._desc = None
+            else:
+                self._desc = desc
 
         return self._desc
 
@@ -602,8 +621,13 @@ class _CountryCode(_CerebrumCode):
                 {'code': int(self)}))
         return getattr(self, attr_name)
 
-    country = property(lambda (self): self._fetch_column("country"))
-    phone_prefix = property(lambda (self): self._fetch_column("phone_prefix"))
+    @property
+    def country(self):
+        return self._fetch_column("country")
+
+    @property
+    def phone_prefix(self):
+        return self._fetch_column("phone_prefix")
 
 
 class _AddressCode(_CerebrumCode):
@@ -634,6 +658,7 @@ class _PersonAffiliationCode(_CerebrumCode):
     pass
 
 
+@python_2_unicode_compatible
 class _PersonAffStatusCode(_CerebrumCode):
 
     "Mappings stored in the person_aff_status_code table"
@@ -700,7 +725,7 @@ class _PersonAffStatusCode(_CerebrumCode):
         return self.int
 
     def __str__(self):
-        return "%s/%s" % (self.affiliation, self.str)
+        return u"{}/{}".format(self.affiliation, self.str)
 
     def _get_status(self):
         return self.str
@@ -815,6 +840,7 @@ class _QuarantineCode(_CerebrumCode):
              'desc': self._desc})
 
 
+@python_2_unicode_compatible
 class _ChangeTypeCode(_CerebrumCode):
     _lookup_code_column = 'change_type_id'
     # _lookup_str_column = 'status_str'
@@ -891,7 +917,7 @@ class _ChangeTypeCode(_CerebrumCode):
             'id': hex(id(self) & 2 ** 32 - 1)}
 
     def __str__(self):
-        return "%s:%s" % (self.category, self.type)
+        return u"{}:{}".format(self.category, self.type)
 
     def __int__(self):
         if self.int is None:
@@ -978,7 +1004,7 @@ class ConstantsBase(DatabaseAccessor):
                 cls = type(attr)
                 if cls not in order[dep]:
                     order[dep][cls] = {}
-                order[dep][cls][str(attr)] = attr
+                order[dep][cls][text(attr)] = attr
         return order
 
     def _get_superfluous_codes(self):
@@ -990,7 +1016,7 @@ class ConstantsBase(DatabaseAccessor):
             code_vals = [int(x) for x in order[root][cls].values()]
             for code in table_vals:
                 if code not in code_vals:
-                    name = str(cls(code))
+                    name = text(cls(code))
                     yield cls, code, name
 
     def initialize(self, update=True, delete=False):
@@ -1035,7 +1061,7 @@ class ConstantsBase(DatabaseAccessor):
                     for c in table_vals:
                         if c not in code_vals:
                             if delete:
-                                tmp_cls_c = str(cls(c))
+                                tmp_cls_c = text(cls(c))
                                 cls(c).delete()
                                 stats['deleted'] += 1
                                 stats['details'].append(
@@ -1116,8 +1142,12 @@ class ConstantsBase(DatabaseAccessor):
         obj = None
         if isinstance(human_repr, (int, long)):
             obj = self.map_const(human_repr)
-        elif isinstance(human_repr, (str, unicode)):
-            human_repr = str(human_repr)  # in case of unicode
+        elif isinstance(human_repr, string):
+            if isinstance(human_repr, bytes):
+                try:
+                    human_repr = human_repr.decode('UTF-8')
+                except UnicodeDecodeError:
+                    human_repr = human_repr.decode('latin-1')
             # ok, that failed, so assume this is a constant name ...
             if hasattr(self, human_repr):
                 obj = getattr(self, human_repr)
@@ -1178,14 +1208,14 @@ class CoreConstants(ConstantsBase):
         'difference',
         'Difference')
 
-    language_nb = _LanguageCode("nb", "Bokmål")
+    language_nb = _LanguageCode("nb", u"Bokmål")
     language_nn = _LanguageCode("nn", "Nynorsk")
     language_en = _LanguageCode("en", "English")
     language_de = _LanguageCode("de", "Deutsch")
     language_it = _LanguageCode("it", "Italiano")
     language_nl = _LanguageCode("nl", "Nederlands")
     language_sv = _LanguageCode("sv", "Svenska")
-    language_sv = _LanguageCode("fr", "Français")
+    language_sv = _LanguageCode("fr", u"Français")
     language_ru = _LanguageCode("ru", "Russian")
 
     system_cached = _AuthoritativeSystemCode(

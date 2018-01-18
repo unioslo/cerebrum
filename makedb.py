@@ -454,50 +454,50 @@ def parsefile(fname):
     join_str = ''
 
     ret = []
-    f = file(fname)
-    for x in f.readlines():
-        x = kill_newline_repl.sub('', x)
-        x = kill_spaces_repl.sub(' ', x)
-        # Ignore empty lines:
-        if not x.strip():
-            continue
+    with open(fname, 'r') as f:
+        for x in f.readlines():
+            x = kill_newline_repl.sub(' ', x)
+            x = kill_spaces_repl.sub(' ', x)
+            # Ignore empty lines:
+            if not x.strip():
+                continue
 
-        # Filter out lines with comments:
-        if re.match(long_line_comment, x):
-            inside_comment = False
-            continue
-        if re.match(long_comment_stop, x):
-            inside_comment = False
-            continue
-        if re.match(long_comment_start, x):
-            inside_comment = True
-            continue
-        if inside_comment:
-            continue
-        if re.match(line_comment, x):
-            continue
+            # Filter out lines with comments:
+            if re.match(long_line_comment, x):
+                inside_comment = False
+                continue
+            if re.match(long_comment_stop, x):
+                inside_comment = False
+                continue
+            if re.match(long_comment_start, x):
+                inside_comment = True
+                continue
+            if inside_comment:
+                continue
+            if re.match(line_comment, x):
+                continue
 
-        # Handle functions correctly, as they might contain semi-colons
-        if 'FUNCTION' in x and 'DROP FUNCTION' not in x:
-            function_join_mode = True
-            join_str += x
-        elif 'LANGUAGE' in x:
-            function_join_mode = False
-            join_str += sc_pat_repl.sub('', x)
-            ret.append(join_str.strip())
-            join_str = ''
-        elif function_join_mode:
-            join_str += x
-        # Handle everything else
-        else:
-            if not sc_pat.match(x):
+            upperx = x.upper()  # match against case insensitive SQL keywords
+            # Handle functions correctly, as they might contain semi-colons
+            if 'FUNCTION' in upperx and 'DROP FUNCTION' not in upperx:
+                function_join_mode = True
                 join_str += x
-            else:
+            elif 'LANGUAGE' in upperx:
+                function_join_mode = False
                 join_str += sc_pat_repl.sub('', x)
                 ret.append(join_str.strip())
                 join_str = ''
-    f.close()
-    return ret
+            elif function_join_mode:
+                join_str += x
+            else:
+                # Handle everything else
+                if not sc_pat.match(x):
+                    join_str += x
+                else:
+                    join_str += sc_pat_repl.sub('', x)
+                    ret.append(join_str.strip())
+                    join_str = ''
+        return ret
 
 
 def runfile(fname, db, debug, phase):
