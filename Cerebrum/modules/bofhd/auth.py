@@ -1606,6 +1606,9 @@ class BofhdAuth(DatabaseAccessor):
 
     def _is_important_account(self, operator, account):
         """If an account is considered important."""
+        # Superusers
+        if self.is_superuser(account.entity_id):
+            return True
         # Manually tagged important accounts
         if account.get_trait(self.const.trait_important_account):
             return True
