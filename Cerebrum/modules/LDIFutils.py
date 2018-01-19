@@ -36,7 +36,7 @@ except NameError:
 
 import cereconf
 from Cerebrum import Errors as _Errors
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, to_unicode, unicode2str
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
@@ -167,7 +167,7 @@ def entry_string(dn, attrs, add_rdn=True):
                 extend((attr, ": ", val, "\n"))
 
     result.append("\n")
-    return "".join(result)
+    return unicode2str(u"".join(map(to_unicode, result)))
 
 # For entry_string() attrs: map {type: function producing sequence/iterator}
 _attrval_seqtypes = (tuple, list, set, frozenset, type(None))
