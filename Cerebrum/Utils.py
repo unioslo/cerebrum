@@ -1411,8 +1411,8 @@ class SMSSender():
                                      's': self._system,
                                      't': phone_to,
                                      'm': message})
-        self._logger.debug("Sending SMS to %s (user: %s, system: %s)"
-                           % (phone_to, self._user, self._system))
+        self._logger.info("Sending SMS to %s (user: %s, system: %s)" % (
+            phone_to, self._user, self._system))
 
         old_timeout = socket.getdefaulttimeout()
         socket.setdefaulttimeout(60)  # in seconds
@@ -1434,7 +1434,7 @@ class SMSSender():
 
         resp = self._validate_response(ret)
         if resp:
-            self._logger.debug("SMS to %s sent ok" % (phone_to))
+            self._logger.info("SMS to %s sent ok" % (phone_to))
         else:
             self._logger.warning("SMS to %s could not be sent" % phone_to)
         return bool(resp)
