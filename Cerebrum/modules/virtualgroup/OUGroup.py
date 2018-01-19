@@ -304,35 +304,33 @@ class OUGroup(VirtualGroup):
                                           filter_members=member_id))
         return super(OUGroup, self).has_member(member_id)
 
-
-    def convert(self, group_type='ougroup',
-                      ou_id=None,
-                      affiliation=None,
-                      affiliation_source=None,
-                      affiliation_status=None,
-                      recursion=None,
-                      ou_perspective=None,
-                      member_type=None):
-	""" Upgrade an existing standard group to ou group
-        """
+    def convert(self,
+                group_type='ougroup',
+                ou_id=None,
+                affiliation=None,
+                affiliation_source=None,
+                affiliation_status=None,
+                recursion=None,
+                ou_perspective=None,
+                member_type=None):
+        """ Upgrade an existing standard group to ou group """
         try:
-            existing_members = super(OUGroup, self).search_members(self.entity_id)
+            existing_members = super(OUGroup, self).search_members(
+                self.entity_id)
         except NotFoundError:
             pass
         if existing_members:
-            RuntimeError("Group {} has members; can't convert".format(self.group_name))
+            RuntimeError("Group {} has members; can't convert"
+                         .format(self.group_name))
 
-	super(OUGroup, self).convert(group_type)
-	self.ou_id = ou_id
+        super(OUGroup, self).convert(group_type)
+        self.ou_id = ou_id
         self.affiliation = affiliation
         self.affiliation_source = affiliation_source
         self.affiliation_status = affiliation_status
         self.recursion = recursion
         self.ou_perspective = ou_perspective
         self.member_type = member_type
-
-        
-
 
     def search(self,
                group_id=None,
@@ -582,7 +580,7 @@ class OUGroup(VirtualGroup):
         if source:
             wheres.append("(affiliation_source IS NULL OR {})".format(
                 argument_to_sql(source, 'vgo.affiliation_source',
-                                          binds, int)))
+                                binds, int)))
         if member_types:
             wheres.append(argument_to_sql(member_types, 'vgo.member_type',
                                           binds, int))
@@ -648,7 +646,7 @@ class OUGroup(VirtualGroup):
         """Group API list_members.
 
         See Group.list_members for parameter definitions"""
-        
+
         spread = None
         if spread:
             binds = {'id': group_id}
@@ -707,7 +705,7 @@ class OUGroup(VirtualGroup):
                                         'oes.entity_id = vgo.group_id'])
                 else:
                     s = ''
-                ous = """    
+                ous = """
                 UNION SELECT op.ou_id, op.perspective, op.parent_id,
                              vgo.group_id
                       FROM ous, [:table schema=cerebrum name=ou_structure] op,
@@ -821,7 +819,7 @@ class OUGroup(VirtualGroup):
             wheres.extend(['at.ou_id = ous.ou_id',
                            'at.affiliation = :affiliation'])
             extra_where.append('vgo.affiliation = :affiliation')
-    
+
         fields.append('{} AS member_id'.format(memid))
         qparams['member_type'] = memtype
         qparams['memtype'] = mt
@@ -834,7 +832,7 @@ class OUGroup(VirtualGroup):
             wheres.extend(['mes.entity_id = {}'.format(memid), tmp])
             if not indirect and rec == self.const.virtual_group_ou_recursive:
                 extra_where.extend(['mes.entity_id = vgo.group_id', tmp])
-    
+
         if member_names or filter_members:
             tmp = '[:table schema=cerebrum name=entity_name] men'
             tables.append(tmp)
@@ -844,14 +842,15 @@ class OUGroup(VirtualGroup):
                 extra_where.append('men.entity_id = vgo.group_id')
             fields.append('men.entity_name AS member_name')
             group_fields.append('men.entity_name AS member_name')
-    
+
         if filter_members:
-            wheres.append(argument_to_sql(filter_members, 'men.entity_id', qparams, int))
+            wheres.append(argument_to_sql(
+                filter_members, 'men.entity_id', qparams, int))
             if not indirect and rec == self.const.virtual_group_ou_recursive:
                 extra_where.append(argument_to_sql(filter_members,
                                                    'vgo.group_id', qparams,
                                                    int))
-                                           
+
         if extra_sql:
             extra_tables_str = ''
             if extra_tables:
@@ -1082,7 +1081,8 @@ class PersonOuGroup(Person):
         """Add or update affiliation"""
         c, s, p = super(PersonOuGroup, self).add_affiliation(ou_id, affiliation,
                                                              source, status,
-                                                             deleted_date, precedence)
+                                                             deleted_date,
+                                                             precedence)
         if c:
             gr = Factory.get('Group')(self._db)
             myid = self.entity_id
