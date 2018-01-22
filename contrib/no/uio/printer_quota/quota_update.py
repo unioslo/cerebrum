@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004-2007 University of Oslo, Norway
+# Copyright 2004-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -177,10 +177,13 @@ def recalc_quota_callback(person_info):
     person_id = person_info.get('person_id', None)
     logger.set_indent(0)
     if person_id is None:
-        fnr = fodselsnr.personnr_ok("%06d%05d" % (
-            int(person_info['fodselsdato']),
-            int(person_info['personnr'])
-        ))
+        try:
+            fnr = fodselsnr.personnr_ok("%06d%05d" % (
+                int(person_info['fodselsdato']),
+                int(person_info['personnr'])
+            ))
+        except InvalidFnrError:
+            logger.warn('Invalid FNR detected')
         if fnr not in fnr2pid:
             logger.warn("fnr %s is an unknown person" % fnr)
             return
