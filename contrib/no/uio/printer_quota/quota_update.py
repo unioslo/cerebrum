@@ -182,7 +182,7 @@ def recalc_quota_callback(person_info):
                 int(person_info['fodselsdato']),
                 int(person_info['personnr'])
             ))
-        except InvalidFnrError as e:
+        except InvalidFnrError:
             logger.warn('Invalid FNR detected')
         if fnr not in fnr2pid:
             logger.warn("fnr %s is an unknown person" % fnr)
