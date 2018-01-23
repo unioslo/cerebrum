@@ -42,19 +42,16 @@ class BofhdAuth(BofhdAuth):
     """Defines methods that are used by bofhd to determine wheter
     an operator is allowed to perform a given action.
 
-    This class only contains special cases for UiA.
+    This class only contains special cases for SMS commands.
     """
 
     def can_send_welcome_sms(self, operator, query_run_any=False):
         # Superusers can see and run command
         if self.is_superuser(operator):
             return True
-        # Group members can see and run command
-        try:
-            if self.is_group_member(operator, 'cerebrum-password'):
-                return True
-        except Errors.NotFoundError:
-            pass
+        # Allow access if users can create other users
+        if self.can_create_user(operator, query_run_any=True):
+            return True
         # Hide command if not in the above groups
         if query_run_any:
             return False
