@@ -195,6 +195,7 @@ def usage(exitcode=0):
     -d | --dryrun : do not commit changes to database
     -o | --old <name> : old account name to change (REQUIRED)
     -n | --new <name> : new account name set as new (REQUIRED)
+    -N | --no-email   : do not send out email to user
     --logger_name <name> : logger target to use
 
     """
@@ -214,10 +215,11 @@ def main():
     dryrun = False
     old_name = None
     new_name = None
+    notify_user = True
     #today = datetime.date.today()
 #    new_expire_date = today + datetime.timedelta(days=numdays)
     try:
-        opts, args = getopt.getopt(sys.argv[1:],'hdn:o:l:',['help','dryrun','new=','old=','logger='])
+        opts, args = getopt.getopt(sys.argv[1:],'hdn:o:l:N',['help','dryrun','new=','old=','logger=','no_email'])
     except getopt.GetoptError,m:
         print "wrong arguments:%s" % m
         usage(1)
@@ -230,6 +232,8 @@ def main():
             dryrun=True
         elif opt in ['-n', '--new']:
             new_name=val
+        elif opt in ['-N','--no-email']:
+            notify_user = False
         elif opt in ['-o', '--old']:
             old_name=val
         elif opt in [ '-l', '--logger']:
@@ -274,7 +278,7 @@ def main():
 
         print "Old name: ", new_person_name
         print "New name: ", old_person_name
-        
+        print "Notify user:%s" % notify_user
         resp = raw_input("Are you sure you want to write to databasestore y/[N]:")
         resp = resp.capitalize()
         while ((resp !='Y') and (resp !='N')):
@@ -319,6 +323,7 @@ def main():
                 if ac.is_expired():
                     account_expired = ' Imidlertid er ikke kontoen aktiv, men kan reaktiveres når som helst.'
             
+                # TBD : remove comment below when leetah is removed
                 #Utils.sendmail('star-gru@orakel.uit.no', #TO
                 #               'bas-admin@cc.uit.no', #SENDER
                 #               'Brukernavn endret (%s erstattes av %s)' % (old_name, new_name), #TITLE
@@ -363,21 +368,22 @@ def main():
             if ac.is_expired():
                 riktig_brukernavn += ' Imidlertid er ikke kontoen aktiv, og vil kun sendes til AD når den blir reaktivert.'
 
-            # if False and mailto_ad and not dryrun:
-            #     Utils.sendmail('nybruker2@asp.uit.no', #TO
-            #                    'bas-admin@cc.uit.no', #SENDER
-            #                    'Brukernavn endret', #TITLE
-            #                    'Brukernavnet %s er endret i BAS.%s' %
-            #                    (old_name, riktig_brukernavn), #BODY
-            #                    cc=None,
-            #                    charset='iso-8859-1',
-            #                    debug=False)
-            #     print "mail sent to nybruker2@asp.uit.no\n"
+            if False and mailto_ad and not dryrun:
+                Utils.sendmail('nybruker2@asp.uit.no', #TO
+                               'bas-admin@cc.uit.no', #SENDER
+                               'Brukernavn endret', #TITLE
+                               'Brukernavnet %s er endret i BAS.%s' %
+                               (old_name, riktig_brukernavn), #BODY
+                               cc=None,
+                               charset='iso-8859-1',
+                               debug=False)
+                print "mail sent to nybruker2@asp.uit.no\n"
 
             pe.clear()
             ac.clear()
-
-            if send_user_mail is not None:
+            if notify_user == False:
+                print "not sending email to user"
+            elif send_user_mail is not None and notify_user == True:
                 # SEND MAIL TO OLD AND NEW ACCOUNT + "BCC" to bas-admin!
                 sender = 'orakel@uit.no'
                 recipient = send_user_mail['OLD_MAIL']
@@ -385,8 +391,9 @@ def main():
 
                 template = cereconf.CB_SOURCEDATA_PATH + '/templates/rename_account.tmpl'
 
-                result = Utils.mail_template(recipient, template, sender=sender, cc=cc,
-                                        substitute=send_user_mail, charset='utf-8', debug=dryrun)
+                # TBD: remove below comment when leetah is removed
+                #result = Utils.mail_template(recipient, template, sender=sender, cc=cc,
+                #                        substitute=send_user_mail, charset='utf-8', debug=dryrun)
                 
                 #print "Mail sent to: %s" % (recipient)
                 #print "cc to %s" % (cc)
@@ -400,7 +407,7 @@ def main():
                 result = Utils.mail_template(recipient, template, sender=sender,
                                         substitute=send_user_mail, charset='utf-8', debug=dryrun)
 
-                #print "BCC sent to: %s" % (recipient)
+                print "BCC sent to: %s" % (recipient)
             #worker.rollback();
             worker.commit()
         else:
