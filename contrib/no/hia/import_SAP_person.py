@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2004-2017 University of Oslo, Norway
+# Copyright 2004-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -205,7 +205,7 @@ def populate_external_ids(tpl):
                      tpl.sap_ansattnr, tpl.sap_fnr)
 
     try:
-        fodselsnr.personnr_ok(tpl.sap_fnr)
+        fodselsnr.personnr_ok(tpl.sap_fnr, accept_00X00=False)
     except fodselsnr.InvalidFnrError:
         # IVR 2007-02-15 It is *wrong* to simply ignore these, but since they
         # do occur, and they may be difficult to get rid of, we'll downgrade
