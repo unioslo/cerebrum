@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 help write out XML documents
 
