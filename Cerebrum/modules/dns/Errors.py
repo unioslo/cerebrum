@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 from Cerebrum.modules.bofhd import errors
 
 class DNSError(errors.CerebrumError):

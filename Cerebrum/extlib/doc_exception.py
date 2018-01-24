@@ -29,7 +29,7 @@ URL: http://soiland.no/software
 """
 
 
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 class DocstringException(Exception):
     """Makes it easy to define more descriptive error messages.
