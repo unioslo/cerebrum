@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """ Database utils
 
 This class contains database utils for Cerebrum tests.
