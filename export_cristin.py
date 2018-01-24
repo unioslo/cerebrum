@@ -716,9 +716,6 @@ def output_OU(writer, id, db_ou, stedkode, constants,db):
     except:
         ou_acronyms.append({'language':language,'acronym':None})
         #print "unable to get acronym for ou:%s" % ou_names
-    #pprint(ou_names)
-    #pprint(ou_acronyms)
-    #ou_acronyms = db_ou.get_acronyms()
     # Ufh! I want CL's count-if
     # Check that there is at least one name and at least one
     # acronym that are not empty.
@@ -761,27 +758,25 @@ def output_OU(writer, id, db_ou, stedkode, constants,db):
     # restore 'pointer' back to child
     stedkode.clear(); stedkode.find(id)
     
-    # norOrgUnitNames+
-    #pprint(ou_names)
-    #print type(ou_names)
-    for name, language in ou_names:
-        #print "ou_names.name:%s" % name
-        #print "ou.language:%s" % language
+    for entry in ou_names:
         # Some tuples might have empty names (general case)
-        if not name: continue
+        if not entry['name']: continue
         attributes = {}
-        if language: attributes = {"language": language}
+        #if language: 
+        #    attributes = {"language": "nb"}
         writer.startElement("navnBokmal", attributes)
-        writer.data(name)            
+        writer.data(entry['name'])            
         writer.endElement("navnBokmal")
     # od
 
 
     for acronym, language in ou_acronyms:
         # some tuples might have empty acronyms
-        if not acronym: continue
+        if not acronym: 
+            continue
         attributes = {}
-        if language: attributes = {"language": language}
+        #if language: 
+        #    attributes = {"language": "nb"}
         writer.startElement("akronym", attributes)
         writer.data(str(acronym).lower())
         writer.endElement("akronym")
