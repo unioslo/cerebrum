@@ -20,7 +20,7 @@ import shutil
 #       setattr(pytest.mark, 'skip', partial(pytest.mark.skipif, True))
 
 
-class TestException(Exception):
+class AFWTestException(Exception):
     pass
 
 
@@ -239,8 +239,8 @@ def test_context_fail(AtomicFileWriter, text, text_file, more_text):
     try:
         with AtomicFileWriter(text_file) as af:
             af.write(more_text)
-            raise TestException()
-    except TestException:
+            raise AFWTestException()
+    except AFWTestException:
         pass
     assert match_contents(text_file, text)
 

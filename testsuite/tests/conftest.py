@@ -6,7 +6,7 @@ This module contains fixtures that should be shared across all tests.
 """
 import pytest
 import types
-
+import cerebrum_path
 
 @pytest.fixture
 def cereconf():

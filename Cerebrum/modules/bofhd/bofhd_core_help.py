@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2016 University of Oslo, Norway
+# Copyright 2013-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -420,7 +420,7 @@ command_help = {
         'user_set_owner': 'Assign ownership for an account',
         'user_shell': 'Set login-shell for a POSIX user account',
         'user_send_welcome_sms':
-            'Manually send out the Welcome SMS to a student',
+            'Manually send out the Welcome SMS to a user',
     },
 }
 arg_help = {

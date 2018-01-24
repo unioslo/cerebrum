@@ -26,7 +26,6 @@ import sys
 
 from time import time as now
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
@@ -34,8 +33,6 @@ from Cerebrum import Utils
 from Cerebrum import Account
 from Cerebrum import Metainfo
 from Cerebrum.Constants import _SpreadCode
-
-del cerebrum_path
 
 # run migrate_* in this order
 targets = {
@@ -45,6 +42,7 @@ targets = {
              'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',
              'rel_0_9_18', 'rel_0_9_19', ),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3',),
+    'bofhd_auth': ('bofhd_auth_1_1', 'bofhd_auth_1_2',),
     'changelog': ('changelog_1_2', 'changelog_1_3'),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4',
               'email_1_5',),
@@ -805,6 +803,26 @@ def migrate_to_bofhd_1_3():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_bofhd", "1.3")
     print "Migration to bofhd 1.3 completed successfully"
+    db.commit()
+
+
+def migrate_to_bofhd_auth_1_1():
+    print "\ndone."
+    assert_db_version("1.0", component='bofhd_auth')
+    makedb('bofhd_auth_1_1', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_bofhd_auth", "1.1")
+    print "Migration to bofhd_auth 1.1 completed successfully"
+    db.commit()
+
+
+def migrate_to_bofhd_auth_1_2():
+    print "\ndone."
+    assert_db_version("1.1", component='bofhd_auth')
+    makedb('bofhd_auth_1_2', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_bofhd_auth", "1.2")
+    print "Migration to bofhd_auth 1.2 completed successfully"
     db.commit()
 
 

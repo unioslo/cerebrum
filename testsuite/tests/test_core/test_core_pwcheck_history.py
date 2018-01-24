@@ -11,7 +11,7 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.pwcheck.history import PasswordHistoryMixin
 from Cerebrum.modules.pwcheck.history import PasswordHistory
-from Cerebrum.modules.pwcheck.common import PasswordNotGoodEnough
+from Cerebrum.modules.pwcheck.checker import PasswordNotGoodEnough
 
 # Cerebrum-specific test modules
 from datasource import BasicAccountSource

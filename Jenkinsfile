@@ -10,7 +10,7 @@ pipeline {
     }
     stage ('Run tests') {
       steps {
-        sh 'docker-compose -f docker-compose.test.yml run --rm uio'
+        sh '/opt/rh/rh-python36/root/usr/bin/python3.6 testsuite/docker/scripts/ci-test-runner uio uia'
       }
     }
   }

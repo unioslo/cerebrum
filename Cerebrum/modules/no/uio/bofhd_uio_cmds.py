@@ -25,6 +25,8 @@ import ssl
 import pickle
 import socket
 
+import six
+
 from mx import DateTime
 from flanker.addresslib import address as email_validator
 
@@ -5873,12 +5875,12 @@ Addresses and settings:
         tmp = {}
         duplicate_check_list = list()
         for co in self.const.fetch_constants(self.const.PersonAffStatus):
-            aff = str(co.affiliation)
+            aff = six.text_type(co.affiliation)
             if aff not in tmp:
                 tmp[aff] = [{'aff': aff,
                              'status': '',
                              'desc': co.affiliation.description}]
-            status = str(co._get_status())
+            status = six.text_type(co._get_status())
             if (aff, status) in duplicate_check_list:
                 continue
             tmp[aff].append({'aff': '',
