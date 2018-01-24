@@ -57,8 +57,8 @@ def clean_titles(person, specs):
         person.delete_name_with_language(*spec)
 
 
-def update_person(logger, person, constants, source_system):
-    """Remove general information from persons."""
+def update_person_from_sap(logger, person, constants, source_system):
+    """Remove information from persons from SAP."""
     clean_names(logger, person, constants, source_system)
     clean_addresses(person, source_system)
     clean_contact_info(person, source_system)
@@ -66,6 +66,13 @@ def update_person(logger, person, constants, source_system):
                           (constants.work_title, constants.language_nb),
                           (constants.personal_title, constants.language_en),
                           (constants.personal_title, constants.language_nb)])
+
+
+def update_person_from_fs(logger, person, constants, source_system):
+    """Remove information from persons from FS."""
+    clean_names(logger, person, constants, source_system)
+    clean_addresses(person, source_system)
+    clean_contact_info(person, source_system)
 
 
 def perform(cleaner, committer, logger, person, constants, selection):
@@ -162,7 +169,7 @@ def select(person, source_system, constants, grace):
             select_by_stored_data(person, source_system, constants))
 
 
-def clean_it(prog, commit, systems, commit_threshold=1, grace=0):
+def clean_it(prog, commit, systems, system_to_cleaner, commit_threshold=1, grace=0):
     """Call funcs based on command line arguments."""
     class _Committer(object):
         """Commit changes upon reaching a threshold of N calls to commit()."""
@@ -206,10 +213,15 @@ def clean_it(prog, commit, systems, commit_threshold=1, grace=0):
                            commit,
                            commit_threshold)
 
+    def _failer(_logger, _person, _constants, source_system):
+        raise NotImplementedError('Cleaner for {}'.format(source_system))
+
+
     for x in systems:
         system = constants.AuthoritativeSystem(x)
         logger.info("Starting to clean data from %s", system)
-        cleaner = functools.partial(update_person, source_system=system)
+        cleaner = functools.partial(system_to_cleaner.get(x, _failer),
+                                    source_system=system)
         perform(cleaner,
                 committer.conditional_commit,
                 logger,
@@ -251,9 +263,13 @@ def parse_it():
                              ' affiliation in the last N days')
     args = parser.parse_args()
 
+    system_to_cleaner = {'FS': update_person_from_fs,
+                         'SAP': update_person_from_sap }
+
     clean_it(parser.prog,
              args.commit,
              args.systems,
+             system_to_cleaner,
              args.commit_threshold,
              args.grace)
 
