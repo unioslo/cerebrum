@@ -1,6 +1,7 @@
 2018-01-24    <cerebrum@cleomedes.uit.no>
 
 	* export_cristin.py (output_OU): Refactored how to collect ou.name as the old method no longer returned propper data.
+	Refactored how to collect ou.acronym as the old method no longer returned propper data.
 
 2018-01-18  Karen   <cerebrum@cleomedes.uit.no>
 

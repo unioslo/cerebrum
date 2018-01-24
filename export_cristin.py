@@ -770,15 +770,15 @@ def output_OU(writer, id, db_ou, stedkode, constants,db):
     # od
 
 
-    for acronym, language in ou_acronyms:
+    for entry in ou_acronyms:
         # some tuples might have empty acronyms
-        if not acronym: 
+        if not entry['acronym']: 
             continue
         attributes = {}
         #if language: 
         #    attributes = {"language": "nb"}
         writer.startElement("akronym", attributes)
-        writer.data(str(acronym).lower())
+        writer.data(str(entry['acronym']).lower())
         writer.endElement("akronym")
 
     # Addressline
