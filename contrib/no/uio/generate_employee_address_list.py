@@ -1,5 +1,5 @@
 #! python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2007 University of Oslo, Norway
 #
