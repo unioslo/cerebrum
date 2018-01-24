@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -37,7 +37,7 @@ class InvalidFnrError(ValueError):
     "Exception som indikerer ugyldig norsk fødselsnummer."
     pass
 
-def personnr_ok(nr, _retDate=0):
+def personnr_ok(nr, _retDate=0, accept_00X00=True):
     """Returnerer 11-sifret fødselsnummer som str dersom det er gyldig.
 
     Første argument kan være enten en (long) int eller en str.
@@ -63,7 +63,7 @@ def personnr_ok(nr, _retDate=0):
          int(nr[0:2]), int(nr[2:4]), int(nr[4:6]), int(nr[6:9])
 
     # luk ut personnr fra SAP (12345600X00)
-    if re.search(r'00\d00$', nr):
+    if not accept_00X00 and re.search(r'00\d00$', nr):
         raise InvalidFnrError("Fnr med gyldig sjekksum, men ugyldig personnr")
     
     # B-nummer -- midlertidig (max 6 mnd) personnr
