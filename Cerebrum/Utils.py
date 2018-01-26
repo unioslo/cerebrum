@@ -191,49 +191,6 @@ def mail_template(recipient, template_file, sender=None, cc=None,
     smtp.quit()
 
 
-def separate_entries(rows, *predicates):
-    """Separate ``rows`` into (keep, reject) tuple based on ``predicates``.
-
-    The ``rows`` argument should be a sequence of db_row.py-generated
-    objects.  Each element in ``predicates`` should be a (key, value)
-    tuple, and is a formulation of a test expression.  The key must be
-    a valid attribute name of each row object.
-
-    The rows are separated according to these rules:
-    1. By default rows go to the keep list.
-    2. If a predicate's `value` is None, that predicate is ignored.
-    3. Compare each predicate's `value` with the attribute whose name
-       is `key` in each row.  Rows matching all predicates go to the
-       keep list, while the rest end up in the reject list.
-
-    """
-    keep = []
-    reject = []
-    for row in rows:
-        ok = 1
-        for key, value in predicates:
-            if value is None:
-                continue
-            ok = (row[key] == value)
-            if not ok:
-                break
-        if ok:
-            keep.append(row)
-        else:
-            reject.append(row)
-    return (keep, reject)
-
-
-def keep_entries(rows, *predicates):
-    """Return the 'keep' part of separate_entries() return value."""
-    return separate_entries(rows, *predicates)[0]
-
-
-def reject_entries(rows, *predicates):
-    """Return the 'reject' part of separate_entries() return value."""
-    return separate_entries(rows, *predicates)[1]
-
-
 # TODO: Deprecate when switching over to Python 3.x
 def is_str(x):
     """Checks if a given variable is a string, but not a unicode string."""
