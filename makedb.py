@@ -477,12 +477,11 @@ def parsefile(fname):
             if re.match(line_comment, x):
                 continue
 
-            upperx = x.upper()  # match against case insensitive SQL keywords
             # Handle functions correctly, as they might contain semi-colons
-            if 'FUNCTION' in upperx and 'DROP FUNCTION' not in upperx:
+            if 'FUNCTION' in x and 'DROP FUNCTION' not in x:
                 function_join_mode = True
                 join_str += x
-            elif 'LANGUAGE' in upperx:
+            elif 'LANGUAGE' in x:
                 function_join_mode = False
                 join_str += sc_pat_repl.sub('', x)
                 ret.append(join_str.strip())
