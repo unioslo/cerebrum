@@ -434,7 +434,8 @@ class AccountUtil(object):
 
         # Remove auto quarantines
         for q in (const.quarantine_auto_inaktiv,
-                  const.quarantine_auto_emailonly):
+                  const.quarantine_auto_emailonly,
+                  const.quarantine_auto_no_aff):
             if (int(q) in ac.get_quarantines() and
                 int(q) not in tmp):
                 changes.append(("remove_autostud_quarantine", q))
