@@ -73,14 +73,14 @@ class OrgLDIFUiTMixin(OrgLDIF):
         self.__super.update_org_object_entry(entry)
   
         if entry.has_key('o'):
-            entry['o'].append(['University of Tromsoe','Universitetet i Tromso'])
+            entry['o'].append(['UiT The Artcic University of Norway','UiT Norges Arktiske Universitet'])
         else:
-            entry['o'] = (['University of Tromsoe','Universitetet i Tromso'])
+            entry['o'] = (['University of Tromsoe','UiT Norges Arktiske Universitet'])
   
         if entry.has_key('eduOrgLegalName'):
-            entry['eduOrgLegalName'].append(['Universitetet i Tromso','University of Tromsoe'])
+            entry['eduOrgLegalName'].append(['UiT Norges Arktiske Universitet','UiT The Artcic University of Norway'])
         else:
-            entry['eduOrgLegalName'] = (['Universitetet i Tromso','University of Tromsoe'])
+            entry['eduOrgLegalName'] = (['UiT Norges Arktiske Universitet','UiT The Artcic University of Norway'])
         
         entry['norEduOrgNIN'] = (['NO970422528'])
         entry['mail'] =(['postmottak@uit.no'])

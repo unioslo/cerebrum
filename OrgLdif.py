@@ -141,8 +141,8 @@ class OrgLdifUitMixin(OrgLDIF):
         entry['objectClass'] = (['top', 'organization', 'eduOrg','norEduOrg','dcObject']
                                 + list(entry.get('objectClass', ())))
         self.update_org_object_entry(entry)
-        entry['o'] = (['University of Tromsoe','Universitetet i Tromso'])
-        entry['eduOrgLegalName']=(['Universitetet i Tromso','University of Tromsoe'])
+        entry['o'] = (['UiT The Artcic University of Norway','UiT Norges Arktiske Universitet'])
+        entry['eduOrgLegalName']=(['UiT Norges Arktiske Universitet','UiT The Artcic University of Norway'])
         entry['objectClass'] = self.attr_unique(entry['objectClass'],str.lower)
         #print "entry=%s " % entry
         outfile.write(entry_string(self.org_dn, entry))

@@ -1,3 +1,8 @@
+2018-01-29    <cerebrum@cleomedes.uit.no>
+
+	* OrgLdif.py (OrgLdifUitMixin.update_org_object_entry): updated o and eduOrgLegalName attributes
+	(OrgLdifUitMixin.generate_org_object): updated o and eduOrgLegalName attributes
+
 2017-11-24    <cerebrum@cleomedes.uit.no>
 
 	* bofhd_uit_cmds.py (BofhdExtension.user_history_filtered): this
