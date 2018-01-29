@@ -728,14 +728,20 @@ class EntityContactInfo(Entity):
                                            'src': int(source)})
 
     def get_contact_info(self, source=None, type=None):
-        return Utils.keep_entries(
-            self.query("""
+        where = []
+        binds = {}
+        where.append(argument_to_sql(self.entity_id, 'entity_id', binds, int))
+        if source is not None:
+            where.append(argument_to_sql(source, 'source_system', binds, int))
+        if type is not None:
+            where.append(argument_to_sql(type, 'contact_type', binds, int))
+        where_str = 'WHERE ' + ' AND '.join(where)
+
+        return self.query("""
             SELECT *
             FROM [:table schema=cerebrum name=entity_contact_info]
-            WHERE entity_id=:e_id
-            ORDER BY contact_pref""", {'e_id': self.entity_id}),
-            ('source_system', source),
-            ('contact_type', type))
+            %s
+            ORDER BY contact_pref""" % (where_str), binds)
 
     def populate_contact_info(self, source_system, type=None, value=None,
                               contact_pref=50, description=None, alias=None):
