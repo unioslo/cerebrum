@@ -912,41 +912,6 @@ def random_string(length, characters=ascii_lowercase + digits):
     return ''.join([random.choice(characters) for _ in range(length)])
 
 
-class RecursiveDict(dict):
-
-    """A variant of dict supporting recursive updates.
-    Useful for combining complex configuration dicts.
-    """
-
-    def __init__(self, values=None):
-        if values is None:
-            values = {}
-        dict.__init__(self)
-        # Make sure our __setitem__ is called.
-        for (key, value) in values.items():
-            self[key] = value
-
-    def update(self, other):
-        """D.update(E) -> None. Update D from E recursively.  Any
-        dicts that exists in both D and E are updated (merged)
-        recursively instead of being replaced. Note that items that
-        are UserDicts are not updated recursively.
-        """
-        for (key, value) in other.items():
-            if (key in self and
-                isinstance(self[key], RecursiveDict) and
-                    isinstance(value, dict)):
-                self[key].update(value)
-            else:
-                self[key] = value
-
-    def __setitem__(self, key, value):
-        if isinstance(value, dict):
-            # Wrap it, make sure it follows our rules
-            value = RecursiveDict(value)
-        dict.__setitem__(self, key, value)
-
-
 def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
     """Helper function for discarding exceptions easier.
 
