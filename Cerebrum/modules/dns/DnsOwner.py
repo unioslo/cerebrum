@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor

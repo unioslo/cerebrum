@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 import struct
 import socket
 from Cerebrum.modules.dns.Errors import DNSError

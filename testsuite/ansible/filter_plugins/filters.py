@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """ Custom Jinja2 filters available to playbooks. """
 
 import string

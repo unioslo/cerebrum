@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: iso-8859-1 -*-
+# -*- encoding: utf-8 -*-
 
 # Copyright 2008-2018 University of Oslo, Norway
 #

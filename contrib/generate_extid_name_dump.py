@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # vim: encoding=iso-8859-1:fileencoding=iso-8859-1
 # vim: ts=4:sw=4:expandtab
 # 

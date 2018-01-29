@@ -1,4 +1,4 @@
-# -*- coding: ascii -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.

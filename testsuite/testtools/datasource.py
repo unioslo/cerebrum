@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """ Default test data sources.
 
 This class contains data source generators for our tests. The classes in this

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from flask_restplus import Namespace, Resource, abort
 from Cerebrum.rest.api import db, auth, fields
 

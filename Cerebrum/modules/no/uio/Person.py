@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2013-2014 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
