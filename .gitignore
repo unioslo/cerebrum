@@ -15,3 +15,6 @@ TAGS
 /testresults
 /pytest.ini
 /testsuite/docker/cerebrum_config
+root.log
+Cerebrum.egg-info/
+ClientAPI.egg-info/
