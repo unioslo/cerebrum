@@ -11,9 +11,9 @@ import datetime
 
 import cereconf
 
-from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.email import mail_template as mail_template_util
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 from Cerebrum.modules.no.uio.Ephorte import EphortePermission
@@ -458,8 +458,8 @@ def mail_warnings(mailto, debug=False):
 
 
 def send_mail(mailto, mail_template, substitute, debug=False):
-    ret = Utils.mail_template(mailto, mail_template, substitute=substitute,
-                              debug=debug)
+    ret = mail_template_util(mailto, mail_template, substitute=substitute,
+                             debug=debug)
     if ret:
         logger.info("Not sending mail:\n%s" % ret)
     else:

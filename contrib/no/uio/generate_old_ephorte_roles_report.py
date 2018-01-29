@@ -27,16 +27,16 @@ for N weeks.
 
 import sys
 import getopt
-import cerebrum_path
-from Cerebrum import Utils
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.email import sendmail
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 from mx import DateTime
 
-logger = Utils.Factory.get_logger("cronjob")
-db = Utils.Factory.get('Database')()
-co = Utils.Factory.get('Constants')(db)
-pe = Utils.Factory.get('Person')(db)
-ou = Utils.Factory.get('OU')(db)
+logger = Factory.get_logger("cronjob")
+db = Factory.get('Database')()
+co = Factory.get('Constants')(db)
+pe = Factory.get('Person')(db)
+ou = Factory.get('OU')(db)
 er = EphorteRole(db)
 
 
@@ -149,8 +149,8 @@ def email_report(to_address, from_address, report):
     """Send the report by email."""
     import smtplib
     try:
-        Utils.sendmail(to_address, from_address, 'ePhorte role report',
-                             report, cc=None)
+        sendmail(to_address, from_address, 'ePhorte role report',
+                 report, cc=None)
     except smtplib.SMTPRecipientsRefused, e:
         failed_recipients = e.recipients
         logger.info("Failed to notify <%d> users", len(failed_recipients))
@@ -158,7 +158,8 @@ def email_report(to_address, from_address, report):
             logger.info("Failed to notify: %s", condition)
     except smtplib.SMTPException, msg:
         logger.warn("Error sending to %s: %s" % (to_address, msg))
-    
+
+
 def usage():
     """Gives user info on how to use the program and its options."""
     print """%s [-htfa]
@@ -204,6 +205,7 @@ def main(argv=None):
         email_report(to_addr, from_addr, ''.join(rep))
     else:
         print ''.join(rep)
+
 
 if __name__ == "__main__":
     main()

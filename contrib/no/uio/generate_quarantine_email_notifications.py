@@ -34,8 +34,8 @@ import pickle
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum import Utils
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.email import sendmail as sendmail_util
 from Cerebrum.modules import CLHandler
 
 logger = Factory.get_logger('cronjob')
@@ -147,11 +147,11 @@ def generate_mail_notification(quar_info, event_info, debug=False):
                                 event_info['time_stamp'],
                                 event_info['change_by'],
                                 event_info['change_id'])
-    return Utils.sendmail(quar_info['mail_to'],
-                          quar_info['mail_from'],
-                          subject,
-                          body,
-                          debug=debug)
+    return sendmail_util(quar_info['mail_to'],
+                         quar_info['mail_from'],
+                         subject,
+                         body,
+                         debug=debug)
 
 
 def main():

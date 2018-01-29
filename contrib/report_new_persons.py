@@ -26,12 +26,11 @@ Cerebrum.
 
 import sys
 import getopt
-from mx import DateTime 
+from mx import DateTime
 
-import cerebrum_path
-from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.email import sendmail
 
 
 db = Factory.get('Database')()
@@ -39,7 +38,7 @@ constants = Factory.get('Constants')(db)
 account = Factory.get('Account')(db)
 person = Factory.get('Person')(db)
 logger = Factory.get_logger("cronjob")
-log_events = [constants.person_create,]
+log_events = [constants.person_create, ]
 
 
 def get_new_persons(sdate, change_program=None):
@@ -52,7 +51,7 @@ def get_new_persons(sdate, change_program=None):
 
 
 def report_new_persons(new_persons):
-    report = ["New persons", "", "entity_id  account", "-"*18]
+    report = ["New persons", "", "entity_id  account", "-" * 18]
     for p in new_persons:
         try:
             person.clear()
@@ -78,9 +77,8 @@ def usage(exitcode=0):
     --change-program  Specify which program that created the person
     --mail-to         Mail recipient
     --mail-from       From header
-    
-    'start-date' must be given in standard ISO format, i.e.
-    YYYY-MM-DD.
+
+    'start-date' must be given in standard ISO format, i.e. YYYY-MM-DD.
 
     """ % (sys.argv[0])
     sys.exit(exitcode)
@@ -114,9 +112,9 @@ def main():
         elif opt in ('-c', '--change-program',):
             change_program = val
         elif opt in ('-t', '--mail-to',):
-            mail_to= val
+            mail_to = val
         elif opt in ('-f', '--mail-from',):
-            mail_from= val
+            mail_from = val
 
     new_persons = get_new_persons(sdate, change_program=change_program)
     if new_persons:
@@ -126,7 +124,7 @@ def main():
         else:
             subject = "New persons since %s" % sdate.date
         if mail_to and not dryrun:
-            Utils.sendmail(mail_to, mail_from, subject, msg)
+            sendmail(mail_to, mail_from, subject, msg)
         else:
             print msg
 

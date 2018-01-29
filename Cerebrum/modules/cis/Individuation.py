@@ -33,7 +33,8 @@ import cereconf
 import cerebrum_path
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, SMSSender, sendmail
+from Cerebrum.Utils import Factory, SMSSender
+from Cerebrum.utils.email import sendmail
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,
@@ -718,7 +719,7 @@ class Individuation:
             try:
                 sendmail(primary, self.email_from, self.email_subject, msg)
             except Exception, e:
-                log.error("Error for %s from Utils.sendmail: %s" % (primary, e))
+                log.error("Error for %s from sendmail: %s" % (primary, e))
 
     def check_too_many_attempts(self, account):
         """Checks if a user has tried to use the service too many times. Creates

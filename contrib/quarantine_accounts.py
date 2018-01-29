@@ -49,12 +49,11 @@ import smtplib
 import email
 from mx import DateTime
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum import Utils
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.email import sendmail
 from Cerebrum.QuarantineHandler import QuarantineHandler
 
 logger = Factory.get_logger('cronjob')
@@ -115,8 +114,8 @@ def usage(exitcode=0):
 def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
     """Function for sending mail to users.
 
-    Will respect dryrun, as that is given and handled by Utils.sendmail, which
-    is then not sending the e-mail.
+    Will respect dryrun, as that is given and handled by
+    Cerebrum.utils.email.sendmail, which is then not sending the e-mail.
 
     @type mail_to: string
     @param mail_to: The recipient of the Email.
@@ -137,8 +136,8 @@ def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
     @return: A boolean that tells if the email was sent sucessfully or not.
     """
     try:
-        ret = Utils.sendmail(mail_to, mail_from, subject, body,
-                             cc=mail_cc, debug=dryrun)
+        ret = sendmail(mail_to, mail_from, subject, body,
+                       cc=mail_cc, debug=dryrun)
         if debug_verbose:
             print "---- Mail: ---- \n" + ret
     except smtplib.SMTPRecipientsRefused, e:

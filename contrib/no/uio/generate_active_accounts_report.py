@@ -17,15 +17,15 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
-# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA. 
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """This script is a tool used to check active accounts in Cerebrum
 and send email as alarm when the number is greater than allowed.
 """
 import sys
 import getopt
-from Cerebrum import Utils
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.email import sendmail
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -33,41 +33,41 @@ ac = Factory.get('Account')(db)
 pr = Factory.get('Person')(db)
 ou = Factory.get('OU')(db)
 
-def usage(exit_status = 0):
+
+def usage(exit_status=0):
     print """Usage: %s [options]
-    
+
     --min [Nr1]       The default vaule for Nr1 is 1. Check the persons
                       who have more than Nr1 active accounts in Cerebrum.
-                       
+
     --max [Nr2]       Check the persons who have less than Nr2 active
                       accounts in Cerebrum.
 
     --source_systems  Comma separated list of source system will search through.
                       Defaults to 'SAP,FS'.
-                    
+
     -o, --output      The file to print the report to. Defaults to screen.
 
     --mail-from       The email address setted to send the report as an email.
 
     --mail-to         The email address setted to receive the report.
-                       
+
     -h, --help        See this help infomation and exit.
-    
     """ % sys.argv[0]
-    
     sys.exit(exit_status)
+
 
 def accountNr(minimum, maxmum, accs):
     """
     Compare the number of accounts in the 'accs' list for each person
     with the input option number 'minimum' and 'maxmum'.
     """
-    
     if len(accs) < minimum:
         return False
     if  maxmum and len(accs) > maxmum:
         return False
     return True
+
 
 def checkACaccount(source_systems, minimum, maxmum, outputstream):
     """
@@ -145,7 +145,7 @@ def checkACaccount(source_systems, minimum, maxmum, outputstream):
     outputstream.write("</body>\n</html>\n")
     return persons
 
-    
+
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'ho:',
@@ -155,13 +155,13 @@ def main():
     except getopt.GetoptError:
         usage(1)
 
-    minimum = 1  
+    minimum = 1
     maxmum = None
     outputstream = sys.stdout
     mail_to = None
     mail_from = None
     source_systems = 'SAP,FS'
-    
+
     for opt, val in opts:
         if opt in ('-h', '--help'):
             usage()
@@ -222,13 +222,13 @@ def main():
     persons = 'These following persons are found in Cerebrum:\n\nperson_id'
     persons += checkACaccount(source_systems, minimum, maxmum, outputstream)
 
-    if not outputstream is sys.stdout:
+    if outputstream is not sys.stdout:
         outputstream.close()
-          
+
     if mail_to:
         subject = "Report from check_acctive_account.py"
-        Utils.sendmail(mail_to, mail_from, subject, persons)
-            
+        sendmail(mail_to, mail_from, subject, persons)
+
 
 if __name__ == '__main__':
     main()

@@ -60,6 +60,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import Utils
+from Cerebrum.utils.email import sendmail
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.password_notifier.config import load_config
 from Cerebrum.modules.pwcheck.history import PasswordHistory
@@ -970,7 +971,7 @@ def _send_mail(mail_to, mail_from, subject, body, logger,
         return True
 
     try:
-        Utils.sendmail(
+        sendmail(
             toaddr=mail_to,
             fromaddr=mail_from,
             subject=subject,

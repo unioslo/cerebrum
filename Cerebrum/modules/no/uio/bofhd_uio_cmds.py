@@ -37,6 +37,7 @@ from Cerebrum import Errors
 from Cerebrum import Metainfo
 from Cerebrum.Constants import _LanguageCode
 from Cerebrum import Utils
+from Cerebrum.utils.email import sendmail, mail_template
 from Cerebrum.modules import Email
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
@@ -2991,10 +2992,10 @@ class BofhdExtension(BofhdCommonMethods):
         to_address = "postmaster-logs@usit.uio.no"
         from_address = "cerebrum-logs@usit.uio.no"
         try:
-            Utils.sendmail(toaddr=to_address,
-                           fromaddr=from_address,
-                           subject="Removal of e-mail addresses in Cerebrum",
-                           body="""
+            sendmail(toaddr=to_address,
+                     fromaddr=from_address,
+                     subject="Removal of e-mail addresses in Cerebrum",
+                     body="""
 This is an automatically generated e-mail.
 
 The following e-mail list addresses have just been removed from Cerebrum. Keep
@@ -3947,12 +3948,12 @@ Addresses and settings:
                        when.day, nth_en[when.day],
                        when.hour, when.minute - when.minute % 10)
             try:
-                Utils.mail_template(acc.get_primary_mailaddress(),
-                                    cereconf.USER_EMAIL_MOVE_WARNING,
-                                    sender="postmaster@usit.uio.no",
-                                    substitute={'USER': acc.account_name,
-                                                'WHEN_EN': when_en,
-                                                'WHEN_NN': when_nn})
+                mail_template(acc.get_primary_mailaddress(),
+                              cereconf.USER_EMAIL_MOVE_WARNING,
+                              sender="postmaster@usit.uio.no",
+                              substitute={'USER': acc.account_name,
+                                          'WHEN_EN': when_en,
+                                          'WHEN_NN': when_nn})
             except Exception, e:
                 self.logger.info("Sending mail failed: %s", e)
         else:
@@ -5253,7 +5254,7 @@ Addresses and settings:
         body.append("group info %s" % groupname)
         body.append("")
         body.append("")
-        Utils.sendmail(toaddr, fromaddr, subject, "\n".join(body))
+        sendmail(toaddr, fromaddr, subject, "\n".join(body))
         return "Request sent to %s" % toaddr
 
     #  group def
@@ -9145,7 +9146,7 @@ Addresses and settings:
                 # mail user about the awaiting move operation
                 new_homedir = disk.path + '/' + account.account_name
                 try:
-                    Utils.mail_template(
+                    mail_template(
                         account.get_primary_mailaddress(),
                         cereconf.USER_BATCH_MOVE_WARNING,
                         substitute={'USER': account.account_name,
