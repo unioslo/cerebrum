@@ -105,7 +105,7 @@ def autoconf(name, namespace=None):
 
         logdir = getattr(cereconf, 'LOGGING_ROOT_DIR', None)
         if logdir is not None:
-            c.loggers.logdir = logdir
+            c.logging.logdir = logdir
 
     # exception logging options
     if override_exc is not None:
