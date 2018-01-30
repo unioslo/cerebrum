@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2016 University of Oslo, Norway
+# Copyright 2015-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-u""" Cerebrum module for loading configuration files.
+""" Cerebrum module for loading configuration files.
 
 This module contains functionality for finding and loading config files from
 well-defined locations on the file system.
@@ -35,8 +35,10 @@ TODO: Improvements:
   - Reading config should be 'transactional'. If any errors exists, no
     configuration should be changed.
 """
-import sys
+
+import logging
 import os
+import sys
 from . import parsers as _parsers
 
 # Make it possible to override sys.prefix for configuration path purposes
@@ -52,16 +54,22 @@ user_dir = os.path.join('~', '.cerebrum', 'config')
 # Default name of the root configuration file.
 default_root_ns = None
 
+# Module logger
+logger = logging.getLogger(__name__)
 
-_f2key = lambda f: os.path.splitext(os.path.basename(f))[0]
-u""" Get config namespace from filename. """
 
-_f2ext = lambda f: os.path.splitext(f)[1].lstrip('.')
-u""" Get file extension from filename. """
+def _f2key(f):
+    """ Get config namespace from filename. """
+    return os.path.splitext(os.path.basename(f))[0]
+
+
+def _f2ext(f):
+    """ Get file extension from filename. """
+    return os.path.splitext(f)[1].lstrip('.')
 
 
 def is_readable_dir(path):
-    u""" Checks if path is a readable directory.
+    """ Checks if path is a readable directory.
 
     :param str path:
         A file system path.
@@ -74,7 +82,7 @@ def is_readable_dir(path):
 
 
 def lookup_dirs(additional_dirs=[]):
-    u""" Gets an ordered list of config directories.
+    """ Gets an ordered list of config directories.
 
     :param list additional_dirs:
         Include directories in the list, if they are `readable`.
@@ -89,7 +97,7 @@ def lookup_dirs(additional_dirs=[]):
 
 
 def read(config, root_ns=default_root_ns, additional_dirs=[]):
-    u""" Update `config` with data from config files.
+    """ Update `config` with data from config files.
 
     This function will:
 
@@ -112,11 +120,14 @@ def read(config, root_ns=default_root_ns, additional_dirs=[]):
         Additional directories to look for config files in. See `lookup_dirs`
         for more info.
     """
+    logger.debug("read cls={t!r} root={r!r} dirs={d!r}"
+                 "".format(t=type(config), r=root_ns, d=additional_dirs))
+
     def _get_config_files(confdir):
-        u""" Yield config files from confdir. """
+        """ yield config files from confdir. """
 
         def _file_sorter(a, b):
-            u""" Sort files in confdir. """
+            """ sort files in confdir. """
             a, b = _f2key(a), _f2key(b)
             # The root config should always be first
             if a == root_ns:
@@ -137,15 +148,19 @@ def read(config, root_ns=default_root_ns, additional_dirs=[]):
     # TODO: Transactional update: Make a copy here, then update the copy
 
     for d in lookup_dirs(additional_dirs=additional_dirs):
+        logger.debug('processing configs from {0}'.format(d))
         for f in _get_config_files(d):
+            # logger.debug('considering {0}'.format(f))
             key = _f2key(f)
             # TODO: Handle errors here
             #       Also, maybe keep track of changes by files, warn if a file
             #       changes something that has already been set from another
             #       file?
             if key == root_ns:
+                logger.debug('loading root using namespace {0!r}'.format(key))
                 config.load_dict(read_config(f))
             elif key in config:
+                logger.debug('loading namespace {0!r}'.format(key))
                 config[key].load_dict(read_config(f))
 
     # TODO: Then validate the copy, and write changes back to the original
@@ -153,7 +168,7 @@ def read(config, root_ns=default_root_ns, additional_dirs=[]):
 
 
 def read_config(filename):
-    u""" Read a config file.
+    """ Read a config file.
 
     :param str filename:
         The config filename.
@@ -162,4 +177,6 @@ def read_config(filename):
         The structured data from `filename`.
     """
     parser = _parsers.get_parser(filename)
+    logger.debug("read_config parser={p!r} filename={f!r}"
+                 "".format(f=filename, p=parser))
     return parser.read(filename)

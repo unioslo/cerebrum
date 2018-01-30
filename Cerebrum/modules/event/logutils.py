@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2017 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,146 +18,145 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-u""" This module contains simple multiprocess logging tools. """
+""" This module contains simple multiprocess logging tools. """
+import json
+import logging
 import multiprocessing
-import threading
-import functools
 import Queue
-from collections import namedtuple
+import threading
 
 
-LogQueueRecord = namedtuple('LogQueueRecord',
-                            ('source', 'level', 'msg'))
-u""" A Log Record for a shared log queue. """
+class LogRecordProtocol(object):
+    """ Serialize and Deserialize LogRecord objects. """
 
+    def serialize(self, log_record):
+        """ Serialize a log record.
 
-class QueueLogger(object):
-    u""" Logger that simply sticks `LogQueueRecord`s on a queue.
-
-    Typical usage:
-
-    >>> logger = QueueLogger(Queue())
-    >>> logger.info(u'Logging an int: %d', 5)
-    >>> logger.info(u'Logging an object: %s', repr(object()))
-
-    """
-
-    __slots__ = ('queue', 'source')
-
-    # TODO: Make sure to implement proper logging API
-    log_levels = ('debug5', 'debug4', 'debug3', 'debug2', 'debug1', 'debug',
-                  'info', 'warn', 'warning', 'error')
-    u""" Valid logging methods. """
-
-    def __init__(self, source, log_queue):
-        self.source = source
-        self.queue = log_queue
-
-    def log(self, level, fmt, *args, **kwargs):
-        u""" Put log record on queue.
-
-        :param str level:
-            Logging level for the log record.
-        :param str fmt:
-            Message of the log record.
-        :param *list args:
-            Positional arguments (replace values) for the `msg`.
-        :param **dict kwargs:
-            Named arguments (replace values) for the `msg`.
+        :param logging.LogRecord log_record:
+            The log record, as sent to `logging.Logger.handle`.
         """
-        if self.queue is None:
-            # TODO: Raise error? Handle better?
-            return
-        if args or kwargs:
-            try:
-                msg = fmt.format(*args, **kwargs)
-            except Exception as e:
-                msg = (u'Unable to format record (msg={!r}, args={!r},'
-                       u' kwargs={!r}, reason={!s})'.format(fmt, args,
-                                                            kwargs, e))
+        record_dict = dict(log_record.__dict__)
+        # Serialize the message args
+        try:
+            msg = log_record.getMessage()
+        except TypeError:
+            msg = ('Unable to format: msg={msg!r}'
+                   ' args={args!r}').format(**record_dict)
+        record_dict['msg'] = msg
+        record_dict['args'] = None
+        return record_dict
+
+    def deserialize(self, record_dict):
+        """ Deserialize a log record.
+
+        :return logging.LogRecord:
+            Returns a log record object.
+        """
+        return logging.makeLogRecord(record_dict)
+
+
+class JsonSerializer(LogRecordProtocol):
+    """ JSON serializer, for use with QueueHandler. """
+
+    def serialize(self, log_record):
+        record_dict = super(JsonSerializer, self).serialize(log_record)
+        return json.dumps(record_dict)
+
+    def deserialize(self, json_string):
+        record_dict = json.loads(json_string)
+        return super(JsonSerializer, self).deserialize(record_dict)
+
+
+class QueueHandler(logging.Handler):
+    """ Handler that sticks serialized `LogRecord` dicts onto a queue. """
+
+    def __init__(self, queue, serializer=None):
+        if queue is None:
+            raise ValueError("Invalid queue")
+        if serializer is None:
+            self.serializer = JsonSerializer()
         else:
-            msg = fmt
-        self.queue.put(LogQueueRecord(self.source, level, msg))
+            self.serializer = serializer
+        self.queue = queue
+        super(QueueHandler, self).__init__()
 
-    def __getattribute__(self, attr):
-        if attr in type(self).log_levels:
-            return functools.partial(self.log, attr)
-        return super(QueueLogger, self).__getattribute__(attr)
+    def send(self, s):
+        # TODO: Copy error handling from logging.handlers.SocketHandler?
+        self.queue.put(s)
+
+    def emit(self, record):
+        try:
+            s = self.serializer.serialize(record)
+            self.send(s)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self.handleError(record)
+
+    def close(self):
+        pass
 
 
-class LoggerThread(threading.Thread):
-    u""" A thread for listening on a Queue with LogQueueRecords. """
+class LogRecordThread(threading.Thread):
+    """ A thread for listening on a Queue with serialized LogRecords. """
 
     timeout = 5
-    u""" Timeout for listening on the log queue """
-    # TODO: Should this thread create and own a Queue?
+    """ Timeout for listening on the log queue """
 
-    def __init__(self, logger=None, queue=None, **kwargs):
-        u""" Create a new Queue listener.
+    def __init__(self, queue=None, logger=None, serializer=None, **kwargs):
+        """ Create a new Queue listener.
 
         :param Logger logger:
-            Logger implementation to log the actual messages to.
+            Logger implementation to handle actual messages.
 
         :param Queue queue:
-            Queue to listen for LogQueueRecords on.
+            Queue to listen for log records on.
+
+        :param LogRecordProtocol serializer:
+            A de-serializer for log records. This needs to be the same
+            implementation used with the QueueHandler that queues log records.
 
         :param **dict kwargs:
             Keyword arguments to threading.Thread.
 
         """
-        self.logger = logger
+        if queue is None:
+            raise ValueError("Invalid queue")
         self.queue = queue
+        # TODO: This logger is passed in to support 'Cerebrum.modules.cerelog'
+        self.__logger = logger
+        self.serializer = serializer or JsonSerializer()
         self.__run_logger = True
-        super(LoggerThread, self).__init__(**kwargs)
+        super(LogRecordThread, self).__init__(**kwargs)
+
+    @property
+    def logger(self):
+        return self.__logger or logging.getLogger(__name__)
 
     def stop(self):
         self.__run_logger = False
 
-    def _log(self, lvl, fmt, *args, **kwargs):
-        u""" Log to the real logger, with self as source. """
-        fmt = u'[{!s}] {!s}'.format(self.name, fmt)
-        if not self.logger:
-            # print lvl, fmt, repr(args), repr(kwargs)
-            # Initialize and use the mp stderr logger?
-            return
-        log = getattr(self.logger, lvl)
-        log(fmt, *args, **kwargs)
-
-    @property
-    def queue(self):
-        u""" The log queue. """
-        if not self._queue:
-            self._queue = Queue()
-        return self._queue
-
-    @queue.setter
-    def queue(self, queue):
-        self._queue = queue
-
     def run(self):
-        self._log('info', u'Logger thread started')
+        self.logger.info('Logger thread started')
         while self.__run_logger:
             try:
-                entry = self.queue.get(block=True, timeout=self.timeout)
+                message = self.queue.get(block=True, timeout=self.timeout)
             except Queue.Empty:
                 continue
-            if not isinstance(entry, LogQueueRecord):
-                self._log('warn', u'Invalid log record: %r (type=%s)',
-                          entry, type(entry))
-                continue
             try:
-                log = getattr(self.logger, entry.level)
-            except AttributeError:
-                self._log('warn', u'Invalid level %r in log record (%r)',
-                          entry.level, entry)
+                record = self.serializer.deserialize(message)
+            except Exception:
+                self.logger.error("Unable to deserialize record: %r", message)
                 continue
 
-            try:
-                msg = u'[{!s}] {!s}'.format(entry.source, entry.msg)
-                log(msg)
-            except Exception as e:
-                self._log('error', u'Unable to log entry %r: %s', entry, e)
-        self._log('info', u'Logger thread stopped')
+            if self.__logger:
+                # TODO: Remove this when all the multiprocessing daemons are
+                # using 'Cerebrum.logutils'
+                self.__logger.handle(record)
+            else:
+                l = logging.getLogger(record.name)
+                l.handle(record)
+        self.logger.info('Logger thread stopped')
 
 
 def get_stderr_logger(level=multiprocessing.SUBDEBUG):
