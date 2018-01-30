@@ -46,6 +46,7 @@ Namespace
     >>> class MyConfiguration(Configuration):
     >>>     my_namespace = ConfigDescriptor(Namespace, config=MyNamespace)
 """
+from __future__ import unicode_literals
 from collections import OrderedDict
 
 from . import settings
@@ -58,7 +59,7 @@ class _odict(OrderedDict):
     def __repr__(self):
         # TODO: Repr output should probably be sorted, to avoid confusion.
         #       Consider re-implementing __repr__ from collections.OrderedDict
-        return super(OrderedDict, self).__repr__()
+        return super(_odict, self).__repr__()
 
 
 def flatten_dict(d, prefix=''):
@@ -477,7 +478,7 @@ class ConfigDescriptor(object):
 
     def __delete__(self, parent):
         if parent is None:
-            raise RuntimeError(u'{} is read-only'.format(self.__class.__.__name__))
+            raise RuntimeError(u'{} is read-only'.format(self.__class__.__name__))
         setting = self.get_instance(parent)
         setting.reset_value()
 

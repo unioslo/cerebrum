@@ -11,6 +11,7 @@ In addition, all settings contains a `doc` attribute that should contain a
 string that describes the behavior of the setting and its uses.
 
 """
+from __future__ import unicode_literals
 import os
 import re
 
@@ -295,11 +296,11 @@ class String(Setting):
         if self._minlen and self._minlen > len(value):
             raise ValueError(
                 u'Invalid value {!r} of length {}, must be at least {}'.format(
-                    value, self._minlen))
+                    value, len(value), self._minlen))
         if self._maxlen and self._maxlen < len(value):
             raise ValueError(
                 u'Invalid value {!r} of length {}, must be at most {}'.format(
-                    value, self._maxlen))
+                    value, len(value), self._maxlen))
         if self._regex and not self._regex.match(value):
             raise ValueError(
                 u'Invalid value {!r}, must pass regex {!r}'.format(
