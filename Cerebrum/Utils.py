@@ -950,7 +950,7 @@ class Factory(object):
 # variable to a non-empty value.
 if os.getenv('CEREBRUM_LOGUTILS'):
     from Cerebrum.logutils import getLogger
-    Factory.get_logger = getLogger
+    Factory.get_logger = staticmethod(getLogger)
 
 
 def random_string(length, characters=ascii_lowercase + digits):
