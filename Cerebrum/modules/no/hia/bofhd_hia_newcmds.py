@@ -270,7 +270,11 @@ email_sympa_mixin_commands = [
     methods=uio_helpers + copy_uio + copy_uio_hidden)
 @copy_func(
     BofhdUserCreateMethod,
-    methods=['_user_create_set_account_type']
+    methods=[
+        '_user_create_set_account_type',
+        '_user_create_basic',
+        '_user_password'
+    ]
 )
 class BofhdExtension(
         BofhdCommonMethods,
