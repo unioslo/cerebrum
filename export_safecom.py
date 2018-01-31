@@ -248,7 +248,6 @@ class safecom_export:
             if aff['source_system'] in skip_source:
                logger.warn('Skip affiliation, unwanted source system %s' % aff)
                continue
-
             p_id = aff['person_id']
             ou_id = aff['ou_id']
             source_system = aff['source_system']
@@ -269,7 +268,7 @@ class safecom_export:
                 logger.error("person id:%s affiliated to expired ou:%s. Do not export" % (p_id,ou_id))
                 continue
             except Errors.NotFoundError:
-                logger.error("OU id=%s not found on person %s. DB integrety error (this MAY be caused by parent sito ou not having stedkode..FIX!!" % (ou_id,p_id))
+                logger.debug("OU id=%s not found on person %s. DB integrety error (this MAY be caused by parent sito ou not having stedkode)." % (ou_id,p_id))
                 #sys.exit(1)
 
 	    if source_system==co.system_sito:

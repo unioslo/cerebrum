@@ -1,3 +1,7 @@
+2018-01-31    <cerebrum@cleomedes.uit.no>
+
+	* export_safecom.py (safecom_export.list_affiliations): moved logger.warn to logger.debug
+
 2018-01-24    <cerebrum@cleomedes.uit.no>
 
 	* export_cristin.py (output_OU): Refactored how to collect ou.name as the old method no longer returned propper data.
