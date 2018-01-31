@@ -21,13 +21,14 @@
 This module implements an abstraction layer for LT-originated data.
 """
 
+from __future__ import unicode_literals
 from mx.DateTime import Date
 import time, sys
 
 import cerebrum_path, cereconf
 from Cerebrum.modules.xmlutils.xml2object import \
      XMLDataGetter, XMLEntity2Object, DataOU, DataAddress, DataContact, \
-     HRDataPerson, DataEmployment, DataEntity, DataName
+     HRDataPerson, DataEmployment, DataEntity, DataName, ensure_unicode
 import Cerebrum.modules.no.fodselsnr as fodselsnr
 
 
@@ -72,7 +73,7 @@ class XMLPerson2Object(XMLEntity2Object):
         We do not have the exact meanings, so this is guesswork. One element
         can result in multiple contact entries.
         """
-        
+
         result = list()
         if elem.tag == "arbtlf":
             if int(elem.get("telefonnr")):
@@ -115,11 +116,11 @@ class XMLPerson2Object(XMLEntity2Object):
         start_date = end_date = None
         category = None
         ou_id = None
-        leave = []     
+        leave = []
         tag2kind = { "bilag" : DataEmployment.BILAG,
                      "tils"  : DataEmployment.HOVEDSTILLING,
                      "gjest" : DataEmployment.GJEST }
-        xml2cat = { "ØVR" : DataEmployment.KATEGORI_OEVRIG,
+        xml2cat = { "ï¿½VR" : DataEmployment.KATEGORI_OEVRIG,
                     "VIT" : DataEmployment.KATEGORI_VITENSKAPLIG, }
         make_sko = lambda f, i, g: tuple([int(elem.get(x)) for x in (f, i, g)])
 
@@ -168,7 +169,7 @@ class XMLPerson2Object(XMLEntity2Object):
                               category = category,
                               leave = leave)
     # end _make_employment
-    
+
 
     def next_object(self, element):
         result = HRDataPerson()
@@ -199,7 +200,7 @@ class XMLPerson2Object(XMLEntity2Object):
                       extract("adresselinje2_privatadresse")),
             zip = extract("poststednr_privatadresse"),
             city = extract("poststednavn_privatadresse"))
-        
+
         # Contact information and jobs
         # FIXME: We do not have anything more intelligent for priorities
         priorities = dict()
@@ -215,12 +216,12 @@ class XMLPerson2Object(XMLEntity2Object):
 
         # Reservation rules. Roughly, all employees are not reserved, unless
         # they say otherwise. Everyone else *is* reserved, unless they
-        # explicitly allow publication in catalogues. 
+        # explicitly allow publication in catalogues.
         has_active = result.has_active_employments()
         if has_active:
             to_reserve = False
             for resv in element.findall("res"):
-                if (resv.get("katalogkode") == "ELKAT" and 
+                if (resv.get("katalogkode") == "ELKAT" and
                     resv.get("felttypekode") not in ("PRIVADR", "PRIVTLF") and
                     resv.get("resnivakode") != "SAMTYKKE"):
                     to_reserve = True
@@ -249,7 +250,7 @@ class XMLPerson2Object(XMLEntity2Object):
             raise AssertionError, ("Missing name for %s" %
                                    list(result.iterids()))
         # fi
-                   
+
         return result
     # end next
 # end XMLPerson2Object
@@ -290,7 +291,7 @@ class XMLOU2Object(XMLEntity2Object):
         return None
     # end _make_contact
 
-    
+
     def next_object(self, element):
         result = DataOU()
 

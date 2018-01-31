@@ -17,6 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
 import cerebrum_path
 import cereconf
 import abcconf
@@ -82,7 +83,7 @@ class Object2Cerebrum(object):
                 id_type = row['id_type']
                 if id_type not in id_dict.keys():
                     entity._delete_external_id(self.source_system, id_type)
-                    self.logger.info("Entity: '%d' removed external ID type '%s'." % (entity.entity_id,id_type)) 
+                    self.logger.info("Entity: '%d' removed external ID type '%s'." % (entity.entity_id,id_type))
 
     def _process_tags(self, entity, tag_dict):
         """Process an entity's tags."""
@@ -97,12 +98,12 @@ class Object2Cerebrum(object):
                 for spread in tag_dict[tag_type]:
                     if not entity.has_spread(spread):
                         entity.add_spread(spread)
-                        self.logger.info("Entity: '%d' got spread '%s'." % (entity.entity_id,spread)) 
+                        self.logger.info("Entity: '%d' got spread '%s'." % (entity.entity_id,spread))
                     self._spreads.setdefault(entity.entity_id, []).append(spread)
             else:
                 raise ABCErrorInData, "Type: '%s' is not known in _process_tags()" % tag_type
 
-    def _check_entity(self, entity, data_entity): 
+    def _check_entity(self, entity, data_entity):
         """Check for conflicting entities or return found or None."""
         entities = list()
         for id_type in data_entity._ids.keys():
@@ -117,7 +118,7 @@ class Object2Cerebrum(object):
                 # Fat error and exit
                 ou = Factory.get('OU')(self.db)
                 ou.find(id)
-                found = ou.get_external_id(id_type=id_type) 
+                found = ou.get_external_id(id_type=id_type)
                 raise ABCMultipleEntitiesExistsError, "found: '%s', current: '%s'" % (found, data_entity)
             entity_id = id
 
@@ -142,7 +143,7 @@ class Object2Cerebrum(object):
             ## todo fetch reference to country in country-table
             ## ,
             ##                        country=addresses[addr].country)
-            
+
 
     def _add_entity_contact_info(self, entity, contact_info):
         """Add contact info for an entity."""
@@ -152,14 +153,14 @@ class Object2Cerebrum(object):
                                                             contact_info[cont])
             entity.populate_contact_info(self.source_system, type=cont,
                                          value=contact_info[cont])
-                         
+
     def _filter_phone_number(self, number):
         """Filter a phone number to follow a more correct format, if wrong."""
         if len(number) > 8 and not number.startswith('+'):
             number = "+%s" % number
         return number
 
-        
+
     def store_ou(self, ou):
         """Pass a DataOU to this function and it gets stored
         in Cerebrum."""
@@ -178,7 +179,7 @@ class Object2Cerebrum(object):
 
         # Handle names
         for type, name in ou.ou_names.iteritems():
-            self._ou.add_name_with_language(name_variant=type, 
+            self._ou.add_name_with_language(name_variant=type,
                                             name_language=self.co.language_nb,
                                             name=name)
         self._process_tags(self._ou, ou._tags)
@@ -226,7 +227,7 @@ class Object2Cerebrum(object):
         for name_type in person._names.keys():
             self._person.populate_name(name_type,
                                        person._names[name_type])
-        # Deal with addresses and contacts. 
+        # Deal with addresses and contacts.
         ret = self._person.write_db()
         self._process_tags(self._person, person._tags)
         self._add_entity_addresses(self._person, person._address)
@@ -246,7 +247,7 @@ class Object2Cerebrum(object):
         except Errors.NotFoundError:
             # No group found
             pass
-        
+
         self._group.populate(self.default_creator_id,
                              self.co.group_visibility_all,
                              group.name, description=group.desc)
@@ -266,9 +267,9 @@ class Object2Cerebrum(object):
             if member not in self._groups[group]:
                 self._groups[group].append(member)
         else:
-            self.logger.warning("Group '%s' is not in the file." % group) 
+            self.logger.warning("Group '%s' is not in the file." % group)
 
-        
+
     def add_group_member(self, group, entity_type, member):
         """Add an entity to a group."""
         self._group.clear()
@@ -291,9 +292,9 @@ class Object2Cerebrum(object):
             self._person.find_by_external_id(person[0], person[1])
         except Errors.NotFoundError:
             raise ABCErrorInData, "no person with id: %s, %s" % (person[0],
-                                                                 person[1]) 
+                                                                 person[1])
         if self._ou is None:
-            self._ou = Factory.get("OU")(self.db)   
+            self._ou = Factory.get("OU")(self.db)
         self._ou.clear()
         self._ou.find_by_external_id(ou[0], ou[1])
         self._person.add_affiliation(self._ou.entity_id, affiliation,
@@ -328,13 +329,13 @@ class Object2Cerebrum(object):
                     es.clear()
                     es.find(int(row['entity_id']))
                     es.delete_spread(int(row['spread']))
-                    self.logger.info("Entity: '%d', removed spread '%s'" % (es.entity_id,int(row['spread']))) 
+                    self.logger.info("Entity: '%d', removed spread '%s'" % (es.entity_id,int(row['spread'])))
             else:
                 # Entity missing from file, remove all spreads
                 es.clear()
                 es.find(int(row['entity_id']))
                 es.delete_spread(int(row['spread']))
-                self.logger.info("Entity: '%d', removed spread '%s'" % (es.entity_id,int(row['spread']))) 
+                self.logger.info("Entity: '%d', removed spread '%s'" % (es.entity_id,int(row['spread'])))
 
     def _update_groups(self):
         """Run through the cache and remove people's group membership if it hasn't
@@ -389,13 +390,13 @@ class Object2Cerebrum(object):
                 self._person.find(p_id)
             self._person.delete_affiliation(ou_id, aff, self.source_system)
             self.logger.info("Person '%d', removed affiliation '%d' from ou '%d'" % (p_id,aff,ou_id))
-            
+
 
     def commit(self):
         """Do some cleanups and call db.commit()"""
         # TODO:
         # - Diff OUs as well.
-        
+
         # Process the cache before calling commit.
         self._post_process_tags()
         self._update_groups()
