@@ -33,8 +33,9 @@ import cereconf
 import cerebrum_path
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, SMSSender
+from Cerebrum.Utils import Factory
 from Cerebrum.utils.email import sendmail
+from Cerebrum.utils.sms import SMSSender
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,

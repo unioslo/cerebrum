@@ -61,6 +61,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.utils.email import sendmail
+from Cerebrum.utils.sms import SMSSender
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.password_notifier.config import load_config
 from Cerebrum.modules.pwcheck.history import PasswordHistory
@@ -942,7 +943,6 @@ class SMSPasswordNotifier(PasswordNotifier):
                     'Would have sent password SMS to {mobile}'.format(
                         mobile=mobile))
                 return True
-            from Cerebrum.Utils import SMSSender
             sms = SMSSender(logger=self.logger)
             if sms(mobile, self.template.format(
                     account_name=account.account_name,

@@ -36,7 +36,8 @@ import cereconf
 import guestconfig
 
 from Cerebrum import Errors
-from Cerebrum.Utils import NotSet, SMSSender
+from Cerebrum.Utils import NotSet
+from Cerebrum.utils.sms import SMSSender
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.guest.bofhd_guest_auth import BofhdAuth
 from Cerebrum.modules.username_generator.generator import UsernameGenerator

@@ -29,8 +29,8 @@ from Cerebrum.modules.bofhd.cmd_param import (
     Command, AccountName, FormatSuggestion, SimpleString, SMSString, Mobile)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func
-from Cerebrum.Utils import SMSSender
 from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
+from Cerebrum.utils.sms import SMSSender
 from Cerebrum import Errors
 
 from mx import DateTime
