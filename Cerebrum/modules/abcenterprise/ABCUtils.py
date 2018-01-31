@@ -17,6 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
 import cerebrum_path
 import cereconf
 import abcconf
@@ -53,7 +54,7 @@ class ABCFactory(object):
                       'GroupParser': 'CLASS_GROUPPARSER',
                       'RelationParser': 'CLASS_RELATIONPARSER',
                       'Object2Cerebrum': 'CLASS_OBJ2CEREBRUM'}
-        
+
         try:
             conf_var = components[comp]
         except KeyError:

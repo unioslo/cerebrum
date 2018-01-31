@@ -17,6 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
 import sys
 import time
 from mx.DateTime import Date
@@ -58,21 +59,21 @@ CLASS_XMLPARSER in abcconf only supports 'ElementTree' and cElementTree'."""
 
         # Keep track of the root element (to prevent element caching)
         junk, self._root = self.it.next()
-        
+
 
     def next(self):
         """Return next specified element, ignoring all else."""
-        
+
         # Each time next is called, we drop whatever is dangling under
         # root. It might be problematic if there is *a lot* of elements
         # between two consecutive self.element_name elements.
         self._root.clear()
-        
+
         for event, element in self.it:
             if event == "end" and element.tag == self.element_name:
                 return element
         raise StopIteration
-                
+
 
     def __iter__(self):
         return self
@@ -91,7 +92,7 @@ class XMLPropertiesParser(object):
     def _check_type(self, type, args):
         # Should throw exception if anything is fishy
         ABCTypes.get_type(type, args)
-                    
+
     def next(self):
         """ """
         # This call with propagate StopIteration when all the (XML) elements
@@ -99,7 +100,7 @@ class XMLPropertiesParser(object):
         # Iterate over *all* subelements
         element = self._xmliter.next()
         datasource = target = timestamp = ""
-        
+
         for sub in element.getiterator():
             value = None
             if sub.text:
@@ -154,7 +155,7 @@ class XMLPropertiesParser(object):
         # NB! This is crucial to save memory on XML elements
         element.clear()
         return (datasource, target, timestamp)
-    
+
 
 class XMLEntity2Object(object):
 
@@ -221,7 +222,7 @@ class XMLOrg2Object(XMLEntity2Object):
         # are exhausted.
         element = super(XMLOrg2Object, self).next()
         result = DataOU()
-        
+
         # Iterate over *all* subelements
         for sub in element:
             value = None
@@ -288,7 +289,7 @@ class XMLOU2Object(XMLEntity2Object):
         # are exhausted.
         element = super(XMLOU2Object, self).next()
         result = DataOU()
-       
+
         # Iterate over *all* subelements
         for sub in element.getiterator():
             value = None
@@ -337,11 +338,11 @@ class XMLOU2Object(XMLEntity2Object):
                 result.add_contact(ABCTypes.get_type("contacttype",
                                                      ("ou", type,)),
                                    value)
-           
+
         # NB! This is crucial to save memory on XML elements
         element.clear()
         return result
-    
+
 
 class XMLPerson2Object(XMLEntity2Object):
     """A converter class that maps ElementTree's Element to DataPerson."""
@@ -382,7 +383,7 @@ class XMLPerson2Object(XMLEntity2Object):
                             type = ABCTypes.get_type("partname",
                                                      (n.attrib.get("partnametype"),))
                             if value:
-                                result.append((type, value))          
+				result.append((type, value))
         return result
 
 
@@ -399,7 +400,7 @@ class XMLPerson2Object(XMLEntity2Object):
         # are exhausted.
         element = super(XMLPerson2Object, self).next()
         result = DataPerson()
-        
+
         # Iterate over *all* subelements
         for sub in element.getiterator():
             value = None
@@ -446,8 +447,8 @@ class XMLPerson2Object(XMLEntity2Object):
                 result.add_contact(ABCTypes.get_type("contacttype",
                                                      ("person", type,)),
                                    value)
-            
-        
+
+
         # NB! This is crucial to save memory on XML elements
         element.clear()
         return result
@@ -474,7 +475,7 @@ class XMLGroup2Object(XMLEntity2Object):
         # are exhausted.
         element = super(XMLGroup2Object, self).next()
         result = DataGroup()
-       
+
         # Iterate over *all* subelements
         for sub in element.getiterator():
             value = None
@@ -495,7 +496,7 @@ class XMLGroup2Object(XMLEntity2Object):
                                value)
             elif sub.tag == "description":
                 result.desc = value
-           
+
         # NB! This is crucial to save memory on XML elements
         element.clear()
         return result
@@ -575,7 +576,7 @@ class XMLRelation2Object(XMLEntity2Object):
         # are exhausted.
         element = super(XMLRelation2Object, self).next()
         result = DataRelation()
-       
+
         # Iterate over *all* subelements
         for sub in element.getiterator():
             if not result.type:
@@ -590,8 +591,8 @@ class XMLRelation2Object(XMLEntity2Object):
                 res = self._get_subvalues(sub.getiterator())
                 if not isinstance(res, list):
                     raise ABCTypesError, "object is '%s' not a list" % res
-                result.object = res                
-                
+		result.object = res
+
         # NB! This is crucial to save memory on XML elements
         element.clear()
         return result

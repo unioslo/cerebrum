@@ -26,7 +26,7 @@ Specifically, XML input file with information about OUs is processed and
 stored in suitable form in Cerebrum. Presently, this job can accept OU data
 from FS, LT and SAP.
 """
-
+from __future__ import unicode_literals
 import cereconf
 
 import sys
@@ -65,9 +65,17 @@ def format_sko(xmlou):
     :Parameters:
       xmlou : DataOU instance
     """
+<<<<<<< HEAD
     sko = xmlou.get_id(xmlou.NO_SKO)
     if sko is None:
         return None
+=======
+
+    sko = xmlou.get_id(xmlou.NO_SKO)
+    if sko is None:
+        return None
+
+>>>>>>> Add inital transition to unicode for object2cerebrum-related code.
     # Yes, we will fail if there is no sko, but some junk. However, it should
     # not happen.
     return "%02d%02d%02d" % sko
@@ -113,6 +121,10 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
       perspective : OUPerspective instance
         perspective for which we are building the OU hierarchy.
     """
+<<<<<<< HEAD
+=======
+
+>>>>>>> Add inital transition to unicode for object2cerebrum-related code.
     # This may happen *if* there is an error in the datafile, when OU1 has
     # OU2 as parent, but there are no records of OU2 on file. It could happen
     # when *parts* of the OU-hierarchy expire.
@@ -130,7 +142,11 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
         # should it report that as an error
         logger.info("Found top-level OU '%s'. No parent assigned." % my_sko)
         parent_sko = None
+<<<<<<< HEAD
         parent_ouid = None
+=======
+	parent_ouid = None
+>>>>>>> Add inital transition to unicode for object2cerebrum-related code.
     elif (not parent_sko) or (parent_sko not in stedkode2ou):
         # It's not always an error -- OU-hierarchy roots do not have parents
         # by design.
@@ -217,7 +233,7 @@ def import_org_units(sources, target_system, cer_ou_tab):
             if not formatted_sko:
                 logger.error("Missing sko for OU %s (names: %s). Skipped!" %
                              (list(xmlou.iterids()),
-                              map(lambda (x, y): str(x) + ": " + '; '.join(map(str, y)),
+			      map(lambda (x, y): unicode(x) + ": " + '; '.join(map(unicode, y)),
                                   xmlou.iternames())))
                 continue
 
@@ -277,6 +293,10 @@ def get_cere_ou_table():
                                   entry['avdeling'])
         key = int(entry['ou_id'])
         sted_tab[key] = value
+<<<<<<< HEAD
+=======
+
+>>>>>>> Add inital transition to unicode for object2cerebrum-related code.
     return sted_tab
 
 
@@ -295,6 +315,10 @@ def set_quaran(cer_ou_tab):
         removed from Cerebrum (i.e. the OUs that are in Cerebrum, but not in
         the data source).
     """
+<<<<<<< HEAD
+=======
+
+>>>>>>> Add inital transition to unicode for object2cerebrum-related code.
     ous = OU_class(db)
     today = DateTime.today()
     acc = Factory.get("Account")(db)
@@ -306,25 +330,29 @@ def set_quaran(cer_ou_tab):
             ous.add_entity_quarantine(co.quarantine_ou_notvalid,
                                       acc.entity_id,
                                       description='import_OU',
+<<<<<<< HEAD
                                       start=today)
+=======
+				      start=today)
+>>>>>>> Add inital transition to unicode for object2cerebrum-related code.
     db.commit()
 
 
 def list_new_ous(old_cere_ous):
-    """Compares current OUs in Cerebrum to the OUs supplied as an argument, and 
+    """Compares current OUs in Cerebrum to the OUs supplied as an argument, and
     return the ones that are new.
 
     Uses 'get_cere_ou_table' to get the current OUs.
 
     @type  old_cere_ous: dict
-    @param old_cere_ous: ou_id -> sko (basestring) mapping, containing the 
-                         OUs that should be compared to the current OUs in 
+    @param old_cere_ous: ou_id -> sko (basestring) mapping, containing the
+			 OUs that should be compared to the current OUs in
                          the database.
     """
     new_cere_ous = get_cere_ou_table()
 
     for ou_id in old_cere_ous.keys():
-        new_cere_ous.pop(ou_id, 0) # 0 as default, we're not interested in the 
+	new_cere_ous.pop(ou_id, 0) # 0 as default, we're not interested in the
                                    # actual mapping, we only want to remove the
                                    # mapping if it exists.
 
@@ -357,7 +385,7 @@ def send_notify_email(new_cere_ous, to_email_addrs):
             'time': DateTime.now().strftime()}
 
     for ou_id in new_cere_ous.keys():
-        names = ous.search_name_with_language(entity_id=ou_id, 
+	names = ous.search_name_with_language(entity_id=ou_id,
                                               name_language=co.language_nb,
                                               name_variant=co.ou_name)
 

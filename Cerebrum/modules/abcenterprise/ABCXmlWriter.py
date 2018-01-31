@@ -17,6 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
 import re
 from Cerebrum.extlib import xmlprinter
 
@@ -26,12 +27,12 @@ class ABCXMLWriter(object):
     when ABC Enterprise is to be used as an export format. For now
     it's only used as selftest on the import bit. Not complete.
     This is just a skeleton of what the ABCEnterprise class calls."""
-        
+
     def __init__(self, settings):
         self.sett = settings
         filename = re.sub(".xml$", "-parsed.xml", self.sett.variables['filename'])
         self.fd = open(filename, "w")
-        
+
         self.xp = xmlprinter.xmlprinter(self.fd, indent_level=2)
         self.xp.startDocument()
         self.xp.startElement('document')
@@ -42,7 +43,7 @@ class ABCXMLWriter(object):
         if data: self.xp.data(data)
         self.xp.endElement(tag)
         self.xp.newline()
-        
+
     def parse_settings(self):
         self.xp.startElement("properties")
         self.xp.newline()
@@ -68,10 +69,10 @@ class ABCXMLWriter(object):
 #                     txt = value
 #                 self._add_elem(type, txt, attr)
         self.xp.endElement("types")
-        self.xp.newline() 
+	self.xp.newline()
         self.xp.endElement("properties")
-        self.xp.newline() 
-                         
+	self.xp.newline()
+
 
     def parse_persons(self, iterator):
         """Iterate persons. Add them to the tree."""
@@ -98,7 +99,7 @@ class ABCXMLWriter(object):
             print rel
 
 
-    def end_parse(self):        
+    def end_parse(self):
         self.xp.endDocument()
         self.fd.close()
 
