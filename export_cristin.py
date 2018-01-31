@@ -365,7 +365,10 @@ class LTPersonRepresentation(object):
         #     We need sanity checking, because LT dumps are suffer from bitrot
         #     (e.g. Swedish SSNs end up as Norwegian. Gah!)
         #logger.debug("self.fnr = %s" % self.fnr)
-        fodselsnr.personnr_ok(self.fnr)
+
+        # the following test will fail for certain non-valid fnr (those coming from PAGA with 5 0(zero) at the end
+        # removed check
+        #fodselsnr.personnr_ok(self.fnr)
         
         self.fnr = self.fnr.encode("latin1")
         # we do not really need a name (it is in cerebrum), but it might
