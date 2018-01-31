@@ -45,10 +45,11 @@ JOB_RUNNER_LOG_DIR
 """
 import os
 import re
+import time
+import tempfile
 
 import cereconf
 
-from Cerebrum import Utils
 from Cerebrum.modules.templates.letters import TemplateHandler
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.errors import CerebrumError
@@ -251,8 +252,8 @@ class BofhdExtension(BofhdCommonMethods):
         # TODO: We should use a <prefix>/var/cache/ or <prefix>/tmp/ dir for
         # this, NOT a logging dir. Also, we should consider the read access to
         # these files.
-        tmp_dir = Utils.make_temp_dir(dir=cereconf.JOB_RUNNER_LOG_DIR,
-                                      prefix="bofh_spool")
+        tmp_dir = tempfile.mkdtemp(dir=cereconf.JOB_RUNNER_LOG_DIR,
+                                   prefix="bofh_spool_{}".format(time.time()))
         self.logger.debug(
             "make_password_letter: temp dir=%r template=%r", tmp_dir, filename)
 

@@ -55,10 +55,13 @@ PRINT_DVIPDF_CMD
 
 """
 import os
+import time
+import tempfile
 
 import cereconf
 
-from Cerebrum import Utils
+from Cerebrum.Utils import Factory
+
 
 __tex_log = None
 u""" Shared log for subprocess output. """
@@ -68,7 +71,9 @@ def _get_tex_log():
     u""" Lazy instantiation of __tex_log. """
     global __tex_log
     if __tex_log is None or not os.path.isfile(__tex_log):
-        __tex_log = Utils.make_temp_file(only_name=True)
+        fd, __tex_log = tempfile.mkstemp(
+            prefix='cerebrum_tex_{}'.format(time.time()))
+        fd.close()
     return __tex_log
 
 
@@ -86,7 +91,7 @@ def prepare_tex(filename):
         base = os.path.splitext(filename)[0]
         return os.path.extsep.join((base, ext))
 
-    logger = Utils.Factory.get_logger('cronjob')
+    logger = Factory.get_logger('cronjob')
     logfile = _get_tex_log()
     output = None
 

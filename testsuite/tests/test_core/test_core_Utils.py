@@ -238,6 +238,3 @@ def test_argument_to_sql_sequence():
 # TODO: How to test:
 # - SMSsender?
 # - read_password?
-# - make_temp_file
-# - make_temp_dir
-#

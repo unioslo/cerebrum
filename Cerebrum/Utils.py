@@ -127,26 +127,6 @@ def _mangle_name(classname, attr):
     return attr
 
 
-# TODO: Use Python standard library functions instead
-# TODO: Don't redefined the "dir" built-in
-# TODO: Add docstring
-def make_temp_file(dir="/tmp", only_name=0, ext="", prefix="cerebrum_tmp"):
-    name = "%s/%s.%s%s" % (dir, prefix, time.time(), ext)
-    if only_name:
-        return name
-    f = open(name, "w")
-    return f, name
-
-
-# TODO: Use Python standard library functions instead
-# TODO: Don't redefined the "dir" built-in
-# TODO: Add docstring
-def make_temp_dir(dir="/tmp", prefix="cerebrum_tmp"):
-    name = make_temp_file(dir=dir, only_name=1, ext="", prefix=prefix)
-    os.mkdir(name)
-    return name
-
-
 # For global caching
 _latin1 = Latin1()
 
