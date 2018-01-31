@@ -137,12 +137,14 @@ class Changer:
         ad_email = em.get_employee_email(account_obj.entity_id,self.db)
         if (len(ad_email)>0):
             ad_email = ad_email[account_obj.account_name]
-        elif current_email.split('@')[1] == cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES:
+
+        try: 
+            current_email.split('@')[1] == cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES
             if  current_email.split('@')[0] == account_obj.account_name:
                 ad_email = current_email
             else:
                 ad_email = "%s@%s" % (account_obj.account_name, cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES)
-        else:
+        except IndexError:
 
             # no email in ad_email table for this account.            
             # IF this account has a student affiliation.

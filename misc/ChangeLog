@@ -1,3 +1,8 @@
+2018-01-31    <cerebrum@cleomedes.uit.no>
+
+	* rename_account.py (Changer.update_email): The function parsing existing email address wasnt working propperly.
+	rewrote it with try/except
+
 2018-01-23    <cerebrum@cleomedes.uit.no>
 
 	* rename_account.py (main): Added new flag. This flag decides if an email will be sent to the user (or  not)
