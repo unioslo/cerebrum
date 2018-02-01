@@ -225,7 +225,7 @@ class BofhdExtension(BofhdCommonMethods):
                 'sent password SMS to {}'.format(mobile))
         else:
             sms = SMSSender(logger=self.logger)
-            if not sms(mobile, msg, confirm=True):
+            if not sms(mobile, msg):
                 raise CerebrumError(
                     'Unable to send message to {}, aborting'.format(mobile))
 
@@ -269,7 +269,7 @@ class BofhdExtension(BofhdCommonMethods):
                 'sent password SMS to {}'.format(mobile))
         else:
             sms = SMSSender(logger=self.logger)
-            if not sms(mobile, message, confirm=True):
+            if not sms(mobile, message):
                 raise CerebrumError(
                     'Unable to send message to {}. Aborting.'.format(mobile))
         return {'number': mobile}

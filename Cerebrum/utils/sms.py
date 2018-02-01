@@ -21,11 +21,12 @@
 
 """Utilities for sending SMS."""
 
+from __future__ import unicode_literals
+
 import cereconf
 import re
-import socket
-import urllib
-import urllib2
+import requests
+import six
 import urlparse
 
 from Cerebrum.Utils import Factory, read_password
@@ -41,13 +42,15 @@ class SMSSender():
     use if they have their own gateway.
     """
 
-    def __init__(self, logger=None, url=None, user=None, system=None):
+    def __init__(self, logger=None, url=None, user=None, system=None,
+                 timeout=None):
         self._logger = logger or Factory.get_logger("cronjob")
         self._url = url or cereconf.SMS_URL
         self._system = system or cereconf.SMS_SYSTEM
         self._user = user or cereconf.SMS_USER
+        self._timeout = timeout or 10.0
 
-    def _validate_response(self, ret):
+    def _validate_response(self, response):
         """Check that the response from an SMS gateway says that the message
         was sent or not. The SMS gateway we use should respond with a line
         formatted as:
@@ -60,23 +63,24 @@ class SMSSender():
 
         ...followed by the rest of the lines with the message that was sent.
 
+        :param requests.Response response: The response
+
         :rtype: bool
         :returns: True if the server's response says that the message was sent.
         """
-        # We're only interested in the first line:
-        line = ret.readline()
+        text = response.text
         try:
             # msg_id, status, to, timestamp, message
-            msg_id, status, to, _, _ = line.split('\xa4', 4)
+            msg_id, status, to, _, _ = text.split('\xa4', 4)
         except ValueError:
-            self._logger.warning("SMS: bad response from server: %s" % line)
+            self._logger.warning("SMS: Bad response from server: %s", text)
             return False
 
         if status == 'SENDES':
             return True
         self._logger.warning(
-            "SMS: Bad status '%s' (phone_to='%s', msg_id='%s')" % (
-                status, to, msg_id))
+            "SMS: Bad status '%s' (phone_to='%s', msg_id='%s')",
+            status, to, msg_id)
         return False
 
     def _filter_phone_number(self, phone_to):
@@ -91,73 +95,67 @@ class SMSSender():
         NOTE: If the phone number is deemed un-sms-worthy, we raise a
             ValueError.
 
-        :param str phone_to:
+        :param unicode phone_to:
             The phone number that we will filter.
 
-        :rtype: str
+        :rtype: unicode
         :returns: The (properly formatted) phone number.
         """
         for regex in cereconf.SMS_ACCEPT_REGEX:
             if re.match(regex, phone_to):
                 return phone_to
+        raise ValueError("Invalid phone number '{}'".format(phone_to))
 
-        raise ValueError("Invalid phone number '%s'" % phone_to)
-
-    def __call__(self, phone_to, message, confirm=False):
+    def __call__(self, phone_to, message):
         """ Sends an SMS message to the given phone number.
 
-        :param basestring phone_to:
+        :param unicode phone_to:
           The phone number to send the message to.
 
-        :param basestring message:
+        :param unicode message:
           The message to send to the given phone number.
-
-        :param bool confirm:
-          If the gateway should wait for the message to be sent before it
-          confirms it being sent.
         """
+        assert isinstance(phone_to, six.text_type)
+        assert isinstance(message, six.text_type)
+
         try:
             phone_to = self._filter_phone_number(phone_to)
-        except ValueError, e:
-            self._logger.warning("Unable to send SMS: %s" % str(e))
+        except ValueError as e:
+            self._logger.warning("Unable to send SMS: %s", str(e))
             return False
 
         if getattr(cereconf, 'SMS_DISABLE', True):
-            self._logger.info('Would have sent \'{}\' to {}'.format(message,
-                                                                    phone_to))
+            self._logger.info("Would have sent '%s' to %s'", message, phone_to)
             return True
 
         hostname = urlparse.urlparse(self._url).hostname
         password = read_password(user=self._user, system=hostname)
-        postdata = urllib.urlencode({'b': self._user,
-                                     'p': password,
-                                     's': self._system,
-                                     't': phone_to,
-                                     'm': message})
-        self._logger.debug("Sending SMS to %s (user: %s, system: %s)"
-                           % (phone_to, self._user, self._system))
-
-        old_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(60)  # in seconds
+        data = {
+            'b': self._user,
+            'p': password,
+            's': self._system,
+            't': phone_to,
+            'm': message,
+        }
+        self._logger.debug("Sending SMS to %s (user: %s, system: %s)",
+                           phone_to, self._user, self._system)
 
         try:
-            ret = urllib2.urlopen(
-                self._url,
-                postdata)
-        except urllib2.URLError, e:
-            self._logger.warning('SMS gateway error: %s' % e)
-            return False
-        finally:
-            socket.setdefaulttimeout(old_timeout)
-
-        if ret.code is not 200:
-            self._logger.warning("SMS gateway responded with code "
-                                 "%s - %s" % (ret.code, ret.msg))
+            response = requests.post(
+                self._url, data=data, timeout=self._timeout)
+        except requests.exceptions.RequestException as e:
+            self._logger.warning('SMS gateway error: %s', e)
             return False
 
-        resp = self._validate_response(ret)
-        if resp:
-            self._logger.debug("SMS to %s sent ok" % (phone_to))
+        if response.status_code != 200:
+            self._logger.warning("SMS gateway responded with code %s - %s",
+                                 response.status_code,
+                                 response.text)
+            return False
+
+        success = self._validate_response(response)
+        if success:
+            self._logger.debug("SMS to %s sent OK", phone_to)
         else:
-            self._logger.warning("SMS to %s could not be sent" % phone_to)
-        return bool(resp)
+            self._logger.warning("SMS to %s could not be sent", phone_to)
+        return bool(success)
