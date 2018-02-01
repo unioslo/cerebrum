@@ -303,13 +303,6 @@ def pgp_decrypt(message, keyid, passphrase):
     return filtercmd(cmd, message)
 
 
-def format_as_int(i):
-    """Get rid of PgNumeric while preserving NULL and unset values."""
-    if i is None or i is NotSet:
-        return i
-    return int(i)
-
-
 # TODO: Deprecate when switching over to Python 3.x
 def to_unicode(obj, encoding='utf-8'):
     """Decode obj to unicode if it is a str (basestring is either str or unicode)."""
@@ -324,46 +317,6 @@ def unicode2str(obj, encoding='utf-8'):
     if is_unicode(obj):
         return obj.encode(encoding)
     return obj
-
-
-# TODO: Rewrite when switching over to Python 3.x
-def shorten_name(name, max_length=30, method='initials', encoding='utf-8'):
-    """
-    Shorten a name by a given or default method if it's too long.
-    Possible methods are 'initials' and 'truncate'.
-
-    name is handled as unicode internally, and then decoded back if
-    neccessary before it is returned.
-    """
-    def get_initials(name):
-        tmp = name.split()
-        # Try making initials
-        if len(tmp) == 1:
-            return tmp[0] + "."
-        elif len(tmp) > 1:
-            return ". ".join([x[0] for x in tmp]) + "."
-
-    # Some sanity checks
-    assert isinstance(name, basestring) and len(name) > 0 and max_length > 0
-    if len(name) <= max_length:
-        return name
-    # Decode to unicode before shortening
-    name_uni = to_unicode(name, encoding=encoding)
-    # then shorten name
-    if method == 'initials':
-        ret = get_initials(name_uni)
-        if len(ret) > max_length:
-            # If intitials doesn't work, truncate
-            return shorten_name(name, max_length=max_length, method='truncate')
-    elif method == 'truncate':
-        ret = name_uni[:max_length].strip()
-    else:
-        raise AssertionError("Unknown method value: %s" % method)
-    # encode if name's type is str before returning
-    if isinstance(name, str):
-        return ret.encode(encoding)
-    else:
-        return ret
 
 
 class auto_super(type):
