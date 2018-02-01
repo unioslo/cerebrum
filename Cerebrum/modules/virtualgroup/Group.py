@@ -80,8 +80,8 @@ class VirtualGroup(Group):
         self.__updated = []
 
     def populate(self, creator_id=None, visibility=None, name=None,
-                 description=None, expire_date=None, parent=None,
-                 group_type='normal_group', **kw):
+                 description=None, expire_date=None,
+                 parent=None, group_type='normal_group', **kw):
         """Populate group instance's attributes without database access
         """
         super(VirtualGroup, self).populate(creator_id=creator_id,
@@ -121,7 +121,7 @@ class VirtualGroup(Group):
                 self.execute(
                     """
                     UPDATE [:table schema=cerebrum name=virtual_group_info]
-                    SET group_type = :group_type
+                    SET virtual_group_type = :group_type
                     WHERE group_id = :g_id
                     """, {'g_id': self.entity_id,
                           'group_type': self.virtual_group_type})
@@ -169,6 +169,19 @@ class VirtualGroup(Group):
         self.__in_db = True
         self.__updated = []
 
+    def convert(self, group_type):
+        """ Convert a standard group to virtual
+        """
+        assert self.__in_db
+        assert self.virtual_group_type == self.const.vg_normal_group
+        del self.virtual_group_type
+        if isinstance(group_type, self.const.VirtualGroup):
+            self.virtual_group_type = group_type
+        elif group_type is None or group_type == 'normal_group':
+            self.virtual_group_type = self.const.vg_normal_group
+        else:
+            self.virtual_group_type = self.const.VirtualGroup(group_type)
+                                                            
     def add_member(self, member_id):
         """Add L{member_id} to this group.
 
