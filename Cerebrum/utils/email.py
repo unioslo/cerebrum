@@ -21,8 +21,11 @@
 
 """Utilities for sending e-mail."""
 
+from __future__ import absolute_import
+
 import cereconf
 import smtplib
+import six
 
 
 def sendmail(toaddr, fromaddr, subject, body, cc=None,
@@ -46,8 +49,7 @@ def sendmail(toaddr, fromaddr, subject, body, cc=None,
     if cc:
         toaddr.extend([addr.strip() for addr in cc.split(',')])
         msg['Cc'] = cc.strip()
-    if debug or (hasattr(cereconf, 'EMAIL_DISABLED') and
-                 cereconf.EMAIL_DISABLED):
+    if debug or getattr(cereconf, 'EMAIL_DISABLED', False):
         return msg.as_string()
     smtp = smtplib.SMTP(cereconf.SMTP_HOST)
     smtp.sendmail(fromaddr, toaddr, msg.as_string())
@@ -95,7 +97,7 @@ def mail_template(recipient, template_file, sender=None, cc=None,
                      'to': recipient,
                      'subject': '<none>'}
     for header in headers.split('\n'):
-        field, value = map(str.strip, header.split(':', 1))
+        field, value = map(six.text_type.strip, header.split(':', 1))
         field = field.lower()
         if field in preset_fields:
             preset_fields[field] = value
@@ -111,7 +113,7 @@ def mail_template(recipient, template_file, sender=None, cc=None,
         to_addrs.extend(cc)
         msg['Cc'] = ', '.join(cc)
 
-    if debug:
+    if debug or getattr(cereconf, 'EMAIL_DISABLED', False):
         return msg.as_string()
 
     smtp = smtplib.SMTP(cereconf.SMTP_HOST)
