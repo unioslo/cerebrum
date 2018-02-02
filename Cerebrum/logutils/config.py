@@ -47,7 +47,8 @@ from Cerebrum.config.settings import String, Boolean, Iterable, Choice
 
 
 DEFAULT_LOGDIR = os.path.join(sys.prefix, 'var', 'log', 'cerebrum')
-DEFAULT_CONFDIR = os.path.join(sys.prefix, 'etc', 'cerebrum', 'logging')
+DEFAULT_PRESET_DIR = os.path.join(sys.prefix, 'etc', 'cerebrum',
+                                  'logger-presets')
 DEFAULT_LOGGING_CONFIG = 'logenv'
 
 DEFAULT_CAPTURE_EXC = True
@@ -153,10 +154,11 @@ class LoggerConfig(Configuration):
         default=DEFAULT_LOGDIR,
         doc="Root directory for log files (cerebrum handlers only)")
 
-    confdir = ConfigDescriptor(
-        String,
-        default=DEFAULT_CONFDIR,
-        doc="Directory with logger configurations")
+    presets = ConfigDescriptor(
+        Iterable,
+        template=String(),
+        default=[DEFAULT_PRESET_DIR, ],
+        doc="Directories with logger preset configurations")
 
     merge = ConfigDescriptor(
         Boolean,
@@ -166,7 +168,7 @@ class LoggerConfig(Configuration):
 
     common_config = ConfigDescriptor(
         String,
-        default="logging",
+        default='',
         doc="Common logger configuration."
             " This named configuration will always be applied, if available."
             " Set to an empty string to disable.")
@@ -275,10 +277,13 @@ def iter_configs(directory, rootnames, extensions):
         return
 
 
-def find_logging_config(directory, rootname, extensions=None):
-    """ Find the first file in `directory` with rootname `rootname`.
+def find_logging_config(directories, rootname, extensions=None):
+    """ Find the first file in any directory with rootname `rootname`.
 
-    :param list rootname:
+    :param list directories:
+        A list of directories to look through.
+
+    :param str rootname:
         A file basename without file extension.
 
     :param list extensions:
@@ -286,8 +291,9 @@ def find_logging_config(directory, rootname, extensions=None):
 
     """
     extensions = extensions or ['*']
-    for filename in iter_configs(directory, [rootname, ], extensions):
-        return filename
+    for directory in directories:
+        for filename in iter_configs(directory, [rootname, ], extensions):
+            return filename
     return None
 
 
@@ -395,12 +401,12 @@ def setup_logging(config, config_name, loglevel, disable_existing=False):
     config_files = []
 
     if config.common_config:
-        common = find_logging_config(config.confdir, config.common_config,
+        common = find_logging_config(config.presets, config.common_config,
                                      extensions=extensions)
         if common:
             config_files.append(common)
 
-    local = find_logging_config(config.confdir, config_name,
+    local = find_logging_config(config.presets, config_name,
                                 extensions=extensions)
 
     if local:
@@ -408,7 +414,7 @@ def setup_logging(config, config_name, loglevel, disable_existing=False):
     elif config.require_config:
         raise ValueError(
             "no configuration '{0}' in '{1}'".format(config_name,
-                                                     config.confdir))
+                                                     config.presets))
 
     if config_files and config.merge:
         # Merge configs and apply
