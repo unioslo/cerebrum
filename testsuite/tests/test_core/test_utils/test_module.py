@@ -34,7 +34,7 @@ def test_resolve():
 def test_load_source():
     this = load_source('foo', __file__)
     assert this.__name__ == 'foo'
-    assert this.__file__ == __file__
+    assert this.__file__.replace('.pyc', '.py') == __file__
 
     with pytest.raises(ImportError):
         load_source('bar', __file__ + '.nonexistent')
