@@ -19,16 +19,14 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# $Id$
-
 import sys
 import getopt
 import re
 import time
 
-import cerebrum_path
 import cereconf
-from Cerebrum.Utils import Factory, sendmail
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.email import sendmail
 from Cerebrum.modules.dns.Subnet import Subnet
 from Cerebrum.modules.bofhd.errors import CerebrumError
 

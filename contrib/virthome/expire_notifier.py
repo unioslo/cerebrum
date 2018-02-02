@@ -19,7 +19,7 @@ In order for this approach to work additional cooperation is required from:
     inactive.
 
   * bofhd/PHP-interface. The URL mentioned earlier leads to a page where users
-    confirm the request and push the expiration date into the future. 
+    confirm the request and push the expiration date into the future.
 """
 
 from mx.DateTime import now
@@ -30,14 +30,13 @@ import pickle
 import smtplib
 import sys
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import sendmail
+from Cerebrum.utils.email import sendmail
 
-
+logger = Factory.get_logger("cronjob")
 
 
 def get_config(name):
@@ -52,8 +51,6 @@ def get_config(name):
                            str(name))
 
     return getattr(cereconf, name)
-# end get_config
-
 
 
 class user_attributes(object):
@@ -62,19 +59,15 @@ class user_attributes(object):
     This is a convenience class. Rather than construct a dict of dicts, we'll
     work with dicts of objects of this class.
     """
-
     def __init__(self, account):
         self.uname = account.account_name
         self.email = account.get_email_address()
         self.account_id = account.entity_id
         self.magic_key = None
         self.expire_date = account.expire_date
-    # end __init__
 
     def set_magic_key(self, magic):
         self.magic_key = magic
-# end user_attributes
-
 
 
 def collect_warnable_accounts(database):
@@ -86,18 +79,16 @@ def collect_warnable_accounts(database):
     account = Factory.get("Account")(database)
     const = Factory.get("Constants")()
     return set(x["account_id"]
-            # collect all accounts
-            for x in account.list(filter_expired=True)
-            # ... that are VA/FA
-            if (x["np_type"] in (const.virtaccount_type,
-                                 const.fedaccount_type) and
-                # ... and have an expire date
-                x["expire_date"] and
-                # ... and that expire date is within the right window
-                DateTimeDelta(0) <= x["expire_date"] - now()
-                                 <= get_config("EXPIRE_WARN_WINDOW")))
-# end collect_warnable_accounts
-
+               # collect all accounts
+               for x in account.list(filter_expired=True)
+               # ... that are VA/FA
+               if (x["np_type"] in (const.virtaccount_type,
+                                    const.fedaccount_type) and
+                   # ... and have an expire date
+                   x["expire_date"] and
+                   # ... and that expire date is within the right window
+                   DateTimeDelta(0) <= x["expire_date"] - now() \
+                                    <= get_config("EXPIRE_WARN_WINDOW")))
 
 
 def collect_warned_accounts(database, account_ids=None):
@@ -107,7 +98,6 @@ def collect_warned_accounts(database, account_ids=None):
     @param account_ids:
       Specific accounts the expire warning status of which we want.
     """
-
     account = Factory.get("Account")(database)
     const = Factory.get("Constants")
     already_warned = set()
@@ -124,21 +114,16 @@ def collect_warned_accounts(database, account_ids=None):
             continue
         already_warned.add(account_id)
     return already_warned
-# end collect_warned_accounts
-
 
 
 def account_id2attributes(account_id, database):
-    """Remap account_id to account's attributes.
-    """
-
+    """Remap account_id to account's attributes."""
     account = Factory.get("Account")(database)
     try:
         account.find(account_id)
         return user_attributes(account)
     except Errors.NotFoundError:
         return None
-# end account_id2attributes
 
 
 def create_request(attrs, cl_event_type, db):
@@ -162,7 +147,6 @@ def create_request(attrs, cl_event_type, db):
 
     attrs.set_magic_key(magic_key)
     return magic_key
-# end create_request
 
 
 def cancel_request(attrs, db):
@@ -183,7 +167,6 @@ def cancel_request(attrs, db):
                      magic_key)
         # Nothing to do here, since the request is no longer there...
         return
-# end cancel_request
 
 
 def generate_requests(database):
@@ -193,7 +176,6 @@ def generate_requests(database):
     warned. However, not all of them should have a request generated, as some
     may already have a similar request.
     """
-
     warnable_accounts = collect_warnable_accounts(database)
     already_warned = collect_warned_accounts(database)
 
@@ -214,7 +196,6 @@ def generate_requests(database):
             addresses[account_id] = attrs
 
     return addresses
-# end generate_requests
 
 
 def send_email(requests, dryrun, database):
@@ -234,7 +215,8 @@ def send_email(requests, dryrun, database):
         message = get_config("EXPIRE_MESSAGE_TEMPLATE") % {
             "uname": uname,
             "expire_date": expire_date,
-            "url": confirm_url,}
+            "url": confirm_url,
+        }
 
         logger.debug("Generated a message for %s/%s (request key: %s). ",
                      uname, email, magic_key)
@@ -255,8 +237,8 @@ def send_email(requests, dryrun, database):
                 else:
                     cancel_request(attrs, database)
             except smtplib.SMTPException:
-                logger.exception("Failed to send message to %s/%s", uname,
-                        email)
+                logger.exception(
+                    "Failed to send message to %s/%s", uname, email)
                 cancel_request(attrs, database)
         else:
             logger.debug("Message for %s/%s (request key: %s) will not be sent"
@@ -276,7 +258,7 @@ def get_account(ident, database):
     account = Factory.get("Account")(database)
     try:
         if (isinstance(ident, (int, long)) or
-            isinstance(ident, str) and ident.isdigit()):
+                isinstance(ident, str) and ident.isdigit()):
             account.find(int(ident))
         else:
             account.find_by_name(ident)
@@ -284,7 +266,6 @@ def get_account(ident, database):
         return account
     except Errors.NotFoundError:
         return None
-# end get_account
 
 
 def typeset_change_log_row(row, database):
@@ -305,9 +286,7 @@ def typeset_change_log_row(row, database):
         row["tstamp"].strftime("%F %R"),
         entity,
         row["change_params"] is not None and
-        ", params=%s." % repr(pickle.loads(row["change_params"]))
-        or ".")
-# end typeset_change_log_row
+        ", params=%s." % repr(pickle.loads(row["change_params"])) or ".")
 
 
 def show_requests(ident, database):
@@ -324,7 +303,6 @@ def show_requests(ident, database):
       specified, we use _that_ particular id to locate a single change_log
       entry corresponding to a request (typically expire reset request)
     """
-
     account = get_account(ident, database)
     if account is not None:
         # Let's fish out the requests based on the account
@@ -342,7 +320,6 @@ def show_requests(ident, database):
     results.sort(key=lambda x: x["tstamp"])
     for row in results:
         logger.debug(typeset_change_log_row(row, database))
-# end show_requests
 
 
 def send_expire_warning(ident, dryrun, database):
@@ -352,7 +329,6 @@ def send_expire_warning(ident, dryrun, database):
     This is useful in a situation if a scheduled warning failed for some
     reason or we want to preempt the scheduled warning for some reason.
     """
-
     account = get_account(ident, database)
     const = Factory.get("Constants")()
     if account is None:
@@ -374,8 +350,6 @@ def send_expire_warning(ident, dryrun, database):
         addresses[account.entity_id] = attrs
 
     return send_email(addresses, dryrun, database)
-# end send_expire_warning
-
 
 
 def remove_request(ident, dryrun, database):
@@ -385,7 +359,6 @@ def remove_request(ident, dryrun, database):
     automatic routines for some reason. It should not be run from cron, but
     rather be available as a tool for manual fixing of reset expire requests.
     """
-
     const = Factory.get("Constants")(database)
     account = get_account(ident, database)
     if account is not None:
@@ -397,22 +370,20 @@ def remove_request(ident, dryrun, database):
         results = database.get_pending_events(confirmation_key=ident)
 
     if len(results) < 1:
-        logger.debug("No expire reset request matches search criteria: %s.", ident)
+        logger.debug(
+            "No expire reset request matches search criteria: %s.", ident)
         return
     elif len(results) > 1:
         logger.debug("Multiple requests exist the same id: %s", str(ident))
         return
 
     request = results[0]
-    logger.debug("Removing request %s", typeset_change_log_row(request, database))
+    logger.debug("Removing request %s",
+                 typeset_change_log_row(request, database))
     database.remove_log_event(request["change_id"])
-# end remove_request
 
 
-
-logger = Factory.get_logger("cronjob")
 def main(argv):
-
     opts, junk = getopt.getopt(argv[1:],
                                "d",
                                ("dryrun",
@@ -454,13 +425,11 @@ def main(argv):
     if display_requests or explicit_requests or remove_requests:
         database.commit()
         sys.exit(0)
-    
+
     requests = generate_requests(database)
     send_email(requests, dryrun, database)
     database.commit()
     logger.debug("All done")
-# end main
-
 
 
 if __name__ == "__main__":

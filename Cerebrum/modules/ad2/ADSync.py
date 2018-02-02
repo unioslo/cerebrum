@@ -55,13 +55,13 @@ import time
 import pickle
 import uuid
 
-import cerebrum_path
 import adconf
 
-from Cerebrum.Utils import unicode2str, Factory, dyn_import, sendmail, NotSet
 from Cerebrum import Entity, Errors
 from Cerebrum.modules import CLHandler, Email
 from Cerebrum.modules.EntityTrait import EntityTrait
+from Cerebrum.Utils import unicode2str, Factory, dyn_import, NotSet
+from Cerebrum.utils.email import sendmail
 
 from Cerebrum.modules.ad2 import ADUtils, ConfigUtils
 from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity

@@ -21,8 +21,10 @@
 import os
 import re
 import string
+import time
+import tempfile
 import cereconf
-from Cerebrum import Utils
+
 
 class TemplateHandler(object):
     """Handling of templates for letters.
@@ -123,12 +125,14 @@ class TemplateHandler(object):
         """Spools the job.  The spool command is executed in the
         directory where filename resides."""
         if logfile is None:
-            logfile = Utils.make_temp_file(only_name=True)
+            fd, logfile = tempfile.mkstemp(
+                prefix='cerebrum_spool_{}'.format(time.time()))
+            fd.close()
         self.logfile = logfile
         old_dir = os.getcwd()
         if os.path.dirname(filename):
             os.chdir(os.path.dirname(filename))
-        base_filename = filename[:filename.rindex('.')] 
+        base_filename = filename[:filename.rindex('.')]
         try:
             if cereconf.PRINT_DVIPS_CMD:
                 format_sys_cmd = "%s -f < %s.dvi > %s.ps 2>> %s" % (cereconf.PRINT_DVIPS_CMD,

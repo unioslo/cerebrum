@@ -66,10 +66,12 @@ PRINT_LPR_CMD
 
 import os
 import string
+import time
+import tempfile
 
 import cereconf
 
-from Cerebrum import Utils
+from Cerebrum.Utils import Factory
 
 
 __print_log = None
@@ -80,7 +82,9 @@ def _get_print_log():
     u""" Lazy instantiation of __print_log. """
     global __print_log
     if __print_log is None or not os.path.isfile(__print_log):
-        __print_log = Utils.make_temp_file(only_name=True)
+        fd, __print_log = tempfile.mkstemp(
+            prefix='cerebrum_print_{}'.format(time.time()))
+        fd.close()
     return __print_log
 
 
@@ -157,7 +161,7 @@ class LinePrinter(object):
 
     def spool(self, *filenames):
         u""" Spool file for printing. """
-        logger = Utils.Factory.get_logger('cronjob')
+        logger = Factory.get_logger('cronjob')
         if not filenames:
             logger.debug("No files given, nothing to spool")
             return

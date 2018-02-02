@@ -39,7 +39,7 @@ from time import time
 from os.path import basename
 
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import sendmail
+from Cerebrum.utils.email import sendmail
 from Cerebrum.modules.virthome.LDIFHelper import LDIFHelper
 from mx.DateTime import now
 

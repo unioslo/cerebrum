@@ -36,6 +36,7 @@ from flanker.addresslib import address as email_validator
 from Cerebrum.modules import Email
 from Cerebrum import Errors
 from Cerebrum import Utils
+from Cerebrum.utils.email import sendmail, mail_template
 
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase, BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func
@@ -1755,10 +1756,10 @@ class BofhdEmailMixin(BofhdEmailMixinBase):
         to_address = "postmaster-logs@usit.uio.no"
         from_address = "cerebrum-logs@usit.uio.no"
         try:
-            Utils.sendmail(toaddr=to_address,
-                           fromaddr=from_address,
-                           subject="Removal of e-mail addresses in Cerebrum",
-                           body="""
+            sendmail(toaddr=to_address,
+                     fromaddr=from_address,
+                     subject="Removal of e-mail addresses in Cerebrum",
+                     body="""
 This is an automatically generated e-mail.
 
 The following e-mail list addresses have just been removed from Cerebrum. Keep
@@ -1771,7 +1772,7 @@ Addresses and settings:
 
         # We don't want this function ever interfering with bofhd's
         # operation. If it fails -- screw it.
-        except:
+        except Exception:
             self.logger.info("Failed to send e-mail to %s", to_address)
             self.logger.info("Failed e-mail info: %s", repr(deleted_EA))
 
@@ -1939,7 +1940,7 @@ Addresses and settings:
         if es.email_server_type == self.const.email_server_type_cyrus:
             spreads = [int(r['spread']) for r in acc.get_spread()]
             br = BofhdRequests(self.db, self.const)
-            if not self.const.spread_uio_imap in spreads:
+            if self.const.spread_uio_imap not in spreads:
                 # UiO's add_spread mixin will not do much since
                 # email_server_id is set to a Cyrus server already.
                 acc.add_spread(self.const.spread_uio_imap)
@@ -1966,12 +1967,12 @@ Addresses and settings:
                        when.day, nth_en[when.day],
                        when.hour, when.minute - when.minute % 10)
             try:
-                Utils.mail_template(acc.get_primary_mailaddress(),
-                                    cereconf.USER_EMAIL_MOVE_WARNING,
-                                    sender="postmaster@usit.uio.no",
-                                    substitute={'USER': acc.account_name,
-                                                'WHEN_EN': when_en,
-                                                'WHEN_NN': when_nn})
+                mail_template(acc.get_primary_mailaddress(),
+                              cereconf.USER_EMAIL_MOVE_WARNING,
+                              sender="postmaster@usit.uio.no",
+                              substitute={'USER': acc.account_name,
+                                          'WHEN_EN': when_en,
+                                          'WHEN_NN': when_nn})
             except Exception, e:
                 self.logger.info("Sending mail failed: %s", e)
         else:

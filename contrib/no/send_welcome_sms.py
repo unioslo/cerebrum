@@ -30,7 +30,8 @@ from mx.DateTime import now, DateTimeDelta
 
 import cereconf
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, SMSSender
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.sms import SMSSender
 
 logger = Factory.get_logger('cronjob')
 db = Factory.get('Database')()

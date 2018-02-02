@@ -137,11 +137,22 @@ def match_contents(filename, expected):
     return current == expected
 
 
+def test_writer_warns_if_validation_disabled(AtomicFileWriter, new_file):
+    from Cerebrum.utils.atomicfile import FileWriterWarning
+    with pytest.warns(FileWriterWarning):
+        af = AtomicFileWriter(new_file)
+    assert af.validate is False
+
+
+@pytest.mark.filterwarnings(
+    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
 def test_writer_prop_name(AtomicFileWriter, new_file):
     af = AtomicFileWriter(new_file)
     assert af.name == new_file
 
 
+@pytest.mark.filterwarnings(
+    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
 def test_writer_prop_closed(AtomicFileWriter, new_file):
     af = AtomicFileWriter(new_file)
     assert not af.closed
@@ -149,6 +160,8 @@ def test_writer_prop_closed(AtomicFileWriter, new_file):
     assert af.closed
 
 
+@pytest.mark.filterwarnings(
+    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
 def test_writer_prop_tmpname(AtomicFileWriter, new_file, text):
     af = AtomicFileWriter(new_file)
     assert os.path.exists(af.tmpname)
@@ -158,6 +171,8 @@ def test_writer_prop_tmpname(AtomicFileWriter, new_file, text):
     assert os.path.exists(new_file)
 
 
+@pytest.mark.filterwarnings(
+    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
 def test_writer_prop_discarded(AtomicFileWriter, text_file, text):
     af = AtomicFileWriter(text_file)
     assert not af.discarded
@@ -167,6 +182,8 @@ def test_writer_prop_discarded(AtomicFileWriter, text_file, text):
     assert af.discarded
 
 
+@pytest.mark.filterwarnings(
+    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
 def test_writer_prop_replace(AtomicFileWriter, text_file, text, more_text):
     af = AtomicFileWriter(text_file, replace_equal=True)
     af.replace = False
@@ -177,6 +194,8 @@ def test_writer_prop_replace(AtomicFileWriter, text_file, text, more_text):
     assert match_contents(af.tmpname, more_text)
 
 
+@pytest.mark.filterwarnings(
+    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
 def test_writer_prop_replaced(AtomicFileWriter, new_file, text):
     af = AtomicFileWriter(new_file)
     assert not af.replaced
@@ -198,6 +217,8 @@ def test_new_file_write(AtomicFileWriter, new_file, text):
     assert match_contents(af.tmpname, text)
 
 
+@pytest.mark.filterwarnings(
+    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
 def test_new_file_close(AtomicFileWriter, new_file, text):
     # Write 'text' to a new file (non-existing filename)
     af = AtomicFileWriter(new_file)
@@ -219,6 +240,8 @@ def test_replace_write(AtomicFileWriter, text, text_file, more_text):
     assert match_contents(text_file, text)
 
 
+@pytest.mark.filterwarnings(
+    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
 def test_replace_close(AtomicFileWriter, text, text_file, more_text):
     # Write 'replace' to a file with contents 'text', and close the file
     af = AtomicFileWriter(text_file)
@@ -229,6 +252,8 @@ def test_replace_close(AtomicFileWriter, text, text_file, more_text):
     assert match_contents(text_file, more_text)
 
 
+@pytest.mark.filterwarnings(
+    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
 def test_context_pass(AtomicFileWriter, text, text_file, more_text):
     with AtomicFileWriter(text_file) as af:
         af.write(more_text)
@@ -253,6 +278,8 @@ def test_append_write(AtomicFileWriter, text, text_file, more_text):
     assert match_contents(text_file, text)
 
 
+@pytest.mark.filterwarnings(
+    'ignore::Cerebrum.utils.atomicfile.FileWriterWarning')
 def test_append_close(AtomicFileWriter, text, text_file, more_text):
     af = AtomicFileWriter(text_file, mode='a')
     af.write(more_text)
@@ -289,8 +316,7 @@ def test_minimum_size_fail(MinimumSizeWriter, file_module, new_file, text):
 
 
 def test_similar_size_pass(SimilarSizeWriter, text, text_file, more_text):
-
-    change = 100 * abs(float(len(more_text))/float(len(text)) - 1.0)
+    change = 100 * abs(float(len(more_text)) / float(len(text)) - 1.0)
     limit = int(math.ceil(change)) + 1
 
     print('Actual change: {:.1f}%'.format(change))
@@ -306,8 +332,7 @@ def test_similar_size_pass(SimilarSizeWriter, text, text_file, more_text):
 
 def test_similar_size_fail(
         SimilarSizeWriter, file_module, text, text_file, more_text):
-
-    change = 100 * abs(float(len(more_text))/float(len(text)) - 1.0)
+    change = 100 * abs(float(len(more_text)) / float(len(text)) - 1.0)
     limit = int(math.floor(change)) - 1
 
     print('Actual change: {:.1f}%'.format(change))

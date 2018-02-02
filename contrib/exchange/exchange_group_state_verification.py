@@ -27,7 +27,6 @@ This is done by:
     - Send a report by mail/file.
 """
 
-import cerebrum_path
 import cereconf
 import eventconf
 
@@ -36,15 +35,13 @@ import pickle
 import getopt
 import sys
 
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, read_password
 from Cerebrum.modules.Email import EmailAddress
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
-from Cerebrum import Utils
-from Cerebrum.Utils import read_password
-from Cerebrum import Errors
+from Cerebrum.utils.email import sendmail
 import ldap
 
-logger = Utils.Factory.get_logger('cronjob')
+logger = Factory.get_logger('cronjob')
 
 
 class StateChecker(object):
@@ -564,8 +561,8 @@ if __name__ == '__main__':
         rep = u'\n'.join(tmp)
     # Send a report by mail
     if mail and sender:
-        Utils.sendmail(mail, sender, 'Exchange group state report',
-                       rep.encode('utf-8'))
+        sendmail(mail, sender, 'Exchange group state report',
+                 rep.encode('utf-8'))
 
     # Write report to file
     if repfile:
