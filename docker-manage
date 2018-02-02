@@ -41,7 +41,7 @@ SYNC_SCRIPT = 'sync-dev-config.sh'
 
 CONTAINER_SCRIPTS_FOLDER = '/src/testsuite/docker/container-scripts'
 START_DEV_SHELL_SCRIPT = 'start-dev-shell.sh'
-START_PTW_SCRIPT = 'start-ptw.sh'
+START_TEST_ENV_SCRIPT = 'start-test-env.sh {}'
 
 
 def exit_if_not_dir(dir_path):
@@ -86,8 +86,22 @@ def start_test_watcher(args_dict):
     test_config_path = os.path.join(TEST_CONFIG_PATH, instance)
     exit_if_not_dir(test_config_path)
 
-    proc = run_container_cmd(instance, os.path.join(CONTAINER_SCRIPTS_FOLDER,
-                                                    START_PTW_SCRIPT))
+    proc = run_container_cmd(
+        instance,
+        os.path.join(CONTAINER_SCRIPTS_FOLDER,
+                     START_TEST_ENV_SCRIPT.format('ptw')))
+    proc.wait()
+
+
+def start_bash(args_dict):
+    instance = args_dict['instance']
+    test_config_path = os.path.join(TEST_CONFIG_PATH, instance)
+    exit_if_not_dir(test_config_path)
+
+    proc = run_container_cmd(
+        instance,
+        os.path.join(CONTAINER_SCRIPTS_FOLDER,
+                     START_TEST_ENV_SCRIPT.format('bash')))
     proc.wait()
 
 
@@ -127,6 +141,14 @@ def main():
                             help="The name of the test-instance to load.",
                             type=str)
     ptw_parser.set_defaults(func=start_test_watcher)
+
+    bash_parser = subparsers.add_parser('start-bash',
+                                        help='Start a container with test '
+                                             'environment, drop to bash.')
+    bash_parser.add_argument('instance',
+                             help="The name of the test-instance to load.",
+                             type=str)
+    bash_parser.set_defaults(func=start_bash)
 
     report_parser = subparsers.add_parser('get-test-report',
                                           help='Start a container to build '
