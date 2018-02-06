@@ -38,6 +38,7 @@ import urllib
 import urlparse
 import random
 import collections
+import unicodedata
 from string import ascii_lowercase, digits
 from subprocess import Popen, PIPE
 
@@ -250,6 +251,11 @@ def is_str_or_unicode(x):
 def is_unicode(x):
     """Checks if a given variable is a unicode string."""
     return isinstance(x, unicode)
+
+
+def remove_control_characters(s):
+    """Remove unicode control characters."""
+    return "".join(ch for ch in s if unicodedata.category(ch)[0] != "C")
 
 
 # TODO: Deprecate: needlessly complex in terms of readability and end result
