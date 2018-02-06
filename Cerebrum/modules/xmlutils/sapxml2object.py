@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -143,7 +143,7 @@ class XMLOU2Object(XMLEntity2Object):
             return None
 
         xml2kind = {
-            "Bes�ksadresse": DataAddress.ADDRESS_BESOK,
+            "Besøksadresse": DataAddress.ADDRESS_BESOK,
             "Postadresse": DataAddress.ADDRESS_POST,
         }
         if kind not in xml2kind:
@@ -310,11 +310,11 @@ class XMLPerson2Object(XMLEntity2Object):
         assert addr_element.tag == "Adresse"
 
         sap2intern = {
-            "Bes�ksadresse": DataAddress.ADDRESS_BESOK,
+            "Besøksadresse": DataAddress.ADDRESS_BESOK,
             "Postadresse": DataAddress.ADDRESS_POST,
             "Bostedsadresse": DataAddress.ADDRESS_PRIVATE,
             "Avvikende postadresse": DataAddress.ADDRESS_OTHER_POST,
-            "Avvikende bes�ksadresse": DataAddress.ADDRESS_OTHER_BESOK,
+            "Avvikende besøksadresse": DataAddress.ADDRESS_OTHER_BESOK,
         }
 
         zip = city = country = addr_kind = ""
@@ -465,7 +465,7 @@ class XMLPerson2Object(XMLEntity2Object):
     def _make_role(self, elem):
         """Make an employment out of a <Roller>...</Roller>.
 
-        SAP uses <Roller>-elements to designate bilagsl�nnede and gjester.
+        SAP uses <Roller>-elements to designate bilagslønnede and gjester.
 
         """
         ou_id = None
@@ -482,7 +482,7 @@ class XMLPerson2Object(XMLEntity2Object):
             if sub.tag == "Navn":
                 code = value
 
-                if value == "BILAGSL�NN":
+                if value == "BILAGSLØNN":
                     kind = DataEmployment.BILAG
                 else:
                     # For guests, we distinguish between different guest kinds
@@ -519,7 +519,7 @@ class XMLPerson2Object(XMLEntity2Object):
             u"Arbeidstelefon 3": DataContact.CONTACT_PHONE,
             u"Mobilnummer, jobb": DataContact.CONTACT_MOBILE_WORK,
             u"Mobilnummer, privat": DataContact.CONTACT_MOBILE_PRIVATE,
-            u"Privat mobil synlig p� web":
+            u"Privat mobil synlig på web":
             DataContact.CONTACT_MOBILE_PRIVATE_PUBLIC}
 
         ctype = elem.find("Type")
@@ -582,17 +582,6 @@ class XMLPerson2Object(XMLEntity2Object):
         proper SAPPerson object), an exception is raised.
 
         """
-        def to_latin1(string):
-            import codecs
-            import unicodedata
-            try:
-                return codecs.encode(string, 'latin1')
-            except UnicodeEncodeError:
-                return codecs.encode(
-                    unicodedata.normalize('NFKD', string),
-                    'latin1',
-                    'ignore')
-
         result = SAPPerson()
 
         # Per baardj's request, we consider middle names as first names.
@@ -727,7 +716,7 @@ class XMLPerson2Object(XMLEntity2Object):
         for sub in element.getiterator("Kommunikasjon"):
             txt = ensure_unicode(sub.findtext("Type"), self.encoding)
             val = ensure_unicode(sub.findtext("Verdi"), self.encoding)
-            if (txt and txt == "Sted for l�nnslipp" and val
+            if (txt and txt == "Sted for lønnslipp" and val
                     # *some* of the entries have a space here and there.
                     # and some contain non-digit data
                     and val.replace(" ", "").isdigit()):

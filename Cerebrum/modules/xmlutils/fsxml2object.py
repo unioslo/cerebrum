@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -20,13 +20,14 @@
 """
 This module implements an abstraction layer for FS-originated data.
 """
+from __future__ import unicode_literals
 from mx.DateTime import Date
 import sys
 import time
 
 from Cerebrum.modules.xmlutils.xml2object import \
      XMLDataGetter, XMLEntity2Object, DataOU, DataName, \
-     DataAddress, DataContact, XMLEntityIterator
+     DataAddress, DataContact, XMLEntityIterator, ensure_unicode
 
 
 
@@ -35,10 +36,10 @@ from Cerebrum.modules.xmlutils.xml2object import \
 class FSOU(DataOU):
     """Class for representing FS-specific information about OUs."""
 
-    # magic number + geographical code (forretningsområdekode), where
+    # magic number + geographical code (forretningsomrÃ¥dekode), where
     # applicable. This magic key is registered in FS, rather than SAP.
     NO_SAP_ID    = "sap-ou-id"
-    
+
     def validate_id(self, kind, value):
         if kind in (self.NO_SAP_ID,):
             return
@@ -66,7 +67,7 @@ class XMLOU2Object(XMLEntity2Object):
     def _pull_name(self, element, attribute_name):
 
         if element.get(attribute_name):
-            value = element.get(attribute_name).encode("latin1")
+            value = ensure_unicode(element.get(attribute_name), self.encoding)
             return value
 
         return None
@@ -76,8 +77,8 @@ class XMLOU2Object(XMLEntity2Object):
     def _make_contact(self, element):
         """Return a DataContact entry corresponding to a given XML element."""
 
-        comm_type = element.get("kommtypekode")
-        value = element.get("kommnrverdi")
+        comm_type = ensure_unicode(element.get("kommtypekode"), self.encoding)
+        value = ensure_unicode(element.get("kommnrverdi"), self.encoding)
 
         if not value:
             return None, None
@@ -91,7 +92,7 @@ class XMLOU2Object(XMLEntity2Object):
 
         return None, None
     # end _make_contact
-    
+
 
     def next_object(self, element):
         """Returns a DataEntity representation of the 'next' XML element."""
@@ -128,7 +129,7 @@ class XMLOU2Object(XMLEntity2Object):
                 result.add_name(DataName(name_kind, value, lang))
 
         # addresses
-        extract = lambda x: element.get(x, "").encode("latin1")
+        extract = lambda x: ensure_unicode(element.get(x, ""), self.encoding)
         for xmlkind, address_kind in (("besok", DataAddress.ADDRESS_BESOK),
                                       ("intern", DataAddress.ADDRESS_POST)):
             zipcode = extract("poststednr_%s_adr" % xmlkind)
@@ -174,8 +175,8 @@ class EduDataGetter(XMLDataGetter):
         # a callable that returns one. However, a callable would do as well,
         # given how class is used in XMLDataGetter.
         return self._make_iterator(element,
-                       lambda iterator, logger:
-                           EduKind2Object(iterator, logger, fields))
+                       lambda iterator, logger, encoding:
+                           EduKind2Object(iterator, logger, fields, encoding))
 
 
     def iter_stprog(self, tag="studprog"):
@@ -189,7 +190,7 @@ class EduDataGetter(XMLDataGetter):
                                     "status_utgatt",
                                     "studieprognavn",
                                     "status_eksport_lms",))
-            
+
     def iter_undenh(self, tag="enhet"):
         return self.__fix_iterator(tag, ("institusjonsnr",
                                          "terminnr",
@@ -256,17 +257,6 @@ class EduGenericIterator(XMLEntityIterator):
     def __init__(self, filename, element):
         super(EduGenericIterator, self).__init__(filename, element)
     # end __init__
-    
-    def next(self):
-        element = super(EduGenericIterator, self).next()
-
-        def encode(x):
-            if isinstance(x, unicode):
-                return x.encode("latin-1")
-            return x
-
-        return dict((encode(x), encode(y)) for (x, y) in element.items())
-    # end next
 
     def __iter__(self):
         return self
@@ -275,19 +265,11 @@ class EduGenericIterator(XMLEntityIterator):
 
 
 class EduKind2Object(XMLEntity2Object):
-    def __init__(self, iterator, logger, required_attributes):
-        super(EduKind2Object, self).__init__(iterator, logger)
+    def __init__(self, iterator, logger, required_attributes, encoding):
+        super(EduKind2Object, self).__init__(iterator, logger, encoding)
         import copy
         self._required_attributes = copy.deepcopy(required_attributes)
 
     def next_object(self, subtree):
-        # The easiest option is making a dict -- it is in many respects
-        # similar to db-row, which is what this method's return value is meant
-        # to replace.
-        def encode(x):
-            if isinstance(x, unicode):
-                return x.encode("latin-1")
-            return x
-
-        return dict((encode(x), encode(subtree.get(x))) for x in self._required_attributes)
+        return dict((x, subtree.get(x)) for x in self._required_attributes)
 # end EduKind2Object
