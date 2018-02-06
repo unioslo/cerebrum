@@ -65,17 +65,9 @@ def format_sko(xmlou):
     :Parameters:
       xmlou : DataOU instance
     """
-<<<<<<< HEAD
     sko = xmlou.get_id(xmlou.NO_SKO)
     if sko is None:
         return None
-=======
-
-    sko = xmlou.get_id(xmlou.NO_SKO)
-    if sko is None:
-        return None
-
->>>>>>> Add inital transition to unicode for object2cerebrum-related code.
     # Yes, we will fail if there is no sko, but some junk. However, it should
     # not happen.
     return "%02d%02d%02d" % sko
@@ -121,10 +113,6 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
       perspective : OUPerspective instance
         perspective for which we are building the OU hierarchy.
     """
-<<<<<<< HEAD
-=======
-
->>>>>>> Add inital transition to unicode for object2cerebrum-related code.
     # This may happen *if* there is an error in the datafile, when OU1 has
     # OU2 as parent, but there are no records of OU2 on file. It could happen
     # when *parts* of the OU-hierarchy expire.
@@ -142,11 +130,7 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
         # should it report that as an error
         logger.info("Found top-level OU '%s'. No parent assigned." % my_sko)
         parent_sko = None
-<<<<<<< HEAD
         parent_ouid = None
-=======
-	parent_ouid = None
->>>>>>> Add inital transition to unicode for object2cerebrum-related code.
     elif (not parent_sko) or (parent_sko not in stedkode2ou):
         # It's not always an error -- OU-hierarchy roots do not have parents
         # by design.
@@ -293,10 +277,6 @@ def get_cere_ou_table():
                                   entry['avdeling'])
         key = int(entry['ou_id'])
         sted_tab[key] = value
-<<<<<<< HEAD
-=======
-
->>>>>>> Add inital transition to unicode for object2cerebrum-related code.
     return sted_tab
 
 
@@ -315,10 +295,6 @@ def set_quaran(cer_ou_tab):
         removed from Cerebrum (i.e. the OUs that are in Cerebrum, but not in
         the data source).
     """
-<<<<<<< HEAD
-=======
-
->>>>>>> Add inital transition to unicode for object2cerebrum-related code.
     ous = OU_class(db)
     today = DateTime.today()
     acc = Factory.get("Account")(db)
@@ -330,11 +306,7 @@ def set_quaran(cer_ou_tab):
             ous.add_entity_quarantine(co.quarantine_ou_notvalid,
                                       acc.entity_id,
                                       description='import_OU',
-<<<<<<< HEAD
                                       start=today)
-=======
-				      start=today)
->>>>>>> Add inital transition to unicode for object2cerebrum-related code.
     db.commit()
 
 

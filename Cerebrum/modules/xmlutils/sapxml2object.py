@@ -120,11 +120,11 @@ class XMLOU2Object(XMLEntity2Object):
             "Telefon2": DataContact.CONTACT_PHONE,
             "URL": DataContact.CONTACT_URL,
         }
-	comm_type = ensure_unicode(comm_type.text, self.encoding)
+        comm_type = ensure_unicode(comm_type.text, self.encoding)
         if comm_type not in comm2const:
             return None
 
-	value = ensure_unicode(value.text, self.encoding)
+        value = ensure_unicode(value.text, self.encoding)
         if comm_type in ("Telefax", "Telefon1", "Telefon2"):
             value = deuglify_phone(value)
 
@@ -134,7 +134,7 @@ class XMLOU2Object(XMLEntity2Object):
         def ext(subelm):
             answer = element.find(subelm)
             if answer is not None and answer.text:
-		return ensure_unicode(answer.text, self.encoding)
+                return ensure_unicode(answer.text, self.encoding)
             return ""
         # end
 
@@ -142,11 +142,11 @@ class XMLOU2Object(XMLEntity2Object):
         if not kind:
 	    return None
 
-	xml2kind = {
-	    "Besøksadresse": DataAddress.ADDRESS_BESOK,
-	    "Postadresse": DataAddress.ADDRESS_POST,
-	}
-	if kind not in xml2kind:
+        xml2kind = {
+            "Besøksadresse": DataAddress.ADDRESS_BESOK,
+            "Postadresse": DataAddress.ADDRESS_POST,
+        }
+        if kind not in xml2kind:
             return None
         result = DataAddress(
             kind=xml2kind[kind],
@@ -182,8 +182,8 @@ class XMLOU2Object(XMLEntity2Object):
             if language.lower() not in ("nn", "nb", "ny", "en"):
                 continue
             result.append(DataName(tag2kind[tmp.tag],
-				   ensure_unicode(tmp.text.strip(),
-						  self.encoding),
+                                   ensure_unicode(tmp.text.strip(),
+                                                  self.encoding),
                                    language))
 
         return result
@@ -194,13 +194,13 @@ class XMLOU2Object(XMLEntity2Object):
         result = DataOU()
 
         # IVR 2007-12-24 FIXME: One of the attributes is special, and tags the
-	# OU's intended usage code (bruksomr�de). Find out which attribute
+        # OU's intended usage code (bruksområde). Find out which attribute
         # this is.
         # Iterate over *all* subelements
         for sub in element.getiterator():
             value = None
             if sub.text:
-		value = ensure_unicode(sub.text.strip(), self.encoding)
+                value = ensure_unicode(sub.text.strip(), self.encoding)
             if sub.tag == "Stedkode":
                 sko = make_sko(value)
                 if sko is not None:
@@ -216,7 +216,7 @@ class XMLOU2Object(XMLEntity2Object):
             elif sub.tag == "Overordnetstedkode":
                 sko = make_sko(value)
                 if sko is not None:
-		    result.parent = (result.NO_SKO, sko)
+                    result.parent = (result.NO_SKO, sko)
             elif sub.tag == "Navn":
                 for name in self._make_names(sub):
                     result.add_name(name)
@@ -309,13 +309,13 @@ class XMLPerson2Object(XMLEntity2Object):
 
 	assert addr_element.tag == "Adresse"
 
-	sap2intern = {
-	    "Besøksadresse": DataAddress.ADDRESS_BESOK,
-	    "Postadresse": DataAddress.ADDRESS_POST,
-	    "Bostedsadresse": DataAddress.ADDRESS_PRIVATE,
-	    "Avvikende postadresse": DataAddress.ADDRESS_OTHER_POST,
-	    "Avvikende besøksadresse": DataAddress.ADDRESS_OTHER_BESOK,
-	}
+        sap2intern = {
+            "Besøksadresse": DataAddress.ADDRESS_BESOK,
+            "Postadresse": DataAddress.ADDRESS_POST,
+            "Bostedsadresse": DataAddress.ADDRESS_PRIVATE,
+            "Avvikende postadresse": DataAddress.ADDRESS_OTHER_POST,
+            "Avvikende besøksadresse": DataAddress.ADDRESS_OTHER_BESOK,
+        }
 
 	zip = city = country = addr_kind = ""
         street = []
@@ -323,7 +323,7 @@ class XMLPerson2Object(XMLEntity2Object):
         for sub in addr_element.getiterator():
             if not sub.text:
                 continue
-	    value = ensure_unicode(sub.text.strip(), self.encoding)
+            value = ensure_unicode(sub.text.strip(), self.encoding)
 
             if sub.tag in ("Gateadresse",):
                 street.insert(0, value)
@@ -390,7 +390,7 @@ class XMLPerson2Object(XMLEntity2Object):
             if not sub.text:
                 continue
 
-	    value = ensure_unicode(sub.text.strip(), self.encoding)
+            value = ensure_unicode(sub.text.strip(), self.encoding)
 
             if sub.tag == "Stillingsprosent":
                 percentage = float(value)
@@ -433,7 +433,7 @@ class XMLPerson2Object(XMLEntity2Object):
                 # would there be two elements for that?)
                 if value == "99999999":
                     return None
-		# these are temp employments (bilagsl�nnede) that we can
+                # these are temp employments (bilagslønnede) that we can
                 # safely disregard (according to baardj).
                 if value == "30010895":
                     return None
@@ -465,7 +465,7 @@ class XMLPerson2Object(XMLEntity2Object):
     def _make_role(self, elem):
 	"""Make an employment out of a <Roller>...</Roller>.
 
-	SAP uses <Roller>-elements to designate bilagslønnede and gjester.
+        SAP uses <Roller>-elements to designate bilagslønnede and gjester.
 
 	"""
 	ou_id = None
@@ -477,27 +477,26 @@ class XMLPerson2Object(XMLEntity2Object):
             if not sub.text:
                 continue
 
-	    value = ensure_unicode(sub.text.strip(), self.encoding)
+            value = ensure_unicode(sub.text.strip(), self.encoding)
 
 	    if sub.tag == "Navn":
 		code = value
-
-		if value == "BILAGSLØNN":
-		    kind = DataEmployment.BILAG
-		else:
-		    # For guests, we distinguish between different guest kinds
-		    # For bilagsl�nnede, we don't care (they are all alike)
-                    kind = DataEmployment.GJEST
-            elif sub.tag == "Stedkode":
-                sko = make_sko(value)
-                if sko is not None:
-                    ou_id = (DataOU.NO_SKO, sko)
-            elif sub.tag == "Startdato":
-                start_date = self._make_mxdate(value, format="%Y-%m-%d")
-            elif sub.tag == "Sluttdato":
-                end_date = self._make_mxdate(value, format="%Y-%m-%d")
-            # fi
-        # od
+            if value == "BILAGSLØNN":
+                kind = DataEmployment.BILAG
+            else:
+                # For guests, we distinguish between different guest kinds
+                # For bilagslønnede, we don't care (they are all alike)
+                kind = DataEmployment.GJEST
+        elif sub.tag == "Stedkode":
+            sko = make_sko(value)
+            if sko is not None:
+                ou_id = (DataOU.NO_SKO, sko)
+        elif sub.tag == "Startdato":
+            start_date = self._make_mxdate(value, format="%Y-%m-%d")
+        elif sub.tag == "Sluttdato":
+            end_date = self._make_mxdate(value, format="%Y-%m-%d")
+        # fi
+    # od
 
         if ou_id is None:
             return None
@@ -516,23 +515,23 @@ class XMLPerson2Object(XMLEntity2Object):
             u"Telefaks midlertidig arbeidssted": DataContact.CONTACT_FAX,
             u"Arbeidstelefon 1": DataContact.CONTACT_PHONE,
             u"Arbeidstelefon 2": DataContact.CONTACT_PHONE,
-	    u"Arbeidstelefon 3": DataContact.CONTACT_PHONE,
-	    u"Mobilnummer, jobb": DataContact.CONTACT_MOBILE_WORK,
-	    u"Mobilnummer, privat": DataContact.CONTACT_MOBILE_PRIVATE,
-	    u"Privat mobil synlig på web":
-	    DataContact.CONTACT_MOBILE_PRIVATE_PUBLIC}
+            u"Arbeidstelefon 3": DataContact.CONTACT_PHONE,
+            u"Mobilnummer, jobb": DataContact.CONTACT_MOBILE_WORK,
+            u"Mobilnummer, privat": DataContact.CONTACT_MOBILE_PRIVATE,
+            u"Privat mobil synlig på web":
+            DataContact.CONTACT_MOBILE_PRIVATE_PUBLIC}
 
-	ctype = elem.find("Type")
+	    ctype = elem.find("Type")
         if ctype is None:
             return None
 
-	ctype = ensure_unicode(ctype.text.strip(), self.encoding)
+        ctype = ensure_unicode(ctype.text.strip(), self.encoding)
 
         ctype = kommtype2const.get(ctype)
         if ctype is None:
             return None
 
-	cvalue = ensure_unicode(elem.find("Verdi").text.strip(), self.encoding)
+        cvalue = ensure_unicode(elem.find("Verdi").text.strip(), self.encoding)
         cvalue = deuglify_phone(cvalue)
 
         return DataContact(ctype, cvalue, priority)
@@ -541,8 +540,8 @@ class XMLPerson2Object(XMLEntity2Object):
         """Return a DataName representing title with language."""
 
         language = title_element.findtext(".//Sprak")
-	value = ensure_unicode(title_element.findtext(".//Navn"),
-			       self.encoding)
+        value = ensure_unicode(title_element.findtext(".//Navn"),
+                               self.encoding)
 
         if not (language and value):
             return None
@@ -558,18 +557,18 @@ class XMLPerson2Object(XMLEntity2Object):
         extent = element.findtext(".//Omfang")
         start = element.findtext(".//Startdato")
         if start:
-	    start = self._make_mxdate(ensure_unicode(start, self.encoding),
+            start = self._make_mxdate(ensure_unicode(start, self.encoding),
                                       format="%Y-%m-%d")
         else:
             start = None
         end = element.findtext(".//Sluttdato")
         if end:
-	    end = self._make_mxdate(ensure_unicode(end, self.encoding),
-				    format="%Y-%m-%d")
+            end = self._make_mxdate(ensure_unicode(end, self.encoding),
+                                    format="%Y-%m-%d")
         else:
             end = None
-	description = ensure_unicode(element.findtext(".//Tekst"),
-				     self.encoding)
+        description = ensure_unicode(element.findtext(".//Tekst"),
+                                     self.encoding)
         return DataExternalWork(name, type, extent, start, end, description)
 
     def next_object(self, element):
@@ -588,13 +587,13 @@ class XMLPerson2Object(XMLEntity2Object):
         middle = ""
         middle = element.find("Person/Mellomnavn")
         if middle is not None and middle.text:
-	    middle = ensure_unicode(middle.text.strip(), self.encoding)
+            middle = ensure_unicode(middle.text.strip(), self.encoding)
 
         # Iterate over *all* subelements, 'fill up' the result object
         for sub in element.getiterator():
             value = None
             if sub.text:
-		value = ensure_unicode(sub.text.strip(), self.encoding)
+                value = ensure_unicode(sub.text.strip(), self.encoding)
 
             if sub.tag == "Fornavn":
                 if middle:
@@ -664,13 +663,13 @@ class XMLPerson2Object(XMLEntity2Object):
                 # Store additional person ids, like passport numbers.
                 # Handle passport numbers
                 if sub.find('Type').text in self.sap2idtype:
-		    # Add the ID to the data-structure
-		    pers_id = '{0}-{1}'.format(
-			ensure_unicode(sub.find('Land').text, self.encoding),
-			ensure_unicode(sub.find('Verdi').text, self.encoding)
-		    )
+                    # Add the ID to the data-structure
+                    pers_id = '{0}-{1}'.format(
+                        ensure_unicode(sub.find('Land').text, self.encoding),
+                        ensure_unicode(sub.find('Verdi').text, self.encoding)
+                    )
                     result.add_id(self.sap2idtype[sub.find('Type').text],
-				  pers_id)
+                                  pers_id)
                 else:
                     self.logger.debug(
                         "Unknown %s type '%s': skipping id type",
@@ -709,17 +708,17 @@ class XMLPerson2Object(XMLEntity2Object):
         result.reserved = to_reserve
 
         # Address magic
-	# If there is a sensible 'Sted for l�nnsslipp', it will result i
-	# proper "post/bes�ksaddresse" later. This code matches LT's behaviour
+        # If there is a sensible 'Sted for lønnsslipp', it will result i
+        # proper "post/besøksaddresse" later. This code matches LT's behaviour
         # more closely (an employee 'inherits' the address of his/her
         # "primary" workplace.
-	for sub in element.getiterator("Kommunikasjon"):
-	    txt = ensure_unicode(sub.findtext("Type"), self.encoding)
-	    val = ensure_unicode(sub.findtext("Verdi"), self.encoding)
-	    if (txt and txt == "Sted for lønnslipp" and val
-		    # *some* of the entries have a space here and there.
-		    # and some contain non-digit data
-		    and val.replace(" ", "").isdigit()):
+        for sub in element.getiterator("Kommunikasjon"):
+            txt = ensure_unicode(sub.findtext("Type"), self.encoding)
+            val = ensure_unicode(sub.findtext("Verdi"), self.encoding)
+            if (txt and txt == "Sted for lønnslipp" and val
+                    # *some* of the entries have a space here and there.
+                    # and some contain non-digit data
+                    and val.replace(" ", "").isdigit()):
                 val = val.replace(" ", "")
                 fak, inst, gruppe = [int(x) for x in
                                      (val[:2], val[2:4], val[4:])]

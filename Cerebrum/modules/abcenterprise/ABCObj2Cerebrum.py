@@ -71,10 +71,17 @@ class ABCObj2Cerebrum(object):
 	return entity
 
     def _process_tags(self, entity):
+<<<<<<< HEAD
 	"""Process known <tag> mechanics. Translate the tagtype into something
 	Object2Cerebrum understands."""
 	new_tags = dict()
 	for i in entity._tags.keys():
+=======
+        """Process known <tag> mechanics. Translate the tagtype into something
+        Object2Cerebrum understands."""
+        new_tags = dict()
+        for i in entity._tags.keys():
+>>>>>>> af7573f4863b69081e4a553551e76f50fdb4af85
             if i == "ADD_SPREAD":
                 for s in entity._tags[i]:
                     if abcconf.TAG_REWRITE.has_key(s):
@@ -101,7 +108,11 @@ class ABCObj2Cerebrum(object):
         else:
             # unknown gender
             # raise ABCDataError, "gender unknown: %s" % person.gender
+<<<<<<< HEAD
 	    # TBD: what to do if no gender populated?
+=======
+            # TBD: what to do if no gender populated?
+>>>>>>> af7573f4863b69081e4a553551e76f50fdb4af85
             person.gender = self.co.gender_unknown
         return person
 
@@ -141,10 +152,17 @@ class ABCObj2Cerebrum(object):
         """Check variables in the imported <properties> tag.
         Verify that the file is an accepted file."""
 
+<<<<<<< HEAD
 	# Verify the XML-file
         if self.sett.variables['datasource'] != abcconf.SOURCE['datasource'] or \
            self.sett.variables['target'] != abcconf.SOURCE['target']:
 	    raise ABCConfigError, "datasource and/or target doesn't match."
+=======
+        # Verify the XML-file
+        if self.sett.variables['datasource'] != abcconf.SOURCE['datasource'] or \
+           self.sett.variables['target'] != abcconf.SOURCE['target']:
+            raise ABCConfigError, "datasource and/or target doesn't match."
+>>>>>>> af7573f4863b69081e4a553551e76f50fdb4af85
 
     def parse_orgs(self, iterator):
         """Iterate over organizations. Org objects come with an
@@ -208,7 +226,11 @@ class ABCObj2Cerebrum(object):
             if s == "org":
                 s = "ou"
             sub = None
+<<<<<<< HEAD
 	    try:
+=======
+            try:
+>>>>>>> af7573f4863b69081e4a553551e76f50fdb4af85
                 sub = rel.subject[0][1:]
                 if isinstance(sub[0], tuple):
                     # Hack to ignore organizations for now. They are all under one.
@@ -250,7 +272,11 @@ class ABCObj2Cerebrum(object):
                         if len(ob) == 2:
                             ob = ob[1]
                         else:
+<<<<<<< HEAD
 			    ob = ob[0]
+=======
+                            ob = ob[0]
+>>>>>>> af7573f4863b69081e4a553551e76f50fdb4af85
                     if abcconf.CONSTANTS.has_key(ob[0]):
                         ob = (abcconf.CONSTANTS[ob[0]], ob[1])
                     else:

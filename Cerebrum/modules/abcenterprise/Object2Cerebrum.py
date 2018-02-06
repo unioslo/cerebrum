@@ -83,7 +83,7 @@ class Object2Cerebrum(object):
                 id_type = row['id_type']
                 if id_type not in id_dict.keys():
                     entity._delete_external_id(self.source_system, id_type)
-		    self.logger.info("Entity: '%d' removed external ID type '%s'." % (entity.entity_id,id_type))
+                    self.logger.info("Entity: '%d' removed external ID type '%s'." % (entity.entity_id,id_type))
 
     def _process_tags(self, entity, tag_dict):
         """Process an entity's tags."""
@@ -98,7 +98,7 @@ class Object2Cerebrum(object):
                 for spread in tag_dict[tag_type]:
                     if not entity.has_spread(spread):
                         entity.add_spread(spread)
-			self.logger.info("Entity: '%d' got spread '%s'." % (entity.entity_id,spread))
+                        self.logger.info("Entity: '%d' got spread '%s'." % (entity.entity_id,spread))
                     self._spreads.setdefault(entity.entity_id, []).append(spread)
             else:
                 raise ABCErrorInData, "Type: '%s' is not known in _process_tags()" % tag_type
@@ -118,7 +118,7 @@ class Object2Cerebrum(object):
                 # Fat error and exit
                 ou = Factory.get('OU')(self.db)
                 ou.find(id)
-		found = ou.get_external_id(id_type=id_type)
+                found = ou.get_external_id(id_type=id_type)
                 raise ABCMultipleEntitiesExistsError, "found: '%s', current: '%s'" % (found, data_entity)
             entity_id = id
 
@@ -179,7 +179,7 @@ class Object2Cerebrum(object):
 
         # Handle names
         for type, name in ou.ou_names.iteritems():
-	    self._ou.add_name_with_language(name_variant=type,
+            self._ou.add_name_with_language(name_variant=type,
                                             name_language=self.co.language_nb,
                                             name=name)
         self._process_tags(self._ou, ou._tags)
@@ -227,7 +227,7 @@ class Object2Cerebrum(object):
         for name_type in person._names.keys():
             self._person.populate_name(name_type,
                                        person._names[name_type])
-	# Deal with addresses and contacts.
+        # Deal with addresses and contacts.
         ret = self._person.write_db()
         self._process_tags(self._person, person._tags)
         self._add_entity_addresses(self._person, person._address)
@@ -267,7 +267,7 @@ class Object2Cerebrum(object):
             if member not in self._groups[group]:
                 self._groups[group].append(member)
         else:
-	    self.logger.warning("Group '%s' is not in the file." % group)
+            self.logger.warning("Group '%s' is not in the file." % group)
 
 
     def add_group_member(self, group, entity_type, member):
@@ -292,9 +292,9 @@ class Object2Cerebrum(object):
             self._person.find_by_external_id(person[0], person[1])
         except Errors.NotFoundError:
             raise ABCErrorInData, "no person with id: %s, %s" % (person[0],
-								 person[1])
+                                                                 person[1])
         if self._ou is None:
-	    self._ou = Factory.get("OU")(self.db)
+            self._ou = Factory.get("OU")(self.db)
         self._ou.clear()
         self._ou.find_by_external_id(ou[0], ou[1])
         self._person.add_affiliation(self._ou.entity_id, affiliation,
@@ -329,13 +329,13 @@ class Object2Cerebrum(object):
                     es.clear()
                     es.find(int(row['entity_id']))
                     es.delete_spread(int(row['spread']))
-		    self.logger.info("Entity: '%d', removed spread '%s'" % (es.entity_id,int(row['spread'])))
+                    self.logger.info("Entity: '%d', removed spread '%s'" % (es.entity_id,int(row['spread'])))
             else:
                 # Entity missing from file, remove all spreads
                 es.clear()
                 es.find(int(row['entity_id']))
                 es.delete_spread(int(row['spread']))
-		self.logger.info("Entity: '%d', removed spread '%s'" % (es.entity_id,int(row['spread'])))
+                self.logger.info("Entity: '%d', removed spread '%s'" % (es.entity_id,int(row['spread'])))
 
     def _update_groups(self):
         """Run through the cache and remove people's group membership if it hasn't

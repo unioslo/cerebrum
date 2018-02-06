@@ -67,7 +67,7 @@ class XMLOU2Object(XMLEntity2Object):
     def _pull_name(self, element, attribute_name):
 
         if element.get(attribute_name):
-	    value = ensure_unicode(element.get(attribute_name), self.encoding)
+            value = ensure_unicode(element.get(attribute_name), self.encoding)
             return value
 
         return None
@@ -77,8 +77,8 @@ class XMLOU2Object(XMLEntity2Object):
     def _make_contact(self, element):
         """Return a DataContact entry corresponding to a given XML element."""
 
-	comm_type = ensure_unicode(element.get("kommtypekode"), self.encoding)
-	value = ensure_unicode(element.get("kommnrverdi"), self.encoding)
+        comm_type = ensure_unicode(element.get("kommtypekode"), self.encoding)
+        value = ensure_unicode(element.get("kommnrverdi"), self.encoding)
 
         if not value:
             return None, None
@@ -129,7 +129,7 @@ class XMLOU2Object(XMLEntity2Object):
                 result.add_name(DataName(name_kind, value, lang))
 
         # addresses
-	extract = lambda x: ensure_unicode(element.get(x, ""), self.encoding)
+        extract = lambda x: ensure_unicode(element.get(x, ""), self.encoding)
         for xmlkind, address_kind in (("besok", DataAddress.ADDRESS_BESOK),
                                       ("intern", DataAddress.ADDRESS_POST)):
             zipcode = extract("poststednr_%s_adr" % xmlkind)
@@ -175,8 +175,8 @@ class EduDataGetter(XMLDataGetter):
         # a callable that returns one. However, a callable would do as well,
         # given how class is used in XMLDataGetter.
         return self._make_iterator(element,
-		       lambda iterator, logger, encoding:
-			   EduKind2Object(iterator, logger, fields, encoding))
+                       lambda iterator, logger, encoding:
+                           EduKind2Object(iterator, logger, fields, encoding))
 
 
     def iter_stprog(self, tag="studprog"):
@@ -266,10 +266,10 @@ class EduGenericIterator(XMLEntityIterator):
 
 class EduKind2Object(XMLEntity2Object):
     def __init__(self, iterator, logger, required_attributes, encoding):
-	super(EduKind2Object, self).__init__(iterator, logger, encoding)
+        super(EduKind2Object, self).__init__(iterator, logger, encoding)
         import copy
         self._required_attributes = copy.deepcopy(required_attributes)
 
     def next_object(self, subtree):
-	return dict((x, subtree.get(x)) for x in self._required_attributes)
+        return dict((x, subtree.get(x)) for x in self._required_attributes)
 # end EduKind2Object

@@ -69,9 +69,9 @@ class ABCXMLWriter(object):
 #                     txt = value
 #                 self._add_elem(type, txt, attr)
         self.xp.endElement("types")
-	self.xp.newline()
+        self.xp.newline()
         self.xp.endElement("properties")
-	self.xp.newline()
+        self.xp.newline()
 
 
     def parse_persons(self, iterator):

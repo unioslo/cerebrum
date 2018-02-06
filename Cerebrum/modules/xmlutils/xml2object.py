@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2005-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -57,26 +57,26 @@ def get_xml_file_encoding(file_name):
     A relatively naive way of determining the encoding used in a xml-file.
     """
     with open(file_name, 'r') as xml_file:
-	encoding = None
-	while encoding is None:
-	    line = xml_file.readline()
-	    if line.startswith('<?xml'):
-		if 'encoding=' in line:
-		    encoding = line.split('encoding="')[1].split('"')[0]
-		    return encoding
-		else:
-		    raise Exception('No encoding specified in {}'
-				    ''.format(file_name))
-	    elif line.startswith('<') or line == '':
-		raise Exception('No encoding specified in {}'
-				''.format(file_name))
+        encoding = None
+        while encoding is None:
+            line = xml_file.readline()
+            if line.startswith('<?xml'):
+                if 'encoding=' in line:
+                    encoding = line.split('encoding="')[1].split('"')[0]
+                    return encoding
+                else:
+                    raise Exception('No encoding specified in {}'
+                                    ''.format(file_name))
+            elif line.startswith('<') or line == '':
+                raise Exception('No encoding specified in {}'
+                                ''.format(file_name))
 
 
 def ensure_unicode(text, encoding):
     if not isinstance(text, basestring):
-	raise Exception('Not a string: {}'.format(text))
+        raise Exception('Not a string: {}'.format(text))
     if isinstance(text, str):
-	return text.decode(encoding)
+        return text.decode(encoding)
     return text
 
 
@@ -90,7 +90,7 @@ class DataAddress(object):
     TBD: We should include some form for address validation.
     """
 
-    ADDRESS_BESOK = "bes�k"
+    ADDRESS_BESOK = "besøk"
     ADDRESS_PRIVATE = "private"
     ADDRESS_POST = "post"
     ADDRESS_OTHER_POST = "addr_other_post"
@@ -102,9 +102,8 @@ class DataAddress(object):
 
     def __init__(self, kind, street=(), zip="", city="", country=""):
         self.kind = kind
-	print('DAINIT', kind, street, zip, city, country)
         if isinstance(street, (list, tuple)):
-	    self.street = "\n".join(filter(None, map(unicode.strip, street)))
+            self.street = "\n".join(filter(None, map(unicode.strip, street)))
         else:
             self.street = street.strip()
         self.city = city.strip()
@@ -323,7 +322,7 @@ class DataEmployment(NameContainer):
         self.end = end
         # Associated OU identified with (kind, value)-tuple.
         self.place = place
-	# Kind of employment -- VIT/TEKADM-�VR
+        # Kind of employment -- VIT/TEKADM-ØVR
         self.category = category
         # leave (should be a sequence of dict-like objects)
         if not leave:
@@ -484,13 +483,13 @@ class DataOU(DataEntity):
             self.start_date,
             self.end_date,
             list(self.iterids()),
-	    ["%s:%s" % (x, map(unicode, y)) for x, y in self.iternames()],
-	    map(unicode, self.itercontacts()),
+            ["%s:%s" % (x, map(unicode, y)) for x, y in self.iternames()],
+            map(unicode, self.itercontacts()),
             list(self._usage_codes),
-	    ["%s:%s" % (x, unicode(y)) for x, y in self.iteraddress()])
+            ["%s:%s" % (x, unicode(y)) for x, y in self.iteraddress()])
 
     def __str__(self):
-	return self.__unicode__().encode('utf-8')
+        return self.__unicode__().encode('utf-8')
 
 
 class DataPerson(DataEntity):
@@ -629,7 +628,7 @@ class XMLDataGetter(AbstractDataGetter):
     def __init__(self, filename, logger, fetchall=True):
         self._filename = filename
         self._data_source = None
-	self._encoding = get_xml_file_encoding(filename)
+        self._encoding = get_xml_file_encoding(filename)
 
         super(XMLDataGetter, self).__init__(logger, fetchall)
 
@@ -645,7 +644,7 @@ class XMLDataGetter(AbstractDataGetter):
         else:
             it = XMLEntityIterator(self._filename, element)
 
-	return klass(iter(it), self.logger, self._encoding, **kwargs)
+        return klass(iter(it), self.logger, self._encoding, **kwargs)
 
     def fetch(self, fetchall=True):
         """Parse the XML file and convert it to HRDataPerson objects."""
@@ -680,7 +679,7 @@ class XMLEntity2Object(object):
 
         self._xmliter = iter(xmliter)
         self.logger = logger
-	self.encoding = encoding
+        self.encoding = encoding
         for (k, v) in kwargs.items():
             setattr(self, k, v)
 
@@ -830,9 +829,8 @@ class XMLEntityIterator(object):
     """
 
     def __init__(self, filename, element):
-	print('FILENAME', filename)
         # iterparse itself is not necessarily an iterator. Therefore iter()
-	self.it = iter(iterparse(filename, (str("start"), str("end"))))
+        self.it = iter(iterparse(filename, (str("start"), str("end"))))
         self.element_name = element
 
         # Keep track of the root element (to prevent element caching)
