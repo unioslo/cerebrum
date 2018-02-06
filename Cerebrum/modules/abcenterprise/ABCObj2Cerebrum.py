@@ -68,13 +68,13 @@ class ABCObj2Cerebrum(object):
         for i in entity._contacts.keys():
             entity._contacts[self._conv_cons(i)] = entity._contacts[i]
             del entity._contacts[i]
-        return entity
+	return entity
 
     def _process_tags(self, entity):
-	"""Process known �tag� mechanis. Translate the tagtype into something
-        Object2Cerebrum understands."""
-        new_tags = dict()
-        for i in entity._tags.keys():
+	"""Process known <tag> mechanics. Translate the tagtype into something
+	Object2Cerebrum understands."""
+	new_tags = dict()
+	for i in entity._tags.keys():
             if i == "ADD_SPREAD":
                 for s in entity._tags[i]:
                     if abcconf.TAG_REWRITE.has_key(s):

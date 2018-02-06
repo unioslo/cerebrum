@@ -104,7 +104,7 @@ class XMLPropertiesParser(object):
         for sub in element.getiterator():
             value = None
             if sub.text:
-                value = sub.text.strip().encode("latin1")
+		value = sub.text.strip()
 
             if sub.tag == "datasource":
                 datasource = value
@@ -116,7 +116,7 @@ class XMLPropertiesParser(object):
                 for n in sub.getiterator():
                     if not n.text:
                         continue
-                    value = n.text.strip().encode("latin1")
+		    value = n.text.strip()
                     if n.tag in ("orgidtype",):
                         self._check_type("orgidtype", (value,))
                     elif n.tag in ("orgnametype",):
@@ -192,7 +192,7 @@ class XMLEntity2Object(object):
         for sub in addr_element.getiterator():
             if not sub.text:
                 continue
-            value = sub.text.strip().encode("latin1")
+	    value = sub.text.strip()
             for tag in ("pobox", "street", "postcode", "city", "country"):
                 if not tag == sub.tag:
                     continue
@@ -227,7 +227,7 @@ class XMLOrg2Object(XMLEntity2Object):
         for sub in element:
             value = None
             if sub.text:
-                value = sub.text.strip().encode("latin1")
+		value = sub.text.strip()
             if sub.tag == "orgid":
                 if len(sub.attrib) != 1:
                     raise ABCTypesError, "wrong number of arguments: %s" % value
@@ -294,7 +294,7 @@ class XMLOU2Object(XMLEntity2Object):
         for sub in element.getiterator():
             value = None
             if sub.text:
-                value = sub.text.strip().encode("latin1")
+		value = sub.text.strip()
 
             if sub.tag == "ouid":
                 if len(sub.attrib) != 1:
@@ -361,7 +361,7 @@ class XMLPerson2Object(XMLEntity2Object):
         for sub in name_element.getiterator():
             if not sub.text:
                 continue
-            value = sub.text.strip().encode("latin1")
+	    value = sub.text.strip()
             for tag in ("fn", "sort", "nickname"):
                 if not tag == sub.tag:
                     continue
@@ -371,7 +371,7 @@ class XMLPerson2Object(XMLEntity2Object):
                 for n in sub.getiterator():
                     if not n.text:
                         continue
-                    value = n.text.strip().encode("latin1")
+		    value = n.text.strip()
                     for tag in ("family", "given", "other", "prefix", "suffix"):
                         if not tag == n.tag:
                             continue
@@ -405,7 +405,7 @@ class XMLPerson2Object(XMLEntity2Object):
         for sub in element.getiterator():
             value = None
             if sub.text:
-                value = sub.text.strip().encode("latin1")
+		value = sub.text.strip()
 
             if sub.tag == "personid":
                 if len(sub.attrib) != 1:
@@ -480,7 +480,7 @@ class XMLGroup2Object(XMLEntity2Object):
         for sub in element.getiterator():
             value = None
             if sub.text:
-                value = sub.text.strip().encode("latin1")
+		value = sub.text.strip()
 
             if sub.tag == "groupid":
                 if len(sub.attrib) != 1:
@@ -515,7 +515,7 @@ class XMLRelation2Object(XMLEntity2Object):
         result = []
         for s in iter:
             if s.text:
-                value = s.text.strip().encode("latin1")
+		value = s.text.strip()
             if s.tag == "personid":
                 if len(s.attrib) != 1:
                     raise ABCTypesError, "error in personid: %s" % value
@@ -534,7 +534,7 @@ class XMLRelation2Object(XMLEntity2Object):
                 org = ou = None
                 for o in s.getiterator():
                     if o.text:
-                        value = o.text.strip().encode("latin1")
+			value = o.text.strip()
                     if o.tag == "orgid":
                         if len(o.attrib) != 1:
                             raise ABCTypesError, "error in org: %s" % value
