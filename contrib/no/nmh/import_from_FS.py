@@ -58,7 +58,7 @@ def write_person_info(outfile):
     cols, fagperson = _ext_cols(fs.undervisning.list_fagperson_semester())
     for p in fagperson:
         f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'fagperson') + "\n")
-    # Aktive ordin�re studenter ved NMH
+    # Aktive ordinære studenter ved NMH
     cols, student = _ext_cols(fs.student.list_aktiv())
     for a in student:
         f.write(xml.xmlify_dbrow(a, xml.conv_colnames(cols), 'aktiv') + "\n")
@@ -158,7 +158,7 @@ def write_role_info(outfile):
     f.close()
 
 def write_undenh_metainfo(outfile):
-    "Skriv metadata om undervisningsenheter for innev�rende+neste semester."
+    "Skriv metadata om undervisningsenheter for inneværende+neste semester."
     f = MinimumSizeWriter(outfile)
     f.min_size = 5*KiB
     f.write(xml.xml_hdr + "<undervenhet>\n")
@@ -172,7 +172,7 @@ def write_undenh_metainfo(outfile):
 
 def write_undenh_student(outfile):
     """Skriv oversikt over personer oppmeldt til undervisningsenheter.
-    Tar med data for alle undervisingsenheter i innev�rende+neste
+    Tar med data for alle undervisingsenheter i inneværende+neste
     semester."""
     f = MinimumSizeWriter(outfile)
     f.min_size = 5*KiB
@@ -218,7 +218,7 @@ def write_emne_info(outfile):
 
 
 def write_fnrupdate_info(outfile):
-    """Lager fil med informasjon om alle f�dselsnummerendringer"""
+    """Lager fil med informasjon om alle fødselsnummerendringer"""
     stream = AtomicFileWriter(outfile, 'w')
     writer = xmlprinter.xmlprinter(stream,
                                    indent_level = 2,

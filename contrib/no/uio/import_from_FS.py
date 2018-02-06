@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2002-2012 University of Oslo, Norway
 #
@@ -139,10 +139,10 @@ def write_edu_info(outfile):
     For hver student, lister vi opp alle tilknytningene til undenh, undakt,
     evu, kursakt og kull.
 
-    Hovedproblemet i denne metoden er at vi m� bygge en enorm dict med all
+    Hovedproblemet i denne metoden er at vi må bygge en enorm dict med all
     undervisningsinformasjon. Denne dicten bruker mye minne.
 
-    Advarsel: vi gj�r ingen konsistenssjekk p� at undervisningselementer nevnt
+    Advarsel: vi gj�r ingen konsistenssjekk på at undervisningselementer nevnt
     i outfile vil faktisk finnes i andre filer genererert av dette
     skriptet. Mao. det er fullt mulig at en student S er registrert ved undakt
     U1, samtidig som U1 ikke er nevnt i undervisningsaktiveter.xml.
@@ -208,7 +208,7 @@ def write_forkurs_info(outfile):
 
 def write_person_info(outfile):
     """Lager fil med informasjon om alle personer registrert i FS som
-    vi muligens ogs� �nsker � ha med i Cerebrum.  En person kan
+    vi muligens også ønsker å ha med i Cerebrum.  En person kan
     forekomme flere ganger i filen."""
 
     # TBD: Burde vi cache alle data, slik at vi i stedet kan lage en
@@ -281,11 +281,11 @@ def write_person_info(outfile):
 
 ##
 ## STA har bestemt at personer med tilbud ikke skal ha tilgang til noen IT-tjenester
-## inntil videre. Derfor slutter vi p� n�v�rende tidspunkt � hente ut informasjon om
-## disse. Ettersom det er usikkert om dette vil endre seg igjen i n�r fremtid lar vi
-## koden ligge for n�.
+## inntil videre. Derfor slutter vi på nåværende tidspunkt å hente ut informasjon om
+## disse. Ettersom det er usikkert om dette vil endre seg igjen i nær fremtid lar vi
+## koden ligge for nå.
 ##
-##    # Personer som har f�tt tilbud
+##    # Personer som har fått tilbud
 ##    cols, tilbudstud = _ext_cols(fs.student.list_tilbud())
 ##    for t in tilbudstud:
 ##        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'tilbud') + "\n")
@@ -476,7 +476,7 @@ def write_fnrupdate_info(outfile):
 
 
 def write_betalt_papir_info(outfile):
-    """Lager fil med informasjon om alle som enten har fritak fra �
+    """Lager fil med informasjon om alle som enten har fritak fra å
     betale kopiavgift eller har betalt kopiavgiften"""
 
     logger.info("Writing betaltpapir info to '%s'" % outfile)

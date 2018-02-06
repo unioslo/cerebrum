@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2002, 2003 University of Oslo, Norway
 #
@@ -87,11 +87,11 @@ def write_person_info(outfile):
     f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
 
-    # Aktive fagpersoner ved Hi�f
+    # Aktive fagpersoner ved Hiøf
     cols, fagperson = _ext_cols(fs.undervisning.list_fagperson_semester())
     for p in fagperson:
         f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'fagperson') + "\n")
-    # Aktive ordin�re studenter ved Hi�f
+    # Aktive ordinære studenter ved Hiøf
     cols, student = _ext_cols(fs.student.list_aktiv())
     for a in student:
         f.write(xml.xmlify_dbrow(a, xml.conv_colnames(cols), 'aktiv') + "\n")
@@ -168,7 +168,7 @@ def write_role_info(outfile):
     f.close()
 
 def write_undenh_metainfo(outfile):
-    "Skriv metadata om undervisningsenheter for innev�rende+neste semester."
+    "Skriv metadata om undervisningsenheter for inneværende+neste semester."
     logger.info("Writing undenh_meta info to '%s'" % outfile)
     f = MinimumSizeWriter(outfile)
     f.min_size = 1*KiB
@@ -206,7 +206,7 @@ def write_emne_info(outfile):
 
 
 def write_fnrupdate_info(outfile):
-    """Lager fil med informasjon om alle f�dselsnummerendringer"""
+    """Lager fil med informasjon om alle fødselsnummerendringer"""
     logger.info("Writing fnrupdate info to '%s'" % outfile)
     stream = AtomicFileWriter(outfile, 'w')
     writer = xmlprinter.xmlprinter(stream,

@@ -597,9 +597,6 @@ class XMLHelper(object):
             a = unicode(a)
         elif isinstance(a, mx.DateTime.DateTimeType):
             a = unicode(str(a))
-        if not isinstance(a, unicode):
-            print('OMGLOL', a, type(a))
-            sys.exit(1)
         a = a.replace('&', "&amp;")
         a = a.replace('"', "&quot;")
         a = a.replace('<', "&lt;")
