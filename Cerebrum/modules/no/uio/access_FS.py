@@ -1587,9 +1587,9 @@ class UiOUndervisning(access_FS.Undervisning):
     def list_undervisningenheter(self, year=None, sem=None):
         # GetUndervEnhetAll
         if year is None:
-            year = self.year
+            year = self.prev_semester_year
         if sem is None:
-            sem = self.semester
+            sem = self.prev_semester
         return self.db.query("""
         SELECT
           ue.institusjonsnr, ue.emnekode, ue.versjonskode, ue.terminkode,
