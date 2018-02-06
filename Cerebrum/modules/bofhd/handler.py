@@ -195,16 +195,16 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             self.logger.warn(u'Not-implemented: ', exc_info=1)
             raise CerebrumError(u'Not Implemented: {!s}'.format(str(e)))
         except TypeError as e:
-            if (str(e).find("takes exactly") != -1
-                    or str(e).find("takes at least") != -1
-                    or str(e).find("takes at most") != -1):
+            if (str(e).find("takes exactly") != -1 or
+                    str(e).find("takes at least") != -1 or
+                    str(e).find("takes at most") != -1):
                 raise CerebrumError(str(e))
-            self.logger.warn(u'Unexpected exception', exc_info=1)
+            self.logger.error(u'Unexpected exception', exc_info=1)
             raise UnknownError(sys.exc_info()[0],
                                sys.exc_info()[1],
                                msg=u'A server error has been logged.')
         except Exception as e:
-            self.logger.warn(u'Unexpected exception', exc_info=1)
+            self.logger.error(u'Unexpected exception', exc_info=1)
             raise UnknownError(sys.exc_info()[0],
                                sys.exc_info()[1],
                                msg=u'A server error has been logged.')
@@ -269,7 +269,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                     xmlrpclib.Fault(1, "%s.%s:%s" % (error_class.__module__,
                                                      error_class.__name__,
                                                      sys.exc_value)))
-            except:
+            except Exception:
                 self.logger.warn(
                     u'Unexpected exception 1 (client=%r, params=%r, method=%r)',
                     self.client_address, params, method,
@@ -290,8 +290,8 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                     data=data))
             self.send_response(500)
             self.end_headers()
-        except:
-            self.logger.warn(
+        except Exception:
+            self.logger.error(
                 u'Unexpected exception 2 (client %r, data=%r)',
                 self.client_address, data,
                 exc_info=True)
