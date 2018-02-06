@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -61,7 +61,7 @@ class XMLPerson2Object(XMLEntity2Object):
         for kind, value in element.items():
             if kind in attr2type:
                 result.add_name(DataName(attr2type[kind],
-                                         value.encode("latin1")))
+					 ensure_unicode(value, self.encoding)))
             # fi
         # od
     # end _register_names
@@ -89,9 +89,11 @@ class XMLPerson2Object(XMLEntity2Object):
             value = elem.get("kommnrverdi", elem.get("telefonnr", None))
             if (comm_type in ("ARBTLF", "EKSTRA TLF", "JOBBTLFUTL",) and
                 value):
-                result.append((DataContact.CONTACT_PHONE, value))
+		result.append((DataContact.CONTACT_PHONE,
+			       ensure_unicode(value, self.encoding)))
             if comm_type in ("FAX", "FAXUTLAND") and value:
-                result.append((DataContact.CONTACT_FAX, value))
+		result.append((DataContact.CONTACT_FAX,
+			       ensure_unicode(value, self.encoding)))
             # fi
         # fi
 
@@ -117,12 +119,12 @@ class XMLPerson2Object(XMLEntity2Object):
         category = None
         ou_id = None
 	leave = []
-        tag2kind = { "bilag" : DataEmployment.BILAG,
-                     "tils"  : DataEmployment.HOVEDSTILLING,
-                     "gjest" : DataEmployment.GJEST }
-	xml2cat = { "�VR" : DataEmployment.KATEGORI_OEVRIG,
-                    "VIT" : DataEmployment.KATEGORI_VITENSKAPLIG, }
-        make_sko = lambda f, i, g: tuple([int(elem.get(x)) for x in (f, i, g)])
+	tag2kind = { "bilag" : DataEmployment.BILAG,
+		     "tils"  : DataEmployment.HOVEDSTILLING,
+		     "gjest" : DataEmployment.GJEST }
+	xml2cat = { "ØVR" : DataEmployment.KATEGORI_OEVRIG,
+		    "VIT" : DataEmployment.KATEGORI_VITENSKAPLIG, }
+	make_sko = lambda f, i, g: tuple([int(elem.get(x)) for x in (f, i, g)])
 
         if elem.tag == "bilag":
             end_date = self._make_mxdate(elem.get("dato_oppgjor"))
@@ -134,11 +136,12 @@ class XMLPerson2Object(XMLEntity2Object):
                      make_sko("fakultetnr", "instituttnr", "gruppenr"))
             start_date = self._make_mxdate(elem.get("dato_fra"))
             end_date = self._make_mxdate(elem.get("dato_til"))
-            code = elem.get("gjestetypekode").encode("latin1")
+	    code = ensure_unicode(elem.get("gjestetypekode"), self.encoding)
         elif elem.tag == "tils":
             percentage = float(elem.get("prosent_tilsetting"))
-            code = elem.get("stillingkodenr_beregnet_sist").encode("latin1")
-            title = elem.get("tittel").encode("latin1")
+	    code = ensure_unicode(elem.get("stillingkodenr_beregnet_sist"),
+				  self.encoding)
+	    title = ensure_unicode(elem.get("tittel"), self.encoding)
             if title == "professor II":
                 percentage = percentage / 5.0
             # fi
@@ -148,7 +151,8 @@ class XMLPerson2Object(XMLEntity2Object):
                      make_sko("fakultetnr_utgift", "instituttnr_utgift",
                               "gruppenr_utgift"))
             if elem.get("hovedkat"):
-                category = xml2cat[elem.get("hovedkat").encode("latin1")]
+		category = xml2cat[ensure_unicode(elem.get("hovedkat",
+						  self.encoding)]
         # fi
 
         # Handle leave (permisjon).
@@ -193,7 +197,7 @@ class XMLPerson2Object(XMLEntity2Object):
             result.gender = result.GENDER_FEMALE
         # fi
         # Register address
-        extract = lambda y: element.get(y, "").encode("latin1")
+	extract = lambda y: ensure_unicode(element.get(y, ""), self.encoding)
         result.address = DataAddress(
             kind = DataAddress.ADDRESS_PRIVATE,
             street = (extract("adresselinje1_privatadresse"),
@@ -264,7 +268,7 @@ class XMLOU2Object(XMLEntity2Object):
         """Return a first of possible_keys that is present in element."""
         for key in possible_keys:
             if element.get(key):
-                value = element.get(key).encode("latin1")
+		value = ensure_unicode(element.get(key), self.encoding)
                 return value
             # fi
         # od
@@ -274,18 +278,23 @@ class XMLOU2Object(XMLEntity2Object):
         return None
     # end _pull_name
 
+    def get_value(element_value):
+	return ensure_unicode(element_value, self.encoding)
 
     def _make_contact(self, element):
         comm_type = element.get("kommtypekode")
-
         if comm_type == "TLF" and element.get("telefonnr"):
-            return (DataContact.CONTACT_PHONE, element.get("telefonnr"))
+	    return (DataContact.CONTACT_PHONE,
+		    self.get_value(element.get("telefonnr")))
         elif comm_type == "FAX" and element.get("telefonnr"):
-            return (DataContact.CONTACT_FAX, element.get("telefonnr"))
+	    return (DataContact.CONTACT_FAX,
+		    self.get_value(element.get("telefonnr")))
         elif comm_type == "EPOST" and element.get("kommnrverdi"):
-            return (DataContact.CONTACT_EMAIL, element.get("kommnrverdi"))
+	    return (DataContact.CONTACT_EMAIL,
+		    self.get_value(element.get("kommnrverdi")))
         elif comm_type == "URL" and element.get("kommnrverdi"):
-            return (DataContact.CONTACT_URL, element.get("kommnrverdi"))
+	    return (DataContact.CONTACT_URL,
+		    self.get_value(element.get("kommnrverdi")))
         # fi
 
         return None
@@ -309,7 +318,8 @@ class XMLOU2Object(XMLEntity2Object):
 
         # Some weird ID
         if element.get("nsd_kode"):
-            result.add_id(result.NO_NSD, element.get("nsd_kode"))
+	    result.add_id(result.NO_NSD,
+			  self.get_value(element.get("nsd_kode")))
         # fi
 
         # Activity period
@@ -340,7 +350,7 @@ class XMLOU2Object(XMLEntity2Object):
                 result.add_name(DataName(name_kind, value, lang))
         # od
 
-        extract = lambda y: element.get(y, "").encode("latin1")
+	extract = lambda y: get_value(element.get(y, ""))
         for (xmlkind, kind) in (("besok", DataAddress.ADDRESS_BESOK),
                                 ("intern", DataAddress.ADDRESS_POST)):
             zip = extract("poststednr_%s_adr" % xmlkind)
@@ -369,7 +379,9 @@ class XMLOU2Object(XMLEntity2Object):
             ct = self._make_contact(sub)
             if ct:
                 kind, value = ct
-                result.add_contact(DataContact(kind, value, priority))
+		result.add_contact(DataContact(kind,
+					       self.get_value(value),
+					       priority))
                 priority += 1
             # fi
         # od
