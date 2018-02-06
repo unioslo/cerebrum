@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
 import time
 
 from Cerebrum.modules.no import access_FS
@@ -67,7 +68,7 @@ class NMHStudent(access_FS.Student):
           sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'FULLFØRT',
                                   'OVERGANG', 'SLUTTET') AND
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
-          """.encode('ISO-8859-1') % (self._is_alive())
+          """ % (self._is_alive())
         return self.db.query(qry)
 
     def list_eksamensmeldinger(self):  # GetAlleEksamener
@@ -145,7 +146,7 @@ class NMHStudent78(NMHStudent, access_FS.Student78):
           sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'FULLFØRT',
                                   'OVERGANG', 'SLUTTET') AND
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
-          """.encode('ISO-8859-1') % (self._is_alive())
+          """ % (self._is_alive())
         return self.db.query(qry)
 
 
@@ -214,7 +215,7 @@ class NMHUndervisning(access_FS.Undervisning):
             EXISTS (SELECT 'x' FROM fs.arstermin tt
                     WHERE tt.terminkode = :semester AND
                           t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
-           ua.arstall > :aar)""".encode('ISO-8859-1'),
+           ua.arstall > :aar)""",
                              {'aar': start_aar,
                               'semester': start_semester})
 

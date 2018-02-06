@@ -21,11 +21,13 @@
 """This module contains a number of core utilities used everywhere in the
 tree.
 """
-
+from __future__ import unicode_literals
 import cereconf
 import inspect
 import os
 import re
+import mx.DateTime
+import smtplib
 import ssl
 import imaplib
 import sys
@@ -560,9 +562,10 @@ class mark_update(auto_super):
         return super(mark_update, cls).__new__(cls, name, bases, dict)
 
 
-# TODO: Use UTF-8 instead of ISO-8859-1?
 class XMLHelper(object):
-    xml_hdr = '<?xml version="1.0" encoding="ISO-8859-1"?>\n'
+
+    def __init__(self, encoding='utf-8'):
+        self.xml_hdr = '<?xml version="1.0" encoding="{}"?>\n'.format(encoding)
 
     def conv_colnames(self, cols):
         """Strip tablename prefix from column name."""
@@ -588,19 +591,20 @@ class XMLHelper(object):
                       for x in cols if row[x] is not None]) +
             "%s%s>" % (extra_attr, close_tag))
 
-    # TODO: Use UTF-8 instead?
     def escape_xml_attr(self, a):
-        """Escapes XML attributes. Expected input format is iso-8859-1."""
-        a = str(a).replace('&', "&amp;")
+        """Escapes XML attributes."""
+        if isinstance(a, int):
+            a = unicode(a)
+        elif isinstance(a, mx.DateTime.DateTimeType):
+            a = unicode(str(a))
+        if not isinstance(a, unicode):
+            print('OMGLOL', a, type(a))
+            sys.exit(1)
+        a = a.replace('&', "&amp;")
         a = a.replace('"', "&quot;")
         a = a.replace('<', "&lt;")
         a = a.replace('>', "&gt;")
-        # http://www.w3.org/TR/1998/REC-xml-19980210.html#NT-Char
-        # x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] |
-        # [#x10000-#x10FFFF] /* any Unicode character, excluding the
-        # surrogate blocks, FFFE, and FFFF. */
-        a = re.sub('[^\x09\x0a\x0d\x20-\xff]', '.', a)
-        return '"%s"' % a
+        return '"{}"'.format(a)
 
 
 class Factory(object):
@@ -719,7 +723,7 @@ class Factory(object):
                 # prefix of "_dynamic_"; the prefix is there to reduce
                 # the probability of `auto_super` name collision
                 # problems.
-                comp_class = type('_dynamic_' + str(name), tuple(bases), {})
+                comp_class = type(b'_dynamic_' + str(name), tuple(bases), {})
             Factory.class_cache[name] = comp_class
             return comp_class
         else:

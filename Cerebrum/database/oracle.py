@@ -51,7 +51,7 @@ def normalize(unicode_string):
 
 
 def bytes2unicode(value):
-    return value.decode('ascii')
+    return value.decode('utf-8')
 
 
 def datetime2mx(value):
@@ -208,6 +208,7 @@ class cx_Oracle(OracleBase):
         codec_info = codecs.lookup(client_encoding)
         os.environ['NLS_LANG'] = encoding_names.get(codec_info.name,
                                                     client_encoding)
+
 
         # Call superclass .connect with appropriate CONNECTIONSTRING;
         # this will in turn invoke the connect() function in the

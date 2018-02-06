@@ -23,7 +23,7 @@
 processing by other scripts. This job is for UiO's FS.
 
 """
-
+from __future__ import unicode_literals
 import os
 import sys
 import getopt
@@ -139,10 +139,10 @@ def write_edu_info(outfile):
     For hver student, lister vi opp alle tilknytningene til undenh, undakt,
     evu, kursakt og kull.
 
-    Hovedproblemet i denne metoden er at vi må bygge en enorm dict med all
+    Hovedproblemet i denne metoden er at vi mï¿½ bygge en enorm dict med all
     undervisningsinformasjon. Denne dicten bruker mye minne.
 
-    Advarsel: vi gjør ingen konsistenssjekk på at undervisningselementer nevnt
+    Advarsel: vi gjï¿½r ingen konsistenssjekk pï¿½ at undervisningselementer nevnt
     i outfile vil faktisk finnes i andre filer genererert av dette
     skriptet. Mao. det er fullt mulig at en student S er registrert ved undakt
     U1, samtidig som U1 ikke er nevnt i undervisningsaktiveter.xml.
@@ -193,7 +193,7 @@ def write_forkurs_info(outfile):
     f.write(xml.xml_hdr + "<data>\n")
     for a in course_attendants:
         f.write('<regkort fodselsdato="{}" personnr="{}" dato_endring="{}" dato_opprettet="{}"/>\n'.format(a['fodselsdato'], a['personnr'], str(now()), str(now())))
-        f.write('<emnestud fodselsdato="{}" personnr="{}" etternavn="{}" fornavn="{}" adrlin2_semadr="" postnr_semadr="" adrlin3_semadr="" adrlin2_hjemsted="" postnr_hjemsted="" adrlin3_hjemsted="" sprakkode_malform="NYNORSK" kjonn="X" studentnr_tildelt="{}" emnekode="FORGLU" versjonskode="1" terminkode="VÅR" arstall="2016" telefonlandnr_mobil="{}" telefonnr_mobil="{}"/>\n'.format(
+        f.write('<emnestud fodselsdato="{}" personnr="{}" etternavn="{}" fornavn="{}" adrlin2_semadr="" postnr_semadr="" adrlin3_semadr="" adrlin2_hjemsted="" postnr_hjemsted="" adrlin3_hjemsted="" sprakkode_malform="NYNORSK" kjonn="X" studentnr_tildelt="{}" emnekode="FORGLU" versjonskode="1" terminkode="Vï¿½R" arstall="2016" telefonlandnr_mobil="{}" telefonnr_mobil="{}"/>\n'.format(
                     a['fodselsdato'],
                     a['personnr'],
                     a['etternavn'],
@@ -208,7 +208,7 @@ def write_forkurs_info(outfile):
 
 def write_person_info(outfile):
     """Lager fil med informasjon om alle personer registrert i FS som
-    vi muligens også ønsker å ha med i Cerebrum.  En person kan
+    vi muligens ogsï¿½ ï¿½nsker ï¿½ ha med i Cerebrum.  En person kan
     forekomme flere ganger i filen."""
 
     # TBD: Burde vi cache alle data, slik at vi i stedet kan lage en
@@ -268,24 +268,24 @@ def write_person_info(outfile):
         f.write(xml.xmlify_dbrow(d, xml.conv_colnames(cols), 'drgrad') + "\n")
 
     # EVU students
-    # En del EVU studenter vil være gitt av søket over
+    # En del EVU studenter vil vï¿½re gitt av sï¿½ket over
 
     cols, evustud = _ext_cols(fs.evu.list())
     for e in evustud:
         f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
 
-    # Studenter i permisjon (også dekket av GetStudinfOpptak)
+    # Studenter i permisjon (ogsï¿½ dekket av GetStudinfOpptak)
     cols, permstud = _ext_cols(fs.student.list_permisjon())
     for p in permstud:
         f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'permisjon') + "\n")
 
 ##
 ## STA har bestemt at personer med tilbud ikke skal ha tilgang til noen IT-tjenester
-## inntil videre. Derfor slutter vi på nåværende tidspunkt å hente ut informasjon om
-## disse. Ettersom det er usikkert om dette vil endre seg igjen i nær fremtid lar vi
-## koden ligge for nå.
+## inntil videre. Derfor slutter vi pï¿½ nï¿½vï¿½rende tidspunkt ï¿½ hente ut informasjon om
+## disse. Ettersom det er usikkert om dette vil endre seg igjen i nï¿½r fremtid lar vi
+## koden ligge for nï¿½.
 ##
-##    # Personer som har fått tilbud
+##    # Personer som har fï¿½tt tilbud
 ##    cols, tilbudstud = _ext_cols(fs.student.list_tilbud())
 ##    for t in tilbudstud:
 ##        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'tilbud') + "\n")
@@ -359,7 +359,7 @@ def write_topic_info(outfile):
 
 def write_regkort_info(outfile):
     """Lager fil med informasjon om semesterregistreringer for
-    inneværende semester"""
+    innevï¿½rende semester"""
     logger.info("Writing regkort info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
     f.max_pct_change = 50
@@ -438,31 +438,31 @@ def write_misc_info(outfile, tag, func_name):
     f.close()
 
 def write_fnrupdate_info(outfile):
-    """Lager fil med informasjon om alle fødselsnummerendringer"""
+    """Lager fil med informasjon om alle fï¿½dselsnummerendringer"""
     logger.info("Writing fnrupdate info to '%s'" % outfile)
     stream = AtomicFileWriter(outfile, 'w')
     writer = xmlprinter.xmlprinter(stream,
                                    indent_level = 2,
                                    # Human-readable output
                                    data_mode = True,
-                                   input_encoding = "latin1")
-    writer.startDocument(encoding = "iso8859-1")
+                                   input_encoding = "utf-8")
+    writer.startDocument(encoding = "utf-8")
 
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
 
-    writer.startElement("data", {"source_system" : str(const.system_fs)})
+    writer.startElement("data", {"source_system" : unicode(const.system_fs)})
 
     data = fs.person.list_fnr_endringer()
     for row in data:
         # Make the format resemble the corresponding FS output as close as
         # possible.
-        attributes = { "type" : str(const.externalid_fodselsnr),
+        attributes = { "type" : unicode(const.externalid_fodselsnr),
                        "new"  : "%06d%05d" % (row["fodselsdato_naverende"],
                                               row["personnr_naverende"]),
                        "old"  : "%06d%05d" % (row["fodselsdato_tidligere"],
                                               row["personnr_tidligere"]),
-                       "date" : str(row["dato_foretatt"]),
+                       "date" : unicode(row["dato_foretatt"]),
                      }
 
         writer.emptyElement("external_id", attributes)
@@ -476,7 +476,7 @@ def write_fnrupdate_info(outfile):
 
 
 def write_betalt_papir_info(outfile):
-    """Lager fil med informasjon om alle som enten har fritak fra å
+    """Lager fil med informasjon om alle som enten har fritak fra ï¿½
     betale kopiavgift eller har betalt kopiavgiften"""
 
     logger.info("Writing betaltpapir info to '%s'" % outfile)

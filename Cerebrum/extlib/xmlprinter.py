@@ -52,6 +52,7 @@ License, or (at your option) any later version.
 
 The idea for this module was taken from Perl's XML::Writer.
 """
+from __future__ import unicode_literals
 
 __version__  = "0.1.0"
 __revision__ = "$Id$"
@@ -60,7 +61,7 @@ __revision__ = "$Id$"
 class WellFormedError(Exception):
     pass
 
-    
+
 class xmlprinter(object):
     """We try to ensure a well-formed document, but won't check
     things like the validity of element names.
@@ -68,7 +69,7 @@ class xmlprinter(object):
     """
 
     xml_version = '1.0'
-    
+
     __slots__ = ['fp', '_elstack', '_inroot',
                  '_past_doctype', '_past_decl', '_finished',
                  '_indent_level', '_data_mode', '_has_data',
@@ -100,7 +101,7 @@ class xmlprinter(object):
         self._encoding = encoding
         if self._past_decl:
             raise WellFormedError, "past allowed point for XML declaration"
-        
+
         self.fp.write('<?xml version=%s encoding=%s?>\n'
                       % (quoteattr(self.xml_version),
                          quoteattr(encoding)))
@@ -114,7 +115,7 @@ class xmlprinter(object):
         At least a public_id or system_id must be specified if called."""
         if self._past_doctype:
             raise WellFormedError, "past allowed point for doctype"
-        
+
         self.fp.write('<!DOCTYPE %s' % name)
 
         if public_id is not None and system_id is None:
@@ -134,7 +135,7 @@ class xmlprinter(object):
         """Start element 'name' with attributes 'attrs'. (<example>)"""
         self._past_doctype = True
         self._past_decl    = True
-        
+
         if self._finished:
             raise WellFormedError, "attempt to add second root element"
 
@@ -142,9 +143,9 @@ class xmlprinter(object):
             self.fp.write("\n")
         self.fp.write(" " * (self._indent_level * len(self._elstack)) +
                       "<%s" % self._encode_str(name))
-        
+
         for attr, val in attrs.items():
-            self.fp.write(" %s=%s" % (self._encode_str(attr), 
+            self.fp.write(" %s=%s" % (self._encode_str(attr),
                                       self._encode_str( quoteattr(val))))
 
         self.fp.write(">")
@@ -168,7 +169,7 @@ class xmlprinter(object):
     def dataElement(self, name, data, attrs={}):
         self.startElement(name, attrs)
         self.data(data)
-        self.endElement(name)        
+        self.endElement(name)
 
     def emptyElement(self, name, attrs={}):
         """Add an empty element (<example />)"""
@@ -185,14 +186,14 @@ class xmlprinter(object):
                 self._encode_str(quoteattr(val))))
             space=" "
         self.fp.write("/>")
-        
+
 
     def endElement(self, name=None):
         """End the element 'name'.
         If 'name' is None, then end the most recently-opened element.
         (</example>).
 
-        If the last element is being closed, then it 
+        If the last element is being closed, then it
         """
         popel = self._elstack.pop()
 
@@ -228,15 +229,15 @@ class xmlprinter(object):
 
         if len(self._elstack) > 0:
             raise WellFormedError, "attempt to re-end a _finished document"
-        
+
         self._finished = True
 
 
 def escape(data):
     """Escape &, <, and > in a string of data; used for character data."""
-        
+
     return data.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    
+
 
 def quoteattr(data):
     """Escape and quote an attribute value."""
