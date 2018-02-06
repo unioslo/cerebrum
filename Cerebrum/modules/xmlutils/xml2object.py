@@ -263,7 +263,7 @@ class DataEmployment(NameContainer):
     BILAG = "bilag"
 
     # Emplyment categories
-    KATEGORI_OEVRIG = "tekadm-�vrig"
+    KATEGORI_OEVRIG = "tekadm-øvrig"
     KATEGORI_VITENSKAPLIG = "vitenskaplig"
 
     # Work title string

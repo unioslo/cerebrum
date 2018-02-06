@@ -215,10 +215,10 @@ def import_org_units(sources, target_system, cer_ou_tab):
         for xmlou in parser.iter_ou():
             formatted_sko = format_sko(xmlou)
             if not formatted_sko:
-                logger.error("Missing sko for OU %s (names: %s). Skipped!" %
-                             (list(xmlou.iterids()),
-			      map(lambda (x, y): unicode(x) + ": " + '; '.join(map(unicode, y)),
-                                  xmlou.iternames())))
+                logger.error("Missing sko for OU %s (names: %s). Skipped!" %(
+                    list(xmlou.iterids()),
+			        map(lambda (x, y): unicode(x) + ": " + '; '.join(map(unicode, y)),
+                        xmlou.iternames())))
                 continue
 
             if (xmlou.start_date and xmlou.start_date > DateTime.now()):

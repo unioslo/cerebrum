@@ -468,7 +468,7 @@ class XMLPerson2Object(XMLEntity2Object):
         SAP uses <Roller>-elements to designate bilagslønnede and gjester.
 
 	"""
-	ou_id = None
+        ou_id = None
         start_date = end_date = None
         kind = None
         code = None
@@ -479,24 +479,24 @@ class XMLPerson2Object(XMLEntity2Object):
 
             value = ensure_unicode(sub.text.strip(), self.encoding)
 
-	    if sub.tag == "Navn":
-		code = value
-            if value == "BILAGSLØNN":
-                kind = DataEmployment.BILAG
-            else:
-                # For guests, we distinguish between different guest kinds
-                # For bilagslønnede, we don't care (they are all alike)
-                kind = DataEmployment.GJEST
-        elif sub.tag == "Stedkode":
-            sko = make_sko(value)
-            if sko is not None:
-                ou_id = (DataOU.NO_SKO, sko)
-        elif sub.tag == "Startdato":
-            start_date = self._make_mxdate(value, format="%Y-%m-%d")
-        elif sub.tag == "Sluttdato":
-            end_date = self._make_mxdate(value, format="%Y-%m-%d")
-        # fi
-    # od
+            if sub.tag == "Navn":
+            code = value
+                if value == "BILAGSLØNN":
+                    kind = DataEmployment.BILAG
+                else:
+                    # For guests, we distinguish between different guest kinds
+                    # For bilagslønnede, we don't care (they are all alike)
+                    kind = DataEmployment.GJEST
+            elif sub.tag == "Stedkode":
+                sko = make_sko(value)
+                if sko is not None:
+                    ou_id = (DataOU.NO_SKO, sko)
+            elif sub.tag == "Startdato":
+                start_date = self._make_mxdate(value, format="%Y-%m-%d")
+            elif sub.tag == "Sluttdato":
+                end_date = self._make_mxdate(value, format="%Y-%m-%d")
+            # fi
+        # od
 
         if ou_id is None:
             return None
