@@ -71,7 +71,7 @@ class ABCObj2Cerebrum(object):
         return entity
 
     def _process_tags(self, entity):
-        """Process known �tag� mechanis. Translate the tagtype into something
+        """Process known <tag> mechanics. Translate the tagtype into something
         Object2Cerebrum understands."""
         new_tags = dict()
         for i in entity._tags.keys():
