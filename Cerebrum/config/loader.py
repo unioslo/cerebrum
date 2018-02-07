@@ -35,6 +35,7 @@ TODO: Improvements:
   - Reading config should be 'transactional'. If any errors exists, no
     configuration should be changed.
 """
+from __future__ import unicode_literals
 import sys
 import os
 from . import parsers as _parsers
