@@ -377,18 +377,18 @@ class FSObject(object):
         """
         if self.mndnr <= 6:
             # Months January - June == Spring semester
-            current = u"(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % self.year
+            current = u"(r.terminkode = ':spring' AND r.arstall=%s)\n" % self.year
             if only_current or self.mndnr >= 3 or (self.mndnr == 2
                                                    and self.dday > 15):
                 return current
-            return (u"(%s OR (r.terminkode = 'HØST' AND r.arstall=%d))\n" % (
+            return (u"(%s OR (r.terminkode = ':autumn' AND r.arstall=%d))\n" % (
                 current, self.year-1))
         # Months July - December == Autumn semester
-        current = u"(r.terminkode = 'HØST' AND r.arstall=%d)\n" % self.year
+        current = u"(r.terminkode = ':autumn' AND r.arstall=%d)\n" % self.year
         if only_current or self.mndnr >= 10 or (self.mndnr == 9
                                                 and self.dday > 15):
             return current
-        return (u"(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" % (
+        return (u"(%s OR (r.terminkode = ':spring' AND r.arstall=%d))\n" % (
             current, self.year))
 
     def _get_next_termin_aar(self):
@@ -873,7 +873,8 @@ class Student(FSObject):
         WHERE %s AND
         NVL(r.status_ugyldig, 'N') = 'N'
         """ % self._get_termin_aar(only_current=1)
-        return self.db.query(qry)
+        return self.db.query(qry, {'autumn': 'HØST',
+                                   'spring': 'VÅR'})
 
     def get_semreg(self, fnr, pnr, only_valid=True):  # GetStudentSemReg
         """Hent data om semesterregistrering for student i nåværende semester.
@@ -910,7 +911,10 @@ class Student(FSObject):
                'termin': self._get_termin_aar(only_current=1),
                'is_alive': self._is_alive(),
                'sjekk_betaling': sjekk_betaling}
-        return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
+        return self.db.query(qry, {'fnr': fnr,
+                                   'pnr': pnr,
+                                   'autumn': 'HØST',
+                                   'spring': 'VÅR'})
 
     # TODO: Måten vi knytter vurdkombenhet mot vurdtidkode bør
     # sjekkes nærmere med Geir.
@@ -1029,7 +1033,8 @@ class Student(FSObject):
         WHERE (status_bet_ok = 'J' OR betformkode = 'FRITATT') AND
                NVL(r.status_ugyldig, 'N') = 'N' AND
         %s""" % self._get_termin_aar(only_current=1)
-        return self.db.query(qry)
+        return self.db.query(qry, {'autumn': 'HØST',
+                                   'spring': 'VÅR'})
     # end list_betalt_semesteravgift
 
     def get_emne_eksamensmeldinger(self, emnekode):  # GetEmneinformasjon
@@ -1395,7 +1400,7 @@ class Undervisning(FSObject):
           ue.institusjonsnr = e.institusjonsnr AND
           ue.emnekode       = e.emnekode AND
           ue.versjonskode   = e.versjonskode AND
-          ue.terminkode IN ('VÅR', 'HØST') AND
+          ue.terminkode IN (':spring', ':autumn') AND
           ue.terminkode = t.terminkode AND
           (ue.arstall > :aar OR
            (ue.arstall = :aar2 AND
@@ -1404,7 +1409,9 @@ class Undervisning(FSObject):
                   t.sorteringsnokkel >= tt.sorteringsnokkel)))""",
                              {'aar': year,
                               'aar2': year,  # db-driver bug work-around
-                              'sem': sem})
+                              'sem': sem,
+                              'autumn': 'HØST',
+                              'spring': 'VÅR'})
 
     def list_aktiviteter(self, start_aar=time.localtime()[0],
                          start_semester=None):
@@ -1422,7 +1429,7 @@ class Undervisning(FSObject):
           ua.undpartilopenr IS NOT NULL AND
           ua.disiplinkode IS NOT NULL AND
           ua.undformkode IS NOT NULL AND
-          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode IN (':spring', ':autumn') AND
           ua.terminkode = t.terminkode AND
           ((ua.arstall = :aar AND
             EXISTS (SELECT 'x' FROM fs.arstermin tt
@@ -1430,7 +1437,9 @@ class Undervisning(FSObject):
                           t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
            ua.arstall > :aar)""",
                              {'aar': start_aar,
-                              'semester': start_semester})
+                              'semester': start_semester,
+                              'autumn': 'HØST',
+                              'spring': 'VÅR'})
 
     def get_undform_aktiviteter(self, Instnr, emnekode, versjon, termk,
                                 aar, termnr, undformkode):
@@ -1453,7 +1462,7 @@ class Undervisning(FSObject):
           ua.terminkode = :termk AND
           ua.terminnr = :termnr AND
           ua.undformkode = :undformkode AND
-          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode IN (':spring', ':autumn') AND
           ua.terminkode = t.terminkode AND
           ((ua.arstall = :aar AND
             EXISTS (SELECT 'x' FROM fs.arstermin tt
@@ -1466,7 +1475,9 @@ class Undervisning(FSObject):
                               "termk": termk,
                               "termnr": termnr,
                               "aar": aar,
-                              "undformkode": undformkode})
+                              "undformkode": undformkode,
+                              'autumn': 'HØST',
+                              'spring': 'VÅR'})
     # end get_undform_aktiviteter
 
     def list_undform_aktiviteter(self, undformkode):
@@ -1483,11 +1494,13 @@ class Undervisning(FSObject):
           fs.arstermin t
         WHERE
           ua.undformkode = :undformkode AND
-          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode IN (':spring', ':autumn') AND
           ua.terminkode = t.terminkode AND
           (EXISTS (SELECT 'x' FROM fs.arstermin tt
                    WHERE t.sorteringsnokkel >= tt.sorteringsnokkel))
-          """, {"undformkode": undformkode})
+          """, {"undformkode": undformkode,
+                'autumn': 'HØST',
+                'spring': 'VÅR'})
 
     def list_studenter_underv_enhet(self, Instnr, emnekode,
                                     versjon, termk, aar, termnr):

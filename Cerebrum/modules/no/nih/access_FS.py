@@ -185,7 +185,7 @@ class NIHUndervisning(access_FS.Undervisning):
           ua.undpartilopenr IS NOT NULL AND
           ua.disiplinkode IS NOT NULL AND
           ua.undformkode IS NOT NULL AND
-          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode IN (':spring', ':autumn') AND
           ua.terminkode = t.terminkode AND
           ((ua.arstall = :aar AND
             EXISTS (SELECT 'x' FROM fs.arstermin tt
@@ -193,7 +193,9 @@ class NIHUndervisning(access_FS.Undervisning):
                           t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
            ua.arstall > :aar)""",
                              {'aar': start_aar,
-                              'semester': start_semester})
+                              'semester': start_semester,
+                              'autumn': 'HØST',
+                              'spring': 'VÅR'})
 
     def list_studenter_underv_enhet(self,
                                     institusjonsnr,

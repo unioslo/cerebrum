@@ -1603,7 +1603,7 @@ class UiOUndervisning(access_FS.Undervisning):
           ue.institusjonsnr = e.institusjonsnr AND
           ue.emnekode       = e.emnekode AND
           ue.versjonskode   = e.versjonskode AND
-          ue.terminkode IN ('VÅR', 'HØST') AND
+          ue.terminkode IN (':autumn', ':spring') AND
           ue.terminkode = t.terminkode AND
           (ue.arstall > :aar OR
            (ue.arstall = :aar2 AND
@@ -1612,7 +1612,9 @@ class UiOUndervisning(access_FS.Undervisning):
                   t.sorteringsnokkel >= tt.sorteringsnokkel)))
           """, {'aar': year,
                 'aar2': year,  # db-driver bug work-around
-                'sem': sem})
+                'sem': sem,
+                'autumn': 'HØST',
+                'spring': 'VÅR'})
 
     def list_aktiviteter(self,
                          start_aar=None,
@@ -1641,7 +1643,7 @@ class UiOUndervisning(access_FS.Undervisning):
           ua.undpartilopenr IS NOT NULL AND
           ua.disiplinkode IS NOT NULL AND
           ua.undformkode IS NOT NULL AND
-          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode IN (':spring', ':autumn') AND
           ua.terminkode = t.terminkode AND
           ((ua.arstall = :aar AND
             EXISTS (SELECT 'x' FROM fs.arstermin tt
@@ -1649,7 +1651,9 @@ class UiOUndervisning(access_FS.Undervisning):
                           t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
            ua.arstall > :aar)""",
                              {'aar': start_aar,
-                              'semester': start_semester})
+                              'semester': start_semester,
+                              'autumn': 'HØST',
+                              'spring': 'VÅR'})
 
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
         """Hent alle studentene som er oppført på et gitt kull."""
@@ -1707,7 +1711,7 @@ class UiOUndervisning(access_FS.Undervisning):
         FROM
           fs.undervisningsmelding u, fs.tilbudsstatus t
         WHERE
-          u.terminkode in ('VÅR', 'HØST') AND
+          u.terminkode in (':spring', ':autumn') AND
           u.arstall >= :aar1 AND
           u.tilbudstatkode = t.tilbudstatkode AND
           t.status_gir_tilbud = 'J'
@@ -1733,7 +1737,9 @@ class UiOUndervisning(access_FS.Undervisning):
         """
 
         result = self.db.query(qry, {"aar1": self.year,
-                                     "aar2": self.year}, fetchall=True)
+                                     "aar2": self.year,
+                                     'autumn': 'HØST',
+                                     'spring': 'VÅR'}, fetchall=True)
         # IVR 2009-03-12 FIXME: DCOracle2 returns a float when taking a union
         # of two ints. The resons for this escape me.
         for row in result:

@@ -99,7 +99,7 @@ class HiAStudent(access_FS.Student):
               sa.institusjonsnr = osp.institusjonsnr AND
               sa.opptakstypekode = osp.opptakstypekode AND
               sa.opptakstypekode <> 'SOMMER' AND
-              sa.terminkode = 'HØST' AND
+              sa.terminkode = ':autumn' AND
               sa.arstall = 2010 AND
               osp.opptakstypekode = ost.opptakstypekode AND
               osp.studietypenr = ost.studietypenr AND
@@ -108,7 +108,9 @@ class HiAStudent(access_FS.Student):
               ost.arstall = sa.arstall AND
               ost.studieprogramkode = sp.studieprogramkode AND
               %s""" % (self.institusjonsnr, self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def list_aktiv_deprecated(self):
         """ Hent opplysninger om studenter definert som aktive
@@ -250,7 +252,7 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
               sa.institusjonsnr = osp.institusjonsnr AND
               sa.opptakstypekode = osp.opptakstypekode AND
               sa.opptakstypekode <> 'SOMMER' AND
-              sa.terminkode = 'HØST' AND
+              sa.terminkode = ':autumn' AND
               sa.arstall = 2010 AND
               osp.opptakstypekode = ost.opptakstypekode AND
               osp.studietypenr = ost.studietypenr AND
@@ -259,7 +261,9 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
               ost.arstall = sa.arstall AND
               ost.studieprogramkode = sp.studieprogramkode AND
               %s""" % (self.institusjonsnr, self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def list_aktiv_deprecated(self):
         """ Hent opplysninger om studenter definert som aktive

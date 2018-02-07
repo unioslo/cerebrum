@@ -474,7 +474,7 @@ class Cursor(object):
         except KeyError:
             pass
         if not isinstance(statement, six.text_type):
-            statement = statement.decode('utf-8')
+            statement = statement.decode('ascii')
 
         out_sql = []
         pconv = self._db.param_converter()

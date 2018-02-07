@@ -51,7 +51,7 @@ def normalize(unicode_string):
 
 
 def bytes2unicode(value):
-    return value.decode('utf-8')
+    return value.decode('ascii')
 
 
 def datetime2mx(value):

@@ -203,18 +203,18 @@ class HiOfUndervisning(access_FS.Undervisning):
         """
         if self.mndnr <= 7:
             # Months January - July == Spring semester
-            current = "(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % self.year
+            current = "(r.terminkode = ':spring' AND r.arstall=%s)\n" % self.year
             if only_current or self.mndnr >= 3 or (self.mndnr == 2 and
                                                    self.dday > 15):
                 return current
-            return "(%s OR (r.terminkode = 'HØST' AND r.arstall=%d))\n" % (
+            return "(%s OR (r.terminkode = ':autumn' AND r.arstall=%d))\n" % (
                 current, self.year-1)
         # Months August - December == Autumn semester
-        current = "(r.terminkode = 'HØST' AND r.arstall=%d)\n" % self.year
+        current = "(r.terminkode = ':autumn' AND r.arstall=%d)\n" % self.year
         if only_current or self.mndnr >= 10 or (self.mndnr == 9 and
                                                 self.dday > 15):
             return current
-        return "(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" %\
+        return "(%s OR (r.terminkode = ':spring' AND r.arstall=%d))\n" %\
             (current, self.year)
 
     def _get_next_termin_aar(self):
@@ -245,7 +245,8 @@ class HiOfUndervisning(access_FS.Undervisning):
             qry += """%s""" % self._get_termin_aar(only_current=1)
         else:
             qry += """%s""" % self._get_next_termin_aar()
-        return self.db.query(qry)
+        return self.db.query(qry, {'autumn': 'HØST',
+                                   'spring': 'VÅR'})
 
     def list_aktiviteter(self):
         """Hent alle undakt for dette og neste semestre.
@@ -269,7 +270,8 @@ class HiOfUndervisning(access_FS.Undervisning):
         """ % (self._get_termin_aar(only_current=1),
                self._get_next_termin_aar())
 
-        return self.db.query(query)
+        return self.db.query(query, {'autumn': 'HØST',
+                                     'spring': 'VÅR'})
     # end list_aktiviteter
 
     def list_studenter_underv_enhet(self,
@@ -317,11 +319,15 @@ class HiOfUndervisning(access_FS.Undervisning):
         FROM
           fs.undervisningsmelding
         WHERE
-          terminkode in ('VÅR', 'HØST') AND
+          terminkode in (':spring', ':autumn') AND
           arstall >= :aar
         """
 
-        return self.db.query(qry, {"aar": self.year, }, fetchall=True)
+        return self.db.query(qry,
+                             {"aar": self.year,
+                              'autumn': 'HØST',
+                              'spring': 'VÅR'},
+                              fetchall=True)
     # end list_studenter_underv_enhet
 
     def list_studenter_alle_kullklasser(self):
