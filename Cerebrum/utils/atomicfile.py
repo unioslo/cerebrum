@@ -145,7 +145,7 @@ class AtomicFileWriter(object):
     """ Number of tries to create a unique temporary file. """
 
     def __init__(self, name, mode='w', buffering=-1, replace_equal=False,
-                 encoding='utf-8', errors='strict'):
+		         encoding='utf-8', errors='strict'):
         """ Creates a new, writable file-like object.
 
         :param str name:

@@ -22,6 +22,7 @@
 tree.
 """
 from __future__ import unicode_literals
+import six
 import cereconf
 import inspect
 import os
@@ -58,7 +59,6 @@ class _NotSet(object):
         return False
 
     __slots__ = ()
-
 
 NotSet = _NotSet()
 
@@ -565,7 +565,7 @@ class mark_update(auto_super):
 class XMLHelper(object):
 
     def __init__(self, encoding='utf-8'):
-        self.xml_hdr = '<?xml version="1.0" encoding="{}"?>\n'.format(encoding)
+	    self.xml_hdr = '<?xml version="1.0" encoding="{}"?>\n'.format(encoding)
 
     def conv_colnames(self, cols):
         """Strip tablename prefix from column name."""
@@ -592,11 +592,11 @@ class XMLHelper(object):
             "%s%s>" % (extra_attr, close_tag))
 
     def escape_xml_attr(self, a):
-        """Escapes XML attributes."""
+	"""Escapes XML attributes."""
         if isinstance(a, int):
-            a = unicode(a)
+            a = six.text_type(a)
         elif isinstance(a, mx.DateTime.DateTimeType):
-            a = unicode(str(a))
+            a = six.text_type(str(a))
         a = a.replace('&', "&amp;")
         a = a.replace('"', "&quot;")
         a = a.replace('<', "&lt;")
@@ -720,7 +720,7 @@ class Factory(object):
                 # prefix of "_dynamic_"; the prefix is there to reduce
                 # the probability of `auto_super` name collision
                 # problems.
-                comp_class = type(b'_dynamic_' + str(name), tuple(bases), {})
+                comp_class = type('_dynamic_' + str(name), tuple(bases), {})
             Factory.class_cache[name] = comp_class
             return comp_class
         else:
