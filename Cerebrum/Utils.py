@@ -720,7 +720,8 @@ class Factory(object):
                 # prefix of "_dynamic_"; the prefix is there to reduce
                 # the probability of `auto_super` name collision
                 # problems.
-                comp_class = type('_dynamic_' + str(name), tuple(bases), {})
+                comp_class = type('_dynamic_' + six.text_type(name),
+                                  tuple(bases), {})
             Factory.class_cache[name] = comp_class
             return comp_class
         else:
