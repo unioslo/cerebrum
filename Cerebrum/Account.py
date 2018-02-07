@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2002-2017 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1465,29 +1465,42 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         legal in a posix username.  If as_gecos=1, it may also be
         used for the gecos field"""
 
+        try:
+            # make sure that s contains only latin1 compatible characters
+            s.encode('ISO_8859-1')
+        except UnicodeEncodeError:
+            self.logger.error(
+                'latin1 incompatible characters detected in '
+                'simplify_name for account: {entity_id}'.format(
+                    entity_id=self.entity_id))
+            raise ValueError('latin1 incompatible characters detected')
         key = bool(alt) + (bool(as_gecos) * 2)
         try:
             (tr, xlate_subst, xlate_match) = self._simplify_name_cache[key]
         except TypeError:
-            xlate = {'–': 'Dh', '': 'dh',
-                     'ﬁ': 'Th', '˛': 'th',
-                     'ﬂ': 'ss'}
+            xlate = {u'√ê': u'Dh',
+                     u'√∞': u'dh',
+                     u'√û': u'Th',
+                     u'√æ': u'th',
+                     u'√ü': u'ss'}
             if alt:
-                xlate.update({'∆': 'ae', 'Ê': 'ae',
-                              '≈': 'aa', 'Â': 'aa'})
+                xlate.update({u'√Ü': u'ae',
+                              u'√¶': u'ae',
+                              u'√Ö': u'aa',
+                              u'√•': u'aa'})
             xlate_subst = re.compile(r'[^a-zA-Z0-9 -]').sub
 
             def xlate_match(match):
                 return xlate.get(match.group(), "")
             tr = dict(zip(map(chr, xrange(0200, 0400)), ('x',) * 0200))
             tr.update(dict(zip(
-                '∆ÿ≈Ê¯øÂ¿¡¬√ƒ«»… ÀÃÕŒœ—“”‘’÷Ÿ⁄€‹›‡·‚„‰ÁËÈÍÎÏÌÓÔÒÚÛÙıˆ˘˙˚¸˝ˇ'
-                '{[}]|¶\\®≠Ø¥',
-                'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
-                'aAaAooO"--\'')))
+                u'√Ü√ò√Ö√¶√∏¬ø√•√Ä√Å√Ç√É√Ñ√á√à√â√ä√ã√å√ç√é√è√ë√í√ì√î√ï√ñ√ô√ö√õ√ú√ù√†√°√¢√£√§√ß√®√©√™√´√¨√≠√Æ√Ø√±√≤√≥√¥√µ√∂√π√∫√ª√º√Ω√ø'
+                u'{[}]|¬¶\\¬®¬≠¬Ø¬¥',
+                u'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
+                u'aAaAooO"--\'')))
             for ch in filter(tr.has_key, xlate):
                 del tr[ch]
-            tr = string.maketrans("".join(tr.keys()), "".join(tr.values()))
+            tr = string.maketrans(u''.join(tr.keys()), u''.join(tr.values()))
             if not as_gecos:
                 # lowercase the result
                 tr = tr.lower()
@@ -1498,8 +1511,16 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
         # normalise whitespace and hyphens: only ordinary SPC, only
         # one of them between words, and none leading or trailing.
-        xlated = re.sub(r'\s+', " ", xlated)
-        xlated = re.sub(r' ?-+ ?', "-", xlated).strip(" -")
+        xlated = re.sub(r'\s+', u' ', xlated)
+        xlated = re.sub(r' ?-+ ?', u'-', xlated).strip(u' -')
+        try:
+            xlated.encode('ascii')
+        except UnicodeEncodeError:
+            self.logger.error(
+                'ASCII incompatible output produced in '
+                'simplify_name for account: {entity_id}'.format(
+                    entity_id=self.entity_id))
+            raise ValueError('ASCII incompatible output produced')
         return xlated
 
     def search(self,
