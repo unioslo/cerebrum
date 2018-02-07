@@ -24,6 +24,7 @@ This module provides an interface to store objects representing XML
 information in Cerebrum. It is intended to go together with xml2object
 module (and its various incarnations (SAP, LT, etc.).
 """
+from __future__ import unicode_literals
 import collections
 import cereconf
 

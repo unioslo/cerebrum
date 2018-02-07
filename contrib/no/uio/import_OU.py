@@ -26,7 +26,7 @@ Specifically, XML input file with information about OUs is processed and
 stored in suitable form in Cerebrum. Presently, this job can accept OU data
 from FS, LT and SAP.
 """
-
+from __future__ import unicode_literals
 import cereconf
 
 import sys
@@ -215,10 +215,11 @@ def import_org_units(sources, target_system, cer_ou_tab):
         for xmlou in parser.iter_ou():
             formatted_sko = format_sko(xmlou)
             if not formatted_sko:
-                logger.error("Missing sko for OU %s (names: %s). Skipped!" %
-                             (list(xmlou.iterids()),
-                              map(lambda (x, y): str(x) + ": " + '; '.join(map(str, y)),
-                                  xmlou.iternames())))
+                logger.error("Missing sko for OU %s (names: %s). Skipped!" % (
+                    list(xmlou.iterids()),
+    		        map(lambda (x, y): unicode(x) + ": " + '; '.join(map(unicode, y)),
+                        xmlou.iternames())
+                ))
                 continue
 
             if (xmlou.start_date and xmlou.start_date > DateTime.now()):
@@ -311,20 +312,20 @@ def set_quaran(cer_ou_tab):
 
 
 def list_new_ous(old_cere_ous):
-    """Compares current OUs in Cerebrum to the OUs supplied as an argument, and 
+    """Compares current OUs in Cerebrum to the OUs supplied as an argument, and
     return the ones that are new.
 
     Uses 'get_cere_ou_table' to get the current OUs.
 
     @type  old_cere_ous: dict
-    @param old_cere_ous: ou_id -> sko (basestring) mapping, containing the 
-                         OUs that should be compared to the current OUs in 
+    @param old_cere_ous: ou_id -> sko (basestring) mapping, containing the
+			 OUs that should be compared to the current OUs in
                          the database.
     """
     new_cere_ous = get_cere_ou_table()
 
     for ou_id in old_cere_ous.keys():
-        new_cere_ous.pop(ou_id, 0) # 0 as default, we're not interested in the 
+	new_cere_ous.pop(ou_id, 0) # 0 as default, we're not interested in the
                                    # actual mapping, we only want to remove the
                                    # mapping if it exists.
 
@@ -357,7 +358,7 @@ def send_notify_email(new_cere_ous, to_email_addrs):
             'time': DateTime.now().strftime()}
 
     for ou_id in new_cere_ous.keys():
-        names = ous.search_name_with_language(entity_id=ou_id, 
+	names = ous.search_name_with_language(entity_id=ou_id,
                                               name_language=co.language_nb,
                                               name_variant=co.ou_name)
 

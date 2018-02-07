@@ -16,10 +16,11 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import unicode_literals
 
 class DataEntity(object):
     """Class for representing common traits of objects in a data source."""
-    
+
     def __init__(self):
         self._ids = dict()
         self._tags = dict()
@@ -31,14 +32,14 @@ class DataEntity(object):
         addr = dict()
         for a,v in self.iteraddress():
             addr[a] = v.__str__()
-        result = ("DataEntity: IDs: %s tags: %s names: %s address: %s contacts: %s" % 
+        result = ("DataEntity: IDs: %s tags: %s names: %s address: %s contacts: %s" %
                   (list(self.iterids()),
                    list(self.itertags()),
                    list(self.iternames()),
                    list(addr.iteritems()),
-                   list(self.itercontacts())))                                              
+                   list(self.itercontacts())))
         return result
-    
+
     def add_id(self, kind, value):
         self._ids[kind] = value
 
@@ -81,7 +82,7 @@ class DataPerson(DataEntity):
         self.gender = None
 
     def __str__(self):
-        result = ("%s DataPerson: gender: %s birth: %s" % 
+        result = ("%s DataPerson: gender: %s birth: %s" %
                   (super(DataPerson, self).__str__(),
                    self.gender, self.birth_date))
         return result
@@ -100,7 +101,7 @@ class DataOU(DataEntity):
         self.parent = None
 
     def __str__(self):
-        result = ("%s DataOU: trealm: %s parent: %s" % 
+        result = ("%s DataOU: trealm: %s parent: %s" %
                   (super(DataOU, self).__str__(),
                    self.realm, self.parent))
         return result
@@ -113,7 +114,7 @@ class DataGroup(DataEntity):
         self.desc = None
 
     def __str__(self):
-        result = ("%s DataGroup: desc: %s" % 
+        result = ("%s DataGroup: desc: %s" %
                   (super(DataGroup, self).__str__(),
                    self.desc))
         return result
@@ -129,7 +130,7 @@ class DataRelation(DataEntity):
         self.object = None
 
     def __str__(self):
-        result = ("%s DataRelation: type: %s subject: %s object: %s" % 
+        result = ("%s DataRelation: type: %s subject: %s object: %s" %
                   (super(DataRelation, self).__str__(),
                    self.type, self.subject, self.object))
         return result
@@ -146,7 +147,7 @@ class DataAddress(object):
         self.country = None
 
     def __str__(self):
-        result = ("pobox: %s, street: %s, postcode: %s, city: %s, country: %s" % 
+        result = ("pobox: %s, street: %s, postcode: %s, city: %s, country: %s" %
                   (self.pobox, self.street,
                    self.postcode, self.city,
                    self.country))

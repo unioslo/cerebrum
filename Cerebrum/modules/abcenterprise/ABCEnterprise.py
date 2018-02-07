@@ -17,6 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
 import sys
 import getopt
 
@@ -35,7 +36,7 @@ from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
 # * Move more into ABCFactory. Make classes Mixin-friendly.
 #
 # * Abstraction layer between Analyzer and output modules actually
-#   doing something. 
+#   doing something.
 #
 # * Add a layer between ABCXmlWriter and the Analyzer.
 
@@ -47,7 +48,7 @@ from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
 class Settings:
     """Empty class for storing 'global' variables. Can be sub-classed
     when writing Mixins"""
-    
+
     def __init__(self):
         self.variables = dict()
 
@@ -70,7 +71,7 @@ class ABCPreParser:
         self.long_args = ['help', 'dru-run', 'file=']
 
         self.logger = logger
-        
+
         filename = dryrun = None
         verbose = False
         try:
@@ -80,7 +81,7 @@ class ABCPreParser:
         except getopt.GetoptError, e:
             self.logger.warning(e)
             self.usage(1)
-            
+
         for opt, val in opts:
             if opt in ('-h', '--help'):
                 self.usage()
@@ -94,7 +95,7 @@ class ABCPreParser:
         self.settings = ABCFactory.get('Settings')()
         self.settings.set('filename', filename)
         self.settings.set('dryrun', dryrun)
-        
+
     def usage(self, exit_code=0):
         print """
         -h, --help         This message
@@ -118,7 +119,7 @@ class ABCAnalyzer(object):
 
     Calls PreParser from ABCFactory. Gets a GlobalVariables object
     in return. Use Mixins for more options."""
-    
+
     def __init__(self, argv, logger):
         #self._data_source = None
         # Get argv into variables and make am object for all of it
@@ -126,24 +127,24 @@ class ABCAnalyzer(object):
         self.settings = pp.get_settings()
         self._populate_settings()
         self.logger = logger
-        
+
         proc = ABCFactory.get('Processor')(self.settings, self.logger)
         # Make calls into the Processor. This is where magic happens...
         logger.debug("parse_settings()")
         proc.parse_settings()
-        
+
         logger.debug("parse_orgs()")
         proc.parse_orgs(self.iter_orgs())
-        
+
         logger.debug("parse_persons()")
         proc.parse_persons(self.iter_persons())
-        
+
         logger.debug("parse_groups()")
         proc.parse_groups(self.iter_groups())
-        
+
         logger.debug("parse_relations()")
         proc.parse_relations(self.iter_relations())
-        
+
         logger.debug("close()")
         proc.close()
 
@@ -152,7 +153,7 @@ class ABCAnalyzer(object):
         (self.settings.variables['datasource'],
          self.settings.variables['target'],
          self.settings.variables['timestamp']) = setiter.next()
-        
+
 
     def iter_properties(self):
         elem = "properties"
@@ -166,14 +167,14 @@ class ABCAnalyzer(object):
         it = ABCFactory.get('EntityIterator')(self.settings.variables['filename'],
                                               elem)
         return ABCFactory.get('PersonParser')(iter(it))
-    
-    
+
+
     def iter_orgs(self):
         elem = "organization"
         it = ABCFactory.get('EntityIterator')(self.settings.variables['filename'],
                                               elem)
         return ABCFactory.get('OrgParser')(iter(it))
-    
+
 
     def iter_groups(self):
         elem = "group"
