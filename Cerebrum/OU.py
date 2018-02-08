@@ -17,6 +17,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 """Organisational Unit implementation.
 
 This module implements the functionality for one of the basic elements of
@@ -30,6 +32,7 @@ organizational trees in different perspectives.
 """
 
 
+import six
 from Cerebrum import Utils
 from Cerebrum.Utils import prepare_string
 from Cerebrum import Errors
@@ -44,6 +47,7 @@ from Cerebrum.Entity import EntityNameWithLanguage
 Entity_class = Utils.Factory.get("Entity")
 
 
+@six.python_2_unicode_compatible
 class OU(EntityContactInfo, EntityExternalId, EntityAddress,
          EntityQuarantine, EntitySpread, EntityNameWithLanguage,
          Entity_class):
@@ -335,5 +339,8 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         return self.query("""
         SELECT DISTINCT oi.ou_id
         FROM %s %s""" % (','.join(tables), where_str), binds)
-    # end search
-# end class OU
+
+    def __str__(self):
+        if hasattr(self, 'entity_id'):
+            return self.display_name
+        return '<unbound ou>'

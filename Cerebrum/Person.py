@@ -17,12 +17,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 """
 
 """
 
 import collections
 import numbers
+import six
 
 import cereconf
 from Cerebrum.Entity import (EntityContactInfo,
@@ -47,6 +50,7 @@ class MissingSelfException(Exception):
 Entity_class = Utils.Factory.get("Entity")
 
 
+@six.python_2_unicode_compatible
 class Person(EntityContactInfo, EntityExternalId, EntityAddress,
              EntityQuarantine, EntitySpread, EntityNameWithLanguage,
              Entity_class):
@@ -1404,3 +1408,9 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         from_str = "FROM %s" % ", ".join(tables)
         return self.query("%s %s %s" % (select_str, from_str, where_str),
                           binds)
+
+    def __str__(self):
+        if hasattr(self, 'entity_id'):
+            return self.get_name(self.const.system_cached,
+                                 self.const.name_full)
+        return '<unbound person>'

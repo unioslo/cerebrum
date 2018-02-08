@@ -31,6 +31,7 @@ import re
 import mx
 import hashlib
 import base64
+import six
 
 import six
 
@@ -536,6 +537,7 @@ class AccountHome(object):
 Entity_class = Utils.Factory.get("Entity")
 
 
+@six.python_2_unicode_compatible
 class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
               EntityExternalId, EntityContactInfo, EntitySpread, Entity_class):
 
@@ -1645,3 +1647,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                         description,
                         ai.np_type AS np_type
         FROM %s %s""" % (','.join(tables), where_str), binds)
+
+    def __str__(self):
+        if hasattr(self, 'account_name'):
+            return self.account_name
+        else:
+            return u'<unbound account>'

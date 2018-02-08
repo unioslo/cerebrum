@@ -17,6 +17,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 """API for accessing the core group structures in Cerebrum.
 
 Note that even though the database allows us to define groups in
@@ -27,6 +29,7 @@ name when constructing a Group object."""
 
 
 import mx
+import six
 
 import cereconf
 from Cerebrum import Utils
@@ -39,6 +42,7 @@ from Cerebrum.Utils import argument_to_sql, prepare_string
 Entity_class = Utils.Factory.get("Entity")
 
 
+@six.python_2_unicode_compatible
 class Group(EntityQuarantine, EntityExternalId, EntityName,
             EntitySpread, EntityNameWithLanguage, Entity_class):
 
@@ -894,6 +898,11 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             elif entry["expire2"] is not None:
                 entry["expire_date"] = entry["expire2"]
             yield entry
+
+    def __str__(self):
+        if hasattr(self, 'entity_id'):
+            return self.group_name
+        return '<unbound group>'
 
 
 class GroupAPI(object):
