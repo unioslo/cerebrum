@@ -22,6 +22,7 @@
 tree.
 """
 from __future__ import unicode_literals
+import six
 import cereconf
 import inspect
 import os
@@ -57,6 +58,7 @@ class _NotSet(object):
         return False
 
     __slots__ = ()
+
 
 NotSet = _NotSet()
 
@@ -592,9 +594,9 @@ class XMLHelper(object):
     def escape_xml_attr(self, a):
         """Escapes XML attributes."""
         if isinstance(a, int):
-            a = unicode(a)
+            a = six.text_type(a)
         elif isinstance(a, mx.DateTime.DateTimeType):
-            a = unicode(str(a))
+            a = six.text_type(str(a))
         a = a.replace('&', "&amp;")
         a = a.replace('"', "&quot;")
         a = a.replace('<', "&lt;")
