@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2002-2018 University of Oslo, Norway
 #
@@ -3934,8 +3934,8 @@ Addresses and settings:
                            self.const.bofh_email_move,
                            acc.entity_id, es.entity_id, state_data=req)
             # Norwegian (nynorsk) names:
-            wdays_nn = ["måndag", "tysdag", "onsdag", "torsdag",
-                        "fredag", "laurdag", "søndag"]
+            wdays_nn = ["mÃ¥ndag", "tysdag", "onsdag", "torsdag",
+                        "fredag", "laurdag", "sÃ¸ndag"]
             when_nn = "%s %d. kl %02d:%02d" % \
                       (wdays_nn[when.day_of_week],
                        when.day, when.hour, when.minute - when.minute % 10)
@@ -9700,7 +9700,7 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                      at['priority'], at['ou_id'],
                      str(self.const.PersonAffiliation(at['affiliation']))))
             # TODO: kall ac.list_accounts_by_owner_id(ac.owner_id) for
-            # å hente ikke-personlige konti?
+            # Ã¥ hente ikke-personlige konti?
         ret['home'] = ac.resolve_homedir(disk_id=ac.disk_id, home=ac.home)
         ret['navn'] = {'cached': person.get_name(
             self.const.system_cached, self.const.name_full)}
