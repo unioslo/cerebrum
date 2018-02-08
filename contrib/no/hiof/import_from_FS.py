@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2002, 2003 University of Oslo, Norway
 #
@@ -19,6 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import  unicode_literals
 import sys
 import getopt
 
@@ -86,11 +87,11 @@ def write_person_info(outfile):
     f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
 
-    # Aktive fagpersoner ved Hiÿf
+    # Aktive fagpersoner ved Hi√∏f
     cols, fagperson = _ext_cols(fs.undervisning.list_fagperson_semester())
     for p in fagperson:
         f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'fagperson') + "\n")
-    # Aktive ordinÊre studenter ved Hiÿf
+    # Aktive ordin√¶re studenter ved Hi√∏f
     cols, student = _ext_cols(fs.student.list_aktiv())
     for a in student:
         f.write(xml.xmlify_dbrow(a, xml.conv_colnames(cols), 'aktiv') + "\n")
@@ -110,7 +111,7 @@ def write_ou_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
-    cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR)) 
+    cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR))
     for o in ouer:
         sted = {}
         for fs_col, xml_attr in (
@@ -136,8 +137,8 @@ def write_ou_info(outfile):
         for fs_col, typekode in (
             ('telefonnr', 'EKSTRA TLF'),
             ('faxnr', 'FAX'),
-	    ('emailadresse','EMAIL'),
-	    ('url', 'URL')):
+	        ('emailadresse','EMAIL'),
+	        ('url', 'URL')):
             if o[fs_col]:               # Skip NULLs and empty strings
                 komm.append({'kommtypekode': xml.escape_xml_attr(typekode),
                              'kommnrverdi': xml.escape_xml_attr(o[fs_col])})
@@ -167,7 +168,7 @@ def write_role_info(outfile):
     f.close()
 
 def write_undenh_metainfo(outfile):
-    "Skriv metadata om undervisningsenheter for innevÊrende+neste semester."
+    "Skriv metadata om undervisningsenheter for innev√¶rende+neste semester."
     logger.info("Writing undenh_meta info to '%s'" % outfile)
     f = MinimumSizeWriter(outfile)
     f.min_size = 1*KiB
@@ -205,33 +206,33 @@ def write_emne_info(outfile):
 
 
 def write_fnrupdate_info(outfile):
-    """Lager fil med informasjon om alle f¯dselsnummerendringer"""
+    """Lager fil med informasjon om alle f√∏dselsnummerendringer"""
     logger.info("Writing fnrupdate info to '%s'" % outfile)
     stream = AtomicFileWriter(outfile, 'w')
     writer = xmlprinter.xmlprinter(stream,
                                    indent_level = 2,
                                    # Human-readable output
                                    data_mode = True,
-                                   input_encoding = "latin1")
-    writer.startDocument(encoding = "iso8859-1")
+                                   input_encoding = "utf-8")
+    writer.startDocument(encoding = "utf-8")
 
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
 
-    writer.startElement("data", {"source_system" : str(const.system_fs)})
+    writer.startElement("data", {"source_system" : unicode(const.system_fs)})
 
     data = fs.person.list_fnr_endringer()
     for row in data:
         # Make the format resemble the corresponding FS output as close as
         # possible.
-        attributes = { "type" : str(const.externalid_fodselsnr), 
+        attributes = { "type" : unicode(const.externalid_fodselsnr),
                        "new"  : "%06d%05d" % (row["fodselsdato_naverende"],
                                               row["personnr_naverende"]),
                        "old"  : "%06d%05d" % (row["fodselsdato_tidligere"],
                                               row["personnr_tidligere"]),
-                       "date" : str(row["dato_foretatt"]),
+                       "date" : unicode(row["dato_foretatt"]),
                      }
-        
+
         writer.emptyElement("external_id", attributes)
     # od
 
@@ -291,12 +292,12 @@ def main():
     logger.info("Starting import from FS")
     try:
         opts, args = getopt.getopt(sys.argv[1:], "fpsruoei",
-                                   ["personinfo-file=", "studprog-file=", 
+                                   ["personinfo-file=", "studprog-file=",
                                     "roleinfo-file=", "undenh-file=",
                                     "emneinfo-file=",
                                     "fnr-update-file=",
                                     "edu-info-file=",
-                                    "misc-func=", 
+                                    "misc-func=",
                                     "misc-file=", "misc-tag=",
                                     "ou-file=", "db-user=", "db-service="])
     except getopt.GetoptError:
@@ -312,7 +313,7 @@ def main():
     emne_info_file = None
     fnr_update_file = None
     edu_info_file = None
-    
+
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
     for o, val in opts:

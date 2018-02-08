@@ -41,6 +41,7 @@ SIMILARSIZE_LIMIT_MULTIPLIER
 
 """
 import os
+import io
 import filecmp
 import random
 import inspect
@@ -143,7 +144,8 @@ class AtomicFileWriter(object):
     tmpfile_ext_tries = 10
     """ Number of tries to create a unique temporary file. """
 
-    def __init__(self, name, mode='w', buffering=-1, replace_equal=False):
+    def __init__(self, name, mode='w', buffering=-1, replace_equal=False,
+                 encoding='utf-8', errors='strict'):
         """ Creates a new, writable file-like object.
 
         :param str name:
@@ -164,14 +166,25 @@ class AtomicFileWriter(object):
             temporary file that we actually wrote to. If False, we'll keep the
             original. This is the default.
 
+        :param str encoding:
+            The encoding to use when writing to the target file.
+
+        :param str errors:
+            The error mode to be use when writing to the file.
+
         :see file: for more information about the arguments.
         """
         if not any(n in mode for n in 'aw'):
             raise ValueError(
                 'Writer cannot open {!r} in read-only mode'
                 ' (mode={!r})'.format(name, mode))
+
         self.__name = name
-        self.__file = open(self.__generate_tmpname(name), mode, buffering)
+        self.__file = io.open(self.__generate_tmpname(name),
+                              mode,
+                              buffering,
+                              encoding,
+                              errors)
         self.__replace_equal = replace_equal
 
         # Append mode, we need to copy the contents of 'name'

@@ -209,6 +209,7 @@ class cx_Oracle(OracleBase):
         os.environ['NLS_LANG'] = encoding_names.get(codec_info.name,
                                                     client_encoding)
 
+
         # Call superclass .connect with appropriate CONNECTIONSTRING;
         # this will in turn invoke the connect() function in the
         # cx_Oracle module.
