@@ -32,6 +32,8 @@ import mx
 import hashlib
 import base64
 
+import six
+
 from Cerebrum import Utils, Disk
 from Cerebrum.Entity import (EntityName,
                              EntityQuarantine,
@@ -1470,9 +1472,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             s.encode('ISO_8859-1')
         except UnicodeEncodeError:
             self.logger.error(
-                'latin1 incompatible characters detected in '
-                'simplify_name for account: {entity_id}'.format(
-                    entity_id=self.entity_id))
+                u'latin1 incompatible characters detected in '
+                u'simplify_name for: {name}'.format(
+                    name=s))
             raise ValueError('latin1 incompatible characters detected')
         key = bool(alt) + (bool(as_gecos) * 2)
         try:
@@ -1491,23 +1493,28 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             xlate_subst = re.compile(r'[^a-zA-Z0-9 -]').sub
 
             def xlate_match(match):
-                return xlate.get(match.group(), "")
-            tr = dict(zip(map(chr, xrange(0200, 0400)), ('x',) * 0200))
+                return xlate.get(match.group(), u'')
+            tr = dict(zip(map(six.unichr, xrange(0200, 0400)), (u'x',) * 0200))
             tr.update(dict(zip(
                 u'ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝàáâãäçèéêëìíîïñòóôõöùúûüýÿ'
                 u'{[}]|¦\\¨­¯´',
                 u'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
                 u'aAaAooO"--\'')))
-            for ch in filter(tr.has_key, xlate):
+            for ch in filter(lambda x: x in tr, xlate):
                 del tr[ch]
-            tr = string.maketrans(u''.join(tr.keys()), u''.join(tr.values()))
             if not as_gecos:
                 # lowercase the result
-                tr = tr.lower()
-                xlate = dict(zip(xlate.keys(), map(str.lower, xlate.values())))
+                xlate = dict(zip(xlate.keys(), map(six.text_type.lower, xlate.values())))
             self._simplify_name_cache[key] = (tr, xlate_subst, xlate_match)
 
-        xlated = xlate_subst(xlate_match, s.translate(tr))
+        # this is intended to be a replacement for s.translate until Python3
+        for key, value in tr.items():
+            if as_gecos:
+                s = s.replace(key, value)
+            else:
+                s = s.replace(key, value.lower())
+
+        xlated = xlate_subst(xlate_match, s)
 
         # normalise whitespace and hyphens: only ordinary SPC, only
         # one of them between words, and none leading or trailing.
@@ -1517,9 +1524,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             xlated.encode('ascii')
         except UnicodeEncodeError:
             self.logger.error(
-                'ASCII incompatible output produced in '
-                'simplify_name for account: {entity_id}'.format(
-                    entity_id=self.entity_id))
+                u'ASCII incompatible output produced in '
+                u'simplify_name for: {output}'.format(
+                    output=xlated))
             raise ValueError('ASCII incompatible output produced')
         return xlated
 
