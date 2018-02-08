@@ -38,7 +38,7 @@ CEREBRUM_DATABASE_CONNECT_DATA = {
     'user': None,
     'table_owner': None,
     'host': None,
-    'client_encoding': None,
+    'client_encoding': 'UTF-8',
 }
 # Default bind name for Cerebrum
 CEREBRUM_SERVER_IP = ""
