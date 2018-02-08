@@ -99,7 +99,7 @@ class HiAStudent(access_FS.Student):
               sa.institusjonsnr = osp.institusjonsnr AND
               sa.opptakstypekode = osp.opptakstypekode AND
               sa.opptakstypekode <> 'SOMMER' AND
-              sa.terminkode = ':autumn' AND
+              sa.terminkode = :autumn AND
               sa.arstall = 2010 AND
               osp.opptakstypekode = ost.opptakstypekode AND
               osp.studietypenr = ost.studietypenr AND
@@ -252,7 +252,7 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
               sa.institusjonsnr = osp.institusjonsnr AND
               sa.opptakstypekode = osp.opptakstypekode AND
               sa.opptakstypekode <> 'SOMMER' AND
-              sa.terminkode = ':autumn' AND
+              sa.terminkode = :autumn AND
               sa.arstall = 2010 AND
               osp.opptakstypekode = ost.opptakstypekode AND
               osp.studietypenr = ost.studietypenr AND
