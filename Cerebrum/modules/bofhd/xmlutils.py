@@ -36,13 +36,11 @@ class AttributeDict(dict):
         self[name] = value
 
 
-def native_to_xmlrpc(obj, no_unicodify=0):
+def native_to_xmlrpc(obj):
     """Translate Python objects to XML-RPC-usable structures."""
     if obj is None:
         return ':None'
     elif isinstance(obj, (str, unicode)):
-        if isinstance(obj, str) and not no_unicodify:
-            obj = unicode(obj, 'iso8859-1')
         if obj.startswith(":"):
             return ":" + obj
         return obj
@@ -52,7 +50,7 @@ def native_to_xmlrpc(obj, no_unicodify=0):
     elif isinstance(obj, dict):
         obj_type = type(obj)
         return obj_type(
-            [(native_to_xmlrpc(x, no_unicodify=1), native_to_xmlrpc(obj[x]))
+            [(native_to_xmlrpc(x), native_to_xmlrpc(obj[x]))
              for x in obj])
     elif isinstance(obj, (int, long, float)):
         return obj
@@ -75,8 +73,6 @@ def xmlrpc_to_native(obj):
     #  We could have used marshal.{loads,dumps} here,
     # but then the Java client would have trouble
     # encoding/decoding requests/responses.
-    if isinstance(obj, unicode):
-        obj = obj.encode('ISO-8859-1', 'ignore')
     if isinstance(obj, str):
         if obj == ':None':
             return None
