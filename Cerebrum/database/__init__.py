@@ -756,7 +756,7 @@ class Database(object):
     # The bind parameter converter class used by this driver class.
 
     encoding = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get(
-        'client_encoding') or 'utf-8'
+        'client_encoding') or 'UTF-8'
     # The default character set encoding to use.
 
     def __init__(self, do_connect=True, *db_params, **db_kws):
