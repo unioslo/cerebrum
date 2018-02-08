@@ -27,6 +27,7 @@ Address, Gender etc. type."""
 
 import copy
 import threading
+import re
 
 import cereconf
 from six import string_types as string, text_type as text, \
@@ -34,6 +35,7 @@ from six import string_types as string, text_type as text, \
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import context
 
 
 def _uchlp(arg):
@@ -953,6 +955,180 @@ class _ChangeTypeCode(_CerebrumCode):
                          {'category': self.category,
                           'type': self.type,
                           'desc': self.msg_string})
+
+    def format_message(self, subject, dest):
+        """ Format self.msg_string with subject and dest.
+        
+        :type subject: unicode or ascii bytes
+        :param subject: subject entity_name
+
+        :type dest: unicode or ascii bytes
+        :param dest: destination entity_name
+
+        :rtype: unicode
+        :return: Formatted string
+        """
+        if self.msg_string is None:
+            return '{}, subject {}, destination {}'.format(
+                text(self),
+                subject,
+                dest)
+        return self.msg_string % {
+            'subject': subject,
+            'dest': dest}
+
+    param_formatters = {}
+
+    @classmethod
+    def formatter(cls, param_type):
+        def fun(fn):
+            cls.param_formatters[param_type] = fn
+            return fn
+        return fun
+
+    def format_params(self, params):
+        """ Format self.format with params from change_params.
+
+        :type params: dict or dict-like mapping, basestr, or None
+        :param params:  change_params as dict or json string
+
+        :rtype: unicode
+        :return: Formatted string
+        """
+        from Cerebrum.utils import json
+        if isinstance(params, string):
+            params = json.loads(params)
+
+        def helper():
+            for f in self.format:
+                repl = {}
+                for part in re.findall(r'%\([^\)]+\)s', f):
+                    fmt_key = part[2:-2]
+                    if fmt_key not in repl:
+                        fmt_type, key = fmt_key.split(':')
+                        try:
+                            repl['%({}:{})s'.format(fmt_type, key)] = \
+                                self.param_formatters.get(fmt_type)(
+                                    self.sql,
+                                    params.get(key, None))
+                        except:
+                            pass
+                if any(repl.values()):
+                    for k, v in repl.items():
+                        f = f.replace(k, v)
+                yield f
+
+        if self.format:
+            return ', '.join(helper())
+
+
+@_ChangeTypeCode.formatter('string')
+@_ChangeTypeCode.formatter('date')
+@_ChangeTypeCode.formatter('timestamp')
+def format_cl_string(co, s):
+    return text(s)
+
+
+@_ChangeTypeCode.formatter('entity')
+def format_cl_entity(co, e):
+    with context.entity.entity(e) as ent:
+        try:
+            ret = ent.get_subclassed_object()
+        except ValueError:
+            ret = ent
+        return text(ret)
+
+
+@_ChangeTypeCode.formatter('homedir')
+def format_cl_homedir(co, e):
+    return 'homedir_id:{}'.format(e)
+
+
+@_ChangeTypeCode.formatter('disk')
+def format_cl_disk(co, d):
+    disk = Factory.get('Disk')(co._db)
+    try:
+        disk.find(d)
+        return disk.path
+    except Errors.NotFoundError:
+        return 'deleted_disk:{}'.format(d)
+
+
+def _get_code(get, code, fallback=False):
+    def f(get):
+        try:
+            return 1, text(get(code))
+        except Errors.NotFoundError:
+            if fallback:
+                return 2, fallback
+            else:
+                return 2, text(code)
+    if not isinstance(get, (tuple, list)):
+        get = [get]
+    return text(sorted(map(f, get))[0][1])
+
+
+@_ChangeTypeCode.formatter('spread_code')
+def format_cl_spread(co, code):
+    return _get_code(co.Spread, code)
+
+
+@_ChangeTypeCode.formatter('ou')
+def format_cl_ou(co, val):
+    with context.entity.ou(val) as ou:
+        return text(ou)
+
+
+@_ChangeTypeCode.formatter('affiliation')
+def format_cl_aff(co, val):
+    return _get_code(co.PersonAffiliation, val)
+
+
+@_ChangeTypeCode.formatter('int')
+def format_cl_int(co, val):
+    return text(val)
+
+
+@_ChangeTypeCode.formatter('bool')
+def format_cl_bool(co, val):
+    if val == 'F':
+        return text(False)
+    return text(val)
+
+
+@_ChangeTypeCode.formatter('home_status')
+def format_cl_home_status(co, val):
+    return _get_code(co.AccountHomeStatus, val)
+
+
+@_ChangeTypeCode.formatter('source_system')
+def format_cl_source(co, val):
+    return _get_code(co.AuthoritativeSystem, val)
+
+
+@_ChangeTypeCode.formatter('name_variant')
+def format_cl_name_variant(co, val):
+    return _get_code((co.PersonName, co.EntityNameCode), val)
+
+
+@_ChangeTypeCode.formatter('value_domain')
+def format_cl_value_domain(co, val):
+    return _get_code(co.ValueDomain, val)
+
+
+@_ChangeTypeCode.formatter('extid')
+def format_cl_external_id(co, val):
+    return _get_code(co.EntityExternalId, val)
+
+
+@_ChangeTypeCode.formatter('quarantine_type')
+def format_cl_quarantine_type(co, val):
+    return _get_code(co.Quarantine, val)
+
+
+@_ChangeTypeCode.formatter('id_type')
+def format_cl_id_type(co, val):
+    return _get_code(co.ChangeType, val)
 
 
 
