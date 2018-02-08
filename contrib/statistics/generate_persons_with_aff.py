@@ -109,7 +109,9 @@ def main():
     sorted_persons = sorted(persons,
                             key=lambda x: (x['ou_sko'],
                                            x['account_name']))
-    logger.info('Found {} persons'.format(len(persons)))
+    logger.info('Found {} affiliations'.format(len(persons)))
+    logger.info('Found {} unique persons'.format(
+                len(set(map(lambda x: x['account_name'], persons)))))
 
     env = jinja2.Environment(
         loader=jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__),
@@ -123,7 +125,7 @@ def main():
             ('account_name', 'Account name'),
             ('person_name', 'Name'),
             ('birth', 'Birth date'),
-            ('affiliation', 'Affiliation'),
+            # ('affiliation', 'Affiliation'),
             ('ou_sko', 'OU'),
             ('ou_name', 'OU acronym')),
         title=title,
@@ -134,7 +136,7 @@ def main():
             fp.write(output_str)
     else:
         sys.stdout.write(output_str)
-    logger.info('Done'.format(script_name=sys.argv[0]))
+    logger.info('Done')
 
 
 if __name__ == "__main__":
