@@ -60,6 +60,7 @@ class _NotSet(object):
 
     __slots__ = ()
 
+
 NotSet = _NotSet()
 
 
@@ -594,9 +595,9 @@ class XMLHelper(object):
     def escape_xml_attr(self, a):
 	"""Escapes XML attributes."""
         if isinstance(a, int):
-            a = six.text_type(a)
+	        a = six.text_type(a)
         elif isinstance(a, mx.DateTime.DateTimeType):
-            a = six.text_type(str(a))
+	    a = six.text_type(str(a))
         a = a.replace('&', "&amp;")
         a = a.replace('"', "&quot;")
         a = a.replace('<', "&lt;")
