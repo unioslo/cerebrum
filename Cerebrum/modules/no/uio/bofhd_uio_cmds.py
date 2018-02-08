@@ -7526,9 +7526,9 @@ Addresses and settings:
         for ss in cereconf.SYSTEM_LOOKUP_ORDER:
             ss = getattr(self.const, ss)
             person_name = ""
-            for type in [self.const.name_first, self.const.name_last]:
+            for t in [self.const.name_first, self.const.name_last]:
                 try:
-                    person_name += person.get_name(ss, type) + ' '
+                    person_name += person.get_name(ss, t) + ' '
                 except Errors.NotFoundError:
                     continue
             if person_name:
