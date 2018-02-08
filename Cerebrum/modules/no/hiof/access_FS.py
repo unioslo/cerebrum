@@ -203,18 +203,18 @@ class HiOfUndervisning(access_FS.Undervisning):
         """
         if self.mndnr <= 7:
             # Months January - July == Spring semester
-            current = "(r.terminkode = ':spring' AND r.arstall=%s)\n" % self.year
+            current = "(r.terminkode = :spring AND r.arstall=%s)\n" % self.year
             if only_current or self.mndnr >= 3 or (self.mndnr == 2 and
                                                    self.dday > 15):
                 return current
-            return "(%s OR (r.terminkode = ':autumn' AND r.arstall=%d))\n" % (
+            return "(%s OR (r.terminkode = :autumn AND r.arstall=%d))\n" % (
                 current, self.year-1)
         # Months August - December == Autumn semester
-        current = "(r.terminkode = ':autumn' AND r.arstall=%d)\n" % self.year
+        current = "(r.terminkode = :autumn AND r.arstall=%d)\n" % self.year
         if only_current or self.mndnr >= 10 or (self.mndnr == 9 and
                                                 self.dday > 15):
             return current
-        return "(%s OR (r.terminkode = ':spring' AND r.arstall=%d))\n" %\
+        return "(%s OR (r.terminkode = :spring AND r.arstall=%d))\n" %\
             (current, self.year)
 
     def _get_next_termin_aar(self):
@@ -319,7 +319,7 @@ class HiOfUndervisning(access_FS.Undervisning):
         FROM
           fs.undervisningsmelding
         WHERE
-          terminkode in (':spring', ':autumn') AND
+          terminkode in (:spring, :autumn) AND
           arstall >= :aar
         """
 

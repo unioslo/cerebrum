@@ -1711,7 +1711,7 @@ class UiOUndervisning(access_FS.Undervisning):
         FROM
           fs.undervisningsmelding u, fs.tilbudsstatus t
         WHERE
-          u.terminkode in (':spring', ':autumn') AND
+          u.terminkode in (:spring, :autumn) AND
           u.arstall >= :aar1 AND
           u.tilbudstatkode = t.tilbudstatkode AND
           t.status_gir_tilbud = 'J'
