@@ -30,7 +30,6 @@ organizational trees in different perspectives.
 """
 
 
-import cereconf
 from Cerebrum import Utils
 from Cerebrum.Utils import prepare_string
 from Cerebrum import Errors
@@ -90,9 +89,10 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                     "short_name": self.const.ou_name_short,
                     "display_name": self.const.ou_name_display, }
         logger = Utils.Factory.get_logger()
-        logger.warn("Deprecated usage of OU: OU.%s cannot be accessed directly."
+        logger.warn("Deprecated usage of OU:"
+                    " OU.%s cannot be accessed directly."
                     " Use get/add/delete_name_with_language" % (name,))
-        # For the "unspecified" case we assume Norwegian bokmål.
+        # For the "unspecified" case we assume Norwegian bokmï¿½l.
         return self.get_name_with_language(name_map[name],
                                            self.const.language_nb,
                                            default='')
@@ -130,10 +130,12 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
 
         own_names = set((r["name_variant"], r["name_language"], r["name"])
                         for r in
-                        self.search_name_with_language(entity_id=self.entity_id))
+                        self.search_name_with_language(
+                            entity_id=self.entity_id))
         other_names = set((r["name_variant"], r["name_language"], r["name"])
                           for r in
-                          other.search_name_with_language(entity_id=self.entity_id))
+                          other.search_name_with_language(
+                              entity_id=self.entity_id))
         return own_names == other_names
     # end __eq__
 
@@ -197,9 +199,10 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
 
             # Append this node's acronym (if it is non-NULL) to
             # 'components'.
-            acronyms = self.search_name_with_language(entity_id=temp.entity_id,
-                                                      name_variant=self.const.ou_name_acronym,
-                                                      name_language=self.const.language_nb)
+            acronyms = self.search_name_with_language(
+                entity_id=temp.entity_id,
+                name_variant=self.const.ou_name_acronym,
+                name_language=self.const.language_nb)
             if acronyms:
                 components.append(acronyms[0]["name"])
 
@@ -290,8 +293,8 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
     def search(self, spread=None, filter_quarantined=False):
         """Retrives a list of OUs filtered by the given criteria.
 
-        Note that acronyms and other name variants is not a part of the basic OU
-        table, but could be searched for through
+        Note that acronyms and other name variants is not a part of the basic
+        OU table, but could be searched for through
         L{EntityNameWithLanguage.search_name_with_language}.
 
         If no criteria is given, all OUs are returned.
@@ -320,7 +323,8 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         if filter_quarantined:
             where.append("""
             (NOT EXISTS (SELECT 1
-                         FROM [:table schema=cerebrum name=entity_quarantine] eq
+                         FROM
+                          [:table schema=cerebrum name=entity_quarantine] eq
                          WHERE oi.ou_id=eq.entity_id))
             """)
 

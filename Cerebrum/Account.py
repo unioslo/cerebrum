@@ -250,8 +250,8 @@ class AccountType(object):
         if account_id:
             extra += " AND ai.account_id=:account_id"
         if person_spread is not None and account_spread is not None:
-            raise Errors.CerebrumError, ('Illegal to use both person and '
-                                         'account spread in query')
+            raise Errors.CerebrumError('Illegal to use both person and '
+                                       'account spread in query')
         if person_spread is not None:
             if isinstance(person_spread, (list, tuple)):
                 person_spread = "IN (%s)" % \
@@ -650,12 +650,12 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         assert isinstance(other, Account)
 
         if (self.account_name != other.account_name or
-            int(self.owner_type) != int(other.owner_type) or
-            self.owner_id != other.owner_id or
-            self.np_type != other.np_type or
-            self.creator_id != other.creator_id or
-            self.expire_date != other.expire_date or
-            self.description != other.description):
+                int(self.owner_type) != int(other.owner_type) or
+                self.owner_id != other.owner_id or
+                self.np_type != other.np_type or
+                self.creator_id != other.creator_id or
+                self.expire_date != other.expire_date or
+                self.description != other.description):
             return False
         return True
 
@@ -724,7 +724,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 continue
             try:
                 enc = self.encrypt_password(method, plaintext)
-            except Errors.NotImplementedAuthTypeError, e:
+            except Errors.NotImplementedAuthTypeError as e:
                 notimplemented.append(str(e))
             else:
                 self.populate_authentication_type(method, enc)
@@ -991,6 +991,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         # criteria.
         try:
             password_str = self.__plaintext_password
+            del password_str
         except AttributeError:
             # TODO: this is meant to catch that self.__plaintext_password is
             # unset, trying to use hasattr() instead will surprise you
@@ -1210,7 +1211,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return self.query("""
         SELECT ai.account_id, en.entity_name, hd.home,
                ah.spread AS home_spread, d.path, hd.homedir_id, ai.owner_id,
-               hd.status, ai.expire_date, ai.description, ei.created_at, d.disk_id, d.host_id
+               hd.status, ai.expire_date, ai.description, ei.created_at,
+               d.disk_id, d.host_id
         FROM %s
         WHERE %s""" % (tables, where), {
             'home_spread': int(home_spread or 0),
@@ -1301,7 +1303,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             try:
                 check_password(r, self, checkers=checkers)
                 return r
-            except PasswordNotGoodEnough as e:
+            except PasswordNotGoodEnough:
                 if attempt == 9:  # last attempt
                     # raise PasswordNotGoodEnough(
                     #     '(after 10 attempts) ' + str(e))
@@ -1504,7 +1506,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 del tr[ch]
             if not as_gecos:
                 # lowercase the result
-                xlate = dict(zip(xlate.keys(), map(six.text_type.lower, xlate.values())))
+                xlate = dict(zip(xlate.keys(), map(six.text_type.lower,
+                                                   xlate.values())))
             self._simplify_name_cache[key] = (tr, xlate_subst, xlate_match)
 
         # this is intended to be a replacement for s.translate until Python3
@@ -1638,6 +1641,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return self.query("""
         SELECT DISTINCT ai.account_id AS account_id, en.entity_name AS name,
                         ai.owner_id AS owner_id, ai.owner_type AS owner_type,
-                        ai.expire_date AS expire_date, ai.description AS description,
+                        ai.expire_date AS expire_date, ai.description AS
+                        description,
                         ai.np_type AS np_type
         FROM %s %s""" % (','.join(tables), where_str), binds)

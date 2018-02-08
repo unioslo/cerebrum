@@ -43,6 +43,7 @@ class MissingOtherException(Exception):
 class MissingSelfException(Exception):
     pass
 
+
 Entity_class = Utils.Factory.get("Entity")
 
 
@@ -321,14 +322,12 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
         try:
             tmp = other.get_name(self._pn_affect_source, variant)
-        except:
+        except Exception:
             raise MissingOtherException
         try:
             myname = self._name_info[variant]
-        except:
+        except Exception:
             raise MissingSelfException
-#        if isinstance(myname, unicode):
-#            return unicode(tmp, 'iso8859-1') == myname
         return tmp == myname
 
     def _set_name(self, source_system, variant, name):
@@ -674,7 +673,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         {} {}
         """.format(where, order), fetchall=fetchall)
 
-    def __get_affiliation_precedence_rule(self, source, afforrule, status=None):
+    def __get_affiliation_precedence_rule(self, source,
+                                          afforrule, status=None):
         """ Helper for aff calculation """
         def search(rule, first, *rest):
             if not isinstance(rule, dict):
@@ -693,11 +693,11 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             return None
 
         source = str(self.const.AuthoritativeSystem(source))
-        if not isinstance(afforrule, basestring):
+        if not isinstance(afforrule, six.string_types):
             afforrule = str(self.const.PersonAffiliation(afforrule))
         args = [cereconf.PERSON_AFFILIATION_PRECEDENCE_RULE, source, afforrule]
         if status is not None:
-            if not isinstance(status, basestring):
+            if not isinstance(status, six.string_types):
                 status = self.const.PersonAffStatus(status).str
             args.append(status)
         return search(*args)
@@ -716,7 +716,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                                                            precedence, old)
         if isinstance(precedence, numbers.Integral):
             return precedence
-        if isinstance(precedence, basestring):
+        if isinstance(precedence, six.string_types):
             precedence = self.__get_affiliation_precedence_rule(source,
                                                                 precedence)
             return self.__calculate_affiliation_precedence(affiliation,
@@ -726,9 +726,9 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             # Assume some sequence
             assert (isinstance(precedence, collections.Sequence)
                     and len(precedence) in (2, 3))
-            if isinstance(precedence[0], basestring):
-                precedence = self.__get_affiliation_precedence_rule(source,
-                                                                    *precedence)
+            if isinstance(precedence[0], six.string_types):
+                precedence = self.__get_affiliation_precedence_rule(
+                    source, *precedence)
                 return self.__calculate_affiliation_precedence(affiliation,
                                                                source, status,
                                                                precedence, old)
@@ -910,7 +910,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 self.__clear_precedence(pr, all_prs)
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=person_affiliation_source]
-              (person_id, ou_id, affiliation, source_system, status, precedence)
+             (person_id, ou_id, affiliation, source_system, status, precedence)
             VALUES (:p_id, :ou_id, :affiliation, :source, :status, :precedence)
             """,
                          binds)
@@ -1225,8 +1225,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         The goal of this method is to search for names, rather than person_ids,
         although both are returned in the result set.
 
-        person_id, name_variant and source_system can be sequences. The rest are
-        scalars only.
+        person_id, name_variant and source_system can be sequences. The rest
+        are scalars only.
 
         @param person_id:
           Collect names for these person_ids.
@@ -1253,7 +1253,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         binds = dict()
         where = list()
         if person_id is not None:
-            where.append(argument_to_sql(person_id, "pn.person_id", binds, int))
+            where.append(argument_to_sql(
+                person_id, "pn.person_id", binds, int))
         if name_variant is not None:
             where.append(
                 argument_to_sql(name_variant, "pn.name_variant", binds,
@@ -1401,4 +1402,5 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 """)
         select_str = ", ".join(selects)
         from_str = "FROM %s" % ", ".join(tables)
-        return self.query("%s %s %s" % (select_str, from_str, where_str), binds)
+        return self.query("%s %s %s" % (select_str, from_str, where_str),
+                          binds)

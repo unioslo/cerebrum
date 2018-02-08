@@ -955,6 +955,7 @@ class _ChangeTypeCode(_CerebrumCode):
                           'desc': self.msg_string})
 
 
+
 class ConstantsBase(DatabaseAccessor):
     def __iterate_constants(self, const_type=None):
         """Iterate all of constants within this constants proxy object.
@@ -1685,7 +1686,7 @@ class CLConstants(Constants):
     guest_create = _ChangeTypeCode(
         'guest', 'create', 'created guest %(dest)s',
         ('mobile=%(string:mobile)s, name=%(string:name)s, '
-         'owner_id=%(string:owner)s',))
+         'owner_id=%(string:owner)s', ))
 
 
 class ExampleConstants(Constants):

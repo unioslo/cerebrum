@@ -28,7 +28,6 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
-from Cerebrum.Constants import _EntityTypeCode
 from Cerebrum.Utils import argument_to_sql, prepare_string
 from Cerebrum.Utils import NotSet
 from Cerebrum.Utils import to_unicode

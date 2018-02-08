@@ -121,7 +121,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if 'group_name' in self.__updated:
             tmp = self.illegal_name(self.group_name)
             if tmp:
-                raise self._db.IntegrityError, "Illegal groupname: %s" % tmp
+                raise self._db.IntegrityError("Illegal groupname: %s" % tmp)
 
         if is_new:
             cols = [('entity_type', ':e_type'),
@@ -914,7 +914,7 @@ class GroupAPI(object):
             'name': gr.group_name,
             'description': gr.description,
             'expire_date': gr.expire_date,
-            'visibility': (str(co.GroupVisibility(gr.visibility)) if
+            'visibility': (six.text_type(co.GroupVisibility(gr.visibility)) if
                            gr.visibility else None),
         }
 

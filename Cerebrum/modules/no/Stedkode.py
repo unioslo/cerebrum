@@ -29,7 +29,6 @@ following additional properties are defined:
   - institusjon
 """
 
-from Cerebrum import Utils
 from Cerebrum.OU import OU
 import cereconf
 
@@ -68,7 +67,7 @@ class Stedkode(OU):
         # If __in_db in not present, we'll set it to False.
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
         self.landkode = int(landkode)
@@ -78,7 +77,7 @@ class Stedkode(OU):
         self.institusjon = int(institusjon)
 
     def __eq__(self, other):
-        assert isinstance(other, Stedkode), `other`
+        assert isinstance(other, Stedkode), repr(other)
         identical = self.__super.__eq__(other)
         if not identical:
             return False
@@ -122,7 +121,7 @@ class Stedkode(OU):
                                'institusjon': self.institusjon,
                                'fakultet': self.fakultet,
                                'institutt': self.institutt,
-                               'avdeling': self.avdeling,})
+                               'avdeling': self.avdeling})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=stedkode]
@@ -134,7 +133,7 @@ class Stedkode(OU):
                                     'institusjon': int(self.institusjon),
                                     'fakultet': int(self.fakultet),
                                     'institutt': int(self.institutt),
-                                    'avdeling': int(self.avdeling),})
+                                    'avdeling': int(self.avdeling)})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -164,7 +163,7 @@ class Stedkode(OU):
     def find_stedkode(self, fakultet, institutt, avdeling, institusjon,
                       landkode=0):
         if institusjon is None:   # Temporary to trap old code
-            raise ValueError, "You must specify institusjon"
+            raise ValueError("You must specify institusjon")
         ou_id = self.query_1("""
         SELECT ou_id FROM [:table schema=cerebrum name=stedkode]
         WHERE
