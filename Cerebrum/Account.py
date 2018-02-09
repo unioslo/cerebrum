@@ -794,7 +794,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 # b64encode does not, but it requires Python 2.4
                 return base64.encodestring(
                     hashlib.sha1(
-                        utf8_plaintext + salt).digest() + salt).strip()
+                        utf8_plaintext + salt.encode('ascii')).digest()
+                    + salt.encode('ascii')).strip()
             return crypt.crypt(plaintext if method ==
                                self.const.auth_type_crypt3_des
                                else utf8_plaintext, salt)
