@@ -116,3 +116,6 @@ def dump(obj, fp, ensure_ascii=False, sort_keys=True, cls=JSONEncoder,
          *args, **kw):
     return json.dump(obj, fp, ensure_ascii=ensure_ascii,
                      sort_keys=sort_keys, cls=cls, *args, **kw)
+
+
+load, loads = json.load, json.loads
