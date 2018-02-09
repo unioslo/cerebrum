@@ -70,6 +70,11 @@ def persons_with_aff_status(status):
             continue
         full_name = pe.get_name(source_system=co.system_cached,
                                 variant=co.name_full)
+        sapnr = pe.get_external_id(id_type=co.externalid_sap_ansattnr)
+        if sapnr:
+            sapnr = sapnr[0]['external_id']
+        else:
+            sapnr = ''
         birth = pe.birth_date.Format('%Y-%m-%d')
         sko, ou_name = ou_info(ou_id)
         if not isinstance(full_name, text_type):
@@ -77,6 +82,7 @@ def persons_with_aff_status(status):
         if not isinstance(ou_name, text_type):
             ou_name = ou_name.decode('latin1')
         data.append({
+            'sapnr': sapnr,
             'account_name': ac.account_name,
             'person_name': full_name,
             'birth': birth,
@@ -122,6 +128,7 @@ def main():
         timestamp=iso_timestamp, aff=args.status)
     output_str = template.render(
         headers=(
+            ('sapnr', 'SAP ID'),
             ('account_name', 'Account name'),
             ('person_name', 'Name'),
             ('birth', 'Birth date'),
