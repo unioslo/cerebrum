@@ -105,7 +105,7 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
 
         @return PosixGroup or None.
         """
-        if not getattr(self, 'entity_id'):
+        if not hasattr(self, 'entity_id'):
             return None
         return self._find_personal_group(self.entity_id)
 

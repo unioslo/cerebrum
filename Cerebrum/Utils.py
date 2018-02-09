@@ -22,7 +22,6 @@
 tree.
 """
 from __future__ import unicode_literals
-import six
 import cereconf
 import inspect
 import os
@@ -37,6 +36,9 @@ import traceback
 import socket
 import random
 import collections
+
+import six
+
 from string import ascii_lowercase, digits
 from subprocess import Popen, PIPE
 
@@ -955,7 +957,7 @@ def argument_to_sql(argument,
     return "(%s %s :%s)" % (sql_attr_name, compare_scalar, binds_name)
 
 
-def prepare_string(value, transform=str.lower):
+def prepare_string(value, transform=six.text_type.lower):
     """Prepare a string for being used in SQL.
 
     @type value: basestring
@@ -970,9 +972,6 @@ def prepare_string(value, transform=str.lower):
 
       Send in None or some other callable to override this behaviour.
     """
-
-    if (type(value) == type(unicode())) and (transform == str.lower):
-        transform = unicode.lower
 
     value = value.replace("*", "%")
     value = value.replace("?", "_")

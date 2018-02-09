@@ -1509,10 +1509,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
         # this is intended to be a replacement for s.translate until Python3
         for key, value in tr.items():
-            if as_gecos:
-                s = s.replace(key, value)
-            else:
-                s = s.replace(key, value.lower())
+            s = s.replace(key, value)
+        if not as_gecos:
+            s = s.lower()
 
         xlated = xlate_subst(xlate_match, s)
 
