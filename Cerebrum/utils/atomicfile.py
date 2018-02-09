@@ -167,7 +167,8 @@ class AtomicFileWriter(object):
             original. This is the default.
 
         :param str encoding:
-            The encoding to use when writing to the target file.
+            The encoding to use when reading from and writing to the target
+            file.
 
         :param str errors:
             The error mode to be use when writing to the file.
@@ -191,7 +192,7 @@ class AtomicFileWriter(object):
         if 'a' in mode and os.path.exists(name):
             # TODO: Is it cheaper to use shutil.copyfile before opening?
             readmode = 'r' + filter(lambda c: c not in 'arw', mode)
-            with open(name, readmode, buffering) as f:
+            with io.open(name, readmode, buffering, encoding) as f:
                 self.__file.write(f.read())
 
     def __enter__(self):

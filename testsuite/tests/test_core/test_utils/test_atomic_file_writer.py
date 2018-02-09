@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 u""" Unit tests for AtomicFileWriter and related file writers. """
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 
 import pytest
 
