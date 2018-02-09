@@ -45,7 +45,7 @@ targets = {
              'rel_0_9_18', 'rel_0_9_19', ),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3',),
     'bofhd_auth': ('bofhd_auth_1_1', 'bofhd_auth_1_2',),
-    'changelog': ('changelog_1_2', 'changelog_1_3'),
+    'changelog': ('changelog_1_2', 'changelog_1_3', 'changelog_1_4'),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4',
               'email_1_5',),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
@@ -849,6 +849,70 @@ def migrate_to_changelog_1_3():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_changelog", "1.3")
     print("Migration to changelog 1.3 completed successfully")
+    db.commit()
+
+
+def fix_change_params(params):
+    import six
+
+    def fix_string(s):
+        try:
+            return s.decode('UTF-8')
+        except UnicodeDecodeError:
+            return s.decode('ISO-8859-1')
+
+    def fix_mx(o):
+        if o.hour == o.minute == 0 and o.second == 0.0:
+            return six.text_type(o.pydate().isoformat())
+        return six.text_type(o.pydatetime().isoformat())
+
+    def fix_object(d):
+        return dict((fix_change_params(k), fix_change_params(v)) for k, v in
+                    d.items())
+
+    def fix_array(l):
+        return list(map(fix_change_params, l))
+
+    if isinstance(params, bytes):
+        return fix_string(params)
+    if isinstance(params, dict):
+        return fix_object(params)
+    if isinstance(params, (list, tuple)):
+        return fix_array(params)
+    if hasattr(params, 'pydate'):
+        return fix_mx(params)
+    return params
+
+
+def migrate_to_changelog_1_4():
+    import pickle
+    from Cerebrum.modules.ChangeLog import _params_to_db
+
+    loads = pickle.loads
+    db = Utils.Factory.get('Database')()
+    c = Utils.Factory.get('Constants')(db)
+    ChangeType = c.ChangeType
+    assert_db_version("1.3", component='changelog')
+    for cid, params, ct in db.query(
+            'SELECT change_id, change_params, change_type_id FROM '
+            '[:table schema=cerebrum name=change_log] '
+            'WHERE change_params IS NOT NULL'):
+        p = fix_change_params(loads(params))
+        print(_params_to_db(p))
+        fmt = ChangeType(ct).format_params
+        orig = fmt(p)
+        new = fmt(_params_to_db(p))
+        if orig != new:
+            print(u'Failed for change {}'.format(cid))
+            print(u'Params: {}'.format(p))
+            print(u'Format spec: {}'.format(ChangeType(ct).format))
+            print(u'Original: {}'.format(orig))
+            print(u'New: {}'.format(new))
+            raise SystemExit(1)
+        db.update_log_event(cid, p)
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_changelog", "1.4")
+    print("Migration to changelog 1.4 completed successfully")
     db.commit()
 
 
