@@ -973,8 +973,8 @@ def prepare_string(value, transform=six.text_type.lower):
       Send in None or some other callable to override this behaviour.
     """
 
-    value = value.replace(u"*", u"%")
-    value = value.replace(u"?", u"_")
+    value = value.replace("*", "%")
+    value = value.replace("?", "_")
 
     if transform:
         return transform(value)
