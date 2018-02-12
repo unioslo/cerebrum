@@ -27,6 +27,7 @@ from Cerebrum.Entity import Entity
 from .date import apply_timezone
 from mx.DateTime import DateTimeType
 from Cerebrum.Utils import Factory
+import Cerebrum.Errors as Errors
 
 """Utilities for JSON handling
 
@@ -122,4 +123,87 @@ def dump(obj, fp, ensure_ascii=False, sort_keys=True, cls=JSONEncoder,
                      sort_keys=sort_keys, cls=cls, *args, **kw)
 
 
-load, loads = json.load, json.loads
+@six.python_2_unicode_compatible
+class FakeConst(object):
+    def __init__(self, i, s):
+        self.i = i
+        self.s = s
+
+    def __str__(self):
+        return self.s
+
+    def __int__(self):
+        return self.i
+
+
+class CerebrumObject(object):
+    """ Object hook to get back from objects to cerebrum """
+
+    def __init__(self, db, constants):
+        self.db = db
+        self.const = constants
+
+    def __call__(self, obj):
+        try:
+            fun = getattr(self, obj['__cerebrum_object__'])
+        except AttributeError:  # no attribute for object
+            raise ValueError('No handler for decoding {} as json'.format(
+                obj['__cerebrum_object__']))
+        except KeyError:  # no __cerebrum_object__
+            return obj
+        return fun(obj)
+
+    def code(self, obj):
+        """ Convert constants code. """
+        try:
+            c = self.const.map_const(obj['code'])
+        except KeyError:
+            raise ValueError('Object {} has no code'.format(obj))
+        if c is None:  # code does not exist any more
+            return obj['str']
+        return c
+
+    def entity(self, obj):
+        try:
+            comp = Factory.type_component_map[str(obj['entity_type'])]
+        except KeyError:
+            comp = 'Entity'
+        ret = Factory.get(comp)(self.db)
+        try:
+            ret.find(obj['entity_id'])
+            return ret
+        except Errors.NotFoundError:  # Entity deleted
+            return obj
+
+
+def load(*rest, **kw):
+    """ As standard json.load, but with magic for cerebrum objects.
+
+    :type db: Database
+    :param db: Cerebrum database
+
+    :type const: Constants
+    :param const: Cerebrum constants
+    """
+
+    if len(rest) >= 4 or 'object_hook' in kw:
+        return json.load(*rest, **kw)
+    return json.load(*rest, object_hook=CerebrumObject(
+        kw.get('db') or Factory.get('Database')(),
+        kw.get('const') or Factory.get('Constants')(None)), **kw)
+
+
+def loads(*rest, **kw):
+    """ As standard json.loads, but with magic for cerebrum objects.
+    :type db: Database
+    :param db: Cerebrum database
+
+    :type const: Constants
+    :param const: Cerebrum constants
+    """
+
+    if len(rest) >= 4 or 'object_hook' in kw:
+        return json.loads(*rest, **kw)
+    return json.loads(*rest, object_hook=CerebrumObject(
+        kw.get('db') or Factory.get('Database')(),
+        kw.get('const') or Factory.get('Constants')(None)), **kw)
