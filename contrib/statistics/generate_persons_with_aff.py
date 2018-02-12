@@ -43,6 +43,9 @@ ac = Factory.get(b'Account')(db)
 co = Factory.get(b'Constants')(db)
 ou = Factory.get(b'OU')(db)
 
+pe2sapid = dict((r['entity_id'], r['external_id']) for r in
+           pe.list_external_ids(source_system=co.system_sap,
+           id_type=co.externalid_sap_ansattnr))
 
 @memoize
 def ou_info(ou_id):
@@ -58,6 +61,7 @@ def persons_with_aff_status(status):
     data = []
     for row in pe.list_affiliations(status=status):
         person_id = row['person_id']
+        sap_id = pe2sapid.get(person_id)
         ou_id = row['ou_id']
         pe.clear()
         pe.find(person_id)
@@ -80,6 +84,7 @@ def persons_with_aff_status(status):
             'account_name': ac.account_name,
             'person_name': full_name,
             'birth': birth,
+            'sap_id': sap_id,
             'affiliation': text_type(status),
             'ou_sko': sko,
             'ou_name': ou_name,
@@ -125,6 +130,7 @@ def main():
             ('account_name', 'Account name'),
             ('person_name', 'Name'),
             ('birth', 'Birth date'),
+            ('sap_id', "SAP Id"),
             # ('affiliation', 'Affiliation'),
             ('ou_sko', 'OU'),
             ('ou_name', 'OU acronym')),
