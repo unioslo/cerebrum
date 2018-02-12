@@ -901,7 +901,7 @@ def migrate_to_changelog_1_4():
             'SELECT change_id, change_params, change_type_id FROM '
             '[:table schema=cerebrum name=change_log] '
             'WHERE change_params IS NOT NULL'):
-        p = fix_change_params(loads(params))
+        p = fix_change_params(loads(params.encode('ISO-8859-1')))
         print(_params_to_db(p))
         ct = ChangeType(ct)
         orig = ct.format_params(p)
