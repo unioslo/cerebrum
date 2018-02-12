@@ -38,7 +38,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument('-c', '--commit', action='store_true',
                         help='Do commit')
-    parser.parse_args()
+    commit = parser.parse_args().commit
     db = Factory.get('Database')(client_encoding='UTF-8')
     loads = pickle.loads
     logger = Factory.get_logger('console')
@@ -56,7 +56,7 @@ def main():
     # Do this last, because it will lock change log for others
     for change, params in changes.items():
         db.update_log_event(change, params)
-    if parser.commit:
+    if commit:
         logger.info('Done. Committing changes')
         db.commit()
     else:
