@@ -886,7 +886,10 @@ def fix_change_params(params):
 
 
 def migrate_to_changelog_1_4():
-    import pickle
+    try:
+        import cPickle as pickle
+    except ImportError:
+        import pickle
     from Cerebrum.modules.ChangeLog import _params_to_db
 
     loads = pickle.loads
@@ -900,13 +903,13 @@ def migrate_to_changelog_1_4():
             'WHERE change_params IS NOT NULL'):
         p = fix_change_params(loads(params))
         print(_params_to_db(p))
-        fmt = ChangeType(ct).format_params
-        orig = fmt(p)
-        new = fmt(_params_to_db(p))
+        ct = ChangeType(ct)
+        orig = ct.format_params(p)
+        new = ct.format_params(_params_to_db(p))
         if orig != new:
             print(u'Failed for change {}'.format(cid))
             print(u'Params: {}'.format(p))
-            print(u'Format spec: {}'.format(ChangeType(ct).format))
+            print(u'Format spec: {}'.format(ct.format))
             print(u'Original: {}'.format(orig))
             print(u'New: {}'.format(new))
             raise SystemExit(1)
