@@ -20,6 +20,7 @@
 
 
 from __future__ import unicode_literals
+import six
 from Cerebrum.utils import json
 from mx.DateTime import DateTime
 
@@ -32,19 +33,24 @@ def test_mxdatetime():
 
 def test_constants(factory):
     co = factory.get('Constants')(None)
-    assert json.dumps(co.entity_account) == ('{{"code": {d}, '
-                                             '"str": "{c}", '
-                                             '"table": "{t}"}}').format(
-                                                 c=co.entity_account,
-                                                 d=int(co.entity_account),
-                                                 t=co.EntityType._lookup_table)
+    assert json.dumps(co.entity_account) == (
+        '{{"__cerebrum_object__": "code", '
+        '"code": {d}, '
+        '"str": "{c}", '
+        '"table": "{t}"}}').format(
+            c=co.entity_account,
+            d=int(co.entity_account),
+            t=co.EntityType._lookup_table)
 
 
 def test_entity(initial_account, factory):
     co = factory.get('Constants')(None)
-    assert json.dumps(initial_account) == ('{{"entity_id": {}, '
-                                           '"entity_type": {}}}'
-                                           .format(
-                                               initial_account.entity_id,
-                                               json.dumps(
-                                                   co.entity_account)))
+    assert json.dumps(initial_account) == (
+        '{{"__cerebrum_object__": "account", '
+        '"entity_id": {}, '
+        '"entity_type": {}, '
+        '"str": {}}}'
+        .format(
+            initial_account.entity_id,
+            json.dumps(co.entity_account),
+            six.text_type(initial_account)))

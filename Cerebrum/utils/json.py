@@ -26,6 +26,7 @@ from Cerebrum import Constants
 from Cerebrum.Entity import Entity
 from .date import apply_timezone
 from mx.DateTime import DateTimeType
+from Cerebrum.Utils import Factory
 
 """Utilities for JSON handling
 
@@ -56,6 +57,7 @@ def mxDateTimeToJson(dt):
 def codetojson(code):
     """ Convert CerebrumCode to json """
     return dict(
+        __cerebrum_object__='code',
         table=code._lookup_table,
         code=int(code),
         str=six.text_type(code))
@@ -65,7 +67,9 @@ def codetojson(code):
 def entitytojson(entity):
     """ Convert entity to json """
     return dict(
+        __cerebrum_object__='entity',
         entity_id=entity.entity_id,
+        str=six.text_type(entity),
         entity_type=codetojson(Constants.Constants.EntityType(
             entity.entity_type)))
 
