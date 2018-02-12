@@ -24,7 +24,7 @@ import json.encoder
 import six
 from Cerebrum import Constants
 from Cerebrum.Entity import Entity
-
+from .date import apply_timezone
 from mx.DateTime import DateTimeType
 
 """Utilities for JSON handling
@@ -49,7 +49,7 @@ def mxDateTimeToJson(dt):
     if dt.hour == dt.minute == 0 and dt.second == 0.0:
         return dt.pydate().isoformat()
     else:
-        return dt.pydatetime().isoformat()
+        return apply_timezone(dt.pydatetime()).isoformat()
 
 
 @_conv(Constants.Constants.CerebrumCode)

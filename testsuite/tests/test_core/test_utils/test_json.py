@@ -25,7 +25,8 @@ from mx.DateTime import DateTime
 
 
 def test_mxdatetime():
-    assert json.dumps(DateTime(2018, 1, 1, 12, 0, 0)) == '"2018-01-01T12:00:00"'
+    assert json.dumps(
+        DateTime(2018, 1, 1, 12, 0, 0)) == '"2018-01-01T12:00:00+01:00"'
     assert json.dumps(DateTime(2018, 1, 1, 0, 0, 0)) == '"2018-01-01"'
 
 
