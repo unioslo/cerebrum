@@ -1,3 +1,9 @@
+2018-02-12    <cerebrum@cleomedes.uit.no>
+
+	* process_systemx.py (send_mail): whenever a new user is
+	registered in system-x, a email will now be sent to the requestor
+	and user with a copy to bas-admin@uit.no
+
 2018-01-31    <cerebrum@cleomedes.uit.no>
 
 	* export_cristin.py (LTPersonRepresentation.__init__): Removed function that validates fnr. The test will

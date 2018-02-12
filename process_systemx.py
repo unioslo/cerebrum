@@ -309,9 +309,9 @@ def send_mail(type, person_info, account_id):
     #
     # Deaktivert for testing. 2014-12-04
     #
-    #ret=Utils.mail_template(recipient, template, sender=sender, cc=cc,
-    #if debug:
-    #    print "DRYRUN: mailmsg=\n%s" % ret
+    ret=Utils.mail_template(recipient, template, sender=sender, cc=cc,substitute=person_info, charset='utf-8', debug=debug)
+    if debug:
+        print "DRYRUN: mailmsg=\n%s" % ret
 
 
     #            substitute=person_info, charset='utf-8', debug=debug)
