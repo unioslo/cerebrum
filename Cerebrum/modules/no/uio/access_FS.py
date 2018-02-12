@@ -220,7 +220,10 @@ class UiOStudent(access_FS.Student):
            %s AND
            %s""" % (extra, self._get_termin_aar(only_current=1),
                     self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def _list_aktiv_enkeltemne(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte med gyldig opptak til
@@ -259,7 +262,10 @@ class UiOStudent(access_FS.Student):
            %s AND
            %s""" % (extra, self._get_termin_aar(only_current=1),
                     self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def _list_aktiv_utdplan(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som i tillegg har bekreftet
@@ -301,7 +307,10 @@ class UiOStudent(access_FS.Student):
            %s AND
            %s""" % (extra, self.year, self.semester,
                     self._get_termin_aar(only_current=1), self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def _list_aktiv_avlagteksamen(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som har avlagt eksamen i inneværende
@@ -355,7 +364,11 @@ class UiOStudent(access_FS.Student):
         """ % (self.year, extra,
                self._get_termin_aar(only_current=1),
                self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
+
 
     def list_aktiv_emnestud(self, fodselsdato=None, personnr=None):
         """Hent informasjon om personer som anses som aktive studenter på
@@ -401,7 +414,10 @@ class UiOStudent(access_FS.Student):
               NVL(u.status_opptatt, 'N') = 'J'
               """ % (self._is_alive(), self._get_termin_aar(only_current=1),
                      extra)
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     # GetStudentPrivatistEmne_50
     def list_privatist_emne(self, fodselsdato=None, personnr=None):
@@ -467,7 +483,10 @@ class UiOStudent(access_FS.Student):
               %s
         """ % (self.year, self.year, extra,
                self._get_termin_aar(only_current=1), self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def list_privatist(self, fodselsdato=None, personnr=None):
         # GetStudentPrivatist_50
@@ -936,7 +955,10 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            %s AND
            %s""" % (extra, self._get_termin_aar(only_current=1),
                     self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def _list_aktiv_enkeltemne(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte med gyldig opptak til
@@ -975,7 +997,10 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            %s AND
            %s""" % (extra, self._get_termin_aar(only_current=1),
                     self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def _list_aktiv_utdplan(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som i tillegg har bekreftet
@@ -1017,7 +1042,10 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            %s AND
            %s""" % (extra, self.year, self.semester,
                     self._get_termin_aar(only_current=1), self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def _list_aktiv_avlagteksamen(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som har avlagt eksamen i inneværende
@@ -1071,7 +1099,10 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
         """ % (self.year, extra,
                self._get_termin_aar(only_current=1),
                self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def list_aktiv_emnestud(self, fodselsdato=None, personnr=None):
         """Hent informasjon om personer som anses som aktive studenter på
@@ -1119,7 +1150,10 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
               NVL(u.status_opptatt, 'N') = 'J'
               """ % (self._is_alive(), self._get_termin_aar(only_current=1),
                      extra)
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     # GetStudentPrivatistEmne_50
     def list_privatist_emne(self, fodselsdato=None, personnr=None):
@@ -1186,7 +1220,10 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
               %s
         """ % (self.year, self.year, extra,
                self._get_termin_aar(only_current=1), self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def list_privatist(self, fodselsdato=None, personnr=None):
         # GetStudentPrivatist_50
