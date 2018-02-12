@@ -15,7 +15,7 @@ lxml
 nose
 phonenumbers
 pika
-psycopg2
+psycopg2-binary
 pygpgme
 pyOpenSSL
 pytest
