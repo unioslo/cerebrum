@@ -854,6 +854,7 @@ def migrate_to_changelog_1_3():
 
 def fix_change_params(params):
     import six
+    from Cerebrum.utils.date import apply_timezone
 
     def fix_string(s):
         try:
@@ -864,7 +865,7 @@ def fix_change_params(params):
     def fix_mx(o):
         if o.hour == o.minute == 0 and o.second == 0.0:
             return six.text_type(o.pydate().isoformat())
-        return six.text_type(o.pydatetime().isoformat())
+        return six.text_type(apply_timezone(o.pydatetime()).isoformat())
 
     def fix_object(d):
         return dict((fix_change_params(k), fix_change_params(v)) for k, v in
