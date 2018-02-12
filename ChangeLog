@@ -1,3 +1,9 @@
+2018-02-12    <cerebrum@cleomedes.uit.no>
+
+	* OrgLDIF.py: UiT does not wish to populate the postalAddress
+	attribute with neither person home address or work
+	address. setting this to empty string
+
 2018-01-29    <cerebrum@cleomedes.uit.no>
 
 	* OrgLdif.py (OrgLdifUitMixin.update_org_object_entry): updated o and eduOrgLegalName attributes

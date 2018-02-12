@@ -238,4 +238,13 @@ class OrgLDIFUiTMixin(OrgLDIF):
         #if person_id in self.office365_consents:
         #    entry['uioOffice365consent'] = 'TRUE'
 
+        #
+
+        #
+        # UiT does not wish to populate the postalAddress field with either home or work address
+        # set it to empty string
+        #
+        entry['postalAddress'] = ''
+
+
         return dn, entry, alias_info
