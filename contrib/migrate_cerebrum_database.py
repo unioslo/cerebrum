@@ -110,7 +110,7 @@ def get_db_version(component='core'):
             version = meta.get_metainfo("sqlmodule_%s" % component)
     except Errors.NotFoundError:
         pass
-    except Exception, e:
+    except Exception as e:
         # Not sure how to trap the PgSQL OperationalError
         if str(e.__class__).find("OperationalError") == -1:
             raise
