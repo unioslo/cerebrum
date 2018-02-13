@@ -22,6 +22,17 @@
 
 import cereconf
 
+from Cerebrum.modules.bofhd.bofhd_core_help import command_help
+
+command_help['user'].update({
+    'user_send_welcome_sms': 'Send a welcome SMS to a user'
+})
+
+command_help['misc'].update({
+    'misc_sms_message': 'Send an arbitrary message to a user by SMS',
+    'misc_sms_password': 'Send a password to a user by SMS'
+})
+
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import (
     BofhdExtension as UiOBofhdExtension)
