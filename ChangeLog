@@ -1,3 +1,7 @@
+2018-02-14    <cerebrum@cleomedes.uit.no>
+
+	* process_systemx.py (send_mail): removed the debug flag which prevented emails from being sent
+
 2018-02-12    <cerebrum@cleomedes.uit.no>
 
 	* process_systemx.py (send_mail): whenever a new user is

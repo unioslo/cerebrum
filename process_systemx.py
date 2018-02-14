@@ -267,6 +267,7 @@ def _send_mailq(mailq):
 def send_mail(type, person_info, account_id):
     sender=cereconf.SYSX_EMAIL_NOTFICATION_SENDER
     cc=cereconf.SYSX_CC_EMAIL    
+    logger.debug("in send_mail")
     if type=='ansvarlig':
         t_code=co.trait_sysx_registrar_notified
         
@@ -302,16 +303,16 @@ def send_mail(type, person_info, account_id):
         person_info[k]=person_info[k].decode('iso-8859-1').encode('utf-8')
 
     # finally, send the message    
-    debug=dryrun
-    logger.debug("ABOUT to send email to user:%s" % person_info['USERNAME']);
+    debug=False
+    logger.debug("ABOUT to send email to user:%s with cc:%s" % (recipient,cc));
     #sys.exit(1)
     
     #
     # Deaktivert for testing. 2014-12-04
     #
-    ret=Utils.mail_template(recipient, template, sender=sender, cc=cc,substitute=person_info, charset='utf-8', debug=debug)
+    ret=Utils.mail_template(recipient, template, sender=sender, cc=[cc],substitute=person_info, charset='utf-8', debug=debug)
     if debug:
-        print "DRYRUN: mailmsg=\n%s" % ret
+        logger.debug("DRYRUN: mailmsg=\n%s" % (ret))
 
 
     #            substitute=person_info, charset='utf-8', debug=debug)
