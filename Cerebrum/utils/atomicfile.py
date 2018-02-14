@@ -40,13 +40,14 @@ SIMILARSIZE_LIMIT_MULTIPLIER
     warnings via the logger.
 
 """
-import os
-import io
 import filecmp
-import random
 import inspect
-from warnings import warn as _warn
+import io
+import os
+import random
+import shutil
 from string import ascii_lowercase, digits
+from warnings import warn as _warn
 
 import cereconf
 
@@ -144,8 +145,14 @@ class AtomicFileWriter(object):
     tmpfile_ext_tries = 10
     """ Number of tries to create a unique temporary file. """
 
-    def __init__(self, name, mode='w', buffering=-1, replace_equal=False,
-                 encoding='utf-8', errors='strict'):
+    def __init__(self, name,
+                 mode='w',
+                 buffering=-1,
+                 encoding=None,
+                 errors=None,
+                 newline=None,
+                 closefd=True,
+                 replace_equal=False):
         """ Creates a new, writable file-like object.
 
         :param str name:
@@ -156,9 +163,6 @@ class AtomicFileWriter(object):
             a write mode ('a', 'w'). Appending ('a') can be slow, as it needs
             to make a full copy of the original file.
 
-        :param int buffering:
-            See `file`.
-
         :param bool replace_equal:
             Replace the file `name` even if no changes were written.
 
@@ -166,14 +170,7 @@ class AtomicFileWriter(object):
             temporary file that we actually wrote to. If False, we'll keep the
             original. This is the default.
 
-        :param str encoding:
-            The encoding to use when reading from and writing to the target
-            file.
-
-        :param str errors:
-            The error mode to be use when writing to the file.
-
-        :see file: for more information about the arguments.
+        :see io.open: for more information about the other arguments.
         """
         if not any(n in mode for n in 'aw'):
             raise ValueError(
@@ -181,19 +178,20 @@ class AtomicFileWriter(object):
                 ' (mode={!r})'.format(name, mode))
 
         self.__name = name
-        self.__file = io.open(self.__generate_tmpname(name),
-                              mode,
-                              buffering,
-                              encoding,
-                              errors)
-        self.__replace_equal = replace_equal
+        tmpname = self.__generate_tmpname(name)
 
-        # Append mode, we need to copy the contents of 'name'
         if 'a' in mode and os.path.exists(name):
-            # TODO: Is it cheaper to use shutil.copyfile before opening?
-            readmode = 'r' + filter(lambda c: c not in 'arw', mode)
-            with io.open(name, readmode, buffering, encoding) as f:
-                self.__file.write(f.read())
+            shutil.copy2(name, tmpname)
+
+        self.__file = io.open(tmpname,
+                              mode=mode,
+                              buffering=buffering,
+                              encoding=encoding,
+                              errors=errors,
+                              newline=newline,
+                              closefd=closefd)
+
+        self.__replace_equal = replace_equal
 
     def __enter__(self):
         """ Enters AtomicFileWriter context.
