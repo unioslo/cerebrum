@@ -158,7 +158,7 @@ process_arguments_lock = threading.Lock()
 
 
 def process_arguments(**kwargs):
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help=False)
     install_subparser(parser)
 
     # Note: This lock does not really help all that much if something outside
