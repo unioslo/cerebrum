@@ -105,7 +105,7 @@ class MakeUser(EvtHandler):
 
     def notify_account_home_added(self, evt, params):
         if params.get('spread', 0) == int(self.home_spread):
-            logger.debug("Creating entity_id=%s" % (evt.fields.subject_entity))
+            logger.debug("Creating entity_id=%s", evt.fields.subject_entity)
             try:
                 if self._make_user(evt['subject_entity']):
                     status = const.home_status_on_disk
@@ -138,10 +138,10 @@ class MakeUser(EvtHandler):
         guest_trait = acc.get_trait(const.trait_uio_guest_owner)
         if (guest_trait and status == const.home_status_archived and
                 not acc.is_expired()):
-            logger.debug("Creating fresh home directory for guest %d" % accid)
+            logger.debug("Creating fresh home directory for guest %d", accid)
             if not self._make_user(evt['subject_entity']):
                 return False
-            logger.debug("Successfully created home %d" % params['homedir_id'])
+            logger.debug("Successfully created home %d", params['homedir_id'])
             acc.set_homedir(current_id=params['homedir_id'],
                             status=const.home_status_on_disk)
             db.commit()
@@ -176,10 +176,10 @@ class MakeUser(EvtHandler):
                         entity_id, exc_info=1)
             raise
         if int(info['home']['status']) == const.home_status_on_disk:
-            logger.warn("User already on disk? %s" % entity_id)
+            logger.warn("User already on disk? %s", entity_id)
             return
         if info['homedir'] is None:
-            logger.warn("No home for %s" % entity_id)
+            logger.warn("No home for %s", entity_id)
             return
 
         args = [
@@ -193,14 +193,14 @@ class MakeUser(EvtHandler):
         if DEBUG:
             args.append('--debug')
         cmd = SSH_CEREBELLUM + [" ".join(args), ]
-        logger.debug("Doing: %s" % str(cmd))
+        logger.debug("Doing: %s", str(cmd))
         if debug_hostlist is None or info['host'] in debug_hostlist:
             errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
         else:
             errnum = 0
         if not errnum:
             return 1
-        logger.error("%s returned %i" % (cmd, errnum))
+        logger.error("%s returned %i", cmd, errnum)
         return 0
 
 
@@ -296,7 +296,7 @@ def process_changelog(evt_key, classes):
                 params = pickle.loads(evt['change_params'])
             else:
                 params = {}
-            logger.debug2("Callback %i -> %s" % (evt['change_id'], call_back))
+            logger.debug2("Callback %i -> %s", evt['change_id'], call_back)
             ok.append(call_back(evt, params))
         # Only confirm if all call_backs returned true
         if not filter(lambda t: not t, ok):
