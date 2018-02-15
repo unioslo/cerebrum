@@ -46,7 +46,7 @@ def test_constants(factory):
 def test_entity(initial_account, factory):
     co = factory.get('Constants')(None)
     assert json.dumps(initial_account) == (
-        '{{"__cerebrum_object__": "account", '
+        '{{"__cerebrum_object__": "entity", '
         '"entity_id": {}, '
         '"entity_type": {}, '
         '"str": {}}}'
