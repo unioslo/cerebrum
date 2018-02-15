@@ -885,7 +885,8 @@ def fix_change_params(params):
     return params
 
 
-def fix_changerows(qin, qout, mn, mx):
+def fix_changerows(process, qin, qout, mn, mx):
+    print('started process {},: from: {}, to: {}'.format(process, mn, mx))
     try:
         import cPickle as pickle
     except ImportError:
@@ -914,10 +915,13 @@ def fix_changerows(qin, qout, mn, mx):
                 print(u'New: {}'.format(new))
                 raise SystemExit(1)
             db.update_log_event(cid, p)
+        print('process {} done, putting None'.format(process))
         qout.put(None)
         if qin.get():
+            print('process {} got ack, committing.'.format(process))
             db.commit()
         else:
+            print('process {} got nack, rolling back.'.format(process))
             db.rollback()
     except Exception as e:
         qout.put(e)
@@ -927,6 +931,7 @@ def migrate_to_changelog_1_4():
 
     db = Utils.Factory.get('Database')()
     assert_db_version("1.3", component='changelog')
+    start = now()
 
     last = db.query_1('SELECT max(change_id) FROM '
                       '[:table schema=cerebrum name=change_log]')
@@ -937,19 +942,23 @@ def migrate_to_changelog_1_4():
         cpus = 4
     n = int(last/cpus) + 1
     qok = multiprocessing.Queue()
-    args = tuple((multiprocessing.Queue(), qok, n*i, n*(i+1))
+    args = tuple((i, multiprocessing.Queue(), qok, n*i, n*(i+1))
                  for i in range(cpus))
 
     pool = [multiprocessing.Process(target=fix_changerows,
                                     args=i) for i in args]
-    for job in pool:
+    for i, job in enumerate(pool):
+        print('starting converter {}'.format(i))
         job.start()
 
     def join():
         for job in pool:
             job.join()
-    ok = tuple(arg[0].get() for arg in args)
+    ok = tuple(arg[2].get() for arg in args)
+    print('Got {} from scripts'.format(ok))
+    print('time spent: ', time_spent(start))
     if any(ok):
+        print('sending nack')
         for arg in args:
             arg[1].put(False)
         join()
@@ -957,6 +966,7 @@ def migrate_to_changelog_1_4():
         print("Database rolled back")
         db.rollback()
     else:
+        print('sending ack')
         for arg in args:
             arg[1].put(True)
         join()
