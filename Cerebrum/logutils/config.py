@@ -47,7 +47,8 @@ from Cerebrum.config.settings import String, Boolean, Iterable, Choice
 
 
 DEFAULT_LOGDIR = os.path.join(sys.prefix, 'var', 'log', 'cerebrum')
-DEFAULT_CONFDIR = os.path.join(sys.prefix, 'etc', 'cerebrum', 'logging')
+DEFAULT_PRESET_DIR = os.path.join(sys.prefix, 'etc', 'cerebrum',
+                                  'logger-presets')
 DEFAULT_LOGGING_CONFIG = 'logenv'
 
 DEFAULT_CAPTURE_EXC = True
@@ -153,25 +154,26 @@ class LoggerConfig(Configuration):
         default=DEFAULT_LOGDIR,
         doc="Root directory for log files (cerebrum handlers only)")
 
-    confdir = ConfigDescriptor(
-        String,
-        default=DEFAULT_CONFDIR,
-        doc="Directory with logger configurations")
+    presets = ConfigDescriptor(
+        Iterable,
+        template=String(),
+        default=[DEFAULT_PRESET_DIR, ],
+        doc="Directories with logger preset configurations")
 
     merge = ConfigDescriptor(
         Boolean,
         default=False,
-        doc="Merge logger configuration files before applying"
+        doc="Merge logger presets before applying"
             " (ini-style configs not supported)")
 
-    common_config = ConfigDescriptor(
+    common_preset = ConfigDescriptor(
         String,
-        default="logging",
-        doc="Common logger configuration."
-            " This named configuration will always be applied, if available."
+        default='',
+        doc="Common logger preset."
+            " This named preset will always be applied, if available."
             " Set to an empty string to disable.")
 
-    require_config = ConfigDescriptor(
+    require_preset = ConfigDescriptor(
         Boolean,
         default=False,
         doc="Fail if the named logger configuration file is missing.")
@@ -214,7 +216,7 @@ def get_config(config_file=None, namespace=DEFAULT_LOGGING_CONFIG):
     return config
 
 
-def iter_configs(directory, rootnames, extensions):
+def iter_presets(directory, rootnames, extensions):
     """ Iterate over matching rootnames in directory.
 
     Iterates over files in `directory` that matches one of the given
@@ -222,7 +224,7 @@ def iter_configs(directory, rootnames, extensions):
 
     Matching files will also be ordered by `rootnames` and `extensions`:
 
-        iter_configs('/tmp', ['*', 'foo'], ['*', 'bar'])
+        iter_presets('/tmp', ['*', 'foo'], ['*', 'bar'])
 
     would yield all files in '/tmp', but a file named 'foo.z' would be sorted
     after any other file '*.z', and a file named 'z.bar' would be
@@ -275,10 +277,13 @@ def iter_configs(directory, rootnames, extensions):
         return
 
 
-def find_logging_config(directory, rootname, extensions=None):
-    """ Find the first file in `directory` with rootname `rootname`.
+def find_logging_preset(directories, rootname, extensions=None):
+    """ Find the first file in any directory with rootname `rootname`.
 
-    :param list rootname:
+    :param list directories:
+        A list of directories to look through.
+
+    :param str rootname:
         A file basename without file extension.
 
     :param list extensions:
@@ -286,8 +291,9 @@ def find_logging_config(directory, rootname, extensions=None):
 
     """
     extensions = extensions or ['*']
-    for filename in iter_configs(directory, [rootname, ], extensions):
-        return filename
+    for directory in directories:
+        for filename in iter_presets(directory, [rootname, ], extensions):
+            return filename
     return None
 
 
@@ -372,13 +378,13 @@ def configure_logging(filename, disable_existing_loggers=None):
         logging.config.dictConfig(conf_dict)
 
 
-def setup_logging(config, config_name, loglevel, disable_existing=False):
+def setup_logging(config, preset_name, loglevel, disable_existing=False):
     """ (re)configures logging.
 
     :param LoggerConfig config:
         A configuration that controls the loading of logger configuration.
 
-    :param str config_name:
+    :param str preset_name:
         Which logger configuration to set up.
 
     :param int loglevel:
@@ -392,33 +398,35 @@ def setup_logging(config, config_name, loglevel, disable_existing=False):
     if not config.merge:
         extensions.append('ini')
 
-    config_files = []
+    preset_files = []
 
-    if config.common_config:
-        common = find_logging_config(config.confdir, config.common_config,
-                                     extensions=extensions)
-        if common:
-            config_files.append(common)
+    if config.common_preset:
+        common_preset = find_logging_preset(config.presets,
+                                            config.common_preset,
+                                            extensions=extensions)
+        if common_preset:
+            preset_files.append(common_preset)
 
-    local = find_logging_config(config.confdir, config_name,
-                                extensions=extensions)
+    preset = find_logging_preset(config.presets,
+                                 preset_name,
+                                 extensions=extensions)
 
-    if local:
-        config_files.append(local)
-    elif config.require_config:
+    if preset:
+        preset_files.append(preset)
+    elif config.require_preset:
         raise ValueError(
-            "no configuration '{0}' in '{1}'".format(config_name,
-                                                     config.confdir))
+            "no configuration '{0}' in '{1}'".format(preset_name,
+                                                     config.presets))
 
-    if config_files and config.merge:
+    if preset_files and config.merge:
         # Merge configs and apply
         config_dict = merge_dict_config(*(loader.read_config(f)
-                                          for f in config_files))
+                                          for f in preset_files))
         config_dict['disable_existing_loggers'] |= disable_existing
         logging.config.dictConfig(config_dict)
-    elif config_files:
+    elif preset_files:
         # Apply each config in order
-        for config_file in config_files:
+        for config_file in preset_files:
             configure_logging(config_file,
                               disable_existing_loggers=disable_existing)
             # The disable_existing is only a default for the first config.
@@ -430,7 +438,7 @@ def setup_logging(config, config_name, loglevel, disable_existing=False):
     logging.basicConfig(level=loglevel)
 
     logger.debug("Logging config {!r}".format(config))
-    for c in config_files:
+    for c in preset_files:
         logger.debug("Loaded logger config '{0}'".format(c))
 
 
