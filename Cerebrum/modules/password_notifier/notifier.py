@@ -18,6 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+from __future__ import unicode_literals
+
 """Module for handling notifications of passwords that are running out of date.
 
 Institutions could have security related policies in that passwords must be
@@ -45,6 +48,7 @@ module:
 A trait is used for excepting specific users from being processed.
 """
 
+import io
 import email
 import email.Header
 import locale
@@ -76,8 +80,8 @@ def _get_notifier_classes(values):
     """
     def _import_cls(spec):
         mod, name = spec.split('/')
-        mod = Utils.dyn_import(mod)
-        cls = getattr(mod, name)
+        mod = Utils.dyn_import(str(mod))
+        cls = getattr(mod, str(name))
         return cls
 
     cls_list = []
@@ -636,7 +640,7 @@ class PasswordNotifier(object):
             config = load_config(filepath=config)
 
         comp_class = type(
-            '_dynamic_notifier',
+            str('_dynamic_notifier'),
             tuple(_get_notifier_classes(config.class_notifier_values)),
             {'config': config, })
         PasswordNotifier._notifier = comp_class
@@ -665,13 +669,12 @@ class EmailPasswordNotifier(PasswordNotifier):
 
         self.mail_info = []
         for fn in self.config.templates:
-            fp = open(os.path.join(cereconf.TEMPLATE_DIR,
-                                   'no_NO',
-                                   'email',
-                                   fn),
-                      'rb')
-            msg = email.message_from_file(fp)
-            fp.close()
+            with io.open(os.path.join(cereconf.TEMPLATE_DIR,
+                                      'no_NO',
+                                      'email',
+                                      fn),
+                         'r', encoding='UTF-8') as fp:
+                msg = email.message_from_file(fp)
             self.mail_info.append({
                 'Subject': email.Header.decode_header(msg['Subject'])[0][0],
                 'From': msg['From'],
@@ -778,9 +781,9 @@ class SMSPasswordNotifier(PasswordNotifier):
         super(SMSPasswordNotifier, self).__init__(db, logger, dryrun, rest, kw)
 
         from os import path
-        with open(path.join(cereconf.TEMPLATE_DIR,
-                            'warn_before_splat_sms.template'),
-                  'r') as f:
+        with io.open(path.join(cereconf.TEMPLATE_DIR,
+                               'warn_before_splat_sms.template'),
+                     'r', encoding='UTF-8') as f:
             self.template = f.read()
 
         self.person = Utils.Factory.get('Person')(db)
