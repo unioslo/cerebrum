@@ -19,6 +19,8 @@
 """Reads information from FS dumps about which study program(s) a student is associated with
 and maps it to the person ID."""
 
+from __future__ import unicode_literals
+
 import cereconf
 
 from os.path import join

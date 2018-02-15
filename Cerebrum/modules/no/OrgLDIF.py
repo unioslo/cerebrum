@@ -16,6 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import unicode_literals
+
 import re
 import pickle
 import os.path
@@ -31,7 +33,6 @@ from Cerebrum.modules.LDIFutils import (ldapconf,
                                         verify_IA5String,
                                         verify_emailish,
                                         normalize_IA5String,
-                                        iso2utf,
                                         hex_escape_match,
                                         dn_escape_re)
 from Cerebrum.Utils import make_timer
@@ -202,7 +203,7 @@ class norEduLDIFMixin(OrgLDIF):
                 entity_id=self.ou.entity_id,
                 name_language=self.languages,
                 name_variant=name_variants):
-            name = iso2utf(row["name"].strip())
+            name = row["name"].strip()
             if name:
                 pref = var2pref[int(row['name_variant'])]
                 lnames = ou_names.setdefault(pref, [])
@@ -216,13 +217,13 @@ class norEduLDIFMixin(OrgLDIF):
         self.ou_id2ou_uniq_id[ou_id] = ldap_ou_id
         entry = {
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
-            self.FEIDE_attr_ou_id:  (ldap_ou_id,)}
+            self.FEIDE_attr_ou_id: (ldap_ou_id,)}
         if 0 in ou_names:
             self.add_lang_names(entry, 'norEduOrgAcronym', ou_names[0])
         ou_names = [names for ou_pref, names in sorted(ou_names.items())]
         for names in ou_names:
             self.add_lang_names(entry, 'ou', names)
-        self.add_lang_names(entry, 'cn',               ou_names[-1])
+        self.add_lang_names(entry, 'cn', ou_names[-1])
         entry.update(self.FEIDE_ou_common_attrs)
         if self.FEIDE_class_obsolete:
             entry['objectClass'].append(self.FEIDE_class_obsolete)

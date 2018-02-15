@@ -17,6 +17,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 import re
 import pickle
 from os.path import join as join_paths
@@ -27,7 +29,7 @@ import cereconf
 from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 from Cerebrum.modules.OrgLDIF import postal_escape_re
 from Cerebrum.modules.LDIFutils import (
-    ldapconf, normalize_string, hex_escape_match, iso2utf)
+    ldapconf, normalize_string, hex_escape_match)
 from Cerebrum.Utils import make_timer
 
 # Replace these characters with spaces in OU RDNs.
@@ -62,7 +64,9 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
     def init_ou_dump(self):
         self.__super.init_ou_dump()
         self.get_ou_quarantines()
-        ou2parent = dict((c, p) for p, ous in self.ou_tree.items() for c in ous)
+        ou2parent = dict((c, p)
+                         for p, ous in self.ou_tree.items()
+                         for c in ous)
 
         class Id2ou(dict):
             # For missing id2ous, cache and return nearest parent or None
@@ -151,7 +155,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         val = "\n".join(filter(None, (address_text, post_nr_city, country)))
         if sep == '$':
             val = postal_escape_re.sub(hex_escape_match, val)
-        return iso2utf(val.replace("\n", sep))
+        return val.replace("\n", sep)
 
     def init_person_course(self):
         """Populate dicts with a person's course information."""
@@ -186,7 +190,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                     name_variant=name_type,
                     name_language=self.languages):
                 titles[int(row['entity_id'])].setdefault(
-                    int(row['name_language']), iso2utf(row['name']))
+                    int(row['name_language']), row['name'])
         self.person_titles = dict([(p_id, t.items())
                                    for p_id, t in titles.items()])
         timer("...personal titles done.")
