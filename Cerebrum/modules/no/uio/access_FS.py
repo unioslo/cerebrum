@@ -1739,7 +1739,7 @@ class UiOUndervisning(access_FS.Undervisning):
         result = self.db.query(
             qry,
             {"aar1": self.prev_semester_year,
-             "aar2": self.prev_semester_year},
+             "aar2": self.prev_semester_year,
              'autumn': 'HØST',
              'spring': 'VÅR'},
             fetchall=True
