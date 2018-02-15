@@ -885,39 +885,85 @@ def fix_change_params(params):
     return params
 
 
-def migrate_to_changelog_1_4():
+def fix_changerows(qin, qout, mn, mx):
     try:
         import cPickle as pickle
     except ImportError:
         import pickle
     from Cerebrum.modules.ChangeLog import _params_to_db
-
     loads = pickle.loads
+    try:
+        db = Utils.Factory.get('Database')()
+        c = Utils.Factory.get('Constants')(db)
+        ChangeType = c.ChangeType
+        for cid, params, ct in db.query(
+                'SELECT change_id, change_params, change_type_id FROM '
+                '[:table schema=cerebrum name=change_log] '
+                'WHERE change_params IS NOT NULL AND change_id >= :mn '
+                'AND change_id <= :mx', dict(mn=mn, mx=mx)):
+            p = fix_change_params(loads(params.encode('ISO-8859-1')))
+            print(_params_to_db(p))
+            ct = ChangeType(ct)
+            orig = ct.format_params(p)
+            new = ct.format_params(_params_to_db(p))
+            if orig != new:
+                print(u'Failed for change {}'.format(cid))
+                print(u'Params: {}'.format(p))
+                print(u'Format spec: {}'.format(ct.format))
+                print(u'Original: {}'.format(orig))
+                print(u'New: {}'.format(new))
+                raise SystemExit(1)
+            db.update_log_event(cid, p)
+        qout.put(None)
+        if qin.get():
+            db.commit()
+        else:
+            db.rollback()
+    except Exception as e:
+        qout.put(e)
+
+
+def migrate_to_changelog_1_4():
+
     db = Utils.Factory.get('Database')()
-    c = Utils.Factory.get('Constants')(db)
-    ChangeType = c.ChangeType
     assert_db_version("1.3", component='changelog')
-    for cid, params, ct in db.query(
-            'SELECT change_id, change_params, change_type_id FROM '
-            '[:table schema=cerebrum name=change_log] '
-            'WHERE change_params IS NOT NULL'):
-        p = fix_change_params(loads(params.encode('ISO-8859-1')))
-        print(_params_to_db(p))
-        ct = ChangeType(ct)
-        orig = ct.format_params(p)
-        new = ct.format_params(_params_to_db(p))
-        if orig != new:
-            print(u'Failed for change {}'.format(cid))
-            print(u'Params: {}'.format(p))
-            print(u'Format spec: {}'.format(ct.format))
-            print(u'Original: {}'.format(orig))
-            print(u'New: {}'.format(new))
-            raise SystemExit(1)
-        db.update_log_event(cid, p)
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_changelog", "1.4")
-    print("Migration to changelog 1.4 completed successfully")
-    db.commit()
+
+    last = db.query_1('SELECT max(change_id) FROM '
+                      '[:table schema=cerebrum name=change_log]')
+    import multiprocessing
+    try:
+        cpus = multiprocessing.cpu_count()
+    except NotImplementedError:
+        cpus = 4
+    n = int(last/cpus) + 1
+    qok = multiprocessing.Queue()
+    args = tuple((multiprocessing.Queue(), qok, n*i, n*(i+1))
+                 for i in range(cpus))
+
+    pool = [multiprocessing.Process(target=fix_changerows,
+                                    args=i) for i in args]
+    for job in pool:
+        job.start()
+
+    def join():
+        for job in pool:
+            job.join()
+    ok = tuple(arg[0].get() for arg in args)
+    if any(ok):
+        for arg in args:
+            arg[1].put(False)
+        join()
+        print("Migration to changelog 1.4 failed")
+        print("Database rolled back")
+        db.rollback()
+    else:
+        for arg in args:
+            arg[1].put(True)
+        join()
+        meta = Metainfo.Metainfo(db)
+        meta.set_metainfo("sqlmodule_changelog", "1.4")
+        print("Migration to changelog 1.4 completed successfully")
+        db.commit()
 
 
 def migrate_to_email_1_1():
