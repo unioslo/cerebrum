@@ -387,7 +387,7 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[], shell=False):
                 fd.close()
                 del descriptor[fd]
             else:
-                descriptor[fd]("[%d] %s" % (pid, line.rstrip()))
+                descriptor[fd]("[%d] %s", pid, line.rstrip())
     status = proc.wait()
     if status == EXIT_SUCCESS and log_exit_status:
         logger.debug("[%d] Completed successfully", pid)
