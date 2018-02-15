@@ -425,7 +425,17 @@ class _CerebrumCode(DatabaseAccessor):
 
     # Allow pickling of code values.
     def __getstate__(self):
+        """State for pickle"""
         return int(self)
+
+    def __setstate__(self, state):
+        """Called from pickle.load(s)"""
+        try:
+            self.__init__(state)
+        except Errors.NotFoundError:
+            # Trying to unpickle a deleted code should not be an error
+            self.str = None
+            pass
 
     def _pre_insert_check(self):
         try:
