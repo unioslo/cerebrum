@@ -45,6 +45,7 @@ import cPickle as pickle
 from collections import defaultdict
 
 from Cerebrum.Utils import Factory
+from Cerebrum.Utils import to_unicode
 from Cerebrum.modules.LDIFutils import ldapconf
 from Cerebrum.modules.LDIFutils import entry_string
 from Cerebrum.modules.LDIFutils import iso2utf
@@ -64,7 +65,8 @@ top_dn = ldapconf('GROUP', 'dn')
 def dump_ldif(file_handle):
     group2dn = {}
     for row in group.search(spread=co.spread_ldap_group):
-        dn = "cn=%s,%s" % (row['name'], top_dn)
+        dn = (u"cn=%s,%s" % (to_unicode(row['name'], db.encoding),
+                             top_dn)).encode('utf-8')
         group2dn[row['group_id']] = dn
         file_handle.write(entry_string(dn, {
             'objectClass': ("top", "uioGroup"),

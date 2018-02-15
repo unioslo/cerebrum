@@ -24,9 +24,10 @@ import datetime
 import requests
 import json
 from collections import OrderedDict
+from six import text_type
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, read_password
+from Cerebrum.Utils import Factory, read_password, remove_control_characters
 from Cerebrum.modules.event.mapping import CallbackMap
 
 
@@ -439,6 +440,9 @@ def _parse_hr_person(database, source_system, data):
     from mx import DateTime
     co = Factory.get('Constants')
 
+    data = {k: remove_control_characters(v) if isinstance(v, text_type) else v
+            for k, v in data.items()}
+
     return {
         u'id': data.get(u'personId'),
         u'addresses': parse_address(data),
@@ -789,13 +793,13 @@ def update_contact_info(database, source_system, hr_person, cerebrum_person):
                               u'contact_type', u'contact_description',
                               u'contact_alias', u'last_modified'),
                              cerebrum_person.get_contact_info(
-                                     source=source_system))
+                                 source=source_system))
 
     for (k, v) in contacts - set(hr_person.get('contacts')):
         (p, v, _d) = (value for (_, value) in v)
         cerebrum_person.delete_contact_info(source_system, k, p)
         logger.debug(
-            u'Removing contact ({}) type {} with preference {} for '
+            u'Removing contact ({}) of type {} with preference {} for '
             u'id:{}'.format(
                 v, _stringify_for_log(k), p, cerebrum_person.entity_id))
 

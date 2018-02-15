@@ -57,8 +57,8 @@ def clean_titles(person, specs):
         person.delete_name_with_language(*spec)
 
 
-def update_person(logger, person, constants, source_system):
-    """Remove general information from persons."""
+def update_person_from_sap(logger, person, constants, source_system):
+    """Remove information from persons from SAP."""
     clean_names(logger, person, constants, source_system)
     clean_addresses(person, source_system)
     clean_contact_info(person, source_system)
@@ -66,6 +66,13 @@ def update_person(logger, person, constants, source_system):
                           (constants.work_title, constants.language_nb),
                           (constants.personal_title, constants.language_en),
                           (constants.personal_title, constants.language_nb)])
+
+
+def update_person_from_fs(logger, person, constants, source_system):
+    """Remove information from persons from FS."""
+    clean_names(logger, person, constants, source_system)
+    clean_addresses(person, source_system)
+    clean_contact_info(person, source_system)
 
 
 def perform(cleaner, committer, logger, person, constants, selection):
@@ -98,20 +105,22 @@ def _collect_candidates(collector, constants, source_system, (ss, attr)):
     return candidates
 
 
-def select_by_stored_data(person, source_system, constants):
-    """Look for persons applicable for deletion of information."""
-    addresses = _collect_candidates(person.list_entity_addresses,
-                                    constants,
-                                    source_system,
-                                    ('source_system',
-                                     'address_type'))
+def select_addresses(person, source_system, constants):
+    return _collect_candidates(person.list_entity_addresses,
+                               constants,
+                               source_system,
+                               ('source_system',
+                                'address_type'))
 
-    contact_info = _collect_candidates(person.list_contact_info,
-                                       constants,
-                                       source_system,
-                                       ('source_system',
-                                        'contact_type'))
+def select_contact_info(person, source_system, constants):
+    return _collect_candidates(person.list_contact_info,
+                               constants,
+                               source_system,
+                               ('source_system',
+                                'contact_type'))
 
+
+def select_titles(person, source_system, constants):
     title_info = collections.defaultdict(list)
     for row in person.search_name_with_language(
             name_variant=[constants.work_title, constants.personal_title],
@@ -120,7 +129,10 @@ def select_by_stored_data(person, source_system, constants):
             entity_type=constants.entity_person):
         title_info[row['entity_id']].append((row['name_variant'],
                                              row['name_language']))
+    return title_info
 
+
+def select_names(person, source_system, constants):
     name_info = collections.defaultdict(list)
     for row in person.search_person_names(
             source_system=source_system,
@@ -129,11 +141,15 @@ def select_by_stored_data(person, source_system, constants):
                           constants.name_full]):
         name_info[row['person_id']].append((source_system,
                                             row['name_variant']))
+    return name_info
 
-    return set(addresses.keys() +
-               contact_info.keys() +
-               title_info.keys() +
-               name_info.keys())
+
+def select_by_stored_data(person, source_system, constants, selectors):
+    """Look for persons applicable for deletion of information."""
+    candidates = set()
+    for x in selectors:
+        candidates.update(x(person, source_system, constants).keys())
+    return candidates
 
 
 def select_by_affiliation(person, source_system, grace=0):
@@ -156,13 +172,13 @@ def select_by_affiliation(person, source_system, grace=0):
     return set(cfd.keys()) - set(dont_alter)
 
 
-def select(person, source_system, constants, grace):
+def select(person, source_system, constants, grace, selectors):
     """Construct selection criteria for persons."""
     return (select_by_affiliation(person, source_system, grace) &
-            select_by_stored_data(person, source_system, constants))
+            select_by_stored_data(person, source_system, constants, selectors))
 
 
-def clean_it(prog, commit, systems, commit_threshold=1, grace=0):
+def clean_it(prog, commit, logger, systems, system_to_cleaner, selectors, commit_threshold=1, grace=0):
     """Call funcs based on command line arguments."""
     class _Committer(object):
         """Commit changes upon reaching a threshold of N calls to commit()."""
@@ -192,7 +208,6 @@ def clean_it(prog, commit, systems, commit_threshold=1, grace=0):
                 self.database.rollback()
 
     from Cerebrum.Utils import Factory
-    logger = Factory.get_logger('cronjob')
     database = Factory.get('Database')(client_encoding='UTF-8')
     database.cl_init(change_program=prog)
     person = Factory.get('Person')(database)
@@ -209,7 +224,8 @@ def clean_it(prog, commit, systems, commit_threshold=1, grace=0):
     for x in systems:
         system = constants.AuthoritativeSystem(x)
         logger.info("Starting to clean data from %s", system)
-        cleaner = functools.partial(update_person, source_system=system)
+        cleaner = functools.partial(system_to_cleaner.get(x),
+                                    source_system=system)
         perform(cleaner,
                 committer.conditional_commit,
                 logger,
@@ -218,7 +234,8 @@ def clean_it(prog, commit, systems, commit_threshold=1, grace=0):
                 select(person,
                        system,
                        constants,
-                       grace))
+                       grace,
+                       selectors.get(x)))
         committer.unconditional_commit()
         logger.info('Cleaned data from %s', system)
 
@@ -228,6 +245,9 @@ def clean_it(prog, commit, systems, commit_threshold=1, grace=0):
 def parse_it():
     """Argument parsing."""
     import argparse
+    from Cerebrum.Utils import Factory
+    logger = Factory.get_logger('cronjob')
+
     parser = argparse.ArgumentParser(
         description='Delete person data on grounds of originating source'
                     ' systems')
@@ -251,9 +271,24 @@ def parse_it():
                              ' affiliation in the last N days')
     args = parser.parse_args()
 
+    system_to_cleaner = {'FS': update_person_from_fs,
+                         'SAP': update_person_from_sap }
+
+    system_to_selectors = {'FS': [select_addresses, select_contact_info, select_names],
+                           'SAP': [select_addresses, select_contact_info, select_titles, select_names]}
+
+    for x in args.systems:
+        if not x in system_to_cleaner:
+            raise NotImplementedError('Cleaner for system {} is not implemented'.format(x))
+        elif x not in system_to_selectors:
+            raise NotImplementedError('Selector for system {} is not implemented'.format(x))
+
     clean_it(parser.prog,
              args.commit,
+             logger,
              args.systems,
+             system_to_cleaner,
+             system_to_selectors,
              args.commit_threshold,
              args.grace)
 

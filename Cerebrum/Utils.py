@@ -36,7 +36,7 @@ import traceback
 import socket
 import random
 import collections
-
+import unicodedata
 import six
 
 from string import ascii_lowercase, digits
@@ -114,6 +114,11 @@ def is_str_or_unicode(x):
 def is_unicode(x):
     """Checks if a given variable is a unicode string."""
     return isinstance(x, unicode)
+
+
+def remove_control_characters(s):
+    """Remove unicode control characters."""
+    return "".join(ch for ch in s if unicodedata.category(ch)[0] != "C")
 
 
 # TODO: Deprecate: needlessly complex in terms of readability and end result
@@ -738,15 +743,27 @@ class Factory(object):
         Although this method does very little now, we should keep our
         options open for the future.
         """
+
         from Cerebrum.modules import cerelog
-
         cerelog.setup_warnings(getattr(cereconf, 'PYTHONWARNINGS', None) or [])
-
         return cerelog.get_logger(cereconf.LOGGING_CONFIGFILE, name)
 
 
+# TODO: Temporary, test logutils by setting a CEREBRUM_LOGUTILS environment
+# variable to a non-empty value.
+if os.getenv('CEREBRUM_LOGUTILS'):
+    from Cerebrum.logutils import getLogger
+    Factory.get_logger = staticmethod(getLogger)
+
+
 def random_string(length, characters=ascii_lowercase + digits):
-    """Generate a random string of a given length using the given characters."""
+    """Generate a random string of a given length using the given characters.
+
+    :param int length: the desired string length
+    :param str characters: a set of characters to use
+
+    :return str: returns a string of random characters
+    """
     random.seed()
     # pick "length" number of letters, then combine them to a string
     return ''.join([random.choice(characters) for _ in range(length)])

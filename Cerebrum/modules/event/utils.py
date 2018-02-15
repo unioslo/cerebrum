@@ -21,10 +21,11 @@
 """ Basic event daemon process handler.
 
 The ProcessHandler is a simple class that helps spawning processes and threads.
-
 """
+from __future__ import print_function
 import os
 import ctypes
+import logging
 import signal
 import multiprocessing
 from multiprocessing import managers
@@ -34,7 +35,7 @@ from . import logutils
 
 
 class Manager(managers.BaseManager):
-    u""" A SIGHUP-able shared resource manager.
+    """ A SIGHUP-able shared resource manager.
 
     This Manager will start a SIGHUP-able subprocess to manage queues and other
     resources. On SIGHUP, the manager process will send a SIGHUP to its parent
@@ -44,7 +45,7 @@ class Manager(managers.BaseManager):
 
     @property
     def pid(self):
-        u""" The manager process PID. """
+        """ The manager process PID. """
         try:
             return self._process.pid
         except AttributeError:
@@ -52,7 +53,7 @@ class Manager(managers.BaseManager):
 
     @property
     def name(self):
-        u""" The manager process name. """
+        """ The manager process name. """
         try:
             return self._process.name
         except AttributeError:
@@ -60,7 +61,7 @@ class Manager(managers.BaseManager):
 
     @staticmethod
     def signum_initializer(parent_pid, signums=[signal.SIGHUP, ]):
-        u""" Install signal handler in Server process.
+        """ Install signal handler in Server process.
 
         This signal handler re-sends signals to the parent process
         `parent_pid`.
@@ -73,7 +74,7 @@ class Manager(managers.BaseManager):
             A list of signals to forward to the parent process.
         """
         def sigfwd_handler(signum, frame):
-            print 'Manager got signal {!r}'.format(signum)
+            print('Manager got signal {!r}'.format(signum))
             if parent_pid is None:
                 return
             if os.getpid() == parent_pid:
@@ -86,23 +87,24 @@ class Manager(managers.BaseManager):
             signal.signal(signum, sigfwd_handler)
 
     def start(self, *args, **kwargs):
-        u""" Cause `sighup_initializer` to run on init in Server process. """
+        """ Cause `sighup_initializer` to run on init in Server process. """
         # TODO: Select signals to forward.
         kwargs['initializer'] = self.signum_initializer
         kwargs['initargs'] = tuple((os.getpid(), ))
         super(Manager, self).start(*args, **kwargs)
 
+
 Manager.register('log_queue', multiprocessing.Queue)
 
 
 class ProcessHandler(object):
-    u""" Simple tool for starting a list of processes. """
+    """ Simple tool for starting a list of processes. """
 
     join_timeout = 30
-    u""" Timeout for process and thread joins. """
+    """ Timeout for process and thread joins. """
 
     def __init__(self, manager=Manager, name='Main', logger=None):
-        u"""TODO: Is this class generic enough?
+        """TODO: Is this class generic enough?
 
         On init the ProcessHandler will set up and start the `manager`, and a
         logging thread that logs `logutils.LogQueueRecord`s from the managers
@@ -125,55 +127,49 @@ class ProcessHandler(object):
         self.mgr = manager()
 
         self.mgr.start()
-        self.logger = logutils.QueueLogger(name,
-                                           self.log_queue)
+        self.logger = logger or logging.getLogger(__name__)
 
-        self.logger.info(u'Started main process (pid={:d})', os.getpid())
-        self.logger.info(u'Started manager process (pid={:d}): {!s}',
+        self.logger.info('Started main process (pid=%d)', os.getpid())
+        self.logger.info('Started manager process (pid=%d): %s',
                          self.mgr.pid, self.mgr.name)
 
-        # Start logging thread
-        self.__log_th = logutils.LoggerThread(logger=logger,
-                                              queue=self.log_queue,
-                                              name='LogQueueListener')
+        self.__log_th = logutils.LogRecordThread(logger=logger,
+                                                 queue=self.log_queue,
+                                                 name='LogQueueListener')
         self.__log_th.start()
 
     @property
     @memoize
     def log_queue(self):
-        u""" A shared queue to use for log messages. """
+        """ A shared queue to use for log messages. """
         return self.mgr.log_queue()
 
     @property
     @memoize
     def run_trigger(self):
-        u""" A shared boolean value to signal run state. """
+        """ A shared boolean value to signal run state. """
         return multiprocessing.Value(ctypes.c_int, 1)
 
     def add_process(self, cls, *args, **kwargs):
-        u""" Queues a process to start when calling `serve`. """
+        """ Queues a process to start when calling `serve`. """
         proc = cls(*args, **kwargs)
         proc.daemon = True
-        self.logger.debug(u'Adding process: {!s}', repr(proc))
+        self.logger.debug('Adding process: %r', proc)
         self.procs.append(proc)
 
     def print_process_list(self):
-        u""" Prints a list of the current processes.
-
-        Prints a simple list of processes, along with state and PID.
-        """
-        print 'Process list:'
-        print '  Main({:d})'.format(os.getpid())
-        print '    {!s}({:d}): {!r}'.format(
-            self.mgr.name, self.mgr.pid, self.mgr._process)
+        """ Prints a list of the current processes. """
+        print('Process list:')
+        print('  Main({:d})'.format(os.getpid()))
+        print('    {!s}({:d}): {!r}'.format(
+            self.mgr.name, self.mgr.pid, self.mgr._process))
         for proc in self.procs:
-            print '    {!s}({:d}): {!r}'.format(proc.name, proc.pid, proc)
+            print('    {!s}({:d}): {!r}'.format(proc.name, proc.pid, proc))
 
     def serve(self):
-        u""" Start queued processes, and setup clean up tasks.
+        """ Start queued processes, and setup clean up tasks.
 
         TODO: Replace with something proper, like `atexit`.
-
         """
         # Start procs
         for proc in self.procs:
@@ -186,35 +182,35 @@ class ProcessHandler(object):
         signal.signal(signal.SIGUSR1, sigusr1_handle)
 
         # Block
-        self.logger.info(u'Waiting for signal...')
+        self.logger.info('Waiting for signal...')
         signal.pause()
-        self.logger.info(u'Got signal, shutting down')
+        self.logger.info('Got signal, shutting down')
 
         # Cleanup
         self.run_trigger.value = 0
         self.cleanup()
 
     def cleanup(self):
-        u""" End all processes and threads.
+        """ End all processes and threads.
 
         This task makes sure that the subprocesses and threads started by this
         process will be terminated in the correct order.
 
         """
         for proc in self.procs:
-            self.logger.debug(u'Waiting (max {:d}s) for process {!s}',
-                              self.join_timeout, repr(proc))
+            self.logger.debug('Waiting (max %ds) for process %r',
+                              self.join_timeout, proc)
             proc.join(self.join_timeout)
             # Log result
-            log_args = (u'Process {!s} terminated with exit code {:d}',
-                        repr(proc),
+            log_args = ('Process %s terminated with exit code %d',
+                        proc,
                         proc.exitcode)
             if proc.exitcode == 0:
                 self.logger.debug(*log_args)
             else:
                 self.logger.warn(*log_args)
 
-        self.logger.debug(u'Shutting down logger...')
+        self.logger.debug('Shutting down logger...')
 
         self.__log_th.stop()
         self.__log_th.join(self.join_timeout)
@@ -224,7 +220,7 @@ class ProcessHandler(object):
 
 
 def is_target_system_const(self, target_system):
-    u""" Check if a `TargetSystemCode` exists in the database. """
+    """ Check if a `TargetSystemCode` exists in the database. """
     from Cerebrum.Utils import Factory
     from .EventToTargetUtils import EventToTargetUtils
     db = Factory.get('Database')()
@@ -237,7 +233,7 @@ def is_target_system_const(self, target_system):
 
 
 def update_system_mappings(process, target_system, change_types):
-    u""" Update the target mappings for system. """
+    """ Update the target mappings for system. """
     from Cerebrum.Utils import Factory
     from .EventToTargetUtils import EventToTargetUtils
 

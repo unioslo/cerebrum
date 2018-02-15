@@ -1587,9 +1587,9 @@ class UiOUndervisning(access_FS.Undervisning):
     def list_undervisningenheter(self, year=None, sem=None):
         # GetUndervEnhetAll
         if year is None:
-            year = self.year
+            year = self.prev_semester_year
         if sem is None:
-            sem = self.semester
+            sem = self.prev_semester
         return self.db.query("""
         SELECT
           ue.institusjonsnr, ue.emnekode, ue.versjonskode, ue.terminkode,
@@ -1736,10 +1736,14 @@ class UiOUndervisning(access_FS.Undervisning):
           vt.arstall_gjelder_i >= :aar2
         """
 
-        result = self.db.query(qry, {"aar1": self.year,
-                                     "aar2": self.year,
-                                     'autumn': 'HØST',
-                                     'spring': 'VÅR'}, fetchall=True)
+        result = self.db.query(
+            qry,
+            {"aar1": self.prev_semester_year,
+             "aar2": self.prev_semester_year},
+             'autumn': 'HØST',
+             'spring': 'VÅR'},
+            fetchall=True
+        )
         # IVR 2009-03-12 FIXME: DCOracle2 returns a float when taking a union
         # of two ints. The resons for this escape me.
         for row in result:

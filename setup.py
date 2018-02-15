@@ -459,6 +459,7 @@ setup(
         'Cerebrum',
         'Cerebrum/extlib',
         'Cerebrum/extlib/Plex',
+        'Cerebrum/logutils',
         'Cerebrum/modules',
         'Cerebrum/modules/ad',
         'Cerebrum/modules/ad2',

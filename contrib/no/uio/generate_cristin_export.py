@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2017 University of Oslo, Norway
+# Copyright 2006-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,7 +22,7 @@
 """
 This file is part of the Cerebrum framework.
 
-This script generates an XML file, suitable for importing into the CRISTIN
+This script generates an XML file, suitable for importing into the Cristin
 project, formerly called FRIDA.
 
 The output format is specified at: <http://www.cristin.no/institusjonsdata/>
@@ -43,10 +43,6 @@ the necessary information from data files or cerebrum alone. Therefore:
   can easily be fixed by importing these as EntityExternalIDs), and
   start/termination dates for OUs (which cannot easily be deduced, although an
   'expired' OU gets a quarantine that we can look up)
-
-Additionally, we have to look up phd-students in FS or Cerebrum, since neither
-of the HR systems tracks students. Cerebrum is the preferred solution, since
-the data is checked on import.
 """
 
 import getopt
@@ -469,7 +465,7 @@ def output_employments(writer, person, ou_cache):
                               "ansettelser", "ansettelse", names)
 
 
-def output_person(writer, person, phd_cache, ou_cache):
+def output_person(writer, person, ou_cache):
     """Output all information pertinent to a particular person.
 
     Each <person> is described thus:
@@ -513,14 +509,9 @@ def output_person(writer, person, phd_cache, ou_cache):
     title = person.get_name_with_lang(person.NAME_TITLE, "nb", "en")
     if title:
         output_element(writer, title, "personligTittel")
-
-    phds = list()
     try:
         person_db.clear()
         person_db.find_by_external_id(constants.externalid_fodselsnr, fnr)
-        phds = phd_cache.get(int(person_db.entity_id), list())
-        if phds:
-            del phd_cache[int(person_db.entity_id)]
     except Errors.NotFoundError:
         logger.error("Person %s is in the datafile, but not in Cerebrum",
                      list(person.iterids()))
@@ -538,7 +529,7 @@ def output_person(writer, person, phd_cache, ou_cache):
 
     guests = filter(lambda x: x.kind == x.GJEST and x.is_active(),
                     person.iteremployment())
-    if guests or phds:
+    if guests:
         writer.startElement("gjester")
         names = dict((("start", "datoFra"),
                       ("end", "datoTil"),
@@ -546,108 +537,8 @@ def output_person(writer, person, phd_cache, ou_cache):
                       ("place", None)))
         output_assignments(writer, [xml2dict(x, names) for x in guests],
                            ou_cache, None, "gjest", names)
-
-        output_assignments(writer, phds, ou_cache, None, "gjest", names)
         writer.endElement("gjester")
-
     writer.endElement("person")
-
-
-def cache_phd_students():
-    """Load all PhD students from cerebrum and return a set of their IDs"""
-
-    result = dict()
-    person = Factory.get("Person")(cerebrum_db)
-    ou_db = Factory.get("OU")(cerebrum_db)
-
-    for row in person.list_affiliations(
-            status=constants.affiliation_status_student_drgrad):
-        key = int(row["person_id"])
-
-        try:
-            ou_db.clear()
-            ou_db.find(row["ou_id"])
-        except Errors.NotFoundError:
-            logger.warn("OU with ou_id %s does not exist. This cannot happen",
-                        row["ou_id"])
-            continue
-
-        value = {"start": row["create_date"],
-                 "end": row["deleted_date"],
-                 "code": "DOKTORGRADSSTUDENT",
-                 "place": (ou_db.fakultet, ou_db.institutt, ou_db.avdeling)}
-        result.setdefault(key, list()).append(value)
-
-    return result
-
-
-def output_phd_students(writer, sysname, phd_students, ou_cache):
-    """Output information about PhD students based on Cerebrum only.
-
-    There may be phd students who have no employment/guest records at
-    all. However, they still need access to FRIDA and we need to gather as
-    much information as possible about them.
-    """
-    # name constant -> xml element for that name constant
-    name_kinds = dict(((int(constants.name_last), "etternavn"),
-                       (int(constants.name_first), "fornavn")))
-    # contact constant -> xml element for that contact constant
-    contact_kinds = dict(((int(constants.contact_phone), "telefonnr"),
-                          (int(constants.contact_fax), "telefaxnr"),
-                          (int(constants.contact_url), "URL")))
-    # person_id -> public reservation status
-    reservations = dict(
-        (row['entity_id'], row['numval']) for row in
-        person_db.list_traits(code=constants.trait_public_reservation))
-
-    for person_id, phd_records in phd_students.iteritems():
-        try:
-            person_db.clear()
-            person_db.find(person_id)
-            # We can be a bit lenient here.
-            fnr = person_db.get_external_id(
-                id_type=constants.externalid_fodselsnr)
-            if fnr:
-                fnr = fnr[0]["external_id"]
-            else:
-                logger.warn("No fnr for person_id %s", person_id)
-                continue
-        except Errors.NotFoundError:
-            logger.warn(
-                "Cached id %s not found in the database. This cannot happen",
-                person_id)
-            continue
-
-        res_status = 'J' if reservations.get(person_id, True) else 'N'
-        writer.startElement("person", {"fnr": fnr, "reservert": res_status})
-
-        names = extract_names(person_db, name_kinds)
-        for variant, xmlname in name_kinds.iteritems():
-            value = names.get(variant)
-            if value:
-                output_element(writer, value, xmlname)
-        title = person_db.get_name_with_language(
-            name_variant=constants.personal_title,
-            name_language=constants.language_nb,
-            default="")
-        if title:
-            output_element(writer, title, "personligTittel")
-
-        output_account_info(writer, person_db)
-
-        for contact_kind in contact_kinds:
-            value = person_db.get_contact_info(source_system, contact_kind)
-            if value:
-                value = value[0]["contact_value"]
-                output_element(writer, value, contact_kinds[contact_kind])
-
-        names = dict((("start", "datoFra"),
-                      ("end", "datoTil"),
-                      ("code", "gjestebetegnelse"),
-                      ("place", None)))
-        output_assignments(writer, phd_records, ou_cache, "gjester", "gjest",
-                           names)
-        writer.endElement("person")
 
 
 def should_export_person(person):
@@ -720,29 +611,19 @@ def should_export_person(person):
 def output_people(writer, sysname, personfile, ou_cache):
     """Output information about all interesting people.
 
-    A person is interesting for FRIDA, if it has active employments
+    A person is interesting for Cristin if it has active employments
     (tilsetting) or active guest records (gjest). A record is considered
-    active, if it has a start date in the past (compared to the moment when
+    active if it has a start date in the past (compared to the moment when
     the script is run) and the end date is either unknown or in the future.
-
     """
-    logger.info("extracting people from %s", personfile)
-
-    phd_students = cache_phd_students()
-    logger.info("cached PhD students (%d people)", len(phd_students))
-
+    logger.info("Extracting people from %s", personfile)
     writer.startElement("personer")
     parser = system2parser(sysname)(personfile, logger, fetchall=False)
     for person in parser.iter_person(filter_out_sko_0000=False,
                                      require_ou_for_assignments=False):
         if not should_export_person(person):
             continue
-
-        # NB! phd_students is updated destructively
-        output_person(writer, person, phd_students, ou_cache)
-
-    # process whatever is left of phd-students
-    output_phd_students(writer, sysname, phd_students, ou_cache)
+        output_person(writer, person, ou_cache)
     writer.endElement("personer")
 
 
@@ -801,7 +682,7 @@ def usage(exitcode=0):
 
 
 def main():
-    logger.info("Generating FRIDA export")
+    logger.info("Generating Cristin export")
 
     try:
         options, rest = getopt.getopt(sys.argv[1:],
@@ -821,7 +702,7 @@ def main():
     global source_system
     source_system = getattr(constants, sysname)
     output_xml(output_file, sysname, personfile, oufile)
-    logger.info("Finished generating FRIDA export")
+    logger.info("Finished generating Cristin export")
 
 
 if __name__ == "__main__":

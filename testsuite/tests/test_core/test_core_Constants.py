@@ -36,6 +36,7 @@ Functionality
     CerebrumCode.
 
 """
+
 from __future__ import unicode_literals
 import pytest
 from Cerebrum.Errors import NotFoundError
@@ -306,3 +307,26 @@ def test_human2constant_str_intval(constants, Language):
     intval = str(int(constants.lang_foo))
     const = constants.human2constant(intval, const_type=Language)
     assert const == constants.lang_foo
+
+
+def test_pickle_constants(constants, CerebrumCode):
+    import pickle
+    import cPickle
+
+    for c in constants.fetch_constants(CerebrumCode):
+        try:
+            c.insert()
+        except:
+            pass
+        sps, cps = pickle.dumps(c), cPickle.dumps(c)
+        sp, cp = pickle.loads(sps), cPickle.loads(cps)
+        assert sp == cp == c
+        assert int(sp) == int(cp) == int(c)
+        assert unicode(sp) == unicode(cp) == unicode(c)
+        assert sp.str == cp.str == c.str
+        c.delete()
+        c.__class__._cache = {}
+        sp, cp = pickle.loads(sps), cPickle.loads(cps)
+        assert sp == cp == c
+        assert int(sp) == int(cp) == int(c)
+        assert sp.str is None and cp.str is None

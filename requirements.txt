@@ -15,13 +15,14 @@ lxml
 nose
 phonenumbers
 pika
-psycopg2
+psycopg2-binary
 pygpgme
 pyOpenSSL
 pytest
 python-ldap
 pytz
 PyYAML
+raven
 requests
 rpclib==2.7.0-beta
 sasl
