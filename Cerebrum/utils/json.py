@@ -175,6 +175,22 @@ class CerebrumObject(object):
         except Errors.NotFoundError:  # Entity deleted
             return obj
 
+_cache_db = None
+_cache_const = None
+
+
+def _db_const(db=None, const=None, **kw):
+    global _cache_db, _cache_const
+    if db is None:
+        if _cache_db is None:
+            _cache_db = Factory.get('Database')()
+        db = _cache_db
+    if const is None:
+        if _cache_const is None:
+            _cache_const = Factory.get('Constants')()
+        const = _cache_const
+    return db, const
+
 
 def load(*rest, **kw):
     """ As standard json.load, but with magic for cerebrum objects.
@@ -188,9 +204,7 @@ def load(*rest, **kw):
 
     if len(rest) >= 4 or 'object_hook' in kw:
         return json.load(*rest, **kw)
-    return json.load(*rest, object_hook=CerebrumObject(
-        kw.get('db') or Factory.get('Database')(),
-        kw.get('const') or Factory.get('Constants')(None)), **kw)
+    return json.load(*rest, object_hook=CerebrumObject(*_db_const(**kw)), **kw)
 
 
 def loads(*rest, **kw):
@@ -204,6 +218,4 @@ def loads(*rest, **kw):
 
     if len(rest) >= 4 or 'object_hook' in kw:
         return json.loads(*rest, **kw)
-    return json.loads(*rest, object_hook=CerebrumObject(
-        kw.get('db') or Factory.get('Database')(),
-        kw.get('const') or Factory.get('Constants')(None)), **kw)
+    return json.loads(*rest, object_hook=CerebrumObject(*_db_const(**kw)), **kw)
