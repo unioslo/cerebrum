@@ -477,8 +477,9 @@ def parsefile(fname):
             if re.match(line_comment, x):
                 continue
 
+            upperx = x.upper()
             # Handle functions correctly, as they might contain semi-colons
-            if 'FUNCTION' in x and 'DROP FUNCTION' not in x:
+            if 'FUNCTION' in upperx and 'DROP FUNCTION' not in upperx:
                 function_join_mode = True
                 join_str += x
             elif function_join_mode and 'LANGUAGE' in upperx:
