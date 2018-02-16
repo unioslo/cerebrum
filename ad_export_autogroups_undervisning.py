@@ -86,7 +86,7 @@ group_dict=dict()
 agrgroup_dict=dict()
 
 # common prefix for all Fronter groups in cerebrum
-fg_prefix="internal:uit.no:fs:186"
+fg_prefix="uit.no:fs"
 
 def get_skoinfo(fak,inst,avd):
     # Two digit stings each
@@ -172,37 +172,56 @@ def GetADAccounts():
         accid2uname[acc['account_id']]=acc['name']
     logger.debug("loaded %d accounts from cerebrum" % len(uname2accid))
 
- 
+def isThisOrNextSemester(group_name):
+    this_sem, next_sem = access_FS.get_semester()
+    this_sem_yr, this_sem_sem = this_sem
+    next_sem_yr, next_sem_sem = next_sem
+
+    this_sem_str = this_sem_sem + ':' + this_sem_yr
+    next_sem_str = next_sem_sem + ':' + next_sem_yr
+
+    if (this_sem_str in group_name) or (next_sem_str in group_name):
+        return True
+    else:
+        return False
+
+
 def GetUndenhGroups():
-    grp_search_term="%s:undenh*:student" % fg_prefix
+    grp_search_term="%s:kurs*:student" % fg_prefix 
     logger.debug("Search for %s" % grp_search_term)
     groups=gr.search(name=grp_search_term)
     for group in groups:
+        gname=group['name'].replace("%s:" % fg_prefix,'') 
+        if not isThisOrNextSemester(gname):
+            continue
+
         members=gr.search_members(group_id=group['group_id'])
         member_list=list()
         for member in members:
             uname=accid2uname.get(member['member_id'],"")
             if (uname == ""):
-                gname=group['name'].replace("%s:" % fg_prefix,'')
                 logger.error("group %s has member %s, that is not in usercache" % (gname,member))
             else:
                 member_list.append(uname)
         if len(member_list)==0:
-                logger.warn("No members in group %s" % group['group_id'])
+                logger.warn("No members in group %s (%s)" % (group['group_id'], group['name']))
                 continue
 
-        gname=group['name'].replace("%s:" % fg_prefix,'')
-        # gname should look like this now "undenh:2013:h\xf8st:inf-3982:1:1:student'"
-        parts=gname.split(":")
-        (type,aar,sem,emnekode,versjonskode,terminkode,rolle)=gname.split(":")
+        # gname should look like this now "kurs:186:bed-2049:1:vår:2018:1:student"
+        (type,org,emnekode,versjonskode,sem,aar,terminkode,rolle)=gname.split(":")
+
         ad_commonname= ".".join(("emner",emnekode,aar,sem,versjonskode,terminkode,rolle))
-        # ad_commonname should look like 'emner.inf-3982.2013.høst.1.1.student'
+        # ad_commonname should look like "emner.bed-2049.2018.vår.1.1.student"
         ad_samaccountname=ad_commonname
         email_lp=ac.wash_email_local_part(ad_samaccountname)
         ad_samaccountname=email_lp
         ad_mailnickname=".".join((emnekode,aar,sem,versjonskode,terminkode,rolle))
         ad_email="@".join((email_lp,autogroups_maildomain))
-        ad_descr="Studenter emne %s (%s) %s/%s Ver(%s) Termin(%s)" % (emnekode.upper(), emne_info[emnekode]['emnenavn'], aar,sem,versjonskode,terminkode)
+        try:
+            ad_descr="Studenter emne %s (%s) %s/%s Ver(%s) Termin(%s)" % (emnekode.upper(), emne_info[emnekode]['emnenavn'], aar,sem,versjonskode,terminkode)
+        except KeyError:
+            logger.debug("Emnekode: %s does not exist in undenh file. Continue to next entry" % (emnekode))
+            continue
         ad_displayname=ad_descr
         fak=str(emne_info[emnekode]['fak'])
         inst=str(emne_info[emnekode]['inst'])
@@ -237,13 +256,14 @@ def GetUndenhGroups():
         
 
 def GetStudieprogramgroups():
-    grp_search_term="%s:studieprogram*:student" % fg_prefix
+    grp_search_term="%s:kull*:student" % fg_prefix
     logger.debug("Search term: %s" % grp_search_term)
     groups=gr.search(name=grp_search_term)
     for group in groups:
         gname=group['name'].replace("%s:" % fg_prefix,'')
-        # gname should look like this now "studieprogram:ph-far:studiekull:2009:høst:student"
-        (type,stprogkode,xx,aar,sem,rolle)=gname.split(":")
+        # gname should look like this now "kull:barock:høst:2013:student"
+        (type,stprogkode,sem,aar,rolle)=gname.split(":")
+        type = 'studieprogram' # type should be "studieprogram", not "kull"
 
         # Skip this group if it isn't in stprog_info
         # Note: this implies a mismatch between the database and studieprogfile.
@@ -271,6 +291,9 @@ def GetStudieprogramgroups():
             else:
               logger.debug("--->Adding %s" % (uname))
               member_list.append(uname)
+        if len(member_list) == 0:
+                logger.warn("No members in group %s (%s)" % (group['group_id'], group['name']))
+                continue
 
         fak=str(stprog_info[stprogkode]['fak'])
         inst=str(stprog_info[stprogkode]['inst'])

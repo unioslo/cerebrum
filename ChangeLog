@@ -1,3 +1,10 @@
+2018-02-16  Karen   <cerebrum@cleomedes.uit.no>
+
+    * ad_export_autogroups_undervisning.py: Made changes that where necessary for this script to work 
+    correctly with new BAS: Updated search terms to reflect changes in the database to group names, and 
+    adjusted code to handle these changes. Added functionality to filter away undervisningsenhet groups 
+    that are not from this or next semester. Studieprogram with no members are now filtered away. 
+
 2018-02-14    <cerebrum@cleomedes.uit.no>
 
 	* process_systemx.py (send_mail): removed the debug flag which prevented emails from being sent
