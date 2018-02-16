@@ -30,6 +30,7 @@ import re
 import string
 import os.path
 from six import text_type
+from base64 import b64encode
 
 import cereconf
 from Cerebrum import Errors as _Errors
@@ -50,10 +51,6 @@ needs_base64_safe = re.compile('\\A[ :<]|[\0-\37\177-\377]| \\Z').search
 #   values human-readable when possible (expects 8-bit data to be UTF-8).
 # - needs_base64_safe: Encode all 8-bit data as well.
 needs_base64 = needs_base64_readable
-
-
-def base64_encode(s):
-    return binascii.b2a_base64(s.encode('utf-8'))
 
 
 _dummy = object()
@@ -89,15 +86,14 @@ def unescape_match(match):
     escaped = match.group(1)
     if len(escaped) == 1:
         return escaped
-    else:
-        return binascii.a2b_hex(escaped)
+    return binascii.a2b_hex(escaped)
 
 
 def hex_escape_match(match):
     """Return the '\\hex' representation of a match object for a character.
 
     Used e.g. with dn_escape_re.sub(hex_escape_match, <attr value>)."""
-    return '\\' + binascii.b2a_hex(match.group())
+    return '\\' + binascii.b2a_hex([x.encode('utf-8') for x in match.group()])
 
 
 def entry_string(dn, attrs, add_rdn=True):
@@ -132,7 +128,7 @@ def entry_string(dn, attrs, add_rdn=True):
 
     need_b64 = needs_base64
     if need_b64(dn):
-        result = ["dn:: ", base64_encode(dn)]
+        result = ["dn:: ", b64encode(dn.encode('utf-8')), "\n"]
     else:
         result = ["dn: ", dn, "\n"]
 
@@ -142,7 +138,7 @@ def entry_string(dn, attrs, add_rdn=True):
     for attr, vals in attrs:
         for val in _attrval2iter[type(vals)](vals):
             if attr in base64_attrs or need_b64(val):
-                extend((attr, ":: ", base64_encode(val)))
+                extend((attr, ":: ", b64encode(val.encode('utf-8')), "\n"))
             else:
                 extend((attr, ": ", val, "\n"))
 
