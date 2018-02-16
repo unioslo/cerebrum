@@ -770,6 +770,7 @@ admin_uio_helpers = [
     '_get_cached_passwords',
     '_get_disk',
     '_get_opset',
+    '_get_posix_account',
     '_get_shell',
     '_grant_auth',
     '_is_yes',
