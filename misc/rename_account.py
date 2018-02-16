@@ -45,10 +45,10 @@ from Cerebrum.modules.no.uit import Email
 today = time.strftime("%Y%m%d")
 #logger_name = 'console'
 
-logger = None
+#logger = None
 
 class Changer:
-    global logger
+    #global logger
 
 
     def __init__(self):
@@ -198,7 +198,7 @@ def usage(exitcode=0):
     -o | --old <name> : old account name to change (REQUIRED)
     -n | --new <name> : new account name set as new (REQUIRED)
     -N | --no-email   : do not send out email to user
-    --logger_name <name> : logger target to use
+
 
     """
 
@@ -221,7 +221,7 @@ def main():
     #today = datetime.date.today()
 #    new_expire_date = today + datetime.timedelta(days=numdays)
     try:
-        opts, args = getopt.getopt(sys.argv[1:],'hdn:o:l:N',['help','dryrun','new=','old=','logger=','no_email'])
+        opts, args = getopt.getopt(sys.argv[1:],'hdn:o:N',['help','dryrun','new=','old=','no_email'])
     except getopt.GetoptError,m:
         print "wrong arguments:%s" % m
         usage(1)
@@ -238,9 +238,6 @@ def main():
             notify_user = False
         elif opt in ['-o', '--old']:
             old_name=val
-        elif opt in [ '-l', '--logger']:
-            logger_name = val
-            print "logger name=%s" % logger_name
             
     if not old_name:
         usage(1)

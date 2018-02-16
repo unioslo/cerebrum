@@ -1,3 +1,7 @@
+2018-02-16    <cerebrum@gagarin.uit.no>
+
+	* rename_account.py (Changer.update_email): removed logger as in parameter to the script, also fixed how to calculate email addresses as the old version would fail if script wasnt able to get ad_email
+
 2018-01-31    <cerebrum@cleomedes.uit.no>
 
 	* rename_account.py (Changer.update_email): The function parsing existing email address wasnt working propperly.
