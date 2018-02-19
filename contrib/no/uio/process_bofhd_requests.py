@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2003-2016 University of Oslo, Norway
 #
@@ -19,6 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 import errno
 import fcntl
 import getopt
@@ -32,6 +34,7 @@ import socket
 import ssl
 import subprocess
 from select import select
+from contextlib import closing
 
 import cereconf
 
@@ -46,10 +49,10 @@ from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 
 logger = Utils.Factory.get_logger("bofhd_req")
-db = Utils.Factory.get(b'Database')()
+db = Utils.Factory.get('Database')()
 db.cl_init(change_program='process_bofhd_r')
-cl_const = Utils.Factory.get(b'CLConstants')(db)
-const = Utils.Factory.get(b'Constants')(db)
+cl_const = Utils.Factory.get('CLConstants')(db)
+const = Utils.Factory.get('Constants')(db)
 
 max_requests = 999999
 ou_perspective = None
@@ -62,6 +65,9 @@ ldapconns = None
 
 DEBUG = False
 EXIT_SUCCESS = 0
+
+studconfig_file = studieprogs_file = emne_info_file = student_info_file = None
+fnr2move_student = autostud = None
 
 # TODO: now that we support multiple homedirs, we need to which one an
 # operation is valid for.  This information should be stored in
@@ -89,11 +95,11 @@ class RequestLockHandler(object):
 
         """
         if self.lockfd is not None:
-            self.release()
+            self.close()
 
         self.reqid = reqid
         try:
-            lockfile = file(self.lockdir % reqid, "w")
+            lockfile = file(self.lockdir % reqid, "wb")
         except IOError, e:
             logger.error("Checking lock for %d failed: %s", reqid, e)
             return False
@@ -108,7 +114,7 @@ class RequestLockHandler(object):
         self.lockfd = lockfile
         return True
 
-    def release(self):
+    def close(self):
         """Release and clean up lock."""
         if self.lockfd is not None:
             fcntl.flock(self.lockfd, fcntl.LOCK_UN)
@@ -220,11 +226,11 @@ def connect_cyrus(host=None, username=None, as_admin=True):
         imapconn = Utils.CerebrumIMAP4_SSL(
             host=host.name,
             ssl_version=ssl.PROTOCOL_TLSv1)
-    except socket.gaierror, e:
+    except socket.gaierror as e:
         raise CyrusConnectError("%s@%s: %s" % (username, host.name, e))
     try:
         imapconn.authenticate('PLAIN', auth_plain_cb)
-    except (imapconn.error, socket.error), e:
+    except (imapconn.error, socket.error) as e:
         raise CyrusConnectError("%s@%s: %s" % (username, host.name, e))
     return imapconn
 
@@ -270,40 +276,39 @@ def process_requests(types):
     # TODO: There is no variable containing the default log directory
     # in cereconf
 
-    reqlock = RequestLockHandler()
-    br = BofhdRequests(db, const)
-    for t in types:
-        if t == 'move' and is_ok_batch_time(time.strftime("%H:%M")):
-            # convert move_student into move_user requests
-            process_move_student_requests()
-        if t == 'email':
-            process_email_move_requests()
-        for op, process, delay in operations[t]:
-            set_operator()
-            start_time = time.time()
-            for r in br.get_requests(operation=op, only_runnable=True):
-                reqid = r['request_id']
-                logger.debug("Req: %s %d at %s, state %r",
-                             op, reqid, r['run_at'], r['state_data'])
-                if time.time() - start_time > 30 * 60:
-                    break
-                if r['run_at'] > mx.DateTime.now():
-                    continue
-                if not is_valid_request(reqid):
-                    continue
-                if reqlock.grab(reqid):
-                    if max_requests <= 0:
+    with closing(RequestLockHandler()) as reqlock:
+        br = BofhdRequests(db, const)
+        for t in types:
+            if t == 'move' and is_ok_batch_time(time.strftime("%H:%M")):
+                # convert move_student into move_user requests
+                process_move_student_requests()
+            if t == 'email':
+                process_email_move_requests()
+            for op, process, delay in operations[t]:
+                set_operator()
+                start_time = time.time()
+                for r in br.get_requests(operation=op, only_runnable=True):
+                    reqid = r['request_id']
+                    logger.debug("Req: %s %d at %s, state %r",
+                                 op, reqid, r['run_at'], r['state_data'])
+                    if time.time() - start_time > 30 * 60:
                         break
-                    max_requests -= 1
-                    if process(r):
-                        br.delete_request(request_id=reqid)
-                        db.commit()
-                    else:
-                        db.rollback()
-                        if delay:
-                            br.delay_request(reqid, minutes=delay)
+                    if r['run_at'] > mx.DateTime.now():
+                        continue
+                    if not is_valid_request(reqid):
+                        continue
+                    if reqlock.grab(reqid):
+                        if max_requests <= 0:
+                            break
+                        max_requests -= 1
+                        if process(r):
+                            br.delete_request(request_id=reqid)
                             db.commit()
-    reqlock.release()
+                        else:
+                            db.rollback()
+                            if delay:
+                                br.delay_request(reqid, minutes=delay)
+                                db.commit()
 
 
 def proc_email_create(r):
@@ -397,88 +402,87 @@ def email_move_child(host, r):
                      acc.account_name)
         return
     logger.debug("User being moved: '%s'.",  acc.account_name)
-    reqlock = RequestLockHandler()
-    if not reqlock.grab(r_id):
-        return
-    # Disable quota while copying so the move doesn't fail
-    cyrus_set_quota(acc.entity_id, 0, host=new_server, local_db=local_db)
-    # Call the script
-    cmd = [SSH_CMD, "cerebrum@%s" % host, cereconf.IMAPSYNC_SCRIPT,
-           '--user1', acc.account_name, '--host1', old_server.name,
-           '--user2', acc.account_name, '--host2', new_server.name,
-           '--authusing', cereconf.CYRUS_ADMIN,
-           '--passfile1', '/etc/cyrus.pw',
-           '--useheader', 'Message-ID',
-           '--regexmess', 's/\\0/ /g',
-           '--ssl', '--subscribe', '--nofoldersizes']
-    proc = subprocess.Popen(cmd, capturestderr=True, bufsize=10240,
-                            close_fds=True, stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    pid = proc.pid
-    logger.debug("Called cmd(%d): '%s'", pid, cmd)
-    proc.stdin.close()
-    # Stolen from Utils.py:spawn_and_log_output()
-    descriptor = {proc.stdout: logger.debug,
-                  proc.stderr: logger.info}
-    while descriptor:
-        # select() is called for _every_ line, since we can't inspect
-        # the buffering in Python's file object.  This works OK since
-        # select() will return "readable" for an unread EOF, and
-        # Python won't read the EOF until the buffers are exhausted.
-        ready, x, x = select(descriptor.keys(), [], [])
-        for fd in ready:
-            line = fd.readline()
-            if line == '':
-                fd.close()
-                del descriptor[fd]
-            else:
-                descriptor[fd]("[%d] %s" % (pid, line.rstrip()))
-    status = proc.wait()
-    if status == EXIT_SUCCESS:
-        logger.debug("[%d] Completed successfully", pid)
-    elif os.WIFSIGNALED(status):
-        # The process was killed by a signal.
-        sig = os.WTERMSIG(status)
-        logger.warning('[%d] Command "%r" was killed by signal %d',
-                       pid, cmd, sig)
-        return
-    else:
-        # The process exited with an exit status
-        sig = os.WSTOPSIG(status)
-        logger.warning("[%d] Return value was %d from command %r",
-                       pid, sig, cmd)
-        return
-    # Need move SIEVE filters as well
-    cmd = [cereconf.MANAGESIEVE_SCRIPT,
-           '-v', '-a', cereconf.CYRUS_ADMIN, '-p', pwfile,
-           acc.account_name, old_server.name, new_server.name]
-    if Utils.spawn_and_log_output(
-            cmd,
-            connect_to=[old_server.name, new_server.name]) != 0:
-        logger.warning('%s: managesieve_sync failed!', acc.account_name)
-        return
-    logger.info('%s: managesieve_sync completed successfully',
-                acc.account_name)
-    # The move was successful, update the user's server
-    # Now set the correct quota.
-    hq = get_email_hardquota(acc.entity_id, local_db=local_db)
-    cyrus_set_quota(acc.entity_id, hq, host=new_server, local_db=local_db)
-    et = Email.EmailTarget(local_db)
-    et.find_by_target_entity(acc.entity_id)
-    et.email_server_id = new_server.entity_id
-    et.write_db()
-    # We need to delete this request before adding the
-    # delete to avoid triggering the conflicting request
-    # test.
-    br = BofhdRequests(local_db, local_co)
-    br.delete_request(request_id=r_id)
-    local_db.commit()
-    br.add_request(r['requestee_id'], r['run_at'],
-                   local_co.bofh_email_delete,
-                   r['entity_id'], old_server.entity_id)
-    local_db.commit()
-    logger.info("%s: move_email success.", acc.account_name)
-    reqlock.release()
+    with closing(RequestLockHandler()) as reqlock:
+        if not reqlock.grab(r_id):
+            return
+        # Disable quota while copying so the move doesn't fail
+        cyrus_set_quota(acc.entity_id, 0, host=new_server, local_db=local_db)
+        # Call the script
+        cmd = [SSH_CMD, "cerebrum@%s" % host, cereconf.IMAPSYNC_SCRIPT,
+               '--user1', acc.account_name, '--host1', old_server.name,
+               '--user2', acc.account_name, '--host2', new_server.name,
+               '--authusing', cereconf.CYRUS_ADMIN,
+               '--passfile1', '/etc/cyrus.pw',
+               '--useheader', 'Message-ID',
+               '--regexmess', 's/\\0/ /g',
+               '--ssl', '--subscribe', '--nofoldersizes']
+        proc = subprocess.Popen(cmd, capturestderr=True, bufsize=10240,
+                                close_fds=True, stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        pid = proc.pid
+        logger.debug("Called cmd(%d): '%s'", pid, cmd)
+        proc.stdin.close()
+        # Stolen from Utils.py:spawn_and_log_output()
+        descriptor = {proc.stdout: logger.debug,
+                      proc.stderr: logger.info}
+        while descriptor:
+            # select() is called for _every_ line, since we can't inspect
+            # the buffering in Python's file object.  This works OK since
+            # select() will return "readable" for an unread EOF, and
+            # Python won't read the EOF until the buffers are exhausted.
+            ready, x, x = select(descriptor.keys(), [], [])
+            for fd in ready:
+                line = fd.readline()
+                if line == '':
+                    fd.close()
+                    del descriptor[fd]
+                else:
+                    descriptor[fd]("[%d] %s" % (pid, line.rstrip()))
+        status = proc.wait()
+        if status == EXIT_SUCCESS:
+            logger.debug("[%d] Completed successfully", pid)
+        elif os.WIFSIGNALED(status):
+            # The process was killed by a signal.
+            sig = os.WTERMSIG(status)
+            logger.warning('[%d] Command "%r" was killed by signal %d',
+                           pid, cmd, sig)
+            return
+        else:
+            # The process exited with an exit status
+            sig = os.WSTOPSIG(status)
+            logger.warning("[%d] Return value was %d from command %r",
+                           pid, sig, cmd)
+            return
+        # Need move SIEVE filters as well
+        cmd = [cereconf.MANAGESIEVE_SCRIPT,
+               '-v', '-a', cereconf.CYRUS_ADMIN, '-p', pwfile,
+               acc.account_name, old_server.name, new_server.name]
+        if Utils.spawn_and_log_output(
+                cmd,
+                connect_to=[old_server.name, new_server.name]) != 0:
+            logger.warning('%s: managesieve_sync failed!', acc.account_name)
+            return
+        logger.info('%s: managesieve_sync completed successfully',
+                    acc.account_name)
+        # The move was successful, update the user's server
+        # Now set the correct quota.
+        hq = get_email_hardquota(acc.entity_id, local_db=local_db)
+        cyrus_set_quota(acc.entity_id, hq, host=new_server, local_db=local_db)
+        et = Email.EmailTarget(local_db)
+        et.find_by_target_entity(acc.entity_id)
+        et.email_server_id = new_server.entity_id
+        et.write_db()
+        # We need to delete this request before adding the
+        # delete to avoid triggering the conflicting request
+        # test.
+        br = BofhdRequests(local_db, local_co)
+        br.delete_request(request_id=r_id)
+        local_db.commit()
+        br.add_request(r['requestee_id'], r['run_at'],
+                       local_co.bofh_email_delete,
+                       r['entity_id'], old_server.entity_id)
+        local_db.commit()
+        logger.info("%s: move_email success.", acc.account_name)
 
 
 def process_email_move_requests():
@@ -591,7 +595,7 @@ def cyrus_delete(host, uname, generation):
         logger.error("bofh_email_delete: %s: %s" % (host.name, e))
         return False
     res, listresp = cyradm.list("user.", pattern=uname)
-    if res != 'OK' or listresp[0] == None:
+    if res != 'OK' or listresp[0] is None:
         logger.error("bofh_email_delete: %s: no mailboxes", uname)
         cyradm.logout()
         return True
@@ -750,9 +754,9 @@ def is_ok_batch_time(now):
 
 def proc_move_user(r):
     try:
-        account, uname, old_host, old_disk = \
-                 get_account_and_home(r['entity_id'], type='PosixUser',
-                                      spread=r['state_data'])
+        account, uname, old_host, old_disk = get_account_and_home(
+            r['entity_id'], type='PosixUser',
+            spread=r['state_data'])
         new_host, new_disk = get_disk(r['destination_id'])
     except Errors.NotFoundError:
         logger.error("move_request: user %i not found", r['entity_id'])
