@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2003-2015 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,6 +32,8 @@ Options:
   -i | --ignore-size:      Use file class instead of SimilarSizeWriter.
   -a | --no-auth-data:     Don't populate userPassword.
   -h | --help:             This message."""
+
+from __future__ import unicode_literals
 
 import base64
 import argparse
