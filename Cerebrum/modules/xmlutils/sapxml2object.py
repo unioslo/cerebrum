@@ -140,7 +140,7 @@ class XMLOU2Object(XMLEntity2Object):
 
         kind = ext("Type")
         if not kind:
-	    return None
+            return None
 
         xml2kind = {
             "Besøksadresse": DataAddress.ADDRESS_BESOK,
@@ -463,11 +463,11 @@ class XMLPerson2Object(XMLEntity2Object):
 
     @XMLEntity2Object.exception_wrapper
     def _make_role(self, elem):
-	"""Make an employment out of a <Roller>...</Roller>.
+        """Make an employment out of a <Roller>...</Roller>.
 
-        SAP uses <Roller>-elements to designate bilagslønnede and gjester.
+              SAP uses <Roller>-elements to designate bilagslønnede and gjester.
 
-	"""
+        """
         ou_id = None
         start_date = end_date = None
         kind = None
@@ -480,7 +480,8 @@ class XMLPerson2Object(XMLEntity2Object):
             value = ensure_unicode(sub.text.strip(), self.encoding)
 
             if sub.tag == "Navn":
-            code = value
+                code = value
+
                 if value == "BILAGSLØNN":
                     kind = DataEmployment.BILAG
                 else:
@@ -495,8 +496,6 @@ class XMLPerson2Object(XMLEntity2Object):
                 start_date = self._make_mxdate(value, format="%Y-%m-%d")
             elif sub.tag == "Sluttdato":
                 end_date = self._make_mxdate(value, format="%Y-%m-%d")
-            # fi
-        # od
 
         if ou_id is None:
             return None
@@ -519,9 +518,9 @@ class XMLPerson2Object(XMLEntity2Object):
             u"Mobilnummer, jobb": DataContact.CONTACT_MOBILE_WORK,
             u"Mobilnummer, privat": DataContact.CONTACT_MOBILE_PRIVATE,
             u"Privat mobil synlig på web":
-            DataContact.CONTACT_MOBILE_PRIVATE_PUBLIC}
+                DataContact.CONTACT_MOBILE_PRIVATE_PUBLIC}
 
-	    ctype = elem.find("Type")
+        ctype = elem.find("Type")
         if ctype is None:
             return None
 
