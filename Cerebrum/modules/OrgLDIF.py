@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2004-2017 University of Oslo, Norway
+# Copyright 2004-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,22 +17,34 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import re
+from __future__ import unicode_literals
+
 import sys
 
 from collections import defaultdict
+from six import text_type
 
 import cereconf
 from Cerebrum import Entity, Errors
 from Cerebrum.Utils import Factory, auto_super, make_timer
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.modules.LDIFutils import *
-
-postal_escape_re = re.compile(r'[$\\]')
+from Cerebrum.modules.LDIFutils import (ldapconf,
+                                        container_entry_string,
+                                        entry_string,
+                                        map_spreads,
+                                        map_constants,
+                                        normalize_string,
+                                        normalize_phone,
+                                        normalize_caseExactString,
+                                        normalize_IA5String,
+                                        verify_printableString,
+                                        verify_IA5String,
+                                        postal_escape_re,
+                                        dn_escape_re,
+                                        hex_escape_match)
 
 
 class OrgLDIF(object):
-
     """Factory-class to generate the organization and person trees for LDAP.
 
     A number of cereconf.LDAP* variables control the output.
@@ -80,9 +92,10 @@ class OrgLDIF(object):
             'telephoneNumber': (None, verify_printableString, normalize_phone),
             'facsimileTelephoneNumber': (None, verify_printableString,
                                          normalize_phone),
-            'ou': (iso2utf, None, normalize_string),
-            'labeledURI': (iso2utf, None, normalize_caseExactString),
-            'mail': (None, verify_IA5String, normalize_IA5String)}
+            'ou': (None, None, normalize_string),
+            'labeledURI': (None, None, normalize_caseExactString),
+            'mail': (None, verify_IA5String, normalize_IA5String),
+        }
 
     def init_languages(self):
         self.languages, self.lang2opt, self.lang2pref, pref = [], {}, {}, -1
@@ -98,13 +111,13 @@ class OrgLDIF(object):
         self.output_languages = ldapconf(None, 'output_languages')
 
     def init_org_object_dump(self):
-        # Set variables for the organization object dump.
+        """Set variables for the organization object dump."""
         self.init_ou_root()
         if self.root_ou_id is not None:
             self.init_attr2id2contacts()
 
     def init_ou_dump(self):
-        # Set variables for the org.unit dump.
+        """Set variables for the organizational unit dump."""
         if not hasattr(self, 'root_ou_id'):
             self.init_ou_root()
         if not hasattr(self, 'ou_tree'):
@@ -123,7 +136,7 @@ class OrgLDIF(object):
         self.ou.clear()
         ou_list = self.ou.get_structure_mappings(
             self.const.OUPerspective(cereconf.LDAP_OU['perspective']))
-        self.logger.debug("OU-list length: %d", len(ou_list))
+        self.logger.debug("Number of OUs: %d", len(ou_list))
         self.ou_tree = {None: []}  # {parent ou_id or None: [child ou_id...]}
         for ou_id, parent_id in ou_list:
             if parent_id is not None:
@@ -135,7 +148,7 @@ class OrgLDIF(object):
         # Set self.root_ou_id = ou_id representing the organization, or None.
         if cereconf.LDAP_ORG['ou_id'] is None:
             self.root_ou_id = None
-        elif cereconf.LDAP_ORG['ou_id'] is not 'base':
+        elif cereconf.LDAP_ORG['ou_id'] != 'base':
             self.root_ou_id = int(cereconf.LDAP_ORG['ou_id'])
         else:
             self.init_ou_structure()
@@ -193,7 +206,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
             entry['objectClass'].append('dcObject')
         self.update_org_object_entry(entry)
         entry['objectClass'] = self.attr_unique(
-            entry['objectClass'], str.lower)
+            entry['objectClass'], text_type.lower)
         outfile.write(entry_string(self.org_dn, entry))
 
     def update_org_object_entry(self, entry):
@@ -289,7 +302,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
                 entity_id=self.ou.entity_id,
                 name_language=self.languages,
                 name_variant=name_variants):
-            name = iso2utf(row["name"].strip())
+            name = row["name"].strip()
             if name:
                 pref = var2pref[int(row['name_variant'])]
                 lnames = ou_names.setdefault(pref, [])
@@ -316,11 +329,12 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         self.update_ou_entry(entry)
         return dn, entry
 
+    @staticmethod
     def update_ou_entry(entry):
         # Override this to fill in an OU entry further before output.
         pass
-    update_ou_entry = staticmethod(update_ou_entry)
 
+    @staticmethod
     def make_ou_dn(entry, parent_dn):
         # Return the DN of this OU, or None if the OU should not be output.
         # (parent_dn is not None in this function.)
@@ -334,7 +348,6 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         # it in the DN: dn_escape_re.sub(hex_escape_match, <value>).
         return "ou=%s,%s" % (
             dn_escape_re.sub(hex_escape_match, entry['ou'][0]), parent_dn)
-    make_ou_dn = staticmethod(make_ou_dn)
 
     def fill_ou_entry_contacts(self, entry):
         # Fill in contact info for the entry with the current ou_id.
@@ -346,7 +359,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         if entry.get('labeledURI'):
             oc = entry['objectClass']
             oc.append('labeledURIObject')
-            entry['objectClass'] = self.attr_unique(oc, str.lower)
+            entry['objectClass'] = self.attr_unique(oc, text_type.lower)
         post_string, street_string = self.make_entity_addresses(
             self.ou, self.system_lookup_order)
         if post_string:
@@ -410,7 +423,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         self.person_aff_selector = self.internal_selector(
             bool, cereconf.LDAP_PERSON['affiliation_selector'])
         self.eduPersonAff_selector = self.internal_selector(
-            list, ldapconf('PERSON', 'eduPersonAffiliation_selector', utf8=list))
+            list, ldapconf('PERSON', 'eduPersonAffiliation_selector'))
         if not affiliation_only:
             self.visible_person_selector = self.internal_selector(
                 bool, cereconf.LDAP_PERSON['visible_selector'])
@@ -465,7 +478,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
                 name_language=self.languages):
             fill[int(row['name_variant'])](
                 titles.setdefault(int(row['entity_id']), {}),
-                int(row['name_language']), iso2utf(row['name']))
+                int(row['name_language']), row['name'])
         self.person_titles = dict([(p_id, t.items())
                                    for p_id, t in titles.items()])
         timer("...personal titles done.")
@@ -655,9 +668,9 @@ from None and LDAP_PERSON['dn'].""")
         if not names:
             self.logger.warn("Person %s got no names. Skipping.", person_id)
             return None, None, None
-        name = iso2utf(names.get(int(self.const.name_full), '').strip())
-        givenname = iso2utf(names.get(int(self.const.name_first), '').strip())
-        lastname = iso2utf(names.get(int(self.const.name_last), '').strip())
+        name = names.get(int(self.const.name_full), '').strip()
+        givenname = names.get(int(self.const.name_first), '').strip()
+        lastname = names.get(int(self.const.name_last), '').strip()
         if not (lastname and givenname):
             givenname, lastname = self.split_name(name, givenname, lastname)
             if not lastname:
@@ -758,7 +771,7 @@ from None and LDAP_PERSON['dn'].""")
             URIs = self.id2labeledURI.get(person_id)
             if URIs:
                 entry['labeledURI'] = self.attr_unique(
-                    map(iso2utf, URIs), normalize_caseExactString)
+                    URIs, normalize_caseExactString)
 
         if self.account_mail:
             mail = self.account_mail(account_id)
@@ -824,13 +837,13 @@ from None and LDAP_PERSON['dn'].""")
                              self.person_dn)))
         return dn, primary_ou_dn
 
+    @staticmethod
     def update_person_entry(entry, row, person_id):
         # Override this to fill in a person entry further before output.
         #
         # If there is no password, store a useless one instead of no password
         # so that a text filter can easily find and replace the password.
         entry.setdefault('userPassword', ("{crypt}*Invalid",))
-    update_person_entry = staticmethod(update_person_entry)
 
     def write_person_alias(self, outfile, dn, entry, alias_info):
         # Output an alias returned from make_person_entry().
@@ -871,7 +884,7 @@ from None and LDAP_PERSON['dn'].""")
                                       post_nr_city, country)))
         if sep == '$':
             val = postal_escape_re.sub(hex_escape_match, val)
-        return iso2utf(val.replace("\n", sep))
+        return val.replace("\n", sep)
 
     def make_entity_addresses(self, entity, lookup_order=(None,)):
         # Return [postal address, street address] for the given entity.
@@ -902,11 +915,11 @@ from None and LDAP_PERSON['dn'].""")
         entity = Entity.EntityContactInfo(self.db)
         cont_tab = {}
         if not convert:
-            convert = str
+            convert = text_type
         for row in entity.list_contact_info(entity_id=entity_id,
                                             source_system=source_system,
                                             contact_type=contact_type):
-            c_list = [convert(str(row['contact_value']))]
+            c_list = [convert(text_type(row['contact_value']))]
             if '$' in c_list[0]:
                 c_list = c_list[0].split('$')
             elif normalize == normalize_phone and '/' in c_list[0]:
@@ -1003,8 +1016,9 @@ from None and LDAP_PERSON['dn'].""")
             result = self.person_groups[name] = {}
             group = Factory.get('Group')(self.db)
             group.find_by_name(name)
-            for e in group.search_members(group_id=group.entity_id,
-                                          member_type=self.const.entity_person):
+            for e in group.search_members(
+                    group_id=group.entity_id,
+                    member_type=self.const.entity_person):
                 result[int(e["member_id"])] = True
 
         return result
@@ -1015,21 +1029,24 @@ from None and LDAP_PERSON['dn'].""")
         if selector_type is bool:
             # (value[False], value[True], finder function returning True/False)
             negate = False
-            while type(ssel) is tuple and ssel[0] == 'not' and len(ssel) == 2:
+            while (isinstance(ssel, tuple) and
+                   ssel[0] == 'not' and len(ssel) == 2):
                 negate, ssel = not negate, ssel[1]
-            if type(ssel) is tuple and ssel[0] == 'group' and len(ssel) == 2:
+            if (isinstance(ssel, tuple) and
+                    ssel[0] == 'group' and len(ssel) == 2):
                 return (negate, not negate,
                         self.init_person_group(ssel[1]).has_key)
-            if type(ssel) is type(True):
+            if isinstance(ssel, bool):
                 if negate:
                     ssel = not ssel
                 return (ssel, ssel, bool)
         elif selector_type is list:
             # (ssel,)
-            if type(ssel) is list:
+            if isinstance(ssel, list):
                 return (ssel,)
         raise ValueError("Bad simple selector: " + repr(ssel))
 
+    @staticmethod
     def select_list(selector, person_id, p_affiliations):
         """Return a list of values selected for the person and affiliations.
 
@@ -1050,8 +1067,8 @@ from None and LDAP_PERSON['dn'].""")
                     result.extend(ssel[0])
             return result
         return selector[0]
-    select_list = staticmethod(select_list)
 
+    @staticmethod
     def select_bool(selector, person_id, p_affiliations):
         """Return True if the person is selected for some of the affiliations.
 
@@ -1094,8 +1111,8 @@ from None and LDAP_PERSON['dn'].""")
                     return True
             return False
         return selector[selector[2](person_id)]
-    select_bool = staticmethod(select_bool)
 
+    @staticmethod
     def attr_unique(values, normalize=None):
         """Return the input list of values with duplicates removed.
 
@@ -1104,25 +1121,20 @@ from None and LDAP_PERSON['dn'].""")
         if len(values) < 2:
             return values
         result = []
-        done = {}
+        done = set()
         for val in values:
             if normalize:
                 norm = normalize(val)
             else:
                 norm = val
             if norm not in done:
-                done[norm] = True
+                done.add(norm)
                 result.append(val)
         return result
-    attr_unique = staticmethod(attr_unique)
-
-    # used by split_name()
-    _unicode_space_split = re.compile(ur'\S+').findall
 
     def split_name(self, fullname=None, givenname=None, lastname=None):
         """Return (UTF-8 given name, UTF-8 last name)."""
-        full, given, last = [self._unicode_space_split(
-                                unicode(n or '', 'utf-8'))
+        full, given, last = [(n or '').split(' ')
                              for n in (fullname, givenname, lastname)]
         if full and not (given and last):
             if last:
@@ -1160,4 +1172,4 @@ from None and LDAP_PERSON['dn'].""")
                         last.insert(0, full.pop())
                 if not got_given:
                     given.extend(full)
-        return [u' '.join(n).encode('utf-8') for n in given, last]
+        return [' '.join(n) for n in given, last]

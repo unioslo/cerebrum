@@ -17,13 +17,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 import pickle
 from collections import defaultdict
+from six import text_type
 
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.OrgLDIF import OrgLDIF
-from Cerebrum.modules.LDIFutils import normalize_string, iso2utf
+from Cerebrum.modules.LDIFutils import normalize_string
 from Cerebrum.modules.no.nmh.StudentStudyProgramCache import StudentStudyProgramCache
 
 
@@ -31,7 +34,7 @@ class nmhOrgLDIFMixin(OrgLDIF):
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
-        self.attr2syntax['roomNumber'] = (iso2utf, None, normalize_string)
+        self.attr2syntax['roomNumber'] = (None, None, normalize_string)
         self.person = Factory.get('Person')(self.db)
         self.pe2fagomr = self.get_fagomrade()
         self.pe2fagmiljo = self.get_fagmiljo()
@@ -59,7 +62,7 @@ class nmhOrgLDIFMixin(OrgLDIF):
                     row['entity_id'], exc)
                 continue
 
-            person2fagfelt[row['entity_id']] = [iso2utf(f) for f in fagfelt]
+            person2fagfelt[row['entity_id']] = fagfelt
 
         return person2fagfelt
 
@@ -71,11 +74,12 @@ class nmhOrgLDIFMixin(OrgLDIF):
         plaintext.
 
         """
-        return dict((row['entity_id'], iso2utf(row['strval'])) for row in
+        return dict((row['entity_id'], row['strval']) for row in
                     self.person.list_traits(self.const.trait_fagmiljo))
 
     def get_study_programs(self):
-        """Returns a dict mapping from person_id to 'studienivakode' and 'arstall_kull'."""
+        """Returns a dict mapping from person_id to 'studienivakode'
+        and 'arstall_kull'."""
         sspc = StudentStudyProgramCache(db=self.db,
                                         logger=self.logger,
                                         max_age={'hours': 12})
@@ -120,12 +124,12 @@ class nmhOrgLDIFMixin(OrgLDIF):
         entity = Entity.EntityContactInfo(self.db)
         cont_tab = defaultdict(list)
         if not convert:
-            convert = str
+            convert = text_type
         if not verify:
             verify = bool
         for row in entity.list_contact_info(source_system=source_system,
                                             contact_type=contact_type):
-            alias = convert(str(row['contact_alias']))
+            alias = convert(text_type(row['contact_alias']))
             if alias and verify(alias):
                 cont_tab[int(row['entity_id'])].append(alias)
 
@@ -154,7 +158,7 @@ class nmhOrgLDIFMixin(OrgLDIF):
                 urn = 'urn:mace:feide.no:nmh.no:studies/studyprogram/{}/{}'.format(
                     program['studieprogramkode'],
                     program['arstall_kull'])
-                urns.add(iso2utf(urn))
+                urns.add(urn)
         return dn, entry, alias_info
 
     # Fetch mail addresses from entity_contact_info of accounts, not persons.

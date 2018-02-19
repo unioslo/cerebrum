@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2004-2015 University of Oslo, Norway
+# Copyright 2004-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,10 +18,11 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from collections import defaultdict
+from six import text_type
 
 from Cerebrum import Entity
 from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
-from Cerebrum.modules.LDIFutils import normalize_string, iso2utf
+from Cerebrum.modules.LDIFutils import normalize_string
 from Cerebrum.Utils import make_timer
 
 
@@ -31,7 +32,7 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
-        self.attr2syntax['roomNumber'] = (iso2utf, None, normalize_string)
+        self.attr2syntax['roomNumber'] = (None, None, normalize_string)
 
     def init_attr2id2contacts(self):
         # Changes from the original:
@@ -75,12 +76,12 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
         entity = Entity.EntityContactInfo(self.db)
         cont_tab = defaultdict(list)
         if not convert:
-            convert = str
+            convert = text_type
         if not verify:
             verify = bool
         for row in entity.list_contact_info(source_system=source_system,
                                             contact_type=contact_type):
-            alias = convert(str(row['contact_alias']))
+            alias = convert(text_type(row['contact_alias']))
             if alias and verify(alias):
                 cont_tab[int(row['entity_id'])].append(alias)
 
@@ -96,6 +97,6 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
         employments = self.person.search_employment(main_employment=True)
         for emp in employments:
             if emp['person_id'] not in self.person_titles:
-                title = [(self.const.language_nb, iso2utf(emp['description']))]
+                title = [(self.const.language_nb, emp['description'])]
                 self.person_titles[emp['person_id']] = title
         timer("...personal employment titles done.")
