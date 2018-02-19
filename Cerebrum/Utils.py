@@ -758,14 +758,13 @@ if os.getenv('CEREBRUM_LOGUTILS'):
 
 
 def random_string(length, characters=ascii_lowercase + digits):
-    """Generate a random string of a given length using the given characters.
+    """
+    Generate a random string of a given length using the given characters.
 
     :param int length: the desired string length
     :param str characters: a set of characters to use
 
     :return str: returns a string of random characters
-    """
-    Generate a random string of a given length using the given characters.
     """
     # Create a local random object for increased randomness
     # "Use os.urandom() or SystemRandom if you require a
