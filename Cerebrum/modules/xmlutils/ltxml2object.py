@@ -151,7 +151,7 @@ class XMLPerson2Object(XMLEntity2Object):
                      make_sko("fakultetnr_utgift", "instituttnr_utgift",
                               "gruppenr_utgift"))
             if elem.get("hovedkat"):
-                category = xml2cat[ensure_unicode(elem.get("hovedkat",
+                category = xml2cat[ensure_unicode(elem.get("hovedkat"),
                                                   self.encoding)]
         # fi
 
