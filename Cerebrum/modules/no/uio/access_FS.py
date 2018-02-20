@@ -1745,6 +1745,39 @@ class UiOUndervisning(access_FS.Undervisning):
 
         return result
 
+    def list_studenter_alle_undakt(self):
+        """Hent alle studenter på alle undakt.
+
+        NB! Det kan være mange hundretusen rader i FSPROD i
+        student_pa_undervisningsparti. Det koster da en del minne.
+
+        Change from parent: Use year of previous semester
+        """
+
+        qry = """
+        SELECT
+          su.fodselsdato, su.personnr,
+          ua.institusjonsnr, ua.emnekode, ua.versjonskode, ua.terminkode,
+          ua.arstall, ua.terminnr, ua.aktivitetkode
+        FROM
+          fs.student_pa_undervisningsparti su,
+          fs.undaktivitet ua
+        WHERE
+          su.terminnr       = ua.terminnr       AND
+          su.institusjonsnr = ua.institusjonsnr AND
+          su.emnekode       = ua.emnekode       AND
+          su.versjonskode   = ua.versjonskode   AND
+          su.terminkode     = ua.terminkode     AND
+          su.arstall        = ua.arstall        AND
+          su.undpartilopenr = ua.undpartilopenr AND
+          su.disiplinkode   = ua.disiplinkode   AND
+          su.undformkode    = ua.undformkode AND
+          su.arstall >= :aar
+        """
+
+        return self.db.query(qry, {"aar": self.prev_semester_year},
+                             fetchall=False)
+
 
 @fsobject('undervisning', '>=7.8')
 class UiOUndervisning78(UiOUndervisning, access_FS.Undervisning78):
