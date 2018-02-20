@@ -1,3 +1,7 @@
+2018-02-20    <cerebrum@gagarin.uit.no>
+
+	* update_displayname.py (main): updated url to aliases to jep2n1.uit.no
+
 2018-02-16  Karen   <cerebrum@cleomedes.uit.no>
 
     * ad_export_autogroups_undervisning.py: Made changes that where necessary for this script to work 

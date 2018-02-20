@@ -217,7 +217,7 @@ def main():
 
     dryrun = False
     tmpfile = '/tmp/last_portal_dump'
-    url = 'http://jep1n1.uit.no:7080/navnealias'
+    url = 'http://jep2n1.uit.no:7080/navnealias'
     outfile = default_outfile
 
     for opt,val in opts:
