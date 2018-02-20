@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2004-2015 University of Oslo, Norway
+# Copyright 2004-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,10 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Common POSIX LDIF generator. """
 
+from __future__ import unicode_literals
+
 from collections import defaultdict
+from six import text_type
 
 import cereconf
 from Cerebrum.modules import LDIFutils
@@ -28,13 +31,9 @@ from Cerebrum import Errors
 
 
 class PosixLDIF(object):
-
     """ Generates posix-user, -filegroups and -netgroups.
-
     Does not support hosts in netgroups.
-
     """
-
     __metaclass__ = auto_super
 
     def __init__(self, db, logger, u_sprd=None, g_sprd=None, n_sprd=None,
@@ -125,7 +124,7 @@ class PosixLDIF(object):
         timer = make_timer(self.logger, 'Starting cache_group2gid...')
         self.group2gid = dict()
         for row in self.posgrp.list_posix_groups():
-            self.group2gid[row['group_id']] = str(row['posix_gid'])
+            self.group2gid[row['group_id']] = text_type(row['posix_gid'])
         timer('... done cache_group2gid')
 
     def cache_groups_and_users(self):
@@ -146,13 +145,15 @@ class PosixLDIF(object):
 
         assert spread
 
-        for row in self.grp.search_members(member_type=self.const.entity_group,
-                                           spread=spread):
+        for row in self.grp.search_members(
+                member_type=self.const.entity_group,
+                spread=spread):
             self.group2groups[row['group_id']].add(row['member_id'])
 
-        for row in self.grp.search_members(member_type=self.const.entity_account,
-                                           member_spread=self.spread_d['user'][0],
-                                           spread=spread):
+        for row in self.grp.search_members(
+                member_type=self.const.entity_account,
+                member_spread=self.spread_d['user'][0],
+                spread=spread):
             self.group2users[row['group_id']].add(row['member_id'])
 
         children_groups = get_children_not_in_group2groups()
@@ -160,17 +161,19 @@ class PosixLDIF(object):
         while children_groups:
             for group_id in children_groups:
                 self.group2groups[group_id] = set()
-            for row in self.grp.search_members(member_type=self.const.entity_group,
-                                               group_id=children_groups):
+            for row in self.grp.search_members(
+                    member_type=self.const.entity_group,
+                    group_id=children_groups):
                 member_id = row['member_id']
                 self.group2groups[row['group_id']].add(member_id)
                 extra_groups.add(member_id)
             children_groups = get_children_not_in_group2groups()
 
         if extra_groups:
-            for row in self.grp.search_members(member_type=self.const.entity_account,
-                                               member_spread=self.spread_d['user'][0],
-                                               group_id=extra_groups):
+            for row in self.grp.search_members(
+                    member_type=self.const.entity_account,
+                    member_spread=self.spread_d['user'][0],
+                    group_id=extra_groups):
                 self.group2users[row['group_id']].add(row['member_id'])
 
         timer('... done cache_groups_and_users')
@@ -297,52 +300,41 @@ class PosixLDIF(object):
             qshell = self.qh.get_shell()
             if qshell is not None:
                 shell = qshell
-        try:
-            if row['disk_id']:
-                disk_path = self.disk_tab[int(row['disk_id'])]
-            else:
-                disk_path = None
-            home = self.posuser.resolve_homedir(account_name=uname,
-                                                home=row['home'],
-                                                disk_path=disk_path)
-            # 22.07.2013: Jira, CRB-98
-            # Quick fix, treat empty "home" as an error, to make
-            # generate_posix_ldif complete
-            if not home:
-                # This event should be treated the same way as a disk_id
-                # NotFoundError -- it means that a PosixUser has no home
-                # directory set.
-                raise Exception()
-
-        except (Errors.NotFoundError, Exception):
-            self.logger.warn("User %s has no home-directory!" % uname)
+        if row['disk_id']:
+            disk_path = self.disk_tab[int(row['disk_id'])]
+        else:
+            disk_path = None
+        home = self.posuser.resolve_homedir(account_name=uname,
+                                            home=row['home'],
+                                            disk_path=disk_path)
+        if not home:
+            self.logger.warn("User %s has no home directory", uname)
             return None, None
         cn = row['name'] or row['gecos'] or uname
         gecos = latin1_to_iso646_60(row['gecos'] or cn)
-        entry = {'objectClass': ['top', 'account', 'posixAccount'],
-                 'cn': (LDIFutils.iso2utf(cn),),
-                 'uid': (uname,),
-                 'uidNumber': (str(int(row['posix_uid'])),),
-                 'gidNumber': (str(int(row['posix_gid'])),),
-                 'homeDirectory': (home,),
-                 'userPassword': (passwd,),
-                 'loginShell': (shell,),
-                 'gecos': (gecos,)}
+        entry = {
+            'objectClass': ['top', 'account', 'posixAccount'],
+            'cn': (cn,),
+            'uid': (uname,),
+            'uidNumber': (text_type(row['posix_uid']),),
+            'gidNumber': (text_type(row['posix_gid']),),
+            'homeDirectory': (home,),
+            'userPassword': (passwd,),
+            'loginShell': (shell,),
+            'gecos': (gecos,)
+        }
         self.update_user_entry(account_id, entry, row)
-        if not account_id in self.id2uname:
+        if account_id not in self.id2uname:
             self.id2uname[account_id] = uname
         else:
-            self.logger.warn('Duplicate user-entry: (%s,%s)!',
+            self.logger.warn('Duplicate user entry: (%s, %s)',
                              account_id, uname)
             return None, None
         dn = ','.join((('uid=' + uname), self.user_dn))
         return dn, entry
 
     def update_user_entry(self, account_id, entry, row):
-        """To call Mixin-class.
-        (Should consider support for multiple mixin.)
-        """
-        # FIXME: useless documentation string
+        """ Called by user_object(). Inject additional data here. """
         pass
 
     def filegroup_ldif(self, filename=None):
@@ -405,12 +397,13 @@ class PosixLDIF(object):
     def create_filegroup_object(self, group_id):
         assert group_id not in self.filegroupcache
         cache = self.groupcache[group_id]
-        entry = {'objectClass': ('top', 'posixGroup'),
-                 'cn':          LDIFutils.iso2utf(cache['name']),
-                 'gidNumber':   self.group2gid[group_id],
-                 }
+        entry = {
+            'objectClass': ('top', 'posixGroup'),
+            'cn': cache['name'],
+            'gidNumber': self.group2gid[group_id],
+        }
         if 'description' in cache:
-            entry['description'] = (LDIFutils.iso2utf(cache['description']),)
+            entry['description'] = (cache['description'],)
         self.filegroupcache[group_id] = entry
 
     def update_filegroup_entry(self, group_id):
@@ -463,7 +456,7 @@ class PosixLDIF(object):
         timer2('... done writing group objects')
         self.netgroupcache = None
         timer('... done netgroup_ldif')
-    
+
     def cache_uncached_children(self):
         timer = make_timer(self.logger, 'Starting cache_uncached_children...')
         children = set()
@@ -510,9 +503,10 @@ class PosixLDIF(object):
     def create_netgroup_object(self, group_id):
         assert group_id not in self.netgroupcache
         cache = self.groupcache[group_id]
-        entry = {'objectClass':       ('top', 'nisNetGroup'),
-                 'cn':  LDIFutils.iso2utf(cache['name'],)
-                 }
+        entry = {
+            'objectClass': ('top', 'nisNetGroup'),
+            'cn': cache['name'],
+        }
         if 'description' in cache:
             entry['description'] = \
                 latin1_to_iso646_60(cache['description']).rstrip(),
@@ -541,7 +535,7 @@ class PosixLDIF(object):
             if self.get_name:
                 try:
                     uname = self.account2name[user_id]
-                except:
+                except Exception:
                     self.logger.info("account2name user id=%s in "
                                      "group id=%s not found",
                                      user_id, group_id)
@@ -549,13 +543,14 @@ class PosixLDIF(object):
             else:
                 try:
                     uname = self.id2uname[user_id]
-                except:
+                except Exception:
                     self.logger.info("Cache enabled but user id=%s in "
                                      "group id=%s not found",
                                      user_id, group_id)
                     continue
             unames.append(uname)
         return unames
+
 
 class PosixLDIFRadius(PosixLDIF):
     """ General mixin for Radius type attributes. """
