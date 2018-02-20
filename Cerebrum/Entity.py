@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2017 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,6 +22,7 @@
 """
 
 import collections
+import six
 
 import cereconf
 from Cerebrum import Errors
@@ -481,7 +482,7 @@ class EntityNameWithLanguage(Entity):
                                 int))
         if name is not None:
             if exact_match:
-                where.append(argument_to_sql(name, "eln.name", binds, str))
+                where.append(argument_to_sql(name, "eln.name", binds, six.text_type))
             else:
                 name_pattern = prepare_string(name)
                 if name_pattern.count('%') == 0:
