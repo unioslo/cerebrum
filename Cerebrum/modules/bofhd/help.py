@@ -1,6 +1,7 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2016 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,62 +18,60 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Help-command functionality for bofhd. """
 
-# The help is stored in three dicts, which makes it possible to only
-# display a subset of the total help-text.
+# TODO: Update and clean this wall of text:
 
-# ah maps the name of a specific command-argument to its actual
-# help-text.
+_help_general = """
+BOFH help:
 
-# group_help contains the general help text, as well as help for the
-# main commands (group, user, misc etc.)
+BOFH is a command-line application for user administration.
 
-_group_help = {
-    'general': """BOFH help:
+More information about BOFH be viewed at:
+    http://www.uio.no/tjenester/it/brukernavn-passord/bofh/
 
-BOFH is a command-line based application for user administration. More
-information about BOFH be viewed at
-http://www.uio.no/tjenester/it/brukernavn-passord/bofh/. help
-<<command-group>> shows detailed information about commands in any of
-the main command groups.  A plus after an argument in the syntax
-description means that more than one argument can be given by putting
-them inside parentheses.
+help <<command-group>> shows detailed information about commands in any of the
+main command groups.  A plus after an argument in the syntax description means
+that more than one argument can be given by putting them inside parentheses.
 
-Additional help is available in form of the commands 
-<<help glossary>>, <<help intro>> and <<help basics>>. 
+Additional help is available in form of the commands <<help glossary>>,
+<<help intro>> and <<help basics>>.
+
 Available main command groups are:
-""",
-    'glossary': """Glossary of common terms in Cerebrum:
+"""
+
+_help_glossary = """
+Glossary of common terms in Cerebrum:
 - account: a user account (POSIX or generic user) in Cerebrum
-- account authentication: data needed to authenticate a particular 
+- account authentication: data needed to authenticate a particular
   user throughout the system
-- account owner: person or group which holds the ownership of an 
+- account owner: person or group which holds the ownership of an
   account
 - account type: describes the ownership of an non-personal account
   (i.e. system account, software account, group account)
 - affilliation: the role a person possess within an organizational unit
-- affiliation status code: more precise description of a persons role 
+- affiliation status code: more precise description of a persons role
   (i.e. affiliation -> STUDENT, affiliation status code -> aktiv)
   within an organizational unit
-- authoritative system: source system primarily used to update any 
+- authoritative system: source system primarily used to update any
   particular type of data in Cerebrum
-- changelog: system for keeping track of modifications to the database 
+- changelog: system for keeping track of modifications to the database
   and making other systems detect changes at sync-time
 - core: Cerebrum core API (see http://cerebrum_core...)
 - disk: a disk defined on a machine registered in Cerebrum
-- entity: an account (user), organizational unit, person or a group 
+- entity: an account (user), organizational unit, person or a group
   registered in Cerebrum (abstract concept allowing easy administration
   within Cerebrum)
 - entity id: an id assigned to each entity that exist in Cerebrum
-- email domain: the domain assignet to each e-mail address in Cerebrum 
+- email domain: the domain assignet to each e-mail address in Cerebrum
   (the part of the address after the "@")
-- export id: an internal id assigned to each entity used to ease the 
+- export id: an internal id assigned to each entity used to ease the
   export of Cerebrum-specific data to other systems
 - external id: unique id assigned to each person registered in Cerebrum
    (e.g. national social security number)
 - group: a collection of users or machines usually used to assign various
   permissions in Cerebrum or other systems
-- group visibility: 
+- group visibility:
 - home: home directory of a user registered in Cerebrum
 - uid: the numeric user ID value space in UNIX
 - host: a machine registered in Cerebrum
@@ -84,16 +83,17 @@ Available main command groups are:
 - quota: the resources available to a user in terms of storage
   (home directory or email) or printing (sheets of paper available
   per week)
-""",
-    'intro': """
-Although Cerebrum encourages use of automatic processing, a need for 
+"""
+
+_help_intro = """
+Although Cerebrum encourages use of automatic processing, a need for
 manually done modifications of the contents of the database is usually
-present in any large organization. BOFH is a command-line based client 
-software for Cerebrum developed at the University of Oslo to facilitate 
+present in any large organization. BOFH is a command-line based client
+software for Cerebrum developed at the University of Oslo to facilitate
 this need. In order to use BOFH authentication is required and privileges
-assigned to the account owner calculated (through group membership). All 
-communication between a BOFH user and the database happens during a 
-session (which starts when BOFH is started and authentication is 
+assigned to the account owner calculated (through group membership). All
+communication between a BOFH user and the database happens during a
+session (which starts when BOFH is started and authentication is
 successful). The server logs information about which actions are
 performed by which user, and also records the changes made to
 interesting attributes of registered users in the system.  This
@@ -101,10 +101,10 @@ enables the privileged users of the system to trace the changes and
 thus correct errors introduced into the system.  During a session a
 user typically executes various commands and some of these (and their
 consequences) are temporarily stored in a way that allows the user to
-retrace his or hers steps.
-Online help is also available throughout the session.  
-""",
-    'basics': """
+retrace his or her steps.
+"""
+
+_help_basics = """
 Register a new employee and create an account for them:
 Preprocessing:
 
@@ -112,13 +112,13 @@ Preprocessing:
 2. Find out what kind of affiliation the person is going to have to the OU
 
 1. Check whether the person is registered in Cerebrum
-  - jbofh >person find 
+  - jbofh >person find
     Enter person search type >name
     Enter value >Jasmina
     Id Birth Exp-id Name
     *****************************************
     72467 08.11.74 exp-72467 Jasmina Hodzic
-    ***************************************** 
+    *****************************************
 2. Check whether they already have an account at UiO
   - bofh >person accounts
     Enter person id >entity_id:72467
@@ -131,9 +131,9 @@ Preprocessing:
      Spreads: AD_account,NIS_user@uio
      Affiliations: ANSATT@USIT, GT
 
-This means that Jasmina Hodzic (id 72467) has an account (name jazz) with the 
+This means that Jasmina Hodzic (id 72467) has an account (name jazz) with the
 affiliation ANSATT, tekadm to OU 331520 (USIT, GT).
-If the person you are looking for is not registered in Cerebrum the search vil 
+If the person you are looking for is not registered in Cerebrum the search vil
 return no id. Use
 
  - jbofh >person create
@@ -149,9 +149,9 @@ return no id. Use
    Enter affiliaton >AFFILIATION
    Enter affiliation status >affilition_status_code
 
-Any cryptic error messages mean that you have typed something wrong. In case of 
-Pernilla the error message is 
-Error: Cerebrum.modules.no.fodselsnr.InvalidFnrError:Unknown error (a server 
+Any cryptic error messages mean that you have typed something wrong. In case of
+Pernilla the error message is
+Error: Cerebrum.modules.no.fodselsnr.InvalidFnrError:Unknown error (a server
 error has been logged) which means that the fødselsnummer was wrong :).
 
 4. Create an account:
@@ -173,41 +173,41 @@ the parametar you have to enter.
    Enter description >Jasmina tester.
    Group created as a normal group, internal id: 224995
 
-This means that a Cerebrum group has been created. However, if you want this 
-group to act as a file group or a net group you also need to make a posix group 
+This means that a Cerebrum group has been created. However, if you want this
+group to act as a file group or a net group you also need to make a posix group
 of it:
  - jbofh >group promote_posix
    Enter groupname >testgruppe
    Group promoted to PosixGroup, posix gid: 1030
 
-In addition you will need to give this group a spread to make it known to the 
-rest of the system. This is done by using the command spread add. If you want to 
-make "testgruppe" a file group you need to execute the following command:
+In addition you will need to give this group a spread to make it known to the
+rest of the system. This is done by using the command spread add. If you want
+to make "testgruppe" a file group you need to execute the following command:
  - jbofh >spread add
    Entity type [account] >group
    Enter id >224995
    Enter spread >NIS_fg@uio
 
-For net groups use the spread "NIS_ng@uio". Groups to be included in Active 
+For net groups use the spread "NIS_ng@uio". Groups to be included in Active
 Directory have to be given the spread AD_group.
 
 6. Move a user
-One of the most common tasks is moving a users home directory to another disk. 
-This is usually done when a person gets an affiliation to a different OU. The 
+One of the most common tasks is moving a users home directory to another disk.
+This is usually done when a person gets an affiliation to a different OU. The
 basic command for this is user move. user move accepts following options:
    1. immediate (immediately move users home directory to another disk)
    2. batch (enqueue the moving request)
    3. nofile (do not move the home directory)
    4. hard_nofile (move user to a non registered disk)
    5. student (find appropriate disk for this user and enquey the request)
-   6. student_immediate (find appropriate student disk for this user and 
+   6. student_immediate (find appropriate student disk for this user and
       move home directory)
    7. give (user has lost affiliation to your OU, let someone else take them)
    8. request (ask others for a spesific users)
    9. confirm (take a user given away)
   10. cancel (cancel the move request)
 
- - jbofh >user move 
+ - jbofh >user move
    Enter move type >give
    Enter accountname >jazztest
    Enter groupname >testgruppe
@@ -220,6 +220,19 @@ basic command for this is user move. user move accepts following options:
    OK, request registered
 
 """
+
+
+# The help is stored in three dicts, which makes it possible to only
+# display a subset of the total help-text.
+
+# group_help contains the general help text, as well as help for the
+# main commands (group, user, misc etc.)
+
+_group_help = {
+    'general': _help_general,
+    'glossary': _help_glossary,
+    'intro': _help_intro,
+    'basics': _help_basics,
 }
 
 # Help for all commands.  Format:
@@ -241,9 +254,9 @@ _arg_help = {
         ['uname', 'Enter accountname'],
     'auth_attribute':
         ['attribute', 'Enter attribute value',
-"""Possible values depend on the target's entity type.  For hosts, it
-is a regular expression matching the last component of a disk path ('mn-l.*').
-For OU's, it is an affiliation ('STUDENT')."""],
+         'Possible values depend on the target\'s entity type.  For hosts, '
+         'it is a regular expression matching the last component of a disk '
+         'path (\'mn-l.*\'). For OU\'s, it is an affiliation (\'STUDENT\').'],
     'auth_entity_type':
         ['auth_type', 'Authorisation entity type',
          'Possible values:\n'
@@ -273,65 +286,80 @@ For OU's, it is an affiliation ('STUDENT')."""],
          'Use "access list_opsets" to view a list of valid values'],
     'person_search_type':
         ['search_type', 'Enter person search type',
-         """Possible values:
-  - 'name'
-  - 'date' of birth, on format YYYY-MM-DD
-  - 'person_id'"""]
+         'Possible values:\n'
+         '- name\n- date (of birth, on format YYYY-MM-DD)\n- person_id'],
 }
-
-import pprint
-pp = pprint.PrettyPrinter(indent=4)
 
 
 class PrintLog(object):
-    """ Dummy stdout logger. """
+    """ Mock logger, prints to stdout. """
+
+    def error(self, msg):
+        """ Prints a log entry with level ERROR. """
+        print "ERROR: %s" % (msg,)
 
     def warn(self, msg):
+        """ Prints a log entry with level WARNING. """
         print "WARN: %s" % (msg,)
 
     def info(self, msg):
+        """ Prints a log entry with level INFO. """
         print "INFO: %s" % (msg,)
 
-    def error(self, msg):
-        print "ERROR: %s" % (msg,)
-
     def debug(self, msg):
+        """ Prints a log entry with level DEBUG. """
         print "DEBUG: %s" % (msg,)
+
+
+def merge_help_strings(*tuples):
+    """ Merge tuples with bofhd help_strings. """
+    groups, cmds, args = {}, {}, {}
+    for g, c, a in tuples:
+        # update group descriptions
+        groups.update(g)
+        # update command descriptions
+        for group in c:
+            cmds.setdefault(group, {}).update(c[group])
+        # update key descriptions
+        args.update(a)
+    # Filter out any unused groups
+    groups = dict((k, v) for k, v in groups.items()
+                  if k in cmds)
+    return groups, cmds, args
 
 
 class Help(object):
 
     def __init__(self, cmd_instances, logger=None):
+        """ Initialize the help text generator.
+
+        :param list cmd_instances:
+            A list of initialized BofhdCommandBase classes.
+        :param logging.Logger logger:
+            A PEP-282 compatible python logger.
+
+        """
         self.group_help = _group_help
         self.command_help = _command_help
         self.arg_help = _arg_help
-        for cls in cmd_instances:
-            self.update_from_extension(cls)
-
-        self.logger = logger
-        if not self.logger:
-            self.logger = PrintLog()
-
-    def update_from_extension(self, extension_cls):
-        u""" Update help data from a BofhdExtension. """
-        # TODO: Assert exension_cls type?
-        (group_help,
-         cmd_help,
-         arg_help) = getattr(extension_cls, "get_help_strings",
-                             lambda *args: ({}, {}, {}))()
-        for grp_name in group_help:
-            if grp_name in self.group_help:
-                # Don't overwrite existing group help
-                continue
-            self.group_help[grp_name] = group_help[grp_name]
-        for cmd_name in cmd_help:
-            self.command_help.setdefault(
-                cmd_name, {}).update(cmd_help[cmd_name])
-        for arg_ref in arg_help:
-            self.arg_help[arg_ref] = arg_help[arg_ref]
+        self.logger = logger or PrintLog()
+        for c in cmd_instances:
+            gh, ch, ah = getattr(c, "get_help_strings", lambda: ({}, {}, {}))()
+            for k in gh.keys():
+                if k in self.group_help:
+                    self.logger.debug("Duplicate group help %r" % k)
+                    # Don't overwrite existing group help
+                    continue
+                self.group_help[k] = gh[k]
+            for k in ch.keys():
+                self.command_help.setdefault(k, {}).update(ch[k])
+            for k in ah.keys():
+                self.arg_help[k] = ah[k]
 
     def _map_all_commands(self, all_commands):
-        """Return a mapping {'maingroup': {'call_func': data}}. 'data'
+        """TODO: Better doctsting.
+
+        Return a mapping {'maingroup': {'call_func': data}}. 'data'
         is whatever Command.get_struct() returned when the mapping was
         made"""
         ret = {}
@@ -339,11 +367,23 @@ class Help(object):
             ret.setdefault(all_commands[k][0][0], {})[k] = all_commands[k]
         return ret
 
-    def get_general_help(self, all_commands, no_filter=0):
+    def get_general_help(self, all_commands, no_filter=False):
+        """ Get 'general' help string, and a list of all known commands
+
+        :param dict all_commands:
+            A dict of all existing BofhCommands.
+        :param bool no_filter:
+            If the result should return a list of all commands, or a filtered
+            set of commands.
+
+        :return str:
+            Returns a help string.
+
+        """
         known_commands = self._map_all_commands(all_commands)
         keys = self.group_help.keys()
         keys.sort()
-        ret = self.group_help['general']+"\n"
+        ret = self.group_help['general'].strip() + "\n"
         keys.remove('general')
         for k in keys:
             if no_filter or k in known_commands:
@@ -351,24 +391,28 @@ class Help(object):
         return ret
 
     def _cmd_help(self, cmd_struct, call_func):
+        """ TODO: Document. """
         args = []
         if (len(cmd_struct) > 1
                 and isinstance(cmd_struct[1], (tuple, list))):
             for a in cmd_struct[1]:
                 tmp = self.arg_help[a['help_ref']][0]
-                if 'repeat' in a and a['repeat']:
+                if a.get('repeat', None):
                     tmp += "+"
-                if 'optional' in a and a['optional']:
+                if a.get('optional', None):
                     tmp = "[%s]" % tmp
                 args.append(tmp)
         return (cmd_struct[0][1],
                 args,
-                self.command_help[cmd_struct[0][0]][call_func], )
+                self.command_help[cmd_struct[0][0]][call_func])
 
     def _wrap_cmd_help(self, dta):
-        """Try to wrap the help text in a way that looks good.  This
-        is not easy to accomplish for long commands... """
+        """TODO: Better docstring.
 
+        Try to wrap the help text in a way that looks good.  This
+        is not easy to accomplish for long commands...
+
+        """
         maxlen = [0, 0]
         for d in dta:
             if len(d[0]) > maxlen[0]:
@@ -401,34 +445,45 @@ class Help(object):
 
     # TODO: Need a better way to warn about inconsistency between
     # command-defs and help data
-    def get_group_help(self, all_commands, group, no_filter=0):
-        if not self.command_help.has_key(group):
-            if self.group_help.has_key(group):
+    def get_group_help(self, all_commands, group, no_filter=False):
+        """ TODO: Document. """
+        if group not in self.command_help:
+            if group in self.group_help:
                 return self.group_help[group]
             return "Unkown command group: %s" % group
         ret = "   %-10s - %s\n" % (group, self.group_help[group])
         known_commands = self._map_all_commands(all_commands)
         call_func_keys = self.command_help[group].keys()
         call_func_keys.sort()
-        if not known_commands.has_key(group):
+        if group not in known_commands:
             return "Unkown command group: %s" % group
-        not_shown = known_commands[group].keys()
         lines = []
         for call_func in call_func_keys:
-            if no_filter or known_commands.get(group, {}).get(call_func, None) != None:
-                lines.append(self._cmd_help(all_commands[call_func], call_func))
+            cmd_group = known_commands.get(group, {})
+            if (no_filter or cmd_group.get(call_func, None) is not None):
+                lines.append(self._cmd_help(all_commands[call_func],
+                                            call_func))
         return ret + self._wrap_cmd_help(lines)
 
     def get_cmd_help(self, all_commands, maingrp, subgrp, filter=1):
+        """ TODO: Document. """
         for call_func in all_commands.keys():
             if all_commands[call_func][0] == (maingrp, subgrp):
-                sub_cmd, args, help = self._cmd_help(all_commands[call_func], call_func)
-                return "%-8s %-10s - %-30s : %s\n" % (maingrp, sub_cmd, " ".join(args), help)
+                sub_cmd, args, help = self._cmd_help(all_commands[call_func],
+                                                     call_func)
+                return "%-8s %-10s - %-30s : %s\n" % (maingrp,
+                                                      sub_cmd,
+                                                      " ".join(args),
+                                                      help)
 
     def get_arg_help(self, help_ref):
-        """Return help string for the arguemtn identified by help_ref.
+        """TODO: Better docstring.
+
+        Return help string for the arguemtn identified by help_ref.
         If help_ref is something like user_id:current, and no help is
-        specified, try returning the help for 'user_id'"""
+        specified, try returning the help for 'user_id'
+
+        """
         if len(self.arg_help[help_ref]) == 3:
             return self.arg_help[help_ref][2]
         if help_ref.find(":") > 0:
@@ -438,7 +493,9 @@ class Help(object):
         return self.arg_help[help_ref][1]
 
     def check_consistency(self, all_commands):
-        """Simple consistency check for the help text.  Checks that:
+        """ TODO: Better docstring.
+
+        Simple consistency check for the help text.  Checks that:
         - all commands have a help text
         - no help text are defined that are not used
         - no help_attrs are defined that are not used.
@@ -446,8 +503,9 @@ class Help(object):
         get_commands(), so this is not checked.
 
         Note that the check only tests data in all_commands.  Thus
-        arg_help entries from prompt_func is not detected."""
+        arg_help entries from prompt_func is not detected.
 
+        """
         # Make a semi deep copy of command_help (copy of the main dict is not
         # enough, have to copy the sub elements too):
         ch = dict((group, self.command_help[group].copy())
@@ -457,10 +515,10 @@ class Help(object):
             used_arg_help[k] = 0
         for call_func in all_commands.keys():
             grp = all_commands[call_func][0][0]
-            if ch.get(grp, {}).get(call_func, None) != None:
+            if ch.get(grp, {}).get(call_func, None) is not None:
                 del(ch[grp][call_func])
             else:
-                self.logger.info("Missing help for %s" % call_func)
+                self.logger.warn("Missing help for %s" % call_func)
             if len(all_commands[call_func]) > 1:
                 if isinstance(all_commands[call_func][1], (tuple, list)):
                     for arg in all_commands[call_func][1]:
@@ -473,31 +531,67 @@ class Help(object):
             if ch[k]:
                 self.logger.debug2("Unused help for %s" % ch[k].keys())
 
+
+def test(args=None):
+    """ Test the help structure.
+
+    :rtype: int, str
+    :return: 0 on success, non-zero value or error string on failure.
+
+    """
+    import argparse
+
+    def get_help(config=None):
+        # TODO: Read 'config' file, import and initialize classes?
+        bofhd_extensions = []
+        return Help(bofhd_extensions)
+
+    def get_all_commands():
+        # TODO: Where do we get this from?
+        return {}
+
+    def cb_general(args):
+        bofhd_help = get_help(args.config)
+        print "======================= General help ========================="
+        print bofhd_help.get_general_help(get_all_commands())
+
+    def cb_group(args):
+        bofhd_help = get_help(args.config)
+        print "\n======================== Group help ========================="
+        for g in sorted(bofhd_help.group_help.keys()):
+            print "-------------------- %s --------------------" % g
+            print bofhd_help.get_group_help(get_all_commands(), g)
+
+    def cb_command(args):
+        # TODO: This is completely useless without a config...
+        bofhd_help = get_help(args.config)
+        print "\n========================= Arg help =========================="
+        for g in sorted(bofhd_help.command_help.keys()):
+            print "-------------------- %s --------------------" % g
+            for c in sorted(bofhd_help.command_help[g].keys()):
+                print "%s - %s" % (c, bofhd_help.command_help[g][c][0])
+                for argtype in bofhd_help.command_help[g][c][2:]:
+                    print "   at=%s" % argtype
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--config',
+                        default=None,
+                        metavar='FILE',
+                        help='Bofhd config file')
+
+    subparser = parser.add_subparsers()
+    general = subparser.add_parser('general', help='General help')
+    general.set_defaults(cb=cb_general)
+    group = subparser.add_parser('group', help='Help for command groups')
+    group.set_defaults(cb=cb_group)
+    command = subparser.add_parser('command', help='Help for commands')
+    command.set_defaults(cb=cb_command)
+
+    args = parser.parse_args(args)
+    args.cb(args)
+
+    return 0
+
+
 if __name__ == '__main__':
-    import getopt
-    import sys
-
-    opts, args = getopt.getopt(sys.argv[1:], 'hga',
-                               ['help', 'group', 'arg'])
-
-    gh_keys = group_help.keys()
-    gh_keys.sort()
-    gh_keys.remove('general')
-    for opt, val in opts:
-        if opt in ('-h', '--help'):
-            print "=========================== General help ==========================="
-            get_general_help()
-        elif opt in ('-g', '--group'):
-            print "\n=========================== Group help ==========================="
-            for g in gh_keys:
-                get_group_help(g)
-        elif opt in ('-a', '--arg'):
-            print "\n============================ Arg help ============================"
-            for g in gh_keys:
-                keys2 = command_help[g].keys()
-                keys2.sort()
-                print "-------------------- %s --------------------" % g
-                for c in keys2:
-                    print "%s - %s" % (c, command_help[g][c][0])
-                    for argtype in command_help[g][c][2:]:
-                        print "   at=%s" % argtype
+    raise SystemExit(test())

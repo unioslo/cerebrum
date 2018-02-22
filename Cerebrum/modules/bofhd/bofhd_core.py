@@ -27,6 +27,9 @@ modules/no/<institution>/bofhd_<institution>_cmds.py.
 """
 
 import re
+import time
+
+from mx import DateTime
 
 import cereconf
 
@@ -34,7 +37,7 @@ from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.Constants import _CerebrumCode
-from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.utils import BofhdUtils
 
@@ -677,42 +680,82 @@ class BofhdCommandBase(object):
         # NOTREACHED
         assert False
 
-    # Moved from bofhd_email.py
-    def _split_email_address(self, addr, with_checks=True):
-        """Split an e-mail address into local part and domain.
+    def _parse_date(self, date):
+        """Convert a written date into DateTime object.  Possible
+        syntaxes are:
 
-        Additionally, perform certain basic checks to ensure that the address
-        looks sane.
+            YYYY-MM-DD       (2005-04-03)
+            YYYY-MM-DDTHH:MM (2005-04-03T02:01)
+            THH:MM           (T02:01)
 
-        @type addr: basestring
-        @param addr:
-          E-mail address to split, spelled as 'foo@domain'.
+        Time of day defaults to midnight.  If date is unspecified, the
+        resulting time is between now and 24 hour into future.
 
-        @type with_checks: bool
-        @param with_checks:
-          Controls whether to perform local part checks on the
-          address. Occasionally we may want to sidestep this (e.g. when
-          *removing* things from the database).
-
-        @rtype: tuple of (basestring, basestring)
-        @return:
-          A pair, local part and domain extracted from the L{addr}.
         """
-        from Cerebrum.modules import Email
-        if addr.count('@') == 0:
-            raise CerebrumError(
-                "E-mail address (%s) must include domain" % addr)
-        lp, dom = addr.split('@')
-        if addr != addr.lower() and \
-           dom not in cereconf.LDAP['rewrite_email_domain']:
-            raise CerebrumError(
-                "E-mail address (%s) can't contain upper case letters" % addr)
-        if not with_checks:
-            return lp, dom
-        ea = Email.EmailAddress(self.db)
-        if not ea.validate_localpart(lp):
-            raise CerebrumError("Invalid localpart '%s'" % lp)
-        return lp, dom
+        if not date:
+            # TBD: Is this correct behaviour?  mx.DateTime.DateTime
+            # objects allow comparison to None, although that is
+            # hardly what we expect/want.
+            return None
+        if isinstance(date, DateTime.DateTimeType):
+            # Why not just return date?  Answer: We do some sanity
+            # checks below.
+            date = date.Format("%Y-%m-%dT%H:%M")
+        if date.count('T') == 1:
+            date, time = date.split('T')
+            try:
+                hour, min = [int(x) for x in time.split(':')]
+            except ValueError:
+                raise CerebrumError("Time of day must be on format HH:MM")
+            if date == '':
+                now = DateTime.now()
+                target = DateTime.Date(now.year, now.month, now.day, hour, min)
+                if target < now:
+                    target += DateTime.DateTimeDelta(1)
+                date = target.Format("%Y-%m-%d")
+        else:
+            hour = min = 0
+        try:
+            y, m, d = [int(x) for x in date.split('-')]
+        except ValueError:
+            raise CerebrumError("Dates must be on format YYYY-MM-DD")
+        # TODO: this should be a proper delta, but rather than using
+        # pgSQL specific code, wait until Python has standardised on a
+        # Date-type.
+        if y > 2050:
+            raise CerebrumError("Too far into the future: %s" % date)
+        if y < 1800:
+            raise CerebrumError("Too long ago: %s" % date)
+        try:
+            return DateTime.Date(y, m, d, hour, min)
+        except:
+            raise CerebrumError("Illegal date: %s" % date)
+
+    def _parse_date_from_to(self, date):
+        """ Parse two dates, separated by '--'. """
+        date_start = self._today()
+        date_end = None
+        if date:
+            tmp = date.split("--")
+            if len(tmp) == 2:
+                if tmp[0]:  # string could start with '--'
+                    date_start = self._parse_date(tmp[0])
+                date_end = self._parse_date(tmp[1])
+            elif len(tmp) == 1:
+                date_end = self._parse_date(date)
+            else:
+                raise CerebrumError("Incorrect date specification: %s." % date)
+        return (date_start, date_end)
+
+    def _today(self):
+        """ Get today. """
+        return self._parse_date("%d-%d-%d" % time.localtime()[:3])
+
+    def _ticks_to_date(self, ticks):
+        """ Ticks to timestamp. """
+        if ticks is None:
+            return None
+        return DateTime.DateTimeFromTicks(ticks)
 
 
 class BofhdCommonMethods(BofhdCommandBase):
@@ -807,8 +850,8 @@ class BofhdCommonMethods(BofhdCommandBase):
 
         Warning: This creates issues for fullsyncs that doesn't handle state.
         Normally, the old group would get deleted and lose any data attached to
-        it, and a shiny new one would be created. Do not use unless you're aware
-        of the consequences!
+        it, and a shiny new one would be created. Do not use unless you're
+        aware of the consequences!
 
         """
         if not self.ba.is_superuser(operator.get_entity_id()):
@@ -864,10 +907,17 @@ class BofhdCommonMethods(BofhdCommandBase):
 
         # validate email
         if contact_type_code is co.contact_email:
+            contact_value = contact_value.lower()
             # validate localpart and extract domain.
-            localpart, domain = self._split_email_address(contact_value)
+            if contact_value.count('@') != 1:
+                raise CerebrumError("Email address (%r) must be on form"
+                                    "<localpart>@<domain>" % contact_value)
+            localpart, domain = contact_value.split('@')
+            ea = Email.EmailAddress(self.db)
             ed = Email.EmailDomain(self.db)
             try:
+                if not ea.validate_localpart(localpart):
+                    raise AttributeError('Invalid local part')
                 ed._validate_domain_name(domain)
             except AttributeError, e:
                 raise CerebrumError(e)

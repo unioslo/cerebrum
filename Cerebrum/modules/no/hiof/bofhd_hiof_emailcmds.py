@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2007-2016 University of Oslo, Norway
+# Copyright 2007-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-u""" HiOF bohfd email module. """
+""" HiOF bohfd email module. """
 
 import imaplib
 import socket
@@ -26,17 +26,13 @@ import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.modules import Email
-
+from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
-from Cerebrum.modules.bofhd.auth import BofhdAuth
+from Cerebrum.modules.bofhd.bofhd_utils import copy_command
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase, BofhdCommonMethods
-from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailMixin
-from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
-from Cerebrum.modules.no.hiof import bofhd_hiof_help
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import TimeoutException
+from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import ConnectException
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import TimeoutException
 
 
 def format_day(field):
@@ -44,46 +40,48 @@ def format_day(field):
     return ":".join((field, "date", fmt))
 
 
-uio_helpers = [
-    '_get_affiliationid',
-    '_get_host',
-]
+class EmailAuth(bofhd_email.BofhdEmailAuth):
 
-# Decide which email mixins to use
-email_mixin_commands = [
-    'email_add_address',
-    'email_add_domain_affiliation',
-    'email_create_domain',
-    'email_domain_configuration',
-    'email_domain_info',
-    'email_info',
-    'email_primary_address',
-    'email_reassign_address',
-    'email_remove_address',
-    'email_remove_domain_affiliation',
-    'email_update',
-]
+    def can_email_replace_server(self, operator, query_run_any=False):
+        if self.is_postmaster(operator, query_run_any=query_run_any):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to superusers")
 
 
 @copy_command(
-    BofhdEmailMixin,
-    'default_email_commands', 'all_commands',
-    commands=email_mixin_commands)
-@copy_func(
-    UiOBofhdExtension,
-    methods=uio_helpers)
-class BofhdExtension(BofhdEmailMixin, BofhdCommandBase):
+    bofhd_email.BofhdEmailCommands,
+    'all_commands', 'all_commands',
+    commands=[
+        'email_add_address',
+        'email_add_domain_affiliation',
+        'email_create_domain',
+        'email_domain_configuration',
+        'email_domain_info',
+        'email_info',
+        'email_primary_address',
+        'email_reassign_address',
+        'email_remove_address',
+        'email_remove_domain_affiliation',
+        'email_update',
+    ]
+)
+class BofhdExtension(bofhd_email.BofhdEmailCommands):
 
     OU_class = Utils.Factory.get('OU')
 
     all_commands = {}
-    authz = BofhdAuth
+    hidden_commands = {}
+    parent_commands = False  # copied with copy_command
+    omit_parent_commands = set()
+    authz = EmailAuth
 
     @classmethod
     def get_help_strings(cls):
-        return (bofhd_hiof_help.group_help,
-                bofhd_hiof_help.command_help,
-                bofhd_hiof_help.arg_help)
+        return merge_help_strings(
+            super(BofhdExtension, cls).get_help_strings(),
+            ({}, HELP_CMDS, {}))
 
     def _email_info_basic(self, acc, et):
         """ Basic email info. """
@@ -151,15 +149,19 @@ class BofhdExtension(BofhdEmailMixin, BofhdCommandBase):
                     used = 'DOWN'
                 except ConnectException as e:
                     used = str(e)
-                info.append({'quota_hard': eq.email_quota_hard,
-                             'quota_soft': eq.email_quota_soft,
-                             'quota_used': used})
+                info.append({
+                    'quota_hard': eq.email_quota_hard,
+                    'quota_soft': eq.email_quota_soft,
+                    'quota_used': used,
+                })
                 if limit is not None and limit != eq.email_quota_hard:
                     info.append({'quota_server': limit})
             else:
                 # Just get quotas
-                info.append({'dis_quota_hard': eq.email_quota_hard,
-                             'dis_quota_soft': eq.email_quota_soft})
+                info.append({
+                    'dis_quota_hard': eq.email_quota_hard,
+                    'dis_quota_soft': eq.email_quota_soft,
+                })
         except Errors.NotFoundError:
             pass
         return info
@@ -173,26 +175,32 @@ class BofhdExtension(BofhdEmailMixin, BofhdCommandBase):
         cmd_param.SimpleString(),
         fs=cmd_param.FormatSuggestion(
             "Ok, new email server: %s", ('new_server', )),
-        perm_filter='can_email_address_add')
+        perm_filter='can_email_replace_server')
 
     def email_replace_server(self, operator, user, server_name):
         """ Replace the server for an email target. """
-        if not self.ba.is_postmaster(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+        self.ba.can_email_replace_server(operator.get_entity_id())
         et = self._get_email_target_for_account(user)
         es = Email.EmailServer(self.db)
         es.clear()
         try:
             es.find_by_name(server_name)
         except Errors.NotFoundError:
-            raise CerebrumError("No such server: '%s'" % server_name)
+            raise CerebrumError("No such server: %r" % server_name)
         if et.email_server_id != es.entity_id:
             et.email_server_id = es.entity_id
             try:
                 et.write_db()
-            except self.db.DatabaseError, m:
+            except self.db.DatabaseError as m:
                 raise CerebrumError("Database error: %s" % m)
         else:
-            raise CerebrumError(
-                "No change, from-server equeals to-server: %s" % server_name)
+            raise CerebrumError("No change, from-server equeals to-server: %r"
+                                % server_name)
         return {'new_server': server_name, }
+
+
+HELP_CMDS = {
+    'email': {
+        'email_replace_server': 'Set new email server for a user',
+    }
+}

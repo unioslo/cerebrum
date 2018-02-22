@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2016, University of Oslo, Norway
+# Copyright 2013-2018, University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,13 +20,13 @@
 """Commands for BOFHD EntityNote functionality."""
 
 from Cerebrum.modules import Note
-from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import (Command,
                                               FormatSuggestion,
                                               Id,
                                               SimpleString)
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 
 
 def format_time(field):
@@ -35,12 +34,39 @@ def format_time(field):
     return ':'.join((field, "date", fmt))
 
 
+class EntityNoteBofhdAuth(BofhdAuth):
+
+    def can_add_notes(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Permission denied")
+
+    def can_remove_notes(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Permission denied")
+
+    def can_show_notes(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if self._has_operation_perm_somewhere(operator,
+                                              self.const.auth_set_password):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Permission denied")
+
+
 class BofhdExtension(BofhdCommonMethods):
-    u""" Extends bofhd with a 'note' command group. """
+    """ Extends bofhd with a 'note' command group. """
 
     all_commands = {}
     parent_commands = False
-    authz = BofhdAuth
+    authz = EntityNoteBofhdAuth
 
     @classmethod
     def get_help_strings(cls):
@@ -56,6 +82,7 @@ class BofhdExtension(BofhdCommonMethods):
             },
         }
 
+        # TODO: Missing id:target:entity
         arg_help = {
             'note_id':
                 ['note_id', 'Enter note ID',
@@ -174,5 +201,5 @@ class BofhdExtension(BofhdCommonMethods):
                 return "Note #%s associated with entity %s was removed" % (
                     note_id, entity_target)
 
-        raise CerebrumError("Note #%s is not associated with entity %s" % (
-            note_id, entity_target))
+        raise CerebrumError("Note #%s is not associated with entity %s" %
+                            (note_id, entity_target))

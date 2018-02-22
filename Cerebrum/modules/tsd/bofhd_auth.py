@@ -1,5 +1,6 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2013 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2013-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,17 +29,10 @@ In TSD, you have the user groups:
   be able to modify some of their own information.
 
 """
-
-import cerebrum_path
-import cereconf
-
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum import Constants
-from Cerebrum import Utils
-from Cerebrum import Cache
-from Cerebrum import Errors
 from Cerebrum.modules.bofhd.auth import BofhdAuth
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+
 
 class TSDBofhdAuth(BofhdAuth):
     """The BofhdAuth class for TSD."""

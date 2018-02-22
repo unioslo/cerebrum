@@ -23,29 +23,27 @@
 from mx import DateTime
 
 import cereconf
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum import Utils
-from Cerebrum import Errors
-from Cerebrum import Database
 
+from Cerebrum import Database
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules import Note
+from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
-from Cerebrum.modules.no.hia import bofhd_hia_help
+from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
+                                         BofhdAuthRole)
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailMixin
-from Cerebrum.modules.bofhd.bofhd_email_list import BofhdEmailSympaMixin
+from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
+from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, \
-    BofhdAuthRole
-from Cerebrum.modules.no.hia.bofhd_uia_auth import BofhdAuth
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hia.access_FS import FS
-
-from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
-from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
+from Cerebrum.modules.no.hia.bofhd_uia_auth import BofhdAuth
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as base
 
 
 def format_day(field):
@@ -70,7 +68,6 @@ def date_to_string(date):
 
 # Helper methods from bofhd_uio_cmd
 uio_helpers = [
-    '_convert_ticks_to_timestamp',
     '_entity_info',
     '_fetch_member_names',
     '_format_changelog_entry',
@@ -102,13 +99,11 @@ uio_helpers = [
     '_list_access',
     '_lookup_old_uid',
     '_manipulate_access',
-    '_parse_date',
     '_person_affiliation_add_helper',
     '_person_create_externalid_helper',
     '_remove_auth_role',
     '_remove_auth_target',
     '_revoke_auth',
-    '_today',
     '_validate_access',
     '_validate_access_disk',
     '_validate_access_global_group',
@@ -209,64 +204,17 @@ copy_uio_hidden = [
     'get_constant_description',
 ]
 
-# Decide which email mixins to use
-email_mixin_commands = [
-    'email_add_address',
-    'email_add_domain_affiliation',
-    'email_add_filter',
-    'email_add_forward',
-    'email_add_tripnote',
-    'email_create_domain',
-    'email_create_forward',
-    'email_domain_configuration',
-    'email_domain_info',
-    'email_forward',
-    'email_info',
-    'email_list_tripnotes',
-    'email_local_delivery',
-    'email_mod_name',
-    'email_quota',
-    'email_reassign_address',
-    'email_remove_address',
-    'email_remove_domain_affiliation',
-    'email_remove_filter',
-    'email_remove_forward',
-    'email_remove_tripnote',
-    'email_set_primary_address',
-    'email_spam_action',
-    'email_spam_level',
-    'email_tripnote',
-    'email_update',
-]
-
-# Decide which sympa list commands to use
-email_sympa_mixin_commands = [
-    'sympa_create_list',
-    'sympa_create_list_alias',
-    'sympa_create_list_in_cerebrum',
-    'sympa_remove_list',
-    'sympa_remove_list_alias',
-]
-
 
 @copy_command(
-    BofhdEmailMixin,
-    'default_email_commands', 'all_commands',
-    commands=email_mixin_commands)
-@copy_command(
-    BofhdEmailSympaMixin,
-    'default_sympa_commands', 'all_commands',
-    commands=email_sympa_mixin_commands)
-@copy_command(
-    UiOBofhdExtension,
+    base,
     'hidden_commands', 'hidden_commands',
     commands=copy_uio_hidden)
 @copy_command(
-    UiOBofhdExtension,
+    base,
     'all_commands', 'all_commands',
     commands=copy_uio)
 @copy_func(
-    UiOBofhdExtension,
+    base,
     methods=uio_helpers + copy_uio + copy_uio_hidden)
 @copy_func(
     BofhdUserCreateMethod,
@@ -276,10 +224,7 @@ email_sympa_mixin_commands = [
         '_user_password'
     ]
 )
-class BofhdExtension(
-        BofhdCommonMethods,
-        BofhdEmailMixin,
-        BofhdEmailSympaMixin):
+class BofhdExtension(BofhdCommonMethods):
     """ The main UiA BofhdExtension. """
 
     external_id_mappings = {}
@@ -294,7 +239,8 @@ class BofhdExtension(
 
     @classmethod
     def get_help_strings(cls):
-        return bofhd_hia_help.get_help_strings()
+        return merge_help_strings(get_help_strings(),
+                                  (HELP_GROUPS, HELP_CMDS, HELP_ARGS))
 
     # helpers needed for spread_add, cannot be copied in the usual way
     #
@@ -341,10 +287,10 @@ class BofhdExtension(
         if not is_moderator:
             return
 
-        mapping = { int(self.const.spread_nis_user):
-                    int(self.const.spread_nis_fg),
-                    int(self.const.spread_ans_nis_user):
-                    int(self.const.spread_ans_nis_fg) }
+        mapping = {int(self.const.spread_nis_user):
+                   int(self.const.spread_nis_fg),
+                   int(self.const.spread_ans_nis_user):
+                   int(self.const.spread_ans_nis_fg)}
         wanted = []
         for r in account.get_spread():
             spread = int(r['spread'])
@@ -360,34 +306,6 @@ class BofhdExtension(
                 group.delete_spread(spread)
         for spread in wanted:
             group.add_spread(spread)
-
-    def _email_info_detail(self, acc):
-        info = []
-        eq = Email.EmailQuota(self.db)
-        try:
-            eq.find_by_target_entity(acc.entity_id)
-            et = Email.EmailTarget(self.db)
-            et.find_by_target_entity(acc.entity_id)
-            es = Email.EmailServer(self.db)
-            es.find(et.email_server_id)
-            used = 'N/A'
-            limit = None
-            homemdb = None
-            tmp = acc.get_trait(self.const.trait_exchange_mdb)
-            if tmp != None:
-                homemdb = tmp['strval']
-            else:
-                homemdb = 'N/A'
-            info.append({'quota_hard': eq.email_quota_hard,
-                         'quota_soft': eq.email_quota_soft,
-                         'quota_used': used})
-            info.append({'dis_quota_hard': eq.email_quota_hard,
-                         'dis_quota_soft': eq.email_quota_soft})
-            # should not be shown for accounts without exchange-spread, needs fixin', Jazz 2011-02-21
-            info.append({'homemdb': homemdb})
-        except Errors.NotFoundError:
-            pass
-        return info
 
     def _append_entity_notes(self, info_list, operator, entity_id):
         """Helper for adding entity notes to the output of info commands,
@@ -410,64 +328,6 @@ class BofhdExtension(
                 })
         except:
             pass
-
-    #
-    # email migrate
-    # will be used for migretion of mail accounts from IMAP to Exchange
-    #
-    all_commands['email_exchange_migrate'] = cmd_param.Command(
-        ("email", "exchange_migrate"),
-        cmd_param.AccountName(help_ref="account_name", repeat=True),
-        perm_filter='can_email_move')
-
-    def email_exchange_migrate(self, operator, uname):
-        acc = self._get_account(uname)
-        self.ba.can_email_move(operator.get_entity_id(), acc)
-        # raise error if no e-mail account exist in IMAP
-        if (not acc.has_spread(self.const.spread_hia_email) or
-                not acc.has_spread(self.const.spread_exchange_acc_old)):
-            raise CerebrumError("No mail spread to migrate from for %s" % uname)
-        et = Email.EmailTarget(self.db)
-        et.find_by_target_entity(acc.entity_id)
-        # raise error if e-mail target is deleted
-        if et.email_target_type == self.const.email_target_deleted:
-            raise CerebrumError("Cannot migrate deleted e-mail target for account %s", uname)
-        # assign new e-mail server
-        es = Email.EmailServer(self.db)
-        # only one exchange server is in use at UiA
-        es.find_by_name('exchkrs01.uia.no')
-        et.email_server_id = es.entity_id
-        et.write_db()
-        # remove IMAP- and old Exchange-spread
-        acc.delete_spread(self.const.spread_hia_email)
-        acc.delete_spread(self.const.spread_exchange_acc_old)
-        acc.write_db()
-        # add exchange-spread
-        if not acc.has_spread(self.const.spread_exchange_account):
-            acc.add_spread(self.const.spread_exchange_account)
-            acc.write_db()
-        return "OK, migrating %s to Exchange" % (uname)
-
-    #
-    # email move
-    #
-    all_commands['email_move'] = cmd_param.Command(
-        ("email", "move"),
-        cmd_param.AccountName(help_ref="account_name", repeat=True),
-        cmd_param.SimpleString(help_ref='string_email_host'),
-        perm_filter='can_email_move')
-
-    def email_move(self, operator, uname, server):
-        acc = self._get_account(uname)
-        self.ba.can_email_move(operator.get_entity_id(), acc)
-        et = Email.EmailTarget(self.db)
-        et.find_by_target_entity(acc.entity_id)
-        old_server = et.email_server_id
-        es = Email.EmailServer(self.db)
-        es.find_by_name(server)
-        et.email_server_id = es.entity_id
-        et.write_db()
-        return "OK, updated e-mail server for %s (to %s)" % (uname, server)
 
     #
     # person info <persin-id>
@@ -525,10 +385,11 @@ class BofhdExtension(
         except Errors.NotFoundError:
             raise CerebrumError("No name is registered for this person")
 
-        data = [{'name': p_name,
-                 'entity_id': person.entity_id,
-                 'birth': date_to_string(person.birth_date),
-                 'entity_id': person.entity_id}]
+        data = [{
+            'birth': date_to_string(person.birth_date),
+            'entity_id': person.entity_id,
+            'name': p_name,
+        }]
 
         affiliations = []
         sources = []
@@ -708,16 +569,20 @@ class BofhdExtension(
         else:
             # Accounts deleted or expired
             accounts = account.get_account_types(owner_id=person.entity_id,
-                                                filter_expired=False)
+                                                 filter_expired=False)
             if accounts:
                 account.clear()
                 account.find(accounts[0]['account_id'])
-                data.append({'prim_acc': account.account_name,
-                             'prim_acc_status':
-                                'Expired %s' % account.expire_date.date})
+                data.append({
+                    'prim_acc': account.account_name,
+                    'prim_acc_status':
+                    'Expired %s' % account.expire_date.date,
+                })
             else:
-                data.append({'prim_acc': None,
-                             'prim_acc_status': 'none found'})
+                data.append({
+                    'prim_acc': None,
+                    'prim_acc_status': 'none found',
+                })
         # Fetch primary email
         if acc_id:
             data.append({'prim_email': account.get_primary_mailaddress()})
@@ -733,7 +598,8 @@ class BofhdExtension(
         cmd_param.PersonId(),
         fs=cmd_param.FormatSuggestion([
             ("Studieprogrammer: %s, %s, %s, tildelt=%s->%s privatist: %s",
-             ("studprogkode", "studierettstatkode", "status", format_day("dato_studierett_tildelt"),
+             ("studprogkode", "studierettstatkode", "status",
+              format_day("dato_studierett_tildelt"),
               format_day("dato_studierett_gyldig_til"), "privatist")),
             ("Eksamensmeldinger: %s (%s), %s",
              ("ekskode", "programmer", format_day("dato"))),
@@ -755,45 +621,62 @@ class BofhdExtension(
         if not fnr:
             raise CerebrumError("No matching fnr from FS")
         fodselsdato, pnum = fodselsnr.del_fnr(fnr[0]['external_id'])
-        har_opptak = {}
         ret = []
         db = Database.connect(user="I0201_cerebrum", service="FSUIA.uio.no",
                               DB_driver='cx_Oracle')
         fs = FS(db)
+
+        har_opptak = set()
         for row in fs.student.get_studierett(fodselsdato, pnum):
-            har_opptak["%s" % row['studieprogramkode']] = \
-                              row['status_privatist']
-            ret.append({'studprogkode': row['studieprogramkode'],
-                        'studierettstatkode': row['studierettstatkode'],
-                        'status': row['studentstatkode'],
-                        'dato_studierett_tildelt': DateTime.DateTimeFromTicks(row['dato_studierett_tildelt']),
-                        'dato_studierett_gyldig_til': DateTime.DateTimeFromTicks(row['dato_studierett_gyldig_til']),
-                        'privatist': row['status_privatist']})
+            har_opptak.add(row['studieprogramkode'])
+            ret.append({
+                'studprogkode': row['studieprogramkode'],
+                'studierettstatkode': row['studierettstatkode'],
+                'status': row['studentstatkode'],
+                'dato_studierett_tildelt': DateTime.DateTimeFromTicks(
+                    row['dato_studierett_tildelt']),
+                'dato_studierett_gyldig_til': DateTime.DateTimeFromTicks(
+                    row['dato_studierett_gyldig_til']),
+                'privatist': row['status_privatist'],
+            })
 
         for row in fs.student.get_eksamensmeldinger(fodselsdato, pnum):
             programmer = []
             for row2 in fs.info.get_emne_i_studieprogram(row['emnekode']):
-                if har_opptak.has_key("%s" % row2['studieprogramkode']):
+                if row2['studieprogramkode'] in har_opptak:
                     programmer.append(row2['studieprogramkode'])
-            ret.append({'ekskode': row['emnekode'],
-                        'programmer': ",".join(programmer),
-                        'dato': DateTime.DateTimeFromTicks(row['dato_opprettet'])})
+            ret.append({
+                'ekskode': row['emnekode'],
+                'programmer': ",".join(programmer),
+                'dato': DateTime.DateTimeFromTicks(row['dato_opprettet']),
+            })
 
         for row in fs.student.get_utdanningsplan(fodselsdato, pnum):
-            ret.append({'studieprogramkode': row['studieprogramkode'],
-                        'terminkode_bekreft': row['terminkode_bekreft'],
-                        'arstall_bekreft': row['arstall_bekreft'],
-                        'dato_bekreftet': DateTime.DateTimeFromTicks(row['dato_bekreftet'])})
+            ret.append({
+                'studieprogramkode': row['studieprogramkode'],
+                'terminkode_bekreft': row['terminkode_bekreft'],
+                'arstall_bekreft': row['arstall_bekreft'],
+                'dato_bekreftet': DateTime.DateTimeFromTicks(
+                    row['dato_bekreftet']),
+            })
 
         for row in fs.student.get_semreg(fodselsdato, pnum):
-            ret.append({'regformkode': row['regformkode'],
-                        'betformkode': row['betformkode'],
-                        'dato_betaling': DateTime.DateTimeFromTicks(row['dato_betaling']),
-                        'dato_regform_endret': DateTime.DateTimeFromTicks(row['dato_regform_endret'])})
+            ret.append({
+                'regformkode': row['regformkode'],
+                'betformkode': row['betformkode'],
+                'dato_betaling': DateTime.DateTimeFromTicks(
+                    row['dato_betaling']),
+                'dato_regform_endret':
+                DateTime.DateTimeFromTicks(row['dato_regform_endret']),
+            })
 
         for row in fs.student.get_student_kull(fodselsdato, pnum):
-            ret.append({'kullkode': "%s-%s-%s" % (row['studieprogramkode'], row['terminkode_kull'], row['arstall_kull']),
-                'status_aktiv': row['status_aktiv']})
+            ret.append({
+                'kullkode': "%s-%s-%s" % (row['studieprogramkode'],
+                                          row['terminkode_kull'],
+                                          row['arstall_kull']),
+                'status_aktiv': row['status_aktiv'],
+            })
 
         db.close()
         return ret
@@ -857,42 +740,42 @@ class BofhdExtension(
         account = self._get_account(accountname)
         disk_id, home = self._get_disk(disk)[1:3]
         homedir_id = None
-        home_spread = False
-        for s in cereconf.HOME_SPREADS:
-            if spread == str(getattr(self.const, s)):
-                home_spread = True
-                break
+        home_spreads = [getattr(self.const, s) for s in cereconf.HOME_SPREADS]
+        spread = self._get_constant(self.const.Spread, spread)
         if home is not None:
             if home[0] == ':':
                 home = home[1:]
             else:
                 raise CerebrumError("Invalid disk")
         self.ba.can_create_user(operator.get_entity_id(), account)
-        is_posix = False
         try:
             self._get_account(accountname, actype="PosixUser")
-            is_posix = True
         except CerebrumError:
-            pass
-        if not is_posix:
-            raise CerebrumError("This user is not a posix user. Please use 'user promote_posix' first.")
-        if not home_spread:
+            raise CerebrumError("This user is not a posix user. Please use"
+                                " 'user promote_posix' first.")
+        if spread not in home_spreads:
             raise CerebrumError("Cannot assign home in a non-home spread!")
-        if account.has_spread(int(self._get_constant(self.const.Spread, spread))):
+        if account.has_spread(int(spread)):
             try:
-                if account.get_home(int(self._get_constant(self.const.Spread, spread))):
-                    return "User already has a home in spread %s, use user move" % spread
+                account.get_home(int(spread))
             except:
-                homedir_id = account.set_homedir(disk_id=disk_id, home=home,
-                                                 status=self.const.home_status_not_created)
+                homedir_id = account.set_homedir(
+                    disk_id=disk_id,
+                    home=home,
+                    status=self.const.home_status_not_created)
+            else:
+                raise CerebrumError("User already has a home in spread %s,"
+                                    " use user move" % str(spread))
 
         else:
-            account.add_spread(self._get_constant(self.const.Spread, spread))
-            homedir_id = account.set_homedir(disk_id=disk_id, home=home,
-                                             status=self.const.home_status_not_created)
-        account.set_home(int(self._get_constant(self.const.Spread, spread)), homedir_id)
+            account.add_spread(int(spread))
+            homedir_id = account.set_homedir(
+                disk_id=disk_id,
+                home=home,
+                status=self.const.home_status_not_created)
+        account.set_home(int(spread), homedir_id)
         account.write_db()
-        return "Home made for %s in spread %s" % (accountname, spread)
+        return "Home made for %s in spread %s" % (accountname, str(spread))
 
     #
     # user info
@@ -933,42 +816,47 @@ class BofhdExtension(
             is_posix = True
         except CerebrumError:
             account = self._get_account(accountname)
-        if account.is_deleted() and not self.ba.is_superuser(operator.get_entity_id()):
+        if (account.is_deleted()
+                and not self.ba.is_superuser(operator.get_entity_id())):
             raise CerebrumError("User is deleted")
         affiliations = []
         for row in account.get_account_types(filter_expired=False):
             ou = self._get_ou(ou_id=row['ou_id'])
-            affiliations.append("%s@%s" %
-                                (self.const.PersonAffiliation(row['affiliation']),
-                                 self._format_ou_name(ou)))
-        tmp = {'disk_id': None, 'home': None, 'status': None,
-               'homedir_id': None}
+            affiliations.append(
+                "%s@%s" % (self.const.PersonAffiliation(row['affiliation']),
+                           self._format_ou_name(ou)))
+        tmp = {
+            'disk_id': None,
+            'home': None,
+            'status': None,
+            'homedir_id': None,
+        }
         hm = []
         # fixme: UiA does not user home_status as per today. this should
         # probably be fixed
         # home_status = None
         home = None
-        for spread in cereconf.HOME_SPREADS:
+        for spread in (getattr(self.const, s) for s in cereconf.HOME_SPREADS):
             try:
-                tmp = account.get_home(getattr(self.const, spread))
+                tmp = account.get_home(spread)
                 if tmp['disk_id'] or tmp['home']:
                     tmp_home = account.resolve_homedir(disk_id=tmp['disk_id'],
                                                        home=tmp['home'])
-                # home_status = str(self.const.AccountHomeStatus(tmp['status']))
-                hm.append("%s (%s)" % (tmp_home, str(getattr(self.const, spread))))
+                hm.append("%s (%s)" % (tmp_home, str(spread)))
             except Errors.NotFoundError:
                 pass
         home = ("\n" + (" " * 15)).join([x for x in hm])
-        ret = [{'entity_id': account.entity_id,
-                'username': account.account_name,
-                'spread': ",".join([str(self.const.Spread(a['spread']))
-                                    for a in account.get_spread()]),
-                'affiliations': (",\n" + (" " * 15)).join(affiliations),
-                'expire': account.expire_date,
-                'home': home,
-                'owner_id': account.owner_id,
-                'owner_type': str(self.const.EntityType(account.owner_type))
-                }]
+        ret = [{
+            'entity_id': account.entity_id,
+            'username': account.account_name,
+            'spread': ",".join([str(self.const.Spread(a['spread']))
+                                for a in account.get_spread()]),
+            'affiliations': (",\n" + (" " * 15)).join(affiliations),
+            'expire': account.expire_date,
+            'home': home,
+            'owner_id': account.owner_id,
+            'owner_type': str(self.const.EntityType(account.owner_type))
+        }]
         if account.owner_type == self.const.entity_person:
             person = self._get_person('entity_id', account.owner_id)
             try:
@@ -983,21 +871,26 @@ class BofhdExtension(
             ret[0]['owner_desc'] = grp.group_name
 
         if is_posix:
-            group = self._get_group(account.gid_id, idtype='id', grtype='PosixGroup')
+            group = self._get_group(account.gid_id,
+                                    idtype='id',
+                                    grtype='PosixGroup')
             ret.append({
                 'uid': account.posix_uid,
                 'dfg_posix_gid': group.posix_gid,
                 'dfg_name': group.group_name,
                 'gecos': account.gecos,
-                'shell': str(self.const.PosixShell(account.shell))})
+                'shell': str(self.const.PosixShell(account.shell)),
+            })
 
         # Contact info
         for row in account.get_contact_info():
-            ret.append({'contact_type': str(self.const.ContactInfo(
-                                                        row['contact_type'])),
-                        'contact_value': row['contact_value'],
-                        'contact_src': str(self.const.AuthoritativeSystem(
-                                                        row['source_system']))})
+            ret.append({
+                'contact_type': str(self.const.ContactInfo(
+                    row['contact_type'])),
+                'contact_value': row['contact_value'],
+                'contact_src': str(self.const.AuthoritativeSystem(
+                    row['source_system'])),
+            })
 
         # TODO: Return more info about account
         quarantined = None
@@ -1045,7 +938,7 @@ class BofhdExtension(
         if is_posix:
             raise CerebrumError("%s is already a PosixUser" % accountname)
         account = self._get_account(accountname)
-        pu = Utils.Factory.get('PosixUser')(self.db)
+        pu = Factory.get('PosixUser')(self.db)
         old_uid = self._lookup_old_uid(account.entity_id)
         if old_uid is None:
             uid = pu.get_free_uid()
@@ -1059,7 +952,8 @@ class BofhdExtension(
             disk_id, home = self._get_disk(home)[1:3]
         else:
             if not self.ba.is_superuser(operator.get_entity_id()):
-                raise PermissionDenied("only superusers may use hardcoded path")
+                raise PermissionDenied("only superusers may use hardcoded"
+                                       " path")
             disk_id, home = None, home[1:]
         if account.owner_type == self.const.entity_person:
             person = self._get_person("entity_id", account.owner_id)
@@ -1144,10 +1038,11 @@ class BofhdExtension(
                     person = self._get_person("entity_id", c[i]['person_id'])
                     map.append((
                         ("%8i %s", int(c[i]['person_id']),
-                         person.get_name(self.const.system_cached, self.const.name_full)),
+                         person.get_name(self.const.system_cached,
+                                         self.const.name_full)),
                         int(c[i]['person_id'])))
                 if not len(map) > 1:
-                    raise CerebrumError, "No persons matched"
+                    raise CerebrumError("No persons matched")
                 return {'prompt': "Choose person from list",
                         'map': map,
                         'help_ref': 'user_create_select_person'}
@@ -1174,7 +1069,7 @@ class BofhdExtension(
                     return {'prompt': "%sContinue? (y/n)" % existing_accounts}
                 yes_no = all_args.pop(0)
                 if not yes_no == 'y':
-                    raise CerebrumError, "Command aborted at user request"
+                    raise CerebrumError("Command aborted at user request")
             if not all_args:
                 map = [(("%-8s %s", "Num", "Affiliation"), None)]
                 for aff in person.get_affiliations():
@@ -1183,36 +1078,39 @@ class BofhdExtension(
                         self.const.PersonAffStatus(aff['status']),
                         self._format_ou_name(ou))
                     map.append((("%s", name),
-                                {'ou_id': int(aff['ou_id']), 'aff': int(aff['affiliation'])}))
+                                {'ou_id': int(aff['ou_id']),
+                                 'aff': int(aff['affiliation'])}))
                 if not len(map) > 1:
-                    raise CerebrumError(
-                        "Person has no affiliations. Try person affiliation_add")
+                    raise CerebrumError("Person has no affiliations."
+                                        " Try person affiliation_add")
                 return {'prompt': "Choose affiliation from list", 'map': map}
-            affiliation = all_args.pop(0)
+            all_args.pop(0)
         else:
             if not all_args:
                 return {'prompt': "Enter np_type",
                         'help_ref': 'string_np_type'}
-            np_type = all_args.pop(0)
+            all_args.pop(0)
         if ac_type == 'PosixUser':
             if not all_args:
                 return {'prompt': "Shell", 'default': 'bash'}
-            shell = all_args.pop(0)
+            all_args.pop(0)
             if not all_args:
                 return {'prompt': 'E-mail spread',
                         'help_ref': 'string_spread',
                         'default': 'acc@office365'}
-            email_spread = all_args.pop(0)
+            all_args.pop(0)
         if not all_args:
             ret = {'prompt': "Username", 'last_arg': True}
             posix_user = Factory.get('PosixUser')(self.db)
             if not group_owner:
                 try:
                     person = self._get_person("entity_id", owner_id)
-                    fname, lname = [
-                        person.get_name(self.const.system_cached, v)
-                        for v in (self.const.name_first, self.const.name_last) ]
-                    sugg = posix_user.suggest_unames(self.const.account_namespace, fname, lname)
+                    fname, lname = [person.get_name(self.const.system_cached,
+                                                    v)
+                                    for v in (self.const.name_first,
+                                              self.const.name_last)]
+                    sugg = posix_user.suggest_unames(
+                        self.const.account_namespace, fname, lname)
                     if sugg:
                         ret['default'] = sugg[0]
                 except ValueError:
@@ -1220,12 +1118,13 @@ class BofhdExtension(
             return ret
         if len(all_args) == 1:
             return {'last_arg': True}
-        raise CerebrumError, "Too many arguments"
+        raise CerebrumError("Too many arguments")
 
     # user_create_prompt_func
     #
     def user_create_prompt_func(self, session, *args):
-        return self._user_create_prompt_func_helper('PosixUser', session, *args)
+        return self._user_create_prompt_func_helper('PosixUser',
+                                                    session, *args)
 
     # user_create_basic_prompt_func
     #
@@ -1250,9 +1149,11 @@ class BofhdExtension(
                                          "account type")
         else:
             if len(args) == 6:
-                idtype, person_id, affiliation, shell, email_spread, uname = args
+                (idtype, person_id, affiliation,
+                 shell, email_spread, uname) = args
             else:
-                idtype, person_id, yes_no, affiliation, shell, email_spread, uname = args
+                (idtype, person_id, yes_no, affiliation,
+                 shell, email_spread, uname) = args
             owner_type = self.const.entity_person
             owner_id = self._get_person("entity_id", person_id).entity_id
             np_type = None
@@ -1266,8 +1167,8 @@ class BofhdExtension(
                     "Account names cannot contain capital letters")
             else:
                 if owner_type != self.const.entity_group:
-                    raise CerebrumError(
-                        "Personal account names cannot contain capital letters")
+                    raise CerebrumError("Personal account names cannot"
+                                        " contain capital letters")
 
         filegroup = 'ansatt'
         group = self._get_group(filegroup, grtype="PosixGroup")
@@ -1281,9 +1182,12 @@ class BofhdExtension(
         expire_date = None
         self.ba.can_create_user(operator.get_entity_id(), owner_id, disk_id)
 
-        posix_user.populate(uid, group.entity_id, gecos, shell, name=uname,
-                            owner_type=owner_type, owner_id=owner_id,
-                            np_type=np_type, creator_id=operator.get_entity_id(),
+        posix_user.populate(uid, group.entity_id, gecos, shell,
+                            name=uname,
+                            owner_type=owner_type,
+                            owner_id=owner_id,
+                            np_type=np_type,
+                            creator_id=operator.get_entity_id(),
                             expire_date=expire_date)
         try:
             posix_user.write_db()
@@ -1319,7 +1223,7 @@ class BofhdExtension(
                 ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
                 self._user_create_set_account_type(posix_user, owner_id,
                                                    ou_id, affiliation)
-        except self.db.DatabaseError, m:
+        except self.db.DatabaseError as m:
             raise CerebrumError("Database error: {!s}".format(m))
         operator.store_state(
             "new_account_passwd", {'account_id': int(posix_user.entity_id),
@@ -1330,7 +1234,7 @@ class BofhdExtension(
 
     # helper func, set radius-ans spread for employees
     def _add_radiusans_spread(self, acc_id, operator):
-        acc = Utils.Factory.get('Account')(self.db)
+        acc = Factory.get('Account')(self.db)
         acc.clear()
         acc.find(acc_id)
         if (acc.is_employee() or acc.is_affiliate()
@@ -1342,7 +1246,7 @@ class BofhdExtension(
 
     # helper func, check if a person is a registered employee or affiliate
     def _person_is_employee_or_affiliate(self, person_id, operator):
-        person = Utils.Factory.get('Person')(self.db)
+        person = Factory.get('Person')(self.db)
         person.clear()
         try:
             person.find(person_id)
@@ -1453,3 +1357,300 @@ class BofhdExtension(
             return 'Unknown member_type "%s"' % (member_type)
         return self._group_remove(operator, src_name, dest_group,
                                   member_type=member_type)
+
+
+class EmailAuth(bofhd_email.BofhdEmailAuth):
+    """ UiA specific email auth. """
+
+    def can_email_move(self, operator, account=None, query_run_any=False):
+        if self.is_postmaster(operator, query_run_any):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to superusers")
+
+
+class EmailCommands(bofhd_email.BofhdEmailCommands):
+    """ UiA specific email commands and overloads. """
+
+    all_commands = {}
+    hidden_commands = {}
+    parent_commands = True
+    omit_parent_commands = {
+        # Commands that are *not* included from BofhdEmailCommands
+        'email_create_multi',
+        'email_create_pipe',
+        'email_delete_domain',
+        'email_delete_forward_target',
+        'email_delete_multi',
+        'email_delete_pipe',
+        'email_domain_set_description',
+        'email_edit_pipe_command',
+        'email_edit_pipe_user',
+        'email_failure_message',
+        'email_list_pause',
+        'email_pause',
+        'email_primary_address',
+    }
+    authz = EmailAuth
+
+    @classmethod
+    def get_help_strings(cls):
+        return merge_help_strings(
+            super(EmailCommands, cls).get_help_strings(),
+            ({}, HELP_EMAIL_CMDS, HELP_EMAIL_ARGS))
+
+    def _email_info_detail(self, acc):
+        info = []
+        eq = Email.EmailQuota(self.db)
+        try:
+            eq.find_by_target_entity(acc.entity_id)
+            et = Email.EmailTarget(self.db)
+            et.find_by_target_entity(acc.entity_id)
+            es = Email.EmailServer(self.db)
+            es.find(et.email_server_id)
+            used = 'N/A'
+            homemdb = None
+            tmp = acc.get_trait(self.const.trait_exchange_mdb)
+            if tmp is not None:
+                homemdb = tmp['strval']
+            else:
+                homemdb = 'N/A'
+            info.append({'quota_hard': eq.email_quota_hard,
+                         'quota_soft': eq.email_quota_soft,
+                         'quota_used': used})
+            info.append({'dis_quota_hard': eq.email_quota_hard,
+                         'dis_quota_soft': eq.email_quota_soft})
+            # should not be shown for accounts without exchange-spread, needs
+            # fixin', Jazz 2011-02-21
+            info.append({'homemdb': homemdb})
+        except Errors.NotFoundError:
+            pass
+        return info
+
+    #
+    # email migrate
+    # will be used for migretion of mail accounts from IMAP to Exchange
+    #
+    all_commands['email_exchange_migrate'] = cmd_param.Command(
+        ("email", "exchange_migrate"),
+        cmd_param.AccountName(help_ref="account_name", repeat=True),
+        perm_filter='can_email_move')
+
+    def email_exchange_migrate(self, operator, uname):
+        acc = self._get_account(uname)
+        self.ba.can_email_move(operator.get_entity_id(), account=acc)
+        # raise error if no e-mail account exist in IMAP
+        if (not acc.has_spread(self.const.spread_hia_email) or
+                not acc.has_spread(self.const.spread_exchange_acc_old)):
+            raise CerebrumError("No mail spread to migrate from for %s" %
+                                uname)
+        et = Email.EmailTarget(self.db)
+        et.find_by_target_entity(acc.entity_id)
+        # raise error if e-mail target is deleted
+        if et.email_target_type == self.const.email_target_deleted:
+            raise CerebrumError("Cannot migrate deleted e-mail target for"
+                                " account %s", uname)
+        # assign new e-mail server
+        es = Email.EmailServer(self.db)
+        # only one exchange server is in use at UiA
+        es.find_by_name('exchkrs01.uia.no')
+        et.email_server_id = es.entity_id
+        et.write_db()
+        # remove IMAP- and old Exchange-spread
+        acc.delete_spread(self.const.spread_hia_email)
+        acc.delete_spread(self.const.spread_exchange_acc_old)
+        acc.write_db()
+        # add exchange-spread
+        if not acc.has_spread(self.const.spread_exchange_account):
+            acc.add_spread(self.const.spread_exchange_account)
+            acc.write_db()
+        return "OK, migrating %s to Exchange" % (uname)
+
+    #
+    # email move
+    #
+    all_commands['email_move'] = cmd_param.Command(
+        ("email", "move"),
+        cmd_param.AccountName(help_ref="account_name", repeat=True),
+        cmd_param.SimpleString(help_ref='string_email_host'),
+        perm_filter='can_email_move')
+
+    def email_move(self, operator, uname, server):
+        acc = self._get_account(uname)
+        self.ba.can_email_move(operator.get_entity_id(), account=acc)
+        et = Email.EmailTarget(self.db)
+        et.find_by_target_entity(acc.entity_id)
+        es = Email.EmailServer(self.db)
+        es.find_by_name(server)
+        et.email_server_id = es.entity_id
+        et.write_db()
+        return "OK, updated e-mail server for %s (to %s)" % (uname, server)
+
+
+HELP_GROUPS = {
+    'print': 'Printer quota manipulation',
+}
+
+HELP_CMDS = {
+    'group': {
+        'group_list_all':
+            'List all existing groups',
+        'group_gadd':
+            'Let another group join a group',
+        'group_gremove':
+            'Remove member-groups from a given group',
+        'group_list':
+            'List account members of a group',
+    },
+    'misc': {
+        'misc_affiliations':
+            'List all defined affiliations',
+        'misc_change_request':
+            'Change execution time for a pending request',
+        'misc_checkpassw':
+            'Test the quality of a given password',
+        'misc_clear_passwords':
+            'Clear password(s) from the altered-passwords list in the '
+            'current sessions',
+        'misc_dadd':
+            'Register a disk in Cerebrum database',
+        'misc_dls':
+            'List all registered disks for a given host',
+        'misc_drem':
+            'Remove a disk entry from Cerebrum',
+        'misc_hadd':
+            'Register a new host in the Cerebrum database',
+        'misc_hrem':
+            'Remove a host entry from Cerebrum',
+        'misc_list_passwords':
+            'View/print all the passwords altered during a session',
+        'misc_user_passwd':
+            'Check whether an account has a given password'
+    },
+    'print': {
+        'printer_qoff':
+            'Turn off the printer quota for an account',
+        'printer_qpq':
+            'View the printer quota information for an account',
+        'printer_upq':
+            'Manually update printer quota for an account',
+    },
+    'user': {
+        'user_student_create':
+            'Create a user for a student',
+    },
+}
+
+HELP_ARGS = {
+    'disk':
+        ['disk', 'Enter disk',
+         'Enter the path to the disc without trailing slash or username.\n'
+         'Example: /usit/sauron/u1\n'
+         'For non-cerebrum disks, prepend the path with a :'],
+    'group_name_dest':
+        ['gname', 'Enter the destination group'],
+    'group_name_src':
+        ['gname', 'Enter the source group'],
+    'move_type':
+        ['move_type', 'Enter move type',
+         "Legal move types:\n"
+         " - immediate\n"
+         " - batch\n"
+         " - nofile\n"
+         " - hard_nofile\n"
+         " - student\n"
+         " - student_immediate\n"
+         " - give\n"
+         " - request\n"
+         " - confirm\n"
+         " - cancel"],
+    'person_id':
+        ['person_id', 'Enter person id',
+         "Enter person id as idtype:id.\n"
+         "If idtype=fnr, the idtype does not have to be specified.\n"
+         "The currently defined id-types are:\n"
+         "  - fnr : norwegian fødselsnummer."],
+    'person_search_type':
+        ['search_type', 'Enter person search type',
+         "Possible values:\n"
+         "  - 'name'\n"
+         "  - 'date' of birth, on format YYYY-MM-DD\n"
+         "  - 'person_id'\n"
+         "  - 'stedkode'"],
+    'source_system':
+        ['source_system', 'Enter source system',
+         'The name of the source system, i.e. system_fs/system_lt etc.'],
+    'string_email_host':
+        ['hostname', 'Enter e-mail server.  Example: mail-sg2'],
+    'string_group_filter':
+        ['filter', 'Enter filter',
+         "Enter a comma-separated list of filters.  There are four filter "
+         "types:\n"
+         "  'name'   - Name of group\n"
+         "  'desc'   - Description text of group\n"
+         "  'expire' - Include expired groups (default \"no\")\n"
+         "  'spread' - List only groups with specified spread\n"
+         "\n"
+         "A filter is entered on the format 'type:value'.  If you leave out\n"
+         "the type, 'name' is assumed.  The values for 'name' and 'desc' can\n"
+         "containo wildcards (* and ?).\n"
+         "\n"
+         "Example:\n"
+         "  pc*,spread:AD_group  - list all AD groups whose names start"
+         " with 'pc'"],
+    'trait_val':
+        ['value', 'Trait value',
+         "Enter the trait value as key=value.  'key' is one of\n"
+         "\n"
+         " * target_id -- value is an entity, entered as type:name\n"
+         " * date -- value is on format YYYY-MM-DD\n"
+         " * numval -- value is an integer\n"
+         " * strval -- value is a string\n"
+         "\n"
+         "The key name may be abbreviated.  If value is left empty, the \n"
+         "value associated with key will be cleared.  Updating an existing \n"
+         "trait will blank all unnamed keys."],
+    'user_create_person_id':
+        ['owner', 'Enter account owner',
+         "Identify account owner (person or group) by entering:\n"
+         "  Birthdate (YYYY-MM-DD)\n"
+         "  Norwegian f\xf8dselsnummer (11 digits)\n"
+         "  Export-ID (exp:exportid)\n"
+         "  External ID (idtype:idvalue)\n"
+         "  Entity ID (entity_id:value)\n"
+         "  Group name (group:name)"],
+}
+
+
+HELP_EMAIL_CMDS = {
+    'email': {
+        'email_exchange_migrate':
+            'Migrate email account from IMAP to Exchange',
+    },
+}
+
+HELP_EMAIL_ARGS = {
+    'email_category':
+        ['category', 'Enter email category',
+         'Legal categories include:\n'
+         ' - noexport     don\'t include domain in data exports\n'
+         ' - cnaddr       primary address is firstname.lastname\n'
+         ' - uidaddr      primary address is username\n'
+         ' - all_uids     all usernames are valid e-mail addresses\n'
+         ' - uio_globals  direct Postmaster etc. to USIT'],
+    'spam_action':
+        ['spam action', 'Enter spam action',
+         "Choose one of\n"
+         " 'dropspam'    Messages classified as spam won't be"
+         "delivered at all\n"
+         " 'spamfolder'  Deliver spam to a separate IMAP folder\n"
+         " 'noaction'    Deliver spam just like legitimate email"],
+    'spam_level':
+        ['spam level', 'Enter spam level',
+         "Choose one of\n"
+         " 'aggressive_spam' Filter everything that resembles spam\n"
+         " 'most_spam'       Filter most emails that looks like spam\n"
+         " 'standard_spam'   Only filter email that obviously is spam\n"
+         " 'no_filter'       No email will be filtered as spam"],
+}

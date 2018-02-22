@@ -22,29 +22,18 @@
 
 import cereconf
 
-from Cerebrum.modules.bofhd.bofhd_core_help import command_help
+from mx import DateTime
 
-command_help['user'].update({
-    'user_send_welcome_sms': 'Send a welcome SMS to a user'
-})
-
-command_help['misc'].update({
-    'misc_sms_message': 'Send an arbitrary message to a user by SMS',
-    'misc_sms_password': 'Send a password to a user by SMS'
-})
-
+from Cerebrum import Errors
+from Cerebrum.Utils import SMSSender
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func
+from Cerebrum.modules.bofhd.cmd_param import (
+    AccountName, Command, FormatSuggestion, Mobile, SMSString, SimpleString)
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import (
     BofhdExtension as UiOBofhdExtension)
-from Cerebrum.modules.bofhd.cmd_param import (
-    Command, AccountName, FormatSuggestion, SimpleString, SMSString, Mobile)
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum.modules.bofhd.bofhd_utils import copy_func
-from Cerebrum.Utils import SMSSender
-from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
-from Cerebrum import Errors
-
-from mx import DateTime
 
 uio_helpers = ['_get_cached_passwords']
 
@@ -69,15 +58,56 @@ class BofhdAuth(BofhdAuth):
         raise PermissionDenied("Not allowed to send Welcome SMS")
 
 
+CMD_HELP = {
+    'user': {
+        'user_send_welcome_sms': 're-send the welcome sms to a user',
+    },
+    'misc': {
+        'misc_sms_password': 'send a cached password to a user',
+        'misc_sms_message': 'send a specified message to a user',
+    },
+}
+
+CMD_ARGS = {
+    # argname, prompt, help text
+    'welcome_mobile': [
+        'mobile',
+        'Enter phone number (empty to auto-select)',
+        'A number to send the welcome SMS to, if allowed.'
+        ' Use an empty value to automatically select the best available'
+        ' number'
+    ],
+    'sms_pass_lang': [
+        'language',
+        'Enter a template language (no, en, ...)',
+        'Language to use in the password SMS message'
+    ],
+    'sms_message': [
+        'message',
+        'Enter message',
+        'A message to send as SMS'
+    ],
+}
+
+
 @copy_func(
     UiOBofhdExtension,
     methods=uio_helpers)
 class BofhdExtension(BofhdCommonMethods):
-    all_commands = {}
 
+    all_commands = {}
     authz = BofhdAuth
 
-    # Helper function, get phone number
+    @classmethod
+    def get_help_strings(cls):
+        """ Get help strings. """
+        # No GROUP_HELP, we'll just guess that 'user' and 'misc' exists
+        # already.
+        # The help structure doesn't really allow command groups to come from
+        # different bofhd-extensions, so if we were to implement texts for
+        # these groups, they might override texts defined elsewhere...
+        return ({}, CMD_HELP, CMD_ARGS)
+
     def _get_phone_number(self, person_id, phone_types):
         """Search through a person's contact info and return the first found info
         value as defined by the given types and source systems.
@@ -97,15 +127,39 @@ class BofhdExtension(BofhdCommonMethods):
 
         return None
 
+    def _select_sms_number(self, account_name):
+        """Find the best matching mobile number for SMS.
+
+        Search through an account owners contact info and return the best match
+        according to cereconf.SMS_NUMBER_SELECTOR
+
+        :param str account_name: account name
+        :return str: mobile phone number
+        """
+        person = self._get_person('account_name', account_name)
+        try:
+            spec = map(lambda (s, t): (self.const.human2constant(s),
+                                       self.const.human2constant(t)),
+                       cereconf.SMS_NUMBER_SELECTOR)
+            mobile = person.sort_contact_info(spec, person.get_contact_info())
+            person_in_systems = [int(af['source_system']) for af in
+                                 person.list_affiliations(
+                                     person_id=person.entity_id)]
+            return filter(lambda x: x['source_system'] in person_in_systems,
+                          mobile)[0]['contact_value']
+
+        except IndexError:
+            raise CerebrumError(
+                'No applicable phone number for {}'.format(account_name))
+
     #
     # user send_welcome_sms <accountname> [<mobile override>]
     #
     all_commands['user_send_welcome_sms'] = Command(
         ("user", "send_welcome_sms"),
         AccountName(help_ref="account_name", repeat=False),
-        Mobile(optional=True),
-        fs=FormatSuggestion(
-            [('Ok, message sent to %s', ('mobile',)), ]),
+        Mobile(help_ref='welcome_mobile', optional=True),
+        fs=FormatSuggestion([('Ok, message sent to %s', ('mobile',)), ]),
         perm_filter='can_send_welcome_sms')
 
     def user_send_welcome_sms(self, operator, username, mobile=None):
@@ -170,17 +224,19 @@ class BofhdExtension(BofhdCommonMethods):
             account.write_db()
         return {'mobile': mobile}
 
-
+    #
+    # misc sms_password <username> [lang]
+    #
     all_commands['misc_sms_password'] = Command(
         ('misc', 'sms_password'),
-        AccountName(),
-        SimpleString(optional=True, default='no'),
-        fs=FormatSuggestion(
-            'Password sent to %s.', ('number',)),
+        AccountName(help_ref="account_name", repeat=False),
+        SimpleString(help_ref='sms_pass_lang', repeat=False,
+                     optional=True, default='no'),
+        fs=FormatSuggestion('Password sent to %s.', ('number',)),
         perm_filter='is_superuser')
 
     def misc_sms_password(self, operator, account_name, language='no'):
-        u""" Send last password set for account in cache. """
+        """ Send last password set for account in cache. """
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Only superusers may send passwords by SMS")
 
@@ -194,25 +250,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError(
                 'No password for {} in session'.format(account_name))
 
-        # Get person object
-        person = self._get_person('account_name', account_name)
-
-        # Select phone number, filter out numbers from systems where we do not
-        # have an affiliation.
-        try:
-            spec = map(lambda (s, t): (self.const.human2constant(s),
-                                       self.const.human2constant(t)),
-                       cereconf.SMS_NUMBER_SELECTOR)
-            mobile = person.sort_contact_info(spec, person.get_contact_info())
-            person_in_systems = [int(af['source_system']) for af in
-                                 person.list_affiliations(
-                                     person_id=person.entity_id)]
-            mobile = filter(lambda x: x['source_system'] in person_in_systems,
-                            mobile)[0]['contact_value']
-
-        except IndexError:
-            raise CerebrumError(
-                'No applicable phone number for {}'.format(account_name))
+        mobile = self._select_sms_number(account_name)
 
         # Load and fill template for chosen language
         try:
@@ -230,21 +268,23 @@ class BofhdExtension(BofhdCommonMethods):
         if getattr(cereconf, 'SMS_DISABLE', False):
             self.logger.info(
                 'SMS disabled in cereconf, would have '
-                'sent password SMS to {}'.format(mobile))
+                'sent password to {}'.format(mobile))
         else:
             sms = SMSSender(logger=self.logger)
             if not sms(mobile, msg, confirm=True):
                 raise CerebrumError(
-                    'Unable to send message to {}, aborting'.format(mobile))
+                    'Unable to send message to {}'.format(mobile))
 
         return {'number': mobile}
 
+    #
+    # misc sms_message <username> <message>
+    #
     all_commands['misc_sms_message'] = Command(
         ('misc', 'sms_message'),
-        AccountName(),
-        SMSString(),
-        fs=FormatSuggestion(
-            'Message sent to %s.', ('number',)),
+        AccountName(help_ref='account_name'),
+        SMSString(help_ref='sms_message', repeat=False),
+        fs=FormatSuggestion('Message sent to %s.', ('number',)),
         perm_filter='is_superuser')
 
     def misc_sms_message(self, operator, account_name, message):
@@ -253,31 +293,17 @@ class BofhdExtension(BofhdCommonMethods):
         """
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied('Only superusers may send messages by SMS')
-        # Get person object
-        person = self._get_person('account_name', account_name)
-        # Select phone number, filter out numbers from systems where we do not
-        # have an affiliation.
-        try:
-            spec = map(lambda (s, t): (self.const.human2constant(s),
-                                       self.const.human2constant(t)),
-                       cereconf.SMS_NUMBER_SELECTOR)
-            mobile = person.sort_contact_info(spec, person.get_contact_info())
-            person_in_systems = [int(af['source_system']) for af in
-                                 person.list_affiliations(
-                                     person_id=person.entity_id)]
-            mobile = filter(lambda x: x['source_system'] in person_in_systems,
-                            mobile)[0]['contact_value']
-        except IndexError:
-            raise CerebrumError(
-                'No applicable phone number for {}'.format(account_name))
+
+        mobile = self._select_sms_number(account_name)
+
         # Send SMS
         if getattr(cereconf, 'SMS_DISABLE', False):
             self.logger.info(
                 'SMS disabled in cereconf, would have '
-                'sent password SMS to {}'.format(mobile))
+                'sent message to {}'.format(mobile))
         else:
             sms = SMSSender(logger=self.logger)
             if not sms(mobile, message, confirm=True):
                 raise CerebrumError(
-                    'Unable to send message to {}. Aborting.'.format(mobile))
+                    'Unable to send message to {}'.format(mobile))
         return {'number': mobile}
