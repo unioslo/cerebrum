@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2005 University of Oslo, Norway
+# Copyright 2005-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 import xml.sax
+
 
 class GeneralXMLParser(xml.sax.ContentHandler):
     """This is a general SAX-based XML parser capable of generating
@@ -56,20 +59,13 @@ class GeneralXMLParser(xml.sax.ContentHandler):
         parser.parse(xml_file)
 
     def characters(self, ch):
-        self.var = None
-        tmp = ch.encode('iso8859-1').strip()
-        if tmp:
-            self.var = tmp
+        self.var = ch.strip() or None
 
     def startElement(self, ename, attrs):
         self.ename = ename
-        tmp = {}
-        for k in attrs.keys():
-            tmp[k.encode('iso8859-1')] = attrs[k].encode('iso8859-1')
-        ename = ename.encode('iso8859-1')
         self._elementstack.append(ename)
         if not self._in_dta:
-            self.top_elementstack.append((ename, tmp))
+            self.top_elementstack.append((ename, attrs))
             for loc, cb in self.cfg:
                 if loc == self._elementstack:
                     self._in_dta = loc
@@ -81,14 +77,14 @@ class GeneralXMLParser(xml.sax.ContentHandler):
         else:
             children = []
             self._child_stack.append(children)
-            self._tmp_pos.append([ename, self.var, tmp, children])
+            self._tmp_pos.append([ename, self.var, attrs, children])
             self.var = None
             self._tmp_pos = children
 
     def endElement(self, ename):
-        if ename != self.ename and self.var != None:
-            raise ValueError, "Cannot have both text and children."
-        elif ename == self.ename and self.var != None:
+        if ename != self.ename and self.var is not None:
+            raise ValueError("Cannot have both text and children.")
+        elif ename == self.ename and self.var is not None:
             self._child_stack[0][-1][1] = self.var
             self.var = None
         if self._in_dta == self._elementstack:
@@ -101,12 +97,10 @@ class GeneralXMLParser(xml.sax.ContentHandler):
             self._child_stack.pop()
             if self._child_stack:
                 self._tmp_pos = self._child_stack[-1]
-
         self._elementstack.pop()
 
-    def dump_tree(dta, lvl=0):
+    @staticmethod
+    def dump_tree(dta, level=0):
         for ename, attrs, children in dta:
-            print "%s%s %s" % (" " * lvl * 2, ename, attrs)
-            GeneralXMLParser.dump_tree(children, lvl+1)
-    dump_tree = staticmethod(dump_tree)
-
+            print "%s%s %s" % (" " * level * 2, ename, attrs)
+            GeneralXMLParser.dump_tree(children, level + 1)
