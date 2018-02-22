@@ -19,7 +19,7 @@
 
 from __future__ import unicode_literals
 
-import pickle
+import json
 from collections import defaultdict
 from six import text_type
 
@@ -55,7 +55,7 @@ class nmhOrgLDIFMixin(OrgLDIF):
 
         for row in self.person.list_traits(self.const.trait_fagomrade_fagfelt):
             try:
-                fagfelt = pickle.loads(row['strval'])
+                fagfelt = json.loads(row['strval'])
             except Exception, exc:
                 self.logger.warn(
                     "Could not unpickle trait_fagomrade_fagfelt for person:%s, %s",
