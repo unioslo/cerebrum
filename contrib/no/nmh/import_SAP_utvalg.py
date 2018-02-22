@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2013 University of Oslo, Norway
 #
@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""This script imports the data about 'utvalg' for persons from DFØ-SSØ.
+"""This script imports the data about 'utvalg' for persons from DFÃ˜-SSÃ˜.
 
 NMH has their own behaviour for treating 'utvagl', which is why this is not
 implemented into L{contrib/no/hia/import_SAP_person.py}.
@@ -36,6 +36,7 @@ should only have one such element.
 # Comma separated?
 
 import sys
+import io
 import getopt
 import re
 from mx.DateTime import now
@@ -86,24 +87,25 @@ def process_utvalg(filename, use_fok):
     sapid2pe = dict((r['external_id'], r['entity_id']) for r in
                     pe.list_external_ids(source_system=co.system_sap,
                                          id_type=co.externalid_sap_ansattnr))
-    # Fagmiljø already stored in Cerebrum:
+    # FagmiljÃ¸ already stored in Cerebrum:
     pe2fag_cb = dict((r['entity_id'], r['strval']) for r in
                   pe.list_traits(co.trait_fagmiljo))
-    # Caching all fagmiljø from SAP:
+    # Caching all fagmiljÃ¸ from SAP:
     sapid2fag_sap = dict()
 
-    for u in make_utvalg_iterator(file(filename, "r"), use_fok, logger):
-        if not u.valid():
-            logger.info("Ignoring invalid utvalg for sap_id=%s: %s",
-                        u.sap_ansattnr, u.sap_fagmiljo)
-            # TODO: remove some data?
-            continue
-        if u.expired():
-            logger.info("Ignoring expired utvalg for sap_id=%s: %s",
-                        u.sap_ansattnr, u.sap_fagmiljo)
-            # TODO: remove some data?
-            continue
-        sapid2fag_sap.setdefault(u.sap_ansattnr, []).append(u.sap_fagmiljo)
+    with io.open(filename, 'r', encoding='latin1') as f:
+        for u in make_utvalg_iterator(f, use_fok, logger):
+            if not u.valid():
+                logger.info("Ignoring invalid utvalg for sap_id=%s: %s",
+                            u.sap_ansattnr, u.sap_fagmiljo)
+                # TODO: remove some data?
+                continue
+            if u.expired():
+                logger.info("Ignoring expired utvalg for sap_id=%s: %s",
+                            u.sap_ansattnr, u.sap_fagmiljo)
+                # TODO: remove some data?
+                continue
+            sapid2fag_sap.setdefault(u.sap_ansattnr, []).append(u.sap_fagmiljo)
 
     logger.debug("Found %d valid employees with 'utvalg'", len(sapid2fag_sap))
 
