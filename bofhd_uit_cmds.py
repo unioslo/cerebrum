@@ -9773,8 +9773,11 @@ Password altered. Use misc list_password to print or view the new password.%s'''
                             name_variant=self.const.ou_name_short,
                             name_language=self.const.language_nb,
                             default="")
-        return "%02i%02i%02i (%s)" % (ou.fakultet, ou.institutt, ou.avdeling,
-                                      short_name)
+        # return None if ou does not have stedkode
+        if ou.fakultet != None:
+            return "%02i%02i%02i (%s)" % (ou.fakultet, ou.institutt, ou.avdeling,short_name)
+        else:
+            return "None"
 
     def _get_group_opcode(self, operator):
         if operator is None:

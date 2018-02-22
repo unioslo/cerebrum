@@ -1,3 +1,9 @@
+2018-02-22    <cerebrum@gagarin.uit.no>
+
+	* OU.py (OUMixin): Override Stedkode.py find(). If OU does not have stedkode, use OU.find() instead.
+
+	* bofhd_uit_cmds.py (BofhdExtension._format_ou_name): Return None if OU does not have stedkode
+
 2018-02-12    <cerebrum@cleomedes.uit.no>
 
 	* OrgLDIF.py: UiT does not wish to populate the postalAddress

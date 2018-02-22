@@ -41,7 +41,30 @@ class OUMixin(OU):
     #    logger.warn("ui.uo calling real ou.populate")
     #    super(OUEntityExpireMixin,self).populate()
 
-
+    
+    #
+    # override stedkode.find()
+    # this function will first try to get stedkode for a given OU
+    # if that fails, it will revert to OU.py find() instead of returning Unknown OU (which stedkode.py.find() does)
+    #
+    def find(self, ou_id):
+        my_ou = OU
+        try:
+            (self.landkode, self.institusjon, self.fakultet, self.institutt,
+             self.avdeling,) = self.query_1("""
+             SELECT landkode, institusjon, fakultet, institutt, avdeling
+             FROM [:table schema=cerebrum name=stedkode]
+             WHERE ou_id = :ou_id""", locals())
+        except Errors.NotFoundError:
+            logger.warn("ou id:%s does not have stedkode" % ou_id)
+        my_ou.clear(self)
+        my_ou.find(self,ou_id)
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
+        self.__in_db = True
+        self.__updated = []
 
 
     def list_all_with_perspective(self, perspective):
