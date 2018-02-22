@@ -822,6 +822,7 @@ admin_copy_uio = [
     'person_info',
     'person_set_bdate',
     'person_set_id',
+    'person_get_id',
     'person_set_name',
     'quarantine_disable',
     'quarantine_list',
