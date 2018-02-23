@@ -1,3 +1,8 @@
+2018-02-23    <cerebrum@gagarin.uit.no>
+
+	* OU.py (OUMixin.find): fixed but in finf function where it
+	wouldnt use the propper find function for ous with stedkode.
+
 2018-02-22    <cerebrum@gagarin.uit.no>
 
 	* OU.py (OUMixin): Override Stedkode.py find(). If OU does not have stedkode, use OU.find() instead.

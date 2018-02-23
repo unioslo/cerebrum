@@ -48,7 +48,6 @@ class OUMixin(OU):
     # if that fails, it will revert to OU.py find() instead of returning Unknown OU (which stedkode.py.find() does)
     #
     def find(self, ou_id):
-        my_ou = OU
         try:
             (self.landkode, self.institusjon, self.fakultet, self.institutt,
              self.avdeling,) = self.query_1("""
@@ -57,8 +56,10 @@ class OUMixin(OU):
              WHERE ou_id = :ou_id""", locals())
         except Errors.NotFoundError:
             logger.warn("ou id:%s does not have stedkode" % ou_id)
-        my_ou.clear(self)
-        my_ou.find(self,ou_id)
+            OU.find(self,ou_id)
+        else:
+            # use supers find function
+            self.__super.find(ou_id)
         try:
             del self.__in_db
         except AttributeError:
