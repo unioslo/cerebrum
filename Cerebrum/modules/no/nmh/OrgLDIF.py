@@ -49,7 +49,7 @@ class nmhOrgLDIFMixin(OrgLDIF):
     def get_fagomrade(self):
         """NMH wants 'fagomrade' exported, which consists one or more 'fagfelt'.
         This field is stored in a trait for each person. The trait string value
-        is a pickled list of strings.
+        is a JSON-serialized list of strings.
         """
         person2fagfelt = dict()
 
@@ -58,7 +58,8 @@ class nmhOrgLDIFMixin(OrgLDIF):
                 fagfelt = json.loads(row['strval'])
             except Exception, exc:
                 self.logger.warn(
-                    "Could not unpickle trait_fagomrade_fagfelt for person:%s, %s",
+                    "Could not JSON-deserialize trait_fagomrade_fagfelt "
+                    "for person:%s, %s",
                     row['entity_id'], exc)
                 continue
 
