@@ -19,7 +19,8 @@
 from __future__ import unicode_literals
 
 import re
-import pickle
+import json
+import io
 import os.path
 import string
 
@@ -252,7 +253,7 @@ class norEduLDIFMixin(OrgLDIF):
             entry['eduPersonPrimaryAffiliation'] = pri_edu_aff
             entry['eduPersonPrimaryOrgUnitDN'] = (
                 self.ou2DN.get(int(pri_ou)) or self.dummy_ou_dn)
-        if (ldapconf('PERSON', 'entitlements_pickle_file') and
+        if (ldapconf('PERSON', 'entitlements_file') and
                 person_id in self.person2entitlements):
             entry['eduPersonEntitlement'] = set(self.person2entitlements[person_id])
 
@@ -370,7 +371,7 @@ class norEduLDIFMixin(OrgLDIF):
 
     def init_person_dump(self, use_mail_module):
         self.__super.init_person_dump(use_mail_module)
-        if ldapconf('PERSON', 'entitlements_pickle_file'):
+        if ldapconf('PERSON', 'entitlements_file'):
             self.init_person_entitlements()
         self.init_person_fodselsnrs()
         self.init_person_birth_dates()
@@ -378,10 +379,12 @@ class norEduLDIFMixin(OrgLDIF):
     def init_person_entitlements(self):
         """Populate dicts with a person's entitlement information."""
         timer = make_timer(self.logger, 'Processing person entitlements...')
-        self.person2entitlements = pickle.load(file(
-            os.path.join(
-                ldapconf(None, 'dump_dir'),
-                ldapconf('PERSON', 'entitlements_pickle_file'))))
+        path = os.path.join(ldapconf(None, 'dump_dir'),
+                            ldapconf('PERSON', 'entitlements_file'))
+        with io.open(path, encoding='utf-8') as stream:
+            data = json.loads(stream.read())
+        # convert string keys to int
+        self.person2entitlements = {int(k): v for k, v in data.items()}
         timer("...person entitlements done.")
 
     def init_person_fodselsnrs(self):
