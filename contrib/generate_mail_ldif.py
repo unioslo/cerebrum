@@ -154,9 +154,8 @@ def write_ldif():
             # Find vacations-settings:
             if t in ldap.targ2vacation:
                 txt, start, end = ldap.targ2vacation[t]
-                rest += "tripnote:: %s\n" % \
-                        base64.encodestring(txt or "<No message>\n"
-                                            ).replace("\n", "")
+                note = (txt or '<No message>').encode('utf-8')
+                rest += "tripnote:: {}\n".format(base64.b64encode(note))
                 rest += "tripnoteActive: TRUE\n"
 
             # See if e-mail delivery should be suspended.
