@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2007 University of Oslo, Norway
+# Copyright 2007-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,10 +18,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import cerebrum_path, cereconf
+import cereconf
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import LDIFutils
+from Cerebrum.modules.LDIFutils import (ldapconf,
+                                        ldif_outfile,
+                                        end_ldif_outfile,
+                                        entry_string,
+                                        container_entry_string)
 from Cerebrum.QuarantineHandler import QuarantineHandler
+
 
 class UserLDIF(object):
     def load_quaratines(self):
@@ -33,14 +38,14 @@ class UserLDIF(object):
 
     def make_auths(self, auth_type, old=None):
         auth = old or {}
-        for row in self.account.list_account_authentication(auth_type,
-                                                            filter_expired=False):
+        for row in self.account.list_account_authentication(
+                auth_type, filter_expired=False):
             auth[int(row['account_id'])] = (row['entity_name'],
                                             row['auth_data'])
         return auth
 
     def __init__(self):
-        self.user_dn = LDIFutils.ldapconf('USER', 'dn', None)
+        self.user_dn = ldapconf('USER', 'dn', None)
         self.db = Factory.get('Database')()
         self.const = Factory.get('Constants')(self.db)
         self.account = Factory.get('Account')(self.db)
@@ -59,12 +64,12 @@ class UserLDIF(object):
                 self.id2vlan_vpn[row['account_id']] = vlan_vpn
 
     def dump(self):
-        fd = LDIFutils.ldif_outfile('USER')
-        fd.write(LDIFutils.container_entry_string('USER'))
+        fd = ldif_outfile('USER')
+        fd.write(container_entry_string('USER'))
         noAuth = (None, None)
         for account_id, vlan_vpn in self.id2vlan_vpn.iteritems():
             info = self.auth[account_id]
-            uname = LDIFutils.iso2utf(str(info[0]))
+            uname = info[0]
             auth = info[1]
             ntAuth = self.md4_auth.get(account_id, noAuth)[1]
             if account_id in self.quarantines:
@@ -75,7 +80,6 @@ class UserLDIF(object):
                     auth = ntAuth = None
             dn = ','.join(('uid=' + uname, self.user_dn))
             entry = {
-                # Ikke endelig innhold
                 'objectClass': ['top', 'account', 'hiofRadiusAccount'],
                 'uid': (uname,),
                 'radiusTunnelType': ('13',),
@@ -87,11 +91,13 @@ class UserLDIF(object):
                 entry['userPassword'] = ('{crypt}' + auth,)
             if ntAuth:
                 entry['ntPassword'] = (ntAuth,)
-            fd.write(LDIFutils.entry_string(dn, entry, False))
-        LDIFutils.end_ldif_outfile('USER', fd)
+            fd.write(entry_string(dn, entry, False))
+        end_ldif_outfile('USER', fd)
+
 
 def main():
     UserLDIF().dump()
+
 
 if __name__ == '__main__':
     main()
