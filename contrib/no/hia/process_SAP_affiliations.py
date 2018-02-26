@@ -410,8 +410,6 @@ def synchronise_employment(employment_cache, tpl, person, ou_id):
                      person.entity_id, description)
         return
 
-    title = title.encode('iso8859-1')
-
     key = (person.entity_id, ou_id, title, constants.system_sap)
     if key in employment_cache:
         employment_cache.remove(key)
