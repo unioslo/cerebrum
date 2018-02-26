@@ -17,23 +17,26 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 """
 
 """
 
 import collections
+import six
 
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
-from Cerebrum.Constants import _EntityTypeCode
 from Cerebrum.Utils import argument_to_sql, prepare_string
 from Cerebrum.Utils import NotSet
 from Cerebrum.Utils import to_unicode
 
 
+@six.python_2_unicode_compatible
 class Entity(DatabaseAccessor):
     """Class for generic access to Cerebrum entities.
 
@@ -250,6 +253,13 @@ class Entity(DatabaseAccessor):
         entity = Factory.get(component)(self._db)
         entity.find(self.entity_id)
         return entity
+
+    def __str__(self):
+        if hasattr(self, 'entity_id'):
+            return '{}:{}'.format(self.const.EntityType(self.entity_type),
+                                  self.entity_id)
+        else:
+            return '<unbound entity>'
 
 
 class EntitySpread(Entity):

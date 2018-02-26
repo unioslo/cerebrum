@@ -17,6 +17,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 """Module for making Cerebrum into a local email address database.
 
 This module contains various classes that enables Cerebrum to act as a
@@ -58,6 +60,7 @@ classes."""
 import re
 import string
 import time
+import six
 
 from Cerebrum import Utils
 from Cerebrum.Utils import prepare_string, argument_to_sql
@@ -427,6 +430,7 @@ class CLConstants(CLConstants.CLConstants):
 Entity_class = Utils.Factory.get("Entity")
 
 
+@six.python_2_unicode_compatible
 class EmailDomain(Entity_class):
     """Interface to the email domains your MTA should consider as 'local'.
 
@@ -664,7 +668,13 @@ class EmailDomain(Entity_class):
         FROM [:table schema=cerebrum name=email_domain] ed %s %s
         """ % (join_str, where_str), binds)
 
+    def __str__(self):
+        if hasattr(self, 'entity_id'):
+            return self.email_domain_name
+        return '<unbound domain>'
 
+
+@six.python_2_unicode_compatible
 class EmailTarget(Entity_class):
     """Interface for registering valid email delivery targets.
 
@@ -1024,7 +1034,18 @@ class EmailTarget(Entity_class):
         # NA
         return self.email_server_id
 
+    def __str__(self):
+        if hasattr(self, 'entity_id'):
+            tp = self.const.EntityType(self.email_target_type)
+            target = Utils.Factory.get(
+                Utils.Factory.type_component_map.get(str(tp), 'Entity'))(
+                    self.db)
+            return '{}:{}'.format(
+                six.text_type(self.email_target_type),
+                six.text_type(target))
 
+
+@six.python_2_unicode_compatible
 class EmailAddress(Entity_class):
     """Interface for registering known local email addresses.
 
@@ -1309,6 +1330,11 @@ class EmailAddress(Entity_class):
         domain.find(self.email_addr_domain_id)
         return (self.email_addr_local_part + '@' +
                 domain.rewrite_special_domains(domain.email_domain_name))
+
+    def __str__(self):
+        if hasattr(self, 'entity_id'):
+            return self.get_address()
+        return '<unbound email address>'
 
 
 class EntityEmailDomain(Entity):

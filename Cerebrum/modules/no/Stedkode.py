@@ -17,6 +17,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 """Norwegian higher education-specific OU extension.
 
 This module implements extensions to the standard Cerebrum OU class
@@ -29,12 +31,14 @@ following additional properties are defined:
   - institusjon
 """
 
-from Cerebrum import Utils
 from Cerebrum.OU import OU
 import cereconf
+import six
 
 __version__ = "1.1"
 
+
+@six.python_2_unicode_compatible
 class Stedkode(OU):
 
     __read_attr__ = ('__in_db',)
@@ -68,7 +72,7 @@ class Stedkode(OU):
         # If __in_db in not present, we'll set it to False.
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
         self.landkode = int(landkode)
@@ -78,7 +82,7 @@ class Stedkode(OU):
         self.institusjon = int(institusjon)
 
     def __eq__(self, other):
-        assert isinstance(other, Stedkode), `other`
+        assert isinstance(other, Stedkode), repr(other)
         identical = self.__super.__eq__(other)
         if not identical:
             return False
@@ -90,6 +94,8 @@ class Stedkode(OU):
         return identical
 
     def __str__(self):
+        return '{:02d}{:02d}{:02d}'.format(
+            self.fakultet, self.institutt, self.avdeling)
         return "landkode=%s, institusjon=%s, stedkode=%s-%s-%s" % (
             self.landkode, self.institusjon, self.fakultet, self.institutt,
             self.avdeling)
@@ -122,7 +128,7 @@ class Stedkode(OU):
                                'institusjon': self.institusjon,
                                'fakultet': self.fakultet,
                                'institutt': self.institutt,
-                               'avdeling': self.avdeling,})
+                               'avdeling': self.avdeling})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=stedkode]
@@ -134,7 +140,7 @@ class Stedkode(OU):
                                     'institusjon': int(self.institusjon),
                                     'fakultet': int(self.fakultet),
                                     'institutt': int(self.institutt),
-                                    'avdeling': int(self.avdeling),})
+                                    'avdeling': int(self.avdeling)})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -164,7 +170,7 @@ class Stedkode(OU):
     def find_stedkode(self, fakultet, institutt, avdeling, institusjon,
                       landkode=0):
         if institusjon is None:   # Temporary to trap old code
-            raise ValueError, "You must specify institusjon"
+            raise ValueError("You must specify institusjon")
         ou_id = self.query_1("""
         SELECT ou_id FROM [:table schema=cerebrum name=stedkode]
         WHERE
@@ -191,4 +197,3 @@ class Stedkode(OU):
         if avdeling is not None:
             sql += "AND avdeling = :avdeling "
         return self.query(sql, locals())
-
