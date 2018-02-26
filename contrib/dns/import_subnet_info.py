@@ -24,6 +24,7 @@ import sys
 import getopt
 import re
 import time
+import io
 
 import cereconf
 from Cerebrum.Utils import Factory
@@ -101,9 +102,6 @@ RETURN VALUES
 
 """ % progname
 
-__version__ = "$Revision$"
-# $URL$
-
 
 logger = Factory.get_logger("cronjob")
 
@@ -136,18 +134,16 @@ def parse_vlan_file(filename):
     """
     subnet_to_vlan = {}
     logger.info("Parsing VLAN-file '%s'" % filename)
-    infile = open(filename)
-
-    matcher = re.compile(r'(\d+)\s+([1234567890./]+)')
-    for line in infile:
-        result = matcher.match(line)
-        if result:
-            vlan_ID = result.group(1)
-            subnet = result.group(2)
-            logger.debug("Found: VLAN: '%s'; Subnet: '%s'" % (vlan_ID, subnet))
-            subnet_to_vlan[subnet] = int(vlan_ID)
-
-    infile.close()
+    with io.open(filename, 'r', encoding='ISO-8859-1') as infile:
+        matcher = re.compile(r'(\d+)\s+([1234567890./]+)')
+        for line in infile:
+            result = matcher.match(line)
+            if result:
+                vlan_ID = result.group(1)
+                subnet = result.group(2)
+                logger.debug("Found: VLAN: '%s'; Subnet: '%s'",
+                             vlan_ID, subnet)
+                subnet_to_vlan[subnet] = int(vlan_ID)
     logger.info("Done parsing VLAN-file '%s'; %i VLANs found" %
                 (filename, len(subnet_to_vlan)))
     return subnet_to_vlan
@@ -161,23 +157,22 @@ def parse_data_file(filename, subnet_to_vlan):
     """
     subnets_in_file = {}
     logger.info("Parsing data-file '%s'" % filename)
-    infile = open(filename)
-    matcher = re.compile(r'([1234567890./]+)\s+(.*)')
-    for line in infile:
-        if line.startswith('#') or line.rstrip() == '':
-            continue
-        result = matcher.match(line)
-        if result:
-            subnet = result.group(1)
-            desc = result.group(2).rstrip()
-            vlan = subnet_to_vlan.get(subnet, None)
-            logger.debug("Found: Subnet: '%s'; VLAN: '%s'; "
-                         "Desc:'%s'" % (subnet, vlan, desc))
+    with io.open(filename, 'r', encoding='ISO-8859-1') as infile:
+        matcher = re.compile(r'([1234567890./]+)\s+(.*)')
+        for line in infile:
+            if line.startswith('#') or line.rstrip() == '':
+                continue
+            result = matcher.match(line)
+            if result:
+                subnet = result.group(1)
+                desc = result.group(2).rstrip()
+                vlan = subnet_to_vlan.get(subnet, None)
+                logger.debug("Found: Subnet: '%s'; VLAN: '%s'; "
+                             "Desc:'%s'" % (subnet, vlan, desc))
 
-            subnets_in_file[subnet] = (desc, vlan)
-        else:
-            logger.warning("Unknown format for line: '%s'" % line)
-    infile.close()
+                subnets_in_file[subnet] = (desc, vlan)
+            else:
+                logger.warning("Unknown format for line: '%s'" % line)
     logger.info("Done parsing data-file '%s'" % filename)
     return subnets_in_file
 
@@ -253,9 +248,9 @@ def compare_file_to_db(subnets_in_file, force):
 def usage(message=None):
     """Gives user info on how to use the program and its options."""
     if message is not None:
-        print >>sys.stderr, "\n%s" % message
+        sys.stderr.write("\n%s\n" % message)
 
-    print >>sys.stderr, __doc__
+    sys.stderr.write(__doc__)
 
 
 def main(argv=None):
