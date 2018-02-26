@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# $Id$
+from __future__ import unicode_literals
 
 import sys
 import getopt
@@ -74,22 +74,19 @@ def get_data_from_DB():
     ips_by_mac = {}
 
     ipnumber = IPNumber.IPNumber(db)
-    all_ips = ipnumber.list()
+    all_ips = (x for x in ipnumber.list() if x['mac_adr'] is not None)
     mac_ips = 0
 
     for ip in all_ips:
-        if ip['mac_adr'] is None:
-            continue
         current = ips_by_mac.get(ip['mac_adr'], [])
         current.append(ip['a_ip'])
         ips_by_mac[ip['mac_adr']] = current
         mac_ips += 1
+
     ipnumber = IPv6Number.IPv6Number(db)
-    all_ips = ipnumber.list()
+    all_ips = (x for x in ipnumber.list() if x['mac_adr'] is not None)
 
     for ip in all_ips:
-        if ip['mac_adr'] is None:
-            continue
         current = ips_by_mac.get(ip['mac_adr'], [])
         current.append(ip['aaaa_ip'])
         ips_by_mac[ip['mac_adr']] = current
@@ -101,7 +98,7 @@ def get_data_from_DB():
     return ips_by_mac
 
 
-def write_to_file(ips_by_mac, file):
+def write_to_file(ips_by_mac, fname):
     """Writes all relevant data to selected output file.
 
     @type ips_by_mac: dict
@@ -109,20 +106,17 @@ def write_to_file(ips_by_mac, file):
                        and the values are lists of IP-addresses
                        associated with each MAC-address.
 
-    @type file: string
-    @param file: Path/name of the file where the data should be
+    @type fname: string
+    @param fname: Path/name of the file where the data should be
                  written to
     """
-    all_macs = ips_by_mac.keys()
-    all_macs.sort()
-    logger.info("Writing to export-file: '%s'" % file)
+    logger.info("Writing to export-file: '%s'", fname)
 
-    output_stream = SimilarSizeWriter(file, "w")
-    output_stream.max_pct_change = 10
-    for mac in all_macs:
-        output_stream.write("%-18s %s\n" % (mac, ",".join(ips_by_mac[mac])))
-    logger.info("Done writing to export-file")
-    output_stream.close()
+    with SimilarSizeWriter(fname, "w", encoding='ASCII') as output_stream:
+        output_stream.max_pct_change = 10
+        for mac, ips in sorted(ips_by_mac.items()):
+            output_stream.write("%-18s %s\n" % (mac, ",".join(ips)))
+        logger.info("Done writing to export-file")
 
 
 def usage(message=None):
@@ -134,12 +128,12 @@ def usage(message=None):
 
     """
     if message is not None:
-        print >>sys.stderr, "\n%s" % message
+        sys.stderr.write("\n%s" % message)
 
-    print >>sys.stderr, __doc__
+    sys.stderr.write(__doc__)
 
 
-def main(argv=None):
+def main(argv=sys.argv):
     """Main processing hub for program.
 
     @type argv: list
@@ -148,9 +142,6 @@ def main(argv=None):
     @rtype: int
     @return: Exit value
     """
-    if argv is None:
-        argv = sys.argv
-
     # Default values for command-line options
     options = {"file": None}
 
