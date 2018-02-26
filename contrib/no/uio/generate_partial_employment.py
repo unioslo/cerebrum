@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# encoding: utf-8
+# -*- coding: utf-8 -*-
 
-# Copyright 2017 University of Oslo, Norway
+# Copyright 2017-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -58,10 +58,6 @@ from Cerebrum.modules.xmlutils.xml2object import DataEmployment
 from Cerebrum.modules.xmlutils.xml2object import DataPerson
 from Cerebrum.modules.xmlutils.xml2object import DataOU
 
-
-# The Cerebrum XML parser is hard coded to encode certain values
-PARSER_ENCODING = 'latin1'
-OUTPUT_ENCODING = 'utf-8'
 
 DEFAULT_INPUT_FILE = os.path.join(cereconf.CACHE_DIR, 'SAP', 'sap2bas.xml')
 DEFAULT_OUTPUT_FILE = os.path.join(cereconf.CACHE_DIR, 'LDAP',
@@ -304,8 +300,8 @@ def format_scoped_aff(employment, get_ous):
 
 def format_title(title):
     """ DataName -> <lang>:<title>. """
-    return '{0}:{1}'.format(title.language.decode(PARSER_ENCODING).strip(),
-                            title.value.decode(PARSER_ENCODING).strip())
+    return '{0}:{1}'.format(title.language.strip(),
+                            title.value.strip())
 
 
 def get_identifier(person):
@@ -401,12 +397,8 @@ def main(args=None):
 
             output.write(
                 LDIFutils.entry_string(
-                    identifier.encode(OUTPUT_ENCODING),
-                    {
-                        b'uioPersonPartialEmployment': set([
-                            p.encode(OUTPUT_ENCODING)
-                            for p in partial_affs]),
-                    },
+                    identifier,
+                    {'uioPersonPartialEmployment': set(partial_affs)},
                     add_rdn=False))
 
     logger.info("persons"

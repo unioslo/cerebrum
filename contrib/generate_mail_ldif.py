@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2003-2015 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,6 +32,8 @@ Options:
   -i | --ignore-size:      Use file class instead of SimilarSizeWriter.
   -a | --no-auth-data:     Don't populate userPassword.
   -h | --help:             This message."""
+
+from __future__ import unicode_literals
 
 import base64
 import argparse
@@ -152,9 +154,8 @@ def write_ldif():
             # Find vacations-settings:
             if t in ldap.targ2vacation:
                 txt, start, end = ldap.targ2vacation[t]
-                rest += "tripnote:: %s\n" % \
-                        base64.encodestring(txt or "<No message>\n"
-                                            ).replace("\n", "")
+                note = (txt or '<No message>').encode('utf-8')
+                rest += "tripnote:: {}\n".format(base64.b64encode(note))
                 rest += "tripnoteActive: TRUE\n"
 
             # See if e-mail delivery should be suspended.

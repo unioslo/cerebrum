@@ -1,50 +1,64 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+# Copyright 2005-2018 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 import struct
 import socket
+
 from Cerebrum.modules.dns.Errors import DNSError
 from Cerebrum.modules.bofhd.errors import CerebrumError
+
+
 class IPCalc(object):
     """Methods for playing with IP-numbers"""
 
+    @staticmethod
     def netmask_to_intrep(netmask):
-        return pow(2L, 32) - pow(2L, 32-netmask)
-    netmask_to_intrep = staticmethod(netmask_to_intrep)
+        return pow(2, 32) - pow(2, 32 - netmask)
 
+    @staticmethod
     def netmask_to_ip(netmask):
         return IPCalc.long_to_ip(IPCalc.netmask_to_intrep(netmask))
-    netmask_to_ip = staticmethod(netmask_to_ip)
 
+    @staticmethod
     def ip_to_long(ip):
         try:
             return struct.unpack('!L', socket.inet_aton(ip))[0]
         except socket.error, msg:
             raise DNSError("Bad IP: %s" % msg)
-    ip_to_long = staticmethod(ip_to_long)
 
+    @staticmethod
     def long_to_ip(n):
         return socket.inet_ntoa(struct.pack('!L', n))
-    long_to_ip = staticmethod(long_to_ip)
-
-    def _parse_netdef(self, fname):
-        f = file(fname)
-        ip_re = re.compile(r'\s+(\d+\.\d+\.\d+\.\d+)/(\d+)\s+')
-        self.subnets = {}
-        for line in f.readlines():
-            match = ip_re.search(line)
-            if match:
-                net, mask = match.group(1), int(match.group(2))
-                self.subnets[net] = (mask, ) + \
-                                    self.ip_range_by_netmask(net, mask)
 
     def ip_range_by_netmask(self, subnet, netmask):
         tmp = struct.unpack('!L', socket.inet_aton(subnet))[0]
         start = tmp & IPCalc.netmask_to_intrep(netmask)
-        stop  =  tmp | (pow(2L, 32) - 1 - IPCalc.netmask_to_intrep(netmask))
+        stop = tmp | (pow(2, 32) - 1 - IPCalc.netmask_to_intrep(netmask))
         return start, stop
+
 
 class IPUtils(object):
     """Methods for verifying (etc.) IP numbers"""
 
+    @staticmethod
     def same_subnet(s1, s2):
         from Cerebrum.Utils import Factory
         from Cerebrum.modules.dns.Errors import SubnetError
@@ -63,8 +77,8 @@ class IPUtils(object):
             return True
         else:
             return False
-    same_subnet = staticmethod(same_subnet)
-    
+
+    @staticmethod
     def in_subnet(ip):
         from Cerebrum.Utils import Factory
         from Cerebrum.modules.dns.Errors import SubnetError
@@ -76,8 +90,8 @@ class IPUtils(object):
         except SubnetError:
             return False
         return True
-    in_subnet = staticmethod(in_subnet)
 
+    @staticmethod
     def is_valid_ipv4(ip):
         """
         Checks if a given IP is formatted according to IPv4-specifications.
@@ -95,10 +109,10 @@ class IPUtils(object):
         try:
             socket.inet_aton(ip)
             return True
-        except:
+        except Exception:
             return False
-    is_valid_ipv4 = staticmethod(is_valid_ipv4)
 
+    @staticmethod
     def parse_ipv4(ip):
         """
         Checks if an IP has leading zeroes in its parts, which are not handled
@@ -125,4 +139,3 @@ class IPUtils(object):
                                     "contain leading zeroes.\n"
                                     "Valid example: 10.0.0.1\n"
                                     "Invalid example: 10.0.0.01" % ip)
-    parse_ipv4 = staticmethod(parse_ipv4)

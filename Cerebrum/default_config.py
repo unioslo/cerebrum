@@ -849,8 +849,8 @@ LDAP_PERSON = {
     # needs to be defined in eduPersonPrimaryAffiliation.
     'eduPersonPrimaryAffiliation_selector': {},
 
-    # Path to the file containing a pickle of entitlements mapped to person
-    # IDs. The file itself should be created by an external cron job.
+    # Path to the JSON file containing entitlements mapped to person IDs.
+    # The file itself should be created by an external cron job.
     # Entitlements are used in Norway to specify and later publish in LDAP-tree
     # some extra information in about person roles and admissions at the
     # institution.
@@ -858,7 +858,7 @@ LDAP_PERSON = {
     # This parameter acts simultaneously as a switch: empty path value means
     # the publication of entitlements in LDIF is turned off (default
     # behaviour).
-    'entitlements_pickle_file': '',
+    'entitlements_file': '',
     #
     # Selects which contact info to use for norEduPersonAuthnMethod (sms).
     #
