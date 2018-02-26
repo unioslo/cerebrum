@@ -19,7 +19,7 @@
 
 from __future__ import unicode_literals
 
-import pickle
+import json
 from collections import defaultdict
 from six import text_type
 
@@ -49,16 +49,17 @@ class nmhOrgLDIFMixin(OrgLDIF):
     def get_fagomrade(self):
         """NMH wants 'fagomrade' exported, which consists one or more 'fagfelt'.
         This field is stored in a trait for each person. The trait string value
-        is a pickled list of strings.
+        is a JSON-serialized list of strings.
         """
         person2fagfelt = dict()
 
         for row in self.person.list_traits(self.const.trait_fagomrade_fagfelt):
             try:
-                fagfelt = pickle.loads(row['strval'])
+                fagfelt = json.loads(row['strval'])
             except Exception, exc:
                 self.logger.warn(
-                    "Could not unpickle trait_fagomrade_fagfelt for person:%s, %s",
+                    "Could not JSON-deserialize trait_fagomrade_fagfelt "
+                    "for person:%s, %s",
                     row['entity_id'], exc)
                 continue
 
