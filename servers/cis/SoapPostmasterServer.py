@@ -67,7 +67,8 @@ class PostmasterServer(SoapListener.BasicSoapServer):
     # The hock for the site object
     site = None
 
-    @rpc(Array(String), Array(String), Array(String), _returns=Array(String))
+    @rpc(Array(Unicode), Array(Unicode), Array(Unicode),
+         _returns=Array(Unicode))
     def get_addresses_by_affiliation(ctx, status=None, skos=None, source=None):
         """Get primary e-mail addresses for persons that match given
         criteria."""

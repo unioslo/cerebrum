@@ -57,7 +57,7 @@ from rpclib.server.wsgi import WsgiApplication
 from rpclib.protocol.soap import Soap11
 from rpclib.interface.wsdl import Wsdl11
 from rpclib.model.complex import ComplexModel
-from rpclib.model.primitive import String
+from rpclib.model.primitive import Unicode, String
 
 from twisted.web.server import Site, Session
 from twisted.web.resource import Resource
@@ -297,7 +297,8 @@ class TwistedSoapStarter(BasicSoapStarter):
         # Set the encoding for SOAP data, converting it from unicode to some
         # str encoding. We could instead use the Unicode classes, but Cerebrum
         # doesn't support unicode natively quite yet.
-        String.Attributes.encoding = 'latin1'
+        Unicode.Attributes.encoding = 'UTF-8'
+        String.Attributes.encoding = 'UTF-8'
 
         # Ignore unencodable characters
         # The following function does the same as String.from_string, except
