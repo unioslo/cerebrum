@@ -25,12 +25,13 @@ import sys
 import getopt
 
 import cerebrum_path
-import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.modules.dns import IPNumber, IPv6Number
 
+
+del cerebrum_path
 
 progname = __file__.split("/")[-1]
 
@@ -55,9 +56,6 @@ with <space>-characters.
 
 """ % progname
 
-__version__ = "$Revision$"
-# $URL$
-
 
 logger = Factory.get_logger("cronjob")
 
@@ -71,8 +69,7 @@ def get_data_from_DB():
     @rtype: dict
     @return: A dictionary where the keys are MAC-addresses and the
              values are lists of IP-addresses associated with each
-             MAC-address.    
-    
+             MAC-address.
     """
     ips_by_mac = {}
 
@@ -87,7 +84,6 @@ def get_data_from_DB():
         current.append(ip['a_ip'])
         ips_by_mac[ip['mac_adr']] = current
         mac_ips += 1
-    
     ipnumber = IPv6Number.IPv6Number(db)
     all_ips = ipnumber.list()
 
@@ -99,8 +95,9 @@ def get_data_from_DB():
         ips_by_mac[ip['mac_adr']] = current
         mac_ips += 1
 
-    logger.info("Found a total of %s MAC-addesses in DB" % len(ips_by_mac.keys()))    
-    logger.info("Found a total of %s associated IP-addesses in DB" % mac_ips)    
+    logger.info("Found a total of %s MAC-addesses in DB",
+                len(ips_by_mac.keys()))
+    logger.info("Found a total of %s associated IP-addesses in DB", mac_ips)
     return ips_by_mac
 
 
@@ -112,32 +109,28 @@ def write_to_file(ips_by_mac, file):
                        and the values are lists of IP-addresses
                        associated with each MAC-address.
 
-    @type file: string   
+    @type file: string
     @param file: Path/name of the file where the data should be
                  written to
-    
     """
     all_macs = ips_by_mac.keys()
     all_macs.sort()
-    
     logger.info("Writing to export-file: '%s'" % file)
 
     output_stream = SimilarSizeWriter(file, "w")
     output_stream.max_pct_change = 10
-    
     for mac in all_macs:
         output_stream.write("%-18s %s\n" % (mac, ",".join(ips_by_mac[mac])))
-    
     logger.info("Done writing to export-file")
     output_stream.close()
-    
+
 
 def usage(message=None):
     """Gives user info on how to use the program and its options.
 
     @type message: string
     @param message: Additional message to give to user, e.g. error
-                    explanation    
+                    explanation
 
     """
     if message is not None:
@@ -151,24 +144,23 @@ def main(argv=None):
 
     @type argv: list
     @param argv: List of arguments, usually from commmandline
-      
+
     @rtype: int
     @return: Exit value
- 
     """
     if argv is None:
         argv = sys.argv
 
     # Default values for command-line options
     options = {"file": None}
-    
+
     ######################################################################
-    ### Option-gathering
+    # Option-gathering
     try:
         opts, args = getopt.getopt(argv[1:],
                                    "hf:",
                                    ["help", "file="])
-    except getopt.GetoptError, error:
+    except getopt.GetoptError as error:
         usage(message=error.msg)
         return 1
 
@@ -184,13 +176,12 @@ def main(argv=None):
         return 2
 
     ######################################################################
-    ### Data-processing
+    # Data-processing
 
     ips_by_mac = get_data_from_DB()
     write_to_file(ips_by_mac, options["file"])
-    
     return 0
-            
+
 
 if __name__ == "__main__":
     logger.info("Starting program '%s'" % progname)
