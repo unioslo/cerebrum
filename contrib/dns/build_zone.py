@@ -68,7 +68,7 @@ class ZoneUtils(object):
         first = True
         for h in heads:
             logger.debug("Looking at header-file '%s'" % h)
-            fin = file(h, "r")
+            fin = open(h, "r")
             lines = []
             for line in fin:
                 m = ZoneUtils.re_serial.search(line)
@@ -204,16 +204,14 @@ class ForwardMap(object):
         self.zu.open(os.path.join(data_dir, os.path.basename(fname)))
         self.zu.write_heads(heads, data_dir)
 
-        def aaaa_cmp(x, y):
-            return cmp(IPv6Calc.ip_to_long(self.aaaa_records[x]['aaaa_ip']),
-                       IPv6Calc.ip_to_long(self.aaaa_records[y]['aaaa_ip']))
+        def aaaa_key(x):
+            return IPv6Calc.ip_to_long(self.aaaa_records[x]['aaaa_ip'])
 
         ar = self.a_records.keys()
-        ar.sort(lambda x, y: cmp(self.a_records[x]['ipnr'],
-                                 self.a_records[y]['ipnr']))
+        ar.sort(key=lambda x: self.a_records[x]['ipnr']),
 
         aaaar = self.aaaa_records.keys()
-        aaaar.sort(aaaa_cmp)
+        aaaar.sort(key=aaaa_key)
 
         order = ar + aaaar
 
@@ -453,19 +451,12 @@ class IPv6ReverseMap(object):
                     adrs.append("%s\tPTR\t%s\n" % (rev_ip[0], row['name']))
             self.origins.setdefault(rev_ip[1], []).extend(adrs)
 
-        def sort_rev_lines(x, y):
-            x1 = x[:31][::-1]
-            y1 = y[:31][::-1]
-            if x1 == y1:
-                return 0
-            elif x1 < y1:
-                return -1
-            else:
-                return 1
+        def rev_line_key(x):
+            return x[:31][::-1]
 
-        for key in sorted(self.origins.keys(), cmp=sort_rev_lines):
+        for key in sorted(self.origins.keys(), key=rev_line_key):
             self.zu.write('$ORIGIN %s.ip6.arpa.\n' % key)
-            for line in sorted(self.origins[key], cmp=sort_rev_lines):
+            for line in sorted(self.origins[key], key=rev_line_key):
                 self.zu.write(line)
         self.zu.close()
 
@@ -481,7 +472,8 @@ class HostsFile(object):
         self.zu = ZoneUtils(zone)
 
     def _exp_name(self, name):
-        """Returns "<name> <fqdn>", or "<fqdn> if the name is from another zone.
+        """Returns "<name> <fqdn>",
+        or "<fqdn> if the name is from another zone.
         """
         trimmed = self.zu.trim_name(name)
         if name != trimmed:
@@ -598,7 +590,7 @@ def usage(exitcode=0):
     -d | --dir dir: store .status/.serial files in this dir (default:
       same dir as filename)
     --head filename: header for the static part of the zone-file.  May
-      be repeated.  One line must end with '\d+ ; Serialnumber'
+      be repeated.  One line must end with '\\d+ ; Serialnumber'
       required for -b/-r
     --hosts filename: write new hosts file to filename
     -R : resets head list
@@ -611,7 +603,7 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], 'b:hr:s:Z:m:n:Rd:', [
             'help', 'build=', 'reverse=', 'reverse6=', 'hosts=', 'head=',
             'zone=', 'mask=', 'mask6=', 'dir=', 'comments'])
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         print(str(e))
         usage(1)
 
