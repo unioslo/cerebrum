@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 """ Dump zone file from Cerebrum. """
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 
 import os
 import re
 import sys
 import time
 import getopt
+import io
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.dns import ARecord, AAAARecord
@@ -57,31 +58,31 @@ class ZoneUtils(object):
         return name
 
     def open(self, fname):
-        self._file = AtomicFileWriter(fname, "w")
+        self._file = AtomicFileWriter(fname, "w", encoding='UTF-8')
         self._fname = fname
+        return self
 
     def write_heads(self, heads, data_dir):
         """ Write template data to the zone file. """
-        self._file.write(HEADER_SPLITTER)
+        self.write(HEADER_SPLITTER)
         serial = self._read_update_serial(self._fname)
         logger.debug("write_heads; serial: %s" % serial)
         first = True
         for h in heads:
             logger.debug("Looking at header-file '%s'" % h)
-            fin = open(h, "r")
-            lines = []
-            for line in fin:
-                m = ZoneUtils.re_serial.search(line)
-                if m:
-                    line = "%30s ; Serialnumber\n" % serial
-                lines.append(line)
-            if first and self._as_reversemap and not [
-                    x for x in lines if x.startswith('$ORIGIN')]:
-                lines.insert(0, self.__origin)
-            self._file.write("".join(lines))
-            fin.close()
+            with io.open(h, "r", encoding='UTF-8') as fin:
+                lines = []
+                for line in fin:
+                    m = ZoneUtils.re_serial.search(line)
+                    if m:
+                        line = "%30s ; Serialnumber\n" % serial
+                    lines.append(line)
+                if first and self._as_reversemap and not [
+                        x for x in lines if x.startswith('$ORIGIN')]:
+                    lines.insert(0, self.__origin)
+                self.write("".join(lines))
             first = False
-        self._file.write(EXTRA_SPLITTER)
+        self.write(EXTRA_SPLITTER)
 
     def close(self):
         self._file.replace = False
@@ -89,6 +90,12 @@ class ZoneUtils(object):
         if not self._file.discarded:
             self._read_update_serial(self._file.tmpname, update=True)
             os.rename(self._file.tmpname, self._file.name)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        self.close()
 
     def write(self, s):
         self._file.write(s)
@@ -99,27 +106,28 @@ class ZoneUtils(object):
 
         all_lines = []
         if os.path.exists(fname):
-            for line in open(fname):
-                m = ZoneUtils.re_serial.search(line)
-                if m:
-                    serial = m.group(1)
-                    logger.debug("Old serial: %s" % serial)
-                    if not update:
-                        return serial
-                    if serial[:-2] == time.strftime('%Y%m%d'):
-                        serial = int(serial) + 1
-                    else:
-                        serial = time.strftime('%Y%m%d') + '01'
-                    logger.debug("New serial: %s" % serial)
-                    line = "%30s ; Serialnumber\n" % serial
-                all_lines.append(line)
+            with open(fname, 'r', encoding='UTF-8') as fin:
+                for line in fin:
+                    m = ZoneUtils.re_serial.search(line)
+                    if m:
+                        serial = m.group(1)
+                        logger.debug("Old serial: %s" % serial)
+                        if not update:
+                            return serial
+                        if serial[:-2] == time.strftime('%Y%m%d'):
+                            serial = int(serial) + 1
+                        else:
+                            serial = time.strftime('%Y%m%d') + '01'
+                        logger.debug("New serial: %s" % serial)
+                        line = "%30s ; Serialnumber\n" % serial
+                    all_lines.append(line)
         if not update:
             # First time this zone is written
             serial = time.strftime('%Y%m%d') + '01'
             logger.debug("First time; new serial used: %s" % serial)
             return serial
         # Rewrite the entire file in case the serial line length has changed
-        f = AtomicFileWriter(fname, 'w')
+        f = AtomicFileWriter(fname, 'w', encoding='UTF-8')
         f.write("".join(all_lines))
         f.close()
 
@@ -201,101 +209,104 @@ class ForwardMap(object):
 
     def generate_zone_file(self, fname, heads, data_dir):
         logger.debug("Generating zone file")
-        self.zu.open(os.path.join(data_dir, os.path.basename(fname)))
-        self.zu.write_heads(heads, data_dir)
+        with self.zu.open(os.path.join(data_dir, os.path.basename(fname))):
+            self.zu.write_heads(heads, data_dir)
 
-        def aaaa_key(x):
-            return IPv6Calc.ip_to_long(self.aaaa_records[x]['aaaa_ip'])
+            def aaaa_key(x):
+                return IPv6Calc.ip_to_long(self.aaaa_records[x]['aaaa_ip'])
 
-        ar = self.a_records.keys()
-        ar.sort(key=lambda x: self.a_records[x]['ipnr']),
+            ar = self.a_records.keys()
+            ar.sort(key=lambda x: self.a_records[x]['ipnr']),
 
-        aaaar = self.aaaa_records.keys()
-        aaaar.sort(key=aaaa_key)
+            aaaar = self.aaaa_records.keys()
+            aaaar.sort(key=aaaa_key)
 
-        order = ar + aaaar
+            order = ar + aaaar
 
-        # If multiple A- or AAAA-records have the same name with different IP,
-        # the dns_owner data is only shown for the first IP.
-        shown_owner = {}
-        for a_id in order:
-            line = ''
+            # If multiple A- or AAAA-records have the same name with different
+            # IP, the dns_owner data is only shown for the first IP.
+            shown_owner = {}
+            for a_id in order:
+                line = ''
 
-            ar = self.a_records.get(a_id, None)
-            aaaar = self.aaaa_records.get(a_id, None)
+                ar = self.a_records.get(a_id, None)
+                aaaar = self.aaaa_records.get(a_id, None)
 
-            if ar is not None:
-                name = self.zu.trim_name(ar['name'])
-                line += "%s\t%s\tA\t%s\n" % (
-                    name, ar['ttl'] or '', ar['a_ip'])
+                if ar is not None:
+                    name = self.zu.trim_name(ar['name'])
+                    line += "%s\t%s\tA\t%s\n" % (
+                        name, ar['ttl'] or '', ar['a_ip'])
 
-            elif aaaar is not None:
-                name = self.zu.trim_name(aaaar['name'])
-                ar = aaaar
+                elif aaaar is not None:
+                    name = self.zu.trim_name(aaaar['name'])
+                    ar = aaaar
 
-                line += "%s\t%s\tAAAA\t%s\n" % (
-                    name, ar['ttl'] or '', ar['aaaa_ip'])
+                    line += "%s\t%s\tAAAA\t%s\n" % (
+                        name, ar['ttl'] or '', ar['aaaa_ip'])
 
-            dns_owner_id = int(ar['dns_owner_id'])
-            if dns_owner_id in shown_owner:
-                self.zu.write(line)
-                continue
-            shown_owner[dns_owner_id] = True
-            # logger.debug2("A: %s, owner=%s" % (a_id, dns_owner_id))
-            if dns_owner_id in self.hosts:
-                line += "\t%s\tHINFO\t%s\n" % (
-                    self.hosts[dns_owner_id]['ttl'] or '',
-                    self.hosts[dns_owner_id]['hinfo'])
-            if self.owner_id2mx_set.get(dns_owner_id, None):
-                mx_set = self.owner_id2mx_set[dns_owner_id]
-                for mx_info in self.mx_sets[mx_set]:
-                    line += "\t%s\tMX\t%s\t%s\n" % (
-                        mx_info['ttl'] or '', mx_info['pri'],
-                        self.zu.exp_name(mx_info['target_name']))
-            txt = self.dnsowner2txt_record.get(dns_owner_id, None)
-            if txt:
-                line += "\t%s\tTXT\t\"%s\"\n" % (txt['ttl'] or '', txt['data'])
-
-            for c_ref in self.cnames.get(dns_owner_id, []):
-                line += "%s\t%s\tCNAME\t%s\n" % (
-                    c_ref['name'], c_ref['ttl'] or '',
-                    self.zu.exp_name(c_ref['target_name']))
-                # for machines with multiple a-records and cnames, the
-                # cnames will be listed before the last a-records.
-            self.zu.write(line)
-        self.zu.write('; End of a-record owned entries\n')
-        logger.debug("Check remaining data")
-        for row in DnsOwner.DnsOwner(db).list():
-            line = ''
-            # Check for any remaining data.  Should only be srv_records
-            # and cnames with foreign targets
-            name = self.zu.trim_name(row['name'])
-            for s_ref in self.srv_records.get(row['dns_owner_id'], []):
-                line += "%s\t%s\tSRV\t%i\t%i\t%i\t%s\n" % (
-                    name,
-                    s_ref['ttl'] or '', s_ref['pri'], s_ref['weight'],
-                    s_ref['port'], self.zu.exp_name(s_ref['target_name']))
-                name = ''
-            if row['dns_owner_id'] not in shown_owner:
-                txt = self.dnsowner2txt_record.get(row['dns_owner_id'], None)
-                if txt:
-                    line += "%s\t%s\tTXT\t\"%s\"\n" % (name, txt['ttl'] or '',
-                                                       txt['data'])
-                    name = ''
-                if self.owner_id2mx_set.get(int(row['dns_owner_id']), None):
-                    mx_set = self.owner_id2mx_set[int(row['dns_owner_id'])]
+                dns_owner_id = int(ar['dns_owner_id'])
+                if dns_owner_id in shown_owner:
+                    self.zu.write(line)
+                    continue
+                shown_owner[dns_owner_id] = True
+                # logger.debug2("A: %s, owner=%s" % (a_id, dns_owner_id))
+                if dns_owner_id in self.hosts:
+                    line += "\t%s\tHINFO\t%s\n" % (
+                        self.hosts[dns_owner_id]['ttl'] or '',
+                        self.hosts[dns_owner_id]['hinfo'])
+                if self.owner_id2mx_set.get(dns_owner_id, None):
+                    mx_set = self.owner_id2mx_set[dns_owner_id]
                     for mx_info in self.mx_sets[mx_set]:
-                        line += "%s\t%s\tMX\t%s\t%s\n" % (
-                            name, mx_info['ttl'] or '', mx_info['pri'],
+                        line += "\t%s\tMX\t%s\t%s\n" % (
+                            mx_info['ttl'] or '', mx_info['pri'],
                             self.zu.exp_name(mx_info['target_name']))
-                        name = ''
-                for c_ref in self.cnames.get(row['dns_owner_id'], []):
+                txt = self.dnsowner2txt_record.get(dns_owner_id, None)
+                if txt:
+                    line += "\t%s\tTXT\t\"%s\"\n" % (txt['ttl'] or '',
+                                                     txt['data'])
+
+                for c_ref in self.cnames.get(dns_owner_id, []):
                     line += "%s\t%s\tCNAME\t%s\n" % (
                         c_ref['name'], c_ref['ttl'] or '',
                         self.zu.exp_name(c_ref['target_name']))
-            if line:
+                    # for machines with multiple a-records and cnames, the
+                    # cnames will be listed before the last a-records.
                 self.zu.write(line)
-        self.zu.close()
+            self.zu.write('; End of a-record owned entries\n')
+            logger.debug("Check remaining data")
+            for row in DnsOwner.DnsOwner(db).list():
+                line = ''
+                # Check for any remaining data.  Should only be srv_records
+                # and cnames with foreign targets
+                name = self.zu.trim_name(row['name'])
+                for s_ref in self.srv_records.get(row['dns_owner_id'], []):
+                    line += "%s\t%s\tSRV\t%i\t%i\t%i\t%s\n" % (
+                        name,
+                        s_ref['ttl'] or '', s_ref['pri'], s_ref['weight'],
+                        s_ref['port'], self.zu.exp_name(s_ref['target_name']))
+                    name = ''
+                if row['dns_owner_id'] not in shown_owner:
+                    txt = self.dnsowner2txt_record.get(row['dns_owner_id'],
+                                                       None)
+                    if txt:
+                        line += "%s\t%s\tTXT\t\"%s\"\n" % (name,
+                                                           txt['ttl'] or '',
+                                                           txt['data'])
+                        name = ''
+                    if self.owner_id2mx_set.get(int(row['dns_owner_id']),
+                                                None):
+                        mx_set = self.owner_id2mx_set[int(row['dns_owner_id'])]
+                        for mx_info in self.mx_sets[mx_set]:
+                            line += "%s\t%s\tMX\t%s\t%s\n" % (
+                                name, mx_info['ttl'] or '', mx_info['pri'],
+                                self.zu.exp_name(mx_info['target_name']))
+                            name = ''
+                    for c_ref in self.cnames.get(row['dns_owner_id'], []):
+                        line += "%s\t%s\tCNAME\t%s\n" % (
+                            c_ref['name'], c_ref['ttl'] or '',
+                            self.zu.exp_name(c_ref['target_name']))
+                if line:
+                    self.zu.write(line)
         logger.debug("zone file completed")
 
 
@@ -337,34 +348,33 @@ class ReverseMap(object):
         return '$ORIGIN %s.IN-ADDR.ARPA.\n' % ".".join(tmp)
 
     def generate_reverse_file(self, fname, heads, data_dir):
-        self.zu.open(os.path.join(data_dir, os.path.basename(fname)))
-        self.zu.write_heads(heads, data_dir)
+        with self.zu.open(os.path.join(data_dir, os.path.basename(fname))):
+            self.zu.write_heads(heads, data_dir)
 
-        order = self.ip_numbers.keys()
-        order.sort(lambda x, y: int(self.ip_numbers[x]['ipnr'] -
-                                    self.ip_numbers[y]['ipnr']))
-        this_net = 'z'
-        for ip_id in order:
-            if ip_id in self.override_ip:
-                tmp = self.override_ip[ip_id]
-            elif ip_id in self.a_records:
-                tmp = self.a_records[ip_id]
-            else:
-                logger.warn("dangling ip-number %i" % ip_id)
-                continue
-            a_ip = self.ip_numbers[ip_id]['a_ip']
-            if not a_ip.startswith(this_net):
-                this_net = a_ip[:a_ip.rfind(".")+1]
-                line = self.__net2origin(a_ip)
-                if line != self.__prev_origin:
-                    self.zu.write(line)
-                    self.__prev_origin = line  # avoid dupl. $ORIGIN in /24 net
-            a_ip = a_ip[a_ip.rfind(".")+1:]
-            for row in tmp:
-                if row['name'] is not None:
-                    line = "%s\tPTR\t%s\n" % (a_ip, row['name'])
-                    self.zu.write(line)
-        self.zu.close()
+            order = self.ip_numbers.keys()
+            order.sort(lambda x, y: int(self.ip_numbers[x]['ipnr'] -
+                                        self.ip_numbers[y]['ipnr']))
+            this_net = 'z'
+            for ip_id in order:
+                if ip_id in self.override_ip:
+                    tmp = self.override_ip[ip_id]
+                elif ip_id in self.a_records:
+                    tmp = self.a_records[ip_id]
+                else:
+                    logger.warn("dangling ip-number %i" % ip_id)
+                    continue
+                a_ip = self.ip_numbers[ip_id]['a_ip']
+                if not a_ip.startswith(this_net):
+                    this_net = a_ip[:a_ip.rfind(".")+1]
+                    line = self.__net2origin(a_ip)
+                    if line != self.__prev_origin:
+                        self.zu.write(line)
+                        self.__prev_origin = line  # avoid dupl. $ORIGIN in /24
+                a_ip = a_ip[a_ip.rfind(".")+1:]
+                for row in tmp:
+                    if row['name'] is not None:
+                        line = "%s\tPTR\t%s\n" % (a_ip, row['name'])
+                        self.zu.write(line)
 
 
 class IPv6ReverseMap(object):
@@ -430,35 +440,34 @@ class IPv6ReverseMap(object):
                 self.__ipv6_reversed_parts(net)[1])
 
     def generate_reverse_file(self, fname, heads, data_dir):
-        self.zu.open(os.path.join(data_dir, os.path.basename(fname)))
-        self.zu.write_heads(heads, data_dir)
+        with self.zu.open(os.path.join(data_dir, os.path.basename(fname))):
+            self.zu.write_heads(heads, data_dir)
 
-        for ip_id in self.ip_numbers.keys():
-            if ip_id in self.override_ip:
-                tmp = self.override_ip[ip_id]
-            elif ip_id in self.a_records:
-                tmp = self.a_records[ip_id]
-            else:
-                logger.warn("dangling ip-number %i" % ip_id)
-                continue
+            for ip_id in self.ip_numbers.keys():
+                if ip_id in self.override_ip:
+                    tmp = self.override_ip[ip_id]
+                elif ip_id in self.a_records:
+                    tmp = self.a_records[ip_id]
+                else:
+                    logger.warn("dangling ip-number %i" % ip_id)
+                    continue
 
-            ip = self.ip_numbers[ip_id]['aaaa_ip']
-            rev_ip = self.__ipv6_reversed_parts(ip)
+                ip = self.ip_numbers[ip_id]['aaaa_ip']
+                rev_ip = self.__ipv6_reversed_parts(ip)
 
-            adrs = []
-            for row in tmp:
-                if row['name'] is not None:
-                    adrs.append("%s\tPTR\t%s\n" % (rev_ip[0], row['name']))
-            self.origins.setdefault(rev_ip[1], []).extend(adrs)
+                adrs = []
+                for row in tmp:
+                    if row['name'] is not None:
+                        adrs.append("%s\tPTR\t%s\n" % (rev_ip[0], row['name']))
+                self.origins.setdefault(rev_ip[1], []).extend(adrs)
 
-        def rev_line_key(x):
-            return x[:31][::-1]
+            def rev_line_key(x):
+                return x[:31][::-1]
 
-        for key in sorted(self.origins.keys(), key=rev_line_key):
-            self.zu.write('$ORIGIN %s.ip6.arpa.\n' % key)
-            for line in sorted(self.origins[key], key=rev_line_key):
-                self.zu.write(line)
-        self.zu.close()
+            for key in sorted(self.origins.keys(), key=rev_line_key):
+                self.zu.write('$ORIGIN %s.ip6.arpa.\n' % key)
+                for line in sorted(self.origins[key], key=rev_line_key):
+                    self.zu.write(line)
 
 
 class HostsFile(object):
