@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import unicode_literals
+
 import getopt
 import sys
 import mx
+
+from six import text_type
 
 import cerebrum_path
 
@@ -59,16 +63,16 @@ class NoDisk(NISMapError):
 
 
 def generate_passwd(filename, shadow_file, spread=None):
-    logger.debug("generate_passwd: "+str((filename, shadow_file, spread)))
+    logger.debug("generate_passwd: %s", (filename, shadow_file, spread))
     if spread is None:
         raise ValueError("Must set user_spread")
     shells = {}
     for s in posix_user.list_shells():
         shells[int(s['code'])] = s['shell']
-    f = SimilarSizeWriter(filename, "w")
+    f = SimilarSizeWriter(filename, "w", encoding='ISO-8859-1')
     f.max_pct_change = 10
     if shadow_file:
-        s = SimilarSizeWriter(shadow_file, "w")
+        s = SimilarSizeWriter(shadow_file, "w", encoding='UTF-8')
         s.max_pct_change = 10
     diskid2path = {}
     disk = Factory.get('Disk')(db)
@@ -92,7 +96,10 @@ def generate_passwd(filename, shadow_file, spread=None):
             gecos = row['name']
         if gecos is None:
             gecos = "GECOS NOT SET"
-        gecos = latin1_to_iso646_60(gecos)
+        try:
+            gecos = latin1_to_iso646_60(gecos).decode('latin-1')
+        except UnicodeEncodeError:
+            gecos = 'GECOS NOT SET'
         shell = shells[int(row['shell'])]
         if row['quarantine_type'] is not None:
             now = mx.DateTime.now()
@@ -127,9 +134,9 @@ def generate_passwd(filename, shadow_file, spread=None):
             if not passwd[0] == '*':
                 passwd = "!!"
 
-        line = ':'.join((uname, passwd, str(row['posix_uid']),
-                         str(posix_group.posix_gid), gecos,
-                         str(home), shell))
+        line = ':'.join((uname, passwd, text_type(row['posix_uid']),
+                         text_type(posix_group.posix_gid), gecos,
+                         text_type(home), shell))
         if debug:
             logger.debug(line)
         f.write(line+"\n")
@@ -251,7 +258,7 @@ class NISGroupUtil(object):
     def generate_netgroup(self, filename):
         logger.debug("generate_netgroup: %s" % filename)
 
-        f = SimilarSizeWriter(filename, "w")
+        f = SimilarSizeWriter(filename, "w", encoding='UTF-8')
         f.max_pct_change = 5
 
         for group_id in self._exported_groups.keys():
@@ -334,7 +341,7 @@ class FileGroup(NISGroupUtil):
 
     def generate_filegroup(self, filename):
         logger.debug("generate_group: %s" % filename)
-        f = SimilarSizeWriter(filename, "w")
+        f = SimilarSizeWriter(filename, "w", encoding='UTF-8')
         f.max_pct_change = 5
 
         groups = self._exported_groups.keys()
