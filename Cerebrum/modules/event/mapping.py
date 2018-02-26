@@ -18,7 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-u""" Module for setting up mappings between events and actions. """
+""" Module for setting up mappings between events and actions. """
+
+from __future__ import unicode_literals
 
 from collections import defaultdict
 from .errors import EventHandlerNotImplemented
@@ -26,7 +28,7 @@ from .errors import EventHandlerNotImplemented
 
 class EventMap(object):
 
-    u""" An event decorator that maps events to callbacks.
+    """ An event decorator that maps events to callbacks.
 
     Example use:
 
@@ -46,11 +48,11 @@ class EventMap(object):
     """
 
     def __init__(self):
-        u"""Initialize callback lookup table. """
+        """Initialize callback lookup table. """
         self._callback_lut = defaultdict(list)
 
     def add_callback(self, event_key, cb):
-        u""" Add a callback to the lookup table.
+        """ Add a callback to the lookup table.
 
         :param str event_key:
             The event name to register the callback under.
@@ -62,11 +64,11 @@ class EventMap(object):
         """
         if not callable(cb):
             raise TypeError(
-                u'Invalid callback {!r}, must be callable'.format(cb))
+                'Invalid callback {!r}, must be callable'.format(cb))
         self._callback_lut[event_key].append(cb)
 
     def get_callbacks(self, event_key):
-        u""" Get callbacks added for a given event.
+        """ Get callbacks added for a given event.
 
         :param str event_key:
             The event name to fetch callbacks for.
@@ -79,11 +81,11 @@ class EventMap(object):
         """
         if event_key not in self._callback_lut:
             raise EventHandlerNotImplemented(
-                u'No event handler for {!r}'.format(event_key))
+                'No event handler for {!r}'.format(event_key))
         return self._callback_lut[event_key]
 
     def __call__(self, *events):
-        u""" Registers decorated function with the given events.
+        """ Registers decorated function with the given events.
 
         :param *list events:
             A list of event names to add the decorated function to.
@@ -103,7 +105,7 @@ class EventMap(object):
 
 
 class CallbackMap(EventMap):
-    u""" An event decorator that maps events to callbacks.
+    """ An event decorator that maps events to callbacks.
 
     Example use:
 
@@ -118,9 +120,9 @@ class CallbackMap(EventMap):
     >>> Foo().handle('foo')
     """
     def get_callbacks(self, event_key):
-        u""" Get callbacks added for a given event.
+        """ Get callbacks added for a given event.
 
-        :param str event_key:
+        :param string event_key:
             The event name to fetch callbacks for.
 
         :return list:
