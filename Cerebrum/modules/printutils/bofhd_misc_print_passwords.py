@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2016 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -50,16 +49,16 @@ import tempfile
 
 import cereconf
 
-from Cerebrum.modules.templates.letters import TemplateHandler
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.cmd_param import Command
+from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.templates.letters import TemplateHandler
 from .printer import LinePrinter
 from .tex import prepare_tex
 
 
 class BofhdExtension(BofhdCommonMethods):
-    u""" BofhdExtension for printing password sheets. """
+    """ BofhdExtension for printing password sheets. """
 
     __DEFAULT_PRINTER_STATE = 'default_printer'
 
@@ -86,7 +85,7 @@ class BofhdExtension(BofhdCommonMethods):
         return options
 
     def __get_template(self, selection):
-        u""" Get a template.
+        """ Get a template.
 
         :param str selection:
             If numerical string, get the n-th template.
@@ -122,7 +121,7 @@ class BofhdExtension(BofhdCommonMethods):
         raise CerebrumError("Invalid template %r" % selection)
 
     def __get_cached_passwords(self, session):
-        u""" List all new passwords cached in session. """
+        """ List all new passwords cached in session. """
         cached_passwds = []
         for row in session.get_state():
             # state_type, entity_id, state_data, set_time
@@ -136,7 +135,7 @@ class BofhdExtension(BofhdCommonMethods):
         return cached_passwds
 
     def __select_cached_passwords(self, session, selection):
-        u""" Get selection of new passwords cached in session. """
+        """ Get selection of new passwords cached in session. """
         new_passwds = self.__get_cached_passwords(session)
 
         def get_index(idx):
@@ -168,7 +167,7 @@ class BofhdExtension(BofhdCommonMethods):
         return ret
 
     def _get_default_printer(self, session):
-        u""" Get a default printer for the prompt.
+        """ Get a default printer for the prompt.
 
         This function fetches the previously selected printer.
 
@@ -197,7 +196,7 @@ class BofhdExtension(BofhdCommonMethods):
         self.db.commit()
 
     def _get_printer(self, session, template):
-        u""" Get printer preset for a given operator/template.
+        """ Get printer preset for a given operator/template.
 
         :param BofhdSession session: The current session/operator
         :param dict template: The selected template
@@ -208,7 +207,7 @@ class BofhdExtension(BofhdCommonMethods):
         return None
 
     def _can_set_spool_user(self, session, template):
-        u""" Check if spool user can be set for a given operator/template.
+        """ Check if spool user can be set for a given operator/template.
 
         :param BofhdSession session: The current session/operator
         :param dict template: The selected template
@@ -217,7 +216,7 @@ class BofhdExtension(BofhdCommonMethods):
         return False
 
     def _get_mappings(self, account, tpl):
-        u""" Get mappings for a given template.
+        """ Get mappings for a given template.
 
         :param Cerebrum.Account account: The account to generate mappings for
         :param dict tpl: The template to generate mappings for
@@ -228,7 +227,7 @@ class BofhdExtension(BofhdCommonMethods):
         return dict()
 
     def _template_filename(self, operator, tpl):
-        u""" Generate a filename for the template. """
+        """ Generate a filename for the template. """
         return os.path.extsep.join([tpl.get('type'), tpl.get('fmt')])
 
     def _make_password_document(self, filename, account, password, tpl):
@@ -289,7 +288,7 @@ class BofhdExtension(BofhdCommonMethods):
         return output_file
 
     def _confirm_msg(self, account, destination, tpl, print_user):
-        u""" Make a confirmation message for the user. """
+        """ Make a confirmation message for the user. """
         return "OK: %s/%s.%s for %s spooled @ %s for %s" % (
             tpl.get('lang'), tpl.get('type'), tpl.get('fmt'),
             account.account_name, destination, print_user.account_name)

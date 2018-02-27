@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012-2017 University of Oslo, Norway
+# Copyright 2012-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,15 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-u""" This is a bofhd module for guest functionality.
+""" This is a bofhd module for guest functionality.
 
 The guest commands in this module creates guest accounts.
 
 Guests created by these bofhd-commands are non-personal, owned by a group. A
 trait associates the guest with an existing personal account.
-
-TODO: More info
-
 """
 import functools
 
@@ -37,19 +33,18 @@ import guestconfig
 
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
-from Cerebrum.utils.sms import SMSSender
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
+from Cerebrum.modules.bofhd.cmd_param import (AccountName,
+                                              Command,
+                                              FormatSuggestion,
+                                              GroupName,
+                                              Integer,
+                                              Parameter,
+                                              PersonName)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.guest.bofhd_guest_auth import BofhdAuth
 from Cerebrum.modules.username_generator.generator import UsernameGenerator
-
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.modules.bofhd.cmd_param import (Parameter,
-                                              Command,
-                                              AccountName,
-                                              Integer,
-                                              GroupName,
-                                              PersonName,
-                                              FormatSuggestion)
+from Cerebrum.utils.sms import SMSSender
 
 
 def format_date(field):
@@ -59,15 +54,13 @@ def format_date(field):
 
 
 class Mobile(Parameter):
-
     """ Mobile phone Parameter. """
-
     _type = 'mobilePhone'
-    _help_ref = 'mobile_number'
+    _help_ref = 'guest_mobile_number'
 
 
 class BofhdExtension(BofhdCommonMethods):
-    u""" Guest commands. """
+    """ Guest commands. """
 
     hidden_commands = {}  # Not accessible through bofh
     all_commands = {}
@@ -77,37 +70,7 @@ class BofhdExtension(BofhdCommonMethods):
     @classmethod
     def get_help_strings(cls):
         """ Help strings for our commands and arguments. """
-        group_help = {'guest': "Commands for handling guest users", }
-
-        command_help = {
-            'guest': {
-                'guest_create': 'Create a new guest user',
-                'guest_remove': 'Deactivate a guest user',
-                'guest_info': 'View information about a guest user',
-                'guest_list': 'List out all guest users for a given owner',
-                'guest_list_all': 'List out all guest users',
-                'guest_reset_password':
-                    'Reset the password of a guest user, and nootify by SMS', }
-            }
-
-        arg_help = {
-            'guest_days': ['days', 'Enter number of days',
-                           'Enter the number of days the guest user should be '
-                           'active'],
-            'guest_fname': ['given_name', "Enter guest's given name",
-                            "Enter the guest's first and middle name"],
-            'guest_lname': ['family_name', "Enter guest's family name",
-                            "Enter the guest's (last) family name"],
-            'guest_responsible': ['responsible', "Enter the responsible user",
-                                  "Enter the user that will be set as the "
-                                  "responsible for the guest"],
-            'group_name': ['group', 'Enter group name',
-                           "Enter the group the guest should belong to"],
-            'mobile_number': ['mobile', 'Enter mobile number',
-                              "Enter the guest's mobile number, where the "
-                              "username and password will be sent"],
-            }
-        return (group_help, command_help, arg_help)
+        return (HELP_GUEST_GROUP, HELP_GUEST_CMDS, HELP_GUEST_ARGS)
 
     def _get_owner_group(self):
         """ Get the group that should stand as the owner of the guest accounts.
@@ -272,17 +235,23 @@ class BofhdExtension(BofhdCommonMethods):
                 'status':       status,
                 'contact':      mobile}
 
+    #
     # guest create
+    #
     all_commands['guest_create'] = Command(
         ('guest', 'create'),
         Integer(help_ref='guest_days'),
         PersonName(help_ref='guest_fname'),
         PersonName(help_ref='guest_lname'),
-        GroupName(default=guestconfig.GUEST_TYPES_DEFAULT),
-        Mobile(optional=(not guestconfig.GUEST_REQUIRE_MOBILE)),
+        GroupName(help_ref='guest_group_name',
+                  default=guestconfig.GUEST_TYPES_DEFAULT),
+        Mobile(help_ref='guest_mobile_number',
+               optional=(not guestconfig.GUEST_REQUIRE_MOBILE)),
         AccountName(help_ref='guest_responsible', optional=True),
-        fs=FormatSuggestion([('Created user %s.', ('username',)),
-                             (('SMS sent to %s.'), ('sms_to',))]),
+        fs=FormatSuggestion([
+            ('Created user %s.', ('username',)),
+            (('SMS sent to %s.'), ('sms_to',))
+        ]),
         perm_filter='can_create_personal_guest')
 
     def guest_create(self, operator, days, fname, lname, groupname,
@@ -475,7 +444,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['guest_remove'] = Command(
         ("guest", "remove"),
-        AccountName(),
+        AccountName(help_ref='guest_account_name'),
         perm_filter='can_remove_personal_guest')
 
     def guest_remove(self, operator, username):
@@ -511,20 +480,22 @@ class BofhdExtension(BofhdCommonMethods):
     # guest info <guest-name>
     #
     all_commands['guest_info'] = Command(
-        ("guest", "info"), AccountName(),
+        ("guest", "info"),
+        AccountName(help_ref='guest_account_name'),
         perm_filter='can_view_personal_guest',
         fs=FormatSuggestion([
-            ('Username:       %s\n' +
-             'Name:           %s\n' +
-             'Responsible:    %s\n' +
-             'Created on:     %s\n' +
-             'Expires on:     %s\n' +
-             'Status:         %s\n' +
+            ('Username:       %s\n'
+             'Name:           %s\n'
+             'Responsible:    %s\n'
+             'Created on:     %s\n'
+             'Expires on:     %s\n'
+             'Status:         %s\n'
              'Contact:        %s', ('username', 'name', 'responsible',
                                     format_date('created'),
                                     format_date('expires'),
                                     'status', 'contact'))
-        ]))
+        ])
+    )
 
     def guest_info(self, operator, username):
         """ Print stored information about a guest account. """
@@ -538,7 +509,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['guest_list'] = Command(
         ("guest", "list"),
-        AccountName(optional=True),
+        AccountName(help_ref='guest_responsible', optional=True),
         perm_filter='can_create_personal_guest',
         fs=FormatSuggestion([
             ('%-25s %-30s %-10s %-10s', ('username', 'name',
@@ -600,9 +571,11 @@ class BofhdExtension(BofhdCommonMethods):
 
     hidden_commands['guest_reset_password'] = Command(
         ('guest', 'reset_password'),
-        AccountName(),
-        fs=FormatSuggestion([('New password for user %s, notified %s by SMS.',
-                              ('username', 'mobile', )), ]),
+        AccountName(help_ref='guest_account_name'),
+        fs=FormatSuggestion([
+            ('New password for user %s, notified %s by SMS.', ('username',
+                                                               'mobile', )),
+        ]),
         perm_filter='can_reset_guest_password')
 
     def guest_reset_password(self, operator, username):
@@ -641,8 +614,8 @@ class BofhdExtension(BofhdCommonMethods):
             'username': account.account_name,
             'password': password}
         if getattr(cereconf, 'SMS_DISABLE', False):
-            self.logger.info("""SMS disabled in cereconf, would send to
-            '%s':\n%s\n""" % (mobile, msg))
+            self.logger.info("SMS disabled in cereconf, would send"
+                             " to %r:\n%s\n", mobile, msg)
         else:
             sms = SMSSender(logger=self.logger)
             if not sms(mobile, msg):
@@ -651,3 +624,50 @@ class BofhdExtension(BofhdCommonMethods):
 
         return {'username': account.account_name,
                 'mobile': mobile}
+
+
+HELP_GUEST_GROUP = {
+    'guest': "Commands for handling guest users",
+}
+
+HELP_GUEST_CMDS = {
+    'guest': {
+        'guest_create':
+            'Create a new guest user',
+        'guest_remove':
+            'Deactivate a guest user',
+        'guest_info':
+            'View information about a guest user',
+        'guest_list':
+            'List out all guest users for a given owner',
+        'guest_list_all':
+            'List out all guest users',
+        'guest_reset_password':
+            'Reset the password of a guest user, and nootify by SMS',
+    },
+}
+
+HELP_GUEST_ARGS = {
+    'guest_days':
+        ['days', 'Enter number of days',
+         'Enter the number of days the guest user should be active'],
+    'guest_fname':
+        ['given_name', "Enter guest's given name",
+         "Enter the guest's first and middle name"],
+    'guest_lname':
+        ['family_name', "Enter guest's family name",
+         "Enter the guest's surname"],
+    'guest_responsible':
+        ['responsible', "Enter the responsible user",
+         "Enter the user that will be set as the responsible for the guest"],
+    'guest_group_name':
+        ['group', 'Enter group name',
+         "Enter the group the guest should belong to"],
+    'guest_mobile_number':
+        ['mobile', 'Enter mobile number',
+         "Enter the guest's mobile number, where the "
+         "username and password will be sent"],
+    'guest_account_name':
+        ['username', 'Enter username',
+         'The name of a guest user account']
+}

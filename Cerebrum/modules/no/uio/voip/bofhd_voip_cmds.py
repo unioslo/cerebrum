@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2010-2016 University of Oslo, Norway
+# Copyright 2010-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,38 +22,32 @@
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
 from Cerebrum.Entity import EntityContactInfo
-
-from Cerebrum.modules.no.fodselsnr import personnr_ok
-from Cerebrum.modules.no.fodselsnr import InvalidFnrError
-
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-
 from Cerebrum.modules.bofhd.cmd_param import Command
 from Cerebrum.modules.bofhd.cmd_param import FormatSuggestion
-from Cerebrum.modules.bofhd.cmd_param import SimpleString
 from Cerebrum.modules.bofhd.cmd_param import OU
+from Cerebrum.modules.bofhd.cmd_param import SimpleString
 from Cerebrum.modules.bofhd.cmd_param import YesNo
+from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.no.fodselsnr import InvalidFnrError
+from Cerebrum.modules.no.fodselsnr import personnr_ok
+from Cerebrum.modules.no.uio.voip import bofhd_voip_auth
+from Cerebrum.modules.no.uio.voip import bofhd_voip_help
+from Cerebrum.modules.no.uio.voip.cmd_param import ContactTypeParameter
 from Cerebrum.modules.no.uio.voip.cmd_param import MacAddress
-from Cerebrum.modules.no.uio.voip.cmd_param import VoipClientInfoCode
-from Cerebrum.modules.no.uio.voip.cmd_param import VoipClientTypeCode
-from Cerebrum.modules.no.uio.voip.cmd_param import VoipServiceTypeCode
+from Cerebrum.modules.no.uio.voip.cmd_param import PriorityParameter
 from Cerebrum.modules.no.uio.voip.cmd_param import VoipAddressParameter
+from Cerebrum.modules.no.uio.voip.cmd_param import VoipClientInfoCode
+from Cerebrum.modules.no.uio.voip.cmd_param import VoipClientParameter
+from Cerebrum.modules.no.uio.voip.cmd_param import VoipClientTypeCode
 from Cerebrum.modules.no.uio.voip.cmd_param import VoipOwnerParameter
 from Cerebrum.modules.no.uio.voip.cmd_param import VoipServiceParameter
-from Cerebrum.modules.no.uio.voip.cmd_param import PriorityParameter
-from Cerebrum.modules.no.uio.voip.cmd_param import ContactTypeParameter
-from Cerebrum.modules.no.uio.voip.cmd_param import VoipClientParameter
-
-from Cerebrum.modules.no.uio.voip import bofhd_voip_help
-from Cerebrum.modules.no.uio.voip import bofhd_voip_auth
-
-from Cerebrum.modules.no.uio.voip.voipService import VoipService
-from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
+from Cerebrum.modules.no.uio.voip.cmd_param import VoipServiceTypeCode
 from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
-
-from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
+from Cerebrum.modules.no.uio.voip.voipService import VoipService
 
 
 class BofhdVoipCommands(BofhdCommonMethods):
@@ -76,17 +69,17 @@ class BofhdVoipCommands(BofhdCommonMethods):
     def _human_repr2id(self, human_repr):
         """Just like the superclass, except mac addresses are trapped here."""
 
-        if (isinstance(human_repr, (str, unicode)) and
-            len(human_repr) == 17 and
-            all(x.lower() in "0123456789abcdef: " for x in human_repr)):
+        if (isinstance(human_repr, (str, unicode))
+                and len(human_repr) == 17
+                and all(x.lower() in "0123456789abcdef: "
+                        for x in human_repr)):
             return "mac", human_repr
-
         return super(BofhdVoipCommands, self)._human_repr2id(human_repr)
 
     def _get_entity_id(self, designation):
         """Check whetner L{designation} may be interpreted as an entity id.
 
-        Return the id, if possible, or None, when no conversion applies. 
+        Return the id, if possible, or None, when no conversion applies.
 
         We consider the following as entity_id:
 
@@ -114,8 +107,8 @@ class BofhdVoipCommands(BofhdCommonMethods):
 
         cnst = self.const.fetch_constants(const_type, designation)
         if len(cnst) == 0:
-            raise CerebrumError("Unknown %s constant: %s" % 
-                                (str(const_type),designation))
+            raise CerebrumError("Unknown %s constant: %s" %
+                                (str(const_type), designation))
         return cnst[0]
 
     def _get_ou(self, designation):
@@ -204,7 +197,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
         try:
             va = VoipAddress(self.db)
             va.find_by_owner_id(value)
-            return [va,]
+            return [va, ]
         except Errors.NotFoundError:
             return list()
 
@@ -220,7 +213,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
         try:
             va = VoipAddress(self.db)
             va.find(value)
-            return [va,]
+            return [va, ]
         except Errors.NotFoundError:
             return list()
 
@@ -232,19 +225,19 @@ class BofhdVoipCommands(BofhdCommonMethods):
         Crap. This turned out to be extremely complicated, since there are so
         many ways we could interpret the meaning of 'give a voip_address for
         <doohickey>'.
-        
+
         @param all_matches:
           Controls whether to collect all possible matches, or just the first
           one. Note that the default case is to collect the single voipAddress
           that matches the first of the search criteria below. Even though
           previous searches may have matched multiple addresses, the first
-          search yielding exactly one answer will be used. 
+          search yielding exactly one answer will be used.
         """
 
         search_names = ("by_entity_id", "by_owner_entity_id",
                         "by_contact_info", "by_owner_account",
                         "by_service_description",)
-        id_type, value =  self._human_repr2id(designation)
+        id_type, value = self._human_repr2id(designation)
         result = list()
         collected_ids = set()
         for partial_name in search_names:
@@ -306,8 +299,8 @@ class BofhdVoipCommands(BofhdCommonMethods):
 
         client.populate(voip_address_id,
                         self.const.voip_client_type_softphone,
-                        True, # sip_enabled by default
-                        None, # softphones don't have MACs
+                        True,  # sip_enabled by default
+                        None,  # softphones don't have MACs
                         self.const.voip_client_info_softphone)
         client.write_db()
         client.set_auth_data(self.const.voip_auth_sip_secret,
@@ -328,8 +321,9 @@ class BofhdVoipCommands(BofhdCommonMethods):
         # Don't use _human_repr2id here, since it does not like ':' being part
         # of the identifier (which mac addresses definitely have)
         client = VoipClient(self.db)
-        if (isinstance(designation, (int, long)) or
-            isinstance(designation, str) and designation.isdigit()):
+        if (isinstance(designation, (int, long))
+                or isinstance(designation, str)
+                and designation.isdigit()):
             try:
                 client.find(int(designation))
                 return client
@@ -430,14 +424,16 @@ class BofhdVoipCommands(BofhdCommonMethods):
 
     def _collect_constants(self, const_type):
         """Return a suitable data structure containing all constants of the
-        given type. 
+        given type.
         """
 
         result = list()
         for cnst in self.const.fetch_constants(const_type):
-            result.append({"code": int(cnst),
-                           "code_str": str(cnst),
-                           "description": cnst.description})
+            result.append({
+                "code": int(cnst),
+                "code_str": str(cnst),
+                "description": cnst.description,
+            })
         return sorted(result, key=lambda r: r["code_str"])
 
     def _typeset_traits(self, trait_sequence):
@@ -479,20 +475,25 @@ class BofhdVoipCommands(BofhdCommonMethods):
         """Check that a description is not in use by any voip_service.
         """
         vs = VoipService(self.db)
-        services =  vs.search_voip_service_by_description(description,
-                                                          exact_match=True)
+        services = vs.search_voip_service_by_description(description,
+                                                         exact_match=True)
         if services:
-            raise CerebrumError("Description must be unique. In use by id=%s." \
+            raise CerebrumError("Description must be unique. In use by id=%s."
                                 % services[0]['entity_id'])
 
     ########################################################################
     # voip_service related commands
+    #
+
+    #
+    # voip service_new
     #
     all_commands["voip_service_new"] = Command(
         ("voip", "service_new"),
         VoipServiceTypeCode(),
         OU(),
         SimpleString())
+
     def voip_service_new(self, operator, service_type, ou_tag, description):
         """Create a new voip_service.
 
@@ -520,23 +521,26 @@ class BofhdVoipCommands(BofhdCommonMethods):
         self._get_or_create_voip_address(service.entity_id)
         return "OK, new voip_service (%s), entity_id=%s" % (str(service_type),
                                                             service.entity_id)
-    # end voip_service_new
 
-
-
+    #
+    # voip service_info
+    #
     all_commands["voip_service_info"] = Command(
         ("voip", "service_info"),
         VoipServiceParameter(),
-        fs = FormatSuggestion("Entity id:     %d\n"
-                              "Service type:  %s\n"
-                              "Description:   %s\n"
-                              "Location:      %s\n"
-                              "Traits:        %s\n",
-                              ("entity_id",
-                               "service_type",
-                               "description",
-                               "location",
-                               "traits",)))
+        fs=FormatSuggestion(
+            "Entity id:     %d\n"
+            "Service type:  %s\n"
+            "Description:   %s\n"
+            "Location:      %s\n"
+            "Traits:        %s\n",
+            ("entity_id",
+             "service_type",
+             "description",
+             "location",
+             "traits",)
+        ))
+
     def voip_service_info(self, operator, designation):
         """Return information about a voip_service.
 
@@ -545,57 +549,60 @@ class BofhdVoipCommands(BofhdCommonMethods):
 
         self.ba.can_view_voip_service(operator.get_entity_id())
         service = self._get_voip_service(designation)
-        answer = {"entity_id": service.entity_id,
-                  "service_type":
-                     str(self.const.VoipServiceTypeCode(service.service_type)),
-                  "description": service.description,
-                  }
+        service_type = self.const.VoipServiceTypeCode(service.service_type)
+        answer = {
+            "entity_id": service.entity_id,
+            "service_type": str(service_type),
+            "description": service.description,
+          }
         answer["location"] = self._typeset_ou(service.ou_id)
         answer["traits"] = self._typeset_traits(service.get_traits())
         return answer
-    # end voip_service_info
 
-
-
+    #
+    # voip service_type_list
+    #
     all_commands["voip_service_type_list"] = Command(
         ("voip", "service_type_list"),
-        fs=FormatSuggestion("%-32s  %s",
-                            ("code_str", "description"),
-                            hdr = "%-32s  %s" % ("Type", "Description")))
+        fs=FormatSuggestion(
+            "%-32s  %s", ("code_str", "description"),
+            hdr="%-32s  %s" % ("Type", "Description")
+        ))
+
     def voip_service_type_list(self, operator):
         """List available service_info_code values."""
-
         return self._collect_constants(self.const.VoipServiceTypeCode)
-    # end voip_service_type_list
-        
 
-
+    #
+    # voip service_delete
+    #
     all_commands["voip_service_delete"] = Command(
         ("voip", "service_delete"),
         VoipServiceParameter())
+
     def voip_service_delete(self, operator, designation):
         """Delete the specified voip_service.
-        
+
         Caveat: this method assumes that the related voip_address/clients have
         already been deleted. This is by design.
         """
-
         self.ba.can_create_voip_service(operator.get_entity_id())
         service = self._get_voip_service(designation)
         entity_id, description = service.entity_id, service.description
         service.delete()
         return "OK, deleted voip_service id=%s, %s" % (entity_id,
                                                        description)
-    # end voip_service_delete
 
-
-
+    #
+    # voip service_update
+    #
     all_commands["voip_service_update"] = Command(
         ("voip", "service_update"),
         VoipServiceParameter(),
         SimpleString(optional=True, default=None),
         VoipServiceTypeCode(optional=True, default=None),
         OU(optional=True, default=None))
+
     def voip_service_update(self, operator, designation, description=None,
                             service_type=None, ou_tag=None):
         """Update information about an existing voip_service.
@@ -605,7 +612,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
 
         self.ba.can_alter_voip_service(operator.get_entity_id())
         service = self._get_voip_service(designation)
-        
+
         if description and service.description != description:
             self._assert_unused_service_description(description)
             service.description = description
@@ -622,25 +629,27 @@ class BofhdVoipCommands(BofhdCommonMethods):
         service.write_db()
         return "OK, updated information for voip_service id=%s" % (
             service.entity_id,)
-    # end voip_service_update
 
-
-
+    #
+    # voip service_find
+    #
     all_commands["voip_service_find"] = Command(
         ("voip", "service_find"),
         SimpleString(),
-        fs=FormatSuggestion("%8i   %15s   %25s   %8s",
-                            ("entity_id", "description", "service_type", "ou"),
-                            hdr="%8s   %15s   %25s   %8s" %
-                               ("EntityId", "Description",
-                                "Type", "Stedkode")))
+        fs=FormatSuggestion(
+            "%8i   %15s   %25s   %8s", ("entity_id", "description",
+                                        "service_type", "ou"),
+            hdr="%8s   %15s   %25s   %8s" % ("EntityId", "Description", "Type",
+                                             "Stedkode")
+        ))
+
     def voip_service_find(self, operator, designation):
         """List all voip_services matched in some way by designation.
 
         This has been requested to ease up looking up voip_services for users.
 
         designation is used to look up voip_services in the following fashion:
-        
+
           - if all digits -> by entity_id
           - by description (exactly)
           - by description (substring search)
@@ -649,7 +658,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
 
         All the matching voip_services are collected and returned as a sequence
         so people can pluck out the entities they want and use them in
-        subsequent commands. 
+        subsequent commands.
         """
 
         def fold_description(s):
@@ -658,8 +667,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
             if len(s) > cutoff:
                 return s[:(cutoff - len(suffix))] + suffix
             return s
-        # end fold_description
-        
+
         self.ba.can_view_voip_service(operator.get_entity_id())
         ident = designation.strip()
         collect = dict()
@@ -697,25 +705,26 @@ class BofhdVoipCommands(BofhdCommonMethods):
         # Finally, the presentation layer
         if len(collect) > cereconf.BOFHD_MAX_MATCHES:
             raise CerebrumError("More than %d (%d) matches, please narrow "
-                                "search criteria" % (cereconf.BOFHD_MAX_MATCHES,
-                                                     len(collect)))
+                                "search criteria" %
+                                (cereconf.BOFHD_MAX_MATCHES, len(collect)))
 
         answer = list()
         for entity_id in collect:
             description, service_type, ou_id = collect[entity_id]
-            answer.append({"entity_id": entity_id,
-                           "description": fold_description(description),
-                           "service_type":
-                             str(self.const.VoipServiceTypeCode(service_type)),
-                           "ou": self._typeset_ou(ou_id),})
+            service_type = self.const.VoipServiceTypeCode(service_type)
+            answer.append({
+                "entity_id": entity_id,
+                "description": fold_description(description),
+                "service_type": str(service_type),
+                "ou": self._typeset_ou(ou_id),
+            })
         return answer
-    # end voip_service_find
 
     ########################################################################
     # voip_client related commands
 
     #
-    # voip TODO
+    # voip client_new
     #
     all_commands["voip_client_new"] = Command(
         ("voip", "client_new"),
@@ -726,7 +735,8 @@ class BofhdVoipCommands(BofhdCommonMethods):
         YesNo(help_ref='yes_no_sip_enabled', default="Yes"))
 
     def voip_client_new(self, operator, owner_designation,
-                        client_type, mac_address, client_info, sip_enabled=True):
+                        client_type, mac_address, client_info,
+                        sip_enabled=True):
         """Create a new voip_client.
 
         If the owner (be it voip_service or person) does NOT have a
@@ -746,8 +756,8 @@ class BofhdVoipCommands(BofhdCommonMethods):
         except CerebrumError:
             pass
         else:
-        # As _get_voip_client raises CerebrumError, we can't
-        # just raise that in the try clause.
+            # As _get_voip_client raises CerebrumError, we can't
+            # just raise that in the try clause.
             raise CerebrumError("Mac address %s is already bound to a "
                                 "voip_client." % str(mac_address))
 
@@ -755,9 +765,10 @@ class BofhdVoipCommands(BofhdCommonMethods):
         ct = self._get_constant(client_type, self.const.VoipClientTypeCode)
         ci = self._get_constant(client_info, self.const.VoipClientInfoCode)
 
-        if not ((ct == self.const.voip_client_type_softphone and not mac_address)
-                or
-                (ct == self.const.voip_client_type_hardphone and mac_address)):
+        if not ((ct == self.const.voip_client_type_softphone
+                 and not mac_address)
+                or (ct == self.const.voip_client_type_hardphone
+                    and mac_address)):
             raise CerebrumError("Hardphones must have mac; softphones must "
                                 "not: %s -> %s" % (str(ct), mac_address))
 
@@ -775,29 +786,31 @@ class BofhdVoipCommands(BofhdCommonMethods):
                                                      client.entity_id)
 
     #
-    # voip TODO
+    # voip client_info
     #
     all_commands["voip_client_info"] = Command(
         ("voip", "client_info"),
         VoipClientParameter(),
-        fs = FormatSuggestion("Entity id:              %d\n"
-                              "Client type:            %s\n"
-                              "Client info:            %s\n"
-                              "Mac address:            %s\n"
-                              "sip enabled:            %s\n"
-                              "has secret?:            %s\n"
-                              "Traits:                 %s\n"
-                              "voipAddress id:         %d\n"
-                              "voipAddress' owner:     %s\n",
-                              ("entity_id",
-                               "client_type",
-                               "client_info",
-                               "mac_address",
-                               "sip_enabled",
-                               "has_secret",
-                               "traits",
-                               "voip_address_id",
-                               "owner")))
+        fs=FormatSuggestion(
+            "Entity id:              %d\n"
+            "Client type:            %s\n"
+            "Client info:            %s\n"
+            "Mac address:            %s\n"
+            "sip enabled:            %s\n"
+            "has secret?:            %s\n"
+            "Traits:                 %s\n"
+            "voipAddress id:         %d\n"
+            "voipAddress' owner:     %s\n",
+            ("entity_id",
+             "client_type",
+             "client_info",
+             "mac_address",
+             "sip_enabled",
+             "has_secret",
+             "traits",
+             "voip_address_id",
+             "owner")
+        ))
 
     def voip_client_info(self, operator, designation):
         """Return information about a voip_client.
@@ -812,43 +825,44 @@ class BofhdVoipCommands(BofhdCommonMethods):
         address_attrs = address.get_voip_attributes()
         client_attrs = client.get_voip_attributes()
 
-        owner = "cn=%s (id=%s)" % (address_attrs["cn"], address.owner_entity_id)
-        answer = {"entity_id": client.entity_id,
-                  "client_type": client_attrs["sipClientType"],
-                  "client_info": client_attrs["sipClientInfo"],
-                  "mac_address": client_attrs["sipMacAddress"],
-                  "sip_enabled": self._typeset_bool(client_attrs["sipEnabled"]),
-                  "has_secret":
-                      bool(client.get_auth_data(self.const.voip_auth_sip_secret)),
-                  "traits": self._typeset_traits(client.get_traits()),
-                  "voip_address_id": client.voip_address_id,
-                  "owner": owner,
-            }
-        return answer
+        owner = "cn=%s (id=%s)" % (address_attrs["cn"],
+                                   address.owner_entity_id)
+        return {
+            "entity_id": client.entity_id,
+            "client_type": client_attrs["sipClientType"],
+            "client_info": client_attrs["sipClientInfo"],
+            "mac_address": client_attrs["sipMacAddress"],
+            "sip_enabled": self._typeset_bool(client_attrs["sipEnabled"]),
+            "has_secret": bool(
+                client.get_auth_data(self.const.voip_auth_sip_secret)),
+            "traits": self._typeset_traits(client.get_traits()),
+            "voip_address_id": client.voip_address_id,
+            "owner": owner,
+        }
 
     #
-    # voip TODO
+    # voip client_list_info_code
     #
     all_commands["voip_client_list_info_code"] = Command(
         ("voip", "client_list_info_code"),
-        fs = FormatSuggestion("%-25s  %s",
-                              ("code_str", "description"),
-                              hdr = "%-25s  %s" % ("Client info code",
-                                                   "Description")))
+        fs=FormatSuggestion(
+            "%-25s  %s", ("code_str", "description"),
+            hdr="%-25s  %s" % ("Client info code", "Description")
+        ))
 
     def voip_client_list_info_code(self, operator):
         """List all possible voip_client info codes."""
         return self._collect_constants(self.const.VoipClientInfoCode)
 
     #
-    # voip TODO
+    # voip client_list_type_code
     #
     all_commands["voip_client_list_type_code"] = Command(
         ("voip", "client_list_type_code"),
-        fs = FormatSuggestion("%-25s  %s",
-                              ("code_str", "description"),
-                              hdr = "%-25s  %s" % ("Client type code",
-                                                   "Description")))
+        fs=FormatSuggestion(
+            "%-25s  %s", ("code_str", "description"),
+            hdr="%-25s  %s" % ("Client type code", "Description")
+        ))
 
     def voip_client_list_type_code(self, operator):
         """List all possible voip_client type codes.
@@ -856,7 +870,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
         return self._collect_constants(self.const.VoipClientTypeCode)
 
     #
-    # voip TODO
+    # voip client_delete
     #
     all_commands["voip_client_delete"] = Command(
         ("voip", "client_delete"),
@@ -872,7 +886,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
         return "OK, removed voipClient id=%s (mac=%s)" % (entity_id, mac)
 
     #
-    # voip TODO
+    # voip client_set_info_code
     #
     all_commands["voip_client_set_info_code"] = Command(
         ("voip", "client_set_info_code"),
@@ -960,6 +974,8 @@ class BofhdVoipCommands(BofhdCommonMethods):
                                   new_secret)
         # Locate current secret
         current_secret = client.get_auth_data(self.const.voip_auth_sip_secret)
+        # TODO: Why is this fetched and not used? Linter-fix:
+        del current_secret
 
         # Register new_secret
         client.set_auth_data(self.const.voip_auth_sip_secret, new_secret)
@@ -1258,8 +1274,10 @@ class BofhdVoipCommands(BofhdCommonMethods):
             # BOFHD_MAX_MATCHES-cutoff here (and rather replace it with
             # something more stringent)
             voip_attrs = va.get_voip_attributes()
-            answer.append({"entity_id": va.entity_id,
-                           "owner_entity_id": va.owner_entity_id,
-                           "owner_type": str(voip_attrs["owner_type"]),
-                           "cn": voip_attrs["cn"],})
+            answer.append({
+                "entity_id": va.entity_id,
+                "owner_entity_id": va.owner_entity_id,
+                "owner_type": str(voip_attrs["owner_type"]),
+                "cn": voip_attrs["cn"],
+            })
         return answer

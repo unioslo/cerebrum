@@ -86,7 +86,7 @@ class BofhdAuth(auth.BofhdAuth):
         if self._is_guest_owner(operator, account):
             return True
         return super(BofhdAuth, self).can_set_password(operator, account,
-                                                 query_run_any)
+                                                       query_run_any)
 
     def can_clear_name(self, operator, person=None, source_system=None,
                        query_run_any=False):
@@ -144,77 +144,6 @@ class BofhdAuth(auth.BofhdAuth):
                                                            contact_type,
                                                            query_run_any)
 
-    def can_email_address_delete(self, operator_id, account=None, domain=None,
-                                 query_run_any=False):
-        """Checks if the operator can delete an address in a given domain.
-        Superusers and postmasters are always allowed, but normal users are
-        also allowed to delete their own addresses if it is not registered to
-        one of their users' active affiliations' OU."""
-        if self.is_superuser(operator_id):
-            return True
-        if query_run_any:
-            return True
-        try:
-            return self._is_local_postmaster(
-                operator_id, self.const.auth_email_delete, account, domain,
-                query_run_any)
-        except PermissionDenied:
-            pass
-        if operator_id != account.entity_id:
-            raise PermissionDenied("Can only change e-mail addresses that "
-                                   "belongs to your account")
-        if domain.entity_id in account.get_prospect_maildomains():
-            raise PermissionDenied(
-                "Can't delete e-mail addresses from domains the account is "
-                "affiliated with")
-        return True
-
-    def can_email_mod_name(self, operator_id, person=None, firstname=None,
-                           lastname=None, query_run_any=False):
-        """If someone is allowed to modify a person's name. Only postmasters are
-        allowed to do this by default, but persons can change their name after
-        some criterias."""
-        if self.is_superuser(operator_id, query_run_any):
-            return True
-        if self.is_postmaster(operator_id, query_run_any):
-            return True
-        if query_run_any:
-            return True
-
-        # Operator can only modify name if owner
-        account = Factory.get('Account')(self._db)
-        account.find(operator_id)
-        if person.entity_id != account.owner_id:
-            raise PermissionDenied('Cannot modify name for other persons')
-
-        all_names = person.get_all_names()
-
-        # Last name must match one of the registered last names
-        last_names = [x['name'] for x in all_names
-                      if x['name_variant'] == self.const.name_last]
-        if lastname not in last_names:
-            raise PermissionDenied("Invalid family name")
-
-        # All parts of the given name must exist somewhere
-        first_names = sum([x['name'].split(' ') for x in all_names
-                          if x['name_variant'] == self.const.name_first], [])
-        for n in firstname.split(' '):
-            if n not in first_names:
-                raise PermissionDenied('Invalid given name: {}'.format(n))
-        return True
-
-    def can_email_forward_info(self, operator, query_run_any=False):
-        """Allow access to superusers, postmasters and CERT."""
-        if self.is_superuser(operator):
-            return True
-        if self.is_postmaster(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_email_forward_info):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Restricted access')
 
     def can_create_sysadm(self, operator, query_run_any=False):
         """Allow sysadmins to create sysadmin accounts.

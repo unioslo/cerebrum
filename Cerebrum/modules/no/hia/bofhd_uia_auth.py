@@ -26,9 +26,10 @@ Site specific auth.py for UiA
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd import auth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.no.bofhd_note_cmds import EntityNoteBofhdAuth
 
 
-class BofhdAuth(auth.BofhdAuth):
+class BofhdAuth(EntityNoteBofhdAuth, auth.BofhdAuth):
     """Defines methods that are used by bofhd to determine wheter
     an operator is allowed to perform a given action.
 
@@ -91,7 +92,8 @@ class BofhdAuth(auth.BofhdAuth):
         if self.is_superuser(operator):
             return True
         # Users with auth_add_contactinfo can see and run command
-        if self._has_operation_perm_somewhere(operator,
+        if self._has_operation_perm_somewhere(
+                operator,
                 self.const.auth_add_contactinfo):
             # Only allow phone numbers to be added
             if contact_type is not None and contact_type not in (
@@ -115,11 +117,11 @@ class BofhdAuth(auth.BofhdAuth):
         if self.is_superuser(operator):
             return True
         # Users with auth_rem_contactinfo can see and run command
-        if self._has_operation_perm_somewhere(operator,
+        if self._has_operation_perm_somewhere(
+                operator,
                 self.const.auth_remove_contactinfo):
             return True
         # Hide command if not in the above groups
         if query_run_any:
             return False
         raise PermissionDenied("Not allowed to remove contact info")
-

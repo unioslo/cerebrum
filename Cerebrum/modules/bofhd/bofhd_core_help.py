@@ -34,7 +34,6 @@ directory of the given instance.
 group_help = {
     'access': "Access (authorisation) related commands",
     'disk': "Disk related commands",
-    'email': "E-mail commands",
     'entity': "Entity commands",
     'group': "Group commands",
     'host': "Host related commands",
@@ -98,119 +97,6 @@ command_help = {
             "parenthesis means it uses to the host's default disk quota.",
         "disk_quota":
             "Enable quotas on a disk, and set the default value",
-    },
-    'email': {
-        "email_add_address":
-            "Add an alias address",
-        "email_remove_address":
-            "Remove an alias address",
-        "email_add_filter":
-            "Add a target filter",
-        "email_remove_filter":
-            "Remove target_filter",
-        "email_reassign_address":
-            "Move an address from one account to another",
-        "email_update":
-            "Update default address and aliases associated with account",
-        "email_create_domain":
-            "Create a new e-mail domain",
-        "email_delete_domain":
-            "Delete an e-mail domain",
-        "email_create_forward_target":
-            "Create a new e-mail forward target",
-        "email_domain_info":
-            "View information about an e-mail domain",
-        "email_add_domain_affiliation":
-            "Connect a OU to an e-mail domain",
-        "email_remove_domain_affiliation":
-            "Remove link between OU and e-mail domain",
-        "email_domain_configuration":
-            "Configure settings for an e-mail domain",
-        "email_domain_set_description":
-            "Set the description of an e-mail domain",
-        "email_failure_message":
-            "Customise the failure message for a deleted account",
-        "email_forward":
-            "Turn e-mail forwarding for a user on/off",
-        "email_forward_info":
-            "Show information about an address that is forwarded to",
-        "email_add_forward":
-            "Add a forward address",
-        "email_remove_forward":
-            "Remove a forward address",
-        "email_local_delivery":
-            "Turn on/off local e-mail delivery for an account with a forward "
-            "address",
-        "email_info":
-            "View e-mail information about a user or address",
-        "email_create_sympa_list":
-            "Add addresses needed for a Sympa list",
-        "email_create_sympa_cerebrum_list":
-            "Add addresses needed for a Sympa list (Cerebrum only)",
-        "email_create_sympa_list_alias":
-            "Add an alias for a Sympa list.  This also adds additional "
-            "addresses (e.g. -owner, -request, etc.)",
-        "email_remove_sympa_list_alias":
-            "Remove an alias for a Sympa list. This also removes additional "
-            "administrative addresses (-owner, -request, etc.)",
-        "email_create_multi":
-            "Make an e-mail target which expands to the members of a group",
-        "email_create_pipe":
-            "Make an e-mail target which points to a pipe",
-        "email_delete_pipe":
-            "Delete an e-mail target that points to a pipe",
-        "email_delete_sympa_list":
-            "Remove a Sympa list's addresses",
-        "email_delete_multi":
-            "Remove a multi target and all its addresses",
-        "email_delete_forward_target":
-            "Delete an e-mail forward target",
-        "email_edit_pipe_command":
-            "Change the command the pipe or RT target runs",
-        "email_edit_pipe_user":
-            "Change the account the pipe or RT target runs as",
-        "email_migrate":
-            "Migrate users from old to new e-mail service",
-        "email_mod_name":
-            "Override name for person (to be used in e-mail address)",
-        "email_move":
-            "Move a user's e-mail to another server",
-        "email_primary_address":
-            "Changes the primary address for the e-mail target to the "
-            "specified value",
-        "email_set_primary_address":
-            "Changes the primary address for the e-mail target to the "
-            "specified value",
-        "email_quota":
-            "Change a user's storage quota for e-mail",
-        "email_rt_add_address":
-            "Add a valid address for RT queue",
-        "email_rt_create":
-            "Create an e-mail target for Request Tracker",
-        "email_rt_delete":
-            "Delete Request Tracker addresses",
-        "email_rt_primary_address":
-            "Change which address to rewrite to",
-        "email_rt_remove_address":
-            "Remove a valid address from the RT target",
-        "email_spam_action":
-            "How to handle target's spam",
-        "email_spam_level":
-            "Change target's tolerance for spam",
-        "email_tripnote":
-            "Turn vacation messages on/off",
-        "email_add_tripnote":
-            "Add vacation message",
-        "email_list_tripnotes":
-            "List user's vacation messages",
-        "email_remove_tripnote":
-            "Remove vacation message",
-        "email_pause":
-            "Turn delivery pause on or off",
-        "email_list_pause":
-            "List all mailtargets with paused delivery",
-        "email_show_reservation_status":
-            "Show reservation status for an account",
     },
     'entity': {
         'entity_accounts':
@@ -488,31 +374,8 @@ arg_help = {
     'display_name_language':
         ['language', 'Enter language short name',
          "Allowed values: en, nn, nb (nb used in exports)"],
-    'dlgroup_or_account_name':
-        ['name', "Enter Exchange-group or account name",
-         """Enter name of an Exchange-group or an account."""],
-    'email_address':
-        ['address', 'Enter e-mail address'],
-    'email_category':
-        ['category', 'Enter e-mail category for domain',
-         "Legal categories include:\n" +
-         " - noexport     don't include domain in data exports\n" +
-         " - cnaddr       primary address is firstname.lastname\n" +
-         " - uidaddr      primary address is username\n" +
-         " - all_uids     all usernames are valid e-mail addresses\n" +
-         " - UIO_GLOBALS  direct Postmaster etc. to USIT"],
     'email_domain':
-        ['domain', 'Enter e-mail domain'],
-    'email_failure_message':
-        ['message', 'Enter failure message'],
-    'email_forward_address':
-        ['forward_to_address', 'Enter the email address to forward to'],
-    'email_forward_action':
-        ['action', 'Enter action',
-         "Legal forward actions:\n - on\n - off\n - local"],
-    'email_tripnote_action':
-        ['action', 'Enter action',
-         "Legal tripnote actions:\n - on\n - off"],
+        ['domain', 'Enter email domain'],
     'entity_id':
         ['id', 'Enter entity ID',
          "Numeric ID of the entity you wish to process."],
@@ -528,8 +391,6 @@ arg_help = {
          'The external id type, i.e. NO_BIRTHNO/NO_STUDNO etc'],
     'group_disp_name':
         ['disp_name', 'Enter display name (optional, may differ from name)'],
-    'group_dl_managedby':
-        ['dl_managedby', 'Enter address for ou/person managing this group'],
     'group_exchange_attr':
         ['exchange_attr', 'Enter attribute to modify',
          """Valid attributes:
@@ -622,19 +483,6 @@ arg_help = {
         ['number', 'Number of results for query',
          "Gives upper limit for how many entries to include, counting " +
          "backwards from the most recent. Default (when left empty) is 100"],
-    'mailing_admins':
-        ['addresses', 'Enter comma separated list of administrators for ' +
-         'a mailing list'],
-    'mailing_list':
-        ['address', 'Enter address for a mailing list'],
-    'mailing_list_alias':
-        ['address', 'Enter alias for a mailing list'],
-    'mailing_list_exist':
-        ['address', 'Enter address of an existing mailing list'],
-    'mailing_list_profile':
-        ['list_profile', 'Enter mailing list profile'],
-    'mailing_list_description':
-        ['list_description', 'Enter mailing list description'],
     'member_type':
         ['member_type', 'Enter type of member',
          'account, person or group'],
@@ -752,23 +600,6 @@ arg_help = {
     'quarantine_start_date':
         ['start_date', 'Enter start date (YYYY-MM-DD)',
          "The legal date format is 2003-12-31"],
-    'rt_queue':
-        ['queue[@host]', 'Enter name of RT queue',
-         "Format is <queue>@<host>.  If <host> is the default host, it can be "
-         "omitted."],
-    'spam_action':
-        ['spam action', 'Enter spam action',
-         """Choose one of
-         'dropspam'    Reject messages classified as spam
-         'spamfolder'  Deliver spam to a separate IMAP folder
-         'noaction'    Deliver spam just like legitimate email"""],
-    'spam_level':
-        ['spam level', 'Enter spam level',
-         """Choose one of
-         'aggressive_spam' Filter everything that resembles spam
-         'most_spam'       Filter most emails that looks like spam
-         'standard_spam'   Only filter email that obviously is spam
-         'no_filter'       No email will be filtered as spam"""],
     'spread':
         ['spread', 'Enter spread',
          "'spread list' lists possible values"],
@@ -801,26 +632,11 @@ arg_help = {
         ['spread', 'Enter spread. Example: AD_group NIS_fg@uio'],
     'string_email_host':
         ['hostname', 'Enter e-mail server.  Example: cyrus02'],
-    'string_exec_host':
-        ['run_host', 'Enter host (fqdn) for command execution'],
-    'string_email_delivery_host':
-        ['delivery_host', 'Enter hostname for mail delivery. '
-         'Example: lister-test'],
     'string_email_move_type':
         ['email_move_type', 'Enter e-mail move type',
          """Legal move types:
          - file
          - nofile"""],
-    'string_email_filter':
-        ['email_filter', 'Enter e-mail filter type',
-         """Legal filter types:
-         - greylist
-         - uioonly"""],
-    'string_email_target_name':
-        ['email_target_name', 'Enter e-mail target name',
-         """Target name should be a valid e-mail address"""],
-    'string_email_on_off':
-        ['email_on_off', 'ON/OFF', """Specify ON or OFF"""],
     'string_filename':
         ['filename', 'Enter filename'],
     'string_group_filter':

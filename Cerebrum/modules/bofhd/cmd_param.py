@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2002-2018 University of Oslo, Norway
 #
@@ -16,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 
 class Parameter(object):
     """Defines some properties for an attribute.  If any arguments in
@@ -65,36 +67,44 @@ class Parameter(object):
         arg_help = help_ref.arg_help
         if self._help_ref not in arg_help:
             # TODO: Fix
-            # bofhd_ref.logger.warn("Missing arg_help item <%s>", self._help_ref)
+            # bofhd_ref.logger.warn("Missing arg_help item <%s>",
+            #                       self._help_ref)
             return ""
 
         return arg_help[self._help_ref][1]
     # end getPrompt
+
 
 class AccountName(Parameter):
     _tab_func = 'tab_foobar'
     _type = 'accountName'
     _help_ref = 'account_name'
 
+
 class AccountPassword(Parameter):
     _type = 'accountPassword'
     _help_ref = 'account_password'
+
 
 class AddressType(Parameter):
     _type = 'addressType'
     _help_ref = 'address_type'
 
+
 class Affiliation(Parameter):
     _type = 'affiliation'
     _help_ref = 'affiliation'
+
 
 class AffiliationStatus(Parameter):
     _type = 'affiliationStatus'
     _help_ref = 'affiliation_status'
 
+
 class SourceSystem(Parameter):
     _type = 'sourceSystem'
     _help_ref = 'source_system'
+
 
 class Date(Parameter):
     _type = 'date'
@@ -112,124 +122,152 @@ class DiskId(Parameter):
     _type = 'disk'
     _help_ref = 'disk'
 
+
 class EmailAddress(Parameter):
     _type = 'emailAddress'
     _help_ref = 'email_address'
+
 
 class EntityType(Parameter):
     _type = 'entityType'
     _help_ref = 'entity_type'
 
+
 class ExternalIdType(Parameter):
     _type = 'externalIdType'
     _help_ref = 'external_id_type'
 
+
 class GroupExchangeAttr(Parameter):
     _type = 'groupExchangeAttr'
     _help_ref = 'group_exchange_attr'
+
 
 class GroupName(Parameter):
     # _prompt_func = 'prompt_foobar'
     _type = 'groupName'
     _help_ref = 'group_name'
 
+
 class GroupSearchType(Parameter):
     _type = 'groupSearchType'
     _help_ref = 'group_search_type'
+
 
 class GroupOperation(Parameter):
     _tab_func = 'tab_foobar'
     _type = 'groupOperation'
     _help_ref = 'group_operation'
 
+
 class GroupVisibility(Parameter):
     _tab_func = 'tab_foobar'
     _type = 'groupVisibility'
     _help_ref = 'group_visibility'
 
+
 class MemberName(Parameter):
     _type = 'memberName'
     _help_ref = 'member_name_src'
 
+
 class MemberType(Parameter):
     _type = 'memberType'
     _help_ref = 'member_type'
+
 
 class Id(Parameter):
     _tab_func = 'tab_foobar'
     _type = 'id'
     _help_ref = 'id'
 
+
 class Integer(Parameter):
     _type = 'integer'
     _help_ref = 'integer'
 
-class Mobile(Parameter):
 
+class Mobile(Parameter):
     """ Mobile phone Parameter. """
 
     _type = 'mobilePhone'
     _help_ref = 'mobile_phone'
 
+
 class MoveType(Parameter):
     _type = 'moveType'
     _help_ref = 'move_type'
+
 
 class OpSet(Parameter):
     _type = 'opSet'
     _help_ref = 'opset'
 
+
 class OU(Parameter):
     _type = 'ou'
     _help_ref = 'ou'
+
 
 class PersonId(Parameter):
     _type = 'personId'
     _help_ref = 'person_id'
 
+
 class PersonName(Parameter):
     _type = 'personName'
     _help_ref = 'person_name'
+
 
 class PersonNameType(Parameter):
     _type = 'personNameType'
     _help_ref = 'person_name_type'
 
+
 class PersonSearchType(Parameter):
     _type = 'personSearchType'
     _help_ref = 'person_search_type'
+
 
 class PosixGecos(Parameter):
     _type = 'posixGecos'
     _help_ref = 'posix_gecos'
 
+
 class PosixShell(Parameter):
     _type = 'posixShell'
     _help_ref = 'posix_shell'
 
+
 class QuarantineType(Parameter):
     _type = 'quarantineType'
-    _help_ref= 'quarantine_type'
+    _help_ref = 'quarantine_type'
+
 
 class SimpleString(Parameter):
     _type = 'simpleString'
     _help_ref = 'string'
 
+
 class SMSString(Parameter):
     _type = 'simpleString'
     _help_ref = 'string_sms'
+
 
 class Spread(Parameter):
     _type = 'spread'
     _help_ref = 'spread'
 
+
 class UserSearchType(Parameter):
     _type = 'userSearchType'
     _help_ref = 'user_search_type'
 
+
 class YesNo(Parameter):
     _type = 'yesNo'
     _help_ref = 'yesNo'
+
 
 class Command(object):
     def __init__(self, cmd, *params, **kw):
@@ -253,8 +291,10 @@ class Command(object):
         if self._params is not None:
             return (self._cmd, [k.get_struct(help_ref) for k in self._params])
         if self._prompt_func is not None:
-            return (self._cmd, 'prompt_func')  # Flags that command has prompt_func
+            # Flag that command has prompt_func:
+            return (self._cmd, 'prompt_func')
         return (self._cmd,)
+
 
 class FormatSuggestion(object):
     """FormatSuggestion is used by the client to determine how to
@@ -301,21 +341,110 @@ class FormatSuggestion(object):
             ret['hdr'] = self._hdr
         return ret
 
+    def __call__(self, response):
+        """ Format bofhd return response.
+
+        This is the reference spec for formatting bofh response data.
+        It can be used to test that a FormatStuggestion works as expected.
+
+        :param response:
+            The de-serialized xml-response (from `xmlrpclib.loads()`).
+            Note that any client-specific casts *should* be performed before
+            feeding into this method (e.g. convert xmlrpclib.Binary to
+            bytestring). This typically implies feeding the response through a
+            `xmlrpc_to_native` function.
+
+        :return str:
+            Returns a formatted string.
+        """
+        # This is a copy of the pybofh formatting implementation, from:
+        #
+        #     ssh://git@bitbucket.usit.uio.no:7999/crb/pybofh.git
+        #     Commit f7f0c71295b490c925af635408a8ced8047820f7
+
+        def _fmt_date(fmt):
+            """ Simple thing to convert dates """
+            #       (subst, with),
+            reps = (("yyyy", "%Y"),
+                    ("MM", "%m"),
+                    ("dd", "%d"),
+                    ("HH", "%H"),
+                    ("mm", "%M"))
+            return reduce(lambda form, rep: form.replace(*rep), reps, fmt)
+
+        def _fmt_field(entry, field):
+            field = field.split(":", 2)
+            val = entry[field[0]]
+            if len(field) == 3:
+                if field[1] == 'date':
+                    fmt = _fmt_date(field[2])
+                else:
+                    raise KeyError(field[1])
+                if val is not None:
+                    return val.strftime(fmt.encode("ascii"))
+            if val is None:
+                return "<not set>"
+            return val
+
+        lines = []
+        suggestion = self.get_format()
+
+        if "hdr" in suggestion:
+            lines.append(suggestion["hdr"])
+
+        st = suggestion['str_vars']
+        if isinstance(st, basestring):
+            lines.append(st)
+        else:
+            for row in st:
+                if len(row) == 3:
+                    fmt, fields, sub_hdr = row
+                    if "%" in sub_hdr:
+                        fmt, sub_hdr = sub_hdr, None
+                else:
+                    fmt, fields = row
+                    sub_hdr = None
+                if sub_hdr:
+                    lines.append(sub_hdr)
+                if not isinstance(response, (list, tuple)):
+                    response = [response]
+                for entry in response:
+                    if isinstance(entry, basestring):
+                        lines.append(entry)
+                        continue
+                    try:
+                        positions = tuple(_fmt_field(entry, field)
+                                          for field in fields)
+                    except KeyError:
+                        continue
+                    lines.append(fmt % positions)
+        return '\n'.join(lines)
+
+
 if __name__ == '__main__':
     all_commands = {
-        ## bofh> account create <accountname> <idtype> <id> \
-        ##         <affiliation=> <ou=> [<expire_date>]
-        'account_create': Command(('account', 'create'),
-                                  AccountName(ptype="new"), PersonIdType(),
-                                  PersonId(), Affiliation(default=True),
-                                  OU(default=True), Date(optional=True)),
-        ## bofh> person find {<name> | <id> [<id_type>] | <birth_date>}
-        'person_find': Command(("person", "find"),
-                               Id(), PersonIdType(optional=True)),
-        ## bofh> group add <entityname+> <groupname+> [<op>]
-        'group_add': Command(("group", "add"),
-                             GroupName("source", repeat=True),
-                             GroupName("destination", repeat=True))
-        }
+        # bofh> account create <accountname> <id>
+        #         <affiliation=> <ou=> [<expire_date>]
+        'account_create': Command(
+            ('account', 'create'),
+            AccountName(ptype="new"),
+            PersonId(),
+            Affiliation(default=True),
+            OU(default=True),
+            Date(optional=True)
+        ),
+        # bofh> person find <search-type> <search-value>
+        'person_find': Command(
+            ("person", "find"),
+            PersonSearchType(),
+            SimpleString()
+        ),
+        # bofh> group add <entityname+> <groupname+> [<op>]
+        'group_add': Command(
+            ("group", "add"),
+            GroupName("source", repeat=True),
+            GroupName("destination", repeat=True)
+        )
+    }
 
     print all_commands['account_create'].get_struct()
