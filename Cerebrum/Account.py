@@ -852,11 +852,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return (self.encrypt_password(method,
                                       plaintext,
                                       salt=salt) == cryptstring)
-            # Obsolete...
-            # (self.encrypt_password(method,
-            #                        plaintext.encode(),
-            #                        salt=salt,
-            #                        binary=True) == cryptstring))
 
     def verify_auth(self, plaintext):
         """Try to verify all authentication data stored for an
@@ -1648,3 +1643,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                         description,
                         ai.np_type AS np_type
         FROM %s %s""" % (','.join(tables), where_str), binds)
+
+    def __str__(self):
+        if hasattr(self, 'account_name'):
+            return self.account_name
+        else:
+            return u'<unbound account>'
