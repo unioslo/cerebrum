@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2007 University of Oslo, Norway
 #
@@ -110,12 +110,12 @@ default_org_data = {'oun_id': '83',
                     'oun_acc_cur_rate_method': '0',
                     'add_id_1': '831',
                     'add_oun_id_1': '83',
-                    'add_title_1': '83 (Toppnivå-post)',
+                    'add_title_1': '83 (ToppnivÃ¥-post)',
                     'add_is_invoicing_1': '0',
                     'add_is_delivery_1': '1',
                     'add_id_2': '832',
                     'add_oun_id_2': '83',
-                    'add_title_2': '83 (Toppnivå-besøk)',
+                    'add_title_2': '83 (ToppnivÃ¥-besÃ¸k)',
                     'add_is_invoicing_2': '0',
                     'add_is_delivery_2': '1'}
 
@@ -337,7 +337,7 @@ def get_org_unit_data(org_units, exported_orgs):
             'oun_default_delivery_party': '',
             'oun_default_invoicing_party': '83',
             'oun_default_delivery_address': oun_id + '1',
-            # default delivery address er besøksadresse
+            # default delivery address er besÃ¸ksadresse
             'oun_default_invoice_address': '',
             'oun_default_cost_center_id': '83',
             'oun_default_acc_currency': 'NOK',
@@ -345,7 +345,7 @@ def get_org_unit_data(org_units, exported_orgs):
             'oun_acc_cur_rate_method': '0',
             'add_id_1': oun_id + '1',
             'add_oun_id_1': oun_id,
-            'add_title_1': oun_id + '-Besøk',
+            'add_title_1': oun_id + '-BesÃ¸k',
             'add_is_invoicing_1': '0',
             'add_is_delivery_1': '1',
             'add_id_2': oun_id + '2',
