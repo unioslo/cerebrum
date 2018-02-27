@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2002-2016 University of Oslo, Norway
+#
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,26 +28,26 @@ bofhd_uio_cmds so that the perm commands are available.
 
 import cereconf
 
+import imaplib
 import mx
 import pickle
-import imaplib
 import socket
 
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
+from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
-from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, \
-    BofhdAuthOpSet, BofhdAuthOpTarget
+from Cerebrum.modules.bofhd.auth import (BofhdAuth, BofhdAuthRole,
+                                         BofhdAuthOpSet, BofhdAuthOpTarget)
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailMixin
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no.Indigo import bofhd_go_help
 
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import TimeoutException
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as base
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import ConnectException
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import TimeoutException
 
 
 def format_day(field):
@@ -73,7 +73,6 @@ def date_to_string(date):
 # Helper methods from uio
 copy_helpers = [
     '_get_disk',
-    '_parse_date',
     '_entity_info',
     '_fetch_member_names',
     '_get_cached_passwords',
@@ -101,33 +100,22 @@ copy_uio = [
     'trait_remove',
 ]
 
-# Command definitions from email mixin
-email_mixin_commands = [
-    'email_add_address',
-    'email_remove_address',
-    'email_info',
-]
-
 
 @copy_command(
-    BofhdEmailMixin,
-    'default_email_commands', 'all_commands',
-    commands=email_mixin_commands)
-@copy_command(
-    UiOBofhdExtension,
+    base,
     'all_commands', 'all_commands',
     commands=['person_find', ])
 @copy_command(
-    UiOBofhdExtension,
+    base,
     'all_commands', 'all_commands',
     commands=copy_uio)
 @copy_func(
-    UiOBofhdExtension,
+    base,
     methods=copy_uio)
 @copy_func(
-    UiOBofhdExtension,
+    base,
     methods=copy_helpers)
-class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
+class BofhdExtension(BofhdCommonMethods):
 
     all_commands = {}
     parent_commands = True
@@ -137,7 +125,7 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         super(BofhdExtension, self).__init__(*args, **kwargs)
 
         # Quick fix to replace the `person_find_uio` hack
-        self.__uio_impl = UiOBofhdExtension(*args, **kwargs)
+        self.__uio_impl = base(*args, **kwargs)
 
     @property
     def person(self):
@@ -174,8 +162,8 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
                     (member_name, group.group_name))
         try:
             group.remove_member(member.entity_id)
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
+        except self.db.DatabaseError as m:
+            raise CerebrumError("Database error: %s" % m)
         return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
 
     #
@@ -202,7 +190,7 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
     def group_info(self, operator, groupname):
         grp = self._get_group(groupname)
         co = self.const
-        ret = [ self._entity_info(grp) ]
+        ret = [self._entity_info(grp), ]
         # find owners
         aot = BofhdAuthOpTarget(self.db)
         targets = []
@@ -280,9 +268,14 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
 
     def get_entity_spreads(self, operator, entity_id):
         entity = self._get_entity(ident=int(entity_id))
-        return [{'spread': str(self.const.Spread(int(row['spread']))),
-                 'spread_desc': self.const.Spread(int(row['spread'])).description}
-                for row in entity.get_spread()]
+        to_spread = self.const.Spread
+        return [
+            {
+                'spread': str(to_spread(row['spread'])),
+                'spread_desc': to_spread(row['spread']).description,
+            }
+            for row in entity.get_spread()
+        ]
 
     #
     # get_default_email
@@ -292,10 +285,9 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
     def get_default_email(self, operator, entity_id):
         account = self._get_account(entity_id)
         try:
-            primary_email_address = account.get_primary_mailaddress()
+            return account.get_primary_mailaddress()
         except Errors.NotFoundError:
-            primary_email_address = "No e-mail addresse available for %s" % account.account_name
-        return primary_email_address
+            return "No e-mail addresse available for %s" % account.account_name
 
     #
     # get_create_date
@@ -315,7 +307,8 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         account = self._get_account(int(id), 'id')
-        pwd = account.get_account_authentication(self.const.auth_type_plaintext)
+        pwd = account.get_account_authentication(
+            self.const.auth_type_plaintext)
         return {'password': pwd,
                 'uname': account.account_name}
 
@@ -352,9 +345,6 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
                 'owner_id': account.owner_id,
                 'owner_type': account.owner_type}
 
-    # TODO: Interessant... FormatSuggestion stemmer overhode ikke overens med
-    #       data som returneres fra person_info ...
-    #       Denne vil gi NullPointerException i jBofh - fhl
     #
     # person_info <id>
     #
@@ -362,19 +352,15 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         ("person", "info"),
         cmd_param.PersonId(help_ref="id:target:person"),
         fs=cmd_param.FormatSuggestion([
-            ("Name:          %s\n" +
-             "Entity-id:     %i\n" +
-             "Birth:         %s\n" +
-             "Spreads:       %s\n" +
-             "Affiliations:  %s [from %s]", ("name", "entity_id", "birth",
-                                             "spreads", "affiliation_1",
-                                             "source_system_1")),
-            ("               %s [from %s]", ("affiliation", "source_system")),
-            ("Names:         %s[from %s]", ("names", "name_src")),
-            ("Fnr:           %s [from %s]", ("fnr", "fnr_src")),
-            ("Contact:       %s: %s [from %s]", ("contact_type", "contact",
-                                                 "contact_src")),
-            ("External id:   %s [from %s]", ("extid", "extid_src"))
+            ("Name:          %s\n"
+             "Entity-id:     %i\n"
+             "Export-id:     %s\n"
+             "Birth:         %s",
+             ("name", "entity_id", "export_id", "birth")),
+            ("Affiliation:   %s@%s (%i) [from %s]",
+             ("affiliation", "aff_sted_desc", "ou_id", "source_system")),
+            ("Fnr:           %s [from %s]",
+             ("fnr", "fnr_src")),
         ]))
 
     def person_info(self, operator, person_id):
@@ -406,11 +392,12 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
                      self.const.AuthoritativeSystem(row['source_system'])), })
 
         account = self.Account_class(self.db)
-        account_ids = [int(r['account_id'])
-                       for r in account.list_accounts_by_owner_id(person.entity_id)]
+        account_ids = [int(r['account_id']) for r in
+                       account.list_accounts_by_owner_id(person.entity_id)]
         if (self.ba.is_schoolit(operator.get_entity_id(), True)
                 or operator.get_entity_id() in account_ids):
-            for row in person.get_external_id(id_type=self.const.externalid_fodselsnr):
+            for row in person.get_external_id(
+                    id_type=self.const.externalid_fodselsnr):
                 data.append({'fnr': row['external_id'],
                              'fnr_src': str(
                     self.const.AuthoritativeSystem(row['source_system']))})
@@ -427,7 +414,10 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         if not self.ba.is_schoolit(operator.get_entity_id(), True):
             raise PermissionDenied("Limited to school IT and superusers")
 
-        results = self.__uio_impl.person_find(operator, search_type, value, filter)
+        results = self.__uio_impl.person_find(operator,
+                                              search_type,
+                                              value,
+                                              filter)
         return self._filter_resultset_by_operator(operator, results, "id")
 
     #
@@ -452,9 +442,10 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
 
         account = self.Account_class(self.db)
         ret = []
-        for r in account.list_accounts_by_owner_id(person.entity_id,
-                                                   owner_type=person.entity_type,
-                                                   filter_expired=False):
+        for r in account.list_accounts_by_owner_id(
+                person.entity_id,
+                owner_type=person.entity_type,
+                filter_expired=False):
             account = self._get_account(r['account_id'], idtype='id')
 
             ret.append({'account_id': r['account_id'],
@@ -476,7 +467,8 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         if entity.entity_type == int(self.const.entity_person):
             np_type = None
         else:
-            np_type = self.const.account_program  # TODO: What value?  Or drop-down?
+            # TODO: What value?  Or drop-down?
+            np_type = self.const.account_program
 
         account.populate(uname, entity.entity_type, owner_id, np_type,
                          operator.get_entity_id(), None)
@@ -496,9 +488,10 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
     def user_suggest_uname(self, operator, owner_id):
         person = self._get_person("entity_id", owner_id)
         fname, lname = [person.get_name(self.const.system_cached, v)
-                        for v in (self.const.name_first, self.const.name_last) ]
+                        for v in (self.const.name_first, self.const.name_last)]
         account = self.Account_class(self.db)
-        return account.suggest_unames(self.const.account_namespace, fname, lname)
+        return account.suggest_unames(self.const.account_namespace,
+                                      fname, lname)
 
     #
     # user_find
@@ -509,21 +502,24 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         "Locate users whose unames loosely matches 'search_value'."
 
         if not self.ba.is_schoolit(operator.get_entity_id(), True):
-            raise PermissionDenied("Limited to superusers and school IT admins")
+            raise PermissionDenied("Limited to superusers and school IT"
+                                   " admins")
 
         if search_type != 'uname':
             raise CerebrumError("Unknown search type (%s)" % search_type)
 
         if len(search_value.strip(" \t%_*?")) < 3:
-            raise CerebrumError("You must specify at least three non-wildcard letters")
+            raise CerebrumError("You must specify at least three non-wildcard"
+                                " letters")
 
         # if there are no wildcards in the pattern, add them
         if not [wildcard for wildcard in "_%?*" if wildcard in search_value]:
             search_value = '*' + search_value.replace(' ', '*') + '*'
 
         account = Factory.get("Account")(self.db)
-        matches = list(account.search(name=search_value,
-                                      owner_type=int(self.const.entity_person)))
+        matches = list(
+            account.search(name=search_value,
+                           owner_type=int(self.const.entity_person)))
         # prepare the return value
         ret = list()
         seen = dict()
@@ -577,7 +573,8 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         # ... but LITAs can
         operators_ou = set(self._operators_ou(operator))
         targets_ou = set([x['ou_id'] for x in
-                         self.person.list_affiliations(person_id=int(person_id))])
+                          self.person.list_affiliations(
+                              person_id=int(person_id))])
         return bool(operators_ou.intersection(targets_ou))
 
     def _operator_sees_ou(self, operator, ou_id):
@@ -601,7 +598,7 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
 
         In general, a school lita should not 'see' any results outside of his
         school. This means that the list of users and people returned to
-        him/her has to be filtered. 
+        him/her has to be filtered.
 
         operator    operator (person_id)
         results     a sequency of dictionary-like objects where each object
@@ -610,7 +607,8 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
                     designates the owner.
 
         Caveats:
-        * This method is quite costly. It gets more so, the larger the schools are.
+        * This method is quite costly. It gets more so, the larger the schools
+          are.
         * This method will not help with group filtering.
         """
 
@@ -695,7 +693,8 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         # Collect in a dict to remove duplicates etc.
         tmp = {}
         for r in self.db.get_log_events(sdate=sdate, types=types):
-            tmp.setdefault(int(r['subject_entity']), {})[int(r['change_type_id'])] = r
+            tmp.setdefault(int(r['subject_entity']),
+                           {})[int(r['change_type_id'])] = r
 
         ret = []
         for entity_id, changes in tmp.items():
@@ -747,7 +746,8 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
     def find_school(self, operator, name):
 
         if not self.ba.is_schoolit(operator.get_entity_id(), True):
-            raise PermissionDenied("Currently limited to superusers and school IT")
+            raise PermissionDenied("Currently limited to superusers and"
+                                   " school IT")
 
         # name could be an acronym or a "regular" name
         result = set()
@@ -770,7 +770,8 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         ou_id = result.pop()
         # filter the results for school IT
         if not self._operator_sees_ou(operator, ou_id):
-            raise CerebrumError("School information is unavailable for this user")
+            raise CerebrumError("School information is unavailable for this"
+                                " user")
         else:
             return ou_id
 
@@ -795,10 +796,12 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
             if row["state_type"] not in ("new_account_passwd", "user_passwd"):
                 continue
 
-            result = {"account_id": entity_id,
-                      "uname": self._get_entity_name(entity_id,
-                                                     self.const.entity_account),
-                      "password": row["state_data"]["password"]}
+            result = {
+                "account_id": entity_id,
+                "uname": self._get_entity_name(entity_id,
+                                               self.const.entity_account),
+                "password": row["state_data"]["password"],
+            }
             account = self._get_entity(ident=entity_id)
             owner = self._get_entity(ident=account.owner_id)
             result["name"] = self._get_entity_name(owner.entity_id,
@@ -831,10 +834,11 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
     def _format_ou_name(self, ou):
         binds = {"name_language": self.const.language_nb,
                  "default": ""}
-        return (ou.get_name_with_language(name_variant=self.const.ou_name_short,
-                                          **binds) or 
-                ou.get_name_with_language(name_variant=self.const.ou_name,
-                                          **binds))
+        return (
+            ou.get_name_with_language(name_variant=self.const.ou_name_short,
+                                      **binds)
+            or ou.get_name_with_language(name_variant=self.const.ou_name,
+                                         **binds))
 
     def _email_info_detail(self, acc):
         """ Get quotas from Cerebrum, and usage from Cyrus. """
@@ -883,9 +887,9 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
                                 limit = None
                 except (TimeoutException, socket.error):
                     used = 'DOWN'
-                except ConnectException, e:
+                except ConnectException as e:
                     used = str(e)
-                except imaplib.IMAP4.error, e:
+                except imaplib.IMAP4.error:
                     used = 'DOWN'
                 info.append({'quota_hard': eq.email_quota_hard,
                              'quota_soft': eq.email_quota_soft,
@@ -952,3 +956,27 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
         account.delete_trait(self.const.trait_exchange_under_migration)
         account.write_db()
         return "OK, deleted trait for user %s" % uname
+
+
+class EmailAuth(bofhd_email.BofhdEmailAuth):
+    """ Indigo specific email auth. """
+    pass
+
+
+@copy_command(
+    bofhd_email.BofhdEmailCommands,
+    'all_commands', 'all_commands',
+    commands=[
+        'email_add_address',
+        'email_remove_address',
+        'email_info',
+    ]
+)
+class EmailCommands(bofhd_email.BofhdEmailCommands):
+    """ Indigo specific email commands and overloads. """
+
+    all_commands = {}
+    hidden_commands = {}
+    parent_commands = False  # copied with copy_command
+    omit_parent_commands = set()
+    authz = EmailAuth

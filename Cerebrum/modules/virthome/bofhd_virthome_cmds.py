@@ -1,7 +1,6 @@
-#!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2009-2016 University of Oslo, Norway
+# Copyright 2009-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """VirtHome bofhd extensions.
 
 This module contains implementation of bofhd commands used in VirtHome.
@@ -26,54 +24,39 @@ This module contains implementation of bofhd commands used in VirtHome.
 It should be possible to use the jbofh client with this bofhd command set,
 although the help strings won't be particularily useful.
 """
+import pickle
+import re
 
 from mx.DateTime import now, DateTimeDelta
 from mx.DateTime import strptime
-import pickle
-import re
 
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import Entity
-
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
-
-from Cerebrum.modules.bofhd.errors import CerebrumError
-from Cerebrum.modules.bofhd.cmd_param import Command
 from Cerebrum.modules.bofhd.cmd_param import AccountName
-from Cerebrum.modules.bofhd.cmd_param import SimpleString
-from Cerebrum.modules.bofhd.cmd_param import EmailAddress
+from Cerebrum.modules.bofhd.cmd_param import Command
 from Cerebrum.modules.bofhd.cmd_param import Date
-from Cerebrum.modules.bofhd.cmd_param import PersonName
+from Cerebrum.modules.bofhd.cmd_param import EmailAddress
+from Cerebrum.modules.bofhd.cmd_param import EntityType
 from Cerebrum.modules.bofhd.cmd_param import FormatSuggestion
 from Cerebrum.modules.bofhd.cmd_param import GroupName
-from Cerebrum.modules.bofhd.cmd_param import Integer
-from Cerebrum.modules.bofhd.cmd_param import EntityType
 from Cerebrum.modules.bofhd.cmd_param import Id
-from Cerebrum.modules.bofhd.cmd_param import Spread
+from Cerebrum.modules.bofhd.cmd_param import Integer
+from Cerebrum.modules.bofhd.cmd_param import PersonName
 from Cerebrum.modules.bofhd.cmd_param import QuarantineType
-
-from Cerebrum.modules.virthome.bofhd_auth import BofhdVirtHomeAuth
-from Cerebrum.modules.virthome.bofhd_virthome_help import arg_help
-from Cerebrum.modules.virthome.VirtAccount import VirtAccount
-from Cerebrum.modules.virthome.VirtAccount import FEDAccount
+from Cerebrum.modules.bofhd.cmd_param import SimpleString
+from Cerebrum.modules.bofhd.cmd_param import Spread
+from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,
                                               PhrasePasswordNotGoodEnough)
-
-
-# TODO: Ideally, all the utility methods and 'workflows' from this file needs
-# to go into one of the generic classes in modules.virthome.base (because we
-# now have a CIS that calls some of the same methods)
-#
-# The bofhd commands needs do to argument parsing and object db-lookups here,
-# 'bofhd-style' (i.e. be able to look up both names and entity_ids -- 'user
-# find webapp' and 'user find id:6'). The populated (found) objects can then be
-# passed as arguments to methods that have been migrated to
-# Cerebrum.modules.virthome.base
+from Cerebrum.modules.virthome.VirtAccount import FEDAccount
+from Cerebrum.modules.virthome.VirtAccount import VirtAccount
 from Cerebrum.modules.virthome.base import VirthomeBase, VirthomeUtils
+from Cerebrum.modules.virthome.bofhd_auth import BofhdVirtHomeAuth
 
 
 class BofhdVirthomeCommands(BofhdCommandBase):
@@ -89,7 +72,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
     @property
     def virthome(self):
-        u""" Virthome command implementations. """
+        """ Virthome command implementations. """
         try:
             return self.__virthome
         except AttributeError:
@@ -98,7 +81,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
     @property
     def vhutils(self):
-        u""" Virthome command helpers. """
+        """ Virthome command helpers. """
         try:
             return self.__vhutils
         except AttributeError:
@@ -113,7 +96,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         tuple values are dictionaries for (respectively) groups of commands,
         commands and arguments.
         """
-        return ({}, {}, arg_help)
+        return ({}, {}, HELP_VIRTHOME_ARGS)
 
     def _get_account(self, identification, idtype=None):
         """Return the most specific account type for 'identification'.
@@ -380,7 +363,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.vhutils.grant_group_auth(new_moderator, 'group-moderator', group)
 
         # action e_group:pending_moderator_add
-        # Ok, added moderator <invitee> for group <group> (at <inviter>s request)
+        # Ok, added moderator <invitee> for group <group> (at <inviter>s
+        # request)
         return {'action': event.get('change_type'),
                 'group': group.group_name,
                 'inviter': inviter.account_name,
@@ -545,6 +529,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             raise CerebrumError('Password too weak: {err_msg}'.format(
                 err_msg=e))
 
+    #
+    # user confirm_request
+    #
     all_commands["user_confirm_request"] = Command(
         ("user", "confirm_request"),
         SimpleString())
@@ -563,6 +550,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                                    confirmation_key,
                                                    *rest)
 
+    #
+    # user virtaccount_join_group
+    #
     all_commands["user_virtaccount_join_group"] = Command(
         ("user", "virtaccount_join_group"),
         SimpleString(),
@@ -572,9 +562,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         Date(),
         PersonName(),
         PersonName(),
-        fs=FormatSuggestion("%12s %36s",
-                            ("entity_id", "session_key"),
-                            hdr="%12s %36s" % ("Account id", "Session key")))
+        fs=FormatSuggestion(
+            "%12s %36s", ("entity_id", "session_key"),
+            hdr="%12s %36s" % ("Account id", "Session key")
+        ))
 
     def user_virtaccount_join_group(self, operator, magic_key,
                                     account_name, email, password,
@@ -672,6 +663,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         account.delete()
 
+    #
+    # user fedaccount_nuke
+    #
     all_commands["user_fedaccount_nuke"] = Command(
         ("user", "fedaccount_nuke"),
         AccountName())
@@ -696,6 +690,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.__account_nuke_sequence(account.entity_id)
         return "OK, account %s has been deleted" % (uname,)
 
+    #
+    # user virtaccount_disable
+    #
     all_commands["user_virtaccount_disable"] = Command(
         ("user", "virtaccount_disable"),
         AccountName())
@@ -745,6 +742,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return "OK, account %s (id=%s) has been disabled" % (
             account.account_name, account.entity_id)
 
+    #
+    # user fedaccount_login
+    #
     all_commands["user_fedaccount_login"] = Command(
         ("user", "fedaccount_login"),
         AccountName(),
@@ -795,6 +795,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         return self.user_su(operator, account_name)
 
+    #
+    # user su
+    #
     all_commands["user_su"] = Command(
         ("user", "su"),
         AccountName())
@@ -819,7 +822,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                op_account.account_name, op_account.entity_id,
                target_account.account_name, target_account.entity_id)
 
+    #
+    # user request_info
+    #
     # FIXME: Maybe this should be with the misc commands?
+    #
     all_commands["user_request_info"] = Command(
         ("user", "request_info"),
         SimpleString())
@@ -866,6 +873,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         return quarantined
 
+    #
+    # user info
+    #
     all_commands["user_info"] = Command(
         ("user", "info"), AccountName(),
         fs=FormatSuggestion(
@@ -945,6 +955,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         }
         return result
 
+    #
+    # user accept_eula
+    #
     all_commands["user_accept_eula"] = Command(
         ("user", "accept_eula"),
         SimpleString())
@@ -969,6 +982,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return "OK, EULA %s has been accepted by %s" % (str(eula),
                                                         account.account_name)
 
+    #
+    # user change_password
+    #
     all_commands["user_change_password"] = Command(
         ("user", "change_password"),
         SimpleString())
@@ -999,6 +1015,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         # FIXME: drop quarantines? If so, which ones?
         return "OK, password changed for user %s" % account.account_name
 
+    #
+    # user change_email
+    #
     all_commands["user_change_email"] = Command(
         ("user", "change_email"),
         SimpleString())
@@ -1024,6 +1043,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return {"entity_id": account.entity_id,
                 "confirmation_key": magic_key}
 
+    #
+    # user change_human_name
+    #
     all_commands["user_change_human_name"] = Command(
         ("user", "change_human_name"),
         SimpleString(),
@@ -1050,6 +1072,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return "OK, name %s changed for account %s to %s" % (
             str(nt), account.account_name, new_name)
 
+    #
+    # user recover_password
+    #
     all_commands["user_recover_password"] = Command(
         ("user", "recover_password"),
         AccountName(),
@@ -1082,6 +1107,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                         params={"account_id": account.entity_id})
         return {"confirmation_key": magic_key}
 
+    #
+    # user recover_uname
+    #
     all_commands["user_recover_uname"] = Command(
         ("user", "recover_uname"),
         EmailAddress())
@@ -1129,6 +1157,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """
         return not self.vhutils.group_exists(group_name)
 
+    #
+    # group create
+    #
     all_commands["group_create"] = Command(
         ("group", "create"),
         GroupName(),
@@ -1170,6 +1201,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         return {'group_id': new.entity_id}
 
+    #
+    # group disable
+    #
     all_commands["group_disable"] = Command(
         ("group", "disable"),
         GroupName(),
@@ -1187,6 +1221,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         return {'group': self.virthome.group_disable(group)}
 
+    #
+    # group remove_members
+    #
     all_commands["group_remove_members"] = Command(
         ("group", "remove_members"),
         AccountName(repeat=True),
@@ -1207,6 +1244,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return "OK, removed %s from %s" % (account.account_name,
                                            group.group_name)
 
+    #
+    # group list
+    #
     all_commands["group_list"] = Command(
         ("group", "list"),
         GroupName())
@@ -1221,6 +1261,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         group = self._get_group(gname)
         return self.vhutils.list_group_members(group, indirect_members=False)
 
+    #
+    # user list_memberships
+    #
     all_commands["user_list_memberships"] = Command(
         ("user", "list_memberships"))
 
@@ -1244,6 +1287,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                         "Group '%s' reserved, not listed" % group['name'])
         return result
 
+    #
+    # group change_owner
+    #
     all_commands["group_change_owner"] = Command(
         ("group", "change_owner"),
         EmailAddress(),
@@ -1277,6 +1323,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             pass
         return ret
 
+    #
+    # group change_description
+    #
     all_commands["group_change_description"] = Command(
         ("group", "change_description"),
         GroupName(),
@@ -1294,6 +1343,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return "OK, changed %s (id=%s) description '%s' -> '%s'" % (
             group.group_name, group.entity_id, old, new)
 
+    #
+    # group change_resource
+    #
     all_commands["group_change_resource"] = Command(
         ("group", "change_resource"),
         GroupName(),
@@ -1313,6 +1365,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return "OK, changed resource for Group %s to %s" % (group.group_name,
                                                             url)
 
+    #
+    # group invite_moderator
+    #
     all_commands["group_invite_moderator"] = Command(
         ("group", "invite_moderator"),
         EmailAddress(),
@@ -1352,6 +1407,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             pass
         return ret
 
+    #
+    # group remove_moderator
+    #
     all_commands["group_remove_moderator"] = Command(
         ("group", "remove_moderator"),
         AccountName(),
@@ -1373,6 +1431,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return "OK, removed %s as moderator of %s" % (account.account_name,
                                                       group.group_name)
 
+    #
+    # group invitee_user
+    #
     all_commands["group_invite_user"] = Command(
         ("group", "invite_user"),
         EmailAddress(),
@@ -1404,6 +1465,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         except Errors.CerebrumError, e:
             raise CerebrumError(str(e))  # bofhd CerebrumError
 
+    #
+    # group info
+    #
     all_commands["group_info"] = Command(
         ("group", "info"),
         GroupName(),
@@ -1495,6 +1559,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         return result
 
+    #
+    # user virtaccount_create
+    #
     all_commands["user_virtaccount_create"] = Command(
             ("user", "virtaccount_create"),
             AccountName(),
@@ -1577,6 +1644,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # Commands that should not be exposed to the webapp, but which are useful
     # for testing
     #######################################################################
+    #
+    # user fedaccount_create
+    #
     all_commands["user_fedaccount_create"] = Command(
         ("user", "fedaccount_create"),
         AccountName(),
@@ -1623,6 +1693,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return {"entity_id": account_id,
                 "confirmation_key": ""}
 
+    #
+    # user virtaccount_nuke
+    #
     all_commands["user_virtaccount_nuke"] = Command(
         ("user", "virtaccount_nuke"),
         AccountName())
@@ -1648,6 +1721,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.__account_nuke_sequence(account.entity_id)
         return "OK, account %s (id=%s) deleted" % (uname, account_id)
 
+    #
+    # group delete
+    #
     all_commands["group_delete"] = Command(
         ("group", "delete"),
         AccountName())
@@ -1665,6 +1741,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         group.delete()
         return "OK, deleted group '%s' (id=%s)" % (gname, gid)
 
+    #
+    # group add_members
+    #
     all_commands["group_add_members"] = Command(
         ("group", "add_members"),
         AccountName(),
@@ -1710,6 +1789,9 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
 
         return spread
 
+    #
+    # spread add
+    #
     all_commands['spread_add'] = Command(
         ("spread", "add"),
         EntityType(default='group'),
@@ -1728,6 +1810,9 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         return "OK, added spread %s to %s" % (str(spread),
                                               identification)
 
+    #
+    # spread remove
+    #
     all_commands['spread_remove'] = Command(
         ("spread", "remove"),
         EntityType(default='group'),
@@ -1744,6 +1829,9 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         return "OK, deleted spread %s from %s" % (str(spread),
                                                   identification)
 
+    #
+    # spread list
+    #
     all_commands['spread_list'] = Command(
         ("spread", "list"),
         fs=FormatSuggestion("%-14s %s", ('name', 'desc'),
@@ -1760,6 +1848,9 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
                         'type_id': s['entity_type']})
         return ret
 
+    #
+    # spread entity_list
+    #
     all_commands["spread_entity_list"] = Command(
         ("spread", "entity_list"),
         EntityType(default="account"),
@@ -1776,6 +1867,9 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         return [str(self.const.Spread(x["spread"]))
                 for x in entity.get_spread()]
 
+    #
+    # quarantine_add
+    #
     all_commands['quarantine_add'] = Command(
         ("quarantine", "add"),
         EntityType(default="account"),
@@ -1803,6 +1897,9 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         return "OK, quarantined %s %s with %s" % (entity_type, ident,
                                                   str(qconst))
 
+    #
+    # quarantine remove
+    #
     all_commands['quarantine_remove'] = Command(
         ("quarantine", "remove"),
         EntityType(default="account"),
@@ -1822,6 +1919,9 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         return "OK, removed quarantine %s from %s" % (str(qconst),
                                                       entity_ident)
 
+    #
+    # guarantine list
+    #
     all_commands['quarantine_list'] = Command(
         ("quarantine", "list"),
         fs=FormatSuggestion("%-16s  %1s  %-17s %s",
@@ -1847,6 +1947,9 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
                         'desc': c.description})
         return ret
 
+    #
+    # quarantine show
+    #
     all_commands['quarantine_show'] = Command(
         ("quarantine", "show"),
         EntityType(default="account"),
@@ -1876,6 +1979,9 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
             })
         return ret
 
+    #
+    # trait list
+    #
     all_commands["trait_list"] = Command(
         ("trait", "list"))
 
@@ -1897,6 +2003,9 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
             })
         return ret
 
+    #
+    # trait set
+    #
     all_commands["trait_set"] = Command(
         ("trait", "set"),
         EntityType(default="account"),
@@ -1945,6 +2054,9 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         entity.write_db()
         return "OK, set trait %s for %s" % (trait, entity_ident)
 
+    #
+    # trait remove
+    #
     all_commands["trait_remove"] = Command(
         ("trait", "remove"),
         EntityType(default="account"),
@@ -1964,6 +2076,9 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         entity.delete_trait(trait)
         return "OK, deleted trait %s from %s" % (trait, entity_id)
 
+    #
+    # trait show
+    #
     all_commands["trait_show"] = Command(
         ("trait", "show"),
         EntityType(default="account"),
@@ -1979,3 +2094,37 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         self.ba.can_show_traits(operator.get_entity_id(),
                                 entity.entity_id)
         return entity.get_traits().values()
+
+
+# TODO: implement command groups
+HELP_VIRTHOME_GROUPS = {}
+
+# TODO: implement command help
+HELP_VIRTHOME_CMDS = {}
+
+# TODO: ensure arg help coverage
+HELP_VIRTHOME_ARGS = {
+    'account_name':
+        ['uname', 'Enter accountname'],
+    'string':
+        ['string', 'Enter value'],
+    'email_address':
+        ['address', 'Enter e-mail address'],
+    'date':
+        ['date', 'Enter date (YYYY-MM-DD)',
+         "The legal date format is 2003-12-31"],
+    'invite_timeout':
+        ['timeout', 'Enter timeout (days)',
+         'The number of days before the invite times out'],
+    'person_name':
+        ['name', 'Enter person name'],
+    'group_name':
+        ['gname', 'Enter groupname'],
+    'id':
+        ['id', 'Enter id', "Enter a group's internal id"],
+    'spread':
+        ['spread', 'Enter spread', "'spread list' lists possible values"],
+    'quarantine_type':
+        ['qtype', 'Enter quarantine type',
+         "'quarantine list' lists defined quarantines"],
+}

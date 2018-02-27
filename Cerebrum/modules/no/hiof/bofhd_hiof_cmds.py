@@ -30,11 +30,11 @@ from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.modules.no.hiof import bofhd_hiof_help
+from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
+from Cerebrum.modules.bofhd.help import merge_help_strings
 
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
-from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cmd_base
 
 
 # BofhdRequests are unfortunately very UiO specific. Let's try to keep
@@ -47,10 +47,6 @@ class HiofBofhdRequests(BofhdRequests):
         self.conflicts[int(const.bofh_ad_attrs_remove)] = None
 
 
-uio_helpers = [
-    '_parse_date'
-]
-
 uio_commands = [
     'misc_cancel_request',
     'misc_list_requests',
@@ -61,14 +57,14 @@ uio_commands = [
 
 
 @copy_command(
-    UiOBofhdExtension,
+    cmd_base,
     'all_commands', 'all_commands',
     commands=uio_commands)
 @copy_func(
-    UiOBofhdExtension,
-    methods=uio_helpers + uio_commands)
+    cmd_base,
+    methods=uio_commands)
 @copy_func(
-    BofhdUserCreateMethod,
+    cmd_base,
     methods=['_user_create_set_account_type']
 )
 class BofhdExtension(BofhdCommonMethods):
@@ -91,9 +87,9 @@ class BofhdExtension(BofhdCommonMethods):
 
     @classmethod
     def get_help_strings(cls):
-        return (bofhd_hiof_help.group_help,
-                bofhd_hiof_help.command_help,
-                bofhd_hiof_help.arg_help)
+        return merge_help_strings(
+            get_help_strings(),
+            ({}, HELP_CMDS, {}))
 
     #
     # user remove_ad_attrs
@@ -126,10 +122,12 @@ class BofhdExtension(BofhdCommonMethods):
         br = HiofBofhdRequests(self.db, self.const)
         delete_attrs = account.get_ad_attrs_by_spread(spread)
         if delete_attrs:
-            req = br.add_request(operator.get_entity_id(), br.now,
-                                 self.const.bofh_ad_attrs_remove,
-                                 account.entity_id, None,
-                                 state_data=str(spread))
+            br.add_request(operator.get_entity_id(),
+                           br.now,
+                           self.const.bofh_ad_attrs_remove,
+                           account.entity_id,
+                           None,
+                           state_data=str(spread))
             return "OK, added remove AD attributes request for %s" % uname
         else:
             return "No AD attributes to remove for user %s" % uname
@@ -164,9 +162,11 @@ class BofhdExtension(BofhdCommonMethods):
             spread_str = str(self._get_constant(self.const.Spread,
                                                 spread, 'spread'))
             for attr_type, attr_val in attr_map.items():
-                ret.append({'spread': spread_str,
-                            'ad_attr': attr_type,
-                            'ad_val': attr_val})
+                ret.append({
+                    'spread': spread_str,
+                    'ad_attr': attr_type,
+                    'ad_val': attr_val,
+                })
         return ret
 
     #
@@ -256,26 +256,27 @@ class BofhdExtension(BofhdCommonMethods):
                     raise CerebrumError("Person has no affiliations."
                                         " Try person affiliation_add")
                 return {'prompt': "Choose affiliation from list", 'map': map}
-            affiliation = all_args.pop(0)
+            all_args.pop(0)
         else:
             if not all_args:
                 return {'prompt': "Enter np_type",
                         'help_ref': 'string_np_type'}
-            np_type = all_args.pop(0)
+            all_args.pop(0)
         if not all_args:
             return {'prompt': "Enter spread",
                     'help_ref': 'string_spread'}
-        spread = all_args.pop(0)
+        all_args.pop(0)
         if not all_args:
             return {'prompt': "Enter e-mail server name",
                     'help_ref': 'string_email_host'}
-        email_server = all_args.pop(0)
+        all_args.pop(0)
         if not all_args:
             ret = {'prompt': "Username", 'last_arg': True}
             if not group_owner:
                 try:
                     person = self._get_person("entity_id", owner_id)
-                    fname, lname = [person.get_name(self.const.system_cached, v)
+                    fname, lname = [person.get_name(self.const.system_cached,
+                                                    v)
                                     for v in (self.const.name_first,
                                               self.const.name_last)]
                     sugg = account.suggest_unames(self.const.account_namespace,
@@ -365,3 +366,12 @@ class BofhdExtension(BofhdCommonMethods):
             "new_account_passwd",
             {'account_id': int(account.entity_id), 'password': passwd})
         return {'account_id': int(account.entity_id)}
+
+
+HELP_CMDS = {
+    'user': {
+        'user_create': 'Create a user account',
+        'user_list_ad_attrs': 'View ad attributes for a user',
+        'user_remove_ad_attrs': 'Delete ad attributes for a user',
+    }
+}

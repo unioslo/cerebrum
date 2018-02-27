@@ -28,14 +28,20 @@ modules/no/<institution>/bofhd_<institution>_cmds.py.
 """
 import cereconf
 
-from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
+from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 
-from Cerebrum.modules.bofhd import cmd_param as cmd
+
+CMD_HELP = {
+    'user': {
+        'user_create': 'Create a new user account',
+    }
+}
 
 
 class BofhdUserCreateMethod(BofhdCommonMethods):
@@ -50,13 +56,16 @@ class BofhdUserCreateMethod(BofhdCommonMethods):
 
     """
 
-    # Each subclass defines its own class attribute containing the relevant
-    # commands.
-    # Any command defined in 'all_commands' or 'hidden_commands' are callable
-    # from clients.
     all_commands = {}
-
     authz = BofhdAuth
+
+    @classmethod
+    def get_help_strings(cls):
+        # All the args are specified in bofhd_core_help, but user_create is not
+        group, cmd, args = get_help_strings()
+        for group_name in CMD_HELP:
+            cmd.setdefault(group_name, {}).update(CMD_HELP[group_name])
+        return group, cmd, args
 
     def _user_create_prompt_func_helper(self, session, *args):
         """A prompt_func on the command level should return
@@ -210,6 +219,9 @@ class BofhdUserCreateMethod(BofhdCommonMethods):
                              {'account_id': int(account.entity_id),
                               'password': passwd})
 
+    #
+    # user create ---
+    #
     all_commands['user_create'] = cmd.Command(
         ('user', 'create'),
         prompt_func=_user_create_prompt_func_helper,

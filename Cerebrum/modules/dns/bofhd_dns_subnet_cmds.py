@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2016 University of Oslo, Norway
+# Copyright 2013-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,21 +17,30 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+""" dns subnet commands for bofhd. """
 import cereconf
 
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
-from Cerebrum.modules.bofhd.cmd_param import *
-
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum.modules.bofhd.auth import BofhdAuth
-
-from Cerebrum.modules.dns.Subnet import Subnet
-from Cerebrum.modules.dns.IPv6Subnet import IPv6Subnet
+from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
+from Cerebrum.modules.bofhd.cmd_param import (Command,
+                                              FormatSuggestion,
+                                              Integer,
+                                              Parameter,
+                                              SimpleString)
+from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.help import merge_help_strings
+from Cerebrum.modules.dns import Utils
+from Cerebrum.modules.dns.Errors import DNSError, SubnetError
 from Cerebrum.modules.dns.IPUtils import IPCalc
+from Cerebrum.modules.dns.IPv6Subnet import IPv6Subnet
 from Cerebrum.modules.dns.IPv6Utils import IPv6Calc
+from Cerebrum.modules.dns.Subnet import Subnet
+from Cerebrum.modules.dns.bofhd_dns_cmds import DnsBofhdAuth
 
-from Cerebrum.modules.dns.Errors import SubnetError
+
+class SubnetBofhdAuth(DnsBofhdAuth):
+    """ DNS auth. """
+    pass
 
 
 class Force(Parameter):
@@ -45,19 +54,12 @@ class SubnetIdentifier(Parameter):
     _help_ref = 'subnet_identifier'
 
 
-class DnsBofhdAuth(BofhdAuth):
-    # TODO: Shouldn't need to repeat it here, but bofhd_dns_cmds is
-    # cranky when you try to import it
-    def assert_dns_superuser(self, operator, query_run_any=False):
-        if (not (self.is_dns_superuser(operator))
-                and not (self.is_superuser(operator))):
-            raise PermissionDenied("Currently limited to dns_superusers")
+def _is_ipv6(subnet):
+    return isinstance(subnet, IPv6Subnet)
 
-    def is_dns_superuser(self, operator, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        return self._has_operation_perm_somewhere(
-            operator, self.const.auth_dns_superuser)
+
+def _subnet_to_identifier(subnet):
+    return "{0.subnet_ip}/{0.subnet_mask}".format(subnet)
 
 
 class BofhdExtension(BofhdCommandBase):
@@ -65,92 +67,76 @@ class BofhdExtension(BofhdCommandBase):
 
     all_commands = {}
     parent_commands = False
-    authz = DnsBofhdAuth
+    authz = SubnetBofhdAuth
 
     def __init__(self, *args, **kwargs):
-        default_zone = kwargs.pop('default_zone', 'uio')
+        default_zone = getattr(cereconf, 'DNS_DEFAULT_ZONE',
+                               kwargs.pop('default_zone', 'uio'))
         super(BofhdExtension, self).__init__(*args, **kwargs)
-        self.default_zone = self.const.DnsZone(
-            getattr(cereconf, 'DNS_DEFAULT_ZONE', default_zone))
+        self.default_zone = self.const.DnsZone(default_zone)
 
     @property
     def _find(self):
         try:
             return self.__find_util
         except AttributeError:
-            from Cerebrum.modules.dns import Utils
             self.__find_util = Utils.Find(self.db, self.default_zone)
             return self.__find_util
 
+    def _get_subnet_ipv4(self, subnet_identifier):
+        try:
+            s = Subnet(self.db)
+            s.find(subnet_identifier)
+            return s
+        except (ValueError, SubnetError, DNSError):
+            raise CerebrumError("Unable to find subnet %r" % subnet_identifier)
+
+    def _get_subnet_ipv6(self, subnet_identifier):
+        try:
+            s = IPv6Subnet(self.db)
+            s.find(subnet_identifier)
+            return s
+        except (ValueError, SubnetError, DNSError):
+            raise CerebrumError("Unable to find subnet %r" % subnet_identifier)
+
+    def _get_subnet(self, subnet_identifier):
+        try:
+            return self._get_subnet_ipv4(subnet_identifier)
+        except CerebrumError:
+            return self._get_subnet_ipv6(subnet_identifier)
+
     @classmethod
     def get_help_strings(cls):
-        group_help = {
-            'subnet': "Commands for handling subnets",
-        }
+        _, _, args = get_help_strings()
+        return merge_help_strings(
+            ({}, {}, args),
+            (HELP_SUBNET_GROUP, HELP_SUBNET_CMDS, HELP_SUBNET_ARGS))
 
-        command_help = {
-            'subnet': {
-            #'subnet_add': 'Add a new subnet with given description and optional given VLAN',
-            #'subnet_remove': 'Remove an existing subnet',
-            'subnet_info': 'Provide information about a subnet',
-            'subnet_set_vlan': 'Set VLAN-ID for a subnet',
-            'subnet_set_description': 'Set description for a subnet',
-            'subnet_set_dns_delegated': 'Set subnet zone as delegated to external DNS-server',
-            'subnet_set_name_prefix': 'Set name-prefix for a subnet',
-            'subnet_set_reserved': 'Set number of reserved addresses for a subnet',
-            'subnet_unset_dns_delegated': 'Set subnet zone as not delegated to external DNS-server',
-            }
-        }
-
-        arg_help = {
-            'subnet_description':
-            ['desc', 'Subnet description',
-             """Description of what the subnet is intended for."""],
-
-            'subnet_identifier':
-            ['subnet', 'Subnet',
-             """Subnet identifier, either on format
-- ddd.ddd.ddd.ddd/dd                                    OR
-- ddd.ddd.ddd.ddd    (for any IP in the subnet's range) OR
-- id:<entity-id>"""],
-            'subnet_name_prefix':
-            ['name_prefix', 'Name prefix',
-             """Name-prefix to be used for the given subnet """],
-            'subnet_reserved':
-            ['#_reserved_adr', 'Number of reserved addresses',
-             """Number of adresses to set as reserved at the beginning of the given subnet."""],
-            'subnet_vlan': [
-                'vlan_id',
-                'VLAN ID number',
-                """ID of the VLAN the subnet uses/represents."""
-            ],
-        }
-
-        return (group_help,
-                command_help,
-                arg_help)
-
+    #
+    # subnet info <subnet>
+    #
     all_commands['subnet_info'] = Command(
-        ("subnet", "info"), SubnetIdentifier(),
-        fs=FormatSuggestion([("Subnet:                 %s\n" +
-                              "Entity ID:              %s",
-                             ("subnet", "entity_id")),
-                             ("Netmask:                %s", ("netmask",)),
-                             ("Prefix:                 %s", ("prefix",)),
-                             ("Description:            '%s'\n" +
-                              "Name-prefix:            '%s'\n" +
-                              "VLAN:                   %s\n" +
-                              "DNS delegated:          %s\n" + 
-                              "IP-range:               %s\n" +
-                              "Reserved host adresses: %s\n" +
-                              "Reserved addresses:     %s",
-                              ("desc",
-                               "name_prefix", "vlan", "delegated",
-                               "ip_range", "no_of_res_adr", "res_adr1")),
-                             ("                        %s", ('res_adr',)),
-                             ("Used addresses:         %s\n"+
-                              "Unused addresses:       %s (excluding reserved adr.)",
-                              ('used', 'unused'))]))
+        ("subnet", "info"),
+        SubnetIdentifier(),
+        fs=FormatSuggestion([
+            ("Subnet:                 %s", ('subnet', )),
+            ("Entity ID:              %s", ('entity_id', )),
+            ("Netmask:                %s", ('netmask', )),
+            ("Prefix:                 %s", ("prefix", )),
+            ("Description:            '%s'\n"
+             "Name-prefix:            '%s'\n"
+             "VLAN:                   %s\n"
+             "DNS delegated:          %s\n"
+             "IP-range:               %s", ("desc", "name_prefix", "vlan",
+                                            "delegated", "ip_range")),
+            ("Reserved host adresses: %s", ("no_of_res_adr", )),
+            ("Reserved addresses:     %s", ("res_adr1", )),
+            ("                        %s", ('res_adr', )),
+            ("Used addresses:         %i\n"
+             "Unused addresses:       %i (excluding reserved adr.)",
+             ('used', 'unused')),
+        ]))
+
     def subnet_info(self, operator, identifier):
         """Lists the following information about the given subnet:
 
@@ -165,37 +151,29 @@ class BofhdExtension(BofhdCommandBase):
         * Number of reserved addresses
         * A list of the reserved adresses
         """
-        s = Subnet(self.db)
-        ipc = IPCalc
-        try:
-            s.find(identifier)
-        except (ValueError, SubnetError):
-            s = IPv6Subnet(self.db)
-            s.find(identifier)
-            ipc = IPv6Calc
-        
-        if s.dns_delegated:
-            delegated = "Yes"
-        else:
-            delegated = "No"
-            
-        data = {'subnet': "%s/%s" % (s.subnet_ip, s.subnet_mask),
-               'entity_id': str(s.entity_id),
-               'desc': s.description,
-               'delegated': delegated,
-               'name_prefix': s.name_prefix,
-               'no_of_res_adr': str(s.no_of_reserved_adr)}
-        
+        s = self._get_subnet(identifier)
+        is_ipv6 = isinstance(s, IPv6Subnet)
+        ipc = IPv6Calc if is_ipv6 else IPCalc
+
+        data = {
+            'subnet': _subnet_to_identifier(s),
+            'entity_id': str(s.entity_id),
+            'desc': s.description,
+            'delegated': "Yes" if s.dns_delegated else "No",
+            'name_prefix': s.name_prefix,
+            'no_of_res_adr': str(s.no_of_reserved_adr)
+        }
+
+        # ipv4 netmask or ipv6 prefix
         if isinstance(s, Subnet):
             data['netmask'] = ipc.netmask_to_ip(s.subnet_mask)
         else:
             data['prefix'] = '/' + str(s.subnet_mask)
-    
 
         if s.vlan_number is not None:
             data['vlan'] = str(s.vlan_number)
         else:
-            data['vlan'] =  "(None)"
+            data['vlan'] = "(None)"
 
         data['ip_range'] = "%s - %s" % (ipc.long_to_ip(s.ip_min),
                                         ipc.long_to_ip(s.ip_max))
@@ -203,193 +181,268 @@ class BofhdExtension(BofhdCommandBase):
         # Calculate number of used and unused IP-addresses on this subnet
         #                              ^^^^^^ excluding reserved addresses
         uip = self._find.count_used_ips(s.subnet_ip)
-        data['used'] = str(uip)
-        data['unused'] = str(s.ip_max - s.ip_min - uip - 1)
-        
-        reserved_adresses = list(s.reserved_adr)
+        data['used'] = int(uip)
+        data['unused'] = int(s.ip_max - s.ip_min - uip - 1)
+
+        reserved_adresses = list(sorted(s.reserved_adr))
 
         if reserved_adresses:
-            reserved_adresses.sort()
-            data["res_adr1"] = "%s (net)" % ipc.long_to_ip(reserved_adresses.pop(0))
+            data["res_adr1"] = "%s (net)" % ipc.long_to_ip(
+                reserved_adresses.pop(0))
         else:
             data["res_adr1"] = "(None)"
 
-        ret = [data,]
+        ret = [data, ]
 
         if reserved_adresses:
             last_ip = reserved_adresses.pop()
             for address in reserved_adresses:
-                ret.append({'res_adr': ipc.long_to_ip(address)})
-            ret.append({'res_adr': "%s (broadcast)" % ipc.long_to_ip(last_ip)})
-            
+                ret.append({
+                    'res_adr': ipc.long_to_ip(address),
+                })
+            ret.append({
+                'res_adr': "%s (broadcast)" % ipc.long_to_ip(last_ip),
+            })
+
         return ret
 
-
+    #
+    # subnet set_vlan <subnet> <vlan>
+    #
     all_commands['subnet_set_vlan'] = Command(
         ("subnet", "set_vlan"),
         SubnetIdentifier(),
-        Integer(help_ref="subnet_vlan"))
+        Integer(help_ref="subnet_vlan"),
+        fs=FormatSuggestion([
+            ("OK; VLAN for subnet %s updated from %i to %i",
+             ('subnet_id', 'old_vlan', 'new_vlan')),
+        ]),
+        perm_filter='is_dns_superuser')
+
     def subnet_set_vlan(self, operator, identifier, new_vlan):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         try:
-            int(new_vlan)
+            new_vlan = int(new_vlan)
         except:
-            raise CerebrumError("VLAN must be an integer; '%s' isn't" % new_vlan)
+            raise CerebrumError("VLAN must be an integer; %r isn't" %
+                                new_vlan)
 
-        s = Subnet(self.db)
-        try:
-            s.find(identifier)
-        except SubnetError:
-            s = IPv6Subnet(self.db)
-            s.find(identifier)
+        s = self._get_subnet(identifier)
         old_vlan = s.vlan_number
         s.vlan_number = new_vlan
         s.write_db(perform_checks=False)
-        subnet_id = "%s/%s" % (s.subnet_ip, s.subnet_mask)
-        return "OK; VLAN for subnet %s updated from '%s' to '%s'" % (subnet_id, old_vlan, new_vlan)
+        return {
+            'subnet_id': _subnet_to_identifier(s),
+            'old_vlan': old_vlan,
+            'new_vlan': new_vlan,
+        }
 
-
+    #
+    # subnet set_description <subnet> <description>
+    #
     all_commands['subnet_set_description'] = Command(
         ("subnet", "set_description"),
         SubnetIdentifier(),
-        SimpleString(help_ref="subnet_description"))
-    def subnet_set_description(self, operator, identifier, new_description):
-        raise CerebrumError('Description updates are not allowed for the time beeing.')
-        self.ba.assert_dns_superuser(operator.get_entity_id())
-        
-        s = Subnet(self.db)
-        try:
-            s.find(identifier)
-        except SubnetError:
-            s = IPv6Subnet(self.db)
-            s.find(identifier)
+        SimpleString(help_ref="subnet_description"),
+        fs=FormatSuggestion([
+            ("OK; description for subnet %s updated to '%s'",
+             ('subnet_id', 'new_description')),
+        ])
+    )
 
+    def subnet_set_description(self, operator, identifier, new_description):
+        self.ba.assert_dns_superuser(operator.get_entity_id())
+
+        s = self._get_subnet(identifier)
+        old_description = s.description or ''
         s.description = new_description
         s.write_db(perform_checks=False)
-        subnet_id = "%s/%s" % (s.subnet_ip, s.subnet_mask)
-        return "OK; description for subnet %s updated to '%s'" % (subnet_id, new_description)
-        
+        subnet_id = _subnet_to_identifier(s)
+        return {
+            'subnet_id': subnet_id,
+            'old_description': old_description,
+            'new_description': new_description,
+        }
 
+    #
+    # subnet set_name_prefix
+    #
     all_commands['subnet_set_name_prefix'] = Command(
         ("subnet", "set_name_prefix"),
         SubnetIdentifier(),
-        SimpleString(help_ref="subnet_name_prefix"))
+        SimpleString(help_ref="subnet_name_prefix"),
+        fs=FormatSuggestion([
+            ("OK; name_prefix for subnet %s updated from '%s' to '%s'",
+             ('subnet_id', 'old_prefix', 'new_prefix'))
+        ]),
+        perm_filter='is_dns_superuser')
+
     def subnet_set_name_prefix(self, operator, identifier, new_prefix):
         self.ba.assert_dns_superuser(operator.get_entity_id())
-        
-        s = Subnet(self.db)
-        try:
-            s.find(identifier)
-        except SubnetError:
-            s = IPv6Subnet(self.db)
-            s.find(identifier)
-
+        s = self._get_subnet(identifier)
         old_prefix = s.name_prefix
         s.name_prefix = new_prefix
         s.write_db(perform_checks=False)
-        subnet_id = "%s/%s" % (s.subnet_ip, s.subnet_mask)
-        return ("OK; name_prefix for subnet %s updated " % subnet_id +
-                "from '%s' to '%s'" % (old_prefix, new_prefix))
+        subnet_id = self._subnet_to_identifier(s)
+        return {
+            'subnet_id': subnet_id,
+            'old_prefix': old_prefix,
+            'new_prefix': new_prefix,
+        }
 
-
+    #
+    # subnet set_dns_delegated
+    #
     all_commands['subnet_set_dns_delegated'] = Command(
         ("subnet", "set_dns_delegated"),
-        SubnetIdentifier(), Force(optional=True))
+        SubnetIdentifier(),
+        Force(optional=True),
+        fs=FormatSuggestion([
+            ("Subnet %s set as delegated to external"
+             " DNS server", ('subnet_id',)),
+            ("Note: %s", ('warning', )),
+        ]),
+        perm_filter='is_dns_superuser')
+
     def subnet_set_dns_delegated(self, operator, identifier, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
-        
-        s = Subnet(self.db)
-        try:
-            s.find(identifier)
-        except SubnetError:
-            s = IPv6Subnet(self.db)
-            s.find(identifier)
 
-        subnet_id = "%s/%s" % (s.subnet_ip, s.subnet_mask)
+        s = self._get_subnet(identifier)
+        subnet_id = _subnet_to_identifier(s)
 
         if s.dns_delegated:
-            return ("Subnet %s is already set as " % subnet_id +
-                    "being delegated to external DNS server")
+            raise CerebrumError("Subnet %s is already set as being delegated"
+                                " to external DNS server" % subnet_id)
 
-        in_use = ""
+        ret = [{'subnet_id': subnet_id, }]
+
         if s.has_adresses_in_use():
-            if force:
-                in_use = "\nNote! Subnet has addresses in use!"
-            else:
-                raise CerebrumError, ("Subnet '%s' has addresses " % subnet_id +
-                                      "in use; must force to delegate")
+            if not force:
+                raise CerebrumError("Subnet '%s' has addresses in use;"
+                                    " must force to delegate" % subnet_id)
+            ret.append({'warning': "Subnet has address in use!"})
 
         s.dns_delegated = True
         s.write_db(perform_checks=False)
-        return "Subnet %s set as delegated to external DNS server%s" % (subnet_id, in_use)
-        
-        
+        return ret
+
+    #
+    # subnet unset_dns_delegated
+    #
     all_commands['subnet_unset_dns_delegated'] = Command(
         ("subnet", "unset_dns_delegated"),
-        SubnetIdentifier())
+        SubnetIdentifier(),
+        fs=FormatSuggestion([
+            ("Subnet %s no longer set as delegated to external"
+             " DNS server", ('subnet_id',)),
+        ]),
+        perm_filter='is_dns_superuser')
+
     def subnet_unset_dns_delegated(self, operator, identifier):
         self.ba.assert_dns_superuser(operator.get_entity_id())
-        
-        s = Subnet(self.db)
-        try:
-            s.find(identifier)
-        except SubnetError:
-            s = IPv6Subnet(self.db)
-            s.find(identifier)
-
-        subnet_id = "%s/%s" % (s.subnet_ip, s.subnet_mask)
+        s = self._get_subnet(identifier)
+        subnet_id = _subnet_to_identifier(s)
 
         if not s.dns_delegated:
-            return ("Subnet %s is already set as not " % subnet_id +
-                    "being delegated to external DNS server" )
+            raise CerebrumError("Subnet %s is already set as not being"
+                                " delegated to external DNS server" %
+                                subnet_id)
 
         s.dns_delegated = False
         s.write_db(perform_checks=False)
-        return "Subnet %s no longer set as delegated to external DNS server" % subnet_id
-    
+        return {'subnet_id': subnet_id, }
 
+    #
+    # subnet set_reserved
+    #
     all_commands['subnet_set_reserved'] = Command(
         ("subnet", "set_reserved"),
         SubnetIdentifier(),
-        Integer(help_ref="subnet_reserved"))
+        Integer(help_ref="subnet_reserved"),
+        fs=FormatSuggestion([
+            ("OK; Number of reserved addresses for subnet %s "
+             "updated from %i to %i", ('subnet_id', 'old_reserved',
+                                       'new_reserved')),
+            ("FIY: %s", ('warning', )),
+        ]),
+        perm_filter='is_dns_superuser')
+
     def subnet_set_reserved(self, operator, identifier, new_res):
         self.ba.assert_dns_superuser(operator.get_entity_id())
-        
         try:
-            int(new_res)
+            new_res = int(new_res)
         except:
-            raise CerebrumError("The number of reserved addresses must be " +
-                                "an integer; '%s' isn't" % new_res)
+            raise CerebrumError("The number of reserved addresses must be "
+                                "an integer; %r isn't" % new_res)
 
         if new_res < 0:
             raise CerebrumError("Cannot set number of reserved addresses to " +
                                 "a negative number such as '%s'" % new_res)
-       
-        s = Subnet(self.db)
-        try:
-            s.find(identifier)
-        except SubnetError:
-            s = IPv6Subnet(self.db)
-            s.find(identifier)
+
+        s = self._get_subnet(identifier)
 
         old_res = s.no_of_reserved_adr
 
-        s.no_of_reserved_adr = int(new_res)
+        s.no_of_reserved_adr = new_res
         s.calculate_reserved_addresses()
 
-        in_use = ""
+        res = [{
+            'subnet_id': _subnet_to_identifier(s),
+            'old_reserved': old_res,
+            'new_reserved': new_res,
+        }]
+
         if new_res > old_res:
             try:
                 s.check_reserved_addresses_in_use()
-            except SubnetError, se:
-                in_use = "\nFYI: %s" % str(se)
+            except SubnetError as se:
+                res.append({'warning': str(se), })
 
         s.write_db(perform_checks=False)
-        subnet_id = "%s/%s" % (s.subnet_ip, s.subnet_mask)
-        return ("OK; Number of reserved addresses for subnet %s " % subnet_id +
-                "updated from '%s' to '%s'%s" % (old_res, new_res, in_use))
+        return res
 
 
-if __name__ == '__main__':
-    pass
+HELP_SUBNET_GROUP = {
+    'subnet': "Commands for handling subnets",
+}
 
+HELP_SUBNET_CMDS = {
+    'subnet': {
+        'subnet_info':
+            'Provide information about a subnet',
+        'subnet_set_vlan':
+            'Set VLAN-ID for a subnet',
+        'subnet_set_description':
+            'Set description for a subnet',
+        'subnet_set_dns_delegated':
+            'Set subnet zone as delegated to external DNS-server',
+        'subnet_set_name_prefix':
+            'Set name-prefix for a subnet',
+        'subnet_set_reserved':
+            'Set number of reserved addresses for a subnet',
+        'subnet_unset_dns_delegated':
+            'Set subnet zone as not delegated to external DNS-server',
+    }
+}
+
+HELP_SUBNET_ARGS = {
+    'subnet_description':
+        ['desc', 'Enter subnet description',
+         "Description of what the subnet is intended for."],
+    'subnet_identifier':
+        ['subnet', 'Enter subnet',
+         "Subnet identifier, either on format"
+         "  - ddd.ddd.ddd.ddd/dd                                    OR"
+         "  - ddd.ddd.ddd.ddd    (for any IP in the subnet's range) OR"
+         "  - id:<entity-id>"],
+    'subnet_name_prefix':
+        ['name_prefix', 'Enter subnet name prefix',
+         "Name-prefix to be used for the given subnet "],
+    'subnet_reserved':
+        ['#_reserved_adr', 'Enter number of reserved addresses',
+         "Number of adresses to set as reserved at the beginning of the"
+         " given subnet."],
+    'subnet_vlan':
+        ['vlan_id', 'Enter VLAN ID number',
+         "ID of the VLAN the subnet uses/represents."],
+}

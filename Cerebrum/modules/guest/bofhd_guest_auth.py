@@ -24,18 +24,12 @@
 This module controls access to the guest commands.
 
 """
-import cerebrum_path
-
-import cereconf
-import guestconfig
-
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd import auth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 
 class BofhdAuth(auth.BofhdAuth):
-
     """ Methods to control command access. """
 
     def _is_guest_account(self, guest):
@@ -79,8 +73,8 @@ class BofhdAuth(auth.BofhdAuth):
             pass
         return False
 
-    def can_view_personal_guest(self, operator, guest=None,
-                                query_run_any=False):
+    def can_view_personal_guest(self, operator,
+                                guest=None, query_run_any=False):
         """ If the operator can see guest info. """
         if self.is_superuser(operator):
             return True
@@ -110,8 +104,8 @@ class BofhdAuth(auth.BofhdAuth):
         raise PermissionDenied(
             "Guest accounts are only available to employees.")
 
-    def can_reset_guest_password(self, operator, guest=None,
-                                 query_run_any=False):
+    def can_reset_guest_password(self, operator,
+                                 guest=None, query_run_any=False):
         """ If the operator can re-set the password for a guest. """
         return self.can_remove_personal_guest(operator, guest=guest,
                                               query_run_any=query_run_any)

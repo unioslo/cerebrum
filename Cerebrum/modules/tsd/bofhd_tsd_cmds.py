@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2017 University of Oslo, Norway
+# Copyright 2013-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,11 +22,11 @@
 Many of the commands are simply copied from UiO's command base and renamed for
 the project, while other commands are changed to comply with the project.
 
-Idealistically, we would move the basic commands into a super class, so we could
-instead use inheritance, but unfortunately we don't have that much time.
+Idealistically, we would move the basic commands into a super class, so we
+could instead use inheritance, but unfortunately we don't have that much time.
 
-Note that there are different bofhd extensions. One is for administrative tasks,
-i.e. the superusers in TSD, and one is for the end users. End users are
+Note that there are different bofhd extensions. One is for administrative
+tasks, i.e. the superusers in TSD, and one is for the end users. End users are
 communicating with bofhd through a web site, so that bofhd should only be
 reachable from the web host.
 
@@ -37,37 +36,35 @@ Using the @superuser decorator instead of calling self.ba.is_superuser(userid)
 is only used in this file so far, so if you are an experienced bofhd developer,
 ba.is_superuser is not missing, it's still here, but in a different form.
 """
-
-from mx import DateTime
 from functools import wraps, partial
 import json
 
+from mx import DateTime
+
 import cereconf
 
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.errors import CerebrumError
-from Cerebrum import Utils
 from Cerebrum import Errors
+from Cerebrum import Utils
+from Cerebrum.Utils import Factory
 from Cerebrum.modules import EntityTrait
+from Cerebrum.modules import dns
 from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.modules import dns
-from Cerebrum.modules.dns import Subnet
+from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
+from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.dns import IPv6Subnet
+from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns.bofhd_dns_cmds import HostId
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as uio_base
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,
                                               PhrasePasswordNotGoodEnough)
-from Cerebrum.modules.username_generator.generator import UsernameGenerator
-
 from Cerebrum.modules.tsd.bofhd_auth import TSDBofhdAuth
 from Cerebrum.modules.tsd import bofhd_help
 from Cerebrum.modules.tsd import Gateway
-
-from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
-from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
+from Cerebrum.modules.username_generator.generator import UsernameGenerator
 
 
 def format_day(field):
@@ -116,25 +113,24 @@ class ProjectPrice(cmd.Parameter):
     """Bofhd parameter for specifying project's price group.
     Initial spec: price: "UIO" | "UH" | "OTHER"
     """
-
     _type = 'projectPrice'
     _help_ref = 'project_price'
 
 
 class ProjectInstitution(cmd.Parameter):
     """Bofhd parameter for specifying project's institution.
-    Initial spec: institution: "UIO" | "HSØ" | "HIOA" | "UIT" | "NTNU" | "OTHER"
+    Initial spec:
+        institution: "UIO" | "HSØ" | "HIOA" | "UIT" | "NTNU" | "OTHER"
     """
-
     _type = 'projectInstitution'
     _help_ref = 'project_institution'
 
 
 class ProjectHpc(cmd.Parameter):
     """Bofhd parameter for specifying if project has hpc flag.
-    Initial spec: HPC: "HPC_YES" | "HPC_NO"
+    Initial spec:
+        HPC: "HPC_YES" | "HPC_NO"
     """
-
     _type = 'projectHpc'
     _help_ref = 'project_hpc'
 
@@ -145,7 +141,7 @@ class ProjectMetadata(cmd.Parameter):
     _help_ref = 'project_metadata'
 
 
-class GroupDescription(cmd.SimpleString):  # SimpleString inherits from cmd.Parameter
+class GroupDescription(cmd.SimpleString):
     """Bofhd Parameter for specifying a group description."""
     _type_ = 'groupDescription'
     _help_ref_ = 'group_description'
@@ -237,10 +233,12 @@ class TSDBofhdExtension(BofhdCommonMethods):
         return super(TSDBofhdExtension, self)._get_entity(entity_type, ident)
 
     def _get_project(self, projectid):
-        """Return a project's OU by its name, if found. We identify project's by
-        their acronym name, which is not handled uniquely in the database, so we
-        could be up for integrity errors, e.g. if two projects are called the
-        same. This should be handled by TSD's OU class.
+        """Return a project's OU by its name, if found.
+
+        We identify project's by their acronym name, which is not handled
+        uniquely in the database, so we could be up for integrity errors, e.g.
+        if two projects are called the same. This should be handled by TSD's OU
+        class.
 
         @type projectid: string or integer
         @param projectid: The project id or the entity_id of the project. Must
@@ -274,7 +272,9 @@ class TSDBofhdExtension(BofhdCommonMethods):
 
         """
         finder = dns.Utils.Find(self.db,
-                                self.const.DnsZone(getattr(cereconf, 'DNS_DEFAULT_ZONE', 'uio')))
+                                self.const.DnsZone(getattr(cereconf,
+                                                           'DNS_DEFAULT_ZONE',
+                                                           'uio')))
         if ':' not in host_id and host_id.split('.')[-1].isdigit():
             # host_id is an IP
             owner_id = finder.find_target_by_parsing(host_id, dns.IP_NUMBER)
@@ -300,10 +300,10 @@ class TSDBofhdExtension(BofhdCommonMethods):
     def _get_ou(self, ou_id=None, stedkode=None):
         """Override to change the use of L{stedkode} to check the acronym.
 
-        In TSD, we do not use L{stedkode}, but we do have some unique IDs stored
-        as acronyms. To avoid having to change too much, we just override the
-        stedkode reference so we don't have to override each method that fetches
-        an OU by its stedkode.
+        In TSD, we do not use L{stedkode}, but we do have some unique IDs
+        stored as acronyms. To avoid having to change too much, we just
+        override the stedkode reference so we don't have to override each
+        method that fetches an OU by its stedkode.
 
         """
         if ou_id is not None:
@@ -337,9 +337,13 @@ class TSDBofhdExtension(BofhdCommonMethods):
         name = ou.get_project_name()
         return "%s (%s)" % (ou.get_project_id(), name)
 
+    #
     # user password
+    #
     all_commands['user_password'] = cmd.Command(
-        ('user', 'password'), cmd.AccountName(), cmd.AccountPassword(optional=True))
+        ('user', 'password'),
+        cmd.AccountName(),
+        cmd.AccountPassword(optional=True))
 
     def user_password(self, operator, accountname, password=None):
         """Set password for a user. A modified version of UiO's command."""
@@ -365,7 +369,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
                     raise CerebrumError("Superuser cannot specify passwords "
                                         "for other users")
             elif operator.get_entity_id() != account.entity_id:
-                raise CerebrumError("Cannot specify password for another user.")
+                raise CerebrumError("Cannot specify password for another user")
         try:
             check_password(password, account, structured=False)
         except RigidPasswordNotGoodEnough, e:
@@ -376,7 +380,8 @@ class TSDBofhdExtension(BofhdCommonMethods):
                 err_msg=str(e).decode('utf-8').encode('latin-1')))
         except PasswordNotGoodEnough, e:
             raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
-        ret_msg = 'Password altered'
+
+        ret_msgs = ['Password altered']
         # Set password for all person's accounts:
         ac = Factory.get('Account')(self.db)
         for row in ac.search(owner_id=account.owner_id):
@@ -389,25 +394,30 @@ class TSDBofhdExtension(BofhdCommonMethods):
                 raise CerebrumError("Database error: %s" % m)
             # Remove "weak password" quarantine
             for r in ac.get_entity_quarantine():
-                if int(r['quarantine_type']) == self.const.quarantine_autopassord:
-                    ac.delete_entity_quarantine(self.const.quarantine_autopassord)
-                if int(r['quarantine_type']) == self.const.quarantine_svakt_passord:
-                    ac.delete_entity_quarantine(self.const.quarantine_svakt_passord)
+                if r['quarantine_type'] in (
+                        self.const.quarantine_autopassord,
+                        self.const.quarantine_svakt_passord):
+                    ac.delete_entity_quarantine(int(r['quarantine_type']))
             ac.write_db()
-            ret_msg += "\nNew password for: %s" % ac.account_name
+            ret_msgs.append("New password for: %s" % ac.account_name)
             if ac.is_deleted():
-                ret_msg += "\nWarning: user is deleted: %s" % ac.account_name
+                ret_msgs.append("Warning: user is deleted: %s" %
+                                ac.account_name)
             elif ac.is_expired():
-                ret_msg += "\nWarning: user is expired: %s" % ac.account_name
+                ret_msgs.append("Warning: user is expired: %s" %
+                                ac.account_name)
             elif ac.get_entity_quarantine(only_active=True):
-                ret_msg += "\nWarning: user in quarantine: %s" % ac.account_name
+                ret_msgs.append("Warning: user in quarantine: %s" %
+                                ac.account_name)
 
         # Only store one of the account's password. Not necessary to store all
         # of them, as it's the same.
-        operator.store_state("user_passwd", {'account_id': int(account.entity_id),
-                                             'password': password})
-        ret_msg += "\nPlease use misc list_password to print or view the new password."
-        return ret_msg
+        operator.store_state("user_passwd",
+                             {'account_id': int(account.entity_id),
+                              'password': password})
+        ret_msgs.append("Please use misc list_password to print or view the"
+                        " new password.")
+        return "\n".join(ret_msgs)
 
     def _group_add_entity(self, operator, src_entity, member_type, dest_group):
         """Helper method for adding a given entity to given group.
@@ -435,37 +445,42 @@ class TSDBofhdExtension(BofhdCommonMethods):
         # friendly.  Don't treat this as an error, useful if the operator has
         # specified more than one entity.
         if dest_group.has_member(src_entity.entity_id):
-            return "%s is already a member of %s" % (src_name, dest_group.group_name)
+            return "%s is already a member of %s" % (src_name,
+                                                     dest_group.group_name)
         # Make sure that the src_entity does not have dest_group as a member
         # already, to avoid a recursion at export
         if src_entity.entity_type == self.const.entity_group:
-            for row in src_entity.search_members(member_id=dest_group.entity_id,
-                                                 member_type=self.const.entity_group,
-                                                 indirect_members=True,
-                                                 member_filter_expired=False):
+            for row in src_entity.search_members(
+                    member_id=dest_group.entity_id,
+                    member_type=self.const.entity_group,
+                    indirect_members=True,
+                    member_filter_expired=False):
                 if row['group_id'] == src_entity.entity_id:
-                    return "Recursive memberships are not allowed (%s is member of %s)" % (
-                        dest_group, src_name)
+                    return ("Recursive memberships are not allowed"
+                            " (%s is member of %s)" % (dest_group, src_name))
         # This can still fail, e.g., if the entity is a member with a different
         # operation.
         try:
             dest_group.add_member(src_entity.entity_id)
-        except self.db.DatabaseError, m:
+        except self.db.DatabaseError as m:
             raise CerebrumError("Database error: %s" % m)
-        # TODO: If using older versions of NIS, a user could only be a member of
-        # 16 group. You might want to be warned about this - Or is this only
+        # TODO: If using older versions of NIS, a user could only be a member
+        # of 16 group. You might want to be warned about this - Or is this only
         # valid for UiO?
         return "OK, added %s to %s" % (src_name, dest_group.group_name)
 
+    #
     # group add_member
+    #
     # This command has previously been available as add_member, but has
     # been renamed to group_multi_add due to the fact that Brukerinfo uses
     # group_multi_add in every instance. This avoids having two identical
     # commands with different names.
     all_commands['group_multi_add'] = cmd.Command(
         ("group", "add_member"),
-        cmd.MemberType(), cmd.MemberName(), cmd.GroupName(),
-        )
+        cmd.MemberType(),
+        cmd.MemberName(),
+        cmd.GroupName())
 
     def group_multi_add(self, operator, member_type, src_name, dest_group):
         """
@@ -497,16 +512,23 @@ class TSDBofhdExtension(BofhdCommonMethods):
 
         dest_group = self._get_group(dest_group)
 
-        return self._group_add_entity(operator, src_entity, member_type, dest_group)
+        return self._group_add_entity(operator,
+                                      src_entity,
+                                      member_type,
+                                      dest_group)
 
+    #
     # group remove_member
+    #
     # This command has previously been available as remove_member, but has
     # been renamed to group_multi_remove due to the fact that Brukerinfo uses
     # group_multi_remove in every instance. This avoids having two identical
     # commands with different names.
     all_commands['group_multi_remove'] = cmd.Command(
         ("group", "remove_member"),
-        cmd.MemberType(), cmd.MemberName(), cmd.GroupName(),
+        cmd.MemberType(),
+        cmd.MemberName(),
+        cmd.GroupName(),
         perm_filter='can_alter_group')
 
     def group_multi_remove(self, operator, member_type, src_name, dest_group):
@@ -522,8 +544,8 @@ class TSDBofhdExtension(BofhdCommonMethods):
         @param src_name: The name/id of the entity to remove as member.
 
         @type dest_group: String
-        @param dest_group: The name/id of the group the member should be removed
-                           from.
+        @param dest_group: The name/id of the group the member should be
+                           removed from.
 
         """
         if member_type in ("group", self.const.entity_group):
@@ -565,8 +587,8 @@ class TSDBofhdExtension(BofhdCommonMethods):
                 pu = Utils.Factory.get('PosixUser')(self.db)
                 pu.find(member.entity_id)
                 if pu.gid_id == group.entity_id:
-                    raise CerebrumError("Can't remove %s from primary group %s" %
-                                        (member_name, group.group_name))
+                    raise CerebrumError("Can't remove %s from primary group %s"
+                                        % (member_name, group.group_name))
             except Errors.NotFoundError:
                 pass
         try:
@@ -605,25 +627,28 @@ def superuser(fn):
 
 
 class _Project:
-    """Helper class for project information that has an entity_id, name and a list of
-    quarantine types.
+    """Helper class for project information that has an entity_id, name and a
+    list of quarantine types.
 
-    Since the coupling of projects and quarantines are encapsulated here, there is less to keep
-    track of and less room for potential bugs.
+    Since the coupling of projects and quarantines are encapsulated here, there
+    is less to keep track of and less room for potential bugs.
 
-    First and foremost it avoids code duplication for bofhd functions that list projects.
+    First and foremost it avoids code duplication for bofhd functions that list
+    projects.
 
 
     Examples:
 
     Filtering by certain quarantines can look a bit like this:
 
-        filtered_projects = [project for project in project_list if project.has_quarantine(q)]
+        filtered_projects = [project for project in project_list
+                             if project.has_quarantine(q)]
 
 
     Returning the filtered/sorted data can look a bit like this:
 
-        return [project.as_dict(['entity_id', 'name']) for project in filtered_projects]
+        return [project.as_dict(['entity_id', 'name'])
+                for project in filtered_projects]
 
     """
 
@@ -651,11 +676,16 @@ class _Project:
         return int(quarantine_type) in self.quarantines
 
     def quarantine_string(self):
-        """Convert the list of quarantine identifiers to a string using const.Quarantine."""
-        return ", ".join(map(str, map(self.const.Quarantine, self.quarantines)))
+        """Convert the list of quarantine identifiers to a string"""
+        return ", ".join(
+            map(str, map(self.const.Quarantine, self.quarantines)))
 
     def as_dict(self, keynames):
-        """Takes a list of key names, like ['entity_id', 'names'] and returns a dictionary."""
+        """ Get project data as dict.
+
+        :param sequence keynames:
+            A sequence of fields to include in the result.
+        """
         d = {}
         for key in keynames:
             # both 'id' and 'entity_id' are allowed
@@ -669,7 +699,11 @@ class _Project:
 
 
 class _Projects:
-    """Helper class for making it easy to search, filter, sort and return project data."""
+    """ Project collection.
+
+    Helper class for making it easy to search, filter, sort and return project
+    data.
+    """
 
     def __init__(self, logger, const, ou, exact_match=False, filter=None):
         """Make self.projects a list of _Project objects which each contain
@@ -682,18 +716,15 @@ class _Projects:
 
         # Perform the queries
         project_structs = ou.search_tsd_projects(name=self.filter)
-        quarantine_structs = ou.list_entity_quarantines(entity_types=const.entity_ou,
-                                                        only_active=True)
-
-        # TODO: Would like to have this in the OUTSDMixin, to be used other
-        # places:
-        project_ids = ou.search_external_ids(entity_type=const.entity_ou,
-                                             id_type=const.externalid_project_id)
+        quarantine_structs = ou.list_entity_quarantines(
+            entity_types=const.entity_ou,
+            only_active=True)
 
         # Fill in a dictionary of Project objects.
         # Projects is a dictionary on the form {entity_id: project_object}
-        self.projects = dict((p['entity_id'], _Project(const, p['entity_id'], p['name']))
-                             for p in project_structs)
+        self.projects = dict(
+            (p['entity_id'], _Project(const, p['entity_id'], p['name']))
+            for p in project_structs)
 
         # Fill in with project IDs:
         for row in ou.search_external_ids(entity_type=const.entity_ou,
@@ -717,11 +748,10 @@ class _Projects:
             # Don't do anything
             return
         try:
-            if self.filter:
-                self.filter.encode('ascii')
+            self.filter.encode('ascii')
         except UnicodeDecodeError:
-            if self.filter:
-                self.filter = self.filter.decode("iso-8859-1").upper().encode("iso-8859-1")
+            self.filter = self.filter.decode("iso-8859-1"
+                                             ).upper().encode("iso-8859-1")
         if not self.filter:
             # List everything if no filter is specified
             self.filter = "*"
@@ -731,33 +761,39 @@ class _Projects:
         """Takes a list of _project objects and returns a dictionary on the form
         {'entity_id':_project_object}.
         """
-        self.projects = dict([(project.id, project) for project in project_list])
+        self.projects = dict([(project.id, project)
+                              for project in project_list])
 
     def filter_by_quarantine(self, quarantine_type):
         """Filter out projects that does not have the given quarantine_type."""
-        filtered = [p for p in self.projects.values() if p.has_quarantine(quarantine_type)]
+        filtered = [p for p in self.projects.values()
+                    if p.has_quarantine(quarantine_type)]
         self.set_project_list(filtered)
 
     def results_sorted_by_name(self, keynames):
-        """Returns the results as a dictionary, where the projects are sorted by name."""
-        names_and_keys = [(project.name, project.id) for project in self.projects.values()]
-        sorted_keys = [name_and_key[1] for name_and_key in sorted(names_and_keys)]
+        """ Get projects as a list of dicts, sorted by project name. """
+        names_and_keys = [(project.name, project.id)
+                          for project in self.projects.values()]
+        sorted_keys = [name_and_key[1]
+                       for name_and_key in sorted(names_and_keys)]
         return [self.projects[key].as_dict(keynames) for key in sorted_keys]
 
     def results_sorted_by_pid(self, keynames):
-        """Returns the results as a dictionary, where the projects are sorted by name."""
-        pids_and_keys = [(project.pid, project.id) for project in self.projects.values()]
+        """ Get projects as a list of dicts, sorted by project id. """
+        pids_and_keys = [(project.pid, project.id)
+                         for project in self.projects.values()]
         # TODO: numerical sort instead of alphabetic
-        sorted_keys = [name_and_key[1] for name_and_key in sorted(pids_and_keys)]
+        sorted_keys = [name_and_key[1]
+                       for name_and_key in sorted(pids_and_keys)]
         return [self.projects[key].as_dict(keynames) for key in sorted_keys]
 
     def results(self, keynames):
-        """Return the results as a list of dictionaries, which is what bofhd expects."""
-        return [project.as_dict(keynames) for project in self.projects.values()]
+        """ Get projects as a list of dicts. """
+        return [project.as_dict(keynames)
+                for project in self.projects.values()]
 
 
 admin_uio_helpers = [
-    '_convert_ticks_to_timestamp',
     '_entity_info',
     '_fetch_member_names',
     '_format_changelog_entry',
@@ -776,13 +812,10 @@ admin_uio_helpers = [
     '_is_yes',
     '_list_access',
     '_manipulate_access',
-    '_parse_date',
-    '_parse_date_from_to',
     '_person_create_externalid_helper',
     '_remove_auth_role',
     '_remove_auth_target',
     '_revoke_auth',
-    '_today',
     '_validate_access',
     '_validate_access_group',
     'user_set_owner_prompt_func',
@@ -888,11 +921,11 @@ def _apply_superuser(commands, replace=True):
     [fn_name for fn_name in admin_copy_uio
      if fn_name not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS])
 @copy_command(
-    UiOBofhdExtension,
+    uio_base,
     'all_commands', 'all_commands',
     commands=admin_copy_uio)
 @copy_func(
-    UiOBofhdExtension,
+    uio_base,
     methods=admin_uio_helpers + admin_copy_uio)
 @copy_func(
     BofhdUserCreateMethod,
@@ -911,13 +944,23 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     # security feature - thus you have security by obscurity.
     hidden_commands = {}
 
-    # Project commands
+    #
+    # project create
+    #
     all_commands['project_create'] = cmd.Command(
-        ('project', 'create'), ProjectName(), ProjectLongName(),
-        ProjectShortName(), cmd.Date(help_ref='project_start_date'),
-        cmd.Date(help_ref='project_end_date'), ProjectPrice(),
-        ProjectInstitution(), VMType(), ProjectHpc(),
-        ProjectMetadata(), VLANParam(optional=True), perm_filter='is_superuser')
+        ('project', 'create'),
+        ProjectName(),
+        ProjectLongName(),
+        ProjectShortName(),
+        cmd.Date(help_ref='project_start_date'),
+        cmd.Date(help_ref='project_end_date'),
+        ProjectPrice(),
+        ProjectInstitution(),
+        VMType(),
+        ProjectHpc(),
+        ProjectMetadata(),
+        VLANParam(optional=True),
+        perm_filter='is_superuser')
 
     @superuser
     def project_create(self, operator, projectname, longname, shortname,
@@ -1001,8 +1044,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         return "New project created: %s" % pid
 
+    #
+    # project setup
+    #
     all_commands['project_setup'] = cmd.Command(
-        ('project', 'setup'), ProjectID(), VLANParam(optional=True),
+        ('project', 'setup'),
+        ProjectID(),
+        VLANParam(optional=True),
         perm_filter='is_superuser')
 
     @superuser
@@ -1033,8 +1081,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         return 'OK, project reconfigured according to current settings.'
 
+    #
+    # project terminate
+    #
     all_commands['project_terminate'] = cmd.Command(
-        ('project', 'terminate'), ProjectID(),
+        ('project', 'terminate'),
+        ProjectID(),
         perm_filter='is_superuser')
 
     @superuser
@@ -1049,11 +1101,16 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # TODO: delete person affiliations?
         # TODO: delete accounts
         project.terminate()
-        #self.gateway.delete_project(projectid)
+        # self.gateway.delete_project(projectid)
         return "Project terminated: %s" % projectid
 
+    #
+    # project approve
+    #
     all_commands['project_approve'] = cmd.Command(
-        ('project', 'approve'), ProjectID(), VLANParam(optional=True),
+        ('project', 'approve'),
+        ProjectID(),
+        VLANParam(optional=True),
         perm_filter='is_superuser')
 
     @superuser
@@ -1068,9 +1125,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         success_msg = "Project approved: %s" % (projectid)
 
         # Check if the project was already approved
-        if not project.get_entity_quarantine(only_active=True,
-                                             qtype=self.const.quarantine_not_approved):
-            # raise CerebrumError('Project already approved (no not_approved quarantine)')
+        if not project.get_entity_quarantine(
+                only_active=True,
+                qtype=self.const.quarantine_not_approved):
+            # raise CerebrumError(
+            #     'Project already approved (no not_approved quarantine)')
             return success_msg + " (already approved, not changing anything)"
 
         project.delete_entity_quarantine(self.const.quarantine_not_approved)
@@ -1082,14 +1141,18 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         if not project.get_entity_quarantine(only_active=True):
             # Active project only if no other quarantines
-            #self.gateway.create_project(projectid)
+            # self.gateway.create_project(projectid)
             pass
 
         self.logger.info(success_msg)
         return success_msg
 
+    #
+    # project reject
+    #
     all_commands['project_reject'] = cmd.Command(
-        ('project', 'reject'), ProjectID(),
+        ('project', 'reject'),
+        ProjectID(),
         perm_filter='is_superuser')
 
     @superuser
@@ -1101,8 +1164,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         """
         project = self._get_project(projectid)
-        if not project.get_entity_quarantine(only_active=True,
-                                             qtype=self.const.quarantine_not_approved):
+        if not project.get_entity_quarantine(
+                only_active=True,
+                qtype=self.const.quarantine_not_approved):
             raise CerebrumError('Can not reject approved projects, you may '
                                 'wish to terminate it instead.')
         project.terminate()
@@ -1115,8 +1179,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             pass
         return "Project deleted: %s" % projectid
 
+    #
+    # project set_enddate
+    #
     all_commands['project_set_enddate'] = cmd.Command(
-        ('project', 'set_enddate'), ProjectID(), cmd.Date(),
+        ('project', 'set_enddate'),
+        ProjectID(),
+        cmd.Date(),
         perm_filter='is_superuser')
 
     @superuser
@@ -1139,13 +1208,18 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # If set in the past, the project is now frozen
         if end < DateTime.now():
             # TODO
-            #self.gateway.freeze_project(projectid)
+            # self.gateway.freeze_project(projectid)
             pass
         return "Project %s updated to end: %s" % (projectid,
                                                   date_to_string(end))
 
+    #
+    # project set_projectname
+    #
     all_commands['project_set_projectname'] = cmd.Command(
-        ('project', 'set_projectname'), ProjectID(), ProjectName(),
+        ('project', 'set_projectname'),
+        ProjectID(),
+        ProjectName(),
         perm_filter='is_superuser')
 
     @superuser
@@ -1159,8 +1233,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return "Project %s updated with name: %s" % (
             ou.get_project_id(), ou.get_project_name())
 
+    #
+    # project set_longname
+    #
     all_commands['project_set_longname'] = cmd.Command(
-        ('project', 'set_longname'), ProjectID(), ProjectLongName(),
+        ('project', 'set_longname'),
+        ProjectID(),
+        ProjectLongName(),
         perm_filter='is_superuser')
 
     @superuser
@@ -1174,8 +1253,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return "Project %s updated with long name: %s" % (ou.get_project_id(),
                                                           longname)
 
+    #
+    # project set_shortname
+    #
     all_commands['project_set_shortname'] = cmd.Command(
-        ('project', 'set_shortname'), ProjectID(), ProjectShortName(),
+        ('project', 'set_shortname'),
+        ProjectID(),
+        ProjectShortName(),
         perm_filter='is_superuser')
 
     @superuser
@@ -1189,8 +1273,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return "Project %s updated with short name: %s" % (ou.get_project_id(),
                                                            shortname)
 
+    #
+    # project set_price
+    #
     all_commands['project_set_price'] = cmd.Command(
-        ('project', 'set_price'), ProjectID(), ProjectPrice(),
+        ('project', 'set_price'),
+        ProjectID(),
+        ProjectPrice(),
         perm_filter='is_superuser')
 
     @superuser
@@ -1203,8 +1292,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                                else 'changed',
                                                price)
 
+    #
+    # project set_institution
+    #
     all_commands['project_set_institution'] = cmd.Command(
-        ('project', 'set_institution'), ProjectID(), ProjectInstitution(),
+        ('project', 'set_institution'),
+        ProjectID(),
+        ProjectInstitution(),
         perm_filter='is_superuser')
 
     @superuser
@@ -1213,9 +1307,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         status = proj.populate_trait(self.const.trait_project_institution,
                                      strval=institution)
         proj.write_db()
-        return 'Project institution {} to {}'.format('set' if status == 'INSERT'
-                                                     else 'changed',
-                                                     institution)
+        return 'Project institution {} to {}'.format(
+            'set' if status == 'INSERT' else 'changed',
+            institution)
 
     @staticmethod
     def _parse_hpc_yesno(hpc):
@@ -1228,8 +1322,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         else:
             raise CerebrumError('HPC must be HPC_YES or HPC_NO')
 
+    #
+    # project set_hpc
+    #
     all_commands['project_set_hpc'] = cmd.Command(
-        ('project', 'set_hpc'), ProjectID(), ProjectHpc(),
+        ('project', 'set_hpc'),
+        ProjectID(),
+        ProjectHpc(),
         perm_filter='is_superuser')
 
     @superuser
@@ -1280,9 +1379,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                                            project, meta)
         return ret
 
+    #
+    # project set_metadata
+    #
     all_commands['project_set_metadata'] = cmd.Command(
-        ('project', 'set_metadata'), ProjectID(), cmd.SimpleString(
-            help_ref='project_metadata'),
+        ('project', 'set_metadata'),
+        ProjectID(),
+        cmd.SimpleString(help_ref='project_metadata'),
         cmd.SimpleString(),
         perm_filter='is_superuser')
 
@@ -1292,8 +1395,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         status = self._add_project_metadata_field(operator, proj, key, value)
         return 'Value for {} {}'.format(key, status)
 
+    #
+    # project freeze
+    #
     all_commands['project_freeze'] = cmd.Command(
-        ('project', 'freeze'), ProjectID(),
+        ('project', 'freeze'),
+        ProjectID(),
         perm_filter='is_superuser')
 
     @superuser
@@ -1366,8 +1473,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 success_msg += " (bad freeze_user result from GW)"
         return success_msg
 
+    #
+    # project unfreeze
+    #
     all_commands['project_unfreeze'] = cmd.Command(
-        ('project', 'unfreeze'), ProjectID(),
+        ('project', 'unfreeze'),
+        ProjectID(),
         perm_filter='is_superuser')
 
     @superuser
@@ -1409,11 +1520,17 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 # let the scheduled job gateway_update.py deal with that
         return success_msg
 
+    #
+    # project list
+    #
     all_commands['project_list'] = cmd.Command(
-        ('project', 'list'), ProjectStatusFilter(optional=True),
+        ('project', 'list'),
+        ProjectStatusFilter(optional=True),
         fs=cmd.FormatSuggestion(
             '%-11s %-16s %-10s %s', ('pid', 'name', 'entity_id', 'quars'),
-            hdr='%-11s %-16s %-10s %s' % ('Project ID', 'Name', 'Entity-Id', 'Quarantines')),
+            hdr='%-11s %-16s %-10s %s' % ('Project ID', 'Name', 'Entity-Id',
+                                          'Quarantines')
+        ),
         perm_filter='is_superuser')
 
     @superuser
@@ -1421,13 +1538,18 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         """List out all projects by their acronym and status."""
         projects = _Projects(self.logger, self.const, self.OU_class(self.db),
                              exact_match=False, filter=filter)
-        return projects.results_sorted_by_name(['pid', 'name', 'entity_id', 'quars'])
+        return projects.results_sorted_by_name(['pid', 'name', 'entity_id',
+                                                'quars'])
 
+    #
+    # project unapproved
+    #
     all_commands['project_unapproved'] = cmd.Command(
         ('project', 'unapproved'),
         fs=cmd.FormatSuggestion(
             '%-10s %-16s %-10s', ('pid', 'name', 'entity_id'),
-            hdr='%-10s %-16s %-10s' % ('ProjectID', 'Name', 'Entity-Id')),
+            hdr='%-10s %-16s %-10s' % ('ProjectID', 'Name', 'Entity-Id')
+        ),
         perm_filter='is_superuser')
 
     @superuser
@@ -1442,20 +1564,25 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         projects.filter_by_quarantine(self.const.quarantine_not_approved)
         return projects.results_sorted_by_pid(['pid', 'name', 'entity_id'])
 
+    #
+    # project info
+    #
     all_commands['project_info'] = cmd.Command(
-        ('project', 'info'), ProjectID(),
-        fs=cmd.FormatSuggestion([(
-            "Project ID:       %s\n"
-            "Project name:     %s\n"
-            "Entity ID:        %d\n"
-            "Long name:        %s\n"
-            "Short name:       %s\n"
-            "Start date:       %s\n"
-            "End date:         %s\n"
-            "Quarantines:      %s\n"
-            "Spreads:          %s",
-            ('project_id', 'project_name', 'entity_id', 'long_name',
-             'short_name', 'start_date', 'end_date', 'quarantines', 'spreads')),
+        ('project', 'info'),
+        ProjectID(),
+        fs=cmd.FormatSuggestion([
+            ("Project ID:       %s\n"
+             "Project name:     %s\n"
+             "Entity ID:        %d\n"
+             "Long name:        %s\n"
+             "Short name:       %s\n"
+             "Start date:       %s\n"
+             "End date:         %s\n"
+             "Quarantines:      %s\n"
+             "Spreads:          %s",
+             ('project_id', 'project_name', 'entity_id', 'long_name',
+              'short_name', 'start_date', 'end_date', 'quarantines',
+              'spreads')),
             ('REK-number:       %s', ('rek',)),
             ('Price:            %s', ('price',)),
             ('Institution:      %s', ('institution',)),
@@ -1501,12 +1628,14 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ret['end_date'] = date_to_string(row['start_date'])
         # Names:
         ret['long_name'] = '<Not Set>'
-        for row in project.search_name_with_language(entity_id=project.entity_id,
-                                                     name_variant=self.const.ou_name_long):
+        for row in project.search_name_with_language(
+                entity_id=project.entity_id,
+                name_variant=self.const.ou_name_long):
             ret['long_name'] = row['name']
         ret['short_name'] = '<Not Set>'
-        for row in project.search_name_with_language(entity_id=project.entity_id,
-                                                     name_variant=self.const.ou_name_short):
+        for row in project.search_name_with_language(
+                entity_id=project.entity_id,
+                name_variant=self.const.ou_name_short):
             ret['short_name'] = row['name']
         ret = [ret, ]
         # REK number
@@ -1567,8 +1696,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         return ret
 
+    #
+    # project metadata
+    #
     all_commands['project_metadata'] = cmd.Command(
-        ('project', 'metadata'), ProjectID(),
+        ('project', 'metadata'),
+        ProjectID(),
         fs=cmd.FormatSuggestion('%-10s%-10s', ('key', 'value'),
                                 '{:10}{:10}'.format('Field', 'Value')),
         perm_filter='is_superuser')
@@ -1581,9 +1714,15 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ret.append(dict(key=key, value=val))
         return ret
 
+    #
+    # project affiliate_entity
+    #
     all_commands['project_affiliate_entity'] = cmd.Command(
-        ('project', 'affiliate_entity'), ProjectID(), cmd.EntityType(),
-        cmd.Id(help_ref='id:target:group'), perm_filter='is_superuser')
+        ('project', 'affiliate_entity'),
+        ProjectID(),
+        cmd.EntityType(),
+        cmd.Id(help_ref='id:target:group'),
+        perm_filter='is_superuser')
 
     @superuser
     def project_affiliate_entity(self, operator, projectid, etype, ent):
@@ -1593,24 +1732,25 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou = self._get_project(projectid)
 
         # A mapping of what trait to set for what entity type:
+        co = self.const
         type2trait = {
-            self.const.entity_group: self.const.trait_project_group,
-            self.const.entity_dns_owner: self.const.trait_project_host,
-            self.const.entity_dns_subnet: self.const.trait_project_subnet,
-            self.const.entity_dns_ipv6_subnet: self.const.trait_project_subnet6,
+            co.entity_group: co.trait_project_group,
+            co.entity_dns_owner: co.trait_project_host,
+            co.entity_dns_subnet: co.trait_project_subnet,
+            co.entity_dns_ipv6_subnet: co.trait_project_subnet6,
         }
 
         ent = self._get_entity(entity_type=etype, ident=ent)
-        if ent.entity_type in (self.const.entity_person,
-                               self.const.entity_account):
-            raise CerebrumError("Use 'person/user affiliation_add' for persons/users")
+        if ent.entity_type in (co.entity_person, co.entity_account):
+            raise CerebrumError("Use 'person/user affiliation_add'"
+                                " for persons/users")
         try:
             trait_type = type2trait[ent.entity_type]
         except KeyError:
             raise CerebrumError("Command does not handle entity type: %s" %
-                                self.const.EntityType(ent.entity_type))
-        self.logger.debug("Try to affiliate %s (entity_type %s) with trait: %s",
-                          ent, ent.entity_type, trait_type)
+                                co.EntityType(ent.entity_type))
+        self.logger.debug("Try to affiliate %s (entity_type %s) with trait:"
+                          " %s", ent, ent.entity_type, trait_type)
         # Forcing EntityTrait, since not all instances have this. TBD: Should
         # rather add EntityTrait to cereconf.CLASS_ENTITY instead, but don't
         # know the consequences of that.
@@ -1623,9 +1763,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ent.write_db()
         return "Entity affiliated with project: %s" % ou.get_project_id()
 
-
+    #
+    # project set_vm_type
+    #
     all_commands['project_set_vm_type'] = cmd.Command(
-        ('project', 'set_vm_type'), ProjectID(), VMType(),
+        ('project', 'set_vm_type'),
+        ProjectID(),
+        VMType(),
         perm_filter='is_superuser')
 
     @superuser
@@ -1657,12 +1801,16 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         return 'OK, vm_type for %s changed to %s.' % (project_id, vm_type)
 
-
+    #
+    # project list_hosts
+    #
     all_commands['project_list_hosts'] = cmd.Command(
-        ('project', 'list_hosts'), ProjectID(),
-        fs=cmd.FormatSuggestion([(
-            '%-30s %-8s %-20s %-20s', ('name', 'os', 'contact', 'comment'),)],
-            hdr='%-30s %-8s %-20s %-20s' % ('Name', 'OS', 'Contact', 'Comment')),
+        ('project', 'list_hosts'),
+        ProjectID(),
+        fs=cmd.FormatSuggestion(
+            [('%-30s %-8s %-20s %-20s', ('name', 'os', 'contact', 'comment'))],
+            hdr='%-30s %-8s %-20s %-20s' % ('Name', 'OS', 'Contact', 'Comment')
+        ),
         perm_filter='is_superuser')
 
     @superuser
@@ -1701,10 +1849,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Sort by name
         return sorted(hosts, key=lambda x: x['name']) or 'No hosts found'
 
-
-    #
-    # Person commands
-    def _person_affiliation_add_helper(self, operator, person, ou, aff, aff_status):
+    def _person_affiliation_add_helper(self, operator,
+                                       person, ou, aff, aff_status):
         """Helper-function for adding an affiliation to a person with permission
         checking. Person is expected to be a person object, while ou, aff and
         aff_status should be the textual representation from the client.
@@ -1772,7 +1918,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                     person = self._get_person("entity_id", c[i]['person_id'])
                     map.append((
                         ("%8i %s", int(c[i]['person_id']),
-                         person.get_name(self.const.system_cached, self.const.name_full)),
+                         person.get_name(self.const.system_cached,
+                                         self.const.name_full)),
                         int(c[i]['person_id'])))
                 if not len(map) > 1:
                     raise CerebrumError("No persons matched")
@@ -1811,21 +1958,22 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                         self.const.PersonAffStatus(aff['status']),
                         self._format_ou_name(ou))
                     map.append((("%s", name),
-                                {'ou_id': int(aff['ou_id']), 'aff': int(aff['affiliation'])}))
+                                {'ou_id': int(aff['ou_id']),
+                                 'aff': int(aff['affiliation'])}))
                 if not len(map) > 1:
-                    raise CerebrumError(
-                        "Person has no affiliations. Try person affiliation_add")
+                    raise CerebrumError("Person has no affiliations."
+                                        " Try person affiliation_add")
                 return {'prompt': "Choose affiliation from list", 'map': map}
             affiliation = all_args.pop(0)
         else:
             if not all_args:
                 return {'prompt': "Enter np_type",
                         'help_ref': 'string_np_type'}
-            np_type = all_args.pop(0)
+            all_args.pop(0)
         if ac_type == 'PosixUser':
             if not all_args:
                 return {'prompt': "Shell", 'default': 'bash'}
-            shell = all_args.pop(0)
+            all_args.pop(0)
         if not all_args:
             ret = {'prompt': "Username", 'last_arg': True}
             posix_user = Factory.get('PosixUser')(self.db)
@@ -1859,11 +2007,16 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     # user_create_prompt_func
     def user_create_prompt_func(self, session, *args):
-        return self._user_create_prompt_func_helper('PosixUser', session, *args)
+        return self._user_create_prompt_func_helper('PosixUser',
+                                                    session,
+                                                    *args)
 
+    #
     # user create
+    #
     all_commands['user_create'] = cmd.Command(
-        ('user', 'create'), prompt_func=user_create_prompt_func,
+        ('user', 'create'),
+        prompt_func=user_create_prompt_func,
         fs=cmd.FormatSuggestion("Created uid=%i", ("uid",)),
         perm_filter='can_create_user')
 
@@ -1918,11 +2071,14 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # TODO: get the project's standard dfg's entity_id and use that
         if owner_type == self.const.entity_person:
             ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
-            ou = self._get_ou(ou_id=ou_id)
+            self._get_ou(ou_id=ou_id)  # make sure it exists
 
-        posix_user.populate(uid, None, None, shell, name=uname,
-                            owner_type=owner_type, owner_id=owner_id,
-                            np_type=np_type, creator_id=operator.get_entity_id(),
+        posix_user.populate(uid, None, None, shell,
+                            name=uname,
+                            owner_type=owner_type,
+                            owner_id=owner_id,
+                            np_type=np_type,
+                            creator_id=operator.get_entity_id(),
                             expire_date=None)
         try:
             posix_user.write_db()
@@ -1932,17 +2088,21 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             if posix_user.owner_type == self.const.entity_person:
                 self._user_create_set_account_type(posix_user, owner_id,
                                                    ou_id, affiliation)
-        except self.db.DatabaseError, m:
+        except self.db.DatabaseError as m:
             raise CerebrumError("Database error: %s" % m)
         for spread in cereconf.BOFHD_NEW_USER_SPREADS:
             posix_user.add_spread(self.const.Spread(spread))
-        operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
-                                                    'password': passwd})
+        operator.store_state("new_account_passwd",
+                             {'account_id': int(posix_user.entity_id),
+                              'password': passwd})
         return "Ok, created %s, UID: %s" % (posix_user.account_name, uid)
 
+    #
     # user generate_otpkey
+    #
     all_commands['user_generate_otpkey'] = cmd.Command(
-        ('user', 'generate_otpkey'), cmd.AccountName(),
+        ('user', 'generate_otpkey'),
+        cmd.AccountName(),
         cmd.SimpleString(help_ref='otp_type', optional=True))
 
     def user_generate_otpkey(self, operator, accountname, otp_type=None):
@@ -1970,7 +2130,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             if len(actypes) < 1:
                 continue
             if len(actypes) > 1:
-                raise CerebrumError('Incorrect number of project affiliations: %s', row['name'])
+                raise CerebrumError('Incorrect number of project'
+                                    ' affiliations: %s' % row['name'])
             ou.clear()
             ou.find(actypes[0]['ou_id'])
             ac_list[row['name']] = ou.get_project_id()
@@ -1988,9 +2149,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 msg += '\nUpdated GW for: %s' % name
         return msg
 
+    #
     # user approve
+    #
     all_commands['user_approve'] = cmd.Command(
-        ('user', 'approve'), cmd.AccountName(),
+        ('user', 'approve'),
+        cmd.AccountName(),
         perm_filter='is_superuser')
 
     def user_approve(self, operator, accountname):
@@ -2026,8 +2190,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             pe.delete_affiliation(ou.entity_id, self.const.affiliation_pending,
                                   self.const.system_nettskjema)
 
-        if not pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
-                                    affiliation=self.const.affiliation_project):
+        if not pe.list_affiliations(
+                pe.entity_id,
+                ou_id=ou.entity_id,
+                affiliation=self.const.affiliation_project):
             pe.populate_affiliation(
                 source_system=self.const.system_manual,
                 ou_id=ou.entity_id,
@@ -2058,16 +2224,20 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         except Errors.NotFoundError:
             pu.clear()
             uid = pu.get_free_uid()
-            pu.populate(uid, None, None, self.const.posix_shell_bash, parent=ac,
+            pu.populate(uid, None, None, self.const.posix_shell_bash,
+                        parent=ac,
                         creator_id=operator.get_entity_id())
             pu.write_db()
 
         return 'Approved %s for project %s' % (ac.account_name,
                                                ou.get_project_id())
 
+    #
     # user delete
+    #
     all_commands['user_delete'] = cmd.Command(
-        ("user", "delete"), cmd.AccountName(),
+        ("user", "delete"),
+        cmd.AccountName(),
         perm_filter='can_delete_user')
 
     def user_delete(self, operator, accountname):
@@ -2087,11 +2257,15 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         account.write_db()
         return "User %s is deactivated" % account.account_name
 
+    #
+    # user unapproved
+    #
     all_commands['user_unapproved'] = cmd.Command(
         ('user', 'unapproved'),
         fs=cmd.FormatSuggestion(
             '%-10d %-16s %s', ('entity_id', 'username', 'created'),
-            hdr='%-10s %-16s %s' % ('Entity-Id', 'Username', 'Created')),
+            hdr='%-10s %-16s %s' % ('Entity-Id', 'Username', 'Created')
+        ),
         perm_filter='is_superuser')
 
     @superuser
@@ -2116,11 +2290,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return unapproved_users
 
     #
-    # Group commands
-
+    # group create
+    #
     all_commands['group_create'] = cmd.Command(
         ("group", "create"),
-        ProjectID(), cmd.GroupName(), GroupDescription(),
+        ProjectID(),
+        cmd.GroupName(),
+        GroupDescription(),
         perm_filter='is_superuser')
 
     @superuser
@@ -2184,12 +2360,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     #
     # Host commands
-
+    #
     all_commands['host_list_projects'] = cmd.Command(
         ('host', 'list_projects'),
         HostId(),
-        fs=cmd.FormatSuggestion([(
-            '%-30s %-10s %-12s', ('name', 'project_id', 'project_name'),)],
+        fs=cmd.FormatSuggestion(
+            [('%-30s %-10s %-12s', ('name', 'project_id', 'project_name'),)],
             hdr='%-30s %-10s %-12s' % ('Name', 'Project ID', 'Project name')),
         perm_filter='is_superuser')
 
@@ -2259,13 +2435,16 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         return subnets
 
+    #
+    # subnet list
+    #
     all_commands['subnet_list'] = cmd.Command(
         ('subnet', 'list'),
-        fs=cmd.FormatSuggestion([(
-            '%-30s %6s %7s %s', ('subnet', 'vlan_number',
-                                 'project_id', 'description',),)],
-            hdr='%-30s %6s %7s %s' % ('Subnet', 'VLAN',
-                                      'Project', 'Description')),
+        fs=cmd.FormatSuggestion([
+            ('%-30s %6s %7s %s', ('subnet', 'vlan_number', 'project_id',
+                                  'description',),)],
+            hdr='%-30s %6s %7s %s' % ('Subnet', 'VLAN', 'Project',
+                                      'Description')),
         perm_filter='is_superuser')
 
     @superuser
@@ -2274,12 +2453,16 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Sort by subnet
         return sorted(self._get_all_subnets(), key=lambda x: x['subnet'])
 
+    #
+    # subnet search
+    #
     all_commands['subnet_search'] = cmd.Command(
         ("subnet", "search"),
-        SubnetSearchType(), FnMatchPattern(),
-        fs=cmd.FormatSuggestion([(
-            '%-30s %6s %7s %s', ('subnet', 'vlan_number',
-                                 'project_id', 'description',),)],
+        SubnetSearchType(),
+        FnMatchPattern(),
+        fs=cmd.FormatSuggestion([
+            ('%-30s %6s %7s %s', ('subnet', 'vlan_number', 'project_id',
+                                  'description',),)],
             hdr='%-30s %6s %7s %s' % ('Subnet', 'VLAN',
                                       'Project', 'Description')),
         perm_filter='is_superuser')
@@ -2314,12 +2497,14 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Sort by subnet
         return sorted(results, key=lambda x: x['subnet']) or 'No matches found'
 
-
+    #
     # subnet create
-    #all_commands['subnet_create'] = cmd.Command(
-    #   ("subnet", "create"),
-    #   SubnetParam(), cmd.Description(), Vlan(),
-    #   perm_filter='is_superuser')
+    #
+    #   all_commands['subnet_create'] = cmd.Command(
+    #      ("subnet", "create"),
+    #      SubnetParam(), cmd.Description(), Vlan(),
+    #      perm_filter='is_superuser')
+
     @superuser
     def subnet_create(self, operator, subnet, description, vlan):
         """Create a new subnet, if the range is not already reserved.
@@ -2331,7 +2516,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         subnet = Subnet.Subnet(self.db)
         subnet.populate(subnet, description=description, vlan=vlan)
 
-        #TODO: more checks?
+        # TODO: more checks?
         subnet.write_db(perform_checks=True)
         return "Subnet created: %s" % subnet
 
@@ -2371,21 +2556,22 @@ copy_uio = filter(
 
 
 @copy_command(
-    UiOBofhdExtension,
+    uio_base,
     'hidden_commands', 'hidden_commands',
     commands=copy_hidden)
 @copy_command(
-    UiOBofhdExtension,
+    uio_base,
     'all_commands', 'all_commands',
     commands=copy_uio)
 @copy_func(
-    UiOBofhdExtension,
+    uio_base,
     methods=uio_helpers + copy_uio + copy_hidden)
 class EnduserBofhdExtension(TSDBofhdExtension):
     """The bofhd commands for the end users of TSD.
 
-    End users are Project Administrators (PA), which should have full control of
-    their project, and Project Members (PM) which have limited privileges."""
+    End users are Project Administrators (PA), which should have full control
+    of their project, and Project Members (PM) which have limited privileges.
+    """
 
     all_commands = {}
     hidden_commands = {}
@@ -2400,4 +2586,3 @@ class EnduserBofhdExtension(TSDBofhdExtension):
             (name, cmd) for name, cmd in commands.iteritems()
             if name in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS)
         return filtered
-
