@@ -107,7 +107,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
 
         :type event: Cerebrum.extlib.db_row.row
         :param event: The event returned from Change- or EventLog."""
-        added_spread_code = self.ut.unpickle_event_params(event)['spread']
+        added_spread_code = self.ut.load_params(event)['spread']
         # An Exchange-spread has been added! Let's make a mailbox!
         if added_spread_code == self.mb_spread:
             et, eid = self.ut.get_account_owner_info(event['subject_entity'])
@@ -348,11 +348,12 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
         # not, we throw away the event.
         try:
             et = self.ut.get_entity_type(event['subject_entity'])
-            params = self.ut.unpickle_event_params(event)
             if not et == self.co.entity_person:
                 raise Errors.NotFoundError
         except Errors.NotFoundError:
             raise EntityTypeError
+
+        params = self.ut.load_params(event)
 
         # Extract event-type for readability
         ev_type = event['event_type']
