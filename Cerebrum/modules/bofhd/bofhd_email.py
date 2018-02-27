@@ -1684,6 +1684,7 @@ class BofhdEmailCommands(BofhdEmailBase):
         # et.email_target_alias isn't used for anything, it's often
         # a copy of one of the forward addresses, but that's just a
         # waste of bytes, really.
+        _tf_map = {'T': 'on', 'F': 'off'}
         ef = Email.EmailForward(self.db)
         try:
             ef.find(et.entity_id)
@@ -1694,12 +1695,12 @@ class BofhdEmailCommands(BofhdEmailBase):
             if forw:
                 data.append({
                     'fw_addr_1': forw[0]['forward_to'],
-                    'fw_enable_1': self._get_boolean(forw[0]['enable']),
+                    'fw_enable_1': _tf_map[forw[0]['enable']],
                 })
             for idx in range(1, len(forw)):
                 data.append({
                     'fw_addr': forw[idx]['forward_to'],
-                    'fw_enable': self._get_boolean(forw[idx]['enable']),
+                    'fw_enable': _tf_map[forw[idx]['enable']],
                 })
         return data
 
