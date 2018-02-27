@@ -48,7 +48,9 @@ class ClientMock(object):
         pass
 
     def __getattr__(self, a):
-        return lambda *args, **kwargs: True
+        def mocktrue(*args, **kw):
+            return True
+        return mocktrue
 
 
 class ExchangeClient(PowershellClient):
@@ -119,11 +121,11 @@ class ExchangeClient(PowershellClient):
 
         Usernames could be in various formats:
          - username@domain
-         - domain\username
+         - domain\\username
          - domain/username
 
         :type name: string
-        :param name: domain\username
+        :param name: domain\\username
 
         :rtype: tuple
         :return: Two elements: the username and the domain. If the username is
@@ -212,7 +214,7 @@ class ExchangeClient(PowershellClient):
              management-opportunities
 
         """
-        return u"""
+        return """
             $pass = ConvertTo-SecureString -Force -AsPlainText %(ex_pasw)s;
             $cred = New-Object System.Management.Automation.PSCredential( `
             %(ex_domain_user)s, $pass);
@@ -276,12 +278,12 @@ class ExchangeClient(PowershellClient):
 
     # After a command has run, we run the post execution code. We must
     # disconnect from the PSSession, in order to be able to resume it later
-    _post_execution_code = u"""; Disconnect-PSSession $ses 2> $null > $null;"""
+    _post_execution_code = """; Disconnect-PSSession $ses 2> $null > $null;"""
 
     # As with the post execution code, we want to clean up after us, when
     # the client terminates, hence the termination code
-    _termination_code = (u"""; Remove-PSSession -Session $ses """
-                         u"""2> $null > $null;""")
+    _termination_code = ("""; Remove-PSSession -Session $ses """
+                         """2> $null > $null;""")
 
     def execute(self, *args, **kwargs):
         """Override the execute command with all the startup and teardown
@@ -343,7 +345,8 @@ class ExchangeClient(PowershellClient):
             elif not hit_eob:
                 out['stdout'] = ''
             # Recover if the command hangs/crashes on the Windows-side:
-            if 'stderr' in out and 'The session availability is Busy' in out['stderr']:
+            if ('stderr' in out
+                    and 'The session availability is Busy' in out['stderr']):
                 self.kill_session()
             if 'stderr' in out:
                 for pat in self.wash_output_patterns:

@@ -31,7 +31,6 @@ from urllib2 import URLError
 from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
                                                   ServerUnavailableException)
 from Cerebrum.modules.event.errors import (EventExecutionException,
-                                           EventHandlerNotImplemented,
                                            EntityTypeError,
                                            UnrelatedEvent)
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
@@ -192,7 +191,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
     def _gen_key(self):
         """Return a unique key for the current process
 
-        :rtype: str
+        :rtype: text
 
         """
         return 'CB%s' % hex(os.getpid())[2:].upper()
@@ -204,14 +203,14 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             The event to process.
         """
         key = str(self.get_event_code(event))
-        self.logger.debug3(u'Got event key %r', key)
+        self.logger.debug3('Got event key %r', key)
 
         for callback in self.event_map.get_callbacks(key):
             try:
                 callback(self, event)
             except (EntityTypeError, UnrelatedEvent) as e:
                 self.logger.debug3(
-                    u'Callback %r failed for event %r (%r): %s',
+                    'Callback %r failed for event %r (%r): %s',
                     callback, key, event, e)
 
 
