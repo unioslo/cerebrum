@@ -1,3 +1,7 @@
+2018-02-27    <cerebrum@cleomedes.uit.no>
+
+	* import_FS.py (register_cellphone): all phonenumbers are to have the prefix +<country_code>
+
 2018-02-20    <cerebrum@gagarin.uit.no>
 
 	* update_displayname.py (main): updated url to aliases to jep2n1.uit.no
