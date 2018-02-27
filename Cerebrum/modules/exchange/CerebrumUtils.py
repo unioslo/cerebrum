@@ -22,6 +22,8 @@
 
 This file consists mainly of badly refactored code."""
 
+import pickle
+
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.Email import EmailDomain
 from Cerebrum.modules.Email import EmailQuota
@@ -29,7 +31,6 @@ from Cerebrum.modules.Email import EmailForward
 from Cerebrum.modules.exchange.ExchangeGroups import DistributionGroup
 from Cerebrum import Errors
 
-import pickle
 
 # TODO: Catch all possible errors here. Raise something useful, so
 # the integration won't crash, and can requeue the event (or something)
@@ -79,7 +80,8 @@ class CerebrumUtils(object):
         :param person_id: The person to look up names by.
 
         :rtype: tuple
-        :return: A tuple consisting of first_name, last_name and the full name."""
+        :return: (first_name, last_name, full name).
+        """
 
         # TODO: search_name_with_language?
         if account_id:
