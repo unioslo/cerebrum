@@ -4,6 +4,7 @@
 
 Searching (members and groups) has to be thoroughly tested.
 """
+from __future__ import unicode_literals
 
 import unittest
 
@@ -33,7 +34,8 @@ _set_of_ids = lambda accs: \
 
 
 class BaseAccountTest(unittest.TestCase):
-    """ This is a testcase for Cerebrum.Account class.
+    """
+    This is a testcase for Cerebrum.Account class.
 
     No subclass or mixin should cause this test to fail, so the test is valid
     for other setups as well.
@@ -43,7 +45,8 @@ class BaseAccountTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        """ Set up this TestCase module.
+        """
+        Set up this TestCase module.
 
         This setup code sets up shared objects between each tests. This is done
         *once* before running any of the tests within this class.

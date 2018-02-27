@@ -24,6 +24,7 @@ parameters that may be required by the requested backend.
 Usernames are stored in the table entity_name.  The domain that the
 default username is stored in is yet to be determined.
 """
+from __future__ import unicode_literals
 
 import crypt
 import string
@@ -31,7 +32,6 @@ import re
 import mx
 import hashlib
 import base64
-import six
 
 import six
 
@@ -53,7 +53,6 @@ import cereconf
 
 
 class AccountType(object):
-
     """The AccountType class does not use populate logic as the only
     data stored represent a PK in the database"""
 
@@ -112,7 +111,6 @@ class AccountType(object):
             type priorities.
 
         :rtype: tuple
-
         """
         all_pris = {}
         orig_pri = None
@@ -313,7 +311,6 @@ class AccountHome(object):
     Whenever a users account_home or homedir is modified, we changelog
     the new path of the users homedirectory as a string.  For
     convenience, we also log this path when the entry is deleted.
-
     """
 
     def resolve_homedir(self, account_name=None, disk_id=None,
@@ -652,12 +649,12 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         assert isinstance(other, Account)
 
         if (self.account_name != other.account_name or
-                int(self.owner_type) != int(other.owner_type) or
-                self.owner_id != other.owner_id or
-                self.np_type != other.np_type or
-                self.creator_id != other.creator_id or
-                self.expire_date != other.expire_date or
-                self.description != other.description):
+            int(self.owner_type) != int(other.owner_type) or
+            self.owner_id != other.owner_id or
+            self.np_type != other.np_type or
+            self.creator_id != other.creator_id or
+            self.expire_date != other.expire_date or
+            self.description != other.description):
             return False
         return True
 
@@ -751,10 +748,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         :type method: Constants.AccountAuthentication
         :param method: Some auth_type_x constant
 
-        :type plaintext: String (str or unicode)
+        :type plaintext: String (unicode)
         :param plaintext: The plaintext to hash
 
-        :type salt: String
+        :type salt: String (unicode)
         :param salt: Salt for hashing
 
         :type binary: bool
@@ -764,15 +761,15 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         # Strings should be represented as unicode objects everywhere
         # in the entire system
         unicode_plaintext = plaintext
-        if not isinstance(unicode_plaintext, unicode):
+        if not isinstance(unicode_plaintext, six.text_type):
             try:
-                unicode_plaintext = unicode(plaintext, 'UTF-8')
+                unicode_plaintext = plaintext.decode('utf-8')
             except:
-                unicode_plaintext = unicode(plaintext, 'ISO-8859-1')
+                unicode_plaintext = plaintext.decode('ISO-8859-1')
         if binary:
             utf8_plaintext = plaintext  # a small lie
         else:
-            utf8_plaintext = unicode_plaintext.encode('UTF-8')
+            utf8_plaintext = unicode_plaintext.encode('utf-8')
         if method in (self.const.auth_type_md5_crypt,
                       self.const.auth_type_crypt3_des,
                       self.const.auth_type_sha256_crypt,
@@ -794,28 +791,28 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 # b64encode does not, but it requires Python 2.4
                 return base64.encodestring(
                     hashlib.sha1(
-                        utf8_plaintext + salt.encode('ascii')).digest()
-                    + salt.encode('ascii')).strip()
-            return crypt.crypt(plaintext if method ==
-                               self.const.auth_type_crypt3_des
-                               else utf8_plaintext, salt)
+                        utf8_plaintext + salt.encode('utf-8')
+                    ).digest() + salt.encode('utf-8')).strip().decode()
+            return crypt.crypt(
+                plaintext if binary else utf8_plaintext,
+                salt.encode('utf-8')).decode()
         elif method == self.const.auth_type_md4_nt:
             # Do the import locally to avoid adding a dependency for
             # those who don't want to support this method.
             import smbpasswd
-            return smbpasswd.nthash(unicode_plaintext)
+            return smbpasswd.nthash(unicode_plaintext).decode()
         elif method == self.const.auth_type_plaintext:
-            return plaintext
+            return unicode_plaintext
         elif method == self.const.auth_type_md5_unsalt:
-            return hashlib.md5(utf8_plaintext).hexdigest()
+            return hashlib.md5(utf8_plaintext).hexdigest().decode()
         elif method == self.const.auth_type_ha1_md5:
             s = ":".join(
                 [self.account_name,
                  cereconf.AUTH_HA1_REALM,
-                 utf8_plaintext])
-            return hashlib.md5(s).hexdigest()
+                 unicode_plaintext])
+            return hashlib.md5(s.encode('utf-8')).hexdigest().decode()
         raise Errors.NotImplementedAuthTypeError(
-            "Unknown method %r" % method)
+            'Unknown method {method}'.format(method=method))
 
     def decrypt_password(self, method, cryptstring):
         """Returns the decrypted plaintext according to the specified
@@ -829,33 +826,32 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                       self.const.auth_type_sha256_crypt,
                       self.const.auth_type_sha512_crypt,
                       self.const.auth_type_md4_nt):
-            raise NotImplementedError("Can't decrypt %s" % method)
+            raise NotImplementedError("Can't decrypt {method}".format(method=method))
         elif method == self.const.auth_type_plaintext:
             return cryptstring
-        raise ValueError("Unknown method %r" % method)
+        raise ValueError('Unknown method {method}'.format(method=method))
 
     def verify_password(self, method, plaintext, cryptstring):
         """Returns True if the plaintext matches the cryptstring,
         False if it doesn't.  If the method doesn't support
         verification, NotImplemented is returned.
         """
-        if method in (self.const.auth_type_md5_crypt,
-                      self.const.auth_type_ha1_md5,
-                      self.const.auth_type_crypt3_des,
-                      self.const.auth_type_md4_nt,
-                      self.const.auth_type_ssha,
-                      self.const.auth_type_sha256_crypt,
-                      self.const.auth_type_sha512_crypt,
-                      self.const.auth_type_plaintext):
-            salt = cryptstring
-            if method == self.const.auth_type_ssha:
-                salt = base64.decodestring(cryptstring)[20:]
-            return (self.encrypt_password(method, plaintext, salt=salt) ==
-                    cryptstring or self.encrypt_password(method, plaintext,
-                                                         salt=salt,
-                                                         binary=True) ==
-                    cryptstring)
-        raise ValueError("Unknown method %r" % method)
+        if method not in (self.const.auth_type_md5_crypt,
+                          self.const.auth_type_ha1_md5,
+                          self.const.auth_type_crypt3_des,
+                          self.const.auth_type_md4_nt,
+                          self.const.auth_type_ssha,
+                          self.const.auth_type_sha256_crypt,
+                          self.const.auth_type_sha512_crypt,
+                          self.const.auth_type_plaintext):
+            raise ValueError('Unknown method {method}'.format(method=method))
+        salt = cryptstring
+        if method == self.const.auth_type_ssha:
+            salt = base64.decodestring(
+                cryptstring.encode())[20:].decode()
+        return (self.encrypt_password(method,
+                                      plaintext,
+                                      salt=salt) == cryptstring)
 
     def verify_auth(self, plaintext):
         """Try to verify all authentication data stored for an
@@ -864,7 +860,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         authentication methods which are able to confirm a plaintext,
         do.  If no methods are able to confirm, or one method reports
         a mismatch, return False.
-
         """
         success = []
         failed = []
@@ -1306,7 +1301,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             try:
                 check_password(r, self, checkers=checkers)
                 return r
-            except PasswordNotGoodEnough:
+            except PasswordNotGoodEnough as e:
                 if attempt == 9:  # last attempt
                     # raise PasswordNotGoodEnough(
                     #     '(after 10 attempts) ' + str(e))

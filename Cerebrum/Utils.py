@@ -18,10 +18,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""This module contains a number of core utilities used everywhere in the
-tree.
+"""
+This module contains a number of core utilities used everywhere in the tree.
 """
 from __future__ import unicode_literals
+
 import cereconf
 import inspect
 import os
@@ -37,16 +38,16 @@ import socket
 import random
 import collections
 import unicodedata
-import six
 
 from string import ascii_lowercase, digits
 from subprocess import Popen, PIPE
+
+import six
 
 from Cerebrum.UtilsHelper import Latin1
 
 
 class _NotSet(object):
-
     """This class shouldn't be referred to directly, import the
     singleton, 'NotSet', instead.  It should be used as the default
     value of keyword arguments which need to distinguish between the
@@ -757,16 +758,21 @@ if os.getenv('CEREBRUM_LOGUTILS'):
 
 
 def random_string(length, characters=ascii_lowercase + digits):
-    """Generate a random string of a given length using the given characters.
+    """
+    Generate a random string of a given length using the given characters.
 
     :param int length: the desired string length
     :param str characters: a set of characters to use
 
     :return str: returns a string of random characters
     """
-    random.seed()
+    # Create a local random object for increased randomness
+    # "Use os.urandom() or SystemRandom if you require a
+    # cryptographically secure pseudo-random number generator."
+    # docs.python.org/2.7/library/random.html#random.SystemRandom
+    lrandom = random.SystemRandom()
     # pick "length" number of letters, then combine them to a string
-    return ''.join([random.choice(characters) for _ in range(length)])
+    return ''.join([lrandom.choice(characters) for _ in range(length)])
 
 
 def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
