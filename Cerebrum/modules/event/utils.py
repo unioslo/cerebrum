@@ -133,8 +133,7 @@ class ProcessHandler(object):
         self.logger.info('Started manager process (pid=%d): %s',
                          self.mgr.pid, self.mgr.name)
 
-        self.__log_th = logutils.LogRecordThread(logger=logger,
-                                                 queue=self.log_queue,
+        self.__log_th = logutils.LogRecordThread(self.log_queue,
                                                  name='LogQueueListener')
         self.__log_th.start()
 
@@ -202,13 +201,8 @@ class ProcessHandler(object):
                               self.join_timeout, proc)
             proc.join(self.join_timeout)
             # Log result
-            log_args = ('Process %s terminated with exit code %d',
-                        proc,
-                        proc.exitcode)
-            if proc.exitcode == 0:
-                self.logger.debug(*log_args)
-            else:
-                self.logger.warn(*log_args)
+            log = self.logger.info if proc.exitcode == 0 else self.logger.error
+            log('Process %s terminated with exit code %d', proc, proc.exitcode)
 
         self.logger.debug('Shutting down logger...')
 

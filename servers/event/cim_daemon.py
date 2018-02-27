@@ -56,7 +56,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
     logger.info('Starting {!r} event utils'.format(TARGET_SYSTEM))
 
     channels = [TARGET_SYSTEM, ]
-    cimd = utils.ProcessHandler(logger=logger, manager=Manager)
+    cimd = utils.ProcessHandler(manager=Manager)
 
     event_queue = cimd.mgr.queue()
 

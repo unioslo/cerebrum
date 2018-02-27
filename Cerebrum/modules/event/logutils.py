@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2015-2017 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -103,11 +103,8 @@ class LogRecordThread(threading.Thread):
     timeout = 5
     """ Timeout for listening on the log queue """
 
-    def __init__(self, queue=None, logger=None, serializer=None, **kwargs):
+    def __init__(self, queue, serializer=None, **kwargs):
         """ Create a new Queue listener.
-
-        :param Logger logger:
-            Logger implementation to handle actual messages.
 
         :param Queue queue:
             Queue to listen for log records on.
@@ -120,18 +117,14 @@ class LogRecordThread(threading.Thread):
             Keyword arguments to threading.Thread.
 
         """
-        if queue is None:
-            raise ValueError("Invalid queue")
+        # The logger keyword is deprecated
+        kwargs.pop('logger', None)
+
         self.queue = queue
-        # TODO: This logger is passed in to support 'Cerebrum.modules.cerelog'
-        self.__logger = logger
+        self.logger = logging.getLogger(__name__)
         self.serializer = serializer or JsonSerializer()
         self.__run_logger = True
         super(LogRecordThread, self).__init__(**kwargs)
-
-    @property
-    def logger(self):
-        return self.__logger or logging.getLogger(__name__)
 
     def stop(self):
         self.__run_logger = False
@@ -149,13 +142,7 @@ class LogRecordThread(threading.Thread):
                 self.logger.error("Unable to deserialize record: %r", message)
                 continue
 
-            if self.__logger:
-                # TODO: Remove this when all the multiprocessing daemons are
-                # using 'Cerebrum.logutils'
-                self.__logger.handle(record)
-            else:
-                l = logging.getLogger(record.name)
-                l.handle(record)
+            logging.getLogger(record.name).handle(record)
         self.logger.info('Logger thread stopped')
 
 

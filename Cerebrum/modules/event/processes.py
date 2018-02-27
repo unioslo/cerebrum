@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -74,6 +74,9 @@ class ProcessBase(multiprocessing.Process):
 class ProcessLoggingMixin(ProcessBase):
     u""" Mixin to supply a QueueLogger logging object for processes.
 
+    The log records should be processed in a .logutils.LogRecordThread, running
+    in the main process of your multiprocessing script.
+
     Example
     -------
     >>> class MyClass(ProcessLoggingMixin):
@@ -96,25 +99,25 @@ class ProcessLoggingMixin(ProcessBase):
         super(ProcessLoggingMixin, self).__init__(**kwargs)
         self._handler = QueueHandler(log_queue)
 
-        # Get our custom logger as self.logger, for compability reasonsA
+        # Get our custom logger as self.logger, for compability reasons
         self.logger = logging.getLogger(__name__)
 
     def setup(self):
-        # re-configure root logger after the new process has forked, with a
-        # handler that ships data to self._log_queue
         super(ProcessLoggingMixin, self).setup()
 
+        # re-configure root logger after the new process has forked, with a
+        # handler that ships data to self._log_queue
         root = logging.getLogger()
         root.handlers = []
         root.setLevel(self.logger.level)
         root.addHandler(self._handler)
 
-        self.logger.info(u'Process starting (pid={:d}): {!s}'.format(
-                         os.getpid(), str(self)))
+        self.logger.info(u'Process starting (pid=%d): %s',
+                         os.getpid(), str(self))
 
     def cleanup(self):
-        self.logger.info(u'Process stopping (pid={:d}): {!s}'.format(
-                         os.getpid(), str(self)))
+        self.logger.info(u'Process stopping (pid=%d): %s',
+                         os.getpid(), str(self))
         super(ProcessLoggingMixin, self).cleanup()
 
 
@@ -172,18 +175,18 @@ class ProcessLoopMixin(ProcessBase):
         if isinstance(running, Synchronized):
             # TODO Check if c_int as well. 'ctypes.c_int' in repr(running)?
             self._running = running
-        elif running is not None:
+        elif running is None:
+            # A non-shared value
+            self._running = multiprocessing.Value(ctypes.c_int, 1)
+        else:
             raise TypeError(
                 u'Invalid running value {!r}, must be a'
                 u' multiprocessing.Value(ctypes.c_int)'.format(type(running)))
-        else:
-            # A non-shared value
-            self._running = multiprocessing.Value(ctypes.c_int, 1)
-        super(ProcessLoopMixin, self).__init__(**kwargs)
-        # Install signal handler in parent process
-        # TODO: Is this a good strategy? Probably not.
 
-        # signal.signal(signal.SIGHUP, self.__ppid_signal_hup_handler)
+        super(ProcessLoopMixin, self).__init__(**kwargs)
+
+        # Install signal handler in *parent* process
+        # TODO: Is this a good strategy? Probably not.
         signal.signal(signal.SIGHUP,
                       self.__make_ppid_sighup_handler(keep_sighup))
 
@@ -220,10 +223,11 @@ class ProcessLoopMixin(ProcessBase):
 
     def setup(self):
         super(ProcessLoopMixin, self).setup()
+
+        # Set up SIGHUP handler in forked process
         signal.signal(signal.SIGHUP, self.__sighup_handler)
 
     def main(self):
-        u""" Sets up signal handler. """
         super(ProcessLoopMixin, self).main()
         while self.running:
             self.process()
