@@ -862,6 +862,8 @@ class BofhdEmailAuth(BofhdAuth):
         """
         if self.is_postmaster(operator, query_run_any=query_run_any):
             return True
+        if query_run_any:
+            return False
         raise PermissionDenied("Currently limited to superusers")
 
     def can_email_pipe_create(self, operator,

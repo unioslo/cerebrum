@@ -206,9 +206,15 @@ class BofhdCommandBase(object):
         for key, command in self.list_commands('all_commands').iteritems():
             if command is not None:
                 if command.perm_filter:
-                    if self.ba is not None and not getattr(
-                            self.ba, command.perm_filter)(
-                                ident, query_run_any=True):
+                    try:
+                        authz = getattr(self.ba, command.perm_filter)
+                        if not authz(ident, query_run_any=True):
+                            continue
+                    except:
+                        self.logger.error("perm_filter issue in %r (%r)",
+                                          command.perm_filter,
+                                          key,
+                                          exc_info=True)
                         continue
                 visible_commands[key] = command
         return visible_commands
