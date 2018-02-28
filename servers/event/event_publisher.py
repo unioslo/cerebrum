@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2017 University of Oslo, Norway
+# Copyright 2017-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -50,11 +50,10 @@ Manager.register('queue', Queue)
 Manager.register('log_queue', Queue)
 
 
-def serve(logger, config, num_workers, enable_listener, enable_collector):
-    logger.info('Starting publisher event utils')
+def serve(config, num_workers, enable_listener, enable_collector):
 
     # Generic event processing daemon
-    daemon = utils.ProcessHandler(logger=logger, manager=Manager)
+    daemon = utils.ProcessHandler(manager=Manager)
 
     event_queue = daemon.mgr.queue()
 
@@ -142,8 +141,8 @@ def main(args=None):
         raise SystemExit()
 
     # Run event processes
+    logger.info('Starting publisher event utils')
     serve(
-        logger,
         config,
         int(args.num_workers),
         args.listen_db,
