@@ -217,6 +217,8 @@ QUARANTINE_STRICTLY_AUTOMATIC
 
 import re
 
+import six
+
 import cereconf
 
 from Cerebrum import Cache
@@ -598,18 +600,19 @@ class BofhdAuth(DatabaseAccessor):
 
     def _get_uname(self, entity_id):
         """Return a human-friendly representation of entity_id."""
-
+        entity_id = int(entity_id)
         try:
             account = Factory.get("Account")(self._db)
-            account.find(int(entity_id))
+            account.find(entity_id)
             return account.account_name
         except Errors.NotFoundError:
             return "id=" + str(entity_id)
 
     def _get_gname(self, entity_id):
+        entity_id = int(entity_id)
         try:
             group = Factory.get("Group")(self._db)
-            group.find(int(entity_id))
+            group.find(entity_id)
             return group.group_name
         except Errors.NotFoundError:
             return "id=" + str(entity_id)
@@ -794,10 +797,12 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return True
         if trait and self._has_target_permissions(
-                operator=operator, operation=self.const.auth_set_trait,
+                operator=operator,
+                operation=self.const.auth_set_trait,
                 target_type=self.const.auth_target_type_host,
-                target_id=ety.entity_id, victim_id=ety.entity_id,
-                operation_attr=str(trait)):
+                target_id=ety.entity_id,
+                victim_id=ety.entity_id,
+                operation_attr=six.text_type(trait)):
             return True
         raise PermissionDenied("Not allowed to set trait")
 
@@ -818,10 +823,12 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return True
         if trait and self._has_target_permissions(
-                operator=operator, operation=self.const.auth_remove_trait,
+                operator=operator,
+                operation=self.const.auth_remove_trait,
                 target_type=self.const.auth_target_type_host,
-                target_id=ety.entity_id, victim_id=ety.entity_id,
-                operation_attr=str(trait)):
+                target_id=ety.entity_id,
+                victim_id=ety.entity_id,
+                operation_attr=six.text_type(trait)):
             return True
         raise PermissionDenied("Not allowed to remove trait")
 
@@ -839,11 +846,13 @@ class BofhdAuth(DatabaseAccessor):
         account.find(operator)
         if ety and ety.entity_id == account.owner_id:
             return True
-        operation_attr = str(trait) if trait else None
+        operation_attr = six.text_type(trait) if trait else None
         if self._has_target_permissions(
-                operator=operator, operation=self.const.auth_view_trait,
+                operator=operator,
+                operation=self.const.auth_view_trait,
                 target_type=self.const.auth_target_type_host,
-                target_id=ety.entity_id, victim_id=target,
+                target_id=ety.entity_id,
+                victim_id=target,
                 operation_attr=operation_attr):
             return True
         raise PermissionDenied("Not allowed to see trait")
@@ -884,12 +893,12 @@ class BofhdAuth(DatabaseAccessor):
                                          self.const.auth_view_contactinfo,
                                          self.const.auth_target_type_host,
                                          person.entity_id, person.entity_id,
-                                         str(contact_type)) or
+                                         six.text_type(contact_type)) or
             self._has_target_permissions(operator,
                                          self.const.auth_view_contactinfo,
                                          self.const.auth_target_type_disk,
                                          person.entity_id, person.entity_id,
-                                         str(contact_type))):
+                                         six.text_type(contact_type))):
             return True
         # The person itself should be able to see it:
         account = Factory.get('Account')(self._db)
@@ -913,12 +922,12 @@ class BofhdAuth(DatabaseAccessor):
                                          self.const.auth_add_contactinfo,
                                          self.const.auth_target_type_host,
                                          entity_id, entity_id,
-                                         str(contact_type)) or
+                                         six.text_type(contact_type)) or
             self._has_target_permissions(operator,
                                          self.const.auth_add_contactinfo,
                                          self.const.auth_target_type_disk,
                                          entity_id, entity_id,
-                                         str(contact_type))):
+                                         six.text_type(contact_type))):
             return True
         raise PermissionDenied("Not allowed to add contact info")
 
@@ -937,12 +946,12 @@ class BofhdAuth(DatabaseAccessor):
                                          self.const.auth_remove_contactinfo,
                                          self.const.auth_target_type_host,
                                          entity_id, entity_id,
-                                         str(contact_type)) or
+                                         six.text_type(contact_type)) or
             self._has_target_permissions(operator,
                                          self.const.auth_remove_contactinfo,
                                          self.const.auth_target_type_disk,
                                          entity_id, entity_id,
-                                         str(contact_type))):
+                                         six.text_type(contact_type))):
             return True
         raise PermissionDenied("Not allowed to remove contact info")
 
@@ -1003,7 +1012,7 @@ class BofhdAuth(DatabaseAccessor):
                 return True
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_quarantine_disable)
-        if str(qtype) in cereconf.QUARANTINE_STRICTLY_AUTOMATIC:
+        if six.text_type(qtype) in cereconf.QUARANTINE_STRICTLY_AUTOMATIC:
             raise PermissionDenied('Not allowed, automatic quarantine')
         if self.is_superuser(operator):
             return True
@@ -1025,12 +1034,12 @@ class BofhdAuth(DatabaseAccessor):
             # has a populated qua_disable dict.
             if not attr:
                 return True
-            if str(qtype) == attr:
+            if six.text_type(qtype) == attr:
                 return True
 
         return self.is_account_owner(
             operator, self.const.auth_quarantine_disable, entity,
-            operation_attr=str(qtype))
+            operation_attr=six.text_type(qtype))
 
     def can_remove_quarantine(self, operator, entity=None, qtype=None,
                               query_run_any=False):
@@ -1039,12 +1048,12 @@ class BofhdAuth(DatabaseAccessor):
                 return True
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_quarantine_remove)
-        if str(qtype) in cereconf.QUARANTINE_STRICTLY_AUTOMATIC:
+        if six.text_type(qtype) in cereconf.QUARANTINE_STRICTLY_AUTOMATIC:
             raise PermissionDenied('Not allowed, automatic quarantine')
         # TBD: should superusers be allowed to remove automatic quarantines?
         if self.is_superuser(operator):
             return True
-        if str(qtype) in cereconf.QUARANTINE_AUTOMATIC:
+        if six.text_type(qtype) in cereconf.QUARANTINE_AUTOMATIC:
             raise PermissionDenied('Not allowed, automatic quarantine')
 
         # Special rule for guestusers. Only superuser are allowed to
@@ -1068,12 +1077,12 @@ class BofhdAuth(DatabaseAccessor):
             # has a populated qua_remove dict.
             if not attr:
                 return True
-            if str(qtype) == attr:
+            if six.text_type(qtype) == attr:
                 return True
 
         return self.is_account_owner(
             operator, self.const.auth_quarantine_remove, entity,
-            operation_attr=str(qtype))
+            operation_attr=six.text_type(qtype))
 
     def can_set_quarantine(self, operator, entity=None, qtype=None,
                            query_run_any=False):
@@ -1082,11 +1091,11 @@ class BofhdAuth(DatabaseAccessor):
                 return True
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_quarantine_set)
-        if str(qtype) in cereconf.QUARANTINE_STRICTLY_AUTOMATIC:
+        if six.text_type(qtype) in cereconf.QUARANTINE_STRICTLY_AUTOMATIC:
             raise PermissionDenied('Not allowed, automatic quarantine')
         if self.is_superuser(operator):
             return True
-        if str(qtype) in cereconf.QUARANTINE_AUTOMATIC:
+        if six.text_type(qtype) in cereconf.QUARANTINE_AUTOMATIC:
             raise PermissionDenied('Not allowed, automatic quarantine')
         for row in self._list_target_permissions(
                 operator, self.const.auth_quarantine_set,
@@ -1098,7 +1107,7 @@ class BofhdAuth(DatabaseAccessor):
             # has a populated qua_add dict.
             if not attr:
                 return True
-            if str(qtype) == attr:
+            if six.text_type(qtype) == attr:
                 return True
 
         # TODO 2003-07-04: Bård is going to comment this
@@ -1107,8 +1116,10 @@ class BofhdAuth(DatabaseAccessor):
         else:
             if self._no_account_home(operator, entity):
                 return True
-        return self.is_account_owner(operator, self.const.auth_quarantine_set,
-                                     entity, operation_attr=str(qtype))
+        return self.is_account_owner(operator,
+                                     self.const.auth_quarantine_set,
+                                     entity,
+                                     operation_attr=six.text_type(qtype))
 
     def can_show_quarantines(self, operator, entity=None,
                              query_run_any=False):
@@ -1341,7 +1352,7 @@ class BofhdAuth(DatabaseAccessor):
         """Each spread that an operator may modify is stored in
         auth_op_attrs as the code_str value."""
         if spread is not None:
-            spread = str(self.const.Spread(spread))
+            spread = six.text_type(self.const.Spread(spread))
 
         if self.is_superuser(operator):
             return True
@@ -1441,7 +1452,7 @@ class BofhdAuth(DatabaseAccessor):
                                         self.const.auth_add_affiliation,
                                         self.const.auth_target_type_ou,
                                         ou.entity_id, person.entity_id,
-                                        str(aff_status)):
+                                        six.text_type(aff_status)):
             return True
         raise PermissionDenied("No access for combination %s on person %s in "
                                "OU %02d%02d%02d" % (aff_status,
@@ -1468,7 +1479,7 @@ class BofhdAuth(DatabaseAccessor):
                                         self.const.auth_remove_affiliation,
                                         self.const.auth_target_type_ou,
                                         ou.entity_id, person.entity_id,
-                                        str(aff)):
+                                        six.text_type(aff)):
             return True
         # 2015-09-11: Temporarily (?) allow all LITAs to remove manual
         #             affiliations from all persons to simplify cleaning up.
@@ -1861,7 +1872,7 @@ class BofhdAuth(DatabaseAccessor):
             # affiliation, just return.
             if not affiliation or not r['attr']:
                 return True
-            if r['attr'] and str(affiliation) == r['attr']:
+            if r['attr'] and six.text_type(affiliation) == r['attr']:
                 return True
         return False
 
@@ -2144,7 +2155,8 @@ class BofhdAuth(DatabaseAccessor):
             if not r['attr']:
                 return True
             else:
-                aff = str(self.const.PersonAffiliation(r['affiliation']))
+                aff = six.text_type(
+                    self.const.PersonAffiliation(r['affiliation']))
                 if aff == r['attr']:
                     return True
         return False
