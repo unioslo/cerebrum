@@ -19,6 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This is a bofhd module for setting consent. """
+import six
 
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
@@ -92,8 +93,8 @@ class BofhdExtension(BofhdCommonMethods):
         entity_type = self.const.EntityType(entity.entity_type)
         if not isinstance(entity, EntityConsentMixin):
             raise NotImplementedError(
-                u"Entity type '%s' does not support consent." %
-                entity_type)
+                "Entity type '%s' does not support consent." %
+                six.text_type(entity_type))
 
     def _get_consent(self, consent_ident):
         u""" Get consent constant from constant strval or intval.
@@ -139,10 +140,11 @@ class BofhdExtension(BofhdCommonMethods):
         entity.set_consent(consent)
         entity.write_db()
         return {
-            'consent_name': str(consent),
-            'consent_type': str(consent_type),
+            'consent_name': six.text_type(consent),
+            'consent_type': six.text_type(consent_type),
             'entity_id': entity.entity_id,
-            'entity_type': str(self.const.EntityType(entity.entity_type)),
+            'entity_type': six.text_type(
+                self.const.EntityType(entity.entity_type)),
             'entity_name': entity_name,
         }
 
@@ -170,10 +172,11 @@ class BofhdExtension(BofhdCommonMethods):
         entity.remove_consent(consent)
         entity.write_db()
         return {
-            'consent_name': str(consent),
-            'consent_type': str(consent_type),
+            'consent_name': six.text_type(consent),
+            'consent_type': six.text_type(consent_type),
             'entity_id': entity.entity_id,
-            'entity_type': str(self.const.EntityType(entity.entity_type)),
+            'entity_type': six.text_type(
+                self.const.EntityType(entity.entity_type)),
             'entity_name': entity_name,
         }
 
@@ -205,8 +208,8 @@ class BofhdExtension(BofhdCommonMethods):
                                         filter_expired=False):
             consent, consent_type = self._get_consent(int(row['consent_code']))
             consents.append({
-                'consent_name': str(consent),
-                'consent_type': str(consent_type),
+                'consent_name': six.text_type(consent),
+                'consent_type': six.text_type(consent_type),
                 'consent_time_set': row['time_set'],
                 'consent_time_expire': row['expiry'],
                 'consent_description': row['description'], })
@@ -215,7 +218,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError(
                 "'%s' (entity_type=%s, entity_id=%s) has no consents set" % (
                     name,
-                    self.const.EntityType(entity.entity_type),
+                    six.text_type(self.const.EntityType(entity.entity_type)),
                     entity.entity_id))
         return consents
 
@@ -237,8 +240,8 @@ class BofhdExtension(BofhdCommonMethods):
         for consent in self.const.fetch_constants(self.const.EntityConsent):
             consent, consent_type = self._get_consent(int(consent))
             consents.append({
-                'consent_name': str(consent),
-                'consent_type': str(consent_type),
+                'consent_name': six.text_type(consent),
+                'consent_type': six.text_type(consent_type),
                 'consent_description': consent.description, })
         if not consents:
             raise CerebrumError("No consent types defined yet")
