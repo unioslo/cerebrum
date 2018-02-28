@@ -72,28 +72,44 @@ moved to a separate module after:
 """
 import cereconf
 
-import sys
+import io
 import socket
+import warnings
 import xmlrpclib
 from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
 from xml.parsers.expat import ExpatError
 
-from Cerebrum import https
+import six
+
 from Cerebrum import Errors
 from Cerebrum import QuarantineHandler
+from Cerebrum import https
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.xmlutils import xmlrpc_to_native, native_to_xmlrpc
+from Cerebrum.modules import statsd
 from Cerebrum.modules.bofhd.errors import CerebrumError
-from Cerebrum.modules.bofhd.errors import SessionExpiredError
 from Cerebrum.modules.bofhd.errors import ServerRestartedError
+from Cerebrum.modules.bofhd.errors import SessionExpiredError
 from Cerebrum.modules.bofhd.errors import UnknownError
 from Cerebrum.modules.bofhd.session import BofhdSession
+from Cerebrum.modules.bofhd.xmlutils import xmlrpc_to_native, native_to_xmlrpc
 
-from Cerebrum.modules import statsd
+
+def format_addr(addr):
+    """ Get ip:port formatted string from address tuple. """
+    return ':'.join((six.text_type(x) for x in addr or ['err', 'err']))
 
 
-format_addr = lambda addr: ':'.join([str(x) for x in addr or ['err', 'err']])
-""" Get ip:port formatted string from address tuple. """
+def exc_to_text(e):
+    """ Get an error text from an exception. """
+    try:
+        text = six.text_type(e)
+    except UnicodeError:
+        # We don't want error handling to fail. Decode without failing, and
+        # issue a warning so that the exception can be fixed.
+        text = bytes(e).decode('utf-8', 'replace')
+        warnings.warn("Non-unicode data in exception {!r}".format(e),
+                      UnicodeWarning)
+    return text
 
 
 class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
@@ -174,60 +190,83 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         try:
             ret = apply(func, xmlrpc_to_native(params))
         except CerebrumError as e:
-            # Exceptions with unicode characters in the message
-            # produce a UnicodeError when cast to str().  Fix by
-            # encoding as utf-8
-            if e.args:
-                ret = "%s: %s" % (e.__class__.__name__, e.args[0])
-            else:
-                ret = e.__class__.__name__
-            exc_type = sys.exc_info()[0]
-            if isinstance(ret, unicode):
-                raise exc_type(ret.encode('utf-8'))
-            else:
-                # Some of our exceptions throws iso8859-1 encoded
-                # error-messages.  These must be encoded as utf-8 to
-                # avoid client-side:
-                #   org.xml.sax.SAXParseException: character not allowed
-                ret = ret.decode('iso8859-1').encode('utf-8')
-                raise exc_type(ret)
+            exc_type = type(e)
+            raise exc_type(exc_to_text(e))
         except NotImplementedError as e:
-            self.logger.warn(u'Not-implemented: ', exc_info=1)
-            raise CerebrumError(u'Not Implemented: {!s}'.format(str(e)))
+            self.logger.warn('NotImplemented', exc_info=1)
+            raise CerebrumError('Not implemented: {!s}'.format(exc_to_text(e)))
         except TypeError as e:
-            if (str(e).find("takes exactly") != -1 or
-                    str(e).find("takes at least") != -1 or
-                    str(e).find("takes at most") != -1):
-                raise CerebrumError(str(e))
-            self.logger.error(u'Unexpected exception', exc_info=1)
-            raise UnknownError(sys.exc_info()[0],
-                               sys.exc_info()[1],
-                               msg=u'A server error has been logged.')
+            err = exc_to_text(e)
+            if (err.find("takes exactly") != -1
+                    or err.find("takes at least") != -1
+                    or err.find("takes at most") != -1):
+                raise CerebrumError(err)
+            self.logger.warn('Unexpected exception', exc_info=1)
+            raise UnknownError(type(e),
+                               err,
+                               msg='A server error has been logged.')
         except Exception as e:
-            self.logger.error(u'Unexpected exception', exc_info=1)
-            raise UnknownError(sys.exc_info()[0],
-                               sys.exc_info()[1],
-                               msg=u'A server error has been logged.')
+            self.logger.warn('Unexpected exception', exc_info=1)
+            raise UnknownError(type(e),
+                               exc_to_text(e),
+                               msg='A server error has been logged.')
         finally:
             self.db_close()
-
         return native_to_xmlrpc(ret)
 
     def handle(self):
         """ Handle request and timeout. """
         try:
             super(BofhdRequestHandler, self).handle()
-        except socket.timeout, e:
+        except socket.timeout as e:
             # Timeouts are not 'normal' operation.
-            self.logger.info(u'timeout: %s from %s',
-                             e, format_addr(self.client_address))
+            self.logger.info('timeout: %s from %s',
+                             exc_to_text(e), format_addr(self.client_address))
             self.close_connection = 1
-        except https.SSLError, e:
+        except https.SSLError as e:
             # SSLError could be a timeout, or it could be some other form of
             # error
-            self.logger.info(u'SSLError: %s from %s',
-                             e, format_addr(self.client_address))
+            self.logger.info('SSLError: %s from %s',
+                             exc_to_text(e), format_addr(self.client_address))
             self.close_connection = 1
+
+    def _send_response(self, http_code, response):
+        """ write xml headers and response. """
+        if response:
+            try:
+                response = xmlrpclib.dumps(response, methodresponse=True)
+            except:
+                self.logger.error('Unable to generate XML response',
+                                  exc_info=True)
+                http_code = 500
+                response = None
+
+        self.send_response(http_code)
+        if response:
+            self.send_header('Content-Type', 'text/xml')
+            self.send_header('Content-Length', str(len(response)))
+        self.end_headers()
+        if response:
+            self.wfile.write(response)
+        self.wfile.flush()
+
+    @staticmethod
+    def _format_xmlrpc_fault(exc):
+        """ Get XMLRPC fault string from an exception. """
+        # Stringify the exception type
+        err_type = six.text_type(type(exc).__name__)
+        if isinstance(exc, CerebrumError):
+            # Include module name in CerebrumError and subclasses
+            if type(exc) in (ServerRestartedError, SessionExpiredError,
+                             UnknownError):
+                # Client *should* know this
+                err_type = u'{0.__class__}.{0.__name__}'.format(type(exc))
+            else:
+                # Use superclass
+                err_type = u'{0.__class__}.{0.__name__}'.format(CerebrumError)
+
+        return u'{err_type}:{err_msg}'.format(err_type=err_type,
+                                              err_msg=exc_to_text(exc))
 
     def do_POST(self):
         """Handles the HTTP POST request.
@@ -238,75 +277,58 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         Will also encode known and unknown exceptions as XMLRPC Faults to the
         client.
         """
-        # Whenever unexpected exception occurs, we'd like to include
-        # as much debugging info as possible.  To avoid raising
-        # NameError in the debug-printing code, we pre-initialise a
-        # few central variables.
         data = params = method = None
-        try:
-            # get arguments
-            data = self.rfile.read(int(self.headers["content-length"]))
-            params, method = xmlrpclib.loads(data)
-            # generate response
-            try:
-                self.logger.debug2(u'dispatch %s', method)
 
-                response = self._dispatch(method, params)
+        # Check for required Content-Length
+        try:
+            content_length = self.headers["content-length"]
+        except KeyError:
+            self.logger.warn('Missing Content-Length (client=%r)',
+                             self.client_address)
+            self._send_response(411, None)
+            return
+
+        # Read and parse request data
+        #
+        # A note on encoding: xmlrpclib expects a bytestring, and assumes utf-8
+        # encoding unless otherwise specified in the root element.
+        # Any non-ascii data is returned from `loads` as unicode-objects, and
+        # anything else as ascii-bytestrings.
+        try:
+            data = self.rfile.read(int(content_length))
+            params, method = xmlrpclib.loads(data)
+        except ExpatError as e:
+            self.logger.warn('ExpatError (%d) - malformed XML content'
+                             ' (client=%r, data=%r)',
+                             e.code, self.client_address, data)
+            self._send_response(400, None)
+            return
+        except:
+            self.logger.warn('Unknown client error (client=%r, data=%r)',
+                             self.client_address, data, exc_info=True)
+            self._send_response(400, None)
+            return
+
+        # XML-RPC structure is decoded and valid, try to dispatch
+        try:
+            try:
                 # wrap response in a singleton tuple
-                response = (response,)
-            except CerebrumError:
-                # Due to the primitive XML-RPC support for exceptions,
-                # we want to report any subclass of CerebrumError as
-                # CerebrumError so that the client can recognize this
-                # as a user-error.
-                if sys.exc_type in (ServerRestartedError,
-                                    SessionExpiredError,
-                                    UnknownError):
-                    error_class = sys.exc_type
-                else:
-                    error_class = CerebrumError
-                response = xmlrpclib.dumps(
-                    xmlrpclib.Fault(1, "%s.%s:%s" % (error_class.__module__,
-                                                     error_class.__name__,
-                                                     sys.exc_value)))
-            except Exception:
+                self.logger.debug('dispatch, method=%r, params=%r',
+                                  method, params)
+                response = (self._dispatch(method, params), )
+            except CerebrumError as e:
+                response = xmlrpclib.Fault(1, self._format_xmlrpc_fault(e))
+            except:
                 self.logger.warn(
-                    u'Unexpected exception 1 (client=%r, params=%r, method=%r)',
+                    u'Unexpected exception (client=%r, params=%r, method=%r)',
                     self.client_address, params, method,
                     exc_info=True)
-                # report exception back to server
-                response = xmlrpclib.dumps(
-                    xmlrpclib.Fault(1, "%s:%s" % (sys.exc_type,
-                                                  sys.exc_value)))
-            else:
-                response = xmlrpclib.dumps(response, methodresponse=1)
-        except ExpatError as e:
-            # a malformed XMLRPC request should end up here.
-            self.logger.warn(
-                u'ExpatError ({code}) - malformed XML content detected '
-                u'(client {client}, data={data})'.format(
-                    code=e.code,
-                    client=self.client_address,
-                    data=data))
-            self.send_response(500)
-            self.end_headers()
-        except Exception:
-            self.logger.error(
-                u'Unexpected exception 2 (client %r, data=%r)',
-                self.client_address, data,
-                exc_info=True)
-            # internal error, report as HTTP server error
-            self.send_response(500)
-            self.end_headers()
-        else:
-            # got a valid XML RPC response
-            self.send_response(200)
-            self.send_header("Content-type", "text/xml")
-            self.send_header("Content-length", str(len(response)))
-            self.end_headers()
-            self.wfile.write(response)
-            self.wfile.flush()
-        self.logger.debug2(u'thread done')
+                response = xmlrpclib.Fault(2, self._format_xmlrpc_fault(e))
+
+            self._send_response(200, response)
+        except:
+            self.logger.error('Unable to handle fault', exc_info=True)
+            self._send_response(500, None)
 
     def _get_quarantines(self, account):
         """ Fetch a list of active lockout quarantines for account.
@@ -322,7 +344,8 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         nonlock = getattr(cereconf, 'BOFHD_NONLOCK_QUARANTINES', [])
         active = []
 
-        for qrow in account.get_entity_quarantine(only_active=True):
+        for q_type in (qrow['quarantine_type'] for qrow
+                       in account.get_entity_quarantine(only_active=True)):
             # The quarantine found in this row is currently
             # active. Some quarantine types may not restrict
             # access to bofhd even if they otherwise result in
@@ -333,8 +356,8 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             # This should probably be based on spreads or some
             # such mechanism, but quarantinehandler and the import
             # routines don't support a more appopriate solution yet
-            if not (str(Quarantine(qrow['quarantine_type'])) in nonlock):
-                active.append(qrow['quarantine_type'])
+            if six.text_type(Quarantine(q_type)) not in nonlock:
+                active.append(q_type)
         qh = QuarantineHandler.QuarantineHandler(self.db, active)
         if qh.should_skip() or qh.is_locked():
             return [Quarantine(q).description for q in active]
@@ -363,20 +386,15 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                 account.find_by_name(uname)
             except Errors.NotFoundError:
                 stats.incr('deny-creds')
-                if isinstance(uname, unicode):
-                    uname = uname.encode('utf-8')
                 self.logger.info(
-                    u'Failed login for %s from %s: unknown username',
+                    'Failed login for %r from %r: unknown username',
                     uname, format_addr(self.client_address))
                 raise CerebrumError("Unknown username or password")
 
-            if isinstance(password, unicode):  # crypt.crypt don't like unicode
-                # TODO: ideally we should not hardcode charset here.
-                password = password.encode('iso8859-1')
             if not account.verify_auth(password):
                 stats.incr('deny-creds')
                 self.logger.info(
-                    u'Failed login for %s from %s: password mismatch',
+                    'Failed login for %r from %r: password mismatch',
                     uname, format_addr(self.client_address))
                 raise CerebrumError("Unknown username or password")
 
@@ -385,9 +403,8 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             if quarantines:
                 stats.incr('deny-quarantine')
                 self.logger.info(
-                    'Failed login for %s from %s: quarantines %s',
-                    uname, format_addr(self.client_address),
-                    ', '.join(quarantines))
+                    'Failed login for %r from %r: quarantines %s',
+                    uname, format_addr(self.client_address), quarantines)
                 raise CerebrumError(
                     'User has active quarantines, login denied: %s' %
                     ', '.join(quarantines))
@@ -396,13 +413,13 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             if account.is_expired():
                 stats.incr('deny-expire')
                 self.logger.info(
-                    'Failed login for %s from %s: account expired',
+                    'Failed login for %r from %r: account expired',
                     uname, format_addr(self.client_address))
                 raise CerebrumError('User is expired, login denied')
 
             try:
                 self.logger.info(
-                    'Successful login for %s from %s',
+                    'Successful login for %r from %r',
                     uname, format_addr(self.client_address))
                 session = BofhdSession(self.db, self.logger)
                 session_id = session.set_authenticated_entity(
@@ -466,7 +483,6 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
     def bofhd_get_format_suggestion(self, cmd):
         suggestion = self.server.classmap[cmd].get_format_suggestion(cmd)
         if suggestion is not None:
-            # suggestion['str'] = unicode(suggestion['str'], 'iso8859-1')
             return suggestion
         # TODO:  Would be better to allow xmlrpc-wrapper to handle None
         return ''
@@ -474,9 +490,8 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
     def bofhd_get_motd(self, client_id=None, client_version=None):
         ret = ""
         if cereconf.BOFHD_MOTD_FILE is not None:
-            f = file(cereconf.BOFHD_MOTD_FILE)
-            for line in f.readlines():
-                ret += line.decode('utf8')
+            with io.open(cereconf.BOFHD_MOTD_FILE, encoding='utf-8') as f:
+                ret = f.read()
         if (client_id is not None and
                 cereconf.BOFHD_CLIENTS.get(client_id, '') > client_version):
             ret += "You do not seem to run the latest version of the client\n"
@@ -551,9 +566,9 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         entity_id = self.check_session_validity(session)
         self.db.cl_init(change_by=entity_id)
 
-        self.logger.debug(u'Run command: %s (%s) by %i', cmd, args, entity_id)
+        self.logger.debug(u'Run command: %s (%r) by %i', cmd, args, entity_id)
         if cmd not in self.server.classmap:
-            raise CerebrumError(u"Illegal command '{!s}'".format(cmd))
+            raise CerebrumError("Illegal command {!r}".format(cmd))
 
         implementation = self.server.classmap[cmd](self.db, self.logger)
         func = getattr(implementation, cmd)
@@ -605,11 +620,11 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         cls, cmdObj = self.server.get_cmd_info(cmd)
         self.check_session_validity(session)
         if cmdObj._prompt_func is not None:
-            self.logger.debug(u'prompt_func: %r', args)
+            self.logger.debug('prompt_func: %r', args)
             instance = cls(self.db, self.logger)
             return getattr(instance,
                            cmdObj._prompt_func.__name__)(session, *args)
-        raise CerebrumError("Command %s has no prompt func" % (cmd,))
+        raise CerebrumError("Command %r has no prompt func" % (cmd,))
 
     def bofhd_get_default_param(self, session_id, cmd, *args):
         """ Get default value for a parameter.

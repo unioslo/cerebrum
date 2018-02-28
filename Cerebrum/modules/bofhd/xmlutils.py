@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,7 +19,10 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import decimal
+import warnings
 import xmlrpclib
+
+import six
 from mx import DateTime
 
 
@@ -36,25 +38,38 @@ class AttributeDict(dict):
         self[name] = value
 
 
+def ensure_unicode(obj):
+    if isinstance(obj, six.text_type):
+        return obj
+    try:
+        return six.text_type(obj)
+    except UnicodeError:
+        # TODO: Fail hard?
+        warnings.warn("invalid unicode: {0}".format(repr(obj)), UnicodeWarning)
+        return obj.decode('utf-8', 'replace')
+
+
 def native_to_xmlrpc(obj):
     """Translate Python objects to XML-RPC-usable structures."""
     if obj is None:
         return ':None'
-    elif isinstance(obj, (str, unicode)):
+    elif isinstance(obj, bytearray):
+        # TODO: Bytes should also be handled here
+        return xmlrpclib.Binary(data=obj)
+    elif isinstance(obj, (bytes, six.text_type)):
         if obj.startswith(":"):
-            return ":" + obj
-        return obj
+            return ensure_unicode(":" + obj)
+        return ensure_unicode(obj)
     elif isinstance(obj, (tuple, list)):
         obj_type = type(obj)
         return obj_type([native_to_xmlrpc(x) for x in obj])
     elif isinstance(obj, dict):
         obj_type = type(obj)
-        return obj_type(
-            [(native_to_xmlrpc(x), native_to_xmlrpc(obj[x]))
-             for x in obj])
+        return obj_type([(native_to_xmlrpc(x), native_to_xmlrpc(obj[x]))
+                         for x in obj])
     elif isinstance(obj, (int, long, float)):
         return obj
-    elif decimal and isinstance(obj, decimal.Decimal):
+    elif isinstance(obj, decimal.Decimal):
         return float(obj)
     elif isinstance(obj, (xmlrpclib.DateTime, DateTime.DateTimeType)):
         # TODO: This only works for Postgres.  Needs support
@@ -73,12 +88,12 @@ def xmlrpc_to_native(obj):
     #  We could have used marshal.{loads,dumps} here,
     # but then the Java client would have trouble
     # encoding/decoding requests/responses.
-    if isinstance(obj, str):
+    if isinstance(obj, bytes):
         if obj == ':None':
             return None
         elif obj.startswith(":"):
-            return obj[1:]
-        return obj
+            return six.text_type(obj[1:])
+        return six.text_type(obj)
     elif isinstance(obj, (tuple, list)):
         obj_type = type(obj)
         return obj_type([xmlrpc_to_native(x) for x in obj])
@@ -90,7 +105,7 @@ def xmlrpc_to_native(obj):
     elif isinstance(obj, xmlrpclib.DateTime):
         return DateTime.ISO.ParseDateTime(obj.value)
     elif isinstance(obj, xmlrpclib.Binary):
-        return xmlrpc_to_native(obj.data)
+        return bytearray(obj.data)
     else:
         # unknown type, no need to recurse
         return obj

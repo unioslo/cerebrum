@@ -29,19 +29,19 @@ modules/no/<institution>/bofhd_<institution>_cmds.py.
 import re
 import time
 
+import six
 from mx import DateTime
 
 import cereconf
 
-from Cerebrum import Errors
 from Cerebrum import Entity
-from Cerebrum.Utils import Factory
+from Cerebrum import Errors
 from Cerebrum.Constants import _CerebrumCode
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
-from Cerebrum.modules.bofhd.utils import BofhdUtils
-
 from Cerebrum.modules.bofhd import cmd_param as cmd
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+from Cerebrum.modules.bofhd.utils import BofhdUtils
 
 
 class BofhdCommandBase(object):
@@ -218,7 +218,7 @@ class BofhdCommandBase(object):
         try:
             int(c)
         except Errors.NotFoundError:
-            raise CerebrumError("Unknown %s: %s" % (code_type, code_str))
+            raise CerebrumError("Unknown %s: %r" % (code_type, code_str))
         return c
 
     @staticmethod
@@ -228,13 +228,14 @@ class BofhdCommandBase(object):
         Convert a human-friendly representation of boolean to the proper Python
         object.
         """
-        if onoff.lower() in ('on', 'true', 'yes', 'y'):
+        yes = ('on', 'true', 'yes', 'y')
+        no = ('off', 'false', 'no', 'n')
+        if onoff.lower() in yes:
             return True
-        elif onoff.lower() in ('off', 'false', 'no', 'n'):
+        elif onoff.lower() in no:
             return False
-        raise CerebrumError(
-            "Invalid value: '%s'; use one of: on true yes y off false no n" %
-            str(onoff))
+        raise CerebrumError("Invalid value: %r; use one of: %s" %
+                            (onoff, ', '.join(yes + no)))
 
     @staticmethod
     def _human_repr2id(human_repr):
@@ -264,7 +265,7 @@ class BofhdCommandBase(object):
         if isinstance(human_repr, (int, long)):
             id_type, ident = "id", human_repr
         # strings (they could still be numeric IDs, though)
-        elif isinstance(human_repr, (str, unicode)):
+        elif isinstance(human_repr, basestring):
             if human_repr.isdigit():
                 id_type, ident = "id", human_repr
             elif ":" in human_repr:
@@ -274,14 +275,13 @@ class BofhdCommandBase(object):
             else:
                 id_type, ident = "name", human_repr
         else:
-            raise CerebrumError("Unknown id type %s for id %s" %
+            raise CerebrumError("Unknown id type %s for id %r" %
                                 (type(human_repr), human_repr))
         if id_type == "id":
             try:
                 ident = int(ident)
             except ValueError:
-                raise CerebrumError("Non-numeric component for id=%s" %
-                                    str(ident))
+                raise CerebrumError("Non-numeric component for id=%r" % ident)
         return id_type, ident
 
     def _format_ou_name(self, ou):
@@ -313,7 +313,7 @@ class BofhdCommandBase(object):
         :return: A list of persons matching the criteria.
         """
         if arg.isdigit() and len(arg) > 10:  # find persons by fnr
-            arg = 'fnr:%s' % arg
+            arg = 'fnr:%s' % six.text_type(arg)
         ret = []
         person = Factory.get('Person')(self.db)
         person.clear()
@@ -379,10 +379,8 @@ class BofhdCommandBase(object):
                 ent = Entity.Entity(self.db)
                 ent.find(ident)
             else:
-                raise CerebrumError(
-                    "Unknown/unsupported id_type %s for id %s" % (id_type,
-                                                                  str(ident))
-                )
+                raise CerebrumError("Unknown/unsupported id_type %s for id %r"
+                                    % (id_type, ident))
             # The find*() calls give us an entity_id from ident. The call
             # below returns the most specific object for that numeric
             # entity_id.
@@ -411,16 +409,16 @@ class BofhdCommandBase(object):
                 ou.find(ou_id)
             else:
                 if len(stedkode) != 6 or not stedkode.isdigit():
-                    raise CerebrumError("Expected 6 digits in stedkode <%s>" %
+                    raise CerebrumError("Expected 6 digits in stedkode %r" %
                                         stedkode)
                 ou.find_stedkode(stedkode[:2], stedkode[2:4], stedkode[4:],
                                  institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
             return ou
         except Errors.NotFoundError:
             raise CerebrumError("Unknown OU (%s)" %
-                                (ou_id and ("id=%s" % ou_id) or
-                                 ("sko=%s" % stedkode)))
-        assert False, "NOTREACHED"
+                                (ou_id and ("id=%r" % ou_id) or
+                                 ("sko=%r" % stedkode)))
+        raise Errors.UnreachableCodeError("_get_ou")
 
     def _get_account(self, account_id, idtype=None, actype="Account"):
         """ Fetch an account identified by account_id.
@@ -451,7 +449,7 @@ class BofhdCommandBase(object):
         elif actype == 'PosixUser':
             account = Factory.get('PosixUser')(self.db)
         else:
-            raise CerebrumError("Invalid account type %s" % actype)
+            raise CerebrumError("Invalid account type %r" % actype)
         account.clear()
         try:
             if idtype is None:
@@ -460,14 +458,15 @@ class BofhdCommandBase(object):
             if idtype == 'name':
                 account.find_by_name(account_id, self.const.account_namespace)
             elif idtype == 'id':
-                if isinstance(account_id, str) and not account_id.isdigit():
-                    raise CerebrumError("Entity id <%s> must be a number" %
+                if (isinstance(account_id, basestring)
+                        and not account_id.isdigit()):
+                    raise CerebrumError("Entity id %r must be a number" %
                                         account_id)
                 account.find(int(account_id))
             else:
-                raise CerebrumError("Unknown idtype: '%s'" % idtype)
+                raise CerebrumError("Unknown idtype: %r" % idtype)
         except Errors.NotFoundError:
-            raise CerebrumError("Could not find an account with %s=%s" %
+            raise CerebrumError("Could not find an account with %s=%r" %
                                 (idtype, account_id))
         return account
 
@@ -499,7 +498,7 @@ class BofhdCommandBase(object):
         elif grtype == 'DistributionGroup':
             group = Factory.get('DistributionGroup')(self.db)
         else:
-            raise CerebrumError("Invalid group type %s" % grtype)
+            raise CerebrumError("Invalid group type %r" % grtype)
         try:
             if idtype is None:
                 idtype, group_id = self._human_repr2id(group_id)
@@ -509,18 +508,18 @@ class BofhdCommandBase(object):
                 if not (isinstance(group_id, (int, long)) or
                         group_id.isdigit()):
                     raise CerebrumError(
-                        "Non-numeric id lookup (%s)" % group_id)
+                        "Non-numeric id lookup (%r)" % group_id)
                 group.find(group_id)
             elif idtype == "gid" and grtype == 'PosixGroup':
                 if not (isinstance(group_id, (int, long)) or
                         group_id.isdigit()):
                     raise CerebrumError(
-                        "Non-numeric gid lookup (%s)" % group_id)
+                        "Non-numeric gid lookup (%r)" % group_id)
                 group.find_by_gid(group_id)
             else:
-                raise CerebrumError("Unknown idtype: '%s'" % idtype)
+                raise CerebrumError("Unknown idtype: %r" % idtype)
         except Errors.NotFoundError:
-            raise CerebrumError("Could not find a %s with %s=%s" %
+            raise CerebrumError("Could not find a %s with %s=%r" %
                                 (grtype, idtype, group_id))
         return group
 
@@ -530,8 +529,8 @@ class BofhdCommandBase(object):
         # FIXME: Is this a sensible default behaviour?
         if not isinstance(entity, Entity.EntitySpread):
             return ""
-        return ",".join(str(self.const.Spread(x['spread']))
-                        for x in entity.get_spread())
+        return u",".join(six.text_type(self.const.Spread(x['spread']))
+                         for x in entity.get_spread())
 
     def _get_person(self, idtype, id):
         """ Get person. """
@@ -548,7 +547,7 @@ class BofhdCommandBase(object):
             if isinstance(idtype, _CerebrumCode):
                 person.find_by_external_id(idtype, id)
             elif idtype in ('entity_id', 'id'):
-                if isinstance(id, str) and not id.isdigit():
+                if isinstance(id, basestring) and not id.isdigit():
                     raise CerebrumError("Entity id must be a number")
                 person.find(id)
             else:
@@ -653,9 +652,9 @@ class BofhdCommandBase(object):
             if entity_type == self.const.entity_email_target:
                 etarget = Factory.get('EmailTarget')(self.db)
                 etarget.find(entity_id)
-                return '%s:%s' % (str(etarget.get_target_type_name()),
-                                  self._get_entity_name(
-                                      etarget.get_target_entity_id()))
+                return '%s:%s' % (
+                    six.text_type(etarget.get_target_type_name()),
+                    self._get_entity_name(etarget.get_target_entity_id()))
             elif entity_type == self.const.entity_email_address:
                 ea = Email.EmailAddress(self.db)
                 ea.find(entity_id)
@@ -674,7 +673,7 @@ class BofhdCommandBase(object):
             else:
                 # ... and if it does not exist -- return the id. We are out of
                 # options at this point.
-                return "%s:%s" % (entity_type, entity_id)
+                return "%s:%s" % (six.text_type(entity_type), entity_id)
         except Errors.NotFoundError:
             return "notfound:%d" % entity_id
         # NOTREACHED
@@ -723,13 +722,13 @@ class BofhdCommandBase(object):
         # pgSQL specific code, wait until Python has standardised on a
         # Date-type.
         if y > 2050:
-            raise CerebrumError("Too far into the future: %s" % date)
+            raise CerebrumError("Too far into the future: %r" % date)
         if y < 1800:
-            raise CerebrumError("Too long ago: %s" % date)
+            raise CerebrumError("Too long ago: %r" % date)
         try:
             return DateTime.Date(y, m, d, hour, min)
         except:
-            raise CerebrumError("Illegal date: %s" % date)
+            raise CerebrumError("Illegal date: %r" % date)
 
     def _parse_date_from_to(self, date):
         """ Parse two dates, separated by '--'. """
@@ -744,7 +743,7 @@ class BofhdCommandBase(object):
             elif len(tmp) == 1:
                 date_end = self._parse_date(date)
             else:
-                raise CerebrumError("Incorrect date specification: %s." % date)
+                raise CerebrumError("Incorrect date specification: %r" % date)
         return (date_start, date_end)
 
     def _today(self):
@@ -787,9 +786,12 @@ class BofhdCommonMethods(BofhdCommandBase):
     ##
     # User methods
 
+    #
     # user delete
+    #
     all_commands['user_delete'] = cmd.Command(
-        ("user", "delete"), cmd.AccountName(),
+        ("user", "delete"),
+        cmd.AccountName(),
         perm_filter='can_delete_user')
 
     def user_delete(self, operator, accountname):
@@ -799,7 +801,7 @@ class BofhdCommonMethods(BofhdCommandBase):
             raise CerebrumError("User is already deleted")
         account.deactivate()
         account.write_db()
-        return "User %s is deactivated" % account.account_name
+        return u"User %s is deactivated" % account.account_name
 
     ##
     # Group methods
@@ -811,8 +813,9 @@ class BofhdCommonMethods(BofhdCommandBase):
         ("group", "create"),
         cmd.GroupName(help_ref="group_name_new"),
         cmd.SimpleString(help_ref="string_description"),
-        fs=cmd.FormatSuggestion("Group created, internal id: %i",
-                                ("group_id",)),
+        fs=cmd.FormatSuggestion(
+            "Group created, internal id: %i", ("group_id",)
+        ),
         perm_filter='can_create_group')
 
     def group_create(self, operator, groupname, description):
@@ -830,19 +833,24 @@ class BofhdCommonMethods(BofhdCommandBase):
             raise CerebrumError("Group name is already in use")
         g.populate(creator_id=operator.get_entity_id(),
                    visibility=self.const.group_visibility_all,
-                   name=groupname, description=description)
+                   name=groupname,
+                   description=description)
         g.write_db()
         for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
             g.add_spread(self.const.Spread(spread))
             g.write_db()
         return {'group_id': int(g.entity_id)}
 
+    #
+    # group rename
+    #
     all_commands['group_rename'] = cmd.Command(
         ('group', 'rename'),
         cmd.GroupName(help_ref="group_name"),
         cmd.GroupName(help_ref="group_name_new"),
         fs=cmd.FormatSuggestion(
-            "Group renamed to %s. Check integrations!", ("new_name",)),
+            "Group renamed to %s. Check integrations!", ("new_name",)
+        ),
         perm_filter='is_superuser')
 
     def group_rename(self, operator, groupname, newname):
@@ -861,11 +869,16 @@ class BofhdCommonMethods(BofhdCommandBase):
         gr.group_name = newname
         try:
             gr.write_db()
-        except gr._db.IntegrityError, e:
+        except gr._db.IntegrityError as e:
             raise CerebrumError("Couldn't rename group: %s" % e)
-        return {'new_name': gr.group_name, 'group_id': int(gr.entity_id)}
+        return {
+            'new_name': gr.group_name,
+            'group_id': int(gr.entity_id),
+        }
 
+    #
     # entity contactinfo_add <entity> <contact type> <contact value>
+    #
     all_commands['entity_contactinfo_add'] = cmd.Command(
         ('entity', 'contactinfo_add'),
         cmd.SimpleString(help_ref='id:target:entity'),
@@ -894,9 +907,9 @@ class BofhdCommonMethods(BofhdCommandBase):
             if not contact_type_code:
                 raise CerebrumError(
                     'Invalid contact info type "%s", try one of %s' % (
-                        contact_type,
-                        ", ".join(str(x) for x in co.fetch_constants(
-                            co.ContactInfo))
+                        six.text_type(contact_type),
+                        ", ".join(six.text_type(x)
+                                  for x in co.fetch_constants(co.ContactInfo))
                     )
                 )
 
@@ -919,7 +932,7 @@ class BofhdCommonMethods(BofhdCommandBase):
                 if not ea.validate_localpart(localpart):
                     raise AttributeError('Invalid local part')
                 ed._validate_domain_name(domain)
-            except AttributeError, e:
+            except AttributeError as e:
                 raise CerebrumError(e)
 
         # validate phone numbers
@@ -930,7 +943,7 @@ class BofhdCommonMethods(BofhdCommandBase):
             # allows digits and a prefixed '+'
             if not re.match(r"^\+?\d+$", contact_value):
                 raise CerebrumError(
-                    "Invalid phone number: %s. "
+                    "Invalid phone number: %r. "
                     "The number can contain only digits "
                     "with possible '+' for prefix." % contact_value)
         # get existing contact info for this entity and contact type
@@ -939,24 +952,28 @@ class BofhdCommonMethods(BofhdCommandBase):
                                                type=contact_type_code)
         except AttributeError:
             # entity has no contact info attributes
-            raise CerebrumError("Cannot add contact info to a %s."
-                                % (co.EntityType(entity.entity_type)))
+            raise CerebrumError(
+                "Cannot add contact info to a %s." %
+                six.text_type(co.EntityType(entity.entity_type)))
 
         existing_prefs = [int(row["contact_pref"]) for row in contacts]
 
         for row in contacts:
             # if the same value already exists, don't add it
-            if str(contact_value) == str(row["contact_value"]):
+            if contact_value == row["contact_value"]:
                 raise CerebrumError("Contact value already exists")
             # if the value is different, add it with a lower (=greater number)
             # preference for the new value
-            if str(contact_pref) == str(row["contact_pref"]):
+            if contact_pref == row["contact_pref"]:
                 contact_pref = max(existing_prefs) + 1
                 self.logger.debug(
-                    'Incremented preference, new value = %s' % contact_pref)
+                    'Incremented preference, new value = %d' % contact_pref)
 
-        self.logger.debug('Adding contact info: %s, %s, %s, %s. ' % (
-            entity.entity_id, contact_type_code, contact_value, contact_pref))
+        self.logger.debug('Adding contact info: %r, %r, %r, %r',
+                          entity.entity_id,
+                          six.text_type(contact_type_code),
+                          contact_value,
+                          contact_pref)
 
         entity.add_contact_info(source_system,
                                 type=contact_type_code,
@@ -964,8 +981,11 @@ class BofhdCommonMethods(BofhdCommandBase):
                                 pref=int(contact_pref),
                                 description=None,
                                 alias=None)
-        return "Added contact info %s:%s %s to entity %s" % (
-            source_system, contact_type, contact_value, entity_target)
+        return "Added contact info %s:%s %r to entity %r" % (
+            six.text_type(source_system),
+            six.text_type(contact_type),
+            contact_value,
+            entity_target)
 
     # entity contactinfo_remove <entity> <source system> <contact type>
     all_commands['entity_contactinfo_remove'] = cmd.Command(
@@ -991,10 +1011,11 @@ class BofhdCommonMethods(BofhdCommandBase):
                                                co.AuthoritativeSystem)
         if not source_system_code:
             raise CerebrumError(
-                'No such source system "%s", try one of %s' % (
+                'No such source system %r, try one of %s' % (
                     source_system,
-                    ", ".join(str(x) for x in co.fetch_constants(
-                        co.AuthoritativeSystem))))
+                    ", ".join(six.text_type(x)
+                              for x in co.fetch_constants(
+                                      co.AuthoritativeSystem))))
         # check that the specified contact info type exists
         contact_type_code = co.human2constant(contact_type, co.ContactInfo)
         if not contact_type_code:
@@ -1003,10 +1024,11 @@ class BofhdCommonMethods(BofhdCommandBase):
                                                   co.ContactInfo)
             if not contact_type_code:
                 raise CerebrumError(
-                    'Invalid contact info type "%s", try one of %s' % (
+                    'Invalid contact info type %r, try one of %s' % (
                         contact_type,
-                        ", ".join(str(x) for x in co.fetch_constants(
-                            co.ContactInfo))))
+                        ", ".join(six.text_type(x)
+                                  for x in co.fetch_constants(
+                                          co.ContactInfo))))
         # check permissions
         self.ba.can_remove_contact_info(operator.get_entity_id(),
                                         entity.entity_id,
@@ -1024,25 +1046,28 @@ class BofhdCommonMethods(BofhdCommandBase):
                 if (co.AuthoritativeSystem(a['source_system']) is
                         source_system_code):
                     raise CerebrumError(
-                        'Person has an affiliation from source system ' +
-                        '%s, cannot remove' % source_system)
+                        'Person has an affiliation from source system '
+                        '%r, cannot remove' % source_system)
 
         # check if given contact info type exists for this entity
         if not entity.get_contact_info(source=source_system_code,
                                        type=contact_type_code):
             raise CerebrumError(
                 "Entity does not have contact info type %s in %s" %
-                (contact_type_code, source_system))
+                (six.text_type(contact_type_code),
+                 six.text_type(source_system_code)))
         # all is well, now actually delete the contact info
         try:
             entity.delete_contact_info(source=source_system_code,
                                        contact_type=contact_type_code)
             entity.write_db()
         except:
-            raise CerebrumError("Could not remove contact info %s:%s from %s" %
-                                (source_system,
-                                 contact_type_code,
+            raise CerebrumError("Could not remove contact info %s:%s from %r" %
+                                (six.text_type(source_system_code),
+                                 six.text_type(contact_type_code),
                                  entity_target))
 
-        return "Removed contact info %s:%s from entity %s" % (
-            source_system, contact_type_code, entity_target)
+        return "Removed contact info %s:%s from entity %r" % (
+            six.text_type(source_system_code),
+            six.text_type(contact_type_code),
+            entity_target)

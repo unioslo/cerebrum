@@ -57,7 +57,7 @@ class Parameter(object):
                 ret[k[1:]] = getattr(self, k)
         ret['prompt'] = self.getPrompt(help_ref)
         if self._default is not None:
-            if isinstance(self._default, str):
+            if isinstance(self._default, basestring):
                 ret['default'] = self._default
             else:
                 ret['default'] = 1  # = call get_default_param
