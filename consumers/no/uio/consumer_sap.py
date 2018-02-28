@@ -477,13 +477,14 @@ def get_hr_person(config, database, source_system, url):
     def _get_data(config, url, params=None):
         if not params:
             params = {}
-        auth = (config.auth_user, read_password(user=config.auth_user,
-                                                system=config.auth_system))
-        headers = {'Accept': 'application/json'}
+
+        headers = {'Accept': 'application/json',
+                   'X-Gravitee-API-Key': read_password(user=config.auth_user,
+                                                       system=config.auth_system)}
 
         try:
             logger.debug4(u'Fetching {}'.format(url))
-            r = requests.get(url, auth=auth, headers=headers, params=params)
+            r = requests.get(url, headers=headers, params=params)
             logger.debug4(u'Fetch completed')
         except Exception as e:
             # Be polite on connection errors. Conenction errors seldom fix
