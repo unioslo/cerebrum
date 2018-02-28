@@ -24,20 +24,17 @@ import mx
 from Cerebrum import database
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no import fodselsnr
-
+from Cerebrum.modules.bofhd import bofhd_core_help
+from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailMixin
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
-
+from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
-from Cerebrum.modules.bofhd import bofhd_core_help
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
-    UiOBofhdExtension
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cmd_base
 
 
 def format_day(field):
@@ -46,7 +43,6 @@ def format_day(field):
 
 
 uio_helpers = [
-    '_convert_ticks_to_timestamp',
     '_entity_info',
     '_fetch_member_names',
     '_format_changelog_entry',
@@ -74,12 +70,10 @@ uio_helpers = [
     '_is_yes',
     '_list_access',
     '_manipulate_access',
-    '_parse_date',
     '_person_affiliation_add_helper',
     '_remove_auth_role',
     '_remove_auth_target',
     '_revoke_auth',
-    '_today',
     '_validate_access',
     '_validate_access_disk',
     '_validate_access_global_group',
@@ -153,24 +147,18 @@ uio_commands = [
     'user_set_owner',
 ]
 
-email_mixin_commands = ['email_mod_name', ]
-
 
 @copy_command(
-    BofhdEmailMixin,
-    'default_email_commands', 'all_commands',
-    commands=email_mixin_commands)
-@copy_command(
-    UiOBofhdExtension,
+    cmd_base,
     'all_commands', 'all_commands',
     commands=uio_commands)
 @copy_func(
     BofhdUserCreateMethod,
     methods=['_user_create_set_account_type'])
 @copy_func(
-    UiOBofhdExtension,
+    cmd_base,
     methods=uio_helpers + uio_commands)
-class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
+class BofhdExtension(BofhdCommonMethods):
 
     OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
@@ -242,9 +230,9 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
                     'studierettstatkode': row['studierettstatkode'],
                     'studentstatkode': row['studentstatkode'],
                     'studieretningkode': row['studieretningkode'],
-                    'dato_tildelt': self._convert_ticks_to_timestamp(
+                    'dato_tildelt': self._ticks_to_date(
                         row['dato_studierett_tildelt']),
-                    'dato_gyldig_til': self._convert_ticks_to_timestamp(
+                    'dato_gyldig_til': self._ticks_to_date(
                         row['dato_studierett_gyldig_til']),
                     'privatist': row['status_privatist'],
                 }
@@ -259,8 +247,7 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
                 {
                     'ekskode': row['emnekode'],
                     'programmer': ",".join(programmer),
-                    'dato': self._convert_ticks_to_timestamp(
-                        row['dato_opprettet']),
+                    'dato': self._ticks_to_date(row['dato_opprettet']),
                 }
             )
 
@@ -270,7 +257,7 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
                     'studieprogramkode': row['studieprogramkode'],
                     'terminkode_bekreft': row['terminkode_bekreft'],
                     'arstall_bekreft': row['arstall_bekreft'],
-                    'dato_bekreftet': self._convert_ticks_to_timestamp(
+                    'dato_bekreftet': self._ticks_to_date(
                         row['dato_bekreftet']),
                 }
             )
@@ -280,9 +267,8 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
                 {
                     'regformkode': row['regformkode'],
                     'betformkode': row['betformkode'],
-                    'dato_endring': self._convert_ticks_to_timestamp(
-                        row['dato_endring']),
-                    'dato_regform_endret': self._convert_ticks_to_timestamp(
+                    'dato_endring': self._ticks_to_date(row['dato_endring']),
+                    'dato_regform_endret': self._ticks_to_date(
                         row['dato_regform_endret']),
                 }
             )
@@ -306,3 +292,22 @@ class BofhdExtension(BofhdCommonMethods, BofhdEmailMixin):
             account.delete_spread(int(s['spread']))
         account.write_db()
         return "User %s queued for deletion immediately" % account.account_name
+
+
+class EmailAuth(bofhd_email.BofhdEmailAuth):
+    """ NMH specific email auth. """
+    pass
+
+
+@copy_command(
+    bofhd_email.BofhdEmailCommands,
+    'all_commands', 'all_commands',
+    commands=['email_mod_name', ])
+class EmailCommands(bofhd_email.BofhdEmailCommands):
+    """ NMH specific email commands and overloads. """
+
+    all_commands = {}
+    hidden_commands = {}
+    parent_commands = False  # copied with copy_command
+    omit_parent_commands = set()
+    authz = EmailAuth

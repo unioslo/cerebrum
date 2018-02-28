@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 # encoding: utf-8
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,9 +18,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-u""" This is a bofhd module for setting consent. """
+""" This is a bofhd module for setting consent. """
 
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
+from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
 from Cerebrum.modules.bofhd.cmd_param import (Parameter,
                                               Command,
                                               Id,
@@ -31,20 +32,19 @@ from .Consent import EntityConsentMixin
 
 
 class ConsentType(Parameter):
-    u""" Consent type parameter. """
-
+    """ Consent type parameter. """
     _type = 'consent_type'
     _help_ref = 'consent_type'
 
 
 def format_datetime(field):
-    u""" Date format for FormatSuggestion. """
+    """ Date format for FormatSuggestion. """
     fmt = "yyyy-MM-dd HH:mm"  # 16 characters wide
     return ":".join((field, "date", fmt))
 
 
 class BofhdExtension(BofhdCommonMethods):
-    u""" Commands for getting, setting and unsetting consent. """
+    """ Commands for getting, setting and unsetting consent. """
 
     hidden_commands = {}  # Not accessible through bofh
     all_commands = {}
@@ -62,25 +62,27 @@ class BofhdExtension(BofhdCommonMethods):
 
     @classmethod
     def get_help_strings(cls):
-        u""" Help strings for consent commands. """
-        group_help = {
-            'consent': 'Commands for handling consents', }
+        """ Help strings for consent commands. """
+        group, cmd, args = get_help_strings()
 
-        command_help = {
-            'consent': {
-                'consent_set': cls.consent_set.__doc__,
-                'consent_unset': cls.consent_unset.__doc__,
-                'consent_info': cls.consent_info.__doc__,
-                'consent_list': cls.consent_list.__doc__, }, }
+        group.setdefault('consent', 'Commands for handling consents')
 
-        arg_help = {
+        cmd.setdefault('consent', dict()).update({
+            'consent_set': cls.consent_set.__doc__,
+            'consent_unset': cls.consent_unset.__doc__,
+            'consent_info': cls.consent_info.__doc__,
+            'consent_list': cls.consent_list.__doc__,
+        })
+
+        args.update({
             'consent_type': ['type', 'Enter consent type',
-                             "'consent list' lists defined consents"], }
+                             "'consent list' lists defined consents"],
+        })
 
-        return (group_help, command_help, arg_help)
+        return (group, cmd, args)
 
     def check_consent_support(self, entity):
-        u""" Assert that entity has EntityConsentMixin.
+        """ Assert that entity has EntityConsentMixin.
 
         :param Cerebrum.Entity entity: The entity to check.
 
@@ -109,7 +111,7 @@ class BofhdExtension(BofhdCommonMethods):
         consent = self.const.human2constant(
             consent_ident, const_type=self.const.EntityConsent)
         if not consent:
-            raise CerebrumError("No consent '%s'" % consent_ident)
+            raise CerebrumError("No consent %r" % consent_ident)
         consent_type = self.const.ConsentType(consent.consent_type)
         return (consent, consent_type)
 
@@ -229,7 +231,7 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_list_consents')
 
     def consent_list(self, operator):
-        u""" List all consent types. """
+        """ List all consent types. """
         self.ba.can_list_consents(operator.get_entity_id())
         consents = []
         for consent in self.const.fetch_constants(self.const.EntityConsent):

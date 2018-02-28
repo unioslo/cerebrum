@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2016 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -187,17 +186,44 @@ The operations are Cerebrum constants, but is also put in the table
 
 - Roles are put in `auth_role`, and their targets are put in `auth_op_target`.
 
+Configuration
+=============
+
+BOFHD_AUTH_GROUPMODERATOR
+    An opset that identifies group moderators. This is used to list out which
+    groups a given user has access to moderate.
+BOFHD_CHECK_DISK_SPREAD
+    A spread to check for home directory. If set, then access to that disk will
+    also give access to users on taht disk (see `is_account_owner`)
+BOFHD_FNR_ACCESS_GROUP
+    A group name, members are allowed to view protected external id values (see
+    `can_get_person_external_id`).
+BOFHD_STUDADM_GROUP
+    A group name, members are considered IT support staff for users *without* a
+    home direcotry.
+BOFHD_SUPERUSER_GROUP
+    A group name, members are considered superusers (see `is_superuser`).
+HOME_SPREADS
+    Spreads that are used on home directories, users with one of these spreads
+    are *not* affected by BOFHD_STUDADM_GROUP.
+QUARANTINE_AUTOMATIC
+    A list of quarantines that should not be altered manually (see
+    `can_*_quarantine`)
+QUARANTINE_STRICTLY_AUTOMATIC
+    A list of quarantines that *cannot* be altered manually (see
+    `can_*_quarantine`)
+
 """
 
 import re
 
-import cerebrum_path
 import cereconf
-from Cerebrum.DatabaseAccessor import DatabaseAccessor
-from Cerebrum import Constants
+
 from Cerebrum import Cache
+from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum import Person
+from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.Utils import argument_to_sql
 from Cerebrum.modules.bofhd.errors import PermissionDenied
@@ -1164,30 +1190,6 @@ class BofhdAuth(DatabaseAccessor):
                                 group is None and "N/A" or
                                 self._get_gname(group.entity_id)))
 
-    def can_add_notes(self, operator, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Permission denied")
-
-    def can_remove_notes(self, operator, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Permission denied")
-
-    def can_show_notes(self, operator, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(operator,
-                                              self.const.auth_set_password):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Permission denied")
-
     def list_alterable_entities(self, operator, target_type):
         """Find entities of `target_type` that `operator` can moderate.
 
@@ -1215,14 +1217,17 @@ class BofhdAuth(DatabaseAccessor):
         SELECT aot.entity_id
         FROM [:table schema=cerebrum name=auth_op_target] aot,
              [:table schema=cerebrum name=auth_role] ar
-        WHERE (ar.entity_id = :operator_id OR
-               -- do NOT replace with EXISTS, it's much more expensive
-               ar.entity_id IN (SELECT gm.group_id
-                                FROM [:table schema=cerebrum name=group_member] gm
-                                WHERE gm.member_id = :operator_id)) AND
-              ar.op_target_id = aot.op_target_id AND
-              aot.target_type = :target_type AND
-              ar.op_set_id = :op_set_id
+        WHERE (
+            ar.entity_id = :operator_id OR
+            -- do NOT replace with EXISTS, it's much more expensive
+            ar.entity_id IN (
+                SELECT gm.group_id
+                FROM [:table schema=cerebrum name=group_member] gm
+                WHERE gm.member_id = :operator_id
+            ))
+        AND ar.op_target_id = aot.op_target_id
+        AND aot.target_type = :target_type
+        AND ar.op_set_id = :op_set_id
         """
 
         return self.query(sql, {"operator_id": operator_id,
@@ -1465,9 +1470,9 @@ class BofhdAuth(DatabaseAccessor):
                                         ou.entity_id, person.entity_id,
                                         str(aff)):
             return True
-        # 2015-09-11: Temporarily (?) allow all LITAs to remove manual affiliations
-        #             from all persons to simplify cleaning up. CERT (bore) has given
-        #             permission to do this. – tvl
+        # 2015-09-11: Temporarily (?) allow all LITAs to remove manual
+        #             affiliations from all persons to simplify cleaning up.
+        #             CERT (bore) has given permission to do this. – tvl
         if (aff == self.const.affiliation_manuell and
             self._has_operation_perm_somewhere(operator,
                                                self.const.auth_create_user)):
@@ -1790,256 +1795,6 @@ class BofhdAuth(DatabaseAccessor):
         raise PermissionDenied(
                 "Guest accounts can only be created by employees")
 
-    #
-    # TODO: the can_email_xxx functions do not belong in core Cerebrum
-
-    # everyone can see basic information
-    def can_email_info(self, operator, account=None, query_run_any=False):
-        return True
-
-    # detailed information about tripnotes etc. is available to
-    # the user's local sysadmin and helpdesk operators.
-    def can_email_info_detail(self, operator, account=None,
-                              query_run_any=False):
-        if query_run_any or account and operator == account.entity_id:
-            return True
-        if self._is_local_postmaster(operator,
-                                     self.const.auth_email_info_detail,
-                                     account, None, query_run_any):
-            return True
-        raise PermissionDenied("Currently limited to postmasters")
-
-    # the user, local sysadmin, and helpdesk can ask for migration
-    def can_email_migrate(self, operator, account=None, query_run_any=False):
-        if query_run_any or account and operator == account.entity_id:
-            return True
-        if self._is_local_postmaster(operator,
-                                     self.const.auth_email_migrate,
-                                     account, None, query_run_any):
-            return True
-        raise PermissionDenied("Currently limited to postmasters")
-
-    # not even the user is allowed this operation
-    def can_email_move(self, operator, account=None, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if self.is_postmaster(operator):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
-
-    def can_email_set_quota(self, operator, account=None, query_run_any=False):
-        if self._is_local_postmaster(operator,
-                                     self.const.auth_email_quota_set,
-                                     account, None, query_run_any):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
-
-    # not even the user is allowed this operation
-    def can_email_pause(self, operator, account=None, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if self.is_postmaster(operator):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
-
-    # the user and local sysadmin is allowed to turn forwarding and
-    # tripnote on/off
-    def can_email_forward_toggle(self, operator, account=None,
-                                 query_run_any=False):
-        if query_run_any or account and operator == account.entity_id:
-            return True
-        if self._is_local_postmaster(operator,
-                                     self.const.auth_email_forward_off,
-                                     account, None, query_run_any):
-            return True
-        raise PermissionDenied("Currently limited to superusers")
-
-    def can_email_spam_settings(self, operator, account=None, target=None,
-                                query_run_any=False):
-        if query_run_any or account:
-            return self.can_email_forward_toggle(operator, account,
-                                                 query_run_any)
-        if self.is_superuser(operator):
-            return True
-        if self.is_postmaster(operator):
-            return True
-        raise PermissionDenied("Currently limited to superusers")
-
-    def can_email_tripnote_toggle(self, operator, account=None,
-                                  query_run_any=False):
-        if query_run_any or account and operator == account.entity_id:
-            return True
-        if self._is_local_postmaster(operator,
-                                     self.const.auth_email_vacation_off,
-                                     account, None, query_run_any):
-            return True
-        raise PermissionDenied("Currently limited to superusers")
-
-    # only the user may add or remove forward addresses.
-    def can_email_forward_edit(self, operator, account=None, domain=None,
-                               query_run_any=False):
-        if query_run_any:
-            return True
-        if account and operator == account.entity_id:
-            return True
-        # TODO: make a separate authentication operation for this!
-        if self._is_local_postmaster(operator,
-                                     self.const.auth_email_forward_off,
-                                     account, domain, query_run_any):
-            return True
-        raise PermissionDenied("Currently limited to superusers")
-
-    # or edit the tripnote messages or add new ones.
-    def can_email_tripnote_edit(self, operator, account=None,
-                                query_run_any=False):
-        return self.can_email_forward_edit(operator, account,
-                                           query_run_any=query_run_any)
-
-    def can_email_list_create(self, operator, domain=None,
-                              query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if self.is_postmaster(operator):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
-
-    def can_email_list_delete(self, operator, domain=None,
-                              query_run_any=False):
-        return self.can_email_list_create(operator, domain, query_run_any)
-
-    def can_email_archive_create(self, operator, domain=None,
-                                 query_run_any=False):
-        return self.can_email_list_create(operator, domain, query_run_any)
-
-    def can_email_archive_delete(self, operator, domain=None,
-                                 query_run_any=False):
-        return self.can_email_archive_create(operator, domain, query_run_any)
-
-    def can_email_pipe_create(self, operator, domain=None,
-                              query_run_any=False):
-        return self.can_email_list_create(operator, domain, query_run_any)
-
-    def can_email_pipe_edit(self, operator, domain=None,
-                            query_run_any=False):
-        return self.can_email_pipe_create(operator, domain, query_run_any)
-
-    def can_email_set_failure(self, operator, account=None,
-                              query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if self.is_postmaster(operator):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
-
-    def can_email_domain_create(self, operator, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if self.is_postmaster(operator):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
-
-    # create/delete e-mail targets of type "multi"
-    def can_email_multi_create(self, operator, domain=None, group=None,
-                               query_run_any=False):
-        # not sure if we'll ever look at the group
-        if self._is_local_postmaster(operator, self.const.auth_email_create,
-                                     None, domain, query_run_any):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to postmasters")
-
-    def can_email_multi_delete(self, operator, domain=None, group=None,
-                               query_run_any=False):
-        if self._is_local_postmaster(operator, self.const.auth_email_delete,
-                                     None, domain, query_run_any):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
-
-    # create/delete e-mail targets of type "forward"
-    def can_email_forward_create(self, operator, domain=None,
-                                 query_run_any=False):
-        if self._is_local_postmaster(operator, self.const.auth_email_create,
-                                     None, domain, query_run_any):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
-
-    # associate a new e-mail address with an account, or other target.
-    def can_email_address_add(self, operator, account=None, domain=None,
-                              query_run_any=False):
-        if self._is_local_postmaster(operator, self.const.auth_email_create,
-                                     account, domain, query_run_any):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
-
-    def can_email_address_delete(self, operator, account=None, domain=None,
-                                 query_run_any=False):
-        # TBD: should the full email address be added to the parameters,
-        # instead of just its domain?
-        if self._is_local_postmaster(operator, self.const.auth_email_delete,
-                                     account, domain, query_run_any):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
-
-    def can_email_address_reassign(self, operator, account=None, domain=None,
-                                   query_run_any=False):
-        if query_run_any:
-            return True
-        # Allow a user to manipulate his own accounts
-        if account:
-            owner_acc = Factory.get("Account")(self._db)
-            owner_acc.find(operator)
-            if (owner_acc.owner_id == account.owner_id and
-                    owner_acc.owner_type == account.owner_type):
-                return True
-        if self._is_local_postmaster(operator, self.const.auth_email_reassign,
-                                     account, domain, query_run_any):
-            return True
-        raise PermissionDenied("Currently limited to superusers")
-
-    def can_email_mod_name(self, operator_id, person=None, firstname=None,
-                           lastname=None, query_run_any=False):
-        """If someone is allowed to modify a person's name. Only postmasters are
-        allowed to do this by default."""
-        if not self.is_postmaster(operator_id, query_run_any=query_run_any):
-            raise PermissionDenied("Currently limited to superusers")
-        return True
-
-    def _is_local_postmaster(self, operator, operation, account=None,
-                             domain=None, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if self.is_postmaster(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(operator, operation)
-        if domain:
-            self._query_maildomain_permissions(operator, operation,
-                                               domain, None)
-        if account:
-            self.is_account_owner(operator, operation, account)
-        return True
-
     def _is_owner_of_nonpersonal_account(self, operator, account):
         """Return True if account is non-personal and operator is a
         member of the group owning the account."""
@@ -2092,21 +1847,6 @@ class BofhdAuth(DatabaseAccessor):
                 return True
         raise PermissionDenied("No access to disk checking for '%s'" %
                                operation)
-
-    def _query_maildomain_permissions(self, operator, operation, domain,
-                                      victim_id):
-        """Permissions on e-mail domains are granted specifically."""
-        if self._has_global_access(
-                operator, operation,
-                self.const.auth_target_type_global_maildomain, victim_id):
-            return True
-        if self._has_target_permissions(operator, operation,
-                                        self.const.auth_target_type_maildomain,
-                                        domain.entity_id, victim_id):
-            return True
-        raise PermissionDenied("No access to '%s' for e-mail domain %s" %
-                               (operation.description,
-                                domain.email_domain_name))
 
     def _query_ou_permissions(self, operator, operation, ou, affiliation,
                               victim_id):
@@ -2294,27 +2034,23 @@ class BofhdAuth(DatabaseAccessor):
               attribute is returned as well.
 
         """
-        tables = ["""[:table schema=cerebrum name=auth_operation] ao
-                     JOIN [:table schema=cerebrum name=auth_operation_set] AS aos
-                        ON ao.op_set_id = aos.op_set_id
-                     JOIN [:table schema=cerebrum name=auth_role] AS ar
-                        ON aos.op_set_id = ar.op_set_id
-                     JOIN [:table schema=cerebrum name=auth_op_target] AS aot
-                        ON aot.op_target_id = ar.op_target_id
-                     """,
-                  ]
+        tables = [
+            """[:table schema=cerebrum name=auth_operation] ao
+            JOIN [:table schema=cerebrum name=auth_operation_set] AS aos
+                ON ao.op_set_id = aos.op_set_id
+            JOIN [:table schema=cerebrum name=auth_role] AS ar
+                ON aos.op_set_id = ar.op_set_id
+            JOIN [:table schema=cerebrum name=auth_op_target] AS aot
+                ON aot.op_target_id = ar.op_target_id """, ]
         select = ['ao.op_id AS op_id',
                   'aot.attr AS attr',
-                  'aot.op_target_id AS op_target_id',
-                  ]
+                  'aot.op_target_id AS op_target_id', ]
         where = ['ao.op_code=:opcode',
-                 'aot.target_type=:target_type',
-                 ]
+                 'aot.target_type=:target_type', ]
         binds = {'opcode': int(operation),
                  'target_type': target_type,
                  'target_id': target_id,
-                 'operation_attr': operation_attr,
-                 }
+                 'operation_attr': operation_attr, }
         # Add the operators auth related entities (group memberships) to the
         # check for relevant roles:
         where.append(argument_to_sql(self._get_users_auth_entities(operator),
@@ -2396,13 +2132,15 @@ class BofhdAuth(DatabaseAccessor):
                      'table_name': table_name,
                      'id_colname': id_colname}
 
-        for r in self.query(sql,
-                            {'opcode': int(operation),
-                             'target_type': self.const.auth_target_type_ou,
-                             'global_target_type':
-                                     self.const.auth_target_type_global_ou,
-                             'id': entity.entity_id,
-                             'operation_attr': operation_attr}):
+        binds = {
+            'opcode': int(operation),
+            'target_type': self.const.auth_target_type_ou,
+            'global_target_type': self.const.auth_target_type_global_ou,
+            'id': entity.entity_id,
+            'operation_attr': operation_attr,
+        }
+
+        for r in self.query(sql, binds):
             if not r['attr']:
                 return True
             else:
@@ -2540,7 +2278,8 @@ class BofhdAuth(DatabaseAccessor):
                 pass
         return None
 
-    def can_get_person_external_id(self, operator, person, query_run_any=False):
+    def can_get_person_external_id(self, operator, person,
+                                   query_run_any=False):
         if query_run_any:
             return True
         if self.is_superuser(operator.get_entity_id()):
