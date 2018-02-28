@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Commands for the bofh daemon regarding the AD module."""
+import six
 
 import cereconf
 
@@ -28,6 +29,18 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import (
     Command, EntityType, FormatSuggestion, Id, Parameter, SimpleString, Spread)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+
+from Cerebrum.utils.textnorm import UnicodeNormalizer
+
+
+def _normalize(value):
+    if value is None:
+        return None
+    if not isinstance(value, basestring):
+        raise TypeError("Invalid string input: %r" % value)
+    if isinstance(value, bytes):
+        return value.decode('ascii')
+    return UnicodeNormalizer('NFC')(value)
 
 
 class AttributeType(Parameter):
@@ -115,8 +128,14 @@ class BofhdExtension(BofhdCommandBase):
 
     def ad_attributetypes(self, operator):
         """List out all types of AD-attributes defined in Cerebrum."""
-        return [{'name': str(c), 'multi': c.multivalued, 'desc': c.description}
-                for c in self.const.fetch_constants(self.const.ADAttribute)]
+        return [
+            {
+                'name': six.text_type(c),
+                'multi': c.multivalued,
+                'desc': c.description,
+            }
+            for c in self.const.fetch_constants(self.const.ADAttribute)
+        ]
 
     #
     # ad_list_attributes
@@ -148,8 +167,10 @@ class BofhdExtension(BofhdCommandBase):
         ent = EntityADMixin(self.db)
         return [
             {
-                'attr_type': str(self.const.ADAttribute(row['attr_code'])),
-                'spread': str(self.const.Spread(row['spread_code'])),
+                'attr_type': six.text_type(
+                    self.const.ADAttribute(row['attr_code'])),
+                'spread': six.text_type(
+                    self.const.Spread(row['spread_code'])),
                 'entity': self._get_entity_name(row['entity_id']),
                 'value': row['value'],
             }
@@ -171,24 +192,27 @@ class BofhdExtension(BofhdCommandBase):
         perm_filter='is_superuser'
     )
 
-    def ad_info(self, operator, entity_type, id):
+    def ad_info(self, operator, entity_type, ident):
         """Return AD related information about a given entity."""
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Only for superusers, for now")
-        ent = self._get_entity(entity_type, id)
+        ent = self._get_entity(entity_type, ident)
         # TODO: check if operator has access to the entity?
         ret = []
         for row in ent.list_external_ids(
                 source_system=self.const.system_ad,
                 entity_id=ent.entity_id):
             ret.append({
-                'id_type': str(self.const.EntityExternalId(row['id_type'])),
+                'id_type': six.text_type(
+                    self.const.EntityExternalId(row['id_type'])),
                 'ad_id': row['external_id'],
             })
         for row in ent.list_ad_attributes(entity_id=ent.entity_id):
             ret.append({
-                'attr_type': str(self.const.ADAttribute(row['attr_code'])),
-                'spread': str(self.const.Spread(row['spread_code'])),
+                'attr_type': six.text_type(
+                    self.const.ADAttribute(row['attr_code'])),
+                'spread': six.text_type(
+                    self.const.Spread(row['spread_code'])),
                 'attr_value': row['value'],
             })
         return ret
@@ -212,25 +236,30 @@ class BofhdExtension(BofhdCommandBase):
     )  # TODO: fix BA!
 
     def ad_set_attribute(self, operator,
-                         entity_type, id, attr_type, spread, value):
+                         entity_type, ident, attr_type, spread, value):
         """Set an attribute for a given entity."""
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Only for superusers, for now")
         # TODO: check if operator has access to the entity
-        ent = self._get_entity(entity_type, id)
+        ent = self._get_entity(entity_type, ident)
         atr = _get_attr(self.const, attr_type)
         spr = _get_spread(self.const, spread)
+        value = _normalize(value)
         ent.set_ad_attribute(spread=spr, attribute=atr, value=value)
         ent.write_db()
+
+        # We keep using the constant strvals:
+        spread = six.text_type(spr)
+        attr_type = six.text_type(atr)
 
         # Check if the spread and attribute is defined for an AD-sync. If not,
         # add a warning to the output.
 
         retval = [{
-            'attribute': str(atr),
+            'attribute': attr_type,
             'entity_name': self._get_entity_name(ent.entity_id),
-            'entity_type': str(ent.entity_type),
-            'spread': str(spr),
+            'entity_type': six.text_type(ent.entity_type),
+            'spread': spread,
             'value': value,
         }]
 
@@ -277,8 +306,8 @@ class BofhdExtension(BofhdCommandBase):
         ent.write_db()
 
         return {
-            'attribute': str(atr),
+            'attribute': six.text_type(atr),
             'entity_name': self._get_entity_name(ent.entity_id),
-            'entity_type': str(ent.entity_type),
-            'spread': str(spr),
+            'entity_type': six.text_type(ent.entity_type),
+            'spread': six.text_type(spr),
         }
