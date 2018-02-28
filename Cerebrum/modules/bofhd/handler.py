@@ -313,8 +313,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         try:
             try:
                 # wrap response in a singleton tuple
-                self.logger.debug('dispatch, method=%r, params=%r',
-                                  method, params)
+                self.logger.debug('dispatch, method=%r', method)
                 response = (self._dispatch(method, params), )
             except CerebrumError as e:
                 response = xmlrpclib.Fault(1, self._format_xmlrpc_fault(e))
