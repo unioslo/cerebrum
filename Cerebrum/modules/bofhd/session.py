@@ -49,12 +49,12 @@ moved to a separate module after:
 
 """
 
+import json
 import re
 import struct
 import socket
 import types
 import time
-import pickle
 import hashlib
 import random
 import os
@@ -451,7 +451,7 @@ class BofhdSession(object):
                                 {'session_id': self.get_session_id(),
                                  'state_type': state_type,
                                  'entity_id': entity_id,
-                                 'state_data': pickle.dumps(state_data), })
+                                 'state_data': json.dumps(state_data, ensure_ascii=False), })
 
     def get_state(self, state_type=None):
         """Retrieve all state tuples for ``session_id``."""
@@ -467,7 +467,14 @@ class BofhdSession(object):
             'session_id': self.get_session_id(),
             'state_type': state_type})
         for r in ret:
-            r['state_data'] = pickle.loads(r['state_data'])
+            try:
+                r['state_data'] = json.loads(r['state_data'])
+            except:
+                r['state_data'] = None
+                self.logger.warn('Invalid state data for session id:'
+                                 ' {session_id}. Cleaning state'.format(
+                                     session_id=self.get_session_id()))
+                self.clear_state()
         return ret
 
     def clear_state(self, state_types=None):
@@ -475,7 +482,6 @@ class BofhdSession(object):
 
         Session state data mainly constists of cached passwords for the
         misc_list_passwords command.
-
         """
         sql = """DELETE FROM [:table schema=cerebrum name=bofhd_session_state]
                  WHERE session_id=:session_id"""
