@@ -260,10 +260,10 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             if type(exc) in (ServerRestartedError, SessionExpiredError,
                              UnknownError):
                 # Client *should* know this
-                err_type = u'{0.__class__}.{0.__name__}'.format(type(exc))
+                err_type = u'{0.__module__}.{0.__name__}'.format(type(exc))
             else:
                 # Use superclass
-                err_type = u'{0.__class__}.{0.__name__}'.format(CerebrumError)
+                err_type = u'{0.__module__}.{0.__name__}'.format(CerebrumError)
 
         return u'{err_type}:{err_msg}'.format(err_type=err_type,
                                               err_msg=exc_to_text(exc))
@@ -318,7 +318,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                 response = (self._dispatch(method, params), )
             except CerebrumError as e:
                 response = xmlrpclib.Fault(1, self._format_xmlrpc_fault(e))
-            except:
+            except Exception as e:
                 self.logger.warn(
                     u'Unexpected exception (client=%r, params=%r, method=%r)',
                     self.client_address, params, method,
