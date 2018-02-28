@@ -20,9 +20,12 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Event-handler for Exchange events."""
 
-import pickle
+from __future__ import unicode_literals
+
 import traceback
 from urllib2 import URLError
+
+from six import text_type
 
 from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
                                                   ServerUnavailableException)
@@ -93,12 +96,12 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             # act upon this if it is appropriate.
             self.logger.error(
                 "Can't connect to springboard! Please notify postmaster!")
-            raise ServerUnavailableException(str(e))
+            raise ServerUnavailableException(text_type(e))
         except Exception as e:
             # Get the traceback, put some tabs in front, and log it.
             tb = traceback.format_exc()
-            self.logger.error("ExchangeClient failed setup:\n%s" % str(tb))
-            raise ServerUnavailableException(str(e))
+            self.logger.error("ExchangeClient failed setup:\n%s", tb)
+            raise ServerUnavailableException(text_type(e))
 
     # We register spread:add as the event which should trigger this function
     @event_map('spread:add')
@@ -139,19 +142,19 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             # Create the mailbox
             try:
                 self.ec.new_mailbox(uname)
-                self.logger.info('eid:%d: Created new mailbox for %s' %
-                                 (event['event_id'], uname))
+                self.logger.info('eid:%d: Created new mailbox for %s',
+                                 event['event_id'], uname)
                 self.ut.log_event_receipt(event, 'exchange:acc_mbox_create')
-            except ExchangeException, e:
-                self.logger.warn('eid:%d: Failed creating mailbox for %s: %s' %
-                                 (event['event_id'], uname, e))
+            except ExchangeException as e:
+                self.logger.warn('eid:%d: Failed creating mailbox for %s: %s',
+                                 event['event_id'], uname, e)
                 raise EventExecutionException
 
             # Disable the email address policy
             try:
                 self.ec.set_mailbox_address_policy(uname,
                                                    enabled=False)
-            except ExchangeException, e:
+            except ExchangeException as e:
                 self.logger.warn(
                     'eid:%d: Failed disabling address policy for %s',
                     event['event_id'], uname)
@@ -167,37 +170,36 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                     self.ec.set_mailbox_visibility(
                         uname, visible=True)
                     self.logger.info(
-                        'eid:%d: Publishing %s in address book...' %
-                        (event['event_id'], uname))
+                        'eid:%d: Publishing %s in address book...',
+                        event['event_id'], uname)
                     # TODO: Mangle the event som it represents this correctly??
                     self.ut.log_event_receipt(event, 'exchange:per_e_reserv')
-                except ExchangeException, e:
+                except ExchangeException as e:
                     self.logger.warn(
-                        'eid:%d: Could not publish %s in address book' %
-                        (event['event_id'], uname))
+                        'eid:%d: Could not publish %s in address book',
+                        event['event_id'], uname)
                     self.ut.log_event(event, 'trait:add')
 
             # Collect'n set valid addresses for the mailbox
             addrs = self.ut.get_account_mailaddrs(event['subject_entity'])
             try:
                 self.ec.add_mailbox_addresses(uname, addrs)
-                self.logger.info('eid:%d: Added addresses for %s' %
-                                 (event['event_id'], uname))
+                self.logger.info('eid:%d: Added addresses for %s',
+                                 event['event_id'], uname)
                 # TODO: Higher resolution? Should we do this for all addresses,
                 # and mangle the event to represent this?
                 self.ut.log_event_receipt(event, 'exchange:acc_addr_add')
-            except ExchangeException, e:
+            except ExchangeException as e:
                 self.logger.warn(
-                    'eid:%d: Could not add e-mail addresses for %s' %
-                    (event['event_id'], uname))
+                    'eid:%d: Could not add e-mail addresses for %s',
+                    event['event_id'], uname)
                 # Creating new events in case this fails
                 mod_ev = event.copy()
                 for x in addrs:
                     x = x.split('@')
                     info = self.ut.get_email_domain_info(
                         email_domain_name=x[1])
-                    mod_ev['change_params'] = pickle.dumps(
-                        {'dom_id': info['id'], 'lp': x[0]})
+                    mod_ev['change_params'] = {'dom_id': info['id'], 'lp': x[0]}
                     etid, tra, sh, hq, sq = self.ut.get_email_target_info(
                         target_entity=event['subject_entity'])
                     mod_ev['subject_entity'] = etid
@@ -209,13 +211,12 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             try:
                 self.ec.set_primary_mailbox_address(uname,
                                                     pri_addr)
-                self.logger.info('eid:%d: Defined primary address for %s' %
-                                 (event['event_id'], uname))
+                self.logger.info('eid:%d: Defined primary address for %s',
+                                 event['event_id'], uname)
                 self.ut.log_event_receipt(event, 'exchange:acc_primaddr')
-
-            except ExchangeException, e:
-                self.logger.warn('eid:%d: Could not set primary address on %s'
-                                 % (event['event_id'], uname))
+            except ExchangeException as e:
+                self.logger.warn('eid:%d: Could not set primary address on %s',
+                                 event['event_id'], uname)
                 # Creating a new event in case this fails
                 ev_mod = event.copy()
                 etid, tra, sh, hq, sq = self.ut.get_email_target_info(
@@ -231,15 +232,15 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             try:
                 soft = (hq * sq) / 100
                 self.ec.set_mailbox_quota(uname, soft, hq)
-                self.logger.info('eid:%d: Set quota (%s, %s) on %s' %
-                                 (event['event_id'], soft, hq, uname))
-            except ExchangeException, e:
-                self.logger.warn('eid:%d: Could not set quota on %s: %s' %
-                                 (event['event_id'], uname, e))
+                self.logger.info('eid:%d: Set quota (%s, %s) on %s',
+                                 event['event_id'], soft, hq, uname)
+            except ExchangeException as e:
+                self.logger.warn('eid:%d: Could not set quota on %s: %s',
+                                 event['event_id'], uname, e)
                 # Log an event for setting the quota if it fails
-                mod_ev = {'dest_entity': None, 'subject_entity': et_eid}
-                mod_ev['change_params'] = pickle.dumps(
-                    {'soft': sq, 'hard': hq})
+                mod_ev = {'dest_entity': None,
+                          'subject_entity': et_eid,
+                          'change_params': {'soft': sq, 'hard': hq}}
                 self.ut.log_event(mod_ev, 'email_quota:add_quota')
 
             # Generate events for addition of the account into the groups the
@@ -249,10 +250,10 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             for gname, gid in groups:
                 faux_event = {'subject_entity': aid,
                               'dest_entity': gid,
-                              'change_params': pickle.dumps(None)}
+                              'change_params': None}
 
-                self.logger.debug1('eid:%d: Creating event: Adding %s to %s' %
-                                   (event['event_id'], uname, gname))
+                self.logger.debug1('eid:%d: Creating event: Adding %s to %s',
+                                   event['event_id'], uname, gname)
                 self.ut.log_event(faux_event, 'e_group:add')
 
             # Set forwarding address
@@ -263,13 +264,13 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             if remote_fwds:
                 try:
                     self.ec.set_forward(uname, remote_fwds[0])
-                    self.logger.info('eid:%d: Set forward for %s to %s' %
-                                     (event['event_id'], uname,
-                                      remote_fwds[0]))
-                except ExchangeException, e:
+                    self.logger.info('eid:%d: Set forward for %s to %s',
+                                     event['event_id'], uname,
+                                     remote_fwds[0])
+                except ExchangeException as e:
                     self.logger.warn(
-                        'eid:%d: Can\'t set forward for %s to %s: %s' %
-                        (event['event_id'], uname, str(remote_fwds[0]), e))
+                        'eid:%d: Can\'t set forward for %s to %s: %s',
+                        event['event_id'], uname, remote_fwds[0], e)
                     # We log an faux event, since setting the forward fails
                     # Collect email target id, and construct our payload
                     etid, tid, tt, hq, sq = self.ut.get_email_target_info(
@@ -278,27 +279,27 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                               'enable': 'T'}
                     faux_event = {'subject_entity': etid,
                                   'dest_entity': etid,
-                                  'change_params': pickle.dumps(params)}
+                                  'change_params': params}
 
                     self.logger.debug1(
-                        'eid:%d: Creating event: Set forward %s on %s' %
-                        (event['event_id'], remote_fwds[0], uname))
+                        'eid:%d: Creating event: Set forward %s on %s',
+                        event['event_id'], remote_fwds[0], uname)
                     self.ut.log_event(faux_event, 'email_forward:add_forward')
 
             if local_delivery:
                 try:
                     self.ec.set_local_delivery(uname, True)
                     self.logger.info(
-                        '%s local delivery for %s' % (
-                            'Enabled' if local_delivery else 'Disabled',
-                            uname))
-                except ExchangeException, e:
+                        '%s local delivery for %s',
+                        'Enabled' if local_delivery else 'Disabled',
+                        uname)
+                except ExchangeException as e:
                     self.logger.warn(
-                        "eid:%d: Can't %s local delivery for %s: %s" % (
-                            event['event_id'],
-                            'enable' if local_delivery else 'disable',
-                            uname,
-                            e))
+                        "eid:%d: Can't %s local delivery for %s: %s",
+                        event['event_id'],
+                        'enable' if local_delivery else 'disable',
+                        uname,
+                        e)
 
                     # We log an faux event, since setting the local delivery
                     # fails Collect email target id, and construct our payload
@@ -308,11 +309,11 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                               'enable': 'T'}
                     faux_event = {'subject_entity': etid,
                                   'dest_entity': etid,
-                                  'change_params': pickle.dumps(params)}
+                                  'change_params': params}
 
                     self.logger.debug1(
-                        'eid:%d: Creating event: Set local delivery on %s' %
-                        (event['event_id'], uname))
+                        'eid:%d: Creating event: Set local delivery on %s',
+                        event['event_id'], uname)
                     self.ut.log_event(faux_event, 'email_forward:add_forward')
 
         # If we wind up here, the spread type is notrelated to our target
@@ -402,17 +403,17 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                 # should be hidden or not, is inverse in regards to what we do
                 # above :S
                 self.ec.set_mailbox_visibility(uname, not vis)
-                self.logger.info('eid:%d: %s %s in address book..' %
-                                 (event['event_id'],
-                                  state,
-                                  uname))
+                self.logger.info('eid:%d: %s %s in address book..',
+                                 event['event_id'],
+                                 state,
+                                 uname)
                 return True
-            except ExchangeException, e:
-                self.logger.warn("eid:%d: Can't %s %s in address book: %s" %
-                                 (event['event_id'],
-                                  fail_state,
-                                  uname,
-                                  e))
+            except ExchangeException as e:
+                self.logger.warn("eid:%d: Can't %s %s in address book: %s",
+                                 event['event_id'],
+                                 fail_state,
+                                 uname,
+                                 e)
                 return False
 
         # Parameter used to decide if any calls to Exchange fails. In order to

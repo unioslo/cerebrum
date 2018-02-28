@@ -20,13 +20,16 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Event-handler for Exchange events."""
 
+from __future__ import unicode_literals
+
 import cereconf
 
 import os
-import pickle
 import traceback
 
 from urllib2 import URLError
+
+from six import text_type
 
 from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
                                                   ServerUnavailableException)
@@ -197,12 +200,12 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         return 'CB%s' % hex(os.getpid())[2:].upper()
 
     def handle_event(self, event):
-        u""" Call the appropriate handlers.
+        """ Call the appropriate handlers.
 
         :param event:
             The event to process.
         """
-        key = str(self.get_event_code(event))
+        key = text_type(self.get_event_code(event))
         self.logger.debug3('Got event key %r', key)
 
         for callback in self.event_map.get_callbacks(key):
@@ -271,12 +274,12 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                 self.ec.new_mailbox(uname, fullname,
                                     firstname, lastname, primary_addr,
                                     ou=self.config.client.mailbox_path)
-                self.logger.info('eid:%d: Created new mailbox for %s' %
-                                 (event['event_id'], uname))
+                self.logger.info('eid:%d: Created new mailbox for %s',
+                                 event['event_id'], uname)
                 self.ut.log_event_receipt(event, 'exchange:acc_mbox_create')
             except (ExchangeException, ServerUnavailableException), e:
-                self.logger.warn('eid:%d: Failed creating mailbox for %s: %s' %
-                                 (event['event_id'], uname, e))
+                self.logger.warn('eid:%d: Failed creating mailbox for %s: %s',
+                                 event['event_id'], uname, e)
                 raise EventExecutionException
 
             if not hide_from_address_book:
@@ -284,36 +287,35 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     self.ec.set_mailbox_visibility(
                         uname, visible=True)
                     self.logger.info(
-                        'eid:%d: Publishing %s in address book...' %
-                        (event['event_id'], uname))
+                        'eid:%d: Publishing %s in address book...',
+                        event['event_id'], uname)
                     self.ut.log_event_receipt(event, 'exchange:per_e_reserv')
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn(
-                        'eid:%d: Could not publish %s in address book' %
-                        (event['event_id'], uname))
+                        'eid:%d: Could not publish %s in address book',
+                        event['event_id'], uname)
                     self.ut.log_event(event, 'trait:add')
 
             # Collect'n set valid addresses for the mailbox
             addrs = self.ut.get_account_mailaddrs(event['subject_entity'])
             try:
                 self.ec.add_mailbox_addresses(uname, addrs)
-                self.logger.info('eid:%d: Added addresses for %s' %
-                                 (event['event_id'], uname))
+                self.logger.info('eid:%d: Added addresses for %s',
+                                 event['event_id'], uname)
                 # TODO: Higher resolution? Should we do this for all addresses,
                 # and mangle the event to represent this?
                 self.ut.log_event_receipt(event, 'exchange:acc_addr_add')
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn(
-                    'eid:%d: Could not add e-mail addresses for %s' %
-                    (event['event_id'], uname))
+                    'eid:%d: Could not add e-mail addresses for %s',
+                    event['event_id'], uname)
                 # Creating new events in case this fails
                 mod_ev = event.copy()
                 for x in addrs:
                     x = x.split('@')
                     info = self.ut.get_email_domain_info(
                         email_domain_name=x[1])
-                    mod_ev['change_params'] = pickle.dumps(
-                        {'dom_id': info['id'], 'lp': x[0]})
+                    mod_ev['change_params'] = {'dom_id': info['id'], 'lp': x[0]}
                     etid, tra, sh, hq, sq = self.ut.get_email_target_info(
                         target_entity=event['subject_entity'])
                     mod_ev['subject_entity'] = etid
@@ -327,15 +329,16 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             try:
                 soft = (hq * sq) / 100
                 self.ec.set_mailbox_quota(uname, soft, hq)
-                self.logger.info('eid:%d: Set quota (%s, %s) on %s' %
-                                 (event['event_id'], soft, hq, uname))
+                self.logger.info('eid:%d: Set quota (%s, %s) on %s',
+                                 event['event_id'], soft, hq, uname)
             except (ExchangeException, ServerUnavailableException), e:
-                self.logger.warn('eid:%d: Could not set quota on %s: %s' %
-                                 (event['event_id'], uname, e))
+                self.logger.warn('eid:%d: Could not set quota on %s: %s',
+                                 event['event_id'], uname, e)
                 # Log an event for setting the quota if it fails
-                mod_ev = {'dest_entity': None, 'subject_entity': et_eid}
-                mod_ev['change_params'] = pickle.dumps(
-                    {'soft': sq, 'hard': hq})
+                mod_ev = {
+                    'dest_entity': None,
+                    'subject_entity': et_eid,
+                    'change_params': {'soft': sq, 'hard': hq}}
                 self.ut.log_event(mod_ev, 'email_quota:add_quota')
 
             # Generate events for addition of the account into the groups the
@@ -345,10 +348,10 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             for gname, gid in groups:
                 faux_event = {'subject_entity': aid,
                               'dest_entity': gid,
-                              'change_params': pickle.dumps(None)}
+                              'change_params': None}
 
-                self.logger.debug1('eid:%d: Creating event: Adding %s to %s' %
-                                   (event['event_id'], uname, gname))
+                self.logger.debug1('eid:%d: Creating event: Adding %s to %s',
+                                   event['event_id'], uname, gname)
                 self.ut.log_event(faux_event, 'e_group:add')
 
             # Set forwarding address
@@ -358,13 +361,13 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             if fwds:
                 try:
                     self.ec.set_forward(uname, fwds[0])
-                    self.logger.info('eid:%d: Set forward for %s to %s' %
-                                     (event['event_id'], uname,
-                                      fwds[0]))
+                    self.logger.info('eid:%d: Set forward for %s to %s',
+                                     event['event_id'], uname,
+                                     fwds[0])
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn(
-                        'eid:%d: Can\'t set forward for %s to %s: %s' %
-                        (event['event_id'], uname, str(fwds[0]), e))
+                        'eid:%d: Can\'t set forward for %s to %s: %s',
+                        event['event_id'], uname, fwds[0], e)
                     # We log an faux event, since setting the forward fails
                     # Collect email target id, and construct our payload
                     etid, tid, tt, hq, sq = self.ut.get_email_target_info(
@@ -373,11 +376,11 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                               'enable': 'T'}
                     faux_event = {'subject_entity': etid,
                                   'dest_entity': etid,
-                                  'change_params': pickle.dumps(params)}
+                                  'change_params': params}
 
                     self.logger.debug1(
-                        'eid:%d: Creating event: Set forward %s on %s' %
-                        (event['event_id'], fwds[0], uname))
+                        'eid:%d: Creating event: Set forward %s on %s',
+                        event['event_id'], fwds[0], uname)
                     self.ut.log_event(faux_event, 'email_forward:add_forward')
 
             if local_delivery:
@@ -386,21 +389,20 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
 
                     rcpt = {'subject_entity': tid,
                             'dest_entity': None,
-                            'change_params': pickle.dumps(
-                                {'enabled': True})}
+                            'change_params': {'enabled': True}}
                     self.ut.log_event_receipt(rcpt, 'exchange:local_delivery')
 
                     self.logger.info(
-                        '%s local delivery for %s' % (
-                            'Enabled' if local_delivery else 'Disabled',
-                            uname))
+                        '%s local delivery for %s',
+                        'Enabled' if local_delivery else 'Disabled',
+                        uname)
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn(
-                        "eid:%d: Can't %s local delivery for %s: %s" % (
-                            event['event_id'],
-                            'enable' if local_delivery else 'disable',
-                            uname,
-                            e))
+                        "eid:%d: Can't %s local delivery for %s: %s",
+                        event['event_id'],
+                        'enable' if local_delivery else 'disable',
+                        uname,
+                        e)
 
                     # We log an faux event, since setting the local delivery
                     # fails Collect email target id, and construct our payload
@@ -408,14 +410,13 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                         target_entity=aid)
                     faux_event = {'subject_entity': etid,
                                   'dest_entity': None,
-                                  'change_params': pickle.dumps(
-                                      {'enabled': True})}
+                                  'change_params': {'enabled': True}}
                     self.ut.log_event(
                         faux_event, 'email_forward:local_delivery')
 
                     self.logger.debug1(
-                        'eid:%d: Creating event: Set local delivery on %s' %
-                        (event['event_id'], uname))
+                        'eid:%d: Creating event: Set local delivery on %s',
+                        event['event_id'], uname)
 
         # If we wind up here, the spread type is notrelated to our target
         # system
@@ -670,9 +671,9 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         for aid, _ in accounts:
             recpt = {'subject_entity': aid,
                      'dest_entity': None,
-                     'change_params': pickle.dumps(
+                     'change_params':
                          {'visible': (aid == primary_account_id and
-                                      not hidden_from_address_book)})}
+                                      not hidden_from_address_book)}}
             self.ut.log_event_receipt(recpt, 'exchange:per_e_reserv')
 
     @event_map('ac_type:add', 'ac_type:mod', 'ac_type:del')
@@ -731,9 +732,9 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         for aid, _ in accounts:
             rcpt = {'subject_entity': aid,
                     'dest_entity': None,
-                    'change_params': pickle.dumps(
+                    'change_params':
                         {'visible': (aid == new_primary_id and
-                                     not is_reserved)})}
+                                     not is_reserved)}}
             self.ut.log_event_receipt(rcpt, 'exchange:per_e_reserv')
 
     @event_map('email_quota:add_quota', 'email_quota:mod_quota',
@@ -815,7 +816,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         except (ExchangeException, ServerUnavailableException), e:
             self.logger.warn(
                 'eid:%d: Can\'t set forward for %s to %s: %s' %
-                (event['event_id'], uname, str(address), e))
+                (event['event_id'], uname, address, e))
             raise EventExecutionException
 
     @event_map('email_forward:local_delivery')
@@ -856,8 +857,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
 
         rcpt = {'subject_entity': tid,
                 'dest_entity': None,
-                'change_params': pickle.dumps(
-                    {'enabled': params['enabled']})}
+                'change_params': {'enabled': params['enabled']}}
         self.ut.log_event_receipt(rcpt, 'exchange:local_delivery')
 
 
@@ -1048,7 +1048,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             params = self.ut.unpickle_event_params(event)
             uname = self.ut.get_account_name(e_id)
             level = self.co.EmailSpamLevel(params['level']).get_level()
-            action = str(self.co.EmailSpamAction(params['action']))
+            action = text_type(self.co.EmailSpamAction(params['action']))
 
             try:
                 self.ec.set_spam_settings(uname=uname, level=level,
@@ -1164,7 +1164,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     self.ec.add_distgroup_addresses(gname, data['aliases'])
                     self.logger.info('eid:%d: Set addresses for %s: %s' %
                                      (event['event_id'], gname,
-                                      str(data['aliases'])))
+                                      data['aliases']))
                     # TODO: More resolution here? We want to mangle the event
                     # to show addresses?
                     self.ut.log_event_receipt(event, 'dlgroup:addaddr')
@@ -1172,7 +1172,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn(
                         'eid:%d: Can\'t set addresses %s for %s: %s' %
-                        (event['event_id'], str(data['aliases']), gname, e))
+                        (event['event_id'], data['aliases'], gname, e))
                     # TODO: Refactor this out
                     ev_mod = event.copy()
                     ev_mod['subject_entity'], tra, sh, hq, sq = \
@@ -1182,9 +1182,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                         x = x.split('@')
                         info = self.ut.get_email_domain_info(
                             email_domain_name=x[1])
-                        # TODO: UTF-8 error?
-                        ev_mod['change_params'] = pickle.dumps(
-                            {'dom_id': info['id'], 'lp': x[0]})
+                        ev_mod['change_params'] = {'dom_id': info['id'],
+                                                   'lp': x[0]}
                         self.ut.log_event(ev_mod, 'email_address:add_address')
 
                 # Set hidden
@@ -1200,8 +1199,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                         'eid:%d: Can\'t set visibility for %s: %s' %
                         (event['event_id'], gname, e))
                     ev_mod = event.copy()
-                    ev_mod['change_params'] = pickle.dumps(
-                        {'hidden': data['hidden']})
+                    ev_mod['change_params'] = {'hidden': data['hidden']}
                     self.ut.log_event(ev_mod, 'dlgroup:modhidden')
 
             # Set manager
@@ -1217,8 +1215,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     'eid:%d: Can\'t set manager of %s to %s: %s' %
                     (event['event_id'], gname, mngdby_address, e))
                 ev_mod = event.copy()
-                ev_mod['change_params'] = pickle.dumps(
-                    {'manby': mngdby_address})
+                ev_mod['change_params'] = {'manby': mngdby_address}
                 self.ut.log_event(ev_mod, 'dlgroup:modmanby')
             tmp_fail = False
             # Set displayname

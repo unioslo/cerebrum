@@ -31,6 +31,9 @@ SIGHUP (any process):
 SIGUSR1 (main process)
     List current processes, pids and their state.
 """
+
+from __future__ import unicode_literals
+
 import argparse
 
 from multiprocessing import Queue

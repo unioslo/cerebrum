@@ -26,8 +26,12 @@ This is a subclass of PowershellClient.
 This module can be used by exports or an event daemon for creating,
 deleting and updating mailboxes and distribution groups in Exchange 2013."""
 
+from __future__ import unicode_literals
+
 import re
 import string
+
+from six import string_types, text_type
 
 from urllib2 import URLError
 
@@ -77,7 +81,7 @@ class ExchangeClient(PowershellClient):
         self.logger.debug("ExchangeClient super returned")
         self.add_credentials(
             username=auth_user,
-            password=unicode(read_password(auth_user, self.host), 'utf-8'))
+            password=read_password(auth_user, self.host, encoding='utf-8'))
 
         self.ignore_stdout_pattern = re.compile('.*EOB\n', flags=re.DOTALL)
         # Patterns used to filter out passwords.
@@ -88,20 +92,18 @@ class ExchangeClient(PowershellClient):
         self.session_key = session_key if session_key else 'cereauth'
 
         # TODO: Make the following line pretty
-        self.auth_user_password = unicode(
-            read_password(auth_user, kwargs['host']), 'utf-8')
+        self.auth_user_password = read_password(auth_user, kwargs['host'],
+                                                encoding='utf-8')
         # Note that we save the user's password by domain and not the host. It
         # _could_ be the wrong way to do it. TBD: Maybe both host and domain?
         self.ad_user, self.ad_domain = self._split_domain_username(
             domain_admin)
-        self.ad_user_password = unicode(
-            read_password(self.ad_user, self.ad_domain),
-            'utf-8')
+        self.ad_user_password = read_password(self.ad_user, self.ad_domain,
+                                              encoding='utf-8')
         self.ex_user, self.ex_domain = self._split_domain_username(
             ex_domain_admin)
-        self.ex_user_password = unicode(
-            read_password(self.ex_user, self.ex_domain),
-            'utf-8')
+        self.ex_user_password = read_password(self.ex_user, self.ex_domain,
+                                              encoding='utf-8')
         # Set up the winrm / PowerShell connection
         self.logger.debug("ExchangeClient: Preparing to connect")
         self.connect()
@@ -140,7 +142,7 @@ class ExchangeClient(PowershellClient):
         # Guess the domain is not set then:
         return name, ''
 
-    _pre_execution_code_commented = u"""
+    _pre_execution_code_commented = """
         # Create credentials for the new-PSSession
         $pass = ConvertTo-SecureString -Force -AsPlainText %(ex_pasw)s;
         $cred = New-Object System.Management.Automation.PSCredential( `
@@ -324,7 +326,7 @@ class ExchangeClient(PowershellClient):
         :rtype: string
         :return: A string that could be used in powershell commands directly.
         """
-        if isinstance(data, basestring) and data == '':
+        if isinstance(data, string_types) and not data:
             return "''"
         else:
             return super(ExchangeClient, self).escape_to_string(data)
@@ -821,7 +823,7 @@ class ExchangeClient(PowershellClient):
         try:
             out = self.run(cmd)
         except PowershellException, e:
-            raise ExchangeException(str(e))
+            raise ExchangeException(text_type(e))
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         else:
@@ -1241,15 +1243,15 @@ class ExchangeClient(PowershellClient):
         out = self.run(json_wrapped)
         try:
             ret = self.get_output_json(out, dict())
-        except ValueError, e:
-            error = '%s\n%s' % (str(e), str(out))
-            raise ExchangeException('No mailboxes exists?: %s' % error)
+        except ValueError as e:
+            raise ExchangeException('No mailboxes exists?: {!s}\n{!s}'
+                                    .format(e, out))
 
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         elif not ret:
             raise ExchangeException(
-                'Bad output while fetching mailboxes: %s' % str(out))
+                'Bad output while fetching mailboxes: %s' % out)
         else:
             return ret
 
@@ -1274,13 +1276,13 @@ class ExchangeClient(PowershellClient):
         try:
             ret = self.get_output_json(out, dict())
         except ValueError, e:
-            raise ExchangeException('No users exist?: %s' % str(e))
+            raise ExchangeException('No users exist?: %s' % e)
 
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         elif not ret:
             raise ExchangeException(
-                'Bad output while fetching users: %s' % str(out))
+                'Bad output while fetching users: %s' % out)
         else:
             return ret
 
@@ -1314,13 +1316,13 @@ class ExchangeClient(PowershellClient):
         try:
             ret = self.get_output_json(out, dict())
         except ValueError, e:
-            raise ExchangeException('No groups exists?: %s' % str(e))
+            raise ExchangeException('No groups exists?: %s' % e)
 
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         elif not ret:
             raise ExchangeException(
-                'Bad output while fetching groups: %s' % str(out))
+                'Bad output while fetching groups: %s' % out)
         else:
             return ret
 
@@ -1347,13 +1349,13 @@ class ExchangeClient(PowershellClient):
         try:
             ret = self.get_output_json(out, dict())
         except ValueError, e:
-            raise ExchangeException('No groups exists?: %s' % str(e))
+            raise ExchangeException('No groups exists?: %s' % e)
 
         if 'stderr' in out:
             raise ExchangeException(out['stderr'])
         elif not ret:
             raise ExchangeException(
-                'Bad output while fetching NOTES: %s' % str(out))
+                'Bad output while fetching NOTES: %s' % out)
         else:
             return ret
 
@@ -1380,6 +1382,6 @@ class ExchangeClient(PowershellClient):
         elif ret is None:
             raise ExchangeException(
                 'Bad output while fetching members from %s: %s' %
-                (gname, str(out)))
+                (gname, out))
         else:
             return ret

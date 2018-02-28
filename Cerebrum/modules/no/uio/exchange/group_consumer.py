@@ -20,17 +20,20 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Event-handler for Exchange events."""
 
+from __future__ import unicode_literals
+
 import os
 import traceback
 
 from urllib2 import URLError
+
+from six import text_type
 
 from Cerebrum.modules.exchange.Exceptions import (ExchangeException,
                                                   ServerUnavailableException,
                                                   AlreadyPerformedException)
 from Cerebrum.modules.event.errors import (EntityTypeError,
                                            EventExecutionException,
-                                           EventHandlerNotImplemented,
                                            UnrelatedEvent)
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 from Cerebrum.Utils import Factory
@@ -179,17 +182,17 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
             # act upon this if it is appropriate.
             self.logger.error(
                 "Can't connect to springboard! Please notify postmaster!")
-            raise ServerUnavailableException(str(e))
-        except Exception, e:
+            raise ServerUnavailableException(text_type(e))
+        except Exception as e:
             # Get the traceback, put some tabs in front, and log it.
             tb = traceback.format_exc()
-            self.logger.error("ExchangeClient failed setup:\n%s" % str(tb))
-            raise ServerUnavailableException(str(e))
+            self.logger.error("ExchangeClient failed setup:\n%s" % tb)
+            raise ServerUnavailableException(text_type(e))
 
     def _gen_key(self):
         """Return a unique key for the current process
 
-        :rtype: str
+        :rtype: text_type
 
         """
         return 'CB%s' % hex(os.getpid())[2:].upper()
@@ -200,15 +203,15 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
         :param event:
             The event to process.
         """
-        key = str(self.get_event_code(event))
-        self.logger.debug3(u'Got event key %r', key)
+        key = text_type(self.get_event_code(event))
+        self.logger.debug3('Got event key %r', key)
 
         for callback in self.event_map.get_callbacks(key):
             try:
                 callback(self, event)
             except (EntityTypeError, UnrelatedEvent) as e:
                 self.logger.debug3(
-                    u'Callback %r failed for event %r (%r): %s',
+                    'Callback %r failed for event %r (%r): %s',
                     callback, key, event, e)
 
     @event_map('exchange:group_add')
