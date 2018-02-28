@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2015-2016 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -46,16 +46,16 @@ TARGET_SYSTEM = 'Exchange'
 
 class Manager(utils.Manager):
     pass
+
+
 # Inject Queue implementations:
 Manager.register('queue', Queue)
 Manager.register('log_queue', Queue)
 
 
-def serve(logger, config, num_workers, enable_listener, enable_collectors):
-    logger.info('Starting {!r} event utils'.format(TARGET_SYSTEM))
-
+def serve(config, num_workers, enable_listener, enable_collectors):
     channels = [TARGET_SYSTEM, ]
-    exchanged = utils.ProcessHandler(logger=logger, manager=Manager)
+    exchanged = utils.ProcessHandler(manager=Manager)
 
     event_queue = exchanged.mgr.queue()
     queues = []
@@ -158,8 +158,8 @@ def main(args=None):
     update_mappings(parser.prog, config)
 
     # Run event processes
+    logger.info('Starting %r event utils', TARGET_SYSTEM)
     serve(
-        logger,
         config,
         int(args.num_workers),
         args.listen_db,

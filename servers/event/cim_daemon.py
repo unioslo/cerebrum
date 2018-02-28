@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -56,7 +56,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
     logger.info('Starting {!r} event utils'.format(TARGET_SYSTEM))
 
     channels = [TARGET_SYSTEM, ]
-    cimd = utils.ProcessHandler(logger=logger, manager=Manager)
+    cimd = utils.ProcessHandler(manager=Manager)
 
     event_queue = cimd.mgr.queue()
 
