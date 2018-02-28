@@ -343,18 +343,26 @@ class Help(object):
         self.command_help = _command_help
         self.arg_help = _arg_help
         self.logger = logger or PrintLog()
-        for c in cmd_instances:
-            gh, ch, ah = getattr(c, "get_help_strings", lambda: ({}, {}, {}))()
-            for k in gh.keys():
-                if k in self.group_help:
-                    self.logger.debug("Duplicate group help %r" % k)
-                    # Don't overwrite existing group help
-                    continue
-                self.group_help[k] = gh[k]
-            for k in ch.keys():
-                self.command_help.setdefault(k, {}).update(ch[k])
-            for k in ah.keys():
-                self.arg_help[k] = ah[k]
+        for cls in cmd_instances:
+            self.update_from_extension(cls)
+
+    def update_from_extension(self, extension_cls):
+        u""" Update help data from a BofhdExtension. """
+        # TODO: Assert exension_cls type?
+        (group_help,
+         cmd_help,
+         arg_help) = getattr(extension_cls, "get_help_strings",
+                             lambda *args: ({}, {}, {}))()
+        for grp_name in group_help:
+            if grp_name in self.group_help:
+                # Don't overwrite existing group help
+                continue
+            self.group_help[grp_name] = group_help[grp_name]
+        for cmd_name in cmd_help:
+            self.command_help.setdefault(
+                cmd_name, {}).update(cmd_help[cmd_name])
+        for arg_ref in arg_help:
+            self.arg_help[arg_ref] = arg_help[arg_ref]
 
     def _map_all_commands(self, all_commands):
         """TODO: Better doctsting.

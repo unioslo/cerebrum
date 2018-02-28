@@ -1752,9 +1752,9 @@ class UiOUndervisning(access_FS.Undervisning):
         return result
 
     def list_studenter_alle_undakt(self):
-        """Hent alle studenter på alle undakt.
+        """Hent alle studenter pÃ¥ alle undakt.
 
-        NB! Det kan være mange hundretusen rader i FSPROD i
+        NB! Det kan vÃ¦re mange hundretusen rader i FSPROD i
         student_pa_undervisningsparti. Det koster da en del minne.
 
         Change from parent: Use year of previous semester

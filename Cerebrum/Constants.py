@@ -1331,9 +1331,13 @@ class ConstantsBase(DatabaseAccessor):
                     human_repr = human_repr.decode('UTF-8')
                 except UnicodeDecodeError:
                     human_repr = human_repr.decode('latin-1')
-            # ok, that failed, so assume this is a constant name ...
-            if hasattr(self, human_repr):
-                obj = getattr(self, human_repr)
+            # ok, that failed, so assume this is a constant attribute name ...
+            try:
+                if hasattr(self, human_repr):
+                    obj = getattr(self, human_repr)
+            except UnicodeError:
+                # PY2 does not like non-ascii attribute names
+                pass
             # ok, that failed too, we can only compare stringified version of
             # all proper constants with the parameter...
             if obj is None:
