@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,21 +20,21 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import sys
-import cerebrum_path
+import argparse
+
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.Email import EmailTarget
 """
-This scripts generates an HTML formatted report of accounts owned by an entity_person,
-which lacks the specified mail-spread, but still has an email_target of type 'account'.
+Generates an HTML formatted report of accounts owned by a person, which lacks
+the specified mail spread, but still has an email_target of type 'account'.
 """
 
+logger = Factory.get_logger('console')
 
-def group_names_to_gids(logger, gr, group_names=None):
+
+def group_names_to_gids(gr, group_names=None):
     """Fetch a list of group-ids from a list of group names.
-
-    @param logger:       Logger to use.
-    @type  logger:       CerebrumLogger
 
     @param gr:           Group database connection
     @type  gr:           Cerebrum.Group.Group
@@ -46,26 +46,21 @@ def group_names_to_gids(logger, gr, group_names=None):
     @return List containing the group id of the groups that were found.
     """
     group_ids = []
-
-    if group_names is not None:
-        for gname in group_names:
-            group = gr.search(name=gname)
-            if not group:
-                logger.warn('Can\'t find group with name \'%s\'.' % gname)
-            if len(group) > 1:
-                logger.warn('Ambivalent name, found multiple groups matching \
-                             \'%s\'.' % gname) # Wildcard used
-            else:
-                group_ids.append(group[0]['group_id'])
-
+    if not group_names:
+        return group_ids
+    for gname in group_names:
+        gr.clear()
+        try:
+            gr.find_by_name(gname)
+        except Errors.NotFoundError:
+            logger.warn('No group named %s', gname)
+            continue
+        group_ids.append(gr.entity_id)
     return group_ids
 
 
-def get_accs_with_missing_mail_spread(logger, spread_name, expired, exclude):
+def get_accs_with_missing_mail_spread(spread_name, expired, exclude):
     """Fetch a list of all accounts with a entity_person owner and IMAP-spread.
-
-    @param logger:  Logger to use.
-    @type  logger:  CerebrumLogger
 
     @param spread_name: Name of spread to filter user search by.
     @type  spread_name: String
@@ -96,7 +91,7 @@ def get_accs_with_missing_mail_spread(logger, spread_name, expired, exclude):
 
     users_wo_mail_spread = []   # List to contain results
 
-    group_ids = group_names_to_gids(logger, gr, exclude)
+    group_ids = group_names_to_gids(gr, exclude)
 
     # Fetch account list
     if expired:
@@ -107,12 +102,7 @@ def get_accs_with_missing_mail_spread(logger, spread_name, expired, exclude):
 
     for account in accounts:
         ac.clear()
-        try:
-            ac.find(account['account_id'])
-        except Errors.NotFoundError, e:
-            logger.error('Can\'t find account with id \'%d\'' %
-                         account['account_id'])
-            continue
+        ac.find(account['account_id'])
 
         # Ignore if account is deleted or reserved
         if ac.is_deleted() or ac.is_reserved():
@@ -126,17 +116,12 @@ def get_accs_with_missing_mail_spread(logger, spread_name, expired, exclude):
         gr.clear()
         is_member = False
         for group_id in group_ids:
-            try:
-                gr.find(group_id)
-                if gr.has_member(ac.entity_id):
-                    is_member = True
-                    logger.debug('Ignoring %(account)s, member of %(group)s' %
-                                 {"account":ac.account_name,
-                                  "group":gr.group_name})
-                    break
-            except Errors.NotFoundError, e:
-                logger.error('Can\'t find group with id %d' % group_id)
-                continue
+            gr.find(group_id)
+            if gr.has_member(ac.entity_id):
+                is_member = True
+                logger.debug('Ignoring %s, member of %s',
+                             ac.account_name, gr.group_name)
+                break
 
         if is_member:
             continue
@@ -146,8 +131,8 @@ def get_accs_with_missing_mail_spread(logger, spread_name, expired, exclude):
         try:
             et.find_by_target_entity(ac.entity_id)
         except Errors.NotFoundError:
-            logger.error('No email targets for account with id %d' %
-                         account['account_id'])
+            logger.info('No email targets for account with id %d',
+                        account['account_id'])
             continue
 
         if et.email_target_type == co.email_target_account:
@@ -174,12 +159,8 @@ def gen_html_report(output, title, account_names):
 
     output.write('</ul>\n</body>\n</html>\n')
 
-def main():
-    try:
-        import argparse
-    except ImportError:
-        import Cerebrum.extlib.argparse as argparse
 
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-s', '--spread',
                         dest='spread',
@@ -195,13 +176,7 @@ def main():
     parser.add_argument('-i', '--include-expired',
                         action='store_true',
                         help='Include expired accounts.')
-    parser.add_argument('-l', '--logger-name',
-                        dest='logname',
-                        default='cronjob',
-                        help='Specify logger (default: cronjob).')
     args = parser.parse_args()
-
-    logger = Factory.get_logger(args.logname)
 
     if args.output_file is not None:
         try:
@@ -218,8 +193,7 @@ def main():
 
     logger.info(('Reporting accounts with email_target of type "account", '
                 'without spread: %s ' % args.spread))
-    accounts = get_accs_with_missing_mail_spread(logger,
-                                                 args.spread,
+    accounts = get_accs_with_missing_mail_spread(args.spread,
                                                  args.include_expired,
                                                  excluded_groups)
     title = ('Accounts with email_target of type "account", '
@@ -230,6 +204,7 @@ def main():
 
     if args.output_file is not None:
         output.close()
+
 
 if __name__ == '__main__':
     main()
