@@ -18,9 +18,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ HiOF bohfd email module. """
-
 import imaplib
 import socket
+
+from six import text_type
+
 import cereconf
 
 from Cerebrum import Utils
@@ -148,7 +150,7 @@ class BofhdExtension(bofhd_email.BofhdEmailCommands):
                 except (TimeoutException, socket.error):
                     used = 'DOWN'
                 except ConnectException as e:
-                    used = str(e)
+                    used = text_type(e)
                 info.append({
                     'quota_hard': eq.email_quota_hard,
                     'quota_soft': eq.email_quota_soft,
