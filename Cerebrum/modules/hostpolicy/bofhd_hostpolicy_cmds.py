@@ -18,6 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite. 330, Boston, MA 02111-1307, USA.
 """ host policy bofhd commands. """
+from six import text_type
+
 import cereconf
 
 from Cerebrum import Errors
@@ -171,7 +173,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         try:
             dns_owner.find(owner_id)
         except Errors.NotFoundError:
-            raise CerebrumError('Unknown host: %s' % host_id)
+            raise CerebrumError('Unknown host: %r' % host_id)
         return dns_owner
 
     def _check_if_unused(self, comp):
@@ -242,10 +244,10 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
                 type = default_filter
                 pattern = rule
             else:
-                raise CerebrumError('Filter type not specified for: %s' % rule)
+                raise CerebrumError('Filter type not specified for: %r' % rule)
             type, pattern = type.strip(), pattern.strip()
             if type not in filters:
-                raise CerebrumError("Unknown filter type: %s" % type)
+                raise CerebrumError("Unknown filter type: %r" % type)
 
             if filters[type] is None:
                 patterns[type] = pattern
@@ -297,7 +299,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
             elif len(tmp) == 1:
                 date_start = self._parse_date(date)
             else:
-                raise CerebrumError("Incorrect date specification: %s." % date)
+                raise CerebrumError("Incorrect date specification: %r" % date)
         return (date_start, date_end)
 
     # TODO: we miss functionality for setting mutex relationships
@@ -324,10 +326,10 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         # validate data
         tmp = atom.illegal_attr(description)
         if tmp:
-            raise CerebrumError('Illegal description: %s' % tmp)
+            raise CerebrumError('Illegal description: %r' % tmp)
         tmp = atom.illegal_attr(foundation)
         if tmp:
-            raise CerebrumError('Illegal foundation: %s' % tmp)
+            raise CerebrumError('Illegal foundation: %r' % tmp)
         foundation_date = self._parse_date(foundation_date)
 
         # check that name isn't already in use
@@ -336,7 +338,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         except CerebrumError:
             pass
         else:
-            raise CerebrumError('A policy already exists with name: %s' % name)
+            raise CerebrumError('A policy already exists with name: %r' % name)
         atom.populate(name, description, foundation, foundation_date)
         atom.write_db()
         return "New atom %s created" % atom.component_name
@@ -386,10 +388,10 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         # validate data
         tmp = role.illegal_attr(description)
         if tmp:
-            raise CerebrumError('Illegal description: %s' % tmp)
+            raise CerebrumError('Illegal description: %r' % tmp)
         tmp = role.illegal_attr(foundation)
         if tmp:
-            raise CerebrumError('Illegal foundation: %s' % tmp)
+            raise CerebrumError('Illegal foundation: %r' % tmp)
         foundation_date = self._parse_date(foundation_date)
 
         # check that name isn't already in use
@@ -398,7 +400,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         except CerebrumError:
             pass
         else:
-            raise CerebrumError('A policy already exists with name: %s' % name)
+            raise CerebrumError('A policy already exists with name: %r' % name)
         role.populate(name, description, foundation, foundation_date)
         role.write_db()
         return "New role %s created" % role.component_name
@@ -448,7 +450,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         except CerebrumError:
             pass
         else:
-            raise CerebrumError('New name %s is in use' % name)
+            raise CerebrumError('New name %r is in use' % name)
         old_name = policy.component_name
         policy.component_name = name
         policy.write_db()
@@ -549,7 +551,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
                                          row['source_name']))
 
             # if we got here, we weren't able to explain what is wrong
-            self.logger.warn("Unhandled bad relationship: %s" % e)
+            self.logger.warn("Unhandled bad relationship: %r" % e)
             raise CerebrumError('The membership was not allowed due to'
                                 ' constraints')
         role.write_db()
@@ -1009,7 +1011,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
         comp = self._get_component(policy_id)
         ret = [{
             'name': comp.component_name,
-            'type': str(self.const.EntityType(comp.entity_type)),
+            'type': text_type(self.const.EntityType(comp.entity_type)),
             'create_date': comp.created_at,
             'desc': comp.description,
             'foundation': comp.foundation,
