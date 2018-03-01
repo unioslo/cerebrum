@@ -8,6 +8,7 @@ organizational units should be active.
 import argparse
 import itertools
 import datetime
+import six
 
 import cereconf
 
@@ -54,6 +55,7 @@ ou = Factory.get("OU")(db)
 ou_mismatch_warnings = {'sap': [], 'ephorte': []}
 
 
+@six.python_2_compatible
 class SimpleRole(object):
     """ Ephorte role. """
 
@@ -394,9 +396,9 @@ class PopulateEphorte(object):
                             'T')
                         logger.info(
                             "Added standard role for %d, '%s, %d, %s, %s'",
-                            person_id, str(co.ephorte_role_sb), er.adm_enhet,
-                            str(co.EphorteArkivdel(er.arkivdel)),
-                            str(co.EphorteJournalenhet(er.journalenhet)))
+                            person_id, co.ephorte_role_sb, er.adm_enhet,
+                            co.EphorteArkivdel(er.arkivdel),
+                            co.EphorteJournalenhet(er.journalenhet))
                         break
         logger.info("Done populating roles")
 

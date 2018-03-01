@@ -18,11 +18,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+
+from __future__ import unicode_literals
+
 """Client for connecting and consuming Ephorte-webservices."""
 import types
 from socket import timeout as TimeoutError
 from functools import wraps
 import urllib2
+from six import string_types, text_type, python_2_unicode_compatible
 from Cerebrum import https
 import suds
 from xml.sax import SAXParseException
@@ -30,16 +34,15 @@ import ssl
 import sys
 
 
+@python_2_unicode_compatible
 class EphorteWSError(Exception):
     """Exception class for Ephorte WebService errors."""
     def __str__(self):
-        try:
-            return super(EphorteWSError, self).__str__()
-        except UnicodeEncodeError:
-            return unicode(self.args[0]).encode('ASCII', 'replace')
-
-    def __unicode__(self):
-        return unicode(self.args[0])
+        if len(self.args) == 1:
+            return text_type(self.args[0])
+        if len(self.args) == 0:
+            return ''
+        return text_type(self.args)
 
 
 class HTTPSClientCertTransport(suds.transport.http.HttpTransport):
@@ -121,12 +124,12 @@ class SudsClient(object):
         try:
             self.client = suds.client.Client(wsdl, timeout=timeout,
                                              cache=None, transport=transport)
-        except urllib2.URLError, e:
-            raise EphorteWSError(str(e))
+        except urllib2.URLError as e:
+            raise EphorteWSError(text_type(e))
         except TimeoutError:
             raise EphorteWSError('Timed out connecting to %s' % wsdl)
-        except ssl.SSLError, e:
-            raise EphorteWSError('Error in TLS communication: %s' % str(e))
+        except ssl.SSLError as e:
+            raise EphorteWSError('Error in TLS communication: %s' % e)
         # TODO: Moar error handling?
 
     # TODO: Do something smart with the call stack, so this don't show up in
@@ -146,9 +149,9 @@ class SudsClient(object):
                 raise EphorteWSError(
                     'Timeout while calling %s with args %s and kwargs %s' %
                     (name, args, kwargs))
-            except SAXParseException, e:
+            except SAXParseException as e:
                 raise EphorteWSError(
-                    'Malformed reply from server: %s' % str(e))
+                    'Malformed reply from server: %s' % e)
             if r.HasError:
                 raise EphorteWSError(r.ErrorMessage)
             return r
@@ -207,7 +210,7 @@ class Config(object):
                 # TODO: This is a bit nasty. Represent this another way?
                 if c == 'None':
                     c = None
-                elif isinstance(c, basestring) and key == 'timeout':
+                elif isinstance(c, string_types) and key == 'timeout':
                     c = self._config.getint(self._section, key)
 
                 return c
@@ -250,7 +253,7 @@ class Cerebrum2EphorteClientMock(object):
             self.client = Cerebrum2EphorteClient(*args, **kwargs)
             for name in ro_mocks:
                 setattr(self, name, getattr(self.client, name))
-        except:
+        except Exception:
             def funnyfunc(self, name, argnames, *args, **kw):
                 pass
             import functools
@@ -339,7 +342,9 @@ class Cerebrum2EphorteClient(object):
         # Handle lists
         if isinstance(resp, types.ListType):
             res = [Cerebrum2EphorteClient._convert_result(x) for x in resp]
-        elif isinstance(resp, basestring):
+        elif isinstance(resp, bytes):
+            return resp.decode('ISO-8859-1')
+        elif isinstance(resp, text_type):
             return resp
         # Handle other types, like dicts and strings
         else:
@@ -348,7 +353,7 @@ class Cerebrum2EphorteClient(object):
                         set(['ErrorMessage', 'HasError'])):
                 # Pick conversion function
                 if type(resp[key]) is suds.sax.text.Text:
-                    converter = unicode
+                    converter = text_type
                 # Dicts are really instances, in suds, so we have to recurse in
                 # order to convert them.
                 elif isinstance(resp[key], types.InstanceType):
@@ -358,9 +363,12 @@ class Cerebrum2EphorteClient(object):
                     converter = Cerebrum2EphorteClient._convert_result
                 else:
                     # Pass-trough conversion function
-                    converter = lambda x: x
+                    def converter(x):
+                        return x
                 # TODO: Is it needed to implement more type converting?
                 # Actually convert
+                if type(key) is bytes:
+                    key = text_type(key, 'ISO-8859-1')
                 res[key] = converter(resp[key])
         return res
 
