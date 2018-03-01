@@ -20,7 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import sys
-import cerebrum_path
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.Email import EmailTarget
@@ -46,18 +45,16 @@ def group_names_to_gids(logger, gr, group_names=None):
     @return List containing the group id of the groups that were found.
     """
     group_ids = []
-
-    if group_names is not None:
-        for gname in group_names:
-            group = gr.search(name=gname)
-            if not group:
-                logger.warn('Can\'t find group with name \'%s\'.' % gname)
-            if len(group) > 1:
-                logger.warn('Ambivalent name, found multiple groups matching \
-                             \'%s\'.' % gname) # Wildcard used
-            else:
-                group_ids.append(group[0]['group_id'])
-
+    if not group_names:
+        return group_ids
+    for gname in group_names:
+        gr.clear()
+        try:
+            gr.find_by_name(gname)
+        except Errors.NotFoundError:
+            logger.warn('No group named %s', gname)
+            continue
+        group_ids.append(gr.entity_id)
     return group_ids
 
 
@@ -107,12 +104,7 @@ def get_accs_with_missing_mail_spread(logger, spread_name, expired, exclude):
 
     for account in accounts:
         ac.clear()
-        try:
-            ac.find(account['account_id'])
-        except Errors.NotFoundError, e:
-            logger.error('Can\'t find account with id \'%d\'' %
-                         account['account_id'])
-            continue
+        ac.find(account['account_id'])
 
         # Ignore if account is deleted or reserved
         if ac.is_deleted() or ac.is_reserved():
@@ -126,17 +118,12 @@ def get_accs_with_missing_mail_spread(logger, spread_name, expired, exclude):
         gr.clear()
         is_member = False
         for group_id in group_ids:
-            try:
-                gr.find(group_id)
-                if gr.has_member(ac.entity_id):
-                    is_member = True
-                    logger.debug('Ignoring %(account)s, member of %(group)s' %
-                                 {"account":ac.account_name,
-                                  "group":gr.group_name})
-                    break
-            except Errors.NotFoundError, e:
-                logger.error('Can\'t find group with id %d' % group_id)
-                continue
+            gr.find(group_id)
+            if gr.has_member(ac.entity_id):
+                is_member = True
+                logger.debug('Ignoring %s, member of %s',
+                             ac.account_name, gr.group_name)
+                break
 
         if is_member:
             continue
@@ -146,7 +133,7 @@ def get_accs_with_missing_mail_spread(logger, spread_name, expired, exclude):
         try:
             et.find_by_target_entity(ac.entity_id)
         except Errors.NotFoundError:
-            logger.error('No email targets for account with id %d' %
+            logger.debug('No email targets for account with id %d',
                          account['account_id'])
             continue
 
@@ -173,6 +160,7 @@ def gen_html_report(output, title, account_names):
         output.write('<li>%s</li>\n' % name)
 
     output.write('</ul>\n</body>\n</html>\n')
+
 
 def main():
     try:
@@ -230,6 +218,7 @@ def main():
 
     if args.output_file is not None:
         output.close()
+
 
 if __name__ == '__main__':
     main()
