@@ -458,7 +458,7 @@ class CerebrumUtils(object):
         :param event: The db row returned by Change- or EventLog.
 
         :rtype: dict or None
-        :return: The change params
+        :return: The change params."""
         params = event['change_params']
         if isinstance(params, text_type):
             try:
