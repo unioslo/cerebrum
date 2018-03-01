@@ -19,26 +19,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import pickle
-
 import Cerebrum.ChangeLog
+from Cerebrum.modules.ChangeLog import _params_to_db
 
-__version__ = '1.0'
-
-
-def _pickle_change_params(encoding, cp):
-    """Utility function for converting unicode objects in pickled data."""
-    def encode(value):
-        if isinstance(value, unicode):
-            return value.encode(encoding)
-        else:
-            return value
-
-    if isinstance(cp, dict):
-        return pickle.dumps(
-            dict(map(lambda (k, v): (k, encode(v)), cp.items())))
-    else:
-        return pickle.dumps(cp)
+__version__ = '1.1'
 
 
 class EventLog(Cerebrum.ChangeLog.ChangeLog):
@@ -84,11 +68,12 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         if skip_event:
             return
 
-        self.events.append({'change_type_id': change_type_id,
-                            'subject_entity': subject_entity,
-                            'destination_entity': destination_entity,
-                            'change_params': _pickle_change_params(
-                                self.encoding, change_params)})
+        self.events.append({
+            'change_type_id': change_type_id,
+            'subject_entity': subject_entity,
+            'destination_entity': destination_entity,
+            'change_params': _params_to_db(change_params)
+        })
 
     def clear_log(self):
         """ Remove events in queue for writing. """

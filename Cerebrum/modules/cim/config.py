@@ -19,6 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module defines all necessary config for the CIM integration. """
+from __future__ import unicode_literals
 
 from Cerebrum.config.configuration import (ConfigDescriptor,
                                            Configuration,
@@ -34,92 +35,92 @@ from Cerebrum.config.settings import (Boolean,
 
 
 class CIMClientConfig(Configuration):
-    u"""Configuration for the CIM WS client."""
+    """Configuration for the CIM WS client."""
     api_url = ConfigDescriptor(
         String,
-        default=u"https://localhost/test/_webservices/system/rest/person/1.0/",
-        doc=u"URL to the JSON API. Will be suffixed with endpoints.")
+        default="https://localhost/test/_webservices/system/rest/person/1.0/",
+        doc="URL to the JSON API. Will be suffixed with endpoints.")
 
     commit = ConfigDescriptor(
         Boolean,
         default=True,
-        doc=u"Should requests sent to the web service be committed?")
+        doc="Should requests sent to the web service be committed?")
 
     auth_user = ConfigDescriptor(
         String,
-        default=u"webservice",
-        doc=u"Username to use when connecting to the WS.")
+        default="webservice",
+        doc="Username to use when connecting to the WS.")
 
     auth_system = ConfigDescriptor(
         String,
         default=None,
-        doc=u"The system name used for the password file, for example 'test'.")
+        doc="The system name used for the password file, for example 'test'.")
 
     auth_host = ConfigDescriptor(
         String,
-        default=u"webservice",
-        doc=u"The hostname used for the password file.")
+        default="webservice",
+        doc="The hostname used for the password file.")
 
 
 class CIMPhoneMappingConfig(Configuration):
-    u"""Configuration for the CIM data source phone mappings."""
+    """Configuration for the CIM data source phone mappings."""
     job_mobile = ConfigDescriptor(
         String,
-        default=u"MOBILE",
-        doc=u'Contact info constant for job mobile')
+        default="MOBILE",
+        doc='Contact info constant for job mobile')
 
     job_phone = ConfigDescriptor(
         String,
-        default=u"PHONE",
-        doc=u'Contact info constant for job phone')
+        default="PHONE",
+        doc='Contact info constant for job phone')
 
     private_mobile = ConfigDescriptor(
         String,
-        default=u"PRIVATEMOBILE",
-        doc=u'Contact info constant for private mobile')
+        default="PRIVATEMOBILE",
+        doc='Contact info constant for private mobile')
 
     private_phone = ConfigDescriptor(
         String,
-        default=u"PRIVPHONE",
-        doc=u'Contact info constant for private phone')
+        default="PRIVPHONE",
+        doc='Contact info constant for private phone')
 
 
 class CIMDataSourceConfig(Configuration):
-    u"""Configuration for the CIM data source."""
+    """Configuration for the CIM data source."""
     datasource_class = ConfigDescriptor(
         String,
-        default=u'Cerebrum.modules.cim.datasource/CIMDataSource',
-        doc=u'Data source class')
+        default='Cerebrum.modules.cim.datasource/CIMDataSource',
+        doc='Data source class')
 
     spread = ConfigDescriptor(
         String,
-        default=u"CIM_person",
-        doc=u'Person must have this spread to be exported to CIM.')
+        default="CIM_person",
+        doc='Person must have this spread to be exported to CIM.')
 
     authoritative_system = ConfigDescriptor(
         String,
-        default=u"SAP",
-        doc=u'Authoritative system to fetch contact information from.')
+        default="SAP",
+        doc='Authoritative system to fetch contact information from.')
 
     ou_perspective = ConfigDescriptor(
         String,
-        default=u"SAP",
-        doc=u'Perspective to use when fetching OU structure.')
+        default="SAP",
+        doc='Perspective to use when fetching OU structure.')
 
     ou_exclude_root_from_structure = ConfigDescriptor(
         Boolean,
         default=False,
-        doc=u'Exclude the root node from the OU tree')
+        doc='Exclude the root node from the OU tree')
 
     phone_country_default = ConfigDescriptor(
         String,
-        default=u"NO",
-        doc=u'Assume this phone region when otherwise unknown.')
+        default="NO",
+        doc='Assume this phone region when otherwise unknown.')
 
     phone_authoritative_system = ConfigDescriptor(
         String,
-        default=u"SAP",
-        doc=u'Authoritative system to fetch phone numbers from.')
+        default="SAP",
+        doc='Authoritative system to fetch phone numbers from.')
 
     phone_mappings = ConfigDescriptor(
         Namespace,
@@ -141,40 +142,40 @@ class CIMDataSourceConfig(Configuration):
                  'subdep9',
                  'subdep10',
                  ],
-        doc=(u'Hierarchy of field names expected by the CIM web service.'))
+        doc=('Hierarchy of field names expected by the CIM web service.'))
 
 
 class CIMEventCollectorConfig(Configuration):
-    u"""Configuration for the CIM event collector."""
+    """Configuration for the CIM event collector."""
     run_interval = ConfigDescriptor(
         Integer,
         minval=1,
         default=180,
-        doc=u'How often (in seconds) we run notification')
+        doc='How often (in seconds) we run notification')
 
     failed_limit = ConfigDescriptor(
         Integer,
         minval=1,
         default=10,
-        doc=u'How many times we retry an event')
+        doc='How many times we retry an event')
 
     failed_delay = ConfigDescriptor(
         Integer,
         minval=1,
-        default=20*60,
-        doc=(u'How long (seconds) should we wait before processesing the '
+        default=20 * 60,
+        doc=('How long (seconds) should we wait before processesing the '
              'event again'))
 
     unpropagated_delay = ConfigDescriptor(
         Integer,
         minval=1,
-        default=90*60,
-        doc=(u'How old (seconds) should an event not registered as '
+        default=90 * 60,
+        doc=('How old (seconds) should an event not registered as '
              'processesed be before we enqueue it'))
 
 
 class CIMConfig(Configuration):
-    u"""Configuration for the CIM integration."""
+    """Configuration for the CIM integration."""
     client = ConfigDescriptor(
         Namespace,
         config=CIMClientConfig)

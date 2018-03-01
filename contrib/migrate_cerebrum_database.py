@@ -49,6 +49,7 @@ targets = {
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4',
               'email_1_5',),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
+    'eventlog': ('eventlog_1_1', ),
     'stedkode': ('stedkode_1_1', ),
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
     'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2', 'dns_1_3', 'dns_1_4'),
@@ -66,7 +67,7 @@ makedb_path = design_path = db = co = None
 def time_spent(start):
     spent = now() - start
     hours = spent // 3600
-    minutes = (spent - hours*3600) // 60
+    minutes = (spent - hours * 3600) // 60
     seconds = spent % 60
     txt = ""
     if hours:
@@ -940,9 +941,9 @@ def migrate_to_changelog_1_4():
         cpus = multiprocessing.cpu_count()
     except NotImplementedError:
         cpus = 4
-    n = int(last/cpus) + 1
+    n = int(last / cpus) + 1
     qok = multiprocessing.Queue()
-    args = tuple((i, multiprocessing.Queue(), qok, n*i, n*(i+1))
+    args = tuple((i, multiprocessing.Queue(), qok, n * i, n * (i + 1))
                  for i in range(cpus))
 
     pool = [multiprocessing.Process(target=fix_changerows,
@@ -974,6 +975,39 @@ def migrate_to_changelog_1_4():
         meta.set_metainfo("sqlmodule_changelog", "1.4")
         print("Migration to changelog 1.4 completed successfully")
         db.commit()
+
+
+def migrate_to_eventlog_1_1():
+    assert_db_version("1.0", component='eventlog')
+    co = Utils.Factory.get('Constants')(db)
+    from Cerebrum.modules.ChangeLog import _params_to_db
+
+    for event_id, event_type, params in db.query(
+            'SELECT event_id, event_type, change_params FROM event_log '
+            'WHERE change_params IS NOT NULL'):
+        p = fix_change_params(cPickle.loads(params.encode('ISO-8859-1')))
+        print(_params_to_db(p))
+        ct = co.ChangeType(event_type)
+        orig = ct.format_params(p)
+        new = ct.format_params(_params_to_db(p))
+        if orig != new:
+            print(u'Failed for event {}'.format(event_id))
+            print(u'Params: {}'.format(p))
+            print(u'Format spec: {}'.format(ct.format))
+            print(u'Original: {}'.format(orig))
+            print(u'New: {}'.format(new))
+            raise SystemExit(1)
+        db.execute(
+            'UPDATE event_log SET change_params = :params '
+            'WHERE event_id = :event_id', {
+                'event_id': event_id,
+                'params': _params_to_db(p),
+            })
+
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_eventlog", "1.1")
+    print("Migration to eventlog 1.1 completed successfully")
+    db.commit()
 
 
 def migrate_to_email_1_1():

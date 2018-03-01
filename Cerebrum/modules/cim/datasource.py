@@ -22,8 +22,11 @@
 This module contains the functionality for building a dict consistent
 with the CIM-WS schema, based on data from a Cerebrum person object.
 """
+from __future__ import unicode_literals
 
 import phonenumbers
+from six import text_type
+
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import NotFoundError
 
@@ -39,12 +42,12 @@ class CIMDataSource(object):
         self.ac = Factory.get('Account')(self.db)
         self.ou = Factory.get('OU')(self.db)
         self.authoritative_system = self.co.AuthoritativeSystem(
-            str(self.config.authoritative_system))
+            self.config.authoritative_system)
         self.phone_authoritative_system = self.co.AuthoritativeSystem(
-            str(self.config.phone_authoritative_system))
+            self.config.phone_authoritative_system)
         self.ou_perspective = self.co.OUPerspective(
-            str(self.config.ou_perspective))
-        self.spread = self.co.Spread(str(self.config.spread))
+            self.config.ou_perspective)
+        self.spread = self.co.Spread(self.config.spread)
 
     def is_eligible(self, person_id):
         """Decide whether a person should be exported to CIM.
@@ -147,7 +150,7 @@ class CIMDataSource(object):
                 "account_name:{}: {} {!r}".format(
                     self.pe.entity_id,
                     self.ac.account_name,
-                    str(self.co.ContactInfo(entry['contact_type'])),
+                    text_type(self.co.ContactInfo(entry['contact_type'])),
                     phone_number))
 
         phone_number = entry['contact_value']
@@ -183,7 +186,7 @@ class CIMDataSource(object):
             entries = self._attr_filter(
                 'contact_type',
                 self.co.ContactInfo(
-                    str(self.config.phone_mappings[contact_entry])),
+                    self.config.phone_mappings[contact_entry]),
                 contact_info)
             for entry in entries:
                 parsed_number = self._format_phone_number_entry(entry)
