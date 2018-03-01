@@ -700,7 +700,7 @@ class BofhdExtension(BofhdCommonMethods):
         for entity_id, changes in tmp.items():
             if (int(self.const.account_password) in changes
                     and int(self.const.account_create) not in changes):
-                # TBD: når er det OK å vise passordet?
+                # TBD: naa er det OK aa vise passordet?
                 del(changes[int(self.const.account_password)])
 
             for k, v in changes.items():
@@ -790,7 +790,8 @@ class BofhdExtension(BofhdCommonMethods):
         entity_id = int(entity_id)
         result = {}
         for row in operator.get_state():
-
+            if row["state_data"] is None:
+                continue
             if entity_id != row["state_data"]["account_id"]:
                 continue
             if row["state_type"] not in ("new_account_passwd", "user_passwd"):

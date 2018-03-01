@@ -5961,6 +5961,8 @@ class BofhdExtension(BofhdCommonMethods):
         for r in operator.get_state():
             # state_type, entity_id, state_data, set_time
             if r['state_type'] in ('new_account_passwd', 'user_passwd'):
+                if r['state_data'] is None:
+                    continue
                 ret.append({
                     'account_id': self._get_entity_name(
                         r['state_data']['account_id'],

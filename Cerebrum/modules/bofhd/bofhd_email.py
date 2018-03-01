@@ -2791,12 +2791,14 @@ Addresses and settings:
         ('email', 'add_filter'),
         SimpleString(help_ref='string_email_filter'),
         SimpleString(help_ref='string_email_target_name', repeat="True"),
-        perm_filter='is_postmaster')
+        perm_filter='can_email_spam_settings')
 
     def email_add_filter(self, operator, filter, address):
         """ Add a filter to an existing e-mail target. """
-        if not self.ba.is_postmaster(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+        et, acc = self._get_email_target_and_account(address)
+        self.ba.can_email_spam_settings(operator.get_entity_id(),
+                                        account=acc,
+                                        target=et)
         etf = Email.EmailTargetFilter(self.db)
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
         et, addr = self._get_email_target_and_address(address)
@@ -2836,12 +2838,14 @@ Addresses and settings:
         ('email', 'remove_filter'),
         SimpleString(help_ref='string_email_filter'),
         SimpleString(help_ref='string_email_target_name', repeat="True"),
-        perm_filter='is_postmaster')
+        perm_filter='can_email_spam_settings')
 
     def email_remove_filter(self, operator, filter, address):
         """ Remove filter. """
-        if not self.ba.is_postmaster(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+        et, acc = self._get_email_target_and_account(address)
+        self.ba.can_email_spam_settings(operator.get_entity_id(),
+                                        account=acc,
+                                        target=et)
         etf = Email.EmailTargetFilter(self.db)
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
         et, addr = self._get_email_target_and_address(address)
