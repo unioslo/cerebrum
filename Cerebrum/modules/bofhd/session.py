@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2015-2016 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -300,7 +300,8 @@ class BofhdSession(object):
         sql = []
         params = {}
         # 'index' is needed to number free variables in the SQL query.
-        for index, (ip, ip_start, ip_stop) in enumerate(self._short_timeout_hosts):
+        for index, (ip, ip_start, ip_stop) in enumerate(
+                self._short_timeout_hosts):
             sql.append("(:start%d <= bs.ip_address AND "
                        " bs.ip_address <= :stop%d)" % (index, index))
             params["start%d" % index] = ip_start
@@ -444,14 +445,16 @@ class BofhdSession(object):
     def store_state(self, state_type, state_data, entity_id=None):
         """Add state tuple to ``session_id``."""
         # TODO: assert that there is space for state_data
-        return self._db.execute("""
-        INSERT INTO [:table schema=cerebrum name=bofhd_session_state]
-          (session_id, state_type, entity_id, state_data, set_time)
-        VALUES (:session_id, :state_type, :entity_id, :state_data, [:now])""",
-                                {'session_id': self.get_session_id(),
-                                 'state_type': state_type,
-                                 'entity_id': entity_id,
-                                 'state_data': json.dumps(state_data, ensure_ascii=False), })
+        return self._db.execute(
+            """
+            INSERT INTO [:table schema=cerebrum name=bofhd_session_state]
+            (session_id, state_type, entity_id, state_data, set_time)
+            VALUES (:session_id, :state_type, :entity_id, :state_data, [:now])
+            """,
+            {'session_id': self.get_session_id(),
+             'state_type': state_type,
+             'entity_id': entity_id,
+             'state_data': json.dumps(state_data, ensure_ascii=False)})
 
     def get_state(self, state_type=None):
         """Retrieve all state tuples for ``session_id``."""
