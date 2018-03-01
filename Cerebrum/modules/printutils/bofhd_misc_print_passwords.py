@@ -125,6 +125,9 @@ class BofhdExtension(BofhdCommonMethods):
         for row in session.get_state():
             # state_type, entity_id, state_data, set_time
             if row['state_type'] in ('new_account_passwd', 'user_passwd'):
+                if row['state_data'] is None:
+                    # invalid state data
+                    continue
                 cached_passwds.append({
                     'username': self._get_entity_name(
                         row['state_data']['account_id'],
