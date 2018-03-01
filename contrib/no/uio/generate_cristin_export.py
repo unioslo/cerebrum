@@ -45,9 +45,13 @@ the necessary information from data files or cerebrum alone. Therefore:
   'expired' OU gets a quarantine that we can look up)
 """
 
+from __future__ import unicode_literals
+
 import getopt
 import sys
 import time
+
+from six import text_type
 
 import cereconf
 
@@ -97,11 +101,11 @@ def output_element(writer, value, element, attributes=dict()):
     """
     # If there are no attributes and no textual value for the element, we do
     # not need it.
-    if not attributes and (value is None or not str(value)):
+    if not attributes and (value is None or not text_type(value)):
         return
 
     writer.startElement(element, attributes)
-    writer.data(str(value))
+    writer.data(text_type(value))
     writer.endElement(element)
 
 
@@ -158,11 +162,13 @@ def output_contact(writer, xmlobject, *seq):
     for attribute, element in seq:
         # We have to respect the relative priority order
         # TBD: Should we hide this ugliness inside DataContact?
-        contacts = filter(lambda x: x.kind == attribute,
-                          xmlobject.itercontacts())
-        contacts.sort(lambda x, y: cmp(x.priority, y.priority))
-        if contacts:
-            output_element(writer, contacts[0].value, element)
+        try:
+            contact = min(filter(lambda x: x.kind == attribute,
+                                 xmlobject.itercontacts()),
+                          key=lambda x: x.priority).value
+            output_element(writer, contact, element)
+        except ValueError:
+            pass
 
 
 def find_publishable_sko(sko, ou_cache):
@@ -276,7 +282,7 @@ def output_OU(writer, ou):
 
     nsd = ou.get_id(ou.NO_NSD)
     if nsd:
-        output_element(writer, str(nsd), "NSDKode")
+        output_element(writer, text_type(nsd), "NSDKode")
 
     output_element(writer, ou.get_name_with_lang(ou.NAME_ACRONYM, "no",
                    "nb", "nn", "en"),
@@ -494,11 +500,11 @@ def output_person(writer, person, ou_cache):
     fnr = person.get_id(person.NO_SSN)
 
     if not fnr:
-        logger.info("Skipping person without fnr. person=%s", str(person))
+        logger.info("Skipping person without fnr. person=%s", text_type(person))
         return
 
     writer.startElement("person", {"fnr": fnr,
-                                   "reservert": reserved, })
+                                   "reservert": reserved})
     for attribute, element in ((person.NAME_LAST, "etternavn"),
                                (person.NAME_FIRST, "fornavn")):
         name = person.get_name(attribute, None)
@@ -630,41 +636,41 @@ def output_people(writer, sysname, personfile, ou_cache):
 def output_xml(output_file, sysname, personfile, oufile):
     """Output the data from sysname source."""
 
-    output_stream = AtomicFileWriter(output_file, "w")
-    writer = xmlprinter.xmlprinter(output_stream,
-                                   indent_level=2,
-                                   data_mode=True,
-                                   input_encoding="latin1")
+    with AtomicFileWriter(output_file, "wb") as output_stream:
+        writer = xmlprinter.xmlprinter(output_stream,
+                                       indent_level=2,
+                                       data_mode=True,
+                                       input_encoding="utf-8")
 
-    # Hardcoded headers
-    writer.startDocument(encoding="iso8859-1")
+        # Hardcoded headers
+        writer.startDocument(encoding="utf-8")
 
-    writer.startElement("fridaImport")
+        writer.startElement("fridaImport")
 
-    writer.startElement("beskrivelse")
-    output_element(writer, "UIO", "kilde")
-    # ISO8601 style -- the *only* right way :)
-    output_element(writer, time.strftime("%Y-%m-%d %H:%M:%S"), "dato")
-    output_element(writer, "UiO-FRIDA", "mottager")
-    writer.endElement("beskrivelse")
+        writer.startElement("beskrivelse")
+        output_element(writer, "UIO", "kilde")
+        # ISO8601 style -- the *only* right way :)
+        output_element(writer, time.strftime("%Y-%m-%d %H:%M:%S"), "dato")
+        output_element(writer, "UiO-FRIDA", "mottager")
+        writer.endElement("beskrivelse")
 
-    writer.startElement("institusjon")
-    output_element(writer, cereconf.DEFAULT_INSTITUSJONSNR, "institusjonsnr")
-    output_element(writer, "Universitetet i Oslo", "navnBokmal")
-    output_element(writer, "University of Oslo", "navnEngelsk")
-    output_element(writer, "UiO", "akronym")
-    output_element(writer, "1110", "NSDKode")
-    writer.endElement("institusjon")
+        writer.startElement("institusjon")
+        output_element(writer, cereconf.DEFAULT_INSTITUSJONSNR,
+                       "institusjonsnr")
+        output_element(writer, "Universitetet i Oslo", "navnBokmal")
+        output_element(writer, "University of Oslo", "navnEngelsk")
+        output_element(writer, "UiO", "akronym")
+        output_element(writer, "1110", "NSDKode")
+        writer.endElement("institusjon")
 
-    # Dump all OUs
-    ou_cache = output_OUs(writer, sysname, oufile)
+        # Dump all OUs
+        ou_cache = output_OUs(writer, sysname, oufile)
 
-    # Dump all people
-    output_people(writer, sysname, personfile, ou_cache)
+        # Dump all people
+        output_people(writer, sysname, personfile, ou_cache)
 
-    writer.endElement("fridaImport")
-    writer.endDocument()
-    output_stream.close()
+        writer.endElement("fridaImport")
+        writer.endDocument()
 
 
 def usage(exitcode=0):
