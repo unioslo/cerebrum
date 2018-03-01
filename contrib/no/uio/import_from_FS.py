@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2012 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -142,7 +142,7 @@ def write_edu_info(outfile):
     Hovedproblemet i denne metoden er at vi må bygge en enorm dict med all
     undervisningsinformasjon. Denne dicten bruker mye minne.
 
-    Advarsel: vi gj�r ingen konsistenssjekk på at undervisningselementer nevnt
+    Advarsel: vi gjør ingen konsistenssjekk på at undervisningselementer nevnt
     i outfile vil faktisk finnes i andre filer genererert av dette
     skriptet. Mao. det er fullt mulig at en student S er registrert ved undakt
     U1, samtidig som U1 ikke er nevnt i undervisningsaktiveter.xml.
@@ -193,7 +193,7 @@ def write_forkurs_info(outfile):
     f.write(xml.xml_hdr + "<data>\n")
     for a in course_attendants:
         f.write('<regkort fodselsdato="{}" personnr="{}" dato_endring="{}" dato_opprettet="{}"/>\n'.format(a['fodselsdato'], a['personnr'], str(now()), str(now())))
-        f.write('<emnestud fodselsdato="{}" personnr="{}" etternavn="{}" fornavn="{}" adrlin2_semadr="" postnr_semadr="" adrlin3_semadr="" adrlin2_hjemsted="" postnr_hjemsted="" adrlin3_hjemsted="" sprakkode_malform="NYNORSK" kjonn="X" studentnr_tildelt="{}" emnekode="FORGLU" versjonskode="1" terminkode="V�R" arstall="2016" telefonlandnr_mobil="{}" telefonnr_mobil="{}"/>\n'.format(
+        f.write('<emnestud fodselsdato="{}" personnr="{}" etternavn="{}" fornavn="{}" adrlin2_semadr="" postnr_semadr="" adrlin3_semadr="" adrlin2_hjemsted="" postnr_hjemsted="" adrlin3_hjemsted="" sprakkode_malform="NYNORSK" kjonn="X" studentnr_tildelt="{}" emnekode="FORGLU" versjonskode="1" terminkode="VÅR" arstall="2016" telefonlandnr_mobil="{}" telefonnr_mobil="{}"/>\n'.format(
                     a['fodselsdato'],
                     a['personnr'],
                     a['etternavn'],
