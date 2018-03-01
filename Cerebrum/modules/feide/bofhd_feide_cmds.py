@@ -22,6 +22,7 @@
 This module contains commands for managing Feide services and
 multifactor authentication for those services.
 """
+import six
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -225,7 +226,8 @@ class BofhdExtension(BofhdCommonMethods):
             try:
                 en.clear()
                 en.find(x['entity_id'])
-                entity_type = str(self.const.map_const(en.entity_type))
+                entity_type = six.text_type(
+                    self.const.map_const(en.entity_type))
                 entity_name = self._get_entity_name(
                     en.entity_id, en.entity_type)
                 entity = '{} {} (id:{:d})'.format(
