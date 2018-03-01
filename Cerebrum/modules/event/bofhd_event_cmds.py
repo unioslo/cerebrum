@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2014-2018 University of Oslo, Norway
@@ -18,13 +19,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Commands used for listing and managing events."""
-import pickle
 from collections import defaultdict
 
 import eventconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import json
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
@@ -340,7 +341,7 @@ class BofhdExtension(BofhdCommandBase):
         # For certain keys, convert constants to human-readable representations
         change_params = ev['change_params']
         if change_params:
-            change_params = pickle.loads(ev['change_params'])
+            change_params = json.loads(ev['change_params'])
             change_params = self._make_constants_human_readable(change_params)
             change_params = repr(change_params)
         else:
@@ -426,7 +427,7 @@ class BofhdExtension(BofhdCommandBase):
 
             change_params = ev['change_params']
             if ev['change_params']:
-                change_params = pickle.loads(ev['change_params'])
+                change_params = json.loads(ev['change_params'])
                 change_params = self._make_constants_human_readable(
                     change_params)
 
