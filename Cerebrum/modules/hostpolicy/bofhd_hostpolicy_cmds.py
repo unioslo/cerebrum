@@ -551,7 +551,7 @@ class HostPolicyBofhdExtension(BofhdCommandBase):
                                          row['source_name']))
 
             # if we got here, we weren't able to explain what is wrong
-            self.logger.warn("Unhandled bad relationship: %r" % e)
+            self.logger.warn("Unhandled bad relationship: %r", e)
             raise CerebrumError('The membership was not allowed due to'
                                 ' constraints')
         role.write_db()
