@@ -45,7 +45,7 @@ class hiofLDIFMixin(OrgLDIF):
         self.init_person_groups()
 
     def make_person_entry(self, row, person_id):
-        """ Extend with UiO functionality. """
+        """ Extend person entry. """
         dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
         if not dn:
             return dn, entry, alias_info
