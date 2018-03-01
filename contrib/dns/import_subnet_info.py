@@ -19,10 +19,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
 import sys
 import getopt
 import re
 import time
+import io
 
 import cereconf
 from Cerebrum.Utils import Factory
@@ -100,9 +102,6 @@ RETURN VALUES
 
 """ % progname
 
-__version__ = "$Revision$"
-# $URL$
-
 
 logger = Factory.get_logger("cronjob")
 
@@ -118,73 +117,65 @@ def add_subnet(subnet, description, vlan, perform_checks=True):
     Subnet-errors will be raised.
 
     TODO: parameter doc.
-    
     """
     s = Subnet(db)
     s.clear()
     s.populate(subnet, description, vlan=vlan)
     try:
         s.write_db(perform_checks=perform_checks)
-    except db.DatabaseError, m:
-        raise CerebrumError, "Database error: %s" % m
+    except db.DatabaseError as m:
+        raise CerebrumError("Database error: %s" % m)
 
 
 def parse_vlan_file(filename):
     """Parse the contents of the file containing VLAN-identifiers.
 
     TODO: parameter doc.
-    
     """
     subnet_to_vlan = {}
     logger.info("Parsing VLAN-file '%s'" % filename)
-    infile = open(filename)
-
-    matcher = re.compile(r'(\d+)\s+([1234567890./]+)')
-    for line in infile:
-        result = matcher.match(line)
-        if result:
-            vlan_ID = result.group(1)
-            subnet = result.group(2)
-            logger.debug("Found: VLAN: '%s'; Subnet: '%s'" % (vlan_ID, subnet))
-            subnet_to_vlan[subnet] = long(vlan_ID)
-
-    infile.close()
+    with io.open(filename, 'r', encoding='ISO-8859-1') as infile:
+        matcher = re.compile(r'(\d+)\s+([1234567890./]+)')
+        for line in infile:
+            result = matcher.match(line)
+            if result:
+                vlan_ID = result.group(1)
+                subnet = result.group(2)
+                logger.debug("Found: VLAN: '%s'; Subnet: '%s'",
+                             vlan_ID, subnet)
+                subnet_to_vlan[subnet] = int(vlan_ID)
     logger.info("Done parsing VLAN-file '%s'; %i VLANs found" %
                 (filename, len(subnet_to_vlan)))
     return subnet_to_vlan
-    
-    
+
+
 def parse_data_file(filename, subnet_to_vlan):
     """Parses the content of the given datafile for information about
     subnets.
 
     TODO: parameter doc.
-    
     """
     subnets_in_file = {}
     logger.info("Parsing data-file '%s'" % filename)
-    infile = open(filename)
-    matcher = re.compile(r'([1234567890./]+)\s+(.*)')
-    for line in infile:
-        if line.startswith('#') or line.rstrip() == '':
-            continue
-        result = matcher.match(line)
-        if result:
-            subnet = result.group(1)
-            desc = result.group(2).rstrip()
-            vlan = subnet_to_vlan.get(subnet, None)
-            
-            logger.debug("Found: Subnet: '%s'; VLAN: '%s'; "
-                         "Desc:'%s'" % (subnet, vlan, desc))
+    with io.open(filename, 'r', encoding='ISO-8859-1') as infile:
+        matcher = re.compile(r'([1234567890./]+)\s+(.*)')
+        for line in infile:
+            if line.startswith('#') or line.rstrip() == '':
+                continue
+            result = matcher.match(line)
+            if result:
+                subnet = result.group(1)
+                desc = result.group(2).rstrip()
+                vlan = subnet_to_vlan.get(subnet, None)
+                logger.debug("Found: Subnet: '%s'; VLAN: '%s'; "
+                             "Desc:'%s'" % (subnet, vlan, desc))
 
-            subnets_in_file[subnet] = (desc, vlan)
-        else:
-            logger.warning("Unknown format for line: '%s'" % line)
-    
-    infile.close()
+                subnets_in_file[subnet] = (desc, vlan)
+            else:
+                logger.warning("Unknown format for line: '%s'" % line)
     logger.info("Done parsing data-file '%s'" % filename)
     return subnets_in_file
-    
+
 
 def compare_file_to_db(subnets_in_file, force):
     """Analyzes the info obtained from the files that are to be
@@ -192,15 +183,12 @@ def compare_file_to_db(subnets_in_file, force):
     needed to bring the database in sync with the datafile.
 
     TODO: parameter doc.
-    
     """
     errors = []
     changes = []
     perform_checks = not force
-        
     s = Subnet(db)
     subnets_in_db = s.search()
-    
     for row in subnets_in_db:
         subnet = "%s/%s" % (row['subnet_ip'], row['subnet_mask'])
 
@@ -213,20 +201,20 @@ def compare_file_to_db(subnets_in_file, force):
                 s.description = description
                 s.write_db(perform_checks=False)
                 logger.debug("Updating description of subnet '%s'" % subnet)
-                changes.append("Updated description of subnet '%s'" %subnet)
+                changes.append("Updated description of subnet '%s'" % subnet)
             else:
                 logger.debug("Subnet '%s' in both DB and file; " % subnet +
-                                "no description update")
+                             "no description update")
             if vlan and row['vlan_number'] != vlan:
                 s.clear()
                 s.find(row['entity_id'])
                 s.vlan_number = vlan
                 s.write_db(perform_checks=False)
                 logger.debug("Updating vlan for subnet '%s'" % subnet)
-                changes.append("Updated vlan for subnet '%s'" %subnet)
+                changes.append("Updated vlan for subnet '%s'" % subnet)
             else:
                 logger.debug("Subnet '%s' in both DB and file; " % subnet +
-                                "no vlan update")
+                             "no vlan update")
             del subnets_in_file[subnet]
         else:
             # Subnet is in DB, but not in file; try to remove it from DB
@@ -237,8 +225,8 @@ def compare_file_to_db(subnets_in_file, force):
                 description = s.description
                 s.delete(perform_checks=perform_checks)
                 changes.append("Deleted subnet '%s' (%s)" % (subnet,
-                                                                description))
-            except CerebrumError, ce:
+                                                             description))
+            except CerebrumError as ce:
                 logger.error(str(ce))
                 errors.append(str(ce))
 
@@ -247,9 +235,10 @@ def compare_file_to_db(subnets_in_file, force):
         try:
             description, vlan = subnets_in_file[subnet]
             logger.info("Adding subnet '%s' (%s)" % (subnet, description))
-            add_subnet(subnet, description, vlan, perform_checks=perform_checks)
+            add_subnet(subnet, description, vlan,
+                       perform_checks=perform_checks)
             changes.append("Added subnet '%s' (%s)" % (subnet, description))
-        except CerebrumError, ce:
+        except CerebrumError as ce:
             logger.error(str(ce))
             errors.append(str(ce))
 
@@ -259,9 +248,9 @@ def compare_file_to_db(subnets_in_file, force):
 def usage(message=None):
     """Gives user info on how to use the program and its options."""
     if message is not None:
-        print >>sys.stderr, "\n%s" % message
+        sys.stderr.write("\n%s\n" % message)
 
-    print >>sys.stderr, __doc__
+    sys.stderr.write(__doc__)
 
 
 def main(argv=None):
@@ -277,9 +266,9 @@ def main(argv=None):
                "error_recipients": None,
                "mail-from": None,
                "mail-cc": None}
-    
+
     ######################################################################
-    ### Option-gathering
+    # Option-gathering
     try:
         opts, args = getopt.getopt(argv[1:],
                                    "hd:v:fs:e:",
@@ -287,7 +276,7 @@ def main(argv=None):
                                     "vlanfile=", "force",
                                     "status_recipients=", "error_recipients=",
                                     "mail-from=", "mail-cc="])
-    except getopt.GetoptError, error:
+    except getopt.GetoptError as error:
         usage(message=error.msg)
         return 1
 
@@ -318,51 +307,54 @@ def main(argv=None):
         return 2
 
     ######################################################################
-    ### Data-processing
+    # Data-processing
     if options["vlanfile"]:
         subnet_to_vlan = parse_vlan_file(options["vlanfile"])
     else:
-        subnet_to_vlan = {}        
+        subnet_to_vlan = {}
 
     subnets_in_file = parse_data_file(options["datafile"], subnet_to_vlan)
 
     (changes, errors) = compare_file_to_db(subnets_in_file, options["force"])
 
     ######################################################################
-    ### Feedback to interested parties
+    # Feedback to interested parties
     today = time.strftime("%Y-%m-%d")
 
     doc_info = ""
     if cereconf.DNS_SUBNETIMPORT_ERRORDOC_URL is not None:
-        doc_info = ("For more information concerning this import and any " +
-                    "errors that are reported, please direct your browser to " +
+        doc_info = ("For more information concerning this import and any "
+                    "errors that are reported, please direct your browser to "
                     "%s\n\n" % cereconf.DNS_SUBNETIMPORT_ERRORDOC_URL)
-    
+
     if errors:
         mail_to = options["error_recipients"]
         subject = "Errors from subnet-import %s" % today
-        mail_body = doc_info        
-            
-        mail_body += "The following errors were encountered during the import:\n\n"
+        mail_body = doc_info
+        mail_body += ("The following errors were encountered during the"
+                      " import:\n\n")
         mail_body += "\n\n".join(errors)
-        
         if options["force"]:
-            mail_body +=  "\n\nImport forced - non-erronous changes made anyway."
-            mail_body +=  "\nThe following changes were made:\n%s\n" % "\n".join(changes)
-            
+            mail_body += ("\n\nImport forced - non-erronous "
+                          "changes made anyway.")
+            mail_body += ("\nThe following changes were made:\n%s\n" %
+                          "\n".join(changes))
             logger.info("Force-committing non-erronous changes to database.")
-            logger.info("Sending mail to '%s' (CC: '%s')" % (mail_to, options["mail-cc"]))
-            sendmail(mail_to, options["mail-from"], subject, mail_body, cc=options["mail-cc"])
-            db.commit()            
+            logger.info("Sending mail to '%s' (CC: '%s')", mail_to,
+                        options["mail-cc"])
+            sendmail(mail_to, options["mail-from"], subject, mail_body,
+                     cc=options["mail-cc"])
+            db.commit()
             return 0
-        
         else:
-            mail_body +=  "\n\nImport not completed - no changes made."
-            mail_body +=  "Fix the above problems, then rerun the import.\n"
+            mail_body += "\n\nImport not completed - no changes made."
+            mail_body += "Fix the above problems, then rerun the import.\n"
             logger.error("Errors encountered. No changes made by import.")
             db.rollback()
-            logger.info("Sending mail to '%s' (CC: '%s')" % (mail_to, options["mail-cc"]))
-            sendmail(mail_to, options["mail-from"], subject, mail_body, cc=options["mail-cc"])
+            logger.info("Sending mail to '%s' (CC: '%s')", mail_to,
+                        options["mail-cc"])
+            sendmail(mail_to, options["mail-from"], subject, mail_body,
+                     cc=options["mail-cc"])
             return 3
     else:
         mail_to = options["status_recipients"]
@@ -370,19 +362,21 @@ def main(argv=None):
         mail_body = doc_info
         mail_body += "Subnet-import completed without problems\n"
         if changes:
-            mail_body += "The following changes were made:\n%s\n" % "\n".join(changes)
+            mail_body += ("The following changes were made:\n%s\n" %
+                          "\n".join(changes))
             logger.info("Committing all changes to database.")
             db.commit()
         else:
-            # No changes => No need to send mail
-            #mail_body +=  "No changes needed to be done\n"
-            logger.info("No changes needed to be done during this run. No mail sent")
+            logger.info("No changes needed to be done during this run. "
+                        "No mail sent")
             return 0
 
-        logger.info("Sending mail to '%s' (CC: '%s')" % (mail_to, options["mail-cc"]))
-        sendmail(mail_to, options["mail-from"], subject, mail_body, cc=options["mail-cc"])
+        logger.info("Sending mail to '%s' (CC: '%s')", mail_to,
+                    options["mail-cc"])
+        sendmail(mail_to, options["mail-from"], subject, mail_body,
+                 cc=options["mail-cc"])
         return 0
-            
+
 
 if __name__ == "__main__":
     logger.info("Starting program '%s'" % progname)

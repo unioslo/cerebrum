@@ -22,6 +22,12 @@
 
 This file consists mainly of badly refactored code."""
 
+from __future__ import unicode_literals
+
+import pickle
+
+from six import text_type
+
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import json
 from Cerebrum.modules.Email import EmailDomain
@@ -78,7 +84,8 @@ class CerebrumUtils(object):
         :param person_id: The person to look up names by.
 
         :rtype: tuple
-        :return: A tuple consisting of first_name, last_name and the full name."""
+        :return: (first_name, last_name, full name).
+        """
 
         # TODO: search_name_with_language?
         if account_id:
@@ -452,8 +459,24 @@ class CerebrumUtils(object):
 
         :rtype: dict or None
         :return: The change params
-        """
-        return json.loads(event['change_params'])
+        params = event['change_params']
+        if isinstance(params, text_type):
+            try:
+                pparams = params.encode('ISO-8859-1')
+            except UnicodeEncodeError:
+                pparams = b'make UnpicklingError'
+        elif isinstance(params, bytes):
+            pparams = params
+        else:
+            return params
+
+        try:
+            return pickle.loads(pparams)
+        except pickle.UnpicklingError:
+            try:
+                return json.loads(params)
+            except:
+                return params
 
     def get_entity_type(self, entity_id):
         """Fetch the entity type code of an entity.

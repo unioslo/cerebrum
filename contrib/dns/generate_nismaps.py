@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import unicode_literals
+
 import getopt
 import sys
 import mx
+
+from six import text_type
 
 import cerebrum_path
 
@@ -15,6 +19,9 @@ from Cerebrum.modules import PosixGroup
 from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
 from Cerebrum.Constants import _SpreadCode
+
+
+del cerebrum_path
 
 logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
@@ -34,38 +41,52 @@ _SpreadCode.sql = db
 debug = 0
 e_o_f = False
 
-class NISMapException(Exception): pass
-class UserSkipQuarantine(NISMapException): pass
-class NISMapError(NISMapException): pass
-class BadUsername(NISMapError): pass
-class NoDisk(NISMapError): pass
+
+class NISMapException(Exception):
+    pass
+
+
+class UserSkipQuarantine(NISMapException):
+    pass
+
+
+class NISMapError(NISMapException):
+    pass
+
+
+class BadUsername(NISMapError):
+    pass
+
+
+class NoDisk(NISMapError):
+    pass
+
 
 def generate_passwd(filename, shadow_file, spread=None):
-    logger.debug("generate_passwd: "+str((filename, shadow_file, spread)))
+    logger.debug("generate_passwd: %s", (filename, shadow_file, spread))
     if spread is None:
-        raise ValueError, "Must set user_spread"
+        raise ValueError("Must set user_spread")
     shells = {}
     for s in posix_user.list_shells():
         shells[int(s['code'])] = s['shell']
-    f = SimilarSizeWriter(filename, "w")
+    f = SimilarSizeWriter(filename, "w", encoding='ISO-8859-1')
     f.max_pct_change = 10
     if shadow_file:
-        s = SimilarSizeWriter(shadow_file, "w")
+        s = SimilarSizeWriter(shadow_file, "w", encoding='UTF-8')
         s.max_pct_change = 10
-    n = 0
     diskid2path = {}
     disk = Factory.get('Disk')(db)
-    static_posix_user = Factory.get('PosixUser')(db)
     for d in disk.list(spread=spread):
         diskid2path[int(d['disk_id'])] = d['path']
+
     def process_user(user_rows):
         row = user_rows[0]
         uname = row['entity_name']
         tmp = posix_user.illegal_name(uname)
         if tmp:
-            raise BadUsername, "Bad username %s" % tmp            
+            raise BadUsername("Bad username %s" % tmp)
         if len(uname) > 8:
-            raise BadUsername, "Bad username %s" % uname
+            raise BadUsername("Bad username %s" % uname)
         passwd = row['auth_data']
         if passwd is None:
             passwd = '*'
@@ -75,7 +96,10 @@ def generate_passwd(filename, shadow_file, spread=None):
             gecos = row['name']
         if gecos is None:
             gecos = "GECOS NOT SET"
-        gecos = latin1_to_iso646_60(gecos)
+        try:
+            gecos = latin1_to_iso646_60(gecos).decode('latin-1')
+        except UnicodeEncodeError:
+            gecos = 'GECOS NOT SET'
         shell = shells[int(row['shell'])]
         if row['quarantine_type'] is not None:
             now = mx.DateTime.now()
@@ -97,9 +121,10 @@ def generate_passwd(filename, shadow_file, spread=None):
             if qshell is not None:
                 shell = qshell
 
-        home=posix_user.resolve_homedir(account_name=uname,
-                                        home=row['disk_id'],
-                                        disk_path=diskid2path[int(row['disk_id'])])
+        home = posix_user.resolve_homedir(
+            account_name=uname,
+            home=row['disk_id'],
+            disk_path=diskid2path[int(row['disk_id'])])
         if home is None:
             # TBD: Is this good enough?
             home = '/'
@@ -109,9 +134,9 @@ def generate_passwd(filename, shadow_file, spread=None):
             if not passwd[0] == '*':
                 passwd = "!!"
 
-        line = ':'.join((uname, passwd, str(row['posix_uid']),
-                         str(posix_group.posix_gid), gecos,
-                         str(home), shell))
+        line = ':'.join((uname, passwd, text_type(row['posix_uid']),
+                         text_type(posix_group.posix_gid), gecos,
+                         text_type(home), shell))
         if debug:
             logger.debug(line)
         f.write(line+"\n")
@@ -125,7 +150,7 @@ def generate_passwd(filename, shadow_file, spread=None):
         if prev_user != row['account_id'] and prev_user is not None:
             try:
                 process_user(user_rows)
-            except NISMapError, e:
+            except NISMapError:
                 logger.error("NISMapError", exc_info=1)
             except NISMapException:
                 pass
@@ -137,7 +162,7 @@ def generate_passwd(filename, shadow_file, spread=None):
         if user_rows:
             try:
                 process_user(user_rows)
-            except NISMapError, e:
+            except NISMapError:
                 logger.error("NISMapError", exc_info=1)
             except NISMapException:
                 pass
@@ -146,6 +171,7 @@ def generate_passwd(filename, shadow_file, spread=None):
     f.close()
     if shadow_file:
         s.close()
+
 
 class NISGroupUtil(object):
     def __init__(self, namespace, member_type, group_spread, member_spread,
@@ -179,9 +205,10 @@ class NISGroupUtil(object):
         self._group.find(gid)
 
         # Direct members
-        for row in self._group.search_members(group_id=self._group.entity_id,
-                                              member_spread=self._member_spread,
-                                              member_type=self._member_type):
+        for row in self._group.search_members(
+                group_id=self._group.entity_id,
+                member_spread=self._member_spread,
+                member_type=self._member_type):
             member_id = int(row["member_id"])
             name = self._entity2name.get(member_id)
             if not name:
@@ -190,10 +217,10 @@ class NISGroupUtil(object):
             ret_non_groups.append(name)
 
         # Subgroups
-        for row in  self._group.search_members(group_id=self._group.entity_id,
-                                               member_type=co.entity_group):
+        for row in self._group.search_members(group_id=self._group.entity_id,
+                                              member_type=co.entity_group):
             gid = int(row["member_id"])
-            if self._exported_groups.has_key(gid):
+            if gid in self._exported_groups:
                 ret_groups.append(self._exported_groups[gid])
             else:
                 t_g, t_ng = self._expand_group(gid)
@@ -205,9 +232,9 @@ class NISGroupUtil(object):
         while True:
             tmp_gname = "%s%02x" % (self._tmp_group_prefix, self._num)
             self._num += 1
-            if not self._exported_groups.has_key(tmp_gname):
+            if tmp_gname not in self._exported_groups:
                 return tmp_gname
-        
+
     def _wrap_line(self, group_name, line, g_separator, is_ng=False):
         if is_ng:
             delim = ' '
@@ -231,7 +258,7 @@ class NISGroupUtil(object):
     def generate_netgroup(self, filename):
         logger.debug("generate_netgroup: %s" % filename)
 
-        f = SimilarSizeWriter(filename, "w")
+        f = SimilarSizeWriter(filename, "w", encoding='UTF-8')
         f.max_pct_change = 5
 
         for group_id in self._exported_groups.keys():
@@ -241,7 +268,8 @@ class NISGroupUtil(object):
                 group_id, group_members, user_members))
             f.write(self._wrap_line(group_name,
                                     self._format_members(
-                group_members, user_members, group_name), ' ', is_ng=True))
+                                        group_members, user_members,
+                                        group_name), ' ', is_ng=True))
         if e_o_f:
             f.write('E_O_F\n')
         f.close()
@@ -258,6 +286,7 @@ class NISGroupUtil(object):
                 tmp_users.append(uname)
         return tmp_users
 
+
 class FileGroup(NISGroupUtil):
     def __init__(self, group_spread, member_spread):
         super(FileGroup, self).__init__(
@@ -266,9 +295,10 @@ class FileGroup(NISGroupUtil):
         self._group = PosixGroup.PosixGroup(db)
         self._account2def_group = {}
         for row in posix_user.list_extended_posix_users():
-            self._account2def_group[int(row['account_id'])] = int(row['posix_gid'])
+            self._account2def_group[int(row['account_id'])] = int(
+                row['posix_gid'])
         logger.debug("__init__ done")
-      
+
     def _make_tmp_name(self, base):
         name = base
         harder = False
@@ -283,7 +313,7 @@ class FileGroup(NISGroupUtil):
                 tname = format % (name, i)
                 if len(tname) > 8:
                     break
-                if not self._exported_groups.has_key(tname):
+                if tname not in self._exported_groups:
                     self._exported_groups[tname] = True
                     return tname
                 i += 1
@@ -293,13 +323,14 @@ class FileGroup(NISGroupUtil):
         ret = []
         self._group.clear()
         self._group.find(gid)
-        for row in self._group.search_members(group_id=self._group.entity_id,
-                                              member_spread=self._member_spread,
-                                              indirect_members=True,
-                                              member_type=co.entity_account):
+        for row in self._group.search_members(
+                group_id=self._group.entity_id,
+                member_spread=self._member_spread,
+                indirect_members=True,
+                member_type=co.entity_account):
             account_id = int(row["member_id"])
             if (self._account2def_group.get(account_id, None) ==
-                self._group.posix_gid):
+                    self._group.posix_gid):
                 continue  # Don't include the users primary group
             name = self._entity2name.get(account_id, None)
             if not name:
@@ -310,7 +341,7 @@ class FileGroup(NISGroupUtil):
 
     def generate_filegroup(self, filename):
         logger.debug("generate_group: %s" % filename)
-        f = SimilarSizeWriter(filename, "w")
+        f = SimilarSizeWriter(filename, "w", encoding='UTF-8')
         f.max_pct_change = 5
 
         groups = self._exported_groups.keys()
@@ -326,7 +357,8 @@ class FileGroup(NISGroupUtil):
             except Errors.NotFoundError:
                 logger.warn("Group %s has no GID", group_id)
                 continue
-            tmp_users = self._filter_illegal_usernames(user_members, group_name)
+            tmp_users = self._filter_illegal_usernames(user_members,
+                                                       group_name)
 
             logger.debug("%s -> g=%s, u=%s" % (
                 group_id, group_members, tmp_users))
@@ -335,6 +367,7 @@ class FileGroup(NISGroupUtil):
         if e_o_f:
             f.write('E_O_F\n')
         f.close()
+
 
 class UserNetGroup(NISGroupUtil):
     def __init__(self, group_spread, member_spread):
@@ -347,6 +380,7 @@ class UserNetGroup(NISGroupUtil):
 
         return " ".join((" ".join(group_members),
                          " ".join(["(,%s,)" % m for m in tmp_users])))
+
 
 class MachineNetGroup(NISGroupUtil):
     def __init__(self, group_spread, member_spread, zone):
@@ -369,16 +403,18 @@ class MachineNetGroup(NISGroupUtil):
         while True:
             n += 1
             tmp_gname = "%s-%02x" % (group_name, n)
-            if not self._exported_groups.has_key(tmp_gname):
+            if tmp_gname not in self._exported_groups:
                 self._num_map[group_name] = n
                 return tmp_gname
+
 
 def map_spread(id):
     try:
         return int(_SpreadCode(id))
     except Errors.NotFoundError:
-        print "Error mapping %s" % id  # no need to use logger here
+        print("Error mapping %s" % id)  # no need to use logger here
         raise
+
 
 def main():
     global debug
@@ -391,12 +427,13 @@ def main():
                                     'user_spread=', 'netgroup=',
                                     'max_memberships=', 'shadow=',
                                     'mnetgroup=', 'zone='])
-    except getopt.GetoptError, msg:
+    except getopt.GetoptError:
         usage(1)
 
     user_spread = group_spread = None
     max_group_memberships = 16
     shadow_file = None
+    zone = None
     for opt, val in opts:
         if opt in ('--help',):
             usage()
@@ -440,9 +477,10 @@ def main():
     if len(opts) == 0:
         usage(1)
 
+
 def usage(exitcode=0):
-    print """Usage: [options]
-  
+    print("""Usage: [options]
+
    [--user_spread spread [--shadow outfile]* [--passwd outfile]* \
     [--group_spread spread [--group outfile]* [--netgroup outfile]*]*]+
 
@@ -476,8 +514,9 @@ def usage(exitcode=0):
     -p | --passwd outfile
       Write password map to outfile
 
-    Generates a NIS map of the requested type for the requested spreads."""
+    Generates a NIS map of the requested type for the requested spreads.""")
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()

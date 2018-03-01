@@ -38,6 +38,7 @@ import socket
 import random
 import collections
 import unicodedata
+import io
 
 from string import ascii_lowercase, digits
 from subprocess import Popen, PIPE
@@ -143,7 +144,7 @@ latin1_to_iso646_60 = _latin1.to_iso646_60
 latin1_wash = _latin1.wash
 
 
-def read_password(user, system, host=None):
+def read_password(user, system, host=None, encoding=None):
     """Read the password 'user' needs to authenticate with 'system'.
     It is stored as plain text in DB_AUTH_DIR.
 
@@ -163,14 +164,12 @@ def read_password(user, system, host=None):
     format_var = tuple(var)
     filename = os.path.join(cereconf.DB_AUTH_DIR,
                             format_str % format_var)
-    f = file(filename)
-    try:
+    mode = 'rb' if encoding is None else 'r'
+    with io.open(filename, mode, encoding=encoding) as f:
         # .rstrip() removes any trailing newline, if present.
         dbuser, dbpass = f.readline().rstrip('\n').split('\t', 1)
         assert dbuser == user
         return dbpass
-    finally:
-        f.close()
 
 
 def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[], shell=False):

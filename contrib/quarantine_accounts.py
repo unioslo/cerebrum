@@ -19,6 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 """ Quarantine accounts without person affiliations.
 
 The accounts are warned, by e-mail, unless they are reserved, i.e. are not
@@ -47,6 +49,7 @@ import sys
 import getopt
 import smtplib
 import email
+import io
 from mx import DateTime
 
 import cereconf
@@ -466,7 +469,7 @@ if __name__ == '__main__':
     for opt, val in opts:
         if opt in ('-q',):
             try:
-                quarantine = co.Quarantine(val)
+                quarantine = co.Quarantine(val.decode('UTF-8'))
                 int(quarantine)
             except Errors.NotFoundError:
                 raise Exception("Invalid quarantine: %s" % val)
@@ -487,12 +490,11 @@ if __name__ == '__main__':
                 logger.error('\'%s\' is not an integer' % val)
                 sys.exit(4)
         elif opt in ('-a',):
-            ignore_aff = parse_affs(val)
+            ignore_aff = parse_affs(val.decode('UTF-8'))
         elif opt in ('-m',):
             try:
-                f = open(val)
-                msg = email.message_from_file(f)
-                f.close()
+                with io.open(val, 'r', encoding='UTF-8') as f:
+                    msg = email.message_from_file(f)
                 email_info = {
                     'Subject': email.Header.decode_header(
                         msg['Subject'])[0][0],

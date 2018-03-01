@@ -30,24 +30,26 @@ on later.
 """
 
 import sys
-import traceback
 import getopt
 
 from twisted.python import log
 
-from rpclib.model.primitive import String
+from rpclib.model.primitive import Unicode
 from rpclib.model.complex import Array
-from rpclib.model.fault import Fault
 # Note the difference between rpc and the static srpc - the former sets the
 # first parameter as the current MethodContext. Very nice if you want
 # environment details.
-from rpclib.decorator import rpc, srpc
+from rpclib.decorator import rpc
 
 import cerebrum_path
 from cisconf import postmaster as cisconf
-from Cerebrum.Utils import Messages, dyn_import
+from Cerebrum.Utils import dyn_import
 from Cerebrum import Errors
 from Cerebrum.modules.cis import SoapListener
+
+
+del cerebrum_path
+
 
 class PostmasterServer(SoapListener.BasicSoapServer):
     """The SOAP commands available for the clients.
@@ -65,10 +67,11 @@ class PostmasterServer(SoapListener.BasicSoapServer):
     # The hock for the site object
     site = None
 
-    @rpc(Array(String), Array(String), Array(String), _returns=Array(String))
+    @rpc(Array(Unicode), Array(Unicode), Array(Unicode),
+         _returns=Array(Unicode))
     def get_addresses_by_affiliation(ctx, status=None, skos=None, source=None):
         """Get primary e-mail addresses for persons that match given
-        criterias."""
+        criteria."""
         if not source and not status:
             raise Errors.CerebrumRPCException('Input needed')
         return ctx.udc['postmaster'].get_addresses_by_affiliation(status=status,
@@ -77,10 +80,12 @@ class PostmasterServer(SoapListener.BasicSoapServer):
 
 # Events for the project:
 
+
 def event_method_call(ctx):
     """Event for incoming calls."""
     ctx.udc['postmaster'] = ctx.service_class.cere_class()
 PostmasterServer.event_manager.add_listener('method_call', event_method_call)
+
 
 def event_exit(ctx):
     """Event for cleaning after a call, i.e. close up db connections. Since
@@ -89,11 +94,12 @@ def event_exit(ctx):
     """
     # TODO: is this necessary any more, as we now are storing it in the method
     # context? Are these deleted after each call? Check it out!
-    if ctx.udc.has_key('postmaster'):
+    if 'postmaster' in ctx.udc:
         ctx.udc['postmaster'].close()
 PostmasterServer.event_manager.add_listener('method_return_object', event_exit)
 PostmasterServer.event_manager.add_listener('method_exception_object',
                                             event_exit)
+
 
 def usage(exitcode=0):
     print """Usage: %s --port PORT --instance INSTANCE --logfile FILE
@@ -133,11 +139,11 @@ if __name__ == '__main__':
         usage(1)
 
     use_encryption = True
-    port            = getattr(cisconf, 'PORT', 0)
-    logfilename     = getattr(cisconf, 'LOG_FILE', None)
-    instance        = getattr(cisconf, 'CEREBRUM_CLASS', None)
-    interface       = getattr(cisconf, 'INTERFACE', None)
-    log_prefix  = getattr(cisconf, 'LOG_PREFIX', None)
+    port = getattr(cisconf, 'PORT', 0)
+    logfilename = getattr(cisconf, 'LOG_FILE', None)
+    instance = getattr(cisconf, 'CEREBRUM_CLASS', None)
+    interface = getattr(cisconf, 'INTERFACE', None)
+    log_prefix = getattr(cisconf, 'LOG_PREFIX', None)
     log_formatters = getattr(cisconf, 'LOG_FORMATTERS', None)
 
     for opt, val in opts:
@@ -168,36 +174,38 @@ if __name__ == '__main__':
     PostmasterServer.cere_class = cls
     log.msg("DEBUG: Cerebrum class used: %s" % instance)
 
-    private_key_file  = None
-    certificate_file  = None
-    client_ca         = None
-    fingerprints      = None
+    private_key_file = None
+    certificate_file = None
+    client_ca = None
+    fingerprints = None
 
     if interface:
         SoapListener.TwistedSoapStarter.interface = interface
 
     if use_encryption:
-        private_key_file  = cisconf.SERVER_PRIVATE_KEY_FILE
-        certificate_file  = cisconf.SERVER_CERTIFICATE_FILE
-        client_ca         = cisconf.CERTIFICATE_AUTHORITIES
-        fingerprints      = getattr(cisconf, 'FINGERPRINTS', None)
+        private_key_file = cisconf.SERVER_PRIVATE_KEY_FILE
+        certificate_file = cisconf.SERVER_CERTIFICATE_FILE
+        client_ca = cisconf.CERTIFICATE_AUTHORITIES
+        fingerprints = getattr(cisconf, 'FINGERPRINTS', None)
 
-        server = SoapListener.TLSTwistedSoapStarter(port = int(port),
-                    applications = PostmasterServer,
-                    private_key_file = private_key_file,
-                    certificate_file = certificate_file,
-                    client_ca = client_ca,
-                    client_fingerprints = fingerprints,
-                    logfile = logfilename,
-                    log_prefix = log_prefix,
-                    log_formatters=log_formatters)
+        server = SoapListener.TLSTwistedSoapStarter(
+            port=int(port),
+            applications=PostmasterServer,
+            private_key_file=private_key_file,
+            certificate_file=certificate_file,
+            client_ca=client_ca,
+            client_fingerprints=fingerprints,
+            logfile=logfilename,
+            log_prefix=log_prefix,
+            log_formatters=log_formatters)
     else:
-        server = SoapListener.TwistedSoapStarter(port = int(port),
-                    applications = PostmasterServer,
-                    logfile = logfilename,
-                    log_prefix = log_prefix,
-                    log_formatters=log_formatters)
-    PostmasterServer.site = server.site # to make it global and reachable (wrong, I know)
+        server = SoapListener.TwistedSoapStarter(
+            port=int(port),
+            applications=PostmasterServer,
+            logfile=logfilename,
+            log_prefix=log_prefix,
+            log_formatters=log_formatters)
+    PostmasterServer.site = server.site  # to make it global and reachable
 
     # If sessions' behaviour should be changed (e.g. timeout):
     # server.site.sessionFactory = BasicSession

@@ -19,16 +19,21 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-u"""Populate memberships in «employee»-ish groups depending on affiliation."""
+from __future__ import unicode_literals
+
+"""Populate memberships in «employee»-ish groups depending on affiliation."""
 import getopt
 import sys
 
+import six
+
 import cerebrum_path
-getattr(cerebrum_path, 'This will shut the linters up', None)
 import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+
+del cerebrum_path
 
 logger = Factory.get_logger("cronjob")
 
@@ -43,7 +48,7 @@ def populate_group_memberships(gname, affiliations):
     gr = Factory.get('Group')(db)
 
     logger.info('Populating memberships in %s with %s as criteria',
-                gname, str(affiliations))
+                gname, six.text_type(affiliations))
 
     # Verify group existence
     try:

@@ -19,7 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains a consumer for Cerebrum events. """
-from __future__ import unicode_literals
+
+from __future__ import unicode_literals, absolute_import
 
 import Cerebrum.utils.json as json
 
@@ -33,7 +34,7 @@ from Cerebrum.modules.event.mapping import EventMap
 from Cerebrum.modules.event import evhandlers
 from Cerebrum.utils.funcwrap import memoize
 
-from Cerebrum.modules.cim.client import CIMClient
+from .client import CIMClient
 
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory, dyn_import

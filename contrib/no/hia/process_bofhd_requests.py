@@ -27,6 +27,7 @@ import os
 import pickle
 import sys
 import time
+from contextlib import closing
 
 import cereconf
 
@@ -65,7 +66,7 @@ class RequestLockHandler(object):
 
         """
         if self.lockfd is not None:
-            self.release()
+            self.close()
 
         self.reqid = reqid
         try:
@@ -84,7 +85,7 @@ class RequestLockHandler(object):
         self.lockfd = lockfile
         return True
 
-    def release(self):
+    def close(self):
         """Release and clean up lock."""
         if self.lockfd is not None:
             fcntl.flock(self.lockfd, fcntl.LOCK_UN)
@@ -124,35 +125,34 @@ def process_requests(types):
     # TODO: There is no variable containing the default log directory
     # in cereconf
 
-    reqlock = RequestLockHandler()
-    br = BofhdRequests(db, const)
-    for t in types:
-        for op, process, delay in operations[t]:
-            set_operator()
-            start_time = time.time()
-            for r in br.get_requests(operation=op, only_runnable=True):
-                reqid = r['request_id']
-                logger.debug("Req: %s %d at %s, state %r",
-                             op, reqid, r['run_at'], r['state_data'])
-                if time.time() - start_time > 30 * 60:
-                    break
-                if r['run_at'] > mx.DateTime.now():
-                    continue
-                if not is_valid_request(reqid):
-                    continue
-                if reqlock.grab(reqid):
-                    if max_requests <= 0:
+    with closing(RequestLockHandler()) as reqlock:
+        br = BofhdRequests(db, const)
+        for t in types:
+            for op, process, delay in operations[t]:
+                set_operator()
+                start_time = time.time()
+                for r in br.get_requests(operation=op, only_runnable=True):
+                    reqid = r['request_id']
+                    logger.debug("Req: %s %d at %s, state %r",
+                                 op, reqid, r['run_at'], r['state_data'])
+                    if time.time() - start_time > 30 * 60:
                         break
-                    max_requests -= 1
-                    if process(r):
-                        br.delete_request(request_id=reqid)
-                        db.commit()
-                    else:
-                        db.rollback()
-                        if delay:
-                            br.delay_request(reqid, minutes=delay)
+                    if r['run_at'] > mx.DateTime.now():
+                        continue
+                    if not is_valid_request(reqid):
+                        continue
+                    if reqlock.grab(reqid):
+                        if max_requests <= 0:
+                            break
+                        max_requests -= 1
+                        if process(r):
+                            br.delete_request(request_id=reqid)
                             db.commit()
-    reqlock.release()
+                        else:
+                            db.rollback()
+                            if delay:
+                                br.delay_request(reqid, minutes=delay)
+                                db.commit()
 
 
 def proc_sympa_create(request):
