@@ -24,6 +24,8 @@ This piece of software ensures existence of user accounts in ePhorte,
 via the ePhorte web service.
 """
 
+from __future__ import unicode_literals
+
 # TODO:
 # - Handle primary account changes
 
@@ -32,6 +34,8 @@ import time
 import functools
 import argparse
 from collections import defaultdict
+
+from six import text_type
 
 import cerebrum_path
 import cereconf
@@ -42,17 +46,18 @@ from Cerebrum import Errors
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 from Cerebrum.modules.no.uio.EphorteWS import EphorteWSError
 from Cerebrum.modules.no.uio.Ephorte import EphortePermission
+from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.utils.context import entity
 
 cerebrum_path, cereconf  # Satisfy the linters.
 
 logger = Factory.get_logger("cronjob")
-db = Factory.get('Database')(client_encoding='utf-8')
+db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 ou = Factory.get('OU')(db)
 ephorte_role = EphorteRole(db)
 
 # Caches
-_ou_to_sko = {}
 _person_to_user_id = {}
 _ephorte_ous = None
 _perm_codes = None
@@ -65,7 +70,7 @@ def get_email_address(pe):
     :type pe: Person
     :param pe: The person
 
-    :rtype: str
+    :rtype: text
     :return: The persons primary email address
     """
     ac = Factory.get('Account')(db)
@@ -79,12 +84,11 @@ def get_username(pe):
     :type pe: Person
     :param pe: The person
 
-    :rtype: str
+    :rtype: text
     :return: The primary accounts user name
     """
-    ac = Factory.get('Account')(db)
-    ac.find(pe.get_primary_account())
-    return ac.account_name
+    with entity.account.find(pe.get_primary_account()) as ac:
+        return ac.account_name
 
 
 def get_user_id(pe):
@@ -100,15 +104,15 @@ def get_user_id(pe):
     """
     user_id = _person_to_user_id.get(pe.entity_id)
 
-    if not user_id:
-        ac = Factory.get('Account')(db)
-        ac.find(pe.get_primary_account())
-        user_id = ac.account_name
+    if user_id is None:
+        with entity.account.find(pe.get_primary_account()) as ac:
+            user_id = ac.account_name
         _person_to_user_id[pe.entity_id] = user_id
 
     return user_id
 
 
+@memoize
 def get_sko(ou_id):
     """Get the stedkode for an OU.
 
@@ -118,15 +122,8 @@ def get_sko(ou_id):
     :rtype: str
     :return: The six-digit stedkode
     """
-    sko = _ou_to_sko.get(ou_id)
-
-    if sko is None:
-        ou.clear()
-        ou.find(ou_id)
-        sko = "%02i%02i%02i" % (ou.fakultet, ou.institutt, ou.avdeling)
-        _ou_to_sko[ou_id] = sko
-
-    return sko
+    with entity.ou.find(ou_id) as ou:
+        return text_type(ou)
 
 
 def ou_has_ephorte_spread(ou_id):
@@ -174,11 +171,9 @@ def update_person_info(pe, client):
     :type client: EphorteWS
     :param client: The client used to talk to ePhorte
     """
-    def u(x):
-        return x.decode('UTF-8') if isinstance(x, str) else x
-    first_name = u(pe.get_name(co.system_cached, co.name_first))
-    last_name = u(pe.get_name(co.system_cached, co.name_last))
-    full_name = u(pe.get_name(co.system_cached, co.name_full))
+    first_name = pe.get_name(co.system_cached, co.name_first)
+    last_name = pe.get_name(co.system_cached, co.name_last)
+    full_name = pe.get_name(co.system_cached, co.name_full)
 
     try:
         user_id = get_user_id(pe)
@@ -190,15 +185,15 @@ def update_person_info(pe, client):
         return
 
     try:
-        email_address = u(get_email_address(pe))
+        email_address = get_email_address(pe)
     except Errors.NotFoundError:
         logger.warn('No email address for %s', user_id)
         email_address = None
 
     # Webservice accepts max 20 characters for this field
-    telephone = u((lambda x: x[0]['contact_value'][:20] if len(x) else None)
-                  (pe.get_contact_info(source=co.system_sap,
-                                       type=co.contact_phone)))
+    telephone = pe.get_contact_info(source=co.system_sap,
+                                    type=co.contact_phone)
+    telephone = telephone[0]['contact_value'][:20] if len(telephone) else None
 
     # TODO: Has not been exported before. Export nao?
     mobile = None
@@ -206,16 +201,16 @@ def update_person_info(pe, client):
     tmp_addr = (lambda x: x[0] if len(x) else None)(pe.get_entity_address(
         source=co.system_sap, type=co.address_street))
     if tmp_addr:
-        street_address = u(tmp_addr['address_text'])
+        street_address = tmp_addr['address_text']
         # There seems to be a limit in ePhorte ...
         if street_address and len(street_address) > 50:
             street_address = street_address[0:50]
-        zip_code = u(tmp_addr['postal_number'])
-        city = u(tmp_addr['city'])
+        zip_code = tmp_addr['postal_number']
+        city = tmp_addr['city']
     else:
         street_address = zip_code = city = None
 
-    logger.info('Ensuring existence of %s: %s', user_id, str((
+    logger.info('Ensuring existence of %s: %s', user_id, text_type((
         first_name, None, initials, last_name, full_name, initials,
         email_address, telephone, mobile, street_address, zip_code, city)))
     try:
@@ -228,12 +223,12 @@ def update_person_info(pe, client):
         # an unspecified rule violation for field length.
         # Should be removed once the WS itself returns the specific field
         # that caused the exception.
-        if str(e).find('Det er ikke tillatt med mer enn') != -1:
+        if 'Det er ikke tillatt med mer enn' in text_type(e):
             max_length = [num for num in str(e).split() if num.isdigit()][0]
             e = ('Unknown field violating WS-rule of max '
                  '%s characters.' % max_length)
-        logger.warn(u'Could not ensure existence of %s in ePhorte: %s',
-                    user_id, unicode(e))
+        logger.warn('Could not ensure existence of %s in ePhorte: %s',
+                    user_id, text_type(e))
         return False
 
 
@@ -245,7 +240,7 @@ def perm_code_id_to_perm(code):
         return _perm_codes[code]
 
     logger.debug("Mapping perm codes")
-    _perm_codes = dict((str(x), x)
+    _perm_codes = dict((text_type(x), x)
                        for x in map(functools.partial(getattr, co), dir(co))
                        if isinstance(x, co.EphortePermission))
 
@@ -319,14 +314,14 @@ def fullsync_account(client, selection_spread, account_name):
             update_person_roles(person, client, remove_superfluous=True)
         except:
             logger.warn(
-                u'Failed to update roles for person_id:%s',
+                'Failed to update roles for person_id:%s',
                 person.entity_id, exc_info=True)
 
         try:
             update_person_perms(person, client, remove_superfluous=True)
         except:
             logger.warn(
-                u'Failed to update permissions for person_id:%s',
+                'Failed to update permissions for person_id:%s',
                 person.entity_id, exc_info=True)
 
 
@@ -405,19 +400,19 @@ def sanity_check_person(person_id, selection_spread):
     try:
         pe.find(person_id)
     except Errors.NotFoundError:
-        logger.info(u'person_id:%s does not exist, skipping', person_id)
+        logger.info('person_id:%s does not exist, skipping', person_id)
         return False
 
     try:
         get_user_id(pe)
     except Errors.NotFoundError:
         logger.info(
-            u'person_id:%s does not have a primary account, skipping',
+            'person_id:%s does not have a primary account, skipping',
             person_id)
         return False
 
     if not pe.has_spread(spread=selection_spread):
-        logger.info(u'person_id:%s has no ePhorte spread, skipping', person_id)
+        logger.info('person_id:%s has no ePhorte spread, skipping', person_id)
         return False
 
     return True
@@ -439,14 +434,14 @@ def fullsync_roles_and_perms(client, selection_spread):
                 update_person_roles(person, client, remove_superfluous=True)
             except:
                 logger.warn(
-                    u'Failed to update roles for person_id:%s',
+                    'Failed to update roles for person_id:%s',
                     person.entity_id, exc_info=True)
 
             try:
                 update_person_perms(person, client, remove_superfluous=True)
             except:
                 logger.warn(
-                    u'Failed to update permissions for person_id:%s',
+                    'Failed to update permissions for person_id:%s',
                     person.entity_id, exc_info=True)
 
 
@@ -499,7 +494,7 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
                         clh.confirm_event(event)
         except:
             logger.warn(
-                u'Failed to update roles for person_id:%s',
+                'Failed to update roles for person_id:%s',
                 person_id, exc_info=True)
         else:
             if commit:
@@ -512,7 +507,7 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
                         clh.confirm_event(event)
         except:
             logger.warn(
-                u'Failed to update permissions for person_id:%s',
+                'Failed to update permissions for person_id:%s',
                 person_id, exc_info=True)
         else:
             if commit:
@@ -709,16 +704,16 @@ def update_person_roles(pe, client, remove_superfluous=False):
         # Remove the standard role flag in order to log correct message.
         if (remove_default_flag(role_tuple) not in
                 remove_default_flag_from_set(ephorte_roles)):
-            logger.info(u'Adding role %s@%s for %s, %s',
+            logger.info('Adding role %s@%s for %s, %s',
                         args['role_id'], args['ou_id'], user_id, args)
         else:
-            logger.debug(u'Ensuring role %s@%s for %s, %s',
+            logger.debug('Ensuring role %s@%s for %s, %s',
                          args['role_id'], args['ou_id'], user_id, args)
 
         try:
             client.ensure_role_for_user(user_id, **args)
         except EphorteWSError, e:
-            logger.warn(u'Could not ensure existence of role %s@%s for %s: %s',
+            logger.warn('Could not ensure existence of role %s@%s for %s: %s',
                         args['role_id'], args['ou_id'], user_id, unicode(e))
 
     if remove_superfluous:
@@ -735,7 +730,7 @@ def update_person_roles(pe, client, remove_superfluous=False):
                     user_id, role['role_id'], role['ou_id'],
                     role['arkivdel'], role['journalenhet'])
             except EphorteWSError, e:
-                logger.warn(u'Could not remove role %s@%s for %s: %s',
+                logger.warn('Could not remove role %s@%s for %s: %s',
                             role['role_id'], role['ou_id'], user_id,
                             unicode(e))
 
@@ -774,7 +769,7 @@ def disable_users(client, selection_spread):
             # now only ignore these accounts. If we disabled all of these, we
             # would probably break something in ePhorte, according to the
             # sysadmins.
-            logger.info(u'No such account:%s in Cerebrum, ignoring user',
+            logger.info('No such account:%s in Cerebrum, ignoring user',
                         account_name)
             # TODO: Check with ePhorte before disabling such accounts!
             return False
@@ -784,8 +779,8 @@ def disable_users(client, selection_spread):
             pe.find(ac.owner_id)
         except Errors.NotFoundError:
             logger.info(
-                u'No such person_id:%s when '
-                u'looking for owner of account:%s, ignoring user',
+                'No such person_id:%s when '
+                'looking for owner of account:%s, ignoring user',
                 ac.owner_id, account_name)
             # TODO: Check with ePhorte before disabling such accounts!
             return False
@@ -794,8 +789,8 @@ def disable_users(client, selection_spread):
 
         if not primary_account_id:
             logger.info(
-                u'Owner of account:%s, person_id:%s, '
-                u'has no primary account, user should be disabled',
+                'Owner of account:%s, person_id:%s, '
+                'has no primary account, user should be disabled',
                 account_name, ac.owner_id)
             return True
 
@@ -805,15 +800,15 @@ def disable_users(client, selection_spread):
 
         if not pe.has_spread(spread=selection_spread):
             logger.info(
-                u'Owner of account:%s, person_id:%s, '
-                u'has no ePhorte spread, user should be disabled',
+                'Owner of account:%s, person_id:%s, '
+                'has no ePhorte spread, user should be disabled',
                 account_name, ac.owner_id)
             return True
 
         if account_name != primary_account:
             logger.info(
-                u'Owner of account:%s, person_id:%s, has a different primary '
-                u'account (%s), user should be disabled',
+                'Owner of account:%s, person_id:%s, has a different primary '
+                'account (%s), user should be disabled',
                 account_name, ac.owner_id, primary_account)
             return True
 
@@ -823,7 +818,7 @@ def disable_users(client, selection_spread):
         user_details = client.get_user_details(user_id)
         # consider user as disabled if number of roles + permissions is zero
         disabled = (len(user_details[1]) + len(user_details[2])) == 0
-        logger.debug(u'User %s disabled? %s', user_id, disabled)
+        logger.debug('User %s disabled? %s', user_id, disabled)
         return disabled
 
     start = time.time()
@@ -832,29 +827,30 @@ def disable_users(client, selection_spread):
     failed = 0
 
     for eph_user_id in all_users.keys():
-        logger.debug(u'Considering user_id:%s', eph_user_id)
+        logger.debug('Considering user_id:%s', eph_user_id)
 
         if should_be_disabled(eph_user_id):
             try:
                 if not is_disabled_in_ephorte(eph_user_id):
                     client.disable_user(eph_user_id)
-                    logger.info(u'Successfully disabled user %s', eph_user_id)
+                    logger.info('Successfully disabled user %s', eph_user_id)
                     client.disable_roles_and_authz_for_user(eph_user_id)
-                    logger.info(u'Successfully disabled roles and authz for %s', eph_user_id)
+                    logger.info('Successfully disabled roles and authz for %s',
+                                eph_user_id)
                     disabled_now += 1
                 else:
-                    logger.debug(u'User %s is already disabled', eph_user_id)
+                    logger.debug('User %s is already disabled', eph_user_id)
                     disabled_previously += 1
             except EphorteWSError, e:
-                logger.warn(u'Failed disabling user %s or its roles/authz: %s',
+                logger.warn('Failed disabling user %s or its roles/authz: %s',
                             eph_user_id, unicode(e), exc_info=True)
                 failed += 1
 
-    logger.info(u'Checked %s users in %s secs',
+    logger.info('Checked %s users in %s secs',
                 len(all_users), int(time.time() - start))
-    logger.info(u'Users already disabled: %s', disabled_previously)
-    logger.info(u'Users disabled now: %s', disabled_now)
-    logger.info(u'Webservice errors encountered: %s', failed)
+    logger.info('Users already disabled: %s', disabled_previously)
+    logger.info('Users disabled now: %s', disabled_now)
+    logger.info('Webservice errors encountered: %s', failed)
 
 
 def show_org_units(client):
