@@ -38,6 +38,7 @@ from Cerebrum.modules.event.errors import (EventExecutionException,
                                            UnrelatedEvent)
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import json
 from Cerebrum import Errors
 from Cerebrum.utils.funcwrap import memoize
 
@@ -230,7 +231,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         :type event: Cerebrum.extlib.db_row.row
         :param event: The event returned from Change- or EventLog."""
         # TODO: Handle exceptions!
-        added_spread_code = self.ut.unpickle_event_params(event)['spread']
+        added_spread_code = self.ut.load_params(event)['spread']
         # An Exchange-spread has been added! Let's make a mailbox!
         # TODO: Check for subject entity type? It is supposed to be an account
         #           Explicit instead of implicit
@@ -424,7 +425,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             raise UnrelatedEvent
 
     def _is_shared_mailbox_op(self, event):
-        spread_code = self.ut.unpickle_event_params(event)['spread']
+        spread_code = self.ut.load_params(event)['spread']
         if spread_code == self.shared_mbox_spread:
             return True
         else:
@@ -485,7 +486,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
 
         :type event: Cerebrum.extlib.db_row.row
         :param event: The event returned from Change- or EventLog."""
-        removed_spread_code = self.ut.unpickle_event_params(event)['spread']
+        removed_spread_code = self.ut.load_params(event)['spread']
         if removed_spread_code == self.mb_spread:
             uname = self.ut.get_account_name(event['subject_entity'])
             try:
@@ -594,7 +595,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         # not, we throw away the event.
         try:
             et = self.ut.get_entity_type(event['subject_entity'])
-            params = self.ut.unpickle_event_params(event)
+            params = self.ut.load_params(event)
             if not et == self.co.entity_person:
                 raise Errors.NotFoundError
         except Errors.NotFoundError:
@@ -788,7 +789,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             Exchange related error.
         :raises EventExecutionException: If the event could not be processed
             properly."""
-        params = self.ut.unpickle_event_params(event)
+        params = self.ut.load_params(event)
 
         et_eid, tid, tet, hq, sq = self.ut.get_email_target_info(
             target_id=event['subject_entity'])
@@ -838,7 +839,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             # Skip all targets that are not account-related
             raise UnrelatedEvent
 
-        params = self.ut.unpickle_event_params(event)
+        params = self.ut.load_params(event)
 
         try:
             self.ec.set_local_delivery(uname, params['enabled'])
@@ -873,7 +874,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         :param event: The event returned from Change- or EventLog.
 
         :raises ExchangeException: If all accounts could not be updated."""
-        params = self.ut.unpickle_event_params(event)
+        params = self.ut.load_params(event)
         domain = self.ut.get_email_domain_info(params['dom_id'])['name']
         address = '%s@%s' % (params['lp'], domain)
 
@@ -934,7 +935,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         :param event: The event returned from Change- or EventLog.
 
         :raises ExchangeException: If all accounts could not be updated."""
-        params = self.ut.unpickle_event_params(event)
+        params = self.ut.load_params(event)
         domain = self.ut.get_email_domain_info(params['dom_id'])['name']
         address = '%s@%s' % (params['lp'], domain)
 
@@ -1045,7 +1046,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             raise UnrelatedEvent
 
         if e_type == self.co.entity_account:
-            params = self.ut.unpickle_event_params(event)
+            params = self.ut.load_params(event)
             uname = self.ut.get_account_name(e_id)
             level = self.co.EmailSpamLevel(params['level']).get_level()
             action = text_type(self.co.EmailSpamAction(params['action']))
@@ -1088,7 +1089,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         gname = None
         # TODO: Handle exceptions!
         # TODO: Implicit checking of type. Should it be excplicit?
-        added_spread_code = self.ut.unpickle_event_params(event)['spread']
+        added_spread_code = self.ut.load_params(event)['spread']
         if added_spread_code == self.group_spread:
             gname, desc = self.ut.get_group_information(
                 event['subject_entity'])
@@ -1287,7 +1288,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
 
         :type event: Cerebrum.extlib.db_row.row
         :param event: The event returned from Change- or EventLog."""
-        data = self.ut.unpickle_event_params(event)
+        data = self.ut.load_params(event)
         if data['roomlist'] == 'F':
             try:
                 self.ec.remove_group(data['name'])
@@ -1342,7 +1343,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         group_spreads = self.ut.get_group_spreads(event['subject_entity'])
         gname, description = self.ut.get_group_information(
             event['subject_entity'])
-        params = self.ut.unpickle_event_params(event)
+        params = self.ut.load_params(event)
 
         if self.group_spread in group_spreads:
 

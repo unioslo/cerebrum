@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2015 University of Oslo, Norway
+# Copyright 2013-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,7 +35,6 @@ from Cerebrum.modules.Email import EmailQuota
 from Cerebrum.modules.Email import EmailForward
 from Cerebrum.modules.exchange.ExchangeGroups import DistributionGroup
 from Cerebrum import Errors
-
 
 # TODO: Catch all possible errors here. Raise something useful, so
 # the integration won't crash, and can requeue the event (or something)
@@ -452,14 +451,14 @@ class CerebrumUtils(object):
 # Other utility methods
 ####
 
-    def unpickle_event_params(self, event):
-        """Unpickle the change params of an event.
+    def load_params(self, event):
+        """Get the change params of an event.
 
         :type event: dbrow
         :param event: The db row returned by Change- or EventLog.
 
-        :rtype: string
-        :return: The change params."""
+        :rtype: dict or None
+        :return: The change params
         params = event['change_params']
         if isinstance(params, text_type):
             try:
@@ -507,12 +506,12 @@ class CerebrumUtils(object):
         trigger = trigger.split(':')
         ct = self.co.ChangeType(trigger[0], trigger[1])
 
-        param = self.unpickle_event_params(event)
+        params = self.load_params(event)
 
         self.db.log_change(event['subject_entity'],
                            int(ct),
                            event['dest_entity'],
-                           change_params=param,
+                           change_params=params,
                            skip_change=True,
                            skip_publish=True)
         self.db.commit()
@@ -536,7 +535,7 @@ class CerebrumUtils(object):
                 'skip_publish': True}
 
         # Only log params if they actually contain something.
-        param = self.unpickle_event_params(event)
+        param = self.load_params(event)
         if param:
             parm['change_params'] = param
 

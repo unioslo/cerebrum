@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,7 +22,7 @@
 
 from __future__ import unicode_literals, absolute_import
 
-import pickle
+import Cerebrum.utils.json as json
 
 from six import text_type
 
@@ -151,7 +151,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
         'e_account:mod',
         'e_account:password')
     def account_change(self, key, event):
-        """ Account change - update CIM. """
+        """ Account change """
         pe = Factory.get('Person')(self.db)
         ac = Factory.get('Account')(self.db)
 
@@ -170,7 +170,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
         'ac_type:mod',
         'ac_type:del')
     def account_pri_change(self, key, event):
-        """ Account priority change! """
+        """ Account priority change """
         pe = Factory.get('Person')(self.db)
         ac = Factory.get('Account')(self.db)
 
@@ -195,7 +195,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
         'person:create',
         'person:update')
     def person_change(self, key, event):
-        """ Person change. """
+        """ Person change """
         pe = Factory.get('Person')(self.db)
         try:
             pe.find(event['subject_entity'])
@@ -210,7 +210,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
         'person:name_add',
         'person:name_mod')
     def person_name_change(self, key, event):
-        """ Person name change. """
+        """ Person name change """
         pe = Factory.get('Person')(self.db)
         try:
             pe.find(event['subject_entity'])
@@ -224,7 +224,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
         'entity_cinfo:add',
         'entity_cinfo:del')
     def entity_cinfo_change(self, key, event):
-        """ Person contact info change. """
+        """ Person contact info change """
         pe = Factory.get('Person')(self.db)
         try:
             pe.find(event['subject_entity'])
@@ -239,8 +239,8 @@ class CimConsumer(evhandlers.EventLogConsumer):
         'spread:add',
         'spread:delete')
     def spread_change(self, key, event):
-        """ Spread change. """
-        change_params = pickle.loads(event['change_params'])
+        """ Spread change """
+        change_params = json.loads(event['change_params'])
         if change_params.get('spread', 0) != int(self.datasource.spread):
             raise UnrelatedEvent
 
@@ -269,7 +269,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
         'person:aff_src_mod',
         'person:aff_src_del')
     def person_aff_change(self, key, event):
-        u""" Person aff change. """
+        """ Person aff change. """
         pe = Factory.get('Person')(self.db)
         try:
             pe.find(event['subject_entity'])
