@@ -42,25 +42,6 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdUtils
-from Cerebrum.utils.textnorm import UnicodeNormalizer
-
-
-def normalize_input(value):
-    """ Normalize text input.
-
-    :param basestring value:
-        An ascii bytestring or a unicode string.
-
-    :return six.text_type:
-        A normalized unicode string.
-    """
-    if value is None:
-        return None
-    if not isinstance(value, basestring):
-        raise TypeError("Invalid string input: %r" % value)
-    if isinstance(value, bytes):
-        return value.decode('ascii')
-    return UnicodeNormalizer('NFC')(value)
 
 
 class BofhdCommandBase(object):

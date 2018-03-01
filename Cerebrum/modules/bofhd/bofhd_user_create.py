@@ -35,7 +35,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.modules.bofhd.bofhd_core import normalize_input
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
@@ -250,8 +249,6 @@ class BofhdUserCreateMethod(BofhdCommonMethods):
             else:
                 idtype, person_id, yes_no, affiliation, uname = args
             owner = self._get_person("entity_id", person_id)
-
-        uname = normalize_input(uname)
 
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("only superusers may reserve users")

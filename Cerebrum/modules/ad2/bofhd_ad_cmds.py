@@ -26,7 +26,6 @@ from Cerebrum import Errors
 from Cerebrum.modules.ad2.Entity import EntityADMixin
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
-from Cerebrum.modules.bofhd.bofhd_core import normalize_input
 from Cerebrum.modules.bofhd.cmd_param import (
     Command, EntityType, FormatSuggestion, Id, Parameter, SimpleString, Spread)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
@@ -233,7 +232,6 @@ class BofhdExtension(BofhdCommandBase):
         ent = self._get_entity(entity_type, ident)
         atr = _get_attr(self.const, attr_type)
         spr = _get_spread(self.const, spread)
-        value = normalize_input(value)
         ent.set_ad_attribute(spread=spr, attribute=atr, value=value)
         ent.write_db()
 

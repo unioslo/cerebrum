@@ -25,6 +25,11 @@ import xmlrpclib
 import six
 from mx import DateTime
 
+from Cerebrum.utils.textnorm import UnicodeNormalizer
+
+
+normalize = UnicodeNormalizer('NFC')
+
 
 class AttributeDict(dict):
     """Adds attribute access to keys, ie. a['knott'] == a.knott"""
@@ -39,6 +44,7 @@ class AttributeDict(dict):
 
 
 def ensure_unicode(obj):
+    """ Ensure string output -> unicode objects. """
     if isinstance(obj, six.text_type):
         return obj
     try:
@@ -92,8 +98,8 @@ def xmlrpc_to_native(obj):
         if obj == ':None':
             return None
         elif obj.startswith(":"):
-            return six.text_type(obj[1:])
-        return six.text_type(obj)
+            return normalize(six.text_type(obj[1:]))
+        return normalize(six.text_type(obj))
     elif isinstance(obj, (tuple, list)):
         obj_type = type(obj)
         return obj_type([xmlrpc_to_native(x) for x in obj])
