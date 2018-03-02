@@ -226,8 +226,8 @@ def normalize_stream(stream,
         Returns a stream that encodes/decodes and normalizes all text data.
     """
     encoder, decoder, Reader, Writer = codecs.lookup(encoding)
-    Reader = NormalizingCodec.patch(Reader, encode=normalize)
-    Writer = NormalizingCodec.patch(Writer, decode=normalize)
+    Reader = NormalizingCodec.patch(Reader, decode=normalize)
+    Writer = NormalizingCodec.patch(Writer, encode=normalize)
     return codecs.StreamReaderWriter(stream, Reader, Writer, errors=errors)
 
 
