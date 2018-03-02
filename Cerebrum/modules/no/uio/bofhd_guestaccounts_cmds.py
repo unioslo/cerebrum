@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,8 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 from mx import DateTime
+
 import cereconf
 
 from Cerebrum import Errors
@@ -30,8 +30,9 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func
 
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExtension
-from Cerebrum.modules.no.uio.bofhd_guestaccounts_utils import GuestUtils, GuestAccountException
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as uio_base
+from Cerebrum.modules.no.uio.bofhd_guestaccounts_utils import (
+    GuestUtils, GuestAccountException)
 
 
 uio_helpers = [
@@ -41,7 +42,7 @@ uio_helpers = [
 
 
 @copy_func(
-    UiOBofhdExtension,
+    uio_base,
     methods=uio_helpers)
 class BofhdExtension(BofhdCommonMethods):
 
@@ -100,25 +101,25 @@ class BofhdExtension(BofhdCommonMethods):
             int(all_args[0])
             all_args.pop(0)
         except ValueError:
-            raise CerebrumError("Not a number: %s" % all_args[0])
+            raise CerebrumError("Not a number: %r" % all_args[0])
         # Get group name.
         if not all_args:
             return {'prompt': 'Enter owner group name',
                     'default': cereconf.GUESTS_OWNER_GROUP}
         # get default file_group
-        owner_group_name = all_args.pop(0)
+        all_args.pop(0)
         if not all_args:
             return {'prompt': "Default filegroup",
                     'default': cereconf.GUESTS_DEFAULT_FILEGROUP}
-        filegroup = all_args.pop(0)
+        all_args.pop(0)
         # get shell
         if not all_args:
             return {'prompt': "Shell", 'default': 'bash'}
-        shell = all_args.pop(0)
+        all_args.pop(0)
         # get disk
         if not all_args:
             return {'prompt': "Disk", 'help_ref': 'disk'}
-        disk = all_args.pop(0)
+        all_args.pop(0)
         # get prefix
         if not all_args:
             return {'prompt': "Name prefix",
@@ -172,7 +173,7 @@ class BofhdExtension(BofhdCommonMethods):
                     disk_id=disk_id, home=home,
                     status=self.const.home_status_not_created)
                 posix_user.set_home(self.const.spread_uio_nis_user, homedir_id)
-            except self.db.DatabaseError, m:
+            except self.db.DatabaseError as m:
                 raise CerebrumError("Database error: %s" % m)
             self.bgu.update_group_memberships(posix_user.entity_id)
             posix_user.populate_trait(
@@ -209,17 +210,17 @@ class BofhdExtension(BofhdCommonMethods):
         max_date = start_date + DateTime.RelativeDateTime(
             days=cereconf.GUESTS_MAX_PERIOD)
         if end_date > max_date:
-            raise CerebrumError(
-                "End date can't be later than %s" % max_date.date)
+            raise CerebrumError("End date can't be later than %s" %
+                                max_date.date)
         if not nr.isdigit():
             raise CerebrumError(
                 "'Number of accounts' requested must be a number;"
-                " '%s' isn't." % nr)
+                " %r isn't." % nr)
 
         try:
             self.ba.can_request_guests(operator.get_entity_id(), groupname)
         except Errors.NotFoundError:
-            raise CerebrumError("Group '%s' not found" % groupname)
+            raise CerebrumError("Group %r not found" % groupname)
         owner = self.util.get_target(groupname, default_lookup="group")
         try:
             user_list = self.bgu.request_guest_users(
@@ -238,8 +239,8 @@ class BofhdExtension(BofhdCommonMethods):
             ret += "Please use misc list_passwords to view the passwords\n"
             ret += "or use misc print_passwords to print the passwords."
             return ret
-        except GuestAccountException, e:
-            raise CerebrumError(str(e))
+        except GuestAccountException as e:
+            raise CerebrumError(e)
 
     #
     # user release_guest [<guest> || <range>]+
@@ -279,9 +280,9 @@ class BofhdExtension(BofhdCommonMethods):
             except PermissionDenied:
                 raise CerebrumError(
                     "No permission to release guest user %s" % guest)
-            except GuestAccountException, e:
+            except GuestAccountException as e:
                 raise CerebrumError(
-                    "Could not release guest user. %s" % str(e))
+                    "Could not release guest user. %s" % e)
 
         return "OK, released guests:\n%s" % self._pretty_print(guests)
 
