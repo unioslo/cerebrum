@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2010 University of Oslo, Norway
+# Copyright 2010-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,15 +19,12 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """This module implements the necessary authentication bits for voip bofhd
-extension. 
+extension.
 
 A number of voip bofhd commands are restricted to certain users. This module
 implements the necessary framework to support that.
 """
 
-
-
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
@@ -39,22 +35,15 @@ from Cerebrum.modules.no.uio.voip.voipAddress import VoipAddress
 from Cerebrum.modules.no.uio.voip.voipClient import VoipClient
 
 
-
 class BofhdVoipAuth(auth.BofhdAuth):
     """Permissions checks for voip bofhd commands."""
 
-
     def __init__(self, database):
         super(BofhdVoipAuth, self).__init__(database)
-
         self.voip_sysadmins = cereconf.BOFHD_VOIP_ADMINS
-    # end __init__
-
 
     def _is_voip_admin(self, account_id):
         return account_id in self._get_group_members(self.voip_sysadmins)
-    # end _is_voip_admin
-
 
     ########################################################################
     # voip_address related permissions
@@ -67,26 +56,20 @@ class BofhdVoipAuth(auth.BofhdAuth):
         if self._is_voip_admin(account_id):
             return True
 
-        raise PermissionDenied("Account id=%s cannot add/remove contact information."
-                               % str(account_id))
-    # end can_alter_number
-        
+        raise PermissionDenied("Account id=%d cannot add/remove contact"
+                               " information." % account_id)
 
     def can_alter_voip_address(self, account_id):
-        """Whether account_id can change system information of a
-        voip_address. 
+        """Whether account_id can change system information of a voip_address.
         """
-
         if self.is_superuser(account_id):
             return True
 
         if self._is_voip_admin(account_id):
             return True
 
-        raise PermissionDenied("Account id=%s cannot manipulate voip_addresses."
-                               % str(account_id))
-    # end can_alter_voip_address
-
+        raise PermissionDenied("Account id=%d cannot manipulate"
+                               " voip_addresses." % account_id)
 
     ########################################################################
     # voip_client related permissions
@@ -99,11 +82,9 @@ class BofhdVoipAuth(auth.BofhdAuth):
 
         if self._is_voip_admin(account_id):
             return True
-        
-        raise PermissionDenied("Account id=%s cannot manipulate voip_clients." %
-                               str(account_id))
-    # end can_create_voip_client
 
+        raise PermissionDenied("Account id=%d cannot manipulate"
+                               " voip_clients." % account_id)
 
     def can_view_voip_client(self, account_id):
         """Everybody can see information about voip_clients.
@@ -111,8 +92,6 @@ class BofhdVoipAuth(auth.BofhdAuth):
         FIXME: ORLY?
         """
         return True
-    # end can_view_voip_client
-
 
     def can_alter_voip_client(self, account_id):
         """Whether account_id can change some info about a client."""
@@ -123,9 +102,8 @@ class BofhdVoipAuth(auth.BofhdAuth):
         if self._is_voip_admin(account_id):
             return True
 
-        raise PermissionDenied("Account id=%s cannot manipulate voip_clients")
-    # end can_alter_voip_client
-
+        raise PermissionDenied("Account id=%d cannot manipulate voip_clients" %
+                               account_id)
 
     def can_reset_client_secrets(self, account_id, client_id):
         """Whether account_id can reset sip*secrets.
@@ -133,17 +111,14 @@ class BofhdVoipAuth(auth.BofhdAuth):
         Resetting means deleting old ones and registering random news
         ones. This operation is meaningless for sip_client's owner.
         """
-        
         if self.is_superuser(account_id):
             return True
 
         if self._is_voip_admin(account_id):
             return True
 
-        raise PermissionDenied("Account id=%s cannot reset sip*Secret of "
-                               "voip_client id=%s"  % (account_id, client_id))
-    # end can_reset_client_secrets
-
+        raise PermissionDenied("Account id=%d cannot reset sip*Secret of "
+                               "voip_client id=%d" % (account_id, client_id))
 
     def can_set_new_secret(self, account_id, client_id):
         """Whether account_id can set a new sipSecret on client_id.
@@ -155,13 +130,13 @@ class BofhdVoipAuth(auth.BofhdAuth):
             return True
 
         # We allow resetting a secret to the owner of client_id.
-        # 
+        #
         # The test goes like this: find voip_address to which client_id is
         # bound. Compare it to account_id's owner_id. For non-personal
         # accounts this test is bound to fail.
         acc = Factory.get("Account")(self._db)
         acc.find(account_id)
-        
+
         client = VoipClient(self._db)
         client.find(client_id)
         address = VoipAddress(self._db)
@@ -170,11 +145,9 @@ class BofhdVoipAuth(auth.BofhdAuth):
         if address.owner_entity_id == acc.owner_id:
             return True
 
-        raise PermissionDenied("Account id=%s cannot change sipSecret of "
-                               "voip_client id=%s" % (account_id, client_id))
-    # end can_set_new_secret
-    
-    
+        raise PermissionDenied("Account id=%d cannot change sipSecret of "
+                               "voip_client id=%d" % (account_id, client_id))
+
     ########################################################################
     # voip_service related permissions
     #
@@ -187,16 +160,12 @@ class BofhdVoipAuth(auth.BofhdAuth):
         if self._is_voip_admin(account_id):
             return True
 
-        raise PermissionDenied("Account id=%s cannot manipulate voip-services." %
-                               str(account_id))
-    # end can_create_voip_service
-   
+        raise PermissionDenied("Account id=%d cannot manipulate"
+                               " voip-services." % account_id)
 
     def can_view_voip_service(self, account_id):
         """Everybody can see information about voip_services."""
         return True
-    # end can_view_voip_service
-    
 
     def can_alter_voip_service(self, account_id):
         """Whether account_id is allowed to update info about voip_services."""
@@ -206,10 +175,5 @@ class BofhdVoipAuth(auth.BofhdAuth):
         if self._is_voip_admin(account_id):
             return True
 
-        raise PermissionDenied("Account id=%s cannot manipulate voip-services." %
-                               str(account_id))
-    # end can_alter_voip_service
-# end BofhdVoipAuth
-
-
-    
+        raise PermissionDenied("Account id=%d cannot manipulate"
+                               " voip-services." % account_id)
