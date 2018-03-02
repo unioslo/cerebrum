@@ -19,6 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 """Deactivate accounts with a given quarantine.
 
 The criterias for deactivating accounts:
@@ -61,6 +63,7 @@ import mx.DateTime as dt
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.context import entity, entitise
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 
 logger = Factory.get_logger("cronjob")
@@ -108,8 +111,8 @@ def fetch_all_relevant_accounts(qua_type, since, ignore_affs,
                  since, max_date.strftime('%Y-%m-%d'))
     targets = set(row['entity_id'] for row in
                   account.list_entity_quarantines(
-                        entity_types=constants.entity_account,
-                        quarantine_types=qua_type, only_active=True)
+                      entity_types=constants.entity_account,
+                      quarantine_types=qua_type, only_active=True)
                   if row['start_date'] <= max_date)
     logger.debug("Found %d quarantine targets", len(targets))
     if len(targets) == 0:
@@ -120,7 +123,7 @@ def fetch_all_relevant_accounts(qua_type, since, ignore_affs,
                   person.list_affiliations(include_deleted=False)
                   if r['affiliation'] not in ignore_affs)
     logger.debug2("Found %d persons with affiliations", len(persons))
-    accounts_to_ignore = set(r['account_id'] for r in
+    accounts_to_ignore = set(int(r['account_id']) for r in
                              account.search(owner_type=constants.entity_person)
                              if r['owner_id'] in persons)
     targets.difference_update(accounts_to_ignore)
@@ -304,19 +307,19 @@ def main():
     logger.info("Got %s accounts to process", len(rel_accounts))
 
     i = 0
-    for a in rel_accounts:
+    for account, accid in entitise(rel_accounts,
+                                   manager=entity.account.find,
+                                   key=None,
+                                   handler=lambda x:
+                                   logger.warn('Could not find account_id %s, '
+                                               'skipping', x)):
         if limit and i >= limit:
             logger.debug("Limit of deactivations reached (%d), stopping",
                          limit)
             break
-        account.clear()
         try:
-            account.find(int(a))
-        except Errors.NotFoundError:
-            logger.warn("Could not find account_id %s, skipping", a)
-            continue
-        try:
-            if process_account(account, delete=delete, bofhdreq=bofhdreq):
+            if process_account(account, delete=delete,
+                               bofhdreq=bofhdreq):
                 i += 1
         except Exception:
             logger.exception("Failed deactivating account: %s (%s)" %
