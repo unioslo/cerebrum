@@ -37,6 +37,7 @@ To use an existing database object, set `entity.db` to point to it.
 """
 
 from Cerebrum.Utils import Factory
+from Cerebrum.Errors import NotFoundError
 
 
 class EntityContextManager(object):
@@ -137,7 +138,7 @@ class ContextPool(object):
 entity = ContextPool()
 
 
-def entitise(iterator, manager=None, key=0):
+def entitise(iterator, manager=None, key=0, handler=None):
     """Like enumerate, just for entity.
 
     The manager should represent a find operation, e.g.
@@ -145,12 +146,18 @@ def entitise(iterator, manager=None, key=0):
 
     :param iterator: Some iterable object, whose items has __getitem__.
     :param manager: A callable, producing a context manager
-    :param key: Key into the iterable's item
+    :param key: Key into the iterable's item, or None (use item itself)
+    :param handler: A callable, called when item is not found
     :yield: A sequence of bound entities, and row
     """
 
     if manager is None:
         manager = entity.entity.find
     for item in iterator:
-        with manager(item[key]) as obj:
-            yield obj, item
+        try:
+            with manager(item if key is None else item[key]) as obj:
+                yield obj, item
+        except NotFoundError:
+            if handler is None:
+                raise
+            handler(item)
