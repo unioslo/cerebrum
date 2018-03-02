@@ -19,6 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains a password print command for UiO. """
+from six import text_type
 
 import cereconf
 
@@ -28,25 +29,25 @@ from Cerebrum.modules.bofhd.errors import CerebrumError
 
 class BofhdExtension(base.BofhdExtension):
 
-    u""" Alter how password letters are printed at UiO. """
+    """ Alter how password letters are printed at UiO. """
 
     def _get_default_printer(self, session):
-        u""" Get a default printer for the prompt. """
+        """ Get a default printer for the prompt. """
         previous = super(BofhdExtension, self)._get_default_printer(session)
         return previous or 'pullprint'
 
     def _get_printer(self, session, template):
-        u""" Get printer preset. """
+        """ Get printer preset. """
         if template.get('lang', '').endswith("letter"):
             return cereconf.PRINT_PRINTER
         return 'pullprint'
 
     def _can_set_spool_user(self, session, template):
-        u""" Can spool user be set? """
+        """ Can spool user be set? """
         return self._get_printer(session, template) == 'pullprint'
 
     def _get_mappings(self, account, tpl):
-        u""" Get mappings for a given template.
+        """ Get mappings for a given template.
 
         :param Cerebrum.Account account: The account to generate mappings for
         :param dict tpl: The template to generate mappings for
@@ -57,17 +58,19 @@ class BofhdExtension(base.BofhdExtension):
         mapping = dict()
 
         # Add account owner info to mappings
-        if account.owner_type == self.const.entity_group:
+        owner_type = self.const.EntityType(account.owner_type)
+        if owner_type == self.const.entity_group:
             group = self._get_group(account.owner_id, idtype='id')
             mapping['group'] = group.group_name
-        elif account.owner_type == self.const.entity_person:
+        elif owner_type == self.const.entity_person:
             person = self._get_person('id', account.owner_id)
             mapping['fullname'] = person.get_name(self.const.system_cached,
                                                   self.const.name_full)
         else:
             raise CerebrumError("Unsupported account owner type %s" %
-                                account.owner_type)
+                                text_type(owner_type))
 
+        # TODO: Replace with template system from CRB-2443
         # TODO: Too much business logic is tied up to the template 'language'
         if tpl.get('lang', '').endswith('letter'):
             if account.owner_type != self.const.entity_person:
@@ -76,7 +79,7 @@ class BofhdExtension(base.BofhdExtension):
                      account.account_name))
 
             # Barcode
-            mapping['barcode'] = 'barcode_%s.eps' % account.entity_id
+            mapping['barcode'] = 'barcode_%d.eps' % account.entity_id
 
             # Address
             address = None
@@ -106,20 +109,10 @@ class BofhdExtension(base.BofhdExtension):
             mapping['country'] = address['country']
             mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
 
-        def unicodify(value):
-            """ Attempt to turn a str into unicode. We guess it's either
-            UTF-8 or ISO-8859-1. """
-            if isinstance(value, str):
-                try:
-                    value = value.decode('UTF-8')
-                except UnicodeDecodeError:
-                    value = value.decode('ISO-8859-1')
-            return value
-
         # latex template expects UTF-8
         for k, v in mapping.items():
             if not v:
                 continue
-            mapping[k] = unicodify(v).encode('UTF-8')
+            mapping[k] = v.encode('UTF-8')
 
         return mapping
