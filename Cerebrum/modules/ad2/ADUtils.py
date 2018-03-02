@@ -247,7 +247,7 @@ class ADclient(PowershellClient):
         """
         super(ADclient, self).__init__(*args, **kwargs)
         self.add_credentials(username=auth_user,
-                             password=unicode(read_password(auth_user, self.host), 'utf-8'))
+                             password=read_password(auth_user, self.host))
 
         # Note that we save the user's password by domain and not the host. It
         # _could_ be the wrong way to do it. TBD: Maybe both host and domain?
@@ -258,8 +258,7 @@ class ADclient(PowershellClient):
             self.ad_account_username = '%s@%s' % (ad_user, user_domain)
             self.logger.debug2("Using domain account: %s",
                                self.ad_account_username)
-            self.ad_account_password = unicode(read_password(ad_user, user_domain),
-                                               'utf-8')
+            self.ad_account_password = read_password(ad_user, user_domain)
         else:
             self.logger.debug2("Not using a domain account")
         self.dryrun = dryrun
