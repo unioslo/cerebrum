@@ -28,9 +28,12 @@ Instance specific configuration that extends and/or overrides the defaults
 should be in a module called 'dbcl_conf' in the Python path.
 """
 
-import pickle
+from __future__ import unicode_literals
+
 import time
 import datetime
+
+from six import text_type
 
 try:
     import dbcl_conf
@@ -38,6 +41,7 @@ except ImportError:
     dbcl_conf = None
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import default_dbcl_conf
+from Cerebrum.utils import json
 
 logger = Factory.get_logger("big_shortlived")
 
@@ -93,20 +97,14 @@ class CleanChangeLog(object):
         return i
 
     def format_for_logging(self, e):
-        change_params = e['change_params']
-        if change_params:
-            try:
-                change_params = pickle.loads(change_params)
-            except:
-                pass
         return (e['tstamp'].strftime('%Y-%m-%d'),
                 int(e['change_id']),
-                str(self.co.map_const(int(e['change_type_id']))),
+                text_type(self.co.map_const(int(e['change_type_id']))),
                 self.int_or_none(e['subject_entity']),
                 self.int_or_none(e['dest_entity']),
                 'password' if (
                     int(e['change_type_id']) == int(self.co.account_password))
-                else change_params)
+                else e['change_params'])
 
     def process_log(self):
         start = time.time()
@@ -155,7 +153,7 @@ class CleanChangeLog(object):
                 key.append("{:d}".format(e[column]))
             if 'change_params' in toggler:
                 if e['change_params']:
-                    data = pickle.loads(e['change_params'])
+                    data = json.loads(e['change_params'])
                 else:
                     data = {}
                 for c in toggler['change_params']:
@@ -178,7 +176,7 @@ class CleanChangeLog(object):
             logger.warn(
                 "Unknown change type id:{} ({}) for {} entries".format(
                     change_type,
-                    str(self.co.human2constant(change_type)),
+                    text_type(self.co.human2constant(change_type)),
                     num))
 
         maybe_commit(self)
@@ -279,13 +277,13 @@ class CleanPasswords(object):
             if not e['change_params']:
                 # Nothing to remove
                 continue
-            data = pickle.loads(e['change_params'])
+            data = json.loads(e['change_params'])
             if 'password' in data:
                 del data['password']
                 if self.commit:
                     self.db.update_log_event(e['change_id'], data)
                 logger.info("Removed password for id:{:d}".format(
-                        e['subject_entity']))
+                    e['subject_entity']))
                 removed += 1
 
         logger.info("Spent {} seconds".format(int(time.time() - start)))
