@@ -211,8 +211,8 @@ def write_fnrupdate_info(outfile):
                                    indent_level = 2,
                                    # Human-readable output
                                    data_mode = True,
-                                   input_encoding = "latin1")
-    writer.startDocument(encoding = "iso8859-1")
+                                   input_encoding = "utf-8")
+    writer.startDocument(encoding = "utf-8")
 
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
