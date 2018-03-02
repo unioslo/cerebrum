@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2003-2017 University of Oslo, Norway
 #
@@ -24,7 +24,7 @@
 Disse gruppene blir bl.a. brukt ved eksport av data til ClassFronter, og ved
 populering av visse NIS (Ifi).
 
-Først litt terminologi:
+FÃ¸rst litt terminologi:
 
   - Studieprogram: et studium som normalt leder frem til en grad. Bygges opp
                    ved emner.
@@ -33,34 +33,34 @@ Først litt terminologi:
   - Undervisningsenhet (undenh): en instansiering av et emne.
   - Undervisningsaktivitet (undakt): en serie aktivitet knyttet til en
                                      undenh. F.eks. en forelesningsrekke, et
-                                     labparti, en serie regneøvinger. Kan også
-                                     være en enkel aktivitet.
+                                     labparti, en serie regneÃ¸vinger. Kan ogsÃ¥
+                                     vÃ¦re en enkel aktivitet.
   - Kurs (evu): Samsvarer med undenh, men er for etter- og videreutdanning
   - Kursaktivitet: Samsvarer med undakt, men er for etter- og videreutdanning
-  - Kull: Årsklasse av et studieprogram.
+  - Kull: Ã…rsklasse av et studieprogram.
 
-Gruppene er organisert i en tre-struktur.  Øverst finnes en supergruppe; denne
-brukes for å holde orden på hvilke grupper som er automatisk opprettet av
+Gruppene er organisert i en tre-struktur.  Ã˜verst finnes en supergruppe; denne
+brukes for Ã¥ holde orden pÃ¥ hvilke grupper som er automatisk opprettet av
 dette scriptet, og dermed hvilke grupper som skal slettes i det dataene de
-bygger på ikke lenger finnes i FS.  Supergruppen har navnet::
+bygger pÃ¥ ikke lenger finnes i FS.  Supergruppen har navnet::
 
   internal:uio.no:fs:{supergroup}
 
-Denne supergruppen har så medlemmer som også er grupper.
-Medlemsgruppene har navn på følgende format::
+Denne supergruppen har sÃ¥ medlemmer som ogsÃ¥ er grupper.
+Medlemsgruppene har navn pÃ¥ fÃ¸lgende format::
 
   internal:uio.no:kurs:<emnekode>
   internal:uio.no:evu:<kurskode>
   internal:uio.no:kull:<studieprogram>
 
-Hver av disse 'enhet-supergruppene' har medlemmer som er grupper med navn på
-følgende format::
+Hver av disse 'enhet-supergruppene' har medlemmer som er grupper med navn pÃ¥
+fÃ¸lgende format::
 
-  internal:uio.no:fs:kurs:<institusjonsnr>:<emnekode>:<versjon>:<sem>:<år>
+  internal:uio.no:fs:kurs:<institusjonsnr>:<emnekode>:<versjon>:<sem>:<Ã¥r>
   internal:uio.no:fs:evu:<kurskode>:<tidsangivelse>
   internal:uio.no:fs:kull:<studieprogram>:<terminkode>:<aar>
 
-Merk at for undenh, så er ikke en tilsvarende 'enhet'-gruppe *helt* ekvivalent
+Merk at for undenh, sÃ¥ er ikke en tilsvarende 'enhet'-gruppe *helt* ekvivalent
 med begrepet undervisningsenhet slik det brukes i FS.  Gruppen representerer
 semesteret et gitt kurs startet i (terminnr == 1).  For kurs som strekker seg
 over mer enn ett semester vil det derfor i FS finnes multiple
@@ -70,8 +70,8 @@ sitt i hele kurstiden.
 'enhet'-gruppene har igjen grupper som medlemmer; disse kan deles i to
 kategorier:
 
-  - Grupper (med primærbrukermedlemmer) som brukes ved eksport til
-    ClassFronter, har navn på følgende format::
+  - Grupper (med primÃ¦rbrukermedlemmer) som brukes ved eksport til
+    ClassFronter, har navn pÃ¥ fÃ¸lgende format::
 
       Rolle ved undenh:     uio.no:fs:<enhetid>:<rolletype>
       Rolle ved undakt:     uio.no:fs:<enhetid>:<rolletype>:<aktkode>
@@ -80,35 +80,35 @@ kategorier:
       Alle stud. v/enh:     uio.no:fs:<enhetid>:student
       Alle stud. v/akt:     uio.no:fs:<enhetid>:student:<aktkode>
 
-  - Ytterligere grupper hvis medlemmer kun er ikke-primære ('sekundære')
-    konti. Genereres kun for informatikk-emner, og har navn på formen::
+  - Ytterligere grupper hvis medlemmer kun er ikke-primÃ¦re ('sekundÃ¦re')
+    konti. Genereres kun for informatikk-emner, og har navn pÃ¥ formen::
 
       Ansvar und.enh:       uio.no:fs:<enhetid>:enhetsansvar-sek
       Ansvar und.akt:       uio.no:fs:<enhetid>:aktivitetsansvar-sek:<aktkode>
       Alle stud. v/enh:     uio.no:fs:<enhetid>:student-sek
 
 <rolletype> er en av 12 predefinerte roller (jfr. valid_roles). enhetsansvar
-og aktivitetsansvar-gruppene finnes kun for Ifi, som ønsker sine grupper (for
+og aktivitetsansvar-gruppene finnes kun for Ifi, som Ã¸nsker sine grupper (for
 NIS) bygget litt annerledes. Alle slike grupper hvor det er meningen det skal
-være accounts, får en passende fronterspread, basert på informasjonen fra
-FS. Det er kun slike grupper, hvis fronterspreads vil ha noe å si (dvs. andre
-grupper kan også få fronterspreads, men generate_fronter_full.py vil ignorere
+vÃ¦re accounts, fÃ¥r en passende fronterspread, basert pÃ¥ informasjonen fra
+FS. Det er kun slike grupper, hvis fronterspreads vil ha noe Ã¥ si (dvs. andre
+grupper kan ogsÃ¥ fÃ¥ fronterspreads, men generate_fronter_full.py vil ignorere
 dem).
 
-Poenget med å ha dette nokså kompliserte hierarkiet var å tillate
-DML/Houston/andre å kunne enkelt si at de vil eksportere en bestemt entitet
-til fronter uten å bry seg om gruppene som måtte være generert for denne
-entiteten. Dette er ikke mer nødvendig for undenh/undakt/kurs/kursakt, siden
-de populeres automatisk, men det *er* nødvendig for kull.
+Poenget med Ã¥ ha dette noksÃ¥ kompliserte hierarkiet var Ã¥ tillate
+DML/Houston/andre Ã¥ kunne enkelt si at de vil eksportere en bestemt entitet
+til fronter uten Ã¥ bry seg om gruppene som mÃ¥tte vÃ¦re generert for denne
+entiteten. Dette er ikke mer nÃ¸dvendig for undenh/undakt/kurs/kursakt, siden
+de populeres automatisk, men det *er* nÃ¸dvendig for kull.
 
-Kullgruppene har også grupper som medlemmer; det er en gruppe med studenter,
+Kullgruppene har ogsÃ¥ grupper som medlemmer; det er en gruppe med studenter,
 samt en gruppe for hver rolle ved kullet::
 
-  Alle stud. på kull:   uio.no:fs:<enhetid>:student
+  Alle stud. pÃ¥ kull:   uio.no:fs:<enhetid>:student
   Rolle ved kull:       uio.no:fs:<enhetid>:<rolletype>
 
 Siden <enhetid> inneholder gruppetypen (kurs, evu og kull), vil det ikke
-oppstå navnekollisjon forskjellige enhetgrupper imellom.
+oppstÃ¥ navnekollisjon forskjellige enhetgrupper imellom.
 
 I tillegg blir disse nettgruppene laget med spread til Ifi::
 
@@ -116,14 +116,16 @@ I tillegg blir disse nettgruppene laget med spread til Ifi::
   Ansvar und.akt:        g<enhetid>-<aktkode>  (alle konti)
   Ansvar enh. og akt.:   g<enhetid>            (alle konti)
   Alle stud. v/enh:      s<enhetid>            (alle konti)
-  Alle stud. v/akt:      s<enhetid>-<aktkode>  (primærkonti)
-  Alle stud. kun eks:    s<enhetid>-e          (primærkonti)
+  Alle stud. v/akt:      s<enhetid>-<aktkode>  (primÃ¦rkonti)
+  Alle stud. kun eks:    s<enhetid>-e          (primÃ¦rkonti)
   Alle akt-ansv:         ifi-g                 (alle konti)
   Alle akt- og enh-ansv: lkurs                 (alle konti)
 
 Som sagt, populering av disse gruppene er litt annerledes. *Alle* med en eller
 annen rolle til Ifi-kursene havner i 'g'-ansvarlige-gruppene.
 """
+
+from __future__ import unicode_literals
 
 import sys
 import getopt
@@ -147,7 +149,7 @@ from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 # IVR 2007-11-08 FIXME: Should this be in fronter_lib?
 # Roles that are considered at all
 valid_roles = ("ADMIN", "DLO", "FAGANSVAR", "FORELESER", "GJESTEFORE",
-               "GRUPPELÆRE", "HOVEDLÆRER", "IT-ANSVARL", "LÆRER", "SENSOR",
+               "GRUPPELÃ†RE", "HOVEDLÃ†RER", "IT-ANSVARL", "LÃ†RER", "SENSOR",
                "STUDIEKONS", "TOLK", "TILSYN",)
 # Roles that are inherited by entities located at a certain sko or at a
 # certain stprog.
@@ -226,7 +228,7 @@ def process_role(enhet_id, template_id, roles_mapping,
     @type template_id: basestring
 
     @param roles_mapping: mapping from enhet_ids to dicts, where each inner
-      dict maps role types to sequences (e.g. 'FAGLÆRER' -> [s1, s2, ...,
+      dict maps role types to sequences (e.g. 'FAGLÃ†RER' -> [s1, s2, ...,
       sN]). Each s_i is a dict (faking a L{db_row}) with a fnr.
     @type roles_mapping: dict
 
@@ -478,7 +480,7 @@ def process_kursdata(role_file, undenh_file, undakt_file,
         if type == 'kurs':
             instnr, emnekode, versjon, termk, aar = rest
             sync_group("%s:%s" % (type, emnekode), kurs_id,
-                       "Ikke-eksporterbar gruppe.  Brukes for å definere hvor"
+                       "Ikke-eksporterbar gruppe.  Brukes for Ã¥ definere hvor"
                        " data om kurset <%s> skal eksporteres." % kurs_id,
                        co.entity_group,
                        AffiliatedGroups[kurs_id],
@@ -487,7 +489,7 @@ def process_kursdata(role_file, undenh_file, undakt_file,
             kurskode, tidsrom = rest
             logger.debug("Kursid: %s; rest: %s", kurs_id, rest)
             sync_group("%s:%s" % (type, kurskode), kurs_id,
-                       "Ikke-eksporterbar gruppe.  Brukes for å definere hvor"
+                       "Ikke-eksporterbar gruppe.  Brukes for Ã¥ definere hvor"
                        " data om emnet <%s> skal eksporteres. " % kurs_id,
                        co.entity_group,
                        AffiliatedGroups[kurs_id],
@@ -495,7 +497,7 @@ def process_kursdata(role_file, undenh_file, undakt_file,
         elif type == 'kull':
             stprog, termkode, aar = rest
             sync_group("%s:%s" % (type, stprog), kurs_id,
-                       "Ikke-eksporterbar gruppe. Brukes for å definere hvor"
+                       "Ikke-eksporterbar gruppe. Brukes for Ã¥ definere hvor"
                        " data om kullet <%s> skal eksporteres." % kurs_id,
                        co.entity_group,
                        AffiliatedGroups[kurs_id],
@@ -514,18 +516,18 @@ def process_kursdata(role_file, undenh_file, undakt_file,
         logger.debug("Commit changes")
         db.commit()
 
-    # Oppdaterer gruppene på nivå 1.
+    # Oppdaterer gruppene pÃ¥ nivÃ¥ 1.
     #
     # Alle grupper knyttet til en undervisningsenhet skal meldes inn i den
-    # u2k-interne emnekode-gruppen.  Man benytter så emnekode-gruppen til
-    # å definere eksport-egenskaper for alle grupper tilknyttet en
+    # u2k-interne emnekode-gruppen.  Man benytter sÃ¥ emnekode-gruppen til
+    # Ã¥ definere eksport-egenskaper for alle grupper tilknyttet en
     # undervisningsenhet.
     logger.info("Oppdaterer emne-supergrupper:")
     for gname in AffiliatedGroups.keys():
         if gname == auto_supergroup:
             continue
         sync_group(fs_supergroup, gname,
-                   "Ikke-eksporterbar gruppe.  Brukes for å samle"
+                   "Ikke-eksporterbar gruppe.  Brukes for Ã¥ samle"
                    " kursene knyttet til %s." % gname,
                    co.entity_group,
                    AffiliatedGroups[gname])
@@ -551,7 +553,7 @@ def process_kursdata(role_file, undenh_file, undakt_file,
     logger.info("Oppdaterer supergruppe for alle emnekode-supergrupper")
     sync_group(None, fs_supergroup,
                "Ikke-eksporterbar gruppe.  Definerer hvilke andre grupper "
-               "som er opprettet automatisk som følge av FS-import.",
+               "som er opprettet automatisk som fÃ¸lge av FS-import.",
                co.entity_group,
                AffiliatedGroups[fs_supergroup])
     logger.info(" ... done")
@@ -698,7 +700,7 @@ def get_undenh(undenh_file, edu_file):
         multi_id = fields2key(enhet['institusjonsnr'], enhet['emnekode'],
                               enhet['terminkode'], enhet['arstall'])
         # Finnes det flere enn en undervisningsenhet tilknyttet denne
-        # emnekoden i inneværende semester?
+        # emnekoden i innevÃ¦rende semester?
         emne_versjon.setdefault(multi_id,
                                 {})[fields2key(enhet['versjonskode'])] = 1
         emne_termnr.setdefault(multi_id,
@@ -942,8 +944,8 @@ def populate_enhet_groups(enhet_id, role_mapping):
         Instnr, emnekode, versjon, termk, aar, termnr = type_id
 
         # Finnes det mer enn en undervisningsenhet knyttet til dette
-        # emnet, kun forskjellig på versjonskode og/eller terminnr?  I
-        # så fall bør gruppene få beskrivelser som gjør det mulig å
+        # emnet, kun forskjellig pÃ¥ versjonskode og/eller terminnr?  I
+        # sÃ¥ fall bÃ¸r gruppene fÃ¥ beskrivelser som gjÃ¸r det mulig Ã¥
         # knytte dem til riktig undervisningsenhet.
         multi_enhet = []
         multi_id = ":".join((Instnr, emnekode, termk, aar))
@@ -974,9 +976,9 @@ def populate_enhet_groups(enhet_id, role_mapping):
         else:
             ifi_hack = False
 
-        # Finnes kurs som går over mer enn et semester, samtidig som
+        # Finnes kurs som gÃ¥r over mer enn et semester, samtidig som
         # at kurset/emnet starter hvert semester.  Utvider strukturen
-        # til å ta høyde for at det til enhver tid kan finnes flere
+        # til Ã¥ ta hÃ¸yde for at det til enhver tid kan finnes flere
         # kurs av samme type til enhver tid.
         kurs_id = UE2KursID('kurs', Instnr, emnekode,
                             versjon, termk, aar, termnr)
@@ -992,13 +994,13 @@ def populate_enhet_groups(enhet_id, role_mapping):
                                                      aar, enhet_suffix),
                      co.entity_account,
                      # Dersom undenh i seg selv skal eksporteres til Fronter,
-                     # så må nødvendigvis grupper med dens ansvarlige gjøre
-                     # det også.
+                     # sÃ¥ mÃ¥ nÃ¸dvendigvis grupper med dens ansvarlige gjÃ¸re
+                     # det ogsÃ¥.
                      UndervEnhet[enhet_id]["fronter_spreads"],
                      sted)
 
-        # Ifi vil ha at alle konti til en gruppelærer skal listes opp
-        # på lik linje.  Alle ikke-primære konti blir derfor lagt inn i
+        # Ifi vil ha at alle konti til en gruppelÃ¦rer skal listes opp
+        # pÃ¥ lik linje.  Alle ikke-primÃ¦re konti blir derfor lagt inn i
         # en egen interngruppe, og de to interngruppene blir medlemmer
         # i Ifis nettgruppe.
         if ifi_hack:
@@ -1019,7 +1021,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
             enhet_ansv_sek = dict(izip(sec, repeat(1)))
             sync_group(kurs_id,
                        fields2key(enhet_id, "enhetsansvar-sek"),
-                       ("Ansvarlige %s %s %s%s (sekundærkonti)" %
+                       ("Ansvarlige %s %s %s%s (sekundÃ¦rkonti)" %
                         (emnekode, termk, aar, enhet_suffix)),
                        co.entity_account,
                        enhet_ansv_sek)
@@ -1037,7 +1039,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
             add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
             alle_ansv[netgr_navn] = 1
         #
-        # Alle nåværende undervisningsmeldte samt nåværende+fremtidige
+        # Alle nÃ¥vÃ¦rende undervisningsmeldte samt nÃ¥vÃ¦rende+fremtidige
         # eksamensmeldte studenter.
         logger.debug(" student")
         primary, secondary = UndervEnhet[enhet_id]["students"]
@@ -1049,8 +1051,8 @@ def populate_enhet_groups(enhet_id, role_mapping):
                                              aar, enhet_suffix),
                    co.entity_account,
                    alle_stud,
-                   # Dersom undenh skal eksporteres til fronter selv, så må
-                   # også gruppen med studentene gjøre det.
+                   # Dersom undenh skal eksporteres til fronter selv, sÃ¥ mÃ¥
+                   # ogsÃ¥ gruppen med studentene gjÃ¸re det.
                    auto_spread=UndervEnhet[enhet_id]["fronter_spreads"])
         if ifi_hack:
             alle_stud_sek = {}
@@ -1061,27 +1063,27 @@ def populate_enhet_groups(enhet_id, role_mapping):
                             prefix='uio.no:fs:')
             sync_group(kurs_id,
                        gname,
-                       ("Studenter %s %s %s%s (sekundærkonti)" %
+                       ("Studenter %s %s %s%s (sekundÃ¦rkonti)" %
                         (emnekode, termk, aar, enhet_suffix)),
                        co.entity_account,
                        alle_stud_sek)
-            # Vi legger sekundærkontoene inn i sKURS, slik at alle
-            # kontoene får privelegier knyttet til kurset.  Dette
-            # innebærer at alle kontoene får e-post til
-            # studenter.KURS, men bare primærkontoen får e-post til
-            # studenter.KURS-GRUPPE.  Vi må kanskje revurdere dette
-            # senere basert på tilbakemeldinger fra brukerene.
+            # Vi legger sekundÃ¦rkontoene inn i sKURS, slik at alle
+            # kontoene fÃ¥r privelegier knyttet til kurset.  Dette
+            # innebÃ¦rer at alle kontoene fÃ¥r e-post til
+            # studenter.KURS, men bare primÃ¦rkontoen fÃ¥r e-post til
+            # studenter.KURS-GRUPPE.  Vi mÃ¥ kanskje revurdere dette
+            # senere basert pÃ¥ tilbakemeldinger fra brukerene.
             #
             # TODO: ifi-l, ifi-prof, ifi-h, kullkoder,
             # ifi-mnm5infps-mel ifi-mnm2eld-mel ifi-mnm2infis
             # ifi-mnm5infps ifi-mnm2inf ifi-mnm2eld-sig
             alle_aktkoder[gname] = 1
 
-        # Studenter som både 1) er undervisnings- eller eksamensmeldt,
+        # Studenter som bÃ¥de 1) er undervisnings- eller eksamensmeldt,
         # og 2) er med i minst en undervisningsaktivitet, blir meldt
-        # inn i dicten 'student_med_akt'.  Denne dicten kan så, sammen
-        # med dicten 'alle_stud', brukes for å finne hvilke studenter
-        # som er eksamens- eller undervisningsmeldt uten å være meldt
+        # inn i dicten 'student_med_akt'.  Denne dicten kan sÃ¥, sammen
+        # med dicten 'alle_stud', brukes for Ã¥ finne hvilke studenter
+        # som er eksamens- eller undervisningsmeldt uten Ã¥ vÃ¦re meldt
         # til noen aktiviteter.
         student_med_akt = {}
 
@@ -1102,7 +1104,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                          ("%s", emnekode, termk, aar, enhet_suffix,
                           aktivitet["aktivitetsnavn"]),
                          co.entity_account,
-                         # Hvis aktiviteten skal til fronter, så må også de
+                         # Hvis aktiviteten skal til fronter, sÃ¥ mÃ¥ ogsÃ¥ de
                          # ansvarlige for aktiviteten det.
                          aktivitet["fronter_spreads"],
                          sted)
@@ -1133,14 +1135,14 @@ def populate_enhet_groups(enhet_id, role_mapping):
                 # Noen eksempel:
                 #   1   -> "Arbeidslivspedagogikk 2"
                 #   3-1 -> "Gruppe 1"
-                #   2-2 -> "Øvelser 102"
+                #   2-2 -> "Ã˜velser 102"
                 #   1-1 -> "Forelesning"
                 #
-                # På Ifi forutsetter vi formen "<aktivitetstype> N",
+                # PÃ¥ Ifi forutsetter vi formen "<aktivitetstype> N",
                 # og plukker derfor ut det andre ordet i strengen for
                 # bruk i nettgruppenavnet brukerne vil se.
                 #
-                # Det kan hende en bedre heuristikk ville være å se
+                # Det kan hende en bedre heuristikk ville vÃ¦re Ã¥ se
                 # etter et tall i navnet og bruke dette, hvis ikke,
                 # bruke hele navnet med blanke erstattet av
                 # bindestreker.
@@ -1156,7 +1158,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                              (aktivitet["aktivitetsnavn"], aktnavn))
                 sync_group(kurs_id,
                            "%s-sek:%s" % (gname, aktkode),
-                           ("Ansvarlige %s %s %s%s %s (sekundærkonti)" %
+                           ("Ansvarlige %s %s %s%s %s (sekundÃ¦rkonti)" %
                             (emnekode, termk, aar, enhet_suffix, aktnavn)),
                            co.entity_account,
                            akt_ansv)
@@ -1184,7 +1186,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                 alle_ansv[netgr_navn] = 1
                 ifi_netgr_g[netgr_navn] = 1
 
-            # Studenter meldt på denne undervisningsaktiviteten.
+            # Studenter meldt pÃ¥ denne undervisningsaktiviteten.
             logger.debug(" student:%s" % aktkode)
             aktivitet = UndervEnhet[enhet_id]['aktivitet'][aktkode]
             akt_stud = {}
@@ -1210,8 +1212,8 @@ def populate_enhet_groups(enhet_id, role_mapping):
                        co.entity_account,
                        akt_stud,
                        # Hvis aktiviteten skal til fronter
-                       # (jfr. status_eksport_lms), så må studentene på
-                       # aktiviteten også eksporteres til fronter
+                       # (jfr. status_eksport_lms), sÃ¥ mÃ¥ studentene pÃ¥
+                       # aktiviteten ogsÃ¥ eksporteres til fronter
                        auto_spread=aktivitet["fronter_spreads"])
 
             if ifi_hack:
@@ -1239,10 +1241,10 @@ def populate_enhet_groups(enhet_id, role_mapping):
                 add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
                 alle_aktkoder[netgr_navn] = 1
 
-        # ferdig med alle aktiviteter, bare noen få hack igjen ...
+        # ferdig med alle aktiviteter, bare noen fÃ¥ hack igjen ...
         for account_id in student_med_akt.iterkeys():
             if account_id in alle_stud:
-                # Ved å fjerne alle som er meldt til minst en
+                # Ved Ã¥ fjerne alle som er meldt til minst en
                 # aktivitet, ender vi opp med en liste over de som
                 # kun er meldt til eksamene.
                 del alle_stud[account_id]
@@ -1274,7 +1276,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                        visible=True)
             add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
             alle_aktkoder[netgr_navn] = 1
-            # alle studenter på kurset
+            # alle studenter pÃ¥ kurset
             netgr_navn = "s%s" % netgr_emne
             sync_group(auto_supergroup,
                        netgr_navn,
@@ -1292,7 +1294,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                        empty,
                        visible=True)
             add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
-            # alle gruppelærere og kursledelsen
+            # alle gruppelÃ¦rere og kursledelsen
             netgr_navn = "g%s" % netgr_emne
             sync_group(auto_supergroup,
                        netgr_navn,
@@ -1317,15 +1319,15 @@ def populate_enhet_groups(enhet_id, role_mapping):
         logger.debug("Oppdaterer grupper for %s:", enhet_id)
 
         #
-        # Alle studenter på kullet
+        # Alle studenter pÃ¥ kullet
         sync_group(kull_id,
                    fields2key(enhet_id, "student"),
-                   "Studenter på kull %s, %s, %s" % (stprog, terminkode, aar),
+                   "Studenter pÃ¥ kull %s, %s, %s" % (stprog, terminkode, aar),
                    co.entity_account,
                    UndervEnhet[enhet_id].get('students', {}),
                    auto_spread=UndervEnhet[enhet_id]["fronter_spreads"])
 
-        # IVR 2007-08-17: 'Ansvarlige' for kullet: hver rolle får sin egen
+        # IVR 2007-08-17: 'Ansvarlige' for kullet: hver rolle fÃ¥r sin egen
         # gruppe.
         sted = UndervEnhet[enhet_id]["sted"]
         program = UndervEnhet[enhet_id]["stprog"]
@@ -1333,7 +1335,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                      fields2key(kull_id, "%s"),
                      role_mapping,
                      kull_id,
-                     "Ansvarlige (%s) på kull %s" % ("%s", kull_id),
+                     "Ansvarlige (%s) pÃ¥ kull %s" % ("%s", kull_id),
                      co.entity_account,
                      UndervEnhet[enhet_id]["fronter_spreads"],
                      sted,
@@ -1356,7 +1358,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                      sted)
 
         #
-        # Alle påmeldte studenter
+        # Alle pÃ¥meldte studenter
         logger.debug(" evuStudenter")
         evustud = UndervEnhet[fields2key("evu", kurskode, tidsrom)]['students']
         sync_group(kurs_id,
@@ -1407,7 +1409,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
 
 
 def populate_ifi_groups():
-    sync_group(auto_supergroup, "ifi-g", "Alle gruppelærere for Ifi-kurs",
+    sync_group(auto_supergroup, "ifi-g", "Alle gruppelÃ¦rere for Ifi-kurs",
                co.entity_group, ifi_netgr_g, visible=True)
     add_spread_to_group("ifi-g", co.spread_ifi_nis_ng)
     sync_group(auto_supergroup, "lkurs", "Alle laveregradskurs ved Ifi",

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2004-2017 University of Oslo, Norway
 #
@@ -35,6 +35,8 @@ can be extracted from the groups' names.
 Terminology: undenh/undakt/kurs/kursakt/kull are defined in p_f_g.py.
 """
 
+from __future__ import unicode_literals
+
 import getopt
 import locale
 import os
@@ -43,6 +45,7 @@ import sys
 import time
 
 from collections import defaultdict
+from six import string_types, text_type
 
 import cereconf
 
@@ -60,6 +63,7 @@ root_ou_id = 'will be set later'
 root_struct_id = 'UiO root node'
 group_struct_id = "UREG2000@uio.no imported groups"
 group_struct_title = 'Automatisk importerte grupper'
+entity2name = None
 
 
 db = const = logger = None
@@ -106,7 +110,7 @@ class Fronter(object):
         self.enhet2akt = defaultdict(list)
         self.emne_versjon = defaultdict(dict)
         self.emne_termnr = defaultdict(dict)
-        # Cache av undakt -> romprofil, siden vi ønsker å ha spesialiserte
+        # Cache av undakt -> romprofil, siden vi Ã¸nsker Ã¥ ha spesialiserte
         # romprofiler.
         self.akt2room_profile = {}
 
@@ -124,9 +128,9 @@ class Fronter(object):
         t = time.localtime()[0:3]
         self.year = t[0]
         if t[1] <= 6:
-            self.semester = 'VÅR'
+            self.semester = 'VÃ…R'
         else:
-            self.semester = 'HØST'
+            self.semester = 'HÃ˜ST'
         timer('... __init__ done.')
 
     def expand_kull_group(self, g_id):
@@ -229,21 +233,21 @@ class Fronter(object):
 
         A few examples for the 5 categories:
 
-        - undenh:  uio.no:fs:kurs:185:mas4530:1:høst:2007:1:student
-        - undakt:  uio.no:fs:kurs:185:mas4530:1:høst:2007:1:dlo:1-1
-        - kurs:    uio.no:fs:evu:14-kun2502k:2007-høst:enhetsansvar
-        - kursakt: uio.no:fs:evu:14-tolkaut:2005-vår:aktivitetsansvar:1-1
-        - kull:    uio.no:fs:kull:realmas:høst:2007:student
+        - undenh:  uio.no:fs:kurs:185:mas4530:1:hÃ¸st:2007:1:student
+        - undakt:  uio.no:fs:kurs:185:mas4530:1:hÃ¸st:2007:1:dlo:1-1
+        - kurs:    uio.no:fs:evu:14-kun2502k:2007-hÃ¸st:enhetsansvar
+        - kursakt: uio.no:fs:evu:14-tolkaut:2005-vÃ¥r:aktivitetsansvar:1-1
+        - kull:    uio.no:fs:kull:realmas:hÃ¸st:2007:student
 
         To produce a key (that can later be used to filter FS-data), we strip
         the prefix, and student/enhetsansvar/dlo/etc. (there are about 12
         possibilities there). The keys would then look like this:
 
-        - undenh:  kurs:185:mas4530:1:høst:2007:1
-        - undakt:  kurs:185:mas4530:1:høst:2007:1:1-1
-        - kurs:    evu:14-kun2502k:2007-høst
-        - kursakt: evu:14-tolkaut:2005-vår:1-1
-        - kull:    kull:realmas:høst:2007
+        - undenh:  kurs:185:mas4530:1:hÃ¸st:2007:1
+        - undakt:  kurs:185:mas4530:1:hÃ¸st:2007:1:1-1
+        - kurs:    evu:14-kun2502k:2007-hÃ¸st
+        - kursakt: evu:14-tolkaut:2005-vÃ¥r:1-1
+        - kull:    kull:realmas:hÃ¸st:2007
 
         NB! Multiple-semester entities are a bit tough, since terminnr part of
         the key has to be ignored on occasions. However, the key for such
@@ -303,7 +307,7 @@ class Fronter(object):
         # but there are a lot of them, and it's probably not a good idea to
         # generate an error message.
         if key is None:
-            self.logger.debug("Kunne ikke lage nøkkel av gruppenavn <%s>",
+            self.logger.debug("Kunne ikke lage nÃ¸kkel av gruppenavn <%s>",
                               name)
             return None
 
@@ -601,7 +605,7 @@ view_contacts = {
 # 'student' - permissions for student groups.
 #
 # Each sub-dictionary lists roles that we may encounter, and their permissions
-# with respect to various fronter constructions (fellesrom, lærerrom and so
+# with respect to various fronter constructions (fellesrom, lÃ¦rerrom and so
 # on). Some entries may be missing (i.e. a specific role may not have any
 # permissions defined for a specific fronter structure; e.g. 'tolk' has
 # no permissions defined for 'larer') This means that that particular role
@@ -635,22 +639,25 @@ kind2permissions = {
                               'larer': Fronter.ROLE_DELETE,
                               'korridor': admin_lite,
                               'student': view_contacts},
-               'gruppelære': {'felles': Fronter.ROLE_DELETE,
-                              'larer': Fronter.ROLE_DELETE,
-                              'korridor': admin_lite,
-                              'student': view_contacts},
-               'hovedlærer': {'felles': Fronter.ROLE_CHANGE,
-                              'larer': Fronter.ROLE_CHANGE,
-                              'korridor': admin_lite,
-                              'student': view_contacts},
+               'gruppelÃ¦re': {
+                   'felles': Fronter.ROLE_DELETE,
+                   'larer': Fronter.ROLE_DELETE,
+                   'korridor': admin_lite,
+                   'student': view_contacts},
+               'hovedlÃ¦rer': {
+                   'felles': Fronter.ROLE_CHANGE,
+                   'larer': Fronter.ROLE_CHANGE,
+                   'korridor': admin_lite,
+                   'student': view_contacts},
                'it-ansvarl': {'felles': Fronter.ROLE_CHANGE,
                               'larer': Fronter.ROLE_CHANGE,
                               'korridor': admin_lite,
                               'student': view_contacts},
-               'lærer': {'felles': Fronter.ROLE_CHANGE,
-                         'larer': Fronter.ROLE_CHANGE,
-                         'korridor': admin_lite,
-                         'student': view_contacts},
+               'lÃ¦rer': {
+                   'felles': Fronter.ROLE_CHANGE,
+                   'larer': Fronter.ROLE_CHANGE,
+                   'korridor': admin_lite,
+                   'student': view_contacts},
                'sensor': {'felles': Fronter.ROLE_DELETE,
                           'larer': Fronter.ROLE_DELETE,
                           'korridor': admin_lite,
@@ -694,26 +701,29 @@ kind2permissions = {
                               'undakt': Fronter.ROLE_DELETE,
                               'korridor': admin_lite,
                               'student': view_contacts},
-               'gruppelære': {'felles': Fronter.ROLE_DELETE,
-                              'larer': Fronter.ROLE_DELETE,
-                              'undakt': Fronter.ROLE_DELETE,
-                              'korridor': admin_lite,
-                              'student': view_contacts},
-               'hovedlærer': {'felles': Fronter.ROLE_CHANGE,
-                              'larer': Fronter.ROLE_CHANGE,
-                              'undakt': Fronter.ROLE_CHANGE,
-                              'korridor': admin_lite,
-                              'student': view_contacts},
+               'gruppelÃ¦re': {
+                   'felles': Fronter.ROLE_DELETE,
+                   'larer': Fronter.ROLE_DELETE,
+                   'undakt': Fronter.ROLE_DELETE,
+                   'korridor': admin_lite,
+                   'student': view_contacts},
+               'hovedlÃ¦rer': {
+                   'felles': Fronter.ROLE_CHANGE,
+                   'larer': Fronter.ROLE_CHANGE,
+                   'undakt': Fronter.ROLE_CHANGE,
+                   'korridor': admin_lite,
+                   'student': view_contacts},
                'it-ansvarl': {'felles': Fronter.ROLE_CHANGE,
                               'larer': Fronter.ROLE_CHANGE,
                               'undakt': Fronter.ROLE_CHANGE,
                               'korridor': admin_lite,
                               'student': view_contacts},
-               'lærer': {'felles': Fronter.ROLE_CHANGE,
-                         'larer': Fronter.ROLE_CHANGE,
-                         'undakt': Fronter.ROLE_CHANGE,
-                         'korridor': admin_lite,
-                         'student': view_contacts},
+               'lÃ¦rer': {
+                   'felles': Fronter.ROLE_CHANGE,
+                   'larer': Fronter.ROLE_CHANGE,
+                   'undakt': Fronter.ROLE_CHANGE,
+                   'korridor': admin_lite,
+                   'student': view_contacts},
                'sensor': {'felles': Fronter.ROLE_DELETE,
                           'larer': Fronter.ROLE_DELETE,
                           'undakt': Fronter.ROLE_DELETE,
@@ -746,14 +756,17 @@ kind2permissions = {
                            'korridor': admin_lite, },
              'gjestefore': {'kullrom': Fronter.ROLE_DELETE,
                             'korridor': admin_lite, },
-             'gruppelære': {'kullrom': Fronter.ROLE_DELETE,
-                            'korridor': admin_lite, },
-             'hovedlærer': {'kullrom': Fronter.ROLE_CHANGE,
-                            'korridor': admin_lite, },
+             'gruppelÃ¦re': {
+                 'kullrom': Fronter.ROLE_DELETE,
+                 'korridor': admin_lite, },
+             'hovedlÃ¦rer': {
+                 'kullrom': Fronter.ROLE_CHANGE,
+                 'korridor': admin_lite, },
              'it-ansvarl': {'kullrom': Fronter.ROLE_CHANGE,
                             'korridor': admin_lite, },
-             'lærer': {'kullrom': Fronter.ROLE_CHANGE,
-                       'korridor': admin_lite, },
+             'lÃ¦rer': {
+                 'kullrom': Fronter.ROLE_CHANGE,
+                 'korridor': admin_lite, },
              'sensor': {'kullrom': Fronter.ROLE_DELETE,
                         'korridor': admin_lite, },
              'studiekons': {'kullrom': Fronter.ROLE_CHANGE,
@@ -781,7 +794,7 @@ def process_undakt_permissions(template, korridor, fellesrom,
       A template for nameing the fronter groups (for different roles). A
       typical template would look like this:
 
-          uio.no:fs:kurs:185:noas4103:1:høst:2007:1:%s:1-1
+          uio.no:fs:kurs:185:noas4103:1:hÃ¸st:2007:1:%s:1-1
 
       The role itself (admin, sensor, etc.) will be interpolated.
     @type template: basestring
@@ -795,13 +808,13 @@ def process_undakt_permissions(template, korridor, fellesrom,
     @param studentnode:
       Student group id for students registered for this undakt/kursakt. E.g.:
 
-          uio.no:fs:kurs:185:nor4308:1:høst:2007:1:student:1-1
+          uio.no:fs:kurs:185:nor4308:1:hÃ¸st:2007:1:student:1-1
     @type studentnode: basestring
 
     @param undakt_node:
       Fronter room id for this undakt/kursakt. E.g.:
 
-          ROOM/Aktivitet:KURS:185:SVMET1010:1:HØST:2007:1:2-4
+          ROOM/Aktivitet:KURS:185:SVMET1010:1:HÃ˜ST:2007:1:2-4
     @type undakt_node: basestring
     """
 
@@ -820,7 +833,7 @@ def process_undakt_permissions(template, korridor, fellesrom,
         new_acl[xml_name][studentnode] = view_contacts
 
         # Role holders may have permissions in the undakt/kursakt room,
-        # lærerrom, fellesrom and the corridor:
+        # lÃ¦rerrom, fellesrom and the corridor:
         if "korridor" in role_permissions:
             new_acl[korridor][xml_name] = role_permissions["korridor"]
         # ... fellesrommet
@@ -848,7 +861,7 @@ def process_undenh_permissions(template, korridor, fellesrom,
     @param template:
       A template for generating group names for various roles. E.g.:
 
-          uio.no:fs:kurs:185:rus2122s:1:høst:2007:1:%s
+          uio.no:fs:kurs:185:rus2122s:1:hÃ¸st:2007:1:%s
 
       ... where the role itself (admin, sensor, etc.) is interpolated.
     @type template: basestring
@@ -856,19 +869,19 @@ def process_undenh_permissions(template, korridor, fellesrom,
     @param korridor:
       Student corridor id for the given undenh/EVU-kurs. E.g.:
 
-          STRUCTURE/Studentkorridor:KURS:185:SAS1500:1:HØST:2007:1
+          STRUCTURE/Studentkorridor:KURS:185:SAS1500:1:HÃ˜ST:2007:1
     @type korridor: basestring
 
     @param fellesrom:
       Fellesromid for the given undenh/EVU-kurs. E.g.:
 
-          ROOM/Felles:KURS:185:NOR4160:1:HØST:2007:1
+          ROOM/Felles:KURS:185:NOR4160:1:HÃ˜ST:2007:1
     @type fellesrom: basestring
 
     @param studentnode:
       Student group id for the given undenh/EVU-kurs. E.g.:
 
-          uio.no:fs:kurs:185:lit4000:1:høst:2007:1:student
+          uio.no:fs:kurs:185:lit4000:1:hÃ¸st:2007:1:student
     """
 
     permissions = kind2permissions['undenh']
@@ -963,7 +976,7 @@ class FronterXML(object):
         self.cf_id = self.fronter.fronter_host
 
     def start_xml_file(self, kurs):
-        self.xml.comment("Eksporterer data om følgende emner:\n  " +
+        self.xml.comment("Eksporterer data om fÃ¸lgende emner:\n  " +
                          "\n  ".join(kurs))
         self.xml.startTag(self.rootEl)
         self.xml.startTag('properties')
@@ -1126,8 +1139,8 @@ class FronterXML(object):
                 # Fronter says that this tag should be ommited if the target is
                 # a corridor.
                 if not (node in new_group and
-                        new_group[node]['allow_room'] == True and
-                        new_group[node]['allow_contact'] == False):
+                        new_group[node]['allow_room'] is True and
+                        new_group[node]['allow_contact'] is False):
                     self.xml.emptyTag('groupaccess',
                                       {'contactAccess': acl['gacc'],
                                        'roomAccess': acl['racc']})
@@ -1309,7 +1322,7 @@ def get_new_users():
 
 def get_group(id):
     group = Factory.get('Group')(db)
-    if isinstance(id, str):
+    if isinstance(id, string_types):
         group.find_by_name(id)
     else:
         group.find(id)
@@ -1381,8 +1394,8 @@ def register_supergroups():
     register_group("Universitetet i Oslo", root_struct_id, root_struct_id)
     register_group(group_struct_title, group_struct_id, root_struct_id)
     if 'All_users' in fronter.export:
-        # Webinterfacet mister litt pusten når man klikker på gruppa
-        # All_users (dersom man f.eks. ønsker å gi alle brukere rettighet
+        # Webinterfacet mister litt pusten nÃ¥r man klikker pÃ¥ gruppa
+        # All_users (dersom man f.eks. Ã¸nsker Ã¥ gi alle brukere rettighet
         # til noe); oppretter derfor en dummy-gruppe som kun har den
         # /egentlige/ All_users-gruppa som medlem.
         sg_id = "All_users_supergroup"
@@ -1432,9 +1445,6 @@ def register_supergroups():
                        parent_struct_id, allow_room=False,
                        allow_contact=True)
 
-        #logger.debug("Registrerer <%s>; desc <%s>; %d members",
-        #             group.group_name, group.description, len(members))
-
         # All groups have "view contacts" on themselves.
         new_acl[group_name][group_name] = view_contacts
         for member_id in members:
@@ -1447,8 +1457,6 @@ def register_supergroups():
             if uname in new_users:
                 if new_users[uname]['USERACCESS'] != 'administrator':
                     new_users[uname]['USERACCESS'] = 'allowlogin'
-                    #logger.debug("<%s> gets member <%s>",
-                    #             group_name, uname)
                     new_groupmembers[group_name].add(uname)
     timer('... done register_supergroups')
 
@@ -1566,10 +1574,10 @@ def process_single_enhet_id(enhet_id, struct_id, emnekode,
                                    fellesrom_id, aktstud, akt_rom_id)
 
         # Hvis denne enheten har blitt flagget med "process_akt_data",
-        # så er det nokså mulig at tilhørende aktiviteter kommer fra
-        # ulike semestre, og at aktivitetene må derfor selv designere
-        # sitt år, terminkode og terminnummer. For alle andre, så er
-        # det greit å bruke samme verdi for alle aktiviteter innen
+        # sÃ¥ er det noksÃ¥ mulig at tilhÃ¸rende aktiviteter kommer fra
+        # ulike semestre, og at aktivitetene mÃ¥ derfor selv designere
+        # sitt Ã¥r, terminkode og terminnummer. For alle andre, sÃ¥ er
+        # det greit Ã¥ bruke samme verdi for alle aktiviteter innen
         # enheten.
         if process_akt_data:
             termin_suffix = " %s-%s-%s" % (aktaar, aktterminkode, akttermnr)
@@ -1587,7 +1595,6 @@ def process_kurs2enhet():
     # It should be possible to move more code to that subroutine.
     for kurs_id in fronter.kurs2enhet.keys():
         ktype = kurs_id.split(":")[0].lower()
-        #logger.debug("Processing kurs_id %s", kurs_id)
         if ktype == fronter.EMNE_PREFIX.lower():
             enhet_sorted = fronter.kurs2enhet[kurs_id][:]
             enhet_sorted.sort(fronter._date_sort)
@@ -1595,22 +1602,22 @@ def process_kurs2enhet():
             enh_id = enhet_sorted[0]
             enhet = enh_id.split(":", 1)[1]
 
-            # For å ta høyde for at noen flersemesterkurs allerede
+            # For Ã¥ ta hÃ¸yde for at noen flersemesterkurs allerede
             # hadde eksportert enkelte av sine undervisningsenheter
             # til ClassFronter uten at elementene fikk ID som
             # samsvarte med kursets oppstartssemester, fikk kurs med
-            # oppstart før høsten 2005 dannet struct_id ut fra den
+            # oppstart fÃ¸r hÃ¸sten 2005 dannet struct_id ut fra den
             # eldste undervisningsenheten i samme kurs som allerede
-            # var lagt inn i Fronter.  Det var altså ikke nødvendigvis
+            # var lagt inn i Fronter.  Det var altsÃ¥ ikke nÃ¸dvendigvis
             # en "terminnr==1"-enhet som ble til struct_id.
             #
-            # For kurs som starter høsten 2005 eller senere, derimot,
+            # For kurs som starter hÃ¸sten 2005 eller senere, derimot,
             # blir struct_id dannet direkte fra kurs_id, slik at alle
             # struct_id-er samsvarer med "terminnr==1"-enheten.
             #
             termkode, arstall = kurs_id.split(":")[-2:]
             arstall = int(arstall)
-            if (arstall == 2005 and termkode == 'høst') or arstall > 2005:
+            if (arstall == 2005 and termkode == 'hÃ¸st') or arstall > 2005:
                 struct_id = kurs_id.upper() + ":1"
             else:
                 struct_id = enh_id.upper()
@@ -1628,7 +1635,7 @@ def process_kurs2enhet():
             # process_akt_data brukes som flagg til
             # process_single_enhet_id (som kalles nedenfor) for de
             # enheter som kan ha aktiviteter med varierende semestre,
-            # og hvor man derfor må ha mer finkornet prosessering av
+            # og hvor man derfor mÃ¥ ha mer finkornet prosessering av
             # aktivitets-data.
             process_akt_data = False
 
@@ -1643,7 +1650,7 @@ def process_kurs2enhet():
                                  (emnekode.upper(), fronter.kurs2navn[kurs_id],
                                   termk.upper(), aar, termnr))
                     termk = naa_termk
-                    aar = str(naa_aar)
+                    aar = text_type(naa_aar)
                     # termnr usually string, but need to temporarily int it to
                     # calculate
                     termnr = int(termnr) - 1
@@ -1654,21 +1661,21 @@ def process_kurs2enhet():
                                          termk.upper(), aar)
             if (
                     # Det finnes flere und.enh. i semesteret angitt av
-                    # 'terminkode' og 'arstall' hvor både 'institusjonsnr' og
+                    # 'terminkode' og 'arstall' hvor bÃ¥de 'institusjonsnr' og
                     # 'emnekode' er like, men 'terminnr' varierer.
                     len(fronter.emne_termnr[multi_id]) > 1 or
                     # Det finnes mer enn en und.enh. som svarer til samme
-                    # "kurs", e.g. både 'høst 2004, terminnr=1' og 'vår
+                    # "kurs", e.g. bÃ¥de 'hÃ¸st 2004, terminnr=1' og 'vÃ¥r
                     # 2005, terminnr=2' finnes.
                     len(enhet_sorted) > 1 or
-                    # Denne und.enh. har terminnr større enn 1, slik at
+                    # Denne und.enh. har terminnr stÃ¸rre enn 1, slik at
                     # det er sannsynlig at det finnes und.enh. fra
-                    # tidligere semester som hører til samme "kurs".
+                    # tidligere semester som hÃ¸rer til samme "kurs".
                     int(termnr) > 1):
-                # Dersom minst en av testene over slår til, er det her
+                # Dersom minst en av testene over slÃ¥r til, er det her
                 # snakk om et "flersemesteremne" (eller i alle fall et
                 # emne som i noen varianter undervises over flere
-                # semestere).  Ta med terminnr-angivelse i tittelen på
+                # semestere).  Ta med terminnr-angivelse i tittelen pÃ¥
                 # kursets hovedkorridor, og semester-angivelse i
                 # aktivitetsrommenes titler.
                 multi_enhet.append("%s. termin" % termnr)
@@ -1734,7 +1741,7 @@ def process_kurs2enhet():
                                            fellesrom_id, enhstud)
 
                 # Just like undenh, EVU-kurs have one fellesrom and one
-                # lærerrom.
+                # lÃ¦rerrom.
                 register_room("%s - Fellesrom" % kurskode.upper(),
                               fellesrom_id, korr_node, make_profile(enhet_id))
                 process_single_enhet_id(enhet_id, struct_id,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: iso-8859-1 -*-
+# -*- encoding: utf-8 -*-
 
 # Copyright 2009-2010 University of Oslo, Norway
 #
@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """This file contains the code to generate an XML file for import into
-Fronter, Hiÿf's LMS.
+Fronter, Hi√òf's LMS.
 
 It works in conjunction with populate_fronter_groups.py and is meant to
 complement it -- p_f_g generates the necessary groups whereas g_f_x generates
@@ -47,11 +47,15 @@ The script works like this:
   - Profit!
 
 """
+
+from __future__ import unicode_literals
+
 import argparse
-import locale
 import mx.DateTime
 import re
 from collections import deque
+
+from six import python_2_unicode_compatible
 
 import cerebrum_path
 import cereconf
@@ -69,11 +73,16 @@ from Cerebrum.modules.Email import EmailServer
 from Cerebrum import Errors
 
 
+del cerebrum_path
+
 STATUS_ADD = "1"
 STATUS_UPDATE = "2"
 STATUS_DELETE = "3"
+logger = None
+uname_suffix = ''
 
 
+@python_2_unicode_compatible
 class CfPermission(object):
     """Permission handling.
 
@@ -147,7 +156,7 @@ class CfTree(object):
         self._root = CfStructureGroup("Oslofjordalliansen", "root", None)
         self.register_structure_group(self._root)
 
-        hiof = CfStructureGroup("Hiÿ", "STRUCTURE:hiof.no", self._root)
+        hiof = CfStructureGroup("Hi√ò", "STRUCTURE:hiof.no", self._root)
         self.register_structure_group(hiof)
 
         tmp = CfStructureGroup("Automatisk",
@@ -260,7 +269,8 @@ class CfTree(object):
         """Create an iterator for the specific group type in the CF-tree.
         """
 
-        for seq in (self._cf_id2node.itervalues(), (self._person_group_holder,)):
+        for seq in (self._cf_id2node.itervalues(),
+                    (self._person_group_holder,)):
             for group in seq:
                 if (group_type is None or
                         isinstance(group, group_type)):
@@ -435,6 +445,7 @@ class CfGroupInterface(object):
 # end cf_node_interface
 
 
+@python_2_unicode_compatible
 class CfStructureGroup(CfGroupInterface):
     """A group representing a structure (a room or a corridor) in CF.
 
@@ -659,15 +670,17 @@ class CfStructureGroup(CfGroupInterface):
     # end register_permissions
 
     def __str__(self):
-        return "CFSG id=%s (parent=%s), %d structure members, %d perm groups" % (
-            self.cf_id(),
-            self._parent and self._parent.cf_id() or "No parent",
-            len(self._structure_children),
-            len(self._permissions))
+        return ("CFSG id=%s (parent=%s), %d structure members, "
+                "%d perm groups" % (
+                    self.cf_id(),
+                    self._parent and self._parent.cf_id() or "No parent",
+                    len(self._structure_children),
+                    len(self._permissions)))
     # end __str__
 # end cf_structure_group
 
 
+@python_2_unicode_compatible
 class CfMemberGroup(CfGroupInterface):
     """A group holding members of a Cerebrum group for CF.
 
@@ -690,13 +703,15 @@ class CfMemberGroup(CfGroupInterface):
         self._cf_id = group.group_name
         self._title = group.description
         self._account_ids = [x["member_id"]
-                             for x in group.search_members(group_id=group.entity_id)]
+                             for x in group.search_members(
+                                 group_id=group.entity_id)]
         self._group_type = self._calculate_group_type()
         self._parent = None
         assert self._group_type in self.valid_types, \
-            "Cannot deduce type for group id=%s/name=%s: type=%s" % (group.entity_id,
-                                                                     group.group_name,
-                                                                     self._group_type)
+            "Cannot deduce type for group id=%s/name=%s: type=%s" % (
+                group.entity_id,
+                group.group_name,
+                self._group_type)
     # end __init__
 
     def cf_typevalue(self):
@@ -788,7 +803,7 @@ class CfMemberGroup(CfGroupInterface):
 
         components = self.cf_id().split(":")
         assert "rolle" in components
-        for marker in ("assistent", "hovedlÊrer", "kursansv", "lÊrer",
+        for marker in ("assistent", "hovedl√¶rer", "kursansv", "l√¶rer",
                        "kontakt", "veileder", "admin",):
             if marker in components:
                 return marker
@@ -842,19 +857,19 @@ class CfMemberGroup(CfGroupInterface):
 
         role_code2permission = {
             "assistent":   all_read,
-            "hovedlÊrer":  all_change,
+            "hovedl√¶rer":  all_change,
             "kursansv":    all_write,
-            "lÊrer":       all_delete,
+            "l√¶rer":       all_delete,
             "kontakt":     all_read,
             "veileder":    all_write,
             "admin":       {
-                            "stprog": CfPermission.ROLE_CHANGE,
-                            "kull": CfPermission.ROLE_CHANGE,
-                            "kullklasse": CfPermission.ROLE_CHANGE,
-                            "undenh": CfPermission.ROLE_WRITE,
-                            "undakt": CfPermission.ROLE_WRITE,
-                            "avdeling": CfPermission.ROLE_CHANGE,
-                           },
+                "stprog": CfPermission.ROLE_CHANGE,
+                "kull": CfPermission.ROLE_CHANGE,
+                "kullklasse": CfPermission.ROLE_CHANGE,
+                "undenh": CfPermission.ROLE_WRITE,
+                "undakt": CfPermission.ROLE_WRITE,
+                "avdeling": CfPermission.ROLE_CHANGE,
+            },
         }
 
         recursive = False
@@ -1146,16 +1161,15 @@ def open_xml_stream(filename):
       Return an xmlprinter instance ready for output.
     """
 
-    sink = SimilarSizeWriter(filename, "w")
+    sink = SimilarSizeWriter(filename, "wb")
     sink.max_pct_change = 50
     printer = xmlprinter.xmlprinter(sink,
                                     indent_level=2,
                                     data_mode=1,
-                                    input_encoding="iso-8859-1")
+                                    input_encoding="utf-8")
 
     logger.debug("Opened %s for XML output", filename)
     return printer
-# end open_xml_stream
 
 
 def output_fixed_header(printer):
@@ -1260,7 +1274,7 @@ def output_person_element(data, printer):
     """Output all relevant data for a <person> element.
     """
 
-    printer.startElement("person", {"recstatus": STATUS_ADD, })
+    printer.startElement("person", {"recstatus": STATUS_ADD})
     output_id(data["user"], printer)
     output_person_auth(data, printer)
     printer.dataElement("email", data["email"])
@@ -1480,7 +1494,7 @@ def process_viewcontacts_permissions(cf_group, local_permissions,
                      "viewContact on it", g.cf_id(), len(all_nonstudent))
 
     # Case 3: Finally, every local nonstudent group has viewContacts on
-    # inherited permission holders. (i.e. local "L∆RER" will have viewContacts
+    # inherited permission holders. (i.e. local "L√ÜRER" will have viewContacts
     # on inherited "ADMIN")
     for g in inherited_permission_holders:
         output_viewcontacts(g, local_nonstudents, printer)
@@ -1613,11 +1627,11 @@ def build_multisemester_mapping(undenh_file, undakt_file):
     undenh/undakt-related groups to the structure id of the node in the
     Fronter tree. I.e. we want to assist remapping
 
-    hiof.no:fs:224:400000:emner:2008:vÂr:undakt:HSS40505:1:1:0
+    hiof.no:fs:224:400000:emner:2008:v√•r:undakt:HSS40505:1:1:0
 
     to
 
-    STRUCTURE:hiof.no:fs:224:400000:emner:2009:vÂr
+    STRUCTURE:hiof.no:fs:224:400000:emner:2009:v√•r
 
     ... if the first one is the start semester for an undakt in its 3rd active
     semester.
@@ -1628,10 +1642,10 @@ def build_multisemester_mapping(undenh_file, undakt_file):
       undenh and undakt have the same structure parent, the mappings are built
       like this:
 
-        'ROOM:hiof.no:fs:224:400000:emner:2008:vÂr:undakt:HSS40505:1:1:0' ->
-        'STRUCTURE:hiof.no:fs:224:400000:emner:2009:vÂr'
+        'ROOM:hiof.no:fs:224:400000:emner:2008:v√•r:undakt:HSS40505:1:1:0' ->
+        'STRUCTURE:hiof.no:fs:224:400000:emner:2009:v√•r'
 
-      ... where 2008/vÂr-components are 'counted back' (see
+      ... where 2008/v√•r-components are 'counted back' (see
       populate_fronter_groups._count_back_semester) from the data in
       undenh/undakt file.
     """
@@ -1684,7 +1698,7 @@ def build_multisemester_mapping(undenh_file, undakt_file):
                 previous_year, previous_sem = result[key].split(":")[-2:]
                 if ((int(previous_year) > int(original[0])) or
                     (int(previous_year) == int(original[0]) and
-                     previous_sem == "h¯st")):
+                     previous_sem == "h√∏st")):
                     result[key] = structure
             else:
                 result[key] = structure
@@ -1713,9 +1727,6 @@ def main():
                         help='Username suffix to be added (default: None)',
                         default='')
     args = parser.parse_args()
-
-    # Upper/lowercasing of Norwegian letters.
-    locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
     global uname_suffix
     uname_suffix = args.uname_suffix

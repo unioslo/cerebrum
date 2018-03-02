@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2004 University of Oslo, Norway
 #
@@ -18,8 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import unicode_literals
 import sys
-import locale
 import os
 import getopt
 import time
@@ -79,19 +79,19 @@ def init_globals():
         elif opt == '--fs-dir':
             fs_dir = val
         else:
-            raise ValueError, "Invalid argument: %r", (opt,)
+            raise ValueError("Invalid argument: %r" % opt)
 
     host_profiles = {'hia': {'emnerom': 2696,
                              'evukursrom': 2696,
                              'studieprogram': 1521},
                      'hia2': {'emnerom': 42,
-                              'evukursrom' : 42,
+                              'evukursrom': 42,
                               'studieprogram': 42},
                      'hia3': {'emnerom': 1520,
-                              'evukursrom' : 1520,
+                              'evukursrom': 1520,
                               'studieprogram': 1521}
                      }
-    if host_profiles.has_key(host):
+    if host in host_profiles:
         romprofil_id.update(host_profiles[host])
 
     filename = os.path.join(cf_dir, 'test.xml')
@@ -102,11 +102,12 @@ def init_globals():
 
     global fxml
     fxml = fronter_lib.FronterXML(filename,
-                                  cf_dir = cf_dir,
-                                  debug_file = debug_file,
-                                  debug_level = debug_level,
-                                  fronter = None,
-                                  include_password = set_pwd)
+                                  cf_dir=cf_dir,
+                                  debug_file=debug_file,
+                                  debug_level=debug_level,
+                                  fronter=None,
+                                  include_password=set_pwd)
+
 
 def get_semester():
     t = time.localtime()[0:2]
@@ -116,33 +117,32 @@ def get_semester():
 
     # Need to make the spring term last at least untill 2005-08-1:
     if t[1] <= 7:
-        this_sem = 'vÂr'
+        this_sem = 'v√•r'
         next_year = this_year
-        next_sem = 'h¯st'
+        next_sem = 'h√∏st'
     else:
-        this_sem = 'h¯st'
+        this_sem = 'h√∏st'
         next_year = this_year + 1
-        next_sem = 'vÂr'
+        next_sem = 'v√•r'
     if not include_this_sem:
         this_year, this_sem = next_year, next_sem
     return ((str(this_year), this_sem), (str(next_year), next_sem))
-
 
 
 def load_phone_numbers(person):
     """Fish out cell phone numbers for Fronter export.
 
     At UiA's request (2010-04-20), we export mobile phone numbers to
-    Fronter. It is not an error, if a person misses a number. 
+    Fronter. It is not an error, if a person misses a number.
     """
 
     person2phone = dict()
     last = None
     logger.debug("Preloading phone numbers")
     for row in person.list_contact_info(
-                          source_system=const.system_fs,
-                          contact_type=const.contact_mobile_phone,
-                          entity_type=const.entity_person):
+            source_system=const.system_fs,
+            contact_type=const.contact_mobile_phone,
+            entity_type=const.entity_person):
         person_id = int(row["entity_id"])
         # We grab the first matching cell phone
         # The best priority takes precedence, when there are multiple rows
@@ -154,7 +154,6 @@ def load_phone_numbers(person):
     logger.debug("Collected numbers for %s people", len(person2phone))
     return person2phone
 # end load_phone_numbers
-    
 
 
 def load_acc2name():
@@ -171,7 +170,7 @@ def load_acc2name():
     # 'system_cached' name variants in the database.
     person_name = person.getdict_persons_names(
         source_system=const.system_cached,
-        name_types = [const.name_first, const.name_last, const.name_full])
+        name_types=[const.name_first, const.name_last, const.name_full])
 
     ext2puname = person.getdict_external_id2primary_account(
         const.externalid_fodselsnr)
@@ -180,21 +179,19 @@ def load_acc2name():
     ret = {}
     for pers in person.list_persons_atype_extid():
         # logger.debug("Loading person: %s" % pers['name'])
-        if ext2puname.has_key(pers['external_id']):
+        if pers['external_id'] in ext2puname:
             ent_name = ext2puname[pers['external_id']]
         else:
-            # logger.debug("Person has no account: %d" % pers['person_id']) 
             continue
-        if person_name.has_key(int(pers['person_id'])):
+        if int(pers['person_id']) in person_name:
             if len(person_name[int(pers['person_id'])]) != 3:
-                # logger.debug("Person name fault, person_id: %s" % ent_name)
                 continue
-            else: 
+            else:
                 names = person_name[int(pers['person_id'])]
         else:
             # logger.debug("Person name fault, person_id: %s" % ent_name)
             continue
-        if uname2mail.has_key(ent_name):
+        if ent_name in uname2mail.has_key:
             email = uname2mail[ent_name]
         else:
             email = ""
@@ -211,6 +208,7 @@ def load_acc2name():
             'MOBILE': person2phone.get(pers["person_id"])}
     return ret
 
+
 def get_ans_fak(fak_list, ent2uname):
     fak_res = {}
     person = Factory.get('Person')(db)
@@ -221,24 +219,24 @@ def get_ans_fak(fak_list, ent2uname):
         for ou in stdk.get_stedkoder(fakultet=int(fak)):
             # get persons in the stedkode
             for pers in person.list_affiliations(
-                  source_system=const.system_sap,
-                  affiliation=const.affiliation_ansatt,
-                  ou_id=int(ou['ou_id'])):
+                    source_system=const.system_sap,
+                    affiliation=const.affiliation_ansatt,
+                    ou_id=int(ou['ou_id'])):
                 person.clear()
                 try:
                     person.find(int(pers['person_id']))
                     acc_id = person.get_primary_account()
                 except Errors.NotFoundError:
-                    logger.debug("Person pers_id: %d , no valid account!" % \
+                    logger.debug("Person pers_id: %d , no valid account!",
                                  person.entity_id)
                     break
-                if acc_id and ent2uname.has_key(acc_id):
+                if acc_id and acc_id in ent2uname:
                     uname = ent2uname[acc_id]['NAME']
                     if uname not in ans_list:
                         ans_list.append(uname)
                 else:
-                    logger.debug("Person pers_id: %d have no account!" % \
-                                        person.entity_id)
+                    logger.debug("Person pers_id: %d have no account!",
+                                 person.entity_id)
         fak_res[int(fak)] = ans_list
     return fak_res
 
@@ -253,18 +251,18 @@ def register_spread_groups_evu(row, group, evukurs_info, entity2name):
     gname_el = gname.split(":")
 
     assert gname_el[4] == 'evu', \
-           "Registerer en ikke-evu gruppe %s som om den var EVU" % gname
+        "Registerer en ikke-evu gruppe %s som om den var EVU" % gname
 
     logger.debug("bygger grupper knyttet til %s", gname)
 
     #
     # Oppgaven foran oss er slik: CF-strukturen til EVU-delen er
-    # egentlig ikke sÂ veldig fancy. Vi har:
-    # 
+    # egentlig ikke s√• veldig fancy. Vi har:
+    #
     # * Et evukursrom for hvert EVU-kurs (KR)
-    # * En gruppe for studenter for det tilsvarende kurset som fÂr
+    # * En gruppe for studenter for det tilsvarende kurset som f√•r
     #   rettigheter i KR.
-    # * En gruppe for forelesere for det tilsvarende kurset som fÂr
+    # * En gruppe for forelesere for det tilsvarende kurset som f√•r
     #   rettigheter i KR.
 
     # eukk == etterutdkurskode, tak == kurstidsangivelsekode
@@ -279,12 +277,12 @@ def register_spread_groups_evu(row, group, evukurs_info, entity2name):
         register_room(evukurs_info[eukk, ktak],
                       evukursrom_id,
                       kursrom_parent,
-                      profile = romprofil_id["evukursrom"])
+                      profile=romprofil_id["evukursrom"])
     except KeyError:
         logger.error("Could not find room %s", evukursrom_id)
 
     #
-    # Grupper for studenter og forelesere pÂ EVU-kurset
+    # Grupper for studenter og forelesere p√• EVU-kurset
     group.clear()
     group.find(row["group_id"])
     for member_row in group.search_members(group_id=group.entity_id,
@@ -297,7 +295,7 @@ def register_spread_groups_evu(row, group, evukurs_info, entity2name):
             continue
 
         #
-        # Gruppenavn er her pÂ formen:
+        # Gruppenavn er her p√• formen:
         #     internal:DOMAIN:fs:INSTITUSJONSNR:evu:EUKK:KTAK:KATEGORI
         # Tilsvarende CF-navn blir derimot
         #     DOMAIN:fs:INSTITUSJONSNR:evu:KATEGORI:EUKK:KTAK
@@ -305,8 +303,8 @@ def register_spread_groups_evu(row, group, evukurs_info, entity2name):
         if subg_name_el[0] == 'internal':
             subg_name_el.pop(0)
         else:
-            raise ValueError, "intern gruppe uten 'internal':%s" % \
-                              subg_name
+            raise ValueError("intern gruppe uten 'internal':%s" %
+                             subg_name)
         # fi
 
         category = subg_name_el[6]
@@ -321,31 +319,30 @@ def register_spread_groups_evu(row, group, evukurs_info, entity2name):
             permission = fronter_lib.Fronter.ROLE_CHANGE
             parent_suffix = "foreleser"
         else:
-            raise ValueError, "ukjent kategori '%s' for %s" % (category,
-                                                               subg_name)
+            raise ValueError("ukjent kategori '%s' for %s" % (category,
+                                                              subg_name))
         # fi
 
         parent_id = parent_id + ":" + parent_suffix
         title = "%s %s %s" % (title, eukk, ktak)
-        fronter_gname = ':'.join(subg_name_el[0:4] + [category,] +
+        fronter_gname = ':'.join(subg_name_el[0:4] + [category, ] +
                                  subg_name_el[4:6])
         # FIXME: allow_contact?
-        register_group(title, fronter_gname, parent_id, allow_contact = True)
+        register_group(title, fronter_gname, parent_id, allow_contact=True)
 
         group.clear()
         group.find(subg_id)
         user_members = [
-            entity2name.get(int(row["member_id"])) for row in
+            entity2name.get(int(r["member_id"])) for r in
             group.search_members(group_id=group.entity_id,
                                  member_type=const.entity_account)
-            if int(row["member_id"]) in entity2name ]
+            if int(row["member_id"]) in entity2name]
         if user_members:
             register_members(fronter_gname, user_members, const.entity_account)
         # fi
 
         register_room_acl(evukursrom_id, fronter_gname, permission)
     # od
-# end 
 
 
 def _load_entity_names():
@@ -355,12 +352,12 @@ def _load_entity_names():
     @return:
       A dictionary mapping entity ids (of groups and accounts) to the
       respective names from entity_name. Naturally, if one entity has several
-      names in different name domains, we'll have interesting results. 
+      names in different name domains, we'll have interesting results.
     """
 
     # any entity with access to names would do nicely
     en = Factory.get("Group")(db)
-    entity2name = dict((x["entity_id"], x["entity_name"]) for x in 
+    entity2name = dict((x["entity_id"], x["entity_name"]) for x in
                        en.list_names(const.account_namespace))
     entity2name.update((x["entity_id"], x["entity_name"]) for x in
                        en.list_names(const.group_namespace))
@@ -379,11 +376,11 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
         if gname_el[4] == 'evu':
             register_spread_groups_evu(r, group, evukurs_info, entity2name)
         elif gname_el[4] == 'undenh':
-            # NivÂ 3: internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
+            # Niv√• 3: internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
             #           TERMINKODE:EMNEKODE:VERSJONSKODE:TERMINNR
             #
-            # De interessante gruppene (som har brukermedlemmer) er pÂ
-            # nivÂ 4.
+            # De interessante gruppene (som har brukermedlemmer) er p√•
+            # niv√• 4.
             instnr = gname_el[3]
             ar, term, emnekode, versjon, terminnr = gname_el[5:10]
             if (ar, term) not in (this_sem, next_sem):
@@ -410,41 +407,39 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
             emne_sted_id = 'STRUCTURE:%s' % emne_id_term_prefix
             if int(terminnr) == 1 or (ar, term) == this_sem:
                 # Registrer rom for alle undervisningsenheter som
-                # danner starten pÂ et kurs (terminnr == 1).
+                # danner starten p√• et kurs (terminnr == 1).
                 #
                 # For senere semestere av flersemesterkurs skal rommet
-                # registreres i korridoren som svarer til innevÊrende
+                # registreres i korridoren som svarer til innev√¶rende
                 # semester.  Dette betyr at rom for flersemesterkurs
-                # vil bli flyttet til nytt semester f¯rst etter at det
+                # vil bli flyttet til nytt semester f√∏rst etter at det
                 # nye semesteret har startet.
                 #
-                # Merk dog at sÂ snart det blir registrert studenter
-                # pÂ neste semesters undervisningsenhet, vil disse fÂ
+                # Merk dog at s√• snart det blir registrert studenter
+                # p√• neste semesters undervisningsenhet, vil disse f√•
                 # rettigheter til flersemesterkursets rom, selv om
-                # dette pÂ det tidspunktet fortsatt ligger i
-                # korridoren for innevÊrende semester.
-                register_room('%s (ver %s, %d. termin, %s %s)' % (emnekode.upper(),
-                                                                   versjon,
-                                                                   int(terminnr),
-                                                                   ar,
-                                                                   term),
-                              emne_rom_id, emne_sted_id,
-                              profile=romprofil_id['emnerom'])
+                # dette p√• det tidspunktet fortsatt ligger i
+                # korridoren for innev√¶rende semester.
+                register_room('%s (ver %s, %d. termin, %s %s)' % (
+                    emnekode.upper(), versjon, int(terminnr), ar, term),
+                    emne_rom_id, emne_sted_id, profile=romprofil_id['emnerom'])
 
-            # Grupper for studenter, forelesere og studieveileder pÂ
+            # Grupper for studenter, forelesere og studieveileder p√•
             # undervisningsenheten.
             group.clear()
             group.find(r['group_id'])
-            for member_row in group.search_members(group_id=group.entity_id,
-                                                member_type=const.entity_group):
+            for member_row in group.search_members(
+                    group_id=group.entity_id,
+                    member_type=const.entity_group):
                 subg_id = int(member_row["member_id"])
                 subg_name = entity2name.get(subg_id)
                 if subg_id not in entity2name:
-                    logger.warn("Group member id=%s of group id=%s has no name!",
-                                subg_id, group.entity_id)
+                    logger.warn(
+                        "Group member id=%s of group id=%s has no name!",
+                        subg_id, group.entity_id)
                     continue
-            
-                # NivÂ 4: internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
+
+                # Niv√• 4: internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
                 #           TERMINKODE:EMNEKODE:VERSJONSKODE:TERMINNR:KATEGORI
                 subg_name_el = subg_name.split(':')
                 # Fjern "internal:"-prefiks.
@@ -458,22 +453,22 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                     kategori
                     )
                 if kategori == 'student':
-                    title = 'Studenter pÂ '
+                    title = 'Studenter p√• '
                     rettighet = fronter_lib.Fronter.ROLE_WRITE
                 elif kategori == 'foreleser':
-                    title = 'Forelesere pÂ '
+                    title = 'Forelesere p√• '
                     rettighet = fronter_lib.Fronter.ROLE_CHANGE
                 elif kategori == 'studieleder':
                     title = 'Studieledere for '
                     rettighet = fronter_lib.Fronter.ROLE_CHANGE
                 else:
-                    raise RuntimeError, "Ukjent kategori: %r" % (kategori,)
+                    raise RuntimeError("Ukjent kategori: %r" % (kategori,))
                 title += '%s (ver %s, %d. termin, %s %s)' % (
-                    subg_name_el[6].upper(), # EMNEKODE
+                    subg_name_el[6].upper(),  # EMNEKODE
                     subg_name_el[7],    # VERSJONSKODE
-                    int(subg_name_el[8]), # TERMINNR
-                    subg_name_el[4], #ARSTALL
-                    subg_name_el[5]) # TERMINKODE
+                    int(subg_name_el[8]),  # TERMINNR
+                    subg_name_el[4],  # ARSTALL
+                    subg_name_el[5])  # TERMINKODE
                 fronter_gname = ':'.join(subg_name_el)
                 register_group(title, fronter_gname, parent_id,
                                allow_contact=True)
@@ -483,34 +478,37 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                     entity2name.get(int(row["member_id"])) for row in
                     group.search_members(group_id=group.entity_id,
                                          member_type=const.entity_account)
-                    if int(row["member_id"]) in entity2name ]
-                
+                    if int(row["member_id"]) in entity2name]
+
                 if user_members:
                     register_members(fronter_gname, user_members,
                                      const.entity_account)
                 # some groups have special permissions wrt "...:student"
                 if kategori == "student":
-                    foreleser_id = ':'.join(subg_name_el[:9] + ["foreleser",])
-                    studieleder_id = ':'.join(subg_name_el[:9] + ["studieleder",])
+                    foreleser_id = ':'.join(subg_name_el[:9] + ["foreleser", ])
+                    studieleder_id = ':'.join(subg_name_el[:9] +
+                                              ["studieleder", ])
                     register_members(fronter_gname,
                                      (foreleser_id, studieleder_id),
                                      const.entity_group)
-                    
+
                 register_room_acl(emne_rom_id, fronter_gname, rettighet)
 
         elif gname_el[4] == 'studieprogram':
-            # En av studieprogram-grenene pÂ nivÂ 3.  Vil eksportere
-            # gruppene pÂ nivÂ 4.
+            # En av studieprogram-grenene p√• niv√• 3.  Vil eksportere
+            # gruppene p√• niv√• 4.
             group.clear()
             group.find(r['group_id'])
             # Legges inn new group hvis den ikke er opprettet
-            for member_row in group.search_members(group_id=group.entity_id,
-                                                member_type=const.entity_group):
+            for member_row in group.search_members(
+                    group_id=group.entity_id,
+                    member_type=const.entity_group):
                 subg_id = int(member_row["member_id"])
                 subg_name = entity2name.get(subg_id)
                 if subg_id not in entity2name:
-                    logger.warn("Group member id=%s of group id=%s has no name!",
-                                subg_id, group.entity_id)
+                    logger.warn(
+                        "Group member id=%s of group id=%s has no name!",
+                        subg_id, group.entity_id)
                     continue
 
                 subg_name_el = subg_name.split(':')
@@ -536,15 +534,15 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                         'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME_LMS,
                         'fs', 'brukere', institusjonsnr, fak_sko, 'student'))
                     brukere_stprog_id = brukere_studenter_id + \
-                                        ':%s' % stprog
+                        ':%s' % stprog
                     register_group(stprog.upper(), brukere_stprog_id,
                                    brukere_studenter_id)
                     register_group(
-                        # "Studenter pÂ <STUDIEPROGRAMKODE>
+                        # "Studenter p√• <STUDIEPROGRAMKODE>
                         #  <arstall_kull> <terminkode_kull>"
-                        'Studenter pÂ %s %s %s' % (stprog.upper(),
-                                                   subg_name_el[6],
-                                                   subg_name_el[7]),
+                        'Studenter p√• %s %s %s' % (stprog.upper(),
+                                                    subg_name_el[6],
+                                                    subg_name_el[7]),
                         fronter_gname, brukere_stprog_id,
                         allow_contact=True)
                     # Gi denne studiekullgruppen 'skrive'-rettighet i
@@ -553,7 +551,7 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                                       fronter_lib.Fronter.ROLE_WRITE)
                 elif subg_name_el[-1] == 'studieleder':
                     fellesrom_studieledere_id = fellesrom_sted_id + \
-                                                ':studieledere'
+                        ':studieledere'
                     register_group("Studieledere", fellesrom_studieledere_id,
                                    fellesrom_sted_id)
                     register_group(
@@ -563,10 +561,10 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                     # Gi studieleder-gruppen 'slette'-rettighet i
                     # studieprogrammets fellesrom.
                     register_room_acl(fellesrom_stprog_rom_id, fronter_gname,
-                                       fronter_lib.Fronter.ROLE_DELETE)
+                                      fronter_lib.Fronter.ROLE_DELETE)
                 else:
-                    raise RuntimeError, \
-                          "Ukjent studieprogram-gruppe: %r" % (gname,)
+                    raise RuntimeError("Ukjent studieprogram-gruppe: %r" %
+                                       (gname,))
 
                 # Synkroniser medlemmer i Cerebrum-gruppa til CF.
                 group.clear()
@@ -576,7 +574,7 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                     group.search_members(group_id=group.entity_id,
                                          member_type=const.entity_account)
                     if int(row["member_id"]) in entity2name ]
-                
+
                 if user_members:
                     register_members(fronter_gname,
                                      user_members, const.entity_account)
@@ -641,6 +639,7 @@ def register_group(title, id, parentid,
 def output_group_xml():
     """Generer GROUP-elementer uten forover-referanser."""
     done = {}
+
     def output(id):
         if id in done:
             return
@@ -659,10 +658,8 @@ def usage(exitcode):
     sys.exit(exitcode)
 
 def main():
-    # HÂndter upper- og lowercasing av strenger som inneholder norske
+    # H√•ndter upper- og lowercasing av strenger som inneholder norske
     # tegn.
-    locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
-
     init_globals()
 
     fxml.start_xml_head()
@@ -672,10 +669,10 @@ def main():
     # Spytt ut PERSON-elementene.
     for user in acc2names.itervalues():
         fxml.user_to_XML(user['NAME'],
-                         # Som pÂpekt av HiA i en e-post til cerebrum-hia
+                         # Som p√•pekt av HiA i en e-post til cerebrum-hia
                          # (<messsage-id:430C4970.2030709@fronter.com), skal
                          # vi bruke STATUS_ADD (autentiseringsrutinene har
-                         # endret seg og nÂ *skal* man levere dumpen med
+                         # endret seg og n√• *skal* man levere dumpen med
                          # recstatus=1).
                          fronter_lib.Fronter.STATUS_ADD,
                          user)

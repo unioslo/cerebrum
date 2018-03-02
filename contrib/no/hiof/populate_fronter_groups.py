@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: iso-8859-1 -*-
+# -*- encoding: utf-8 -*-
 
 """This file contains the code to generate all relevant Cerebrum groups for
 hiof's Fronter.
@@ -23,8 +23,9 @@ dependent on import_from_FS.py's output.
 FIXME: A FAQ entry for all the warn()/error() statements.
 """
 
+from __future__ import unicode_literals
+
 import getopt
-import locale
 import os
 import re
 import sys
@@ -41,6 +42,8 @@ from Cerebrum.modules.no.hiof.fronter_lib import lower
 from Cerebrum.modules.no.hiof.fronter_lib import count_back_semesters
 from Cerebrum.modules.no.hiof.fronter_lib import timeslot_is_valid
 
+
+del cerebrum_path
 
 logger = None
 
@@ -154,52 +157,44 @@ class FSAttributeHandler(object):
     #
     # FIXME: generate_fronter_xml.py depends on the naming structure below. Do
     # not change the templates without adjusting the code there
-    # (cf_parent_title). 
-    # 
+    # (cf_parent_title).
     group_kind2description = {
-        "student-undakt":
-          ("Studenter ved %s %s (%s %s, versjon %s, %s. termin), aktivitet %s",
-           ("emnekode", "emnenavn",
-            "terminkode", "arstall", "versjonskode", "terminnr", "aktivitetkode")),
+        "student-undakt": ("Studenter ved %s %s "
+                           "(%s %s, versjon %s, %s. termin), aktivitet %s",
+                           ("emnekode", "emnenavn", "terminkode", "arstall",
+                            "versjonskode", "terminnr", "aktivitetkode")),
 
-        "student-undenh":
-          ("Studenter ved %s %s (%s %s, versjon %s, %s. termin)",
-           ("emnekode", "emnenavn",
-            "terminkode", "arstall", "versjonskode", "terminnr",)),
+        "student-undenh": ("Studenter ved %s %s "
+                           "(%s %s, versjon %s, %s. termin)",
+                           ("emnekode", "emnenavn", "terminkode", "arstall",
+                            "versjonskode", "terminnr",)),
 
-        "student-kull":
-          ("Studenter på %s %s %s",
-           ("studieprogramkode", "terminkode", "arstall",)),
+        "student-kull": ("Studenter pÃ¥ %s %s %s", ("studieprogramkode",
+                                                    "terminkode", "arstall",)),
 
-        "student-kullklasse":
-          ("Studenter på %s %s %s, klasse %s",
-           ("studieprogramkode", "terminkode", "arstall", "klassekode")),
+        "student-kullklasse": ("Studenter pÃ¥ %s %s %s, klasse %s",
+                               ("studieprogramkode", "terminkode", "arstall",
+                                "klassekode")),
 
-        "undakt":
-          ("%s for %s %s (%s %s, versjon %s, %s. termin), aktivitet %s",
-           ("rollekode", "emnekode", "emnenavn", "terminkode", "arstall",
-            "versjonskode", "terminnr", "aktivitetkode")),
+        "undakt": ("%s for %s %s (%s %s, versjon %s, %s. termin), aktivitet %s",
+                   ("rollekode", "emnekode", "emnenavn", "terminkode",
+                    "arstall", "versjonskode", "terminnr", "aktivitetkode")),
 
-        "undenh":
-          ("%s for %s %s (%s %s, versjon %s, %s. termin)",
-           ("rollekode", "emnekode", "emnenavn", "terminkode", "arstall",
-            "versjonskode", "terminnr")),
+        "undenh": ("%s for %s %s (%s %s, versjon %s, %s. termin)",
+                   ("rollekode", "emnekode", "emnenavn", "terminkode",
+                    "arstall", "versjonskode", "terminnr")),
 
-        "kullklasse":
-          ("%s for %s %s %s, klasse %s",
-           ("rollekode", "studieprogramkode", "terminkode", "arstall",
-            "klassekode")),
+        "kullklasse": ("%s for %s %s %s, klasse %s",
+                       ("rollekode", "studieprogramkode", "terminkode",
+                        "arstall", "klassekode")),
 
-        "kull":
-          ("%s for %s %s %s",
-           ("rollekode", "studieprogramkode", "terminkode", "arstall")),
+        "kull": ("%s for %s %s %s",
+                 ("rollekode", "studieprogramkode", "terminkode", "arstall")),
 
-        "stprog":
-          ("%s for %s",
-           ("rollekode", "studieprogramkode",)),
+        "stprog": ("%s for %s",
+                   ("rollekode", "studieprogramkode",)),
 
-        "avdeling":
-          ("%s for %s", ("rollekode", "avdeling")),
+        "avdeling": ("%s for %s", ("rollekode", "avdeling")),
     }
 
     # Interesting roles from FS. We ignore the rest
@@ -209,7 +204,7 @@ class FSAttributeHandler(object):
     # Interesting role codes from FS. We ignore the rest. Each valid role (see
     # above) has a code associated with it. In addition to this list, hiof
     # requested support for ADMIN (which will be created manually)
-    valid_role_codes = ("assistent", "hovedlærer", "kursansv", "lærer",
+    valid_role_codes = ("assistent", "hovedlÃ¦rer", "kursansv", "lÃ¦rer",
                         "kontakt", "veileder",)
 
     def __init__(self, db, stprog_file, emne_file, undenh_file, undakt_file):
@@ -258,10 +253,7 @@ class FSAttributeHandler(object):
 
         #
         # mapping to make more human friendly group names
-        self.emnekode2human  = self._load_emne_names(undenh_file)
-    # end __init__
-
-
+        self.emnekode2human = self._load_emne_names(undenh_file)
 
     def _load_emne_names(self, undenh_file):
         """Slurp in the human-friendly names from undenh_file.
@@ -279,7 +271,6 @@ class FSAttributeHandler(object):
 
             result[lower(entry["emnekode"])] = name
         return result
-    # end _load_emne_names
 
     def role_is_exportable(self, role_kind, role_attrs):
         """Decide whether a role with a given set of attributes should
@@ -306,7 +297,7 @@ class FSAttributeHandler(object):
 
     def edu_entry_is_exportable(self, edu_entry_kind, attrs):
         """Much like L{role_is_exportable}, except this works for student info
-        entries. 
+        entries.
 
         Student info exists for undenh, undakt, kull and kullklasse only. We
         don't care about the rest (these are the student info tidbits that
@@ -327,7 +318,6 @@ class FSAttributeHandler(object):
         assert edu_entry_kind in valid_kinds
         key = self._attributes2exportable_key(edu_entry_kind, attrs)
         return key in self._exportable_keys
-    # end edu_entry_is_exportable
 
     def _load_exportable_keys(self, stprog_file, undenh_file, undakt_file):
         """Build a set of FS 'entity' keys that are exportable to LMS.
@@ -354,12 +344,12 @@ class FSAttributeHandler(object):
         """
 
         result = set()
-        for (source, 
+        for (source,
              entry_kind) in ((EduDataGetter(stprog_file, logger).iter_stprog,
                               "stprog",),
-                             (lambda :
-                                EduDataGetter(undenh_file,
-                                              logger).iter_undenh("undenhet"),
+                             (lambda:
+                              EduDataGetter(undenh_file,
+                                            logger).iter_undenh("undenhet"),
                               "undenh",),
                              (EduDataGetter(undakt_file, logger).iter_undakt,
                               "undakt",)):
@@ -415,7 +405,6 @@ class FSAttributeHandler(object):
             assert False, "NOTREACHED"
 
         return key
-    # end _attributes2exportable_key
 
     def attributes2key(self, group_kind, attributes):
         """Construct a Cerebrum group_name/CF group id, given a bunch of
@@ -472,7 +461,6 @@ class FSAttributeHandler(object):
         result_id = self.group_kind2name_template[group_kind]
         result_id = result_id % attrs
         return result_id
-    # attributes2key
 
     def register_description(self, group_key, attrs):
         """Register group description associated with group_key.
@@ -527,13 +515,12 @@ class FSAttributeHandler(object):
                 return
 
             previous = self._group_name2description[group_key][1]
-            if (attrs["arstall"] < previous["arstall"] or 
-                (attrs["arstall"] == previous["arstall"] and
-                 attrs["terminnr"] < previous["terminnr"])):
+            if (attrs["arstall"] < previous["arstall"] or
+                    (attrs["arstall"] == previous["arstall"] and
+                     attrs["terminnr"] < previous["terminnr"])):
                 self._group_name2description[group_key] = (group_type, attrs)
         else:
             self._group_name2description[group_key] = (group_type, attrs)
-    # end register_description
 
     def _calculate_description(self, group_kind, attrs):
         """Calculate group name from attrs"""
@@ -541,11 +528,10 @@ class FSAttributeHandler(object):
         original_case = set(("emnenavn",))
         template, keys = self.group_kind2description[group_kind]
         interpolated_values = [x in original_case and attrs[x] or
-                                                      attrs[x].upper()
+                               attrs[x].upper()
                                for x in keys]
         description = template % tuple(interpolated_values)
         return description
-    # end _calculate_description
 
     def get_description(self, group_name):
         if group_name not in self._group_name2description:
@@ -553,7 +539,6 @@ class FSAttributeHandler(object):
 
         group_type, attrs = self._group_name2description[group_name]
         return self._calculate_description(group_type, attrs)
-    # end get_description
 
     def group_name2ou_id(self, group_name):
         """Figure out which department (avdeling) a group should be associated
@@ -569,7 +554,6 @@ class FSAttributeHandler(object):
         fak, inst, avd = int(sko[:2]), int(sko[2:4]), int(sko[4:])
         ou = Factory.get("OU")(self._db)
         return ou.find_stedkode(fak, inst, avd, cereconf.DEFAULT_INSTITUSJONSNR)
-    # end group_name2ou_id
 
     def fixup_attributes(self, attributes):
         """Convert attributes to standard form and amend with extra keys.
@@ -582,7 +566,6 @@ class FSAttributeHandler(object):
         # Force-insert a few required attributes
         attrs = self._extend_attributes(attrs)
         return attrs
-    # end fixup_attributes
 
     def _extend_attributes(self, attrs):
         """Extend L{attributes} to include some generic values.
@@ -592,8 +575,8 @@ class FSAttributeHandler(object):
 
         @type attrs: dict (of basestring to whatever)
         @param attrs:
-          Dictionary with values generated from elements in an XML file. These are
-          the values we are supplementing.
+          Dictionary with values generated from elements in an XML file. These
+          are the values we are supplementing.
 
         @return:
           Modified L{attributes} with a few additional keys. attributes is
@@ -629,7 +612,6 @@ class FSAttributeHandler(object):
         attrs["institusjonsnr"] = cereconf.DEFAULT_INSTITUSJONSNR
 
         return attrs
-    # end _extend_attributes
 
     def _stprog2avdeling(self, stprog_file):
         """Create a dictionary mapping stprog to avdeling (department).
@@ -646,15 +628,15 @@ class FSAttributeHandler(object):
         logger.debug("Collected %d stprog->avdeling mappings from %s",
                      len(result), stprog_file)
         return result
-    # end _stprog2avdeling
 
     def _emne2avdeling(self, emne_file):
         """Create a dictionary mapping emnekode to avdeling (department).
-        
+
         fs.undervisningsemne.faknr_reglement is the value we want.
         """
 
         result = dict()
+
         def slurp_emne(element, attributes):
             if element == "emne":
                 emne = lower(attributes["emnekode"])
@@ -664,8 +646,6 @@ class FSAttributeHandler(object):
         logger.debug("Collected %d emne->avdeling mappings from %s",
                      len(result), emne_file)
         return result
-    # end _emne2avdeling
-# end FSAttributeHandler
 
 
 def collect_roles(role_file, fs_handler):
@@ -694,7 +674,7 @@ def collect_roles(role_file, fs_handler):
         role_kind = attributes[role_parser.target_key]
         if len(role_kind) != 1:
             # A warning about this has has already been issued
-            return 
+            return
         role_kind = role_kind[0]
 
         if role_kind not in fs_handler.valid_roles:
@@ -711,7 +691,7 @@ def collect_roles(role_file, fs_handler):
         if attrs["rollekode"] not in fs_handler.valid_role_codes:
             logger.debug("Ignoring '%s' role, role code %s: attrs=%s",
                          role_kind, attrs["rollekode"], attrs)
-            return 
+            return
 
         logger.debug("Collecting role '%s' with %s",
                      role_kind, repr(attributes))
@@ -948,7 +928,7 @@ def collect_existing_cf_groups(db):
     """Grab all groups in Cerebrum that exist for CF only.
 
     We tag every group with a special EntityTrait. Thus, collecting the groups
-    is a matter of listing all Groups with that trait. 
+    is a matter of listing all Groups with that trait.
     """
 
     result = dict()
@@ -1002,8 +982,8 @@ def exempt_from_sync(group_name):
     components = group_name.split(":")
     prefix = 'hiof.no:fs:%s' % cereconf.DEFAULT_INSTITUSJONSNR
     if (group_name.startswith(prefix) and
-        re.search(r"^\d\d0000$", components[3]) and
-        components[-1] == "admin"):
+            re.search(r"^\d\d0000$", components[3]) and
+            components[-1] == "admin"):
         logger.debug("Group '%s' is exempt from synchronisation", group_name)
         return True
 
@@ -1116,9 +1096,6 @@ def check_files_exist(*files):
 def main():
     global logger
     logger = Factory.get_logger("cronjob")
-
-    # Upper/lowercasing of Norwegian letters.
-    locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
     options, junk = getopt.getopt(sys.argv[1:],
                                   "d",

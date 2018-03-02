@@ -55,7 +55,7 @@ ou = Factory.get("OU")(db)
 ou_mismatch_warnings = {'sap': [], 'ephorte': []}
 
 
-@six.python_2_compatible
+@six.python_2_unicode_compatible
 class SimpleRole(object):
     """ Ephorte role. """
 
