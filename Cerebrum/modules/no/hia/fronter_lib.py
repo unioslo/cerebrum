@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2003-2018 University of Oslo, Norway
 #
@@ -18,14 +18,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import re
+from __future__ import unicode_literals
 import time
+import io
 
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.extlib import xmlprinter
-from Cerebrum import Person
-from Cerebrum import Errors
 
 # TODO: This file should not have UiO hardcoded data in it
 SYDRadmins = ['baardj', 'frankjs', 'jazz']
@@ -33,87 +30,14 @@ DMLadmins = ['lindaj', 'hallgerb', 'maskoger', 'jonar', 'helgeu',
              'kaugedal', 'rinos', 'monahst']
 AllAdmins = SYDRadmins + DMLadmins
 host_config = {
-    'hiafronter.fronter.no': { 'DBinst': 'DLOPROD.uio.no',
-                       'admins': AllAdmins,
-                       'export': ['FS', 'All_users'],
-                       'spread': 'spread_hia_fronter'
-                       },
-    }
+    'hiafronter.fronter.no': {
+        'DBinst': 'DLOPROD.uio.no',
+        'admins': AllAdmins,
+        'export': ['FS', 'All_users'],
+        'spread': 'spread_hia_fronter'
+    },
+}
 
-#class AccessFronter(object):
-#    def __init__(self, db):
-#        self.db = db
-
-#    def ListUserInfo(self):
-#        return self.db.query("""
-#SELECT username, password, firstname, lastname, email
-#FROM persontbl2 p
-#WHERE username IS NOT NULL AND
-#      importid IS NOT NULL AND
-#      EXISTS (SELECT 'x' FROM memberstbl m WHERE m.personid = p.id)""")
-    
-#    def ListGroupInfo(self):
-#        return self.db.query("""
-#SELECT c.importid, c.title, c.allowsflag, p.importid AS parent_importid
-#FROM structuregrouptbl c, structuregrouptbl p
-#WHERE c.parent = p.id AND
-#      c.importid IS NOT NULL
-#UNION
-#SELECT importid, title, allowsflag, importid
-#FROM structuregrouptbl
-#WHERE parent <= 0 AND
-#      importid IS NOT NULL""")
-
-#    def GetGroupMembers(self, gid):
-#        return self.db.query("""
-#SELECT p.username
-#FROM persontbl2 p, memberstbl m
-#WHERE m.groupid = :gid AND
-#      m.personid = p.id AND
-#      p.importid IS NOT NULL""", {'gid': gid})
-#
-#    def ListAllGroupMembers(self):
-#        return self.db.query("""
-#SELECT g.importid, p.username
-#FROM persontbl2 p, structuregrouptbl g, memberstbl m
-#WHERE g.importid IS NOT NULL AND
-#      g.id = m.groupid AND
-#      p.id = m.personid AND
-#      p.importid IS NOT NULL""")
-#
-#    def ListGroupsACL(self):
-#        return self.db.query("""
-#SELECT s.importid AS structid, g.importid AS groupid, a.group_access, a.room_access
-#FROM structuregrouptbl s, structuregrouptbl g, structureacl a
-#WHERE s.importid IS NOT NULL AND
-#      s.id = a.structid AND
-#      g.id = a.groupid AND
-#      g.importid IS NOT NULL""")
-
-#    def ListRoomInfo(self):
-#        return self.db.query("""
-#SELECT r.importid AS room, r.title, s.importid AS structid, r.profile
-#FROM projecttbl2 r, structuregrouptbl s
-#WHERE r.structureid = s.id AND
-#      r.importid IS NOT NULL""")
-#
-#    def ListRoomsACL(self):
-#        return self.db.query("""
-#SELECT r.importid AS roomid, g.importid AS groupid, a.read_access, a.write_access,
-#       a.delete_access, a.change_access
-#FROM projecttbl2 r, structuregrouptbl g, acl a
-#WHERE r.importid IS NOT NULL AND
-#      r.id = a.prjid AND
-#      g.id = a.groupid AND
-#      g.importid IS NOT NULL""")
-
-#    def GetProfileId(self, title):
-#        try:
-#            return self.db.query_1("""
-#            SELECT id FROM ProfileTbl WHERE title=:title""", {'title': title})
-#        except Errors.NotFoundError:
-#            # Bruk "Vanlig prosjektmal" fra masterdata.
-#            return 10
 
 class FronterUtils(object):
     def UE2RomID(prefix, aar, termk, instnr, sko, romtype,
@@ -138,6 +62,7 @@ class FronterUtils(object):
         # ikke gå lenger tilbake enn høst 2004 (det første semesteret
         # HiA hadde automatisk synkronisering fra Cerebrum til
         # ClassFronter).
+
         def forrige_semester(termk, aar):
             if termk == 'høst':
                 return ('vår', aar)
@@ -148,9 +73,9 @@ class FronterUtils(object):
                 # benyttes andre verdier for termk enn 'vår' og
                 # 'høst', da det i så fall vil bli vanskelig å vite
                 # hvilket semester det var "for 2 semestere siden".
-                raise ValueError, \
-                      "ERROR: Unknown terminkode <%s> for emnekode <%s>." % (
-                    termk, emnekode)
+                raise ValueError(
+                    "ERROR: Unknown terminkode <%s> for emnekode <%s>." %
+                    (termk, emnekode))
 
         while termnr > 1 and (termk, aar) != ('høst', 2004):
             (termk, aar) = forrige_semester(termk, aar)
@@ -166,6 +91,7 @@ class FronterUtils(object):
         return ':'.join((prefix, rom_id))
     UE2RomID = staticmethod(UE2RomID)
 
+
 class Fronter(object):
     STATUS_ADD = 1
     STATUS_UPDATE = 2
@@ -178,12 +104,13 @@ class Fronter(object):
 
     EMNE_PREFIX = 'KURS'
 
+
 class XMLWriter(object):   # TODO: Move to separate file
     # TODO: should produce indented XML for easier readability
     def __init__(self, fname):
         self.gen = xmlprinter.xmlprinter(
-            file(fname, 'w'), indent_level=2, data_mode=1,
-            input_encoding='ISO-8859-1')
+            io.file(fname, 'wb'), indent_level=2, data_mode=1,
+            input_encoding='UTF-8')
 
     def startTag(self, tag, attrs={}):
         a = {}
@@ -205,18 +132,19 @@ class XMLWriter(object):   # TODO: Move to separate file
 
     def comment(self, data):  # TODO: implement
         self.gen.comment(data)
-    
+
     def startDocument(self, encoding):
         self.gen.startDocument(encoding)
 
     def endDocument(self):
         self.gen.endDocument()
 
+
 class FronterXML(object):
     def __init__(self, fname, cf_dir=None, debug_file=None, debug_level=None,
                  fronter=None, include_password=True):
         self.xml = XMLWriter(fname)
-        self.xml.startDocument(encoding='ISO-8859-1')
+        self.xml.startDocument(encoding='UTF-8')
         self.rootEl = 'enterprise'
         self.DataSource = 'cerebrum@hia.no'
         self.cf_dir = cf_dir
@@ -224,20 +152,19 @@ class FronterXML(object):
         self.debug_level = debug_level
         self.fronter = fronter
         self.include_password = include_password
-        #self.cf_id = self.fronter.DBinst.split(".")[0]
-	self.cf_id = 'hiafronter'
+        self.cf_id = 'hiafronter'
 
     def start_xml_head(self):
-	self.xml.comment("Eksporterer data for HiA\n")
-	self.xml.startTag(self.rootEl)
+        self.xml.comment("Eksporterer data for HiA\n")
+        self.xml.startTag(self.rootEl)
         self.xml.startTag('properties')
         self.xml.dataElement('datasource', self.DataSource)
         self.xml.dataElement('datetime', time.strftime("%Y-%m-%d"))
         self.xml.endTag('properties')
 
     def start_xml_file(self, kurs2enhet):
-        self.xml.comment("Eksporterer data om følgende emner:\n  " + 
-                    "\n  ".join(kurs2enhet.keys()))
+        self.xml.comment("Eksporterer data om følgende emner:\n  " +
+                         "\n  ".join(kurs2enhet.keys()))
         self.xml.startTag(self.rootEl)
         self.xml.startTag('properties')
         self.xml.dataElement('datasource', self.DataSource)
@@ -248,11 +175,11 @@ class FronterXML(object):
         self.xml.dataElement('datetime', time.strftime("%Y-%m-%d"))
         self.xml.startTag('extension')
         self.xml.emptyTag('debug', {
-            'debugdest': 0, # File
+            'debugdest': 0,  # File
             'logpath': self.debug_file,
             'debuglevel': self.debug_level})
         self.xml.emptyTag('databasesettings', {
-            'database': 0,	# Oracle
+            'database': 0, 	# Oracle
             'jdbcfilename': "%s/%s.dat" % (self.cf_dir, self.cf_id)
             })
         self.xml.endTag('extension')
@@ -266,7 +193,7 @@ class FronterXML(object):
         self.xml.dataElement('id', id)
         self.xml.endTag('sourcedid')
         if (recstatus == Fronter.STATUS_ADD
-            or recstatus == Fronter.STATUS_UPDATE):
+                or recstatus == Fronter.STATUS_UPDATE):
             self.xml.startTag('name')
             self.xml.dataElement('fn', data['FN'])
             self.xml.startTag('n')
@@ -296,12 +223,12 @@ class FronterXML(object):
         self.xml.dataElement('id', id)
         self.xml.endTag('sourcedid')
         if (recstatus == Fronter.STATUS_ADD or
-            recstatus == Fronter.STATUS_UPDATE):
+                recstatus == Fronter.STATUS_UPDATE):
             self.xml.startTag('grouptype')
             self.xml.dataElement('scheme', 'FronterStructure1.0')
             # Unfortunately (?) allow_room/contact can have 'False' as value
             # associated with them. However, the DTD allows numbers only for
-            # this attribute. 
+            # this attribute
             allow_room = data.get('allow_room', 0)
             if allow_room:
                 allow_room = 1
@@ -329,21 +256,21 @@ class FronterXML(object):
             self.xml.endTag('sourcedid')
             self.xml.emptyTag('label')
             self.xml.endTag('relationship')
-        self.xml.endTag('group')
+            self.xml.endTag('group')
 
     def room_to_XML(self, id, recstatus, data):
         # Lager XML for et rom
         #
         # Gamle rom skal aldri slettes automatisk.
         if recstatus == Fronter.STATUS_DELETE:
-            return 
+            return
         self.xml.startTag('group', {'recstatus': recstatus})
         self.xml.startTag('sourcedid')
         self.xml.dataElement('source', self.DataSource)
         self.xml.dataElement('id', id)
         self.xml.endTag('sourcedid')
         if (recstatus == Fronter.STATUS_ADD or
-            recstatus == Fronter.STATUS_UPDATE):
+                recstatus == Fronter.STATUS_UPDATE):
             self.xml.startTag('grouptype')
             self.xml.dataElement('scheme', 'FronterStructure1.0')
             self.xml.emptyTag('typevalue', {'level': 4})
@@ -387,12 +314,14 @@ class FronterXML(object):
             self.xml.dataElement('source', self.DataSource)
             self.xml.dataElement('id', uname)
             self.xml.endTag('sourcedid')
-            self.xml.dataElement('idtype', '1')	# The following member ids are persons.
+            # The following member ids are persons.
+            self.xml.dataElement('idtype', '1')
             self.xml.startTag('role', {'recstatus': recstatus,
                                        'roletype': Fronter.ROLE_READ})
             self.xml.dataElement('status', '1')
             self.xml.startTag('extension')
-            self.xml.emptyTag('memberof', {'type': 1}) # Member of group, not room.
+            # Member of group, not room.
+            self.xml.emptyTag('memberof', {'type': 1})
             self.xml.endTag('extension')
             self.xml.endTag('role')
             self.xml.endTag('member')
@@ -438,7 +367,7 @@ class FronterXML(object):
             self.xml.dataElement('id', gname)
             self.xml.endTag('sourcedid')
             # The following member id is a group.
-            self.xml.dataElement('idtype', '2')	
+            self.xml.dataElement('idtype', '2')
             self.xml.startTag('role', {'recstatus': recstatus,
                                        'roletype': Fronter.ROLE_DELETE})
             self.xml.dataElement('status', '1')
@@ -453,7 +382,7 @@ class FronterXML(object):
             self.xml.endTag('member')
         self.xml.endTag('membership')
     # end groupmembers_to_XML
-    
+
     def acl_to_XML(self, node, recstatus, groups):
         self.xml.startTag('membership')
         self.xml.startTag('sourcedid')
@@ -466,19 +395,20 @@ class FronterXML(object):
             self.xml.dataElement('source', self.DataSource)
             self.xml.dataElement('id', gname)
             self.xml.endTag('sourcedid')
-            self.xml.dataElement('idtype', '2')	# The following member ids are groups.
+            # The following member ids are groups.
+            self.xml.dataElement('idtype', '2')
             acl = groups[gname]
-            if acl.has_key('role'):
+            if 'role' in acl:
                 self.xml.startTag('role', {'recstatus': recstatus,
                                            'roletype': acl['role']})
                 self.xml.dataElement('status', '1')
                 self.xml.startTag('extension')
-                self.xml.emptyTag('memberof', {'type': 2}) # Member of room.
+                self.xml.emptyTag('memberof', {'type': 2})  # Member of room.
             else:
                 self.xml.startTag('role', {'recstatus': recstatus})
                 self.xml.dataElement('status', '1')
                 self.xml.startTag('extension')
-                self.xml.emptyTag('memberof', {'type': 1}) # Member of group.
+                self.xml.emptyTag('memberof', {'type': 1})  # Member of group.
                 self.xml.emptyTag('groupaccess',
                                   {'contactAccess': acl['gacc'],
                                    'roomAccess': acl['racc']})
@@ -490,4 +420,3 @@ class FronterXML(object):
     def end(self):
         self.xml.endTag(self.rootEl)
         self.xml.endDocument()
-        

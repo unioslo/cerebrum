@@ -25,27 +25,29 @@ import sys
 import socket
 import getopt
 import httplib
+import io
 
 from Cerebrum.Utils import Factory
 
 logger = Factory.get_logger('cronjob')
 
+
 def export(filename, key, host):
     """Runs the export"""
     logger.debug('Reading file %s' % filename)
-    
-    f = open(filename)
+
+    f = io.open(filename, 'rb')
     data = f.read()
     f.close()
-    
+
     logger.debug('Done reading file')
     logger.info('Connecting to %s, key is %s' % (host, key))
-    
+
     conn = httplib.HTTPSConnection(host)
 
     logger.info('Starting request')
-    
-    headers = {'Content-type': 'application/x-www-form-urlencoded', \
+
+    headers = {'Content-type': 'application/x-www-form-urlencoded',
                'Accept': '*/*'}
     try:
         conn.request('POST',
@@ -65,10 +67,11 @@ def export(filename, key, host):
     conn.close()
     return 0 if r.status == 200 else r.status
 
+
 def status(key, host):
     """Polls the WS for a status"""
     conn = httplib.HTTPSConnection(host)
-    headers = {'Content-type': 'application/x-www-form-urlencoded', \
+    headers = {'Content-type': 'application/x-www-form-urlencoded',
                'Accept': '*/*'}
     try:
         conn.request('POST',
@@ -84,6 +87,7 @@ def status(key, host):
     conn.close()
     return 0 if r.status == 200 else r.status
 
+
 def usage(i=0):
     """Usage information"""
     print """Usage: %s -k <key> -f <file> --logger-name <logger>
@@ -98,7 +102,7 @@ def usage(i=0):
       The file supplied should be zip'ed if it is too big (whatever that is).
       I.E: A 500MB file might not get imported. Compress it to 10-20MB and it
       gets imported.
-      
+
       Visit https://ws.fronter.com/es/?authkey=<key> in order to view the
       integration status. The "Data Exported" row tells you when the file was
       correctly received by the WS. "Data Imported" tells you when the last
@@ -114,6 +118,7 @@ def usage(i=0):
       """
     sys.exit(i)
 
+
 def main():
     """Arg parsing and execution"""
     file = None
@@ -126,7 +131,7 @@ def main():
     except getopt.GetoptError, err:
         print 'Error: %s' % err
         usage(-2)
-    
+
     for opt, val in opts:
         if opt in ('-f',):
             file = val

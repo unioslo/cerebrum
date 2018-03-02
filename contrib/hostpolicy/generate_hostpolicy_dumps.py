@@ -18,6 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+from __future__ import unicode_literals
+
 """Script for generating the various host policy csv files that is related to
 cfengine. It can be specified what files to generate. The documentation about
 the host policies are located at:
@@ -34,7 +37,8 @@ There are four different files:
 
         rolename;description;foundation;date;members*
 
-        - The members are listed by their entity_names and are separated by commas.
+        - The members are listed by their entity_names and are separated by
+          commas.
 
     hostpolicies.csv: one host per line, on the format:
 
@@ -55,8 +59,9 @@ The date format is: YYYY-MM-DD
 import sys
 import os
 
+from six import text_type
+
 import cerebrum_path
-import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
@@ -65,13 +70,14 @@ from Cerebrum.modules.hostpolicy.PolicyComponent import Atom
 from Cerebrum.modules.hostpolicy.PolicyComponent import Role
 
 logger = Factory.get_logger('cronjob')
+del cerebrum_path
 
 
 def usage(exitcode=0):
     print """Usage: %(filename)s [options]
 
     %(doc)s
-    
+
     Options:
 
     --atoms FILE            The file to put all atoms in.
@@ -133,7 +139,8 @@ def process_hostpolicies(stream):
         by_hosts.setdefault(row['dns_owner_name'], []).append(row)
     for dns_owner_name, rows in by_hosts.iteritems():
         stream.write(';'.join((dns_owner_name,
-                               ','.join(str(row['policy_name']) for row in rows))))
+                               ','.join(text_type(row['policy_name'])
+                                        for row in rows))))
         stream.write('\n')
     logger.info('process_hostpolicies done')
 
@@ -146,7 +153,7 @@ def process_relationships(stream):
     role = Role(db)
     for row in role.search_relations():
         stream.write(';'.join((row['source_name'],
-                               str(row['relationship_str']),
+                               text_type(row['relationship_str']),
                                row['target_name'])))
         stream.write('\n')
     logger.info('process_relationships done')
@@ -176,7 +183,7 @@ def main():
                               (opts.hostpolicies, process_hostpolicies),
                               (opts.relationships, process_relationships)):
         if filename:
-            stream = SimilarSizeWriter(filename)
+            stream = SimilarSizeWriter(filename, 'w', encoding='UTF-8')
             stream.max_pct_change = 90
             process(stream)
             streams.append(stream)
