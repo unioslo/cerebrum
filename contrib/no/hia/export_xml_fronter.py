@@ -191,7 +191,7 @@ def load_acc2name():
         else:
             # logger.debug("Person name fault, person_id: %s" % ent_name)
             continue
-        if ent_name in uname2mail.has_key:
+        if ent_name in uname2mail:
             email = uname2mail[ent_name]
         else:
             email = ""
