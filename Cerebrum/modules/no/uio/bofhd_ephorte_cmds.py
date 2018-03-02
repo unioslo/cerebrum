@@ -17,6 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from six import text_type
+
 import cereconf
 
 from Cerebrum import Errors
@@ -128,28 +130,28 @@ class BofhdExtension(BofhdCommonMethods):
             'journalenhet': [
                 'journalenhet', 'Enter journalenhet',
                 'Legal values are: \n%s' % "\n".join([
-                    "  %-8s : %s" % (str(c), c.description)
+                    "  %-8s : %s" % (text_type(c), c.description)
                     for c in const.fetch_constants(const.EphorteJournalenhet)
                 ])
             ],
             'arkivdel': [
                 'arkivdel', 'Enter arkivdel',
                 'Legal values are: \n%s' % "\n".join([
-                    "  %-8s : %s" % (str(c), c.description)
+                    "  %-8s : %s" % (text_type(c), c.description)
                     for c in const.fetch_constants(const.EphorteArkivdel)
                 ])
             ],
             'rolle': [
                 'rolle', 'Enter rolle',
                 'Legal values are: \n%s' % "\n".join([
-                    "  %-8s : %s" % (str(c), c.description)
+                    "  %-8s : %s" % (text_type(c), c.description)
                     for c in const.fetch_constants(const.EphorteRole)
                 ])
             ],
             'tilgang': [
                 'tilgang', 'Enter perm ("tilgang")',
                 'Legal values are: \n%s' % "\n".join([
-                    "  %-8s : %s" % (str(c), c.description)
+                    "  %-8s : %s" % (text_type(c), c.description)
                     for c in const.fetch_constants(const.EphortePermission)
                 ])
             ],
@@ -222,13 +224,16 @@ class BofhdExtension(BofhdCommonMethods):
 
         arkivdel = self._get_arkivdel(arkivdel)
         journalenhet = self._get_journalenhet(journalenhet)
-        self.ephorte_role.add_role(person.entity_id, self._get_role_type(role),
+        role = self._get_role_type(role)
+        self.ephorte_role.add_role(person.entity_id, role,
                                    ou.entity_id, arkivdel, journalenhet,
                                    auto_role='F')
         if not_ephorte_ou:
             return ("Warning: Added %s role for %s%s to a"
-                    " non-archive OU %s") % (role, person_id, extra_msg, sko)
-        return "OK, added %s role for %s%s" % (role, person_id, extra_msg)
+                    " non-archive OU %r") % (text_type(role), person_id,
+                                             extra_msg, sko)
+        return "OK, added %s role for %s%s" % (text_type(role), person_id,
+                                               extra_msg)
 
     #
     # ephorte remove_role
@@ -253,29 +258,30 @@ class BofhdExtension(BofhdCommonMethods):
         ou = self._get_ou(stedkode=sko)
         arkivdel = self._get_arkivdel(arkivdel)
         journalenhet = self._get_journalenhet(journalenhet)
+        role = self._get_role_type(role)
         # Check that the person has the given role.
         if not self.ephorte_role.get_role(
                 person.entity_id,
-                self._get_role_type(role),
+                role,
                 ou.entity_id,
-                self._get_arkivdel(arkivdel),
-                self._get_journalenhet(journalenhet)):
+                arkivdel,
+                journalenhet):
             raise CerebrumError("Person has no such role")
         # Check if role is a standard role
         _list_roles = self.ephorte_role.list_roles
         if (self.ephorte_role.is_standard_role(person.entity_id,
-                                               self._get_role_type(role),
+                                               role,
                                                ou.entity_id,
                                                arkivdel,
                                                journalenhet)
                 and len(_list_roles(person_id=person.entity_id)) > 1):
             raise CerebrumError("Cannot delete standard role.")
         self.ephorte_role.remove_role(person.entity_id,
-                                      self._get_role_type(role),
+                                      role,
                                       ou.entity_id,
                                       arkivdel,
                                       journalenhet)
-        return "OK, removed %s role for %s" % (role, person_id)
+        return "OK, removed %s role for %s" % (text_type(role), person_id)
 
     #
     # ephorte list_roles
@@ -300,21 +306,20 @@ class BofhdExtension(BofhdCommonMethods):
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
         ret = []
+
+        def to_text(getter, value):
+            if not value:
+                return ''
+            return text_type(getter(value))
+
         for row in self.ephorte_role.list_roles(person_id=person.entity_id):
             ou = self._get_ou(ou_id=row['adm_enhet'])
-            if row['arkivdel']:
-                arkivdel = str(self._get_arkivdel(row['arkivdel']))
-            else:
-                arkivdel = ''
-            if row['journalenhet']:
-                journalenhet = str(self._get_journalenhet(row['journalenhet']))
-            else:
-                journalenhet = ''
             ret.append({
-                'role': str(self._get_role_type(row['role_type'])),
+                'role': to_text(self._get_role_type, row['role_type']),
                 'adm_enhet': self._format_ou_name(ou),
-                'arkivdel': arkivdel,
-                'journalenhet': journalenhet,
+                'arkivdel': to_text(self._get_arkivdel, row['arkivdel']),
+                'journalenhet': to_text(self._get_journalenhet,
+                                        row['journalenhet']),
                 'std_role': row['standard_role'] or '',
             })
         return ret
@@ -384,6 +389,14 @@ class BofhdExtension(BofhdCommonMethods):
             'T')
         return "OK, set new standard role"
 
+    def _lookup_perm_tr(self, tilgang):
+        key = text_type(tilgang)
+        res = (cereconf.EPHORTE_NEW2OLD_PERMISSIONS.get(key, None) or
+               cereconf.EPHORTE_OLD2NEW_PERMISSIONS.get(key, None))
+        if res:
+            return self._get_tilgang(res)
+        return None
+
     #
     # Add, remove or list auth. permissions ("tilgangskoder") for ePhorte
     # TBD: we should consider supporting permissions starting in the future
@@ -413,31 +426,33 @@ class BofhdExtension(BofhdCommonMethods):
         if self.ephorte_perm.has_permission(person.entity_id,
                                             self._get_tilgang(tilgang),
                                             ou.entity_id):
-            raise CerebrumError("Person %s already has perm %s"
+            raise CerebrumError("Person %r already has perm %r"
                                 " (remove first)" % (person_id, tilgang))
+
+        tilgang = self._get_tilgang(tilgang)
         # This is a hack needed by the archivists.
         # If one of the new permissions, defined in
         # EPHORTE_NEW2OLD_PERMISSIONS.values() is to be added, the old
         # (expired) one must be added to. And vice versa.
-        corresponding_perm = (
-            cereconf.EPHORTE_NEW2OLD_PERMISSIONS.get(tilgang, None)
-            or cereconf.EPHORTE_OLD2NEW_PERMISSIONS.get(tilgang, None))
+        corresponding_perm = self._lookup_perm_tr(tilgang)
         if corresponding_perm:
             # Add the corresponding permission
             self.ephorte_perm.add_permission(
                 person.entity_id,
-                self._get_tilgang(corresponding_perm),
+                corresponding_perm,
                 ou.entity_id,
                 operator_id)
-            ret_msg_suffix = " Also added 'tilgang' %s" % corresponding_perm
+            ret_msg_suffix = " Also added 'tilgang' %s" % (
+                text_type(corresponding_perm))
         else:
             ret_msg_suffix = ""
         # Add new permission
         self.ephorte_perm.add_permission(person.entity_id,
-                                         self._get_tilgang(tilgang),
+                                         tilgang,
                                          ou.entity_id,
                                          operator_id)
-        return "OK, added 'tilgang' %s for %s.%s" % (tilgang, person_id,
+        return "OK, added 'tilgang' %s for %s.%s" % (text_type(tilgang),
+                                                     person_id,
                                                      ret_msg_suffix)
 
     #
@@ -462,23 +477,25 @@ class BofhdExtension(BofhdCommonMethods):
         # If one of the new permissions, defined in
         # EPHORTE_NEW2OLD_PERMISSIONS.values() is to be added, the old
         # (expired) one must be added to. And vice versa.
-        corresponding_perm = (
-            cereconf.EPHORTE_NEW2OLD_PERMISSIONS.get(tilgang, None)
-            or cereconf.EPHORTE_OLD2NEW_PERMISSIONS.get(tilgang, None))
+        tilgang = self._get_tilgang(tilgang)
+
+        corresponding_perm = self._lookup_perm_tr(tilgang)
         if corresponding_perm:
             # Remove old permission
             self.ephorte_perm.remove_permission(
                 person.entity_id,
-                self._get_tilgang(corresponding_perm),
+                corresponding_perm,
                 ou.entity_id)
-            ret_msg_suffix = " Also removed 'tilgang' %s" % corresponding_perm
+            ret_msg_suffix = " Also removed 'tilgang' %s" % (
+                text_type(corresponding_perm))
         else:
             ret_msg_suffix = ""
         # Remove new permission
         self.ephorte_perm.remove_permission(person.entity_id,
-                                            self._get_tilgang(tilgang),
+                                            tilgang,
                                             ou.entity_id)
-        return "OK, removed 'tilgang' %s for %s.%s" % (tilgang, person_id,
+        return "OK, removed 'tilgang' %s for %s.%s" % (text_type(tilgang),
+                                                       person_id,
                                                        ret_msg_suffix)
 
     #
@@ -512,7 +529,7 @@ class BofhdExtension(BofhdCommonMethods):
             else:
                 end_date = ''
             ret.append({
-                'tilgang': str(self._get_tilgang(row['perm_type'])),
+                'tilgang': text_type(self._get_tilgang(row['perm_type'])),
                 'adm_enhet': self._format_ou_name(ou),
                 'requestee': requestee.get_names()[0][0],
                 'end_date': end_date,
