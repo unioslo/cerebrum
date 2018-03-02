@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2004 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2004-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,20 +17,79 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Types and utils for job runner. """
 
-import time
-import socket
-import signal
+import argparse
+import imp
+import importlib
 import os
+import signal
+import socket
 import threading
+import time
+import sys
 
 import cereconf
+
 from Cerebrum import Errors
+
+
+SECONDS_MIN = 60
+SECONDS_HOUR = SECONDS_MIN ** 2
+SECONDS_DAY = SECONDS_HOUR * 24
+SECONDS_WEEK = SECONDS_DAY * 7
+
+
+def to_seconds(weeks=0, days=0, hours=0, minutes=0, seconds=0):
+    """ Sum number of weeks, days, hours, etc.. to seconds. """
+    return sum((
+        weeks * SECONDS_WEEK,
+        days * SECONDS_DAY,
+        hours * SECONDS_HOUR,
+        minutes * SECONDS_MIN,
+        seconds,
+    ))
+
+
+def import_file(filename, name):
+    """ Imports a file as a given module. """
+    # TODO: PY3 Not Python3 compatible
+    module = imp.load_source(name, filename)
+    sys.modules[name] = module
+    return module
+
+
+def import_module(name):
+    """ Import a given module. """
+    return importlib.import_module(name)
+
+
+def reload_module(module):
+    """ Module reload function that does not use PYTHONPATH. """
+    name, filename = module.__name__, module.__file__
+
+    # Strip .py[co], as reloading a .pyc doesn't really help us
+    filename = os.path.splitext(filename)[0] + '.py'
+
+    # Clear
+    if name in sys.modules:
+        del sys.modules[module.__name__]
+
+    # Re-import
+    if os.path.exists(filename):
+        return import_file(filename, name)
+    else:
+        # Path changed?
+        return import_module(name)
+
 
 class When(object):
     def __init__(self, freq=None, time=None):
-        """Indicates that a job should be ran either with a specified
-        frequency, or at the specified time"""
+        """ Run job at specific times.
+
+        This object can be used to indicate that a job should be ran either
+        with a specified frequency, or at a specified time.
+        """
         assert freq is not None or time is not None
         assert not (freq is not None and time is not None)
         self.freq = freq
@@ -38,7 +97,7 @@ class When(object):
 
         # TODO: support not-run interval to prevent running jobs when
         # FS is down etc.
-        
+
     def next_delta(self, last_time, current_time):
         """Returns # seconds til the next time this job should run
         """
@@ -57,6 +116,7 @@ class When(object):
         return "freq=%s" % time.strftime('%H:%M.%S',
                                          time.gmtime(self.freq))
 
+
 class Time(object):
     def __init__(self, min=None, hour=None, wday=None, max_freq=None):
         """Emulate time part of crontab(5), None=*
@@ -73,12 +133,11 @@ class Time(object):
         job is set to run at 12:30, but was ran at 12:00, the job will
         not run until the next matching time after 13:00.  If the
         Action.max_freq had been used, the job would have ran at
-        13:00."""
-
+        13:00.
+        """
         # TBD: what mechanisms should be provided to prevent new jobs
         # from being ran immeadeately when the time is not currently
         # within the correct range?
-
         self.min = min
         if min is not None:
             self.min.sort()
@@ -99,25 +158,26 @@ class Time(object):
     def delta_to_leave(self, t):
         """Return a very rough estimate of the number of seconds until
         we leave the time-period covered by this Time object"""
-        
+
         hour, min, sec, wday = (time.localtime(t))[3:7]
         if self.wday is not None and wday in self.wday:
-            return 3600*24 - (sec+min*60+hour*3600)
+            return SECONDS_DAY - to_seconds(hours=hour,
+                                            minutes=min,
+                                            seconds=sec)
         if self.hour is not None and hour in self.hour:
-            return (60-min)*60
+            return to_seconds(minutes=60 - min)
         if self.min is not None and min in self.min:
-            return 60 - sec
+            return to_seconds(seconds=60 - sec)
 
     def next_time(self, prev_time):
         """Return the number of seconds until next time after num"""
-        hour, min, sec, wday = (time.localtime(prev_time+self.max_freq))[3:7]
+        hour, min, sec, wday = (time.localtime(prev_time + self.max_freq))[3:7]
 
         add_week = 0
         for i in range(10):
             if self.wday is not None and wday not in self.wday:
                 # finn midnatt neste ukedag
-                hour = 0
-                min = 0
+                hour = min = 0
                 t, wrap = self._next_list_value(wday, self.wday, 6)
                 wday = t
                 if wrap:
@@ -141,10 +201,17 @@ class Time(object):
                     continue
 
             # Now calculate the diff
-            old_hour, old_min, old_sec, old_wday = (time.localtime(prev_time))[3:7]
-            week_start_delta = (old_wday*24*3600 + old_hour*3600 + old_min*60 + old_sec)
+            old_hour, old_min, old_sec, old_wday = (
+                time.localtime(prev_time))[3:7]
+            week_start_delta = to_seconds(days=old_wday,
+                                          hours=old_hour,
+                                          minutes=old_min,
+                                          seconds=old_sec)
 
-            ret = add_week*7*24*3600 + wday*24*3600 + hour*3600 + min*60 - week_start_delta
+            ret = to_seconds(weeks=add_week,
+                             days=wday,
+                             hours=hour,
+                             minutes=min) - week_start_delta
 
             # Assert that the time we find is after the previous time
             if ret <= 0:
@@ -156,7 +223,7 @@ class Time(object):
                     wday += 1
                 continue
             return ret
-        raise ValueError, "Programming error for %i" % prev_time
+        raise ValueError("Programming error for %i" % prev_time)
 
     def __str__(self):
         ret = []
@@ -167,21 +234,23 @@ class Time(object):
         if self.min:
             ret.append("m="+":".join(["%i" % w for w in self.min]))
         return ",".join(ret)
-    
+
+
 class SocketHandling(object):
     """Simple class for handling client and server communication to
     job_runner"""
 
     class Timeout(Exception):
         """Raised by send_cmd() to interrupt a hanging socket call"""
-    
-    def timeout(sig, frame) :
-        raise SocketHandling.Timeout("Timeout")
-    timeout = staticmethod(timeout)
+        pass
+
+    @classmethod
+    def timeout(cls, sig, frame):
+        raise cls.Timeout("Timeout")
 
     def __init__(self, logger):
         self._is_listening = False
-        signal.signal(signal.SIGALRM, SocketHandling.timeout)
+        signal.signal(signal.SIGALRM, type(self).timeout)
         self.logger = logger
 
     def _format_time(self, t):
@@ -199,7 +268,8 @@ class SocketHandling(object):
         if tmp:
             ret = "Status: running, started at %s\n" % tmp
         else:
-            tmp = self._format_time(job_runner.job_queue._last_run.get(jobname))
+            tmp = self._format_time(
+                job_runner.job_queue._last_run.get(jobname))
             ret = "Status: not running.  Last run: %s\n" % tmp or 'unknown'
             ret += "Last exit status: %s\n" % job.last_exit_msg
         ret += "Command: %s\n" % job.get_pretty_cmd()
@@ -212,8 +282,7 @@ class SocketHandling(object):
         else:
             ret += "Max duration: %s\n" % (job.max_duration)
         return ret
-        
-        
+
     def start_listener(self, job_runner):
         self.socket = socket.socket(socket.AF_UNIX)
         self.socket.bind(cereconf.JOB_RUNNER_SOCKET)
@@ -257,55 +326,66 @@ class SocketHandling(object):
                     break
                 elif data.startswith('RUNJOB '):
                     jobname, with_deps = data[7:].split()
-                    with_deps=int(with_deps)
-                    if not job_runner.job_queue.get_known_jobs().has_key(jobname):
+                    with_deps = bool(int(with_deps))
+                    if jobname not in job_runner.job_queue.get_known_jobs():
                         self.send_response(conn, 'Unknown job %s' % jobname)
                     else:
                         if with_deps:
                             job_runner.job_queue.insert_job(
                                 job_runner.job_queue._run_queue, jobname)
                             self.send_response(
-                                conn, 'Added %s to queue with dependencies' % jobname)
+                                conn,
+                                'Added %s to queue with dependencies'
+                                % jobname)
                         else:
-                            job_runner.job_queue.get_forced_run_queue().append(jobname)
+                            job_runner.job_queue.get_forced_run_queue().append(
+                                jobname)
                             self.send_response(
                                 conn, 'Added %s to head of queue' % jobname)
                         job_runner.wake_runner_signal()
                     break
                 elif data.startswith('SHOWJOB '):
-                    self.send_response(conn, self._show_job(data[8:], job_runner))
+                    jobname = data[8:]
+                    self.send_response(conn,
+                                       self._show_job(jobname, job_runner))
                     break
                 elif data == 'STATUS':
                     ret = "Run-queue: \n  %s\n" % "\n  ".join(
-                        [str({'name': x['name'], 'pid': x['pid'],
-                              'started': time.strftime(
-                        '%H:%M.%S', time.localtime(x['started']))})
+                        [repr({
+                            'name': x['name'], 'pid': x['pid'],
+                            'started': time.strftime(
+                                '%H:%M.%S', time.localtime(x['started'])),
+                        })
                          for x in job_runner.job_queue.get_running_jobs()])
 
-                    
                     ret += 'Ready jobs: \n  %s\n' % "\n  ".join(
                         [str(x) for x in job_runner.job_queue.get_run_queue()])
+
                     ret += 'Threads: \n  %s' % "\n  ".join(
                         [str(x) for x in threading.enumerate()])
+
                     tmp = job_runner.job_queue.get_known_jobs().keys()
                     tmp.sort()
-                    ret += '\n%-35s %s\n' % ('Known jobs', '  Last run  Last duration')
+                    ret += '\n%-35s %s\n' % ('Known jobs',
+                                             '  Last run  Last duration')
                     for k in tmp:
                         t2 = job_runner.job_queue._last_run[k]
                         human_part = ""
                         if t2:
-                            human_part = " (" + time.strftime("%F %T", time.localtime(t2)) + ")"
-                        self.logger.debug("Last run of '%s' is '%s'%s" %
-                                          (k, t2, human_part))
+                            human_part = " (%s)" % time.strftime(
+                                "%F %T", time.localtime(t2))
+                        self.logger.debug("Last run of '%s' is '%s'%s",
+                                          k, t2, human_part)
                         if t2:
                             t = time.strftime('%H:%M.%S', time.localtime(t2))
-                            days = int((time.time()-t2)/(3600*24))
+                            days = int((time.time()-t2)/to_seconds(days=1))
                         else:
                             t = 'unknown '
                             days = 0
                         t2 = job_runner.job_queue._last_duration[k]
                         if t2:
-                            t += '  '+time.strftime('%H:%M.%S', time.gmtime(t2))
+                            t += '  ' + time.strftime('%H:%M.%S',
+                                                      time.gmtime(t2))
                         else:
                             t += '  unknown'
                         if days:
@@ -313,12 +393,15 @@ class SocketHandling(object):
                         ret += "  %-35s %s\n" % (k, t)
                     if job_runner.sleep_to:
                         ret += 'Sleep to %s (%i seconds)\n' % (
-                            time.strftime('%H:%M.%S', time.localtime(job_runner.sleep_to)),
+                            time.strftime('%H:%M.%S',
+                                          time.localtime(job_runner.sleep_to)),
                             job_runner.sleep_to - time.time())
                     if job_runner.queue_paused_at:
                         ret += "Notice: Queue paused for %s hours\n" % (
                             time.strftime(
-                            '%H:%M.%S', time.gmtime(time.time() - job_runner.queue_paused_at)))
+                                '%H:%M.%S',
+                                time.gmtime(time.time() -
+                                            job_runner.queue_paused_at)))
                     self.send_response(conn, ret)
                     break
                 elif data == 'PING':
@@ -326,8 +409,9 @@ class SocketHandling(object):
                     break
                 else:
                     print "Unkown command: %s" % data
-                if not data: break
-            conn.close()    
+                if not data:
+                    break
+            conn.close()
 
     def ping_server(self):
         try:
@@ -390,7 +474,9 @@ class SocketHandling(object):
     def __del__(self):
         self.cleanup()
 
+
 class DbQueueHandler(object):
+
     def __init__(self, db, logger):
         self.db = db
         self.logger = logger
@@ -398,10 +484,12 @@ class DbQueueHandler(object):
     def get_last_run(self):
         ret = {}
         for r in self.db.query(
-            """SELECT id, timestamp
-            FROM [:table schema=cerebrum name=job_ran]"""):
+                """
+                SELECT id, timestamp
+                FROM [:table schema=cerebrum name=job_ran]
+                """):
             ret[r['id']] = r['timestamp'].ticks()
-        self.logger.debug("get_last_run: %s" % ret)
+        self.logger.debug("get_last_run: %s", ret)
         return ret
 
     def update_last_run(self, id, timestamp):
@@ -409,22 +497,28 @@ class DbQueueHandler(object):
         self.logger.debug("update_last_run(%s, %s)" % (id, timestamp))
 
         try:
-            self.db.query_1("""
-            SELECT 'yes' AS yes
-            FROM [:table schema=cerebrum name=job_ran]
-            WHERE id=:id""", locals())
+            self.db.query_1(
+                """
+                SELECT 'yes' AS yes
+                FROM [:table schema=cerebrum name=job_ran]
+                WHERE id=:id""",
+                locals())
         except Errors.NotFoundError:
-            self.db.execute("""
-            INSERT INTO [:table schema=cerebrum name=job_ran]
-            (id, timestamp)
-            VALUES (:id, :timestamp)""", locals())
+            self.db.execute(
+                """
+                INSERT INTO [:table schema=cerebrum name=job_ran]
+                (id, timestamp)
+                VALUES (:id, :timestamp)""",
+                locals())
         else:
-            self.db.execute("""UPDATE [:table schema=cerebrum name=job_ran]
-            SET timestamp=:timestamp
-            WHERE id=:id""", locals())
+            self.db.execute(
+                """UPDATE [:table schema=cerebrum name=job_ran]
+                SET timestamp=:timestamp
+                WHERE id=:id""",
+                locals())
         self.db.commit()
 
-    
+
 class JobQueue(object):
     """Handles the job-queuing in job_runner.
 
@@ -442,7 +536,7 @@ class JobQueue(object):
         - debug_time is number of seconds to increase current-time
           with for each call to get_next_job_time().  Default is to
           use the system-clock"""
-        self._scheduled_jobs = scheduled_jobs 
+        self._scheduled_jobs = scheduled_jobs
         self.logger = logger
         self._known_jobs = {}
         self._run_queue = []
@@ -451,12 +545,13 @@ class JobQueue(object):
         self._started_at = {}
         self._last_duration = {}         # For statistics in --status
         self.db_qh = DbQueueHandler(db, logger)
-        self._debug_time=debug_time
+        self._debug_time = debug_time
         self.reload_scheduled_jobs()
         self._forced_run_queue = []
-        
+
     def reload_scheduled_jobs(self):
-        reload(self._scheduled_jobs)
+        self._scheduled_jobs = reload_module(self._scheduled_jobs)
+        # reload(self._scheduled_jobs)
         old_jobnames = self._known_jobs.keys()
         new_jobnames = []
         for job_name, job_action in self._scheduled_jobs.get_jobs().items():
@@ -472,17 +567,17 @@ class JobQueue(object):
 
     def get_known_job(self, job_name):
         return self._known_jobs[job_name]
-    
+
     def get_known_jobs(self):
         return self._known_jobs
-    
+
     def _add_known_job(self, job_name, job_action):
         """Adds job to list of known jobs, preserving
         state-information if we already know about the job"""
         if job_action.call:
             job_action.call.set_logger(self.logger)
             job_action.call.set_id(job_name)
-        if self._known_jobs.has_key(job_name):  # Preserve info when reloading
+        if job_name in self._known_jobs:  # Preserve info when reloading
             job_action.copy_runtime_params(self._known_jobs[job_name])
         self._known_jobs[job_name] = job_action
         # By setting _last_run to the current time we prevent jobs
@@ -501,11 +596,9 @@ class JobQueue(object):
         # TBD: if a multi_ok=1 job has pre/post dependencies, it could
         # be delayed so that the same job is executed several times,
         # example (conver_ypmap is a post-job for both generate jobs):
-        # ['generate_group', 'convert_ypmap', 'generate_passwd', 'convert_ypmap']
+        #     ['generate_group', 'convert_ypmap', 'generate_passwd',
+        #     'convert_ypmap']
         # Is this a problem.  If so, how do we handle it?
-
-        #self.logger.debug2("%shas_queued_prerequisite %s (%s) %s" % (
-        #    "  " * depth, job_name, self._run_queue, self._running_jobs))
 
         # If a pre or post job of the main job is in the queue
         if depth > 0 and job_name in self._run_queue:
@@ -535,18 +628,21 @@ class JobQueue(object):
         return False
 
     def get_running_jobs(self):
-        return [ {'name': x[0],
-                  'pid': x[1],
-                  'call': (self._known_jobs.has_key(x[0]) and
-                           self._known_jobs[x[0]].call or None),
-                  'started': self._started_at[x[0]]} for x in self._running_jobs ]
+        return [
+            {'name': x[0],
+             'pid': x[1],
+             'call': (x[0] in self._known_jobs
+                      and self._known_jobs[x[0]].call or None),
+             'started': self._started_at[x[0]]}
+            for x in self._running_jobs
+        ]
 
     def kill_running_jobs(self, sig=signal.SIGTERM):
         """Send signal to all running jobs"""
         for i in self._running_jobs:
             try:
                 os.kill(i[1], sig)
-            except OSError, e:
+            except OSError:
                 # Job have already quitted
                 pass
 
@@ -563,24 +659,26 @@ class JobQueue(object):
         if pid is not None:
             self._running_jobs.remove((job_name, pid))
 
-        if self._started_at.has_key(job_name):
+        if job_name in self._started_at:
             self._last_duration[job_name] = (
                 time.time() - self._started_at[job_name])
-            self.logger.debug("Completed [%s/%i] after %f seconds" % (
-                job_name,  pid or -1, self._last_duration[job_name]))
+            self.logger.debug("Completed [%s/%i] after %f seconds",
+                              job_name,
+                              pid or -1,
+                              self._last_duration[job_name])
         else:
             if force:
                 self._forced_run_queue.remove(job_name)
             else:
                 self._run_queue.remove(job_name)
-            self.logger.debug("Completed [%s/%i] (start not set)" % (
-                job_name,  pid or -1))
-        if not (self._known_jobs.has_key(job_name)):   # due to reload of config
-            logger.debug("Completed unknown job %s" % job_name)
+            self.logger.debug("Completed [%s/%i] (start not set)",
+                              job_name, pid or -1)
+        if job_name not in self._known_jobs:   # due to reload of config
+            self.logger.debug("Completed unknown job %s", job_name)
             return
-        if (pid is None or
-            (self._known_jobs[job_name].call and
-             self._known_jobs[job_name].call.wait)):
+        if (pid is None
+                or (self._known_jobs[job_name].call
+                    and self._known_jobs[job_name].call.wait)):
             self._last_run[job_name] = time.time()
             self.db_qh.update_last_run(job_name, self._last_run[job_name])
         else:
@@ -594,7 +692,7 @@ class JobQueue(object):
 
     def get_run_queue(self):
         return self._run_queue
-        
+
     def get_next_job_time(self, append=False):
         """find job that should be run due to the current time, or
         being a pre-requisit of a ready job.  Returns number of
@@ -623,8 +721,8 @@ class JobQueue(object):
                 # get_next_job_time was called.
                 continue
 
-            # TODO: vent med å legge inn jobbene, slik at de som
-            # har when=time kommer før de som har when=freq.                
+            # TODO: vent med Ã¥ legge inn jobbene, slik at de som
+            # har when=time kommer fÃ¸r de som har when=freq.
             if next_delta <= 0:
                 pre_len = len(queue)
                 self.insert_job(queue, job_name)
@@ -645,24 +743,25 @@ class JobQueue(object):
         if already_checked is None:
             already_checked = []
         if job_name in already_checked:
-            self.logger.info("Attempted to add %s, but it is already in %s" % (job_name, already_checked))
+            self.logger.info("Attempted to add %s, but it is already in %s",
+                             job_name, already_checked)
             return
         already_checked.append(job_name)
-        
+
         this_job = self._known_jobs[job_name]
         for j in this_job.pre or []:
             self.insert_job(queue, j, already_checked=already_checked)
 
         if job_name not in queue or this_job.multi_ok:
-            if (this_job.max_freq is None or
-                current_time - self._last_run[job_name] > this_job.max_freq):
+            if (this_job.max_freq is None
+                    or current_time - self._last_run[job_name] >
+                    this_job.max_freq):
                 if job_name not in [x[0] for x in self._running_jobs]:
                     # Don't add to queue if job is currently running
                     queue.append(job_name)
 
         for j in this_job.post or []:
             self.insert_job(queue, j, already_checked=already_checked)
-
 
     def has_conflicting_jobs_running(self, job_name):
         """Finds out if there are any jobs running that conflict with
@@ -676,10 +775,10 @@ class JobQueue(object):
             if potential_anti_job in this_job.nonconcurrent:
                 # It's confirmed that there's at least one running job
                 # that conflicts
-                return True 
-        return False 
+                return True
+        return False
 
-
+    @staticmethod
     def dump_jobs(scheduled_jobs, details=0):
         jobs = scheduled_jobs.get_jobs()
         shown = {}
@@ -691,8 +790,10 @@ class JobQueue(object):
                     info.append(str(jobs[name].when))
             if details > 1:
                 if jobs[name].max_freq:
-                    info.append("max_freq=%s" % time.strftime('%H:%M.%S',
-                                                 time.gmtime(jobs[name].max_freq)))
+                    info.append(
+                        "max_freq=%s" % time.strftime(
+                            '%H:%M.%S',
+                            time.gmtime(jobs[name].max_freq)))
             if details > 2:
                 if jobs[name].pre:
                     info.append("pre="+str(jobs[name].pre))
@@ -711,9 +812,43 @@ class JobQueue(object):
                 continue
             dump(k, 0)
         print "Never run: \n%s" % "\n".join(
-            ["  %s" % k for k in jobs.keys() if not shown.has_key(k)])
+            ["  %s" % k for k in jobs.keys() if k not in shown])
 
-    dump_jobs = staticmethod(dump_jobs)
+
+def pretty_jobs_parser():
+    parser = argparse.ArgumentParser(
+        description="Show stuff in this job runner config")
+
+    action = parser.add_mutually_exclusive_group()
+
+    action.add_argument(
+        '-l', '--list',
+        dest='list_jobs',
+        action='store_true',
+        default=False,
+        help="List all the jobs")
+
+    action.add_argument(
+        '-v', '--list-verbose',
+        dest='list_verbose',
+        action='store_true',
+        default=False,
+        help="List jobs verbosely")
+
+    # action.add_argument(
+    #     '--dump',
+    #     action='store_true',
+    #     default=False,
+    #     help='Dump jobs?')
+
+    action.add_argument(
+        '-s', '--show-job',
+        dest='show_job',
+        metavar="NAME",
+        help="Show a given job %(metavar)s")
+
+    return parser
+
 
 def pretty_jobs_presenter(jobs, args):
     """Utility function to give a human readable presentation of the defined
@@ -735,20 +870,14 @@ def pretty_jobs_presenter(jobs, args):
         example be a candidate.
 
     """
-    if not args:
-        print "%d jobs defined" % len(jobs.get_jobs())
-        return
+    args = pretty_jobs_parser().parse_args(args)
 
-    # Should we use getopt here?
-    if '-l' in args:
+    if args.list_jobs:
         for name in sorted(jobs.get_jobs()):
             print name
-    elif '--show-job' in args:
-        try:
-            jobname = args[args.index('--show-job') + 1]
-        except IndexError:
-            print "No jobname is given"
-            return
+
+    elif args.show_job:
+        jobname = args.show_job
         try:
             job = jobs.get_jobs()[jobname]
         except KeyError:
@@ -759,10 +888,12 @@ def pretty_jobs_presenter(jobs, args):
         print "Post-jobs: %s" % job.post
         print "Non-concurrent jobs: %s" % job.nonconcurrent
         print "When: %s, max-freq: %s" % (job.when, job.max_freq)
-    elif '--dump' in args:
-        dumplevel = args[args.index('--dump') + 1]
-        print "not implemented yet..."
-    elif '-v' in args:
+
+    elif getattr(args, 'dump', False):
+        # dumplevel = args[args.index('--dump') + 1]
+        raise NotImplementedError("not implemented yet...")
+
+    elif args.list_verbose:
         for name, job in sorted(jobs.get_jobs().iteritems()):
             print "Job: %s:" % name
             print "  Command: %s" % job.get_pretty_cmd()
@@ -773,38 +904,46 @@ def pretty_jobs_presenter(jobs, args):
             if job.nonconcurrent:
                 print "  Non-concurrent jobs: %s" % job.nonconcurrent
             print "  When: %s, max-freq: %s" % (job.when, job.max_freq)
-        #return ret
+
     else:
-        print "--show-job JOBNAME   Show a given job"
-        print "-l                   List all the jobs"
-        print "-v                   List jobs verbosely"
+        print "%d jobs defined" % len(jobs.get_jobs())
+
 
 def run_tests():
+
     def parse_time(t):
         return time.mktime(time.strptime(t, '%Y-%m-%d %H:%M')) + time.timezone
+
     def format_time(sec):
         # %w has a different definition of day 0 than the localtime
         # tuple :-(
         return time.strftime('%Y-%m-%d %H:%M', time.localtime(sec)) + \
                " w=%i" % (time.localtime(sec))[6]
+
     def format_duration(sec):
         return "%s %id" % (
-            time.strftime('%H:%M', time.gmtime(abs(delta))), int(delta/(3600*24)))
-    tests = [(When(time=[Time(wday=[5], hour=[5], min=[30])]),
-              (('2004-06-10 17:00', '2004-06-14 20:00'),
-               ('2004-06-11 17:00', '2004-06-14 20:00'),
-               ('2004-06-12 17:00', '2004-06-14 20:00'),
-              )),
-             (When(time=[Time(wday=[5], hour=[5], min=[30], max_freq=24*60*60)]),
-              (('2004-06-10 17:00', '2004-06-14 20:00'),
-               ('2004-06-11 17:00', '2004-06-14 20:00'),
-               ('2004-06-12 17:00', '2004-06-14 20:00'),
-              )),
-             (When(time=[Time(hour=[4], min=[5])]),
-              (('2004-06-01 03:00', '2004-06-01 04:00'),
-               ('2004-06-01 03:00', '2004-06-01 04:10'),
-               ('2004-06-01 03:00', '2004-06-01 04:20'),
-              ))]
+            time.strftime('%H:%M',
+                          time.gmtime(abs(delta))),
+            int(delta/(3600*24)))
+
+    tests = [
+        (When(time=[Time(wday=[5], hour=[5], min=[30])]),
+         (('2004-06-10 17:00', '2004-06-14 20:00'),
+          ('2004-06-11 17:00', '2004-06-14 20:00'),
+          ('2004-06-12 17:00', '2004-06-14 20:00'),
+          )),
+        (When(time=[Time(wday=[5], hour=[5], min=[30], max_freq=24*60*60)]),
+         (('2004-06-10 17:00', '2004-06-14 20:00'),
+          ('2004-06-11 17:00', '2004-06-14 20:00'),
+          ('2004-06-12 17:00', '2004-06-14 20:00'),
+          )),
+        (When(time=[Time(hour=[4], min=[5])]),
+         (('2004-06-01 03:00', '2004-06-01 04:00'),
+          ('2004-06-01 03:00', '2004-06-01 04:10'),
+          ('2004-06-01 03:00', '2004-06-01 04:20'),
+          )),
+    ]
+
     for when, times in tests:
         print "When obj: ", when
         for t in times:
@@ -813,9 +952,9 @@ def run_tests():
             now = parse_time(t[1])
             delta = when.next_delta(prev, now)
             print "  prev=%s, now=%s -> %s [delta=%i/%s]" % (
-                format_time(prev), format_time(now), 
+                format_time(prev), format_time(now),
                 format_time(now+delta), delta, format_duration(delta))
+
 
 if __name__ == '__main__':
     run_tests()
-
