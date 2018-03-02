@@ -1,3 +1,7 @@
+2018-03-02    <cerebrum@gagarin.uit.no>
+
+	* bofhd_uit_cmds.py (BofhdExtension): person info formatSuggestion expects 'deceased' variable name, but gets 'deceased_date'. this caused NullPointerException in jbofh. renamed 'deceased_date' to 'deceased'
+
 2018-02-23    <cerebrum@gagarin.uit.no>
 
 	* OU.py (OUMixin.find): fixed but in finf function where it

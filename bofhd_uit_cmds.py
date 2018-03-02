@@ -7477,7 +7477,7 @@ Addresses and settings:
                  'entity_id': person.entity_id,
                  'export_id': person.export_id,
                  'birth': date_to_string(person.birth_date),
-                 'deceased_date': date_to_string(person.deceased_date),
+                 'deceased': date_to_string(person.deceased_date),
                  'spreads': ", ".join([str(self.const.Spread(x['spread']))
                                 for x in person.get_spread()])}]
         affiliations = []
@@ -7547,8 +7547,8 @@ Addresses and settings:
                              'ansattnr_src': str(
                     self.const.AuthoritativeSystem(row['source_system']))})
 
-            # Show external id from FS and SAP
-            for extid in ('externalid_sap_ansattnr',
+            # Show external id from FS and PAGA
+            for extid in ('externalid_paga_ansattnr',
                           'externalid_studentnr',
                           'externalid_pass_number',
                           'externalid_social_security_number',
