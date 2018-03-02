@@ -19,6 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 """
 This file is a UiO-specific extensions of Cerebrum.
 
@@ -45,6 +47,7 @@ import argparse
 import copy
 import types
 import locale
+from six import text_type
 
 import cerebrum_path
 
@@ -151,7 +154,7 @@ def display_statistics(statistics):
     logger.debug("Statistics:")
 
     # The keys we are interested in
-    keys = ('ansatt', 'student', 'a&s', 'tilknyttet', 'manuell', 'alle manuell',)
+    keys = ('ansatt', 'student', 'a&s', 'tilknyttet', 'manuell', 'alle manuell')
     nosum = ('alle manuell')
     # Dictionary for totalling up numbers per affiliation
     total = dict([(key, 0) for key in keys])
@@ -169,8 +172,7 @@ def display_statistics(statistics):
     fak_format = u"%%%ds" % fak_width
     field_format = u"%%%ds" % field_width
 
-    values = (u"navn",) + tuple([unicode(x, 'UTF-8')[0:field_width] for x in
-                                 keys])
+    values = (u"navn",) + tuple([x[0:field_width] for x in keys])
     enc = locale.getpreferredencoding()
     print (((fak_format + u"|") % u"fak") +
            ((field_format + u"|") * len(values)) % values).encode(enc)
@@ -273,12 +275,12 @@ def make_empty_statistics(level, db, extra_fak_sum=False):
         acronyms = ou.search_name_with_language(
             entity_id=ou.entity_id, name_variant=const.ou_name_acronym)
         if acronyms:
-            ou_name = unicode(acronyms[0]["name"], 'ISO-8859-1')
+            ou_name = acronyms[0]["name"]
         else:
             names = ou.search_name_with_language(entity_id=ou.entity_id,
                                                  name_variant=const.ou_name)
             if names:
-                ou_name = unicode(names[0]["name"], 'ISO-8859-1')
+                ou_name = names[0]["name"]
             else:
                 ou_name = u"N/A"
 
@@ -528,7 +530,8 @@ def generate_account_statistics(perspective, empty_statistics, level, db,
                     statistics[ou_cum]['cum']['kun manuell'] += 1
         except:
             logger.error("ou_result = %s (%s; %s);",
-                         ou_result, ou_result in statistics, str(aff.ou_id))
+                         ou_result, ou_result in statistics,
+                         text_type(aff.ou_id))
             raise
 
         for aff in manual:
@@ -542,7 +545,8 @@ def generate_account_statistics(perspective, empty_statistics, level, db,
                                          2)]['cum']['alle manuell'] += 1
             except:
                 logger.error('ou_result = %s (%s; %s); (for manual)',
-                             ou_result, ou_result in statistics, str(aff.ou_id))
+                             ou_result, ou_result in statistics,
+                             text_type(aff.ou_id))
 
     return statistics
 
