@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
+
+from __future__ import unicode_literals
+
 """ This script exports extracts of employee data.
 
 Specifically, Per Grøttum made a request to have access to some of the employee
@@ -29,6 +32,9 @@ last edit of bin/uio/employee-listing.py:
 """
 import getopt
 import sys
+import io
+
+from six import text_type
 
 import cerebrum_path
 import cereconf
@@ -211,7 +217,7 @@ def output_fields(stream, **rest):
             continue
 
         if rest[key] is not None:
-            to_go.append(str(rest[key]))
+            to_go.append(text_type(rest[key]))
         else:
             to_go.append("")
 
@@ -336,7 +342,8 @@ def main():
     assert faculty, "Need a faculty to operate on"
     logger.debug("sources is %s", sources)
 
-    stream = file(filename, "w")
+    # TODO: Ask per if we can use UTF-8
+    stream = io.open(filename, "w", encoding='ISO-8859-1')
     for system_name, filename in sources:
         # Locate the appropriate Cerebrum constant
         source_system = getattr(constants, system_name)

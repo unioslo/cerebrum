@@ -18,6 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+from __future__ import unicode_literals
+
 """ This file is part of the Cerebrum framework.
 
 It generates a list of names used in the password checking algorithm. Roughly,
@@ -31,13 +34,13 @@ import getopt
 import sys
 
 import cerebrum_path
-import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
 
 logger = Factory.get_logger("cronjob")
+del cerebrum_path
 
 
 def name_is_valid(name):
@@ -52,8 +55,6 @@ def name_is_valid(name):
 
     return (len(name) >= 3 and
             bool([x for x in name if not x.isdigit()]))
-# end name_is_valid
-
 
 
 def generate_list():
@@ -63,23 +64,24 @@ def generate_list():
     c = Factory.get("Constants")(db)
     logger.debug("Generating list of names")
     result = set()
-    
+
     #
     # First the humans
     person = Factory.get("Person")(db)
     for row in person.search_person_names(name_variant=(c.name_last,
-                                                        c.name_first,)):
+                                                        c.name_first)):
         name = row["name"]
         if name_is_valid(name):
             result.add(name)
 
     result.update(row["name"]
                   for row in
-                  person.search_name_with_language(entity_type=c.entity_person,
-                            name_variant=(c.personal_title,
-                                          c.work_title))
+                  person.search_name_with_language(
+                      entity_type=c.entity_person,
+                      name_variant=(c.personal_title,
+                                    c.work_title))
                   if name_is_valid(row["name"]))
-                                          
+
     logger.debug("Collected %d human names", len(result))
 
     #
@@ -92,27 +94,12 @@ def generate_list():
 
     logger.debug("%d entries in total", len(result))
     return result
-# end generate_list
-
-
-
-def sort_list(names):
-    """Return a sorted list of names."""
-                                                   
-    seq = list(names)
-    seq.sort()
-    return seq
-# end sort_list
-
 
 
 def output_file(sequence, f):
-    
     for name in sequence:
         f.write(name)
         f.write("\n")
-# end output_file
-    
 
 
 def main():
@@ -122,14 +109,11 @@ def main():
         if option in ("-o", "--output"):
             filename = value
 
-    f = SimilarSizeWriter(filename, "w")
+    f = SimilarSizeWriter(filename, "w", encoding='UTF-8')
     f.max_pct_change = 50
-    output_file(sort_list(generate_list()), f)
+    output_file(sorted(generate_list()), f)
     f.close()
-# end main
 
-    
 
 if __name__ == "__main__":
     main()
-

@@ -19,6 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 """
 This file performs group membership synchronization between several external
 databases and cerebrum.
@@ -99,6 +101,8 @@ import string
 import traceback
 import argparse
 import StringIO
+
+from six import text_type
 
 import cerebrum_path
 import cereconf
@@ -325,7 +329,7 @@ def remove_from_cerebrum_group(account, group, constants):
         logger.error("Aiee! Removing %s from %s failed: %s, %s, %s",
                      account.account_name,
                      group.group_name,
-                     str(type), str(value),
+                     text_type(type), text_type(value),
                      string.join(traceback.format_tb(tb)))
 
 
@@ -350,7 +354,7 @@ def add_to_cerebrum_group(account, group, constants):
         logger.error("Aiee! Adding %s to %s failed: %s, %s, %s",
                      account.account_name,
                      group.group_name,
-                     str(type), str(value),
+                     text_type(type), text_type(value),
                      string.join(traceback.format_tb(tb)))
 
 
@@ -487,7 +491,7 @@ def report_users(stream_name, databases):
     person = Factory.get("Person")(db_cerebrum)
     constants = Factory.get("Constants")(db_cerebrum)
 
-    with AtomicFileWriter(stream_name, "w") as report_stream:
+    with AtomicFileWriter(stream_name, "w", encoding='UTF-8') as report_stream:
 
         for item in databases:
             # Report expired users for all databases
