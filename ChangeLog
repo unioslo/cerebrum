@@ -1,3 +1,9 @@
+2018-03-02    <cerebrum@gagarin.uit.no>
+
+	* import_FS.py (rem_old_aff): Fagpersons from FS are to lose their
+	fagperson affiliation the same day they are missing in import data
+	from FS.
+
 2018-02-27    <cerebrum@cleomedes.uit.no>
 
 	* import_FS.py (register_cellphone): all phonenumbers are to have the prefix +<country_code>
