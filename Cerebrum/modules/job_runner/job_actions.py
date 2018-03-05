@@ -71,7 +71,7 @@ class Action(object):
             max_duration indicates how long (in seconds) the job should be
             allowed to run before giving up and killing it.  Default is
             2 hours.  Set it to None to disable.
-        :param job_utils.When when:
+        :param times.When when:
             when indicates when the job should be run.  None indicates that the
             job should not run directly (normally run as a prerequisite for
             another job).
@@ -242,7 +242,7 @@ class System(CallableAction):
         self.run_dir = None
 
     def setup(self):
-        self.logger.debug("Setup: %s", self.id)
+        self.logger.info("Setup: %s", self.id)
         try:
             self.lockfile.acquire(create=False)
         except LockExists:
@@ -252,16 +252,16 @@ class System(CallableAction):
         return 1
 
     def execute(self):
-        self.logger.debug2("Execute %s (%s, args=%s)",
-                           self.id, self.cmd, repr(self.params))
+        self.logger.debug("Execute %s (%s, args=%s)",
+                          self.id, self.cmd, repr(self.params))
         self.run_dir = "%s/%s" % (cereconf.JOB_RUNNER_LOG_DIR, self.id)
         child_pid = os.fork()
         if child_pid:
-            self.logger.debug2("child: %i (p=%i)", child_pid, os.getpid())
+            self.logger.debug("child: %i (p=%i)", child_pid, os.getpid())
             return child_pid
         try:
             self.lockfile.acquire()
-            self.logger.debug("Entering %s", self.run_dir)
+            self.logger.info("Entering %s", self.run_dir)
             if not os.path.exists(self.run_dir):
                 os.mkdir(self.run_dir)
             os.chdir(self.run_dir)
@@ -285,8 +285,8 @@ class System(CallableAction):
                                             str(5 + random.randint(5, 10))])
                 os.execv(self.cmd, p)
             except OSError as e:
-                self.logger.debug("Exec failed, check the command that was"
-                                  " executed.")
+                self.logger.info("Exec failed, check the command that was"
+                                 " executed.")
                 # avoid cleanup handlers, seems to mess with logging
                 raise SystemExit(e.errno)
         except SystemExit:
@@ -301,8 +301,8 @@ class System(CallableAction):
     def cond_wait(self, child_pid):
         # May raise OSError: [Errno 4]: Interrupted system call
         pid, exit_code = os.waitpid(child_pid, os.WNOHANG)
-        self.logger.debug2("Wait (wait=%i) ret: %s/%s",
-                           self.wait, pid, exit_code)
+        self.logger.debug("Wait (wait=%i) ret: %s/%s",
+                          self.wait, pid, exit_code)
         if pid == child_pid:
             if not (os.path.exists(self.run_dir) and
                     os.path.exists("%s/stdout.log" % self.run_dir) and
@@ -326,7 +326,7 @@ class System(CallableAction):
             self._cleanup()
             return 1
         else:
-            self.logger.debug2("Wait returned %s/%s", pid, exit_code)
+            self.logger.debug("Wait returned %s/%s", pid, exit_code)
         return None
 
     def _cleanup(self):
@@ -346,11 +346,11 @@ class AssertRunning(System):
         self.wait = 0
 
     def setup(self):
-        self.logger.debug("setup %s" % self.id)
+        self.logger.info("setup %s" % self.id)
         try:
             self.lockfile.acquire(create=False)
         except LockExists:
-            self.logger.debug("%s already running" % self.id)
+            self.logger.info("%s already running" % self.id)
             return 0
         return 1
 
@@ -486,7 +486,7 @@ class Jobs(object):
 
 
 def _test_time():
-    from Cerebrum.modules.job_runner.job_utils import When, Time
+    from Cerebrum.modules.job_runner.times import When, Time
     ac = Action(
         call=System("echo yes"),
         max_freq=5*60,
