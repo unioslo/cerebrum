@@ -61,11 +61,11 @@ from Cerebrum.logutils import autoconf
 from Cerebrum.logutils.options import install_subparser
 from Cerebrum.modules.job_runner import JobRunner, sigchld_handler
 from Cerebrum.modules.job_runner.job_actions import LockFile, LockExists
-from Cerebrum.modules.job_runner.job_config import get_job_config
+from Cerebrum.modules.job_runner.job_config import get_job_config, dump_jobs
 from Cerebrum.modules.job_runner.queue import JobQueue
 from Cerebrum.modules.job_runner.socket_ipc import SocketHandling
 
-logger = logging.getLogger('<job runner>')
+logger = logging.getLogger('job_runner')
 
 signal.signal(signal.SIGCHLD, sigchld_handler)
 
@@ -208,7 +208,7 @@ def run_daemon(jobs, quiet=False, thread=True):
 
     # TODO: Why don't we re-aquire the lock here?
 
-    queue = JobQueue(jobs, Factory.get('Database')(), logger)
+    queue = JobQueue(jobs, Factory.get('Database')())
     runner = JobRunner(queue)
 
     if thread:
@@ -262,7 +262,7 @@ def main(inargs=None):
 
     if args.dump_jobs is not None:
         print("Showing jobs in {0!r}".format(scheduled_jobs))
-        JobQueue.dump_jobs(scheduled_jobs, args.dump_jobs)
+        dump_jobs(scheduled_jobs, args.dump_jobs)
         raise SystemExit(0)
 
     logger.info("Starting daemon with jobs from %r", scheduled_jobs)

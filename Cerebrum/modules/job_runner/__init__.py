@@ -17,12 +17,35 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Job Runner daemon. """
+""" Job Runner daemon - the Cerebrum scheduler.
+
+cereconf
+--------
+
+JOB_RUNNER_PAUSE_WARN
+    Warn if job runner has been paused for more than N seconds, every N
+    seconds.
+
+JOB_RUNNER_MAX_PARALELL_JOBS
+    Max number of jobs to run off the job queue.
+
+# Not here:
+JOB_RUNNER_SOCKET
+    The socket used to communicate with Job Runner.
+
+JOB_RUNNER_LOG_DIR
+    The job runner temp dir, used for:
+
+    - Job output (stdout, stderr)
+    - Job lock files
+"""
 import logging
 import os
 import signal
 import threading
 import time
+
+from .times import fmt_time
 
 import cereconf
 
@@ -59,14 +82,14 @@ class JobRunner(object):
     @staticmethod
     def sig_general_handler(signum, frame):
         """General signal handler, for places where we use signal.pause()"""
-        logger.debug("siggeneral_handler(%s)" % (str(signum)))
+        logger.debug("siggeneral_handler(%r, %r)" % (signum, frame))
 
     def signal_sleep(self, seconds):
         # SIGALRM is already used by the SocketThread, se we arrange
         # for a SIGUSR1 to be delivered instead
         runner_cw.acquire()
         if not self.timer_wait:  # Only have one signal-sleep thread
-            logger.info("Signalling sleep: %s seconds" % str(seconds))
+            logger.info("Signalling sleep: %r seconds", seconds)
             self.timer_wait = threading.Timer(seconds, self.wake_runner_signal)
             self.timer_wait.setDaemon(True)
             self.timer_wait.start()
@@ -76,8 +99,10 @@ class JobRunner(object):
         runner_cw.release()
 
     def handle_completed_jobs(self):
-        """Handle any completed jobs (only jobs that has
-        call != None).  Will block if any of the jobs has wait=1"""
+        """Handle any completed jobs (only jobs that has call != None).
+
+        Will block if any of the jobs has wait=1
+        """
         did_wait = False
 
         logger.info("handle_completed_jobs: ")
@@ -152,9 +177,8 @@ class JobRunner(object):
             if time.time() > (self._last_pause_warn +
                               cereconf.JOB_RUNNER_PAUSE_WARN):
                 logger.warn("Job runner has been paused for %s hours",
-                            time.strftime('%H:%M.%S',
-                                          time.gmtime(time.time() -
-                                                      self.queue_paused_at)))
+                            fmt_time(time.time() - self.queue_paused_at,
+                                     local=False))
                 self._last_pause_warn = time.time()
 
         for job_name in queue:
@@ -253,8 +277,7 @@ class JobRunner(object):
                 self.signal_sleep(min(self.max_sleep, delta))
             else:
                 if not self.job_queue.get_running_jobs():
-                    logger.fatal("AIEE! no running jobs and negative delta")
-                    raise SystemExit(1)
+                    raise SystemExit("AIEE! no running jobs and negative delta")
                 # TODO: if run_queue has a lon-running job, we should
                 # only sleep until next delta.
                 # Trap missing sigchld

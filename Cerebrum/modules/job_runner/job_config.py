@@ -2,6 +2,7 @@
 #
 # Copyright 2018 University of Oslo, Norway
 #
+
 # This file is part of Cerebrum.
 #
 # Cerebrum is free software; you can redistribute it and/or modify it
@@ -25,43 +26,46 @@ import os
 import sys
 
 
-def import_file(filename, name):
+DEFAULT_MODULE_NAME = 'scheduled_jobs'
+DEFAULT_JOB_CLASS = 'AllJobs'
+
+
+def _import_file(filename, name):
     """ Imports a file as a given module. """
     # TODO: PY3 Not Python3 compatible
+    #       We do this a bit in cerebrum, maybe make some importlib utils?
     module = imp.load_source(name, filename)
     sys.modules[name] = module
     return module
 
 
-def import_module(name):
+def _import_module(name):
     """ Import a given module. """
     return importlib.import_module(name)
 
 
-def reload_module(module):
+def reload_job_config(module):
     """ Module reload function that does not use PYTHONPATH. """
     name, filename = module.__name__, module.__file__
 
     # Strip .py[co], as reloading a .pyc doesn't really help us
     filename = os.path.splitext(filename)[0] + '.py'
 
-    # Clear
-    if name in sys.modules:
-        del sys.modules[module.__name__]
-
     # Re-import
     if os.path.exists(filename):
-        return import_file(filename, name)
+        module = _import_file(filename, name)
     else:
         # Path changed?
-        return import_module(name)
+        module = _import_module(name)
+    return module
 
 
 def get_job_config(name):
     if os.path.exists(name):
-        return import_file(name, 'scheduled_jobs')
+        module = _import_file(name, DEFAULT_MODULE_NAME)
     else:
-        return import_module(name)
+        module = _import_module(name)
+    return module
 
 
 def pretty_jobs_parser():
@@ -99,28 +103,21 @@ def pretty_jobs_parser():
     return parser
 
 
-def pretty_jobs_presenter(jobs, args):
-    """Utility function to give a human readable presentation of the defined
-    jobs. This should simulate job_runner's presentation, to be able to get the
+def _pretty_jobs_presenter(jobs, args):
+    """ Print a human readable presentation of a collection of jobs.
+
+    This should simulate job_runner's presentation, to be able to get the
     information in test, without having to run a real job_runner.
 
-    To use the function, feed it with the jobs from a given scheduled_jobs.py.
-
-    @type jobs: class Cerebrum.modules.job_runner.job_actions.Jobs
-    @param jobs:
+    :type jobs: class Cerebrum.modules.job_runner.job_actions.Jobs
+    :param jobs:
         A class with all the jobs to present. Normally the AllJobs class in a
         given scheduled_jobs.
 
-    @type args: list
-    @param args:
-        Input arguments, typically sys.argv[1:]. This is to be able to present
-        the jobs in different ways, without the need of much code in
-        scheduled_jobs.py. Not implemented yet, but '--show-job' could for
-        example be a candidate.
+    :type args: argparse.Namespace
+    :param args: Options on what to print (result of pretty_jobs_parser).
 
     """
-    args = pretty_jobs_parser().parse_args(args)
-
     if args.list_jobs:
         for name in sorted(jobs.get_jobs()):
             print name
@@ -156,3 +153,71 @@ def pretty_jobs_presenter(jobs, args):
 
     else:
         print "%d jobs defined" % len(jobs.get_jobs())
+
+
+def pretty_jobs_presenter(jobs, args):
+    """ Compability function, should be compatible with old configs. """
+    args = pretty_jobs_parser().parse_args(args)
+    return _pretty_jobs_presenter(jobs, args)
+
+
+def dump_jobs(scheduled_jobs, details=0):
+    """ The job_runner implementation of --dump-jobs. """
+    jobs = scheduled_jobs.get_jobs()
+    shown = {}
+
+    def dump(name, indent):
+        info = []
+        if details > 0:
+            if jobs[name].when:
+                info.append(str(jobs[name].when))
+        if details > 1:
+            if jobs[name].max_freq:
+                info.append(
+                    "max_freq=%s" % time.strftime(
+                        '%H:%M.%S',
+                        time.gmtime(jobs[name].max_freq)))
+        if details > 2:
+            if jobs[name].pre:
+                info.append("pre="+str(jobs[name].pre))
+            if jobs[name].post:
+                info.append("post="+str(jobs[name].post))
+        print "%-40s %s" % ("   " * indent + name, ", ".join(info))
+        shown[name] = True
+        for k in jobs[name].pre or ():
+            dump(k, indent + 2)
+        for k in jobs[name].post or ():
+            dump(k, indent + 2)
+    keys = jobs.keys()
+    keys.sort()
+    for k in keys:
+        if jobs[k].when is None:
+            continue
+        dump(k, 0)
+    print "Never run: \n%s" % "\n".join(
+        ["  %s" % k for k in jobs.keys() if k not in shown])
+
+
+def main(args=None):
+    parser = pretty_jobs_parser()
+    parser.add_argument(
+        '--config',
+        dest='config',
+        metavar='NAME',
+        default=DEFAULT_MODULE_NAME,
+        help='A python module (or file) with jobs')
+    parser.add_argument(
+        '--jobs',
+        dest='config_attr',
+        default=DEFAULT_JOB_CLASS,
+        help="The config attribute that contains jobs")
+
+    args = parser.parse_args(args)
+    config = get_job_config(args.config)
+    all_jobs = getattr(config, args.config_attr)
+    _pretty_jobs_presenter(all_jobs(), args)
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+    main()

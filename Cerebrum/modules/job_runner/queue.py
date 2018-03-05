@@ -24,7 +24,7 @@ import signal
 import time
 
 from Cerebrum import Errors
-from .job_config import reload_module
+from .job_config import reload_job_config
 
 
 current_time = time.time()
@@ -32,12 +32,18 @@ logger = logging.getLogger(__name__)
 
 
 class DbQueueHandler(object):
+    """ Database module that tracks last_run time. """
 
-    def __init__(self, db, logger):
+    def __init__(self, db):
         self.db = db
-        self.logger = logger
+        self.logger = logger.getChild('DbQueueHandler')
 
     def get_last_run(self):
+        """ Get all known last run times.
+
+        :return dict:
+            Return a dictionary that maps job names/ids to timestamps.
+        """
         ret = {}
         for r in self.db.query(
                 """
@@ -45,12 +51,19 @@ class DbQueueHandler(object):
                 FROM [:table schema=cerebrum name=job_ran]
                 """):
             ret[r['id']] = r['timestamp'].ticks()
-        self.logger.debug("get_last_run: %s", ret)
+        self.logger.debug("get_last_run: %r", ret)
         return ret
 
-    def update_last_run(self, id, timestamp):
+    def update_last_run(self, job, timestamp):
+        """ Set last run time for a job.
+
+        :param str job:
+            The job id/title.
+        :param int timestamp:
+            The timestamp when the job ran
+        """
         timestamp = self.db.TimestampFromTicks(int(timestamp))
-        self.logger.debug("update_last_run(%s, %s)" % (id, timestamp))
+        self.logger.debug("update_last_run(%r, %r)" % (job, timestamp))
 
         try:
             self.db.query_1(
@@ -58,20 +71,21 @@ class DbQueueHandler(object):
                 SELECT 'yes' AS yes
                 FROM [:table schema=cerebrum name=job_ran]
                 WHERE id=:id""",
-                locals())
+                {'id': job})
         except Errors.NotFoundError:
             self.db.execute(
                 """
                 INSERT INTO [:table schema=cerebrum name=job_ran]
                 (id, timestamp)
                 VALUES (:id, :timestamp)""",
-                locals())
+                {'id': job, 'timestamp': timestamp})
         else:
             self.db.execute(
                 """UPDATE [:table schema=cerebrum name=job_ran]
                 SET timestamp=:timestamp
                 WHERE id=:id""",
-                locals())
+                {'id': job, 'timestamp': timestamp})
+
         self.db.commit()
 
 
@@ -85,38 +99,47 @@ class JobQueue(object):
     a dependency.
     """
 
-    def __init__(self, scheduled_jobs, db, logger, debug_time=0):
+    def __init__(self, job_module, db, debug_time=0):
         """Initialize the JobQueue.
-        - scheduled_jobs is a reference to the module implementing
-          get_jobs()
-        - debug_time is number of seconds to increase current-time
-          with for each call to get_next_job_time().  Default is to
-          use the system-clock
+
+        :param types.Module job_module:
+            A module that implements get_jobs()
+        :param Cerebrum.Database.Database db:
+            A database connection for queueing jobs
+        :param int debug_time:
+            Number of seconds to increase current-time with for each call to
+            get_next_job_time().  Default is to use the system-clock.
         """
-        self._scheduled_jobs = scheduled_jobs
-        self.logger = logger
+        self._scheduled_jobs = job_module
+        self.logger = logger.getChild('JobQueue')
+        self.db_qh = DbQueueHandler(db)
+
         self._known_jobs = {}
         self._run_queue = []
         self._running_jobs = []
         self._last_run = {}
         self._started_at = {}
-        self._last_duration = {}         # For statistics in --status
-        self.db_qh = DbQueueHandler(db, logger)
+        self._last_duration = {}  # For statistics in --status
         self._debug_time = debug_time
-        self.reload_scheduled_jobs()
         self._forced_run_queue = []
 
+        self.reload_scheduled_jobs()
+
     def reload_scheduled_jobs(self):
-        self._scheduled_jobs = reload_module(self._scheduled_jobs)
-        # reload(self._scheduled_jobs)
-        old_jobnames = self._known_jobs.keys()
-        new_jobnames = []
+        self._scheduled_jobs = reload_job_config(self._scheduled_jobs)
+        old_jobnames = set(self._known_jobs.keys())
+        new_jobnames = set()
         for job_name, job_action in self._scheduled_jobs.get_jobs().items():
             self._add_known_job(job_name, job_action)
-            new_jobnames.append(job_name)
-        for n in old_jobnames:
-            if n not in new_jobnames:
-                del(self._known_jobs[n])
+            new_jobnames.add(job_name)
+
+        # TODO: Identify modified jobs
+        for name in old_jobnames - new_jobnames:
+            del self._known_jobs[name]
+            self.logger.info("Removed job %r", name)
+        for name in new_jobnames - old_jobnames:
+            self.logger.info("Added job %r", name)
+
         # Also check if last_run values has been changed in the DB (we
         # don't bother with locking the update to the dict)
         for k, v in self.db_qh.get_last_run().items():
@@ -334,39 +357,3 @@ class JobQueue(object):
                 # that conflicts
                 return True
         return False
-
-    @staticmethod
-    def dump_jobs(scheduled_jobs, details=0):
-        jobs = scheduled_jobs.get_jobs()
-        shown = {}
-
-        def dump(name, indent):
-            info = []
-            if details > 0:
-                if jobs[name].when:
-                    info.append(str(jobs[name].when))
-            if details > 1:
-                if jobs[name].max_freq:
-                    info.append(
-                        "max_freq=%s" % time.strftime(
-                            '%H:%M.%S',
-                            time.gmtime(jobs[name].max_freq)))
-            if details > 2:
-                if jobs[name].pre:
-                    info.append("pre="+str(jobs[name].pre))
-                if jobs[name].post:
-                    info.append("post="+str(jobs[name].post))
-            print "%-40s %s" % ("   " * indent + name, ", ".join(info))
-            shown[name] = True
-            for k in jobs[name].pre or ():
-                dump(k, indent + 2)
-            for k in jobs[name].post or ():
-                dump(k, indent + 2)
-        keys = jobs.keys()
-        keys.sort()
-        for k in keys:
-            if jobs[k].when is None:
-                continue
-            dump(k, 0)
-        print "Never run: \n%s" % "\n".join(
-            ["  %s" % k for k in jobs.keys() if k not in shown])

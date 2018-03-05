@@ -38,7 +38,30 @@ def to_seconds(weeks=0, days=0, hours=0, minutes=0, seconds=0):
     ))
 
 
+def fmt_time(timestamp, local=True):
+    to_time = time.localtime if local else time.gmtime
+    return time.strftime('%H:%M:%S', to_time(timestamp))
+
+
+def fmt_asc(timestamp, local=True):
+    to_time = time.localtime if local else time.gmtime
+    return time.asctime(to_time(timestamp))
+
+
+def fmt_date(timestamp, local=True):
+    raise NotImplementedError("TODO")
+    to_time = time.localtime if local else time.gmtime
+    return time.strftime('%H:%M:%S', to_time(timestamp))
+
+
+def format_datetime(timestamp, local=True):
+    raise NotImplementedError("TODO")
+    to_time = time.localtime if local else time.gmtime
+    return time.strftime('%H:%M:%S', to_time(timestamp))
+
+
 class When(object):
+
     def __init__(self, freq=None, time=None):
         """ Run job at specific times.
 
@@ -73,6 +96,7 @@ class When(object):
 
 
 class Time(object):
+
     def __init__(self, min=None, hour=None, wday=None, max_freq=None):
         """Emulate time part of crontab(5), None=*
 
@@ -191,7 +215,7 @@ class Time(object):
         return ",".join(ret)
 
 
-def run_tests():
+def tests():
 
     def parse_time(t):
         return time.mktime(time.strptime(t, '%Y-%m-%d %H:%M')) + time.timezone
@@ -199,8 +223,8 @@ def run_tests():
     def format_time(sec):
         # %w has a different definition of day 0 than the localtime
         # tuple :-(
-        return time.strftime('%Y-%m-%d %H:%M', time.localtime(sec)) + \
-               " w=%i" % (time.localtime(sec))[6]
+        w = " w=%i" % (time.localtime(sec))[6]
+        return time.strftime('%Y-%m-%d %H:%M', time.localtime(sec)) + w
 
     def format_duration(sec):
         return "%s %id" % (
@@ -214,7 +238,8 @@ def run_tests():
           ('2004-06-11 17:00', '2004-06-14 20:00'),
           ('2004-06-12 17:00', '2004-06-14 20:00'),
           )),
-        (When(time=[Time(wday=[5], hour=[5], min=[30], max_freq=24*60*60)]),
+        (When(time=[Time(wday=[5], hour=[5], min=[30],
+                         max_freq=to_seconds(days=1))]),
          (('2004-06-10 17:00', '2004-06-14 20:00'),
           ('2004-06-11 17:00', '2004-06-14 20:00'),
           ('2004-06-12 17:00', '2004-06-14 20:00'),
@@ -234,9 +259,12 @@ def run_tests():
             now = parse_time(t[1])
             delta = when.next_delta(prev, now)
             print "  prev=%s, now=%s -> %s [delta=%i/%s]" % (
-                format_time(prev), format_time(now),
-                format_time(now+delta), delta, format_duration(delta))
+                format_time(prev),
+                format_time(now),
+                format_time(now + delta),
+                delta,
+                format_duration(delta))
 
 
 if __name__ == '__main__':
-    run_tests()
+    tests()
