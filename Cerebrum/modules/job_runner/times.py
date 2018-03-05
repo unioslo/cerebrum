@@ -20,6 +20,8 @@
 """ Job Runner time utils. """
 import time
 
+import six
+
 
 SECONDS_MIN = 60
 SECONDS_HOUR = SECONDS_MIN ** 2
@@ -40,26 +42,26 @@ def to_seconds(weeks=0, days=0, hours=0, minutes=0, seconds=0):
 
 def fmt_time(timestamp, local=True):
     to_time = time.localtime if local else time.gmtime
-    return time.strftime('%H:%M:%S', to_time(timestamp))
+    return six.text_type(time.strftime('%H:%M:%S', to_time(timestamp)))
 
 
 def fmt_asc(timestamp, local=True):
     to_time = time.localtime if local else time.gmtime
-    return time.asctime(to_time(timestamp))
+    return six.text_type(time.asctime(to_time(timestamp)))
 
 
 def fmt_date(timestamp, local=True):
-    raise NotImplementedError("TODO")
     to_time = time.localtime if local else time.gmtime
-    return time.strftime('%H:%M:%S', to_time(timestamp))
+    return six.text_type(time.strftime('%Y-%m-%d', to_time(timestamp)))
 
 
 def format_datetime(timestamp, local=True):
-    raise NotImplementedError("TODO")
     to_time = time.localtime if local else time.gmtime
-    return time.strftime('%H:%M:%S', to_time(timestamp))
+    return six.text_type(time.strftime('%Y-%m-%d %H:%M:%S',
+                                       to_time(timestamp)))
 
 
+@six.python_2_unicode_compatible
 class When(object):
 
     def __init__(self, freq=None, time=None):
@@ -90,11 +92,12 @@ class When(object):
 
     def __str__(self):
         if self.time:
-            return "time=(%s)" % ",".join([str(t) for t in self.time])
-        return "freq=%s" % time.strftime('%H:%M.%S',
-                                         time.gmtime(self.freq))
+            return six.text_type("time=(%s)" % ",".join([six.text_type(t) for t
+                                                         in self.time]))
+        return six.text_type("freq=%s" % fmt_time(self.freq, local=False))
 
 
+@six.python_2_unicode_compatible
 class Time(object):
 
     def __init__(self, min=None, hour=None, wday=None, max_freq=None):
@@ -207,12 +210,13 @@ class Time(object):
     def __str__(self):
         ret = []
         if self.wday:
-            ret.append("wday="+":".join(["%i" % w for w in self.wday]))
+            ret.append("wday=" + ":".join(["%i" % w for w in self.wday]))
         if self.hour:
-            ret.append("h="+":".join(["%i" % w for w in self.hour]))
+            ret.append("h=" + ":".join(["%i" % w for w in self.hour]))
         if self.min:
-            ret.append("m="+":".join(["%i" % w for w in self.min]))
-        return ",".join(ret)
+            ret.append("m=" + ":".join(["%i" % w for w in self.min]))
+        # ret should only contain ascii strings
+        return six.text_type(",".join(ret))
 
 
 def tests():
