@@ -239,7 +239,6 @@ class System(CallableAction):
         self.cmd = cmd
         self.params = list(params)
         self.stdout_ok = stdout_ok
-        self.run_dir = None
 
     def setup(self):
         self.logger.info("Setup: %s", self.id)
@@ -251,10 +250,21 @@ class System(CallableAction):
             return 0
         return 1
 
+    @property
+    def run_dir(self):
+        return os.path.join(cereconf.JOB_RUNNER_LOG_DIR, self.id)
+
+    @property
+    def stdout_file(self):
+        return os.path.join(self.run_dir, 'stdout.log')
+
+    @property
+    def stderr_file(self):
+        return os.path.join(self.run_dir, 'stderr.log')
+
     def execute(self):
         self.logger.debug("Execute %s (%s, args=%s)",
                           self.id, self.cmd, repr(self.params))
-        self.run_dir = "%s/%s" % (cereconf.JOB_RUNNER_LOG_DIR, self.id)
         child_pid = os.fork()
         if child_pid:
             self.logger.debug("child: %i (p=%i)", child_pid, os.getpid())
@@ -266,8 +276,8 @@ class System(CallableAction):
                 os.mkdir(self.run_dir)
             os.chdir(self.run_dir)
 
-            new_stdout = open("stdout.log", 'a', 0)
-            new_stderr = open("stderr.log", 'a', 0)
+            new_stdout = open(self.stdout_file, 'a', 0)
+            new_stderr = open(self.stderr_file, 'a', 0)
             os.dup2(new_stdout.fileno(), sys.stdout.fileno())
             os.dup2(new_stderr.fileno(), sys.stderr.fileno())
             try:
@@ -304,20 +314,20 @@ class System(CallableAction):
         self.logger.debug("Wait (wait=%i) ret: %s/%s",
                           self.wait, pid, exit_code)
         if pid == child_pid:
-            if not (os.path.exists(self.run_dir) and
-                    os.path.exists("%s/stdout.log" % self.run_dir) and
-                    os.path.exists("%s/stderr.log" % self.run_dir)):
+            if not all(os.path.exists(p) for p in (self.run_dir,
+                                                   self.stdout_file,
+                                                   self.stderr_file)):
                 # May happen if the exec failes due to full-disk etc.
                 if not exit_code:
-                    self.logger.warn(
-                        "exit_code=0, and %s don't exist!" % self.run_dir)
+                    self.logger.warn("exit_code=0, and %s don't exist!",
+                                     self.run_dir)
                 self.last_exit_msg = "exit_code=%i, full disk?" % exit_code
                 return (exit_code, None)
-            if (exit_code != 0 or
-                    (self.stdout_ok == 0 and
-                     os.path.getsize("%s/stdout.log" % self.run_dir) > 0) or
-                    os.path.getsize("%s/stderr.log" % self.run_dir) > 0):
-                newdir = "%s.%s" % (self.run_dir, time.time())
+            if (exit_code != 0
+                    or (os.path.getsize(self.stdout_file) > 0
+                        and not self.stdout_ok)
+                    or os.path.getsize(self.stderr_file) > 0):
+                newdir = "%s.%s/" % (self.run_dir, time.time())
                 os.rename(self.run_dir, newdir)
                 self.last_exit_msg = "exit_code=%i, check %s" % (exit_code,
                                                                  newdir)
@@ -331,12 +341,11 @@ class System(CallableAction):
 
     def _cleanup(self):
         self.lockfile.release()
-        os.unlink("%s/stdout.log" % self.run_dir)
-        os.unlink("%s/stderr.log" % self.run_dir)
+        os.unlink(self.stdout_file)
+        os.unlink(self.stderr_file)
 
     def copy_runtime_params(self, other):
         super(System, self).copy_runtime_params(other)
-        self.run_dir = other.run_dir
 
 
 class AssertRunning(System):

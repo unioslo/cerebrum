@@ -75,8 +75,6 @@ def make_parser():
     parser = argparse.ArgumentParser(
         description="Start a job runner daemon, or send command to daemon")
 
-    halt = getattr(cereconf, 'HALT_PERIOD', 0)
-
     parser.add_argument(
         '--quiet',
         dest='quiet',
@@ -113,7 +111,7 @@ def make_parser():
         dest='command',
         action='store_const',
         const='KILL',
-        help='exit, but kill jobs not finished after %d seconds' % halt)
+        help='exit, but kill jobs not finished after 5 seconds')
 
     commands.add_argument(
         '--status',

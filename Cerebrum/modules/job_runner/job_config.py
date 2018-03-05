@@ -19,11 +19,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Job Runner job configuration. """
+from __future__ import print_function
+
 import argparse
 import imp
 import importlib
 import os
 import sys
+
+from .times import fmt_time
 
 
 DEFAULT_MODULE_NAME = 'scheduled_jobs'
@@ -120,20 +124,20 @@ def _pretty_jobs_presenter(jobs, args):
     """
     if args.list_jobs:
         for name in sorted(jobs.get_jobs()):
-            print name
+            print(name)
 
     elif args.show_job:
         jobname = args.show_job
         try:
             job = jobs.get_jobs()[jobname]
         except KeyError:
-            print "No such job: %s" % jobname
+            print("No such job: %s" % jobname)
             return
-        print "Command: %s" % job.get_pretty_cmd()
-        print "Pre-jobs: %s" % job.pre
-        print "Post-jobs: %s" % job.post
-        print "Non-concurrent jobs: %s" % job.nonconcurrent
-        print "When: %s, max-freq: %s" % (job.when, job.max_freq)
+        print("Command: %s" % job.get_pretty_cmd())
+        print("Pre-jobs: %s" % job.pre)
+        print("Post-jobs: %s" % job.post)
+        print("Non-concurrent jobs: %s" % job.nonconcurrent)
+        print("When: %s, max-freq: %s" % (job.when, job.max_freq))
 
     elif getattr(args, 'dump', False):
         # dumplevel = args[args.index('--dump') + 1]
@@ -141,18 +145,18 @@ def _pretty_jobs_presenter(jobs, args):
 
     elif args.list_verbose:
         for name, job in sorted(jobs.get_jobs().iteritems()):
-            print "Job: %s:" % name
-            print "  Command: %s" % job.get_pretty_cmd()
+            print("Job: %s:" % name)
+            print("  Command: %s" % job.get_pretty_cmd())
             if job.pre:
-                print "  Pre-jobs: %s" % job.pre
+                print("  Pre-jobs: %s" % job.pre)
             if job.post:
-                print "  Post-jobs: %s" % job.post
+                print("  Post-jobs: %s" % job.post)
             if job.nonconcurrent:
-                print "  Non-concurrent jobs: %s" % job.nonconcurrent
-            print "  When: %s, max-freq: %s" % (job.when, job.max_freq)
+                print("  Non-concurrent jobs: %s" % job.nonconcurrent)
+            print("  When: %s, max-freq: %s" % (job.when, job.max_freq))
 
     else:
-        print "%d jobs defined" % len(jobs.get_jobs())
+        print("%d jobs defined" % len(jobs.get_jobs()))
 
 
 def pretty_jobs_presenter(jobs, args):
@@ -174,15 +178,13 @@ def dump_jobs(scheduled_jobs, details=0):
         if details > 1:
             if jobs[name].max_freq:
                 info.append(
-                    "max_freq=%s" % time.strftime(
-                        '%H:%M.%S',
-                        time.gmtime(jobs[name].max_freq)))
+                    "max_freq=%s" % fmt_time(jobs[name].max_freq, local=False))
         if details > 2:
             if jobs[name].pre:
-                info.append("pre="+str(jobs[name].pre))
+                info.append("pre=%s" % repr(jobs[name].pre))
             if jobs[name].post:
-                info.append("post="+str(jobs[name].post))
-        print "%-40s %s" % ("   " * indent + name, ", ".join(info))
+                info.append("post=%s" % repr(jobs[name].post))
+        print("%-40s %s" % ("   " * indent + name, ", ".join(info)))
         shown[name] = True
         for k in jobs[name].pre or ():
             dump(k, indent + 2)
@@ -194,8 +196,8 @@ def dump_jobs(scheduled_jobs, details=0):
         if jobs[k].when is None:
             continue
         dump(k, 0)
-    print "Never run: \n%s" % "\n".join(
-        ["  %s" % k for k in jobs.keys() if k not in shown])
+    print("Never run: \n%s" % "\n".join(
+        ["  %s" % k for k in jobs.keys() if k not in shown]))
 
 
 def main(args=None):
@@ -219,5 +221,4 @@ def main(args=None):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
     main()

@@ -31,10 +31,10 @@ JOB_RUNNER_MAX_PARALELL_JOBS
 
 # Not here:
 JOB_RUNNER_SOCKET
-    The socket used to communicate with Job Runner.
+    The socket used to communicate with Job Runner (in socket_ipc)
 
 JOB_RUNNER_LOG_DIR
-    The job runner temp dir, used for:
+    The job runner temp dir (in job_actions), used for:
 
     - Job output (stdout, stderr)
     - Job lock files
@@ -60,6 +60,11 @@ def sigchld_handler(signum, frame):
     signal.signal(signal.SIGCHLD, sigchld_handler)
 
 
+def sig_general_handler(signum, frame):
+    """ General signal handler, for places where we use signal.pause()"""
+    logger.debug("siggeneral_handler(%r, %r)" % (signum, frame))
+
+
 class JobRunner(object):
 
     max_sleep = 60
@@ -70,7 +75,7 @@ class JobRunner(object):
     def __init__(self, job_queue):
         self.my_pid = os.getpid()
         self.timer_wait = None
-        signal.signal(signal.SIGUSR1, JobRunner.sig_general_handler)
+        signal.signal(signal.SIGUSR1, sig_general_handler)
         self.job_queue = job_queue
         self._should_quit = False
         self._should_kill = False
@@ -78,11 +83,6 @@ class JobRunner(object):
         self.queue_paused_at = 0
         self.queue_killed_at = 0
         self._last_pause_warn = 0
-
-    @staticmethod
-    def sig_general_handler(signum, frame):
-        """General signal handler, for places where we use signal.pause()"""
-        logger.debug("siggeneral_handler(%r, %r)" % (signum, frame))
 
     def signal_sleep(self, seconds):
         # SIGALRM is already used by the SocketThread, se we arrange
@@ -109,17 +109,18 @@ class JobRunner(object):
         for job in self.job_queue.get_running_jobs():
             try:
                 ret = job['call'].cond_wait(job['pid'])
-            except OSError, msg:
-                if not str(msg).startswith("[Errno 4]"):
+            except OSError as e:
+                if e.errno != 4:
                     # 4 = "Interrupted system call", which we may get
                     # as we catch SIGCHLD
                     # TODO: We need to filter out false positives from being
                     # logged:
-                    logger.error("error (%s): %s" % (job['name'], msg))
+                    logger.error("error (%r): %r" % (job['name'], e))
                 time.sleep(1)
                 continue
-            logger.debug("cond_wait(%s) = %s" % (job['name'], ret))
-            if ret is None:          # Job not completed
+            logger.debug("cond_wait(%r) = %r" % (job['name'], ret))
+            if ret is None:
+                # Job not completed
                 job_def = self.job_queue.get_known_job(job['name'])
                 if job_def.max_duration is not None:
                     run_for = time.time() - job['started']
@@ -277,7 +278,8 @@ class JobRunner(object):
                 self.signal_sleep(min(self.max_sleep, delta))
             else:
                 if not self.job_queue.get_running_jobs():
-                    raise SystemExit("AIEE! no running jobs and negative delta")
+                    raise SystemExit("AIEE! no running jobs and negative"
+                                     " delta")
                 # TODO: if run_queue has a lon-running job, we should
                 # only sleep until next delta.
                 # Trap missing sigchld

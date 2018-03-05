@@ -163,6 +163,7 @@ class SocketProtocol(object):
             logger.warn("Unknown command", exc_info=True)
             self.respond("Unknown command: %s" % e)
         try:
+            logger.info("Running %s", command.name)
             command(self, *args)
         except Exception as e:
             logger.error("Command failed: %r", command, exc_info=True)
@@ -181,7 +182,7 @@ class SocketProtocol(object):
     def __quit(self):
         self.job_runner.ready_to_run = ('quit',)
         self.respond('QUIT is now only entry in ready-to-run queue')
-        self.runner.quit()
+        self.job_runner.quit()
 
     @commands.add('KILL')
     def __kill(self):
@@ -240,7 +241,7 @@ class SocketProtocol(object):
                 ret.append("Max duration: %s minutes" % (job.max_duration/60))
             else:
                 ret.append("Max duration: %s" % (job.max_duration))
-            return '\n'.join(ret)
+            self.respond('\n'.join(ret))
 
     @commands.add('STATUS')
     def __status(self):
@@ -259,7 +260,7 @@ class SocketProtocol(object):
             (str(x) for x in queue.get_run_queue()))
 
         ret += 'Threads: \n  %s' % "\n  ".join(
-            (str(x) for x in threading.enumerate()))
+            (repr(x) for x in threading.enumerate()))
 
         def fmt_job_times(job):
             fmt_last = fmt_dur = 'unknown'
@@ -333,14 +334,14 @@ class SocketServer(object):
         try:
             os.stat(cereconf.JOB_RUNNER_SOCKET)
             if self.send_cmd("PING") == 'PONG':
-                return 1
+                return True
         except socket.error:   # No server seems to be running
             print "WARNING: Removing stale socket"
             os.unlink(cereconf.JOB_RUNNER_SOCKET)
             pass
         except OSError:        # File didn't exist
             pass
-        return 0
+        return False
 
     def cleanup(self):
         if not self._is_listening:

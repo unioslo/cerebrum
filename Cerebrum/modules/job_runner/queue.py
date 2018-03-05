@@ -133,7 +133,7 @@ class JobQueue(object):
             self._add_known_job(job_name, job_action)
             new_jobnames.add(job_name)
 
-        # TODO: Identify modified jobs
+        # TODO: Identify modified jobs, implement Action.__eq__?
         for name in old_jobnames - new_jobnames:
             del self._known_jobs[name]
             self.logger.info("Removed job %r", name)
