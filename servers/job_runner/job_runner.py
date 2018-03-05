@@ -63,7 +63,7 @@ from Cerebrum.modules.job_runner import JobRunner, sigchld_handler
 from Cerebrum.modules.job_runner.job_actions import LockFile, LockExists
 from Cerebrum.modules.job_runner.job_config import get_job_config, dump_jobs
 from Cerebrum.modules.job_runner.queue import JobQueue
-from Cerebrum.modules.job_runner.socket_ipc import (SocketHandling,
+from Cerebrum.modules.job_runner.socket_ipc import (SocketServer,
                                                     SocketTimeout)
 
 logger = logging.getLogger('job_runner')
@@ -170,18 +170,16 @@ def make_parser():
     return parser
 
 
-def run_command(command):
-    sock = SocketHandling()
-    command = command.encode('utf-8')
+def run_command(command, *args):
     try:
-        return sock.send_cmd(command)
+        return SocketServer.send_cmd(command, args=args)
     except SocketTimeout:
         raise RuntimeError("Timout contacting server, is it running?")
 
 
 def run_daemon(jobs, quiet=False, thread=True):
     """ Try to start a new job runner daemon. """
-    sock = SocketHandling()
+    sock = SocketServer()
 
     # Abstract Action to get a lockfile
     # TODO: Couldn't we just use the socket to see if we're running?
@@ -249,13 +247,16 @@ def main(inargs=None):
     # What to do:
     if args.command:
         command = args.command
+        args = []
     elif args.run_job:
-        command = 'RUNJOB %s %i' % (args.run_job, int(args.run_with_deps))
+        command = 'RUNJOB'
+        args = [args.run_job, args.run_with_deps]
     elif args.show_job:
-        command = 'SHOWJOB %s' % args.show_job
+        command = 'SHOWJOB'
+        args = [args.show_job, ]
 
     if command:
-        print(run_command(command))
+        print(run_command(command, *args))
         raise SystemExit(0)
 
     # Not running a command, so we'll need a config:
