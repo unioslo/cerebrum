@@ -63,7 +63,8 @@ from Cerebrum.modules.job_runner import JobRunner, sigchld_handler
 from Cerebrum.modules.job_runner.job_actions import LockFile, LockExists
 from Cerebrum.modules.job_runner.job_config import get_job_config, dump_jobs
 from Cerebrum.modules.job_runner.queue import JobQueue
-from Cerebrum.modules.job_runner.socket_ipc import SocketHandling
+from Cerebrum.modules.job_runner.socket_ipc import (SocketHandling,
+                                                    SocketTimeout)
 
 logger = logging.getLogger('job_runner')
 
@@ -174,7 +175,7 @@ def run_command(command):
     command = command.encode('utf-8')
     try:
         return sock.send_cmd(command)
-    except SocketHandling.Timeout:
+    except SocketTimeout:
         raise RuntimeError("Timout contacting server, is it running?")
 
 
@@ -197,7 +198,7 @@ def run_daemon(jobs, quiet=False, thread=True):
                 "ping. This should be a very rare error!",
                 lock.filename)
             raise SystemExit(1)
-    except SocketHandling.Timeout:
+    except SocketTimeout:
         # Assuming that previous run aborted without removing socket
         logger.warn("Socket timeout, assuming server is dead")
         try:

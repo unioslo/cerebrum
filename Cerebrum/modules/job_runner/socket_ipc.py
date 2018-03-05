@@ -27,57 +27,109 @@ import time
 
 import cereconf
 
-from .times import to_seconds
+from .times import to_seconds, fmt_asc, fmt_time
 
 
 logger = logging.getLogger(__name__)
+
+
+class SocketTimeout(Exception):
+    """Raised by send_cmd() to interrupt a hanging socket call"""
+
+
+def signal_timeout(signal, frame):
+    logger.debug("signal_timeout(%r, %r)", signal, frame)
+    raise SocketTimeout("timeout")
+
+
+def format_job(job, started_at, done_at):
+    ret = []
+    if started_at:
+        ret.append("Status: running, started at %s" % fmt_asc(started_at))
+    else:
+        tmp = fmt_asc(done_at) if done_at else 'unknown'
+        ret.append("Status: not running.  Last run: %s" % tmp)
+        ret.append("Last exit status: %s" % job.last_exit_msg)
+    ret.append("Command: %s" % job.get_pretty_cmd())
+    ret.append("Pre-jobs: %s" % job.pre)
+    ret.append("Post-jobs: %s" % job.post)
+    ret.append("Non-concurrent jobs: %s" % job.nonconcurrent)
+    ret.append("When: %s, max-freq: %s" % (job.when, job.max_freq))
+    if job.max_duration is not None:
+        ret.append("Max duration: %s minutes" % (job.max_duration/60))
+    else:
+        ret.append("Max duration: %s" % (job.max_duration))
+    return '\n'.join(ret)
+
+
+def format_status(queue, sleep_to, paused_at):
+    ret = "Run-queue: \n  %s\n" % "\n  ".join((
+        repr({
+            'name': x['name'],
+            'pid': x['pid'],
+            'started': fmt_time(x['started']),
+        }) for x in queue.get_running_jobs()
+    ))
+
+    ret += 'Ready jobs: \n  %s\n' % "\n  ".join((
+        str(x) for x in queue.get_run_queue()
+    ))
+
+    ret += 'Threads: \n  %s' % "\n  ".join((
+        str(x) for x in threading.enumerate()
+    ))
+
+    def fmt_job_times(job):
+        fmt_last = fmt_dur = 'unknown'
+        fmt_human = fmt_ago = ''
+
+        last_run = queue._last_run[job]
+
+        # debug
+        if last_run:
+            fmt_human = time.strftime(' (%F %T)', time.localtime(last_run))
+        logger.debug("Last run of '%s' is '%s'%s",
+                     job, last_run, fmt_human)
+
+        if last_run:
+            fmt_last = fmt_time(last_run)
+
+        last_dur = queue._last_duration[job]
+        if last_dur:
+            fmt_dur = fmt_time(last_dur, local=False)
+
+        if last_run:
+            days = int((time.time() - last_run) / to_seconds(days=1))
+            fmt_ago = "(%i days ago)" % days
+
+        return '  '.join((fmt_last, fmt_dur, fmt_ago))
+
+    ret += '\n%-35s %s\n' % ('Known jobs', '  Last run  Last duration')
+    for job in sorted(queue.get_known_jobs()):
+        ret += "  %-35s %s\n" % (job, fmt_job_times(job))
+
+    if sleep_to:
+        ret += 'Sleep to %s (%i seconds)\n' % (
+            fmt_time(sleep_to),
+            sleep_to - time.time())
+    if paused_at:
+        ret += "Notice: Queue paused for %s hours\n" % (
+            fmt_time(time.time() - paused_at,
+                     local=False))
 
 
 class SocketHandling(object):
     """Simple class for handling client and server communication to
     job_runner"""
 
-    class Timeout(Exception):
-        """Raised by send_cmd() to interrupt a hanging socket call"""
-        pass
-
-    @classmethod
-    def timeout(cls, sig, frame):
-        raise cls.Timeout("Timeout")
-
     def __init__(self):
         self._is_listening = False
-        signal.signal(signal.SIGALRM, type(self).timeout)
+        signal.signal(signal.SIGALRM, signal_timeout)
 
     def _format_time(self, t):
         if t:
             return time.asctime(time.localtime(t))
         return None
-
-    def _show_job(self, jobname, job_runner):
-        job = job_runner.job_queue.get_known_jobs().get(
-            jobname, None)
-        if not job:
-            return 'Unknown job %s' % jobname
-
-        tmp = self._format_time(job_runner.job_queue._started_at.get(jobname))
-        if tmp:
-            ret = "Status: running, started at %s\n" % tmp
-        else:
-            tmp = self._format_time(
-                job_runner.job_queue._last_run.get(jobname))
-            ret = "Status: not running.  Last run: %s\n" % tmp or 'unknown'
-            ret += "Last exit status: %s\n" % job.last_exit_msg
-        ret += "Command: %s\n" % job.get_pretty_cmd()
-        ret += "Pre-jobs: %s\n" % job.pre
-        ret += "Post-jobs: %s\n" % job.post
-        ret += "Non-concurrent jobs: %s\n" % job.nonconcurrent
-        ret += "When: %s, max-freq: %s\n" % (job.when, job.max_freq)
-        if job.max_duration is not None:
-            ret += "Max duration: %s minutes\n" % (job.max_duration/60)
-        else:
-            ret += "Max duration: %s\n" % (job.max_duration)
-        return ret
 
     def start_listener(self, job_runner):
         self.socket = socket.socket(socket.AF_UNIX)
@@ -142,62 +194,16 @@ class SocketHandling(object):
                     break
                 elif data.startswith('SHOWJOB '):
                     jobname = data[8:]
+                    job = job_runner.job_queue.get_known_jobs().get(jobname)
+                    started = job_runner.job_queue._started_at.get(jobname)
+                    done = job_runner.job_queue._last_run.get(jobname)
                     self.send_response(conn,
-                                       self._show_job(jobname, job_runner))
+                                       format_job(job, started, done))
                     break
                 elif data == 'STATUS':
-                    ret = "Run-queue: \n  %s\n" % "\n  ".join(
-                        [repr({
-                            'name': x['name'], 'pid': x['pid'],
-                            'started': time.strftime(
-                                '%H:%M.%S', time.localtime(x['started'])),
-                        })
-                         for x in job_runner.job_queue.get_running_jobs()])
-
-                    ret += 'Ready jobs: \n  %s\n' % "\n  ".join(
-                        [str(x) for x in job_runner.job_queue.get_run_queue()])
-
-                    ret += 'Threads: \n  %s' % "\n  ".join(
-                        [str(x) for x in threading.enumerate()])
-
-                    tmp = job_runner.job_queue.get_known_jobs().keys()
-                    tmp.sort()
-                    ret += '\n%-35s %s\n' % ('Known jobs',
-                                             '  Last run  Last duration')
-                    for k in tmp:
-                        t2 = job_runner.job_queue._last_run[k]
-                        human_part = ""
-                        if t2:
-                            human_part = " (%s)" % time.strftime(
-                                "%F %T", time.localtime(t2))
-                        logger.debug("Last run of '%s' is '%s'%s",
-                                     k, t2, human_part)
-                        if t2:
-                            t = time.strftime('%H:%M.%S', time.localtime(t2))
-                            days = int((time.time()-t2)/to_seconds(days=1))
-                        else:
-                            t = 'unknown '
-                            days = 0
-                        t2 = job_runner.job_queue._last_duration[k]
-                        if t2:
-                            t += '  ' + time.strftime('%H:%M.%S',
-                                                      time.gmtime(t2))
-                        else:
-                            t += '  unknown'
-                        if days:
-                            t += " (%i days ago)" % days
-                        ret += "  %-35s %s\n" % (k, t)
-                    if job_runner.sleep_to:
-                        ret += 'Sleep to %s (%i seconds)\n' % (
-                            time.strftime('%H:%M.%S',
-                                          time.localtime(job_runner.sleep_to)),
-                            job_runner.sleep_to - time.time())
-                    if job_runner.queue_paused_at:
-                        ret += "Notice: Queue paused for %s hours\n" % (
-                            time.strftime(
-                                '%H:%M.%S',
-                                time.gmtime(time.time() -
-                                            job_runner.queue_paused_at)))
+                    ret = format_status(job_runner.job_queue,
+                                        job_runner.sleep_to,
+                                        job_runner.queue_paused_at)
                     self.send_response(conn, ret)
                     break
                 elif data == 'PING':
