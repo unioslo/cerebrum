@@ -3,6 +3,7 @@
 """
 Core password checks for passwords and passphrases
 """
+from __future__ import unicode_literals
 
 import cereconf
 
@@ -12,7 +13,6 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,
                                               PhrasePasswordNotGoodEnough)
-
 
 @pytest.fixture(params=[
     'mEh19',  # 'length'
