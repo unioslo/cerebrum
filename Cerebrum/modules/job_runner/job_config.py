@@ -200,6 +200,8 @@ def dump_jobs(scheduled_jobs, details=0):
         ["  %s" % k for k in jobs.keys() if k not in shown]))
 
 
+# python -m Cerebrum.modules.job_runner.job_config
+
 def main(args=None):
     parser = pretty_jobs_parser()
     parser.add_argument(

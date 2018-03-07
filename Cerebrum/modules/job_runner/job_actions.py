@@ -26,6 +26,9 @@ import random
 import sys
 import time
 
+from six import text_type
+from six.moves import shlex_quote as quote
+
 import cereconf
 
 
@@ -124,9 +127,9 @@ class Action(object):
                 try:
                     arguments.append(inspect.getsource(p))
                 except IOError:
-                    arguments.append(str(p))
+                    arguments.append(repr(p))
             else:
-                arguments.append(str(p))
+                arguments.append(quote(text_type(p)))
         return "%s %s" % (self.call.cmd, " ".join(arguments))
 
     def next_delta(self, last_run, current_time):
@@ -284,11 +287,13 @@ class System(CallableAction):
                 p = list()
                 for argument in self.params[:]:
                     if callable(argument):
-                        argument = argument()
+                        argument = text_type(argument())
                     else:
-                        argument = str(argument)
+                        argument = text_type(argument)
                     p.append(argument)
 
+                # TODO: Why not self.id? It's a better process name than e.g.
+                # 'scp'
                 p.insert(0, self.cmd)
                 if debug_dryrun:
                     os.execv("/bin/sleep", [self.id,
@@ -492,21 +497,3 @@ class Jobs(object):
             self.check_cycles(ret)
 
         return ret
-
-
-def _test_time():
-    from Cerebrum.modules.job_runner.times import When, Time
-    ac = Action(
-        call=System("echo yes"),
-        max_freq=5*60,
-        when=When(freq=5*60),
-        notwhen=When(time=Time(hour=[4]))
-    )
-    last_run = time.mktime(time.strptime('2005-3:58', '%Y-%H:%M'))
-    print ac.next_delta(last_run, last_run + 60*8)
-    print ac.next_delta(last_run, last_run + 60*60)
-    print ac.next_delta(last_run, last_run + 60*65)
-
-
-if __name__ == '__main__':
-    _test_time()
