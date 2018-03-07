@@ -27,6 +27,8 @@ import threading
 import time
 from contextlib import closing
 
+from six import text_type
+
 import cereconf
 
 from .times import to_seconds, fmt_asc, fmt_time
@@ -257,7 +259,7 @@ class SocketProtocol(object):
             }) for x in queue.get_running_jobs()))
 
         ret += 'Ready jobs: \n  %s\n' % "\n  ".join(
-            (str(x) for x in queue.get_run_queue()))
+            (text_type(x) for x in queue.get_run_queue()))
 
         ret += 'Threads: \n  %s' % "\n  ".join(
             (repr(x) for x in threading.enumerate()))

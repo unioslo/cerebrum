@@ -27,6 +27,8 @@ import importlib
 import os
 import sys
 
+from six import text_type
+
 from .times import fmt_time
 
 
@@ -174,7 +176,7 @@ def dump_jobs(scheduled_jobs, details=0):
         info = []
         if details > 0:
             if jobs[name].when:
-                info.append(str(jobs[name].when))
+                info.append(text_type(jobs[name].when))
         if details > 1:
             if jobs[name].max_freq:
                 info.append(

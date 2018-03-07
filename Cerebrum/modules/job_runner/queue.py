@@ -309,8 +309,8 @@ class JobQueue(object):
                 if pre_len == len(queue):
                     continue     # no jobs was added
             min_delta = min(next_delta, min_delta)
-        self.logger.debug("Delta=%i, a=%i/%i Queue: %s" % (
-            min_delta, append, len(self._run_queue), str(queue)))
+        self.logger.debug("Delta=%i, a=%i/%i Queue: %s", 
+            min_delta, append, len(self._run_queue), repr(queue))
         self._run_queue = queue
         return min_delta
 
