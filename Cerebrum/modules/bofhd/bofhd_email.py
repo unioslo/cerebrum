@@ -2473,63 +2473,6 @@ class BofhdEmailCommands(BofhdEmailBase):
         self._configure_filter_settings(et)
         return "OK, created forward address '%s'" % localaddr
 
-    def _report_deleted_EA(self, deleted_EA):
-        """ Inform postmaster about deleted EmailAddesses.
-
-        Sends a message to postmasters informing them that a number of email
-        addresses are about to be deleted.
-
-        postmasters requested on 2009-08-19 that they want to be informed when
-        an e-mail list's aliases are being deleted (to have a record, in case
-        the operation is to be reversed). The simplest solution is to send an
-        e-mail informing them when something is deleted.
-
-        """
-        if not deleted_EA:
-            return
-
-        def email_info2string(EA):
-            """Map whatever email_info returns to something human-friendly"""
-
-            def dict2line(d):
-                filtered_keys = ("spam_action_desc", "spam_level_desc",)
-                return "\n".join("%s: %s" % (str(key), str(d[key]))
-                                 for key in d
-                                 if key not in filtered_keys)
-
-            result = list()
-            for item in EA:
-                if isinstance(item, dict):
-                    result.append(dict2line(item))
-                else:
-                    result.append(repr(item))
-
-            return "\n".join(result)
-
-        # TODO: Hard coded address
-        to_address = "postmaster-logs@usit.uio.no"
-        from_address = "cerebrum-logs@usit.uio.no"
-        try:
-            Utils.sendmail(toaddr=to_address,
-                           fromaddr=from_address,
-                           subject="Removal of e-mail addresses in Cerebrum",
-                           body="""
-This is an automatically generated e-mail.
-
-The following e-mail list addresses have just been removed from Cerebrum. Keep
-this message, in case a restore is requested later.
-
-Addresses and settings:
-
-%s
-                       """ % email_info2string(deleted_EA))
-
-        # We don't want this function ever interfering with bofhd's
-        # operation. If it fails -- screw it.
-        except:
-            self.logger.info("Failed to send e-mail to %s", to_address)
-            self.logger.info("Failed e-mail info: %s", repr(deleted_EA))
-
     #
     # email create_multi <multi-address> <group>
     #
@@ -4014,7 +3957,6 @@ class BofhdSympaCommands(BofhdEmailBase):
         if not self._validate_sympa_list(listname):
             raise CerebrumError("Illegal sympa list name: '%s'", listname)
 
-        deleted_EA = self.email_info(operator, listname)
         # needed for pattern interpolation below (these are actually used)
         local_part, domain = self._split_email_address(listname)
         for pattern, pipe_destination in _sympa_addr2alias:
@@ -4044,9 +3986,6 @@ class BofhdSympaCommands(BofhdEmailBase):
             except Errors.NotFoundError:
                 pass
 
-        # TODO: UiO-specific
-        if cereconf.INSTITUTION_DOMAIN_NAME == 'uio.no':
-            self._report_deleted_EA(deleted_EA)
         if not force_request:
             return {'listname': listname, 'request': False}
 
