@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2016 University of Oslo, Norway
+# Copyright 2005-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -46,7 +46,8 @@ class GuestUtils(object):
         self.co = Factory.get('Constants')(db)
         self.logger = logger
 
-    def request_guest_users(self, num, end_date, comment, owner_id, operator_id):
+    def request_guest_users(self, num, end_date, comment, owner_id,
+                            operator_id):
         """Reserve num guest users until they're manually released or
         until end_date. If the function fails because there are not
         enough guest users available, GuestAccountException is raised.
@@ -215,26 +216,33 @@ class GuestUtils(object):
         ac = Factory.get('Account')(self.db)
         group = Factory.get('Group')(self.db)
 
-        quarantined_guests = {}
+        all_q = {}
         for row in ac.list_entity_quarantines(
                 quarantine_types=self.co.quarantine_guest_release):
-            quarantined_guests[int(row['entity_id'])] = row['start_date']
+            all_q[int(row['entity_id'])] = row['start_date']
 
-        active_quarantines = set([int(q['entity_id']) for q in ac.list_entity_quarantines(
-            quarantine_types=self.co.quarantine_guest_release, only_active=True)])
-        pending_quarantines = set(quarantined_guests.keys()) - active_quarantines
+        active_q = set([
+            int(q['entity_id'])
+            for q in ac.list_entity_quarantines(
+                    quarantine_types=self.co.quarantine_guest_release,
+                    only_active=True)
+        ])
+        pending_q = set(all_q.keys()) - active_q
 
-        for row in ac.list_traits(self.co.trait_uio_guest_owner, return_name=True):
+        for row in ac.list_traits(self.co.trait_uio_guest_owner,
+                                  return_name=True):
             e_id = int(row['entity_id'])
             owner_id = row['target_id'] and int(row['target_id']) or None
             uname = row['name']
-            if e_id in active_quarantines:
+            if e_id in active_q:
                 # guest is in release_quarantine
-                release_date = quarantined_guests[e_id] + cereconf.GUESTS_QUARANTINE_PERIOD
-                tmp = [uname, None, "in release_quarantine until %s" % release_date.date]
-            elif e_id in pending_quarantines:
+                release_date = all_q[e_id] + cereconf.GUESTS_QUARANTINE_PERIOD
+                tmp = [uname,
+                       None,
+                       "in release_quarantine until %s" % release_date.date]
+            elif e_id in pending_q:
                 # guest is allocated. Find owner
-                if not ownerid2name.has_key(owner_id):
+                if owner_id not in ownerid2name:
                     try:
                         group.clear()
                         group.find(owner_id)
@@ -242,7 +250,7 @@ class GuestUtils(object):
                     except Errors.NotFoundError:
                         ownerid2name[owner_id] = "id:{!s}".format(owner_id)
                 tmp = [uname, None, "allocated by %s until %s" % (
-                    ownerid2name[owner_id], quarantined_guests[e_id].date)]
+                    ownerid2name[owner_id], all_q[e_id].date)]
             else:
                 # guest is available
                 tmp = [row['name'], None, "available"]
@@ -388,7 +396,7 @@ class GuestUtils(object):
 
         available_guests.sort()
         first = available_guests[0]
-        last  = available_guests[0]
+        last = available_guests[0]
         for i in available_guests[1:]:
             if i - last != 1:
                 # Starting on new subset
@@ -469,15 +477,18 @@ def _sort_by_value(d):
 def _flatten(tup):
     """ Flatten tuple tree to one tuple of (int, int) tuples. """
     res = []
+
+    def assert_nice_tuple(t):
+        return (isinstance(t, tuple) and len(t) == 2
+                and all(isinstance(v, int) for v in t))
+
     # If only one (a,b) tuple, just return
-    if (type(tup) is tuple and len(tup) == 2
-            and type(tup[0]) is type(tup[1]) is int):
+    if assert_nice_tuple(tup):
         res.append(tup)
     else:
         # Nested, must go through elements
         for item in tup:
-            if (type(item) is tuple and len(item) == 2
-                    and type(item[0]) is type(item[1]) is int):
+            if assert_nice_tuple(item):
                 res.append(item)
             else:
                 res.extend(_flatten(item))
