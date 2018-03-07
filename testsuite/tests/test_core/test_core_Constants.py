@@ -36,8 +36,8 @@ Functionality
     CerebrumCode.
 
 """
-
 from __future__ import unicode_literals
+
 import pytest
 from Cerebrum.Errors import NotFoundError
 
