@@ -69,7 +69,7 @@ def when_daily():
     return When(time=[Time(hour=[4], min=[5])])
 
 
-@pytest.mark.parametrize('when,prev,now,expect', [
+@pytest.mark.parametrize('prev,now,expect', [
     # prev run, curr time, expected reschedule
     ('03:00', '04:00', '04:05',),
     ('03:00', '04:10', '04:05',),
