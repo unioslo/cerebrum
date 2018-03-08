@@ -27,10 +27,9 @@ from lxml import etree
 import cerebrum_path
 import cereconf
 from Cerebrum.modules.cis import Utils as CISutils
-from Cerebrum.modules.cis.sapxml2cerebrum import SAPXMLPerson2Cerebrum
 
 from soaplib.service import rpc
-from soaplib.serializers.primitive import String, Integer, Boolean
+from soaplib.serializers.primitive import String, Boolean
 from soaplib.serializers.clazz import ClassSerializer, Array
 from soaplib.wsgi import Application
 
@@ -38,7 +37,9 @@ from twisted.web.server import Site
 from twisted.web.resource import Resource
 from twisted.web.wsgi import WSGIResource
 from twisted.internet import reactor
-from twisted.python.log import err, startLogging
+from twisted.python.log import startLogging
+
+del cerebrum_path
 
 try:
     from twisted.internet import ssl
@@ -89,6 +90,7 @@ class PersonCom(ClassSerializer):
     KommType = String
     KommValue = String
 
+
 class PersonStilling(ClassSerializer):
     __namespace__ = ns_test
     Ansattnr = String
@@ -102,8 +104,10 @@ class PersonStilling(ClassSerializer):
 class PersonHovedstilling(PersonStilling):
     pass
 
+
 class PersonBistilling(PersonStilling):
     pass
+
 
 class Person(ClassSerializer):
     __namespace__ = ns_test
@@ -133,23 +137,19 @@ class SAPIntegrationServer(SoapListener.BasicSoapServer):
         # Allow any type of exception? Does SOAP handle that?
         return CISutils.get_person_data(id_type, ext_id)
 
-        
     @rpc(Person, _returns=Boolean)
     def update_person(self, Ansatt):
         """
         get sap_person object from client. Convert sap_person from xml
         to object and update Cerebrum.
         """
-        ret = False
         xml_person = etree.Element('test')
         Person.to_xml(Ansatt, ns_test, xml_person)
         xml_person = xml_person[0]
         print "xml_person:", etree.tostring(xml_person, pretty_print=True)
 
-        p = SAPXMLPerson2Cerebrum(xml_person)
-        #ret = p.update()
+        # p = SAPXMLPerson2Cerebrum(xml_person)
         return True
-        
 
     def on_method_exception_object(self, environ, exc):
         '''
@@ -171,7 +171,6 @@ class SAPIntegrationServer(SoapListener.BasicSoapServer):
         print "on_method_exception_xml", environ, fault_xml
 
 
-
 def usage(exitcode=0):
     print """Usage: %s [-p <port number] [-l logfile] [--unencrypted]
   -p | --port num: run on alternative port (default: ?)
@@ -180,7 +179,7 @@ def usage(exitcode=0):
   """
     sys.exit(exitcode)
 
-if __name__=='__main__':
+if __name__ == '__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'p:l:',
                                    ['port=', 'unencrypted', 'logfile='])
@@ -199,7 +198,7 @@ if __name__=='__main__':
         elif opt in ('--unencrypted',):
             use_encryption = False
 
-    ## TBD: Use Cerebrum logger instead? 
+    # TBD: Use Cerebrum logger instead?
     # Init twisted logger
     log_observer = startLogging(file(logfile, 'w'))
     # Run service

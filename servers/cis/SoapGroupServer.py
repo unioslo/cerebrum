@@ -19,23 +19,25 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sys, socket, traceback
+import sys
 import getopt
 
 from twisted.python import log
 
 from rpclib.model.complex import ComplexModel, Iterable
-from rpclib.model.primitive import String, Integer, Boolean
+from rpclib.model.primitive import String
 # Note the difference between rpc and the static srpc - the former sets the
 # first parameter as the current MethodContext. Very nice if you want
 # environment details.
-from rpclib.decorator import rpc, srpc
+from rpclib.decorator import rpc
 
 import cerebrum_path
 from cisconf import groupservice as cisconf
-from Cerebrum.Utils import Messages, dyn_import
-from Cerebrum import Errors
+from Cerebrum.Utils import dyn_import
 from Cerebrum.modules.cis import SoapListener, auth, faults
+
+del cerebrum_path
+
 
 class GroupMember(ComplexModel):
     """Information about a group member."""
@@ -53,9 +55,10 @@ class GroupMember(ComplexModel):
 
     # TODO more info about a member?
 
+
 class GroupService(SoapListener.BasicSoapServer):
     """The Group service, for returning information about groups.
-    
+
     """
 
     # Require the session ID in the client's header
@@ -71,8 +74,8 @@ class GroupService(SoapListener.BasicSoapServer):
     # The hock for the site object
     site = None
 
-    @rpc(String, _returns = Iterable(GroupMember),
-            _throws=faults.EndUserFault)
+    @rpc(String, _returns=Iterable(GroupMember),
+         _throws=faults.EndUserFault)
     def get_members(ctx, groupname):
         """Get a list of all the members of a given group.
 
@@ -88,8 +91,8 @@ class GroupService(SoapListener.BasicSoapServer):
         """
         return ctx.udc['groupinfo'].search_members_flat(groupname)
 
-# The group service events:
 
+# The group service events:
 def _event_setup_groupservice(ctx):
     """Event method for fixing the individuation functionality, like language.
     Makes use of the session, so it has to be run after the session setup.
@@ -102,13 +105,14 @@ def _event_setup_groupservice(ctx):
         operator_id = operator_id.id
     ctx.udc['groupinfo'] = ctx.service_class.cere_class(operator_id)
 
+
 def _event_cleanup(ctx):
     """Event for cleaning up the groupinfo instances, i.e. close the
     database connections. Since twisted runs all calls in a pool of threads, we
     can not trust __del__."""
     # TODO: is this necessary any more, as we now are storing it in the method
     # context? Are these deleted after each call?
-    if ctx.udc.has_key('groupinfo'):
+    if 'groupinfo' in ctx.udc:
         ctx.udc['groupinfo'].close()
 
 # Add session support to the group service:
@@ -128,6 +132,7 @@ GroupService.event_manager.add_listener('method_exception_object',
 # Add authentication support to the group service:
 GroupService.event_manager.add_listener('method_call',
                                         auth.on_method_authentication)
+
 
 def usage(exitcode=0):
     print """Usage: %s [-p <port number] [-l logfile] [--unencrypted]
@@ -156,7 +161,7 @@ Starts up the GroupService webservice on a given port. Please note that config
     """
     sys.exit(exitcode)
 
-if __name__=='__main__':
+if __name__ == '__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'p:l:h',
                                    ['port=', 'unencrypted', 'logfile=',
@@ -166,11 +171,11 @@ if __name__=='__main__':
         usage(1)
 
     use_encryption = True
-    port        = getattr(cisconf, 'PORT', 0)
+    port = getattr(cisconf, 'PORT', 0)
     logfilename = getattr(cisconf, 'LOG_FILE', None)
-    instance    = getattr(cisconf, 'CEREBRUM_CLASS', None)
-    interface   = getattr(cisconf, 'INTERFACE', None)
-    log_prefix  = getattr(cisconf, 'LOG_PREFIX', None)
+    instance = getattr(cisconf, 'CEREBRUM_CLASS', None)
+    interface = getattr(cisconf, 'INTERFACE', None)
+    log_prefix = getattr(cisconf, 'LOG_PREFIX', None)
     log_formatters = getattr(cisconf, 'LOG_FORMATTERS', None)
 
     for opt, val in opts:
@@ -198,42 +203,43 @@ if __name__=='__main__':
     # TBD: Should Cerebrum tier be started once per session instead? Takes
     # more memory, but are there benefits we need, e.g. language control?
 
-    private_key_file  = None
-    certificate_file  = None
-    client_ca         = None
-    fingerprints      = None
+    private_key_file = None
+    certificate_file = None
+    client_ca = None
+    fingerprints = None
 
     services = [auth.PasswordAuthenticationService, GroupService]
     if interface:
         SoapListener.TwistedSoapStarter.interface = interface
 
     if use_encryption:
-        private_key_file  = cisconf.SERVER_PRIVATE_KEY_FILE
-        certificate_file  = cisconf.SERVER_CERTIFICATE_FILE
-        client_ca         = cisconf.CERTIFICATE_AUTHORITIES
-        fingerprints      = getattr(cisconf, 'FINGERPRINTS', None)
+        private_key_file = cisconf.SERVER_PRIVATE_KEY_FILE
+        certificate_file = cisconf.SERVER_CERTIFICATE_FILE
+        client_ca = cisconf.CERTIFICATE_AUTHORITIES
+        fingerprints = getattr(cisconf, 'FINGERPRINTS', None)
 
-        server = SoapListener.TLSTwistedSoapStarter(port = int(port),
-                        applications = services,
-                        private_key_file = private_key_file,
-                        certificate_file = certificate_file,
-                        client_ca = client_ca,
-                        client_fingerprints = fingerprints,
-                        logfile = logfilename,
-                        log_prefix = log_prefix,
-                        log_formatters=log_formatters)
+        server = SoapListener.TLSTwistedSoapStarter(
+            port=int(port),
+            applications=services,
+            private_key_file=private_key_file,
+            certificate_file=certificate_file,
+            client_ca=client_ca,
+            client_fingerprints=fingerprints,
+            logfile=logfilename,
+            log_prefix=log_prefix,
+            log_formatters=log_formatters)
     else:
-        server = SoapListener.TwistedSoapStarter(port = int(port),
-                                    applications = services,
-                                    logfile = logfilename,
-                                    log_prefix = log_prefix,
-                                    log_formatters=log_formatters)
-    GroupService.site = server.site # to make it global and reachable by tier (wrong, I know)
-    auth.PasswordAuthenticationService.site = server.site # to make it global and reachable (wrong, I know)
+        server = SoapListener.TwistedSoapStarter(port=int(port),
+                                                 applications=services,
+                                                 logfile=logfilename,
+                                                 log_prefix=log_prefix,
+                                                 log_formatters=log_formatters)
+    GroupService.site = server.site
+    auth.PasswordAuthenticationService.site = server.site
 
     # We want the sessions to be simple dicts, for now:
     server.site.sessionFactory = SoapListener.SessionCacher
     # Set the timeout to something appropriate:
-    SoapListener.SessionCacher.sessionTimeout = 600 # = 10 minutes
+    SoapListener.SessionCacher.sessionTimeout = 600  # 10 minutes
     log.msg("DEBUG: GroupServer is using: %s" % instance)
     server.run()

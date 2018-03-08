@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
+#
 # Copyright 2011-2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -56,31 +56,33 @@ would cause trouble. Fix this, to be able to create several databases in one go,
 e.g. when testing several modules which needs a clean database.
 """
 
-import sys, os, time, logging, random
+import sys
+import os
+import time
+import random
 from mx.DateTime import DateTime, DateTimeDelta, now
 
 import suds
 from twisted.web import soap, error
 from twisted.internet import ssl, reactor, defer
 from twisted.internet.protocol import ClientFactory, Protocol
-from twisted.python import log, failure
+from twisted.python import log
 from twisted.trial import unittest
-
-from nose.tools import raises
 
 import OpenSSL
 from M2Crypto import RSA, X509, EVP, m2, ASN1
 
-import cerebrum_path, cereconf
+import cerebrum_path
+import cereconf
 from Cerebrum import Errors, Utils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 
 from Cerebrum.modules.cis import SoapListener, Individuation
 
+del cerebrum_path
+
 log.startLogging(sys.stdout)
-#logging.basicConfig(level=logging.DEBUG,
-#                format='%(asctime)s %(levelname)s [%(funcName)s] %(message)s')
 
 
 class IndividuationTestSetup:
@@ -95,18 +97,20 @@ class IndividuationTestSetup:
         # TODO: doesn't work correctly when several classes needs setup and
         # teardown... fix.
 
-        cls.dbname = 'nosetest_individuation_%s' % int(random.random() * 1000000000)
+        cls.dbname = 'nosetest_individuation_%s' % int(random.random() *
+                                                       1000000000)
         print "Database: ", cls.dbname
 
         cereconf.CEREBRUM_DATABASE_NAME_new = cls.dbname
-        cereconf.CEREBRUM_DATABASE_NAME_original = cereconf.CEREBRUM_DATABASE_NAME
-        cls.dbuser = (cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner'] or 
-                       cereconf.CEREBRUM_DATABASE_CONNECT_DATA['user'])
+        cereconf.CEREBRUM_DATABASE_NAME_original = \
+            cereconf.CEREBRUM_DATABASE_NAME
+        cls.dbuser = (cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner'] or
+                      cereconf.CEREBRUM_DATABASE_CONNECT_DATA['user'])
 
         def read_password(user, system, host=None, *args):
             """Mockup of Util's password reader"""
             # Would prefer to overwrite only 'system' and run original function:
-            #return Utils.read_password_original(user=user,
+            # return Utils.read_password_original(user=user,
             #                    system=cereconf.CEREBRUM_DATABASE_NAME_original)
 
             if system == cereconf.CEREBRUM_DATABASE_NAME_new:
@@ -120,15 +124,16 @@ class IndividuationTestSetup:
                 return dbpass
             finally:
                 f.close()
-        #Utils.read_password_original = Utils.read_password # could this be referenced to somehow?
         Utils.read_password = read_password
 
         # create a password file for the new database
-        os.link(cls.helper_generate_password_filename(cls.dbuser,
-                    cereconf.CEREBRUM_DATABASE_NAME_original,
-                    cereconf.CEREBRUM_DATABASE_CONNECT_DATA['host']),
-                cls.helper_generate_password_filename(cls.dbuser, cls.dbname,
-                    cereconf.CEREBRUM_DATABASE_CONNECT_DATA['host']))
+        os.link(cls.helper_generate_password_filename(
+            cls.dbuser,
+            cereconf.CEREBRUM_DATABASE_NAME_original,
+            cereconf.CEREBRUM_DATABASE_CONNECT_DATA['host']),
+            cls.helper_generate_password_filename(
+                cls.dbuser, cls.dbname,
+                cereconf.CEREBRUM_DATABASE_CONNECT_DATA['host']))
 
         # TODO: This requires an already existing database to first connect
         # to, for creating temporary. Could it be done without any db instead?
@@ -143,7 +148,8 @@ class IndividuationTestSetup:
         del db
 
         cereconf.CEREBRUM_DATABASE_NAME = cls.dbname
-        cereconf.CEREBRUM_DDL_DIR = os.path.join(os.path.dirname(__file__), "../../../design")
+        cereconf.CEREBRUM_DDL_DIR = os.path.join(os.path.dirname(__file__),
+                                                 "../../../design")
 
         cls.db = Factory.get('Database')(user=cls.dbuser)
         cls.db.cl_init(change_program='nosetest')
@@ -154,9 +160,9 @@ class IndividuationTestSetup:
 
         from Cerebrum import Metainfo
         import makedb
-        reload(makedb) # TODO: does this fix that cereconf gets updated
-                       #       correctly for the module?
-
+        # TODO: does this fix that cereconf gets updated
+        # correctly for the module?
+        reload(makedb)
         global meta
         meta = Metainfo.Metainfo(cls.db)
         makedb.meta = meta
@@ -171,11 +177,10 @@ class IndividuationTestSetup:
                   'mod_email.sql', 'mod_employment.sql', 'mod_sap.sql',
                   'mod_printer_quota.sql', 'mod_stedkode.sql',
                   'mod_ephorte.sql', 'mod_voip.sql',
-                  'bofhd_tables.sql', 'bofhd_auth.sql', 
+                  'bofhd_tables.sql', 'bofhd_auth.sql',
                   'mod_hostpolicy.sql', 'mod_dns.sql',
                   ):
             extra_files.append(os.path.join(cereconf.CEREBRUM_DDL_DIR, f))
-        #bofhd_tables.sql, bofhd_auth.sql, mod_job_runner.sql
 
         for f in makedb.get_filelist(cls.db, extra_files=extra_files):
             makedb.runfile(f, cls.db, debug, 'code')
@@ -203,7 +208,7 @@ class IndividuationTestSetup:
         bootstrap_id = ac.entity_id
 
         for group in ((getattr(cereconf, 'BOFHD_SUPERUSER_GROUP', ()),) +
-                       getattr(cereconf, 'INDIVIDUATION_PASW_RESERVED', ())):
+                      getattr(cereconf, 'INDIVIDUATION_PASW_RESERVED', ())):
             gr.clear()
             try:
                 gr.find_by_name(group)
@@ -211,8 +216,8 @@ class IndividuationTestSetup:
             except Errors.NotFoundError:
                 pass
             gr.populate(creator_id=bootstrap_id,
-                    visibility=co.group_visibility_all, name=group,
-                    description='Group for individuation')
+                        visibility=co.group_visibility_all, name=group,
+                        description='Group for individuation')
             gr.write_db()
             cls.db.commit()
 
@@ -232,20 +237,20 @@ class IndividuationTestSetup:
         if not cls.dbname.startswith('nosetest_'):
             print "Unknown dbname: '%s', don't want to drop it" % cls.dbname
         else:
-            os.unlink(cls.helper_generate_password_filename(cls.dbuser,
+            os.unlink(cls.helper_generate_password_filename(
+                cls.dbuser,
                 cls.dbname,
                 host=cereconf.CEREBRUM_DATABASE_CONNECT_DATA['host']))
 
             # TODO: do not drop db if errors have occured? Might want to look
             # at it first.
 
-            #cls.db.rollback()
-            #cls.db.execute('drop database %s' % cls.dbname)
             cls.db.commit()
-        cereconf.CEREBRUM_DATABASE_NAME = cereconf.CEREBRUM_DATABASE_NAME_original
+        cereconf.CEREBRUM_DATABASE_NAME = \
+            cereconf.CEREBRUM_DATABASE_NAME_original
 
-    def createServer(self, instance, encrypt=False, server_key=None, server_cert=None,
-            client_cert=None, whitelist=None):
+    def createServer(self, instance, encrypt=False, server_key=None,
+                     server_cert=None, client_cert=None, whitelist=None):
         """Creates a temporary Individuation webservice. Note that the reactor
         is handled by twisted.trial.unittest, so do not run() the server.
 
@@ -256,27 +261,29 @@ class IndividuationTestSetup:
         SoapIndividuationServer.IndividuationServer.cere_class = instance
 
         if encrypt:
-            server = SoapListener.TLSTwistedSoapStarter(port = 0,
-                        applications = SoapIndividuationServer.IndividuationServer,
-                        private_key_file = server_key,
-                        certificate_file = server_cert, 
-                        client_ca = client_cert,
-                        client_fingerprints = whitelist)
+            server = SoapListener.TLSTwistedSoapStarter(
+                port=0,
+                applications=SoapIndividuationServer.IndividuationServer,
+                private_key_file=server_key,
+                certificate_file=server_cert,
+                client_ca=client_cert,
+                client_fingerprints=whitelist)
         else:
-            server = SoapListener.TwistedSoapStarter(port = 0, 
-                        applications = SoapIndividuationServer.IndividuationServer)
+            server = SoapListener.TwistedSoapStarter(
+                port=0,
+                applications=SoapIndividuationServer.IndividuationServer)
 
-        SoapIndividuationServer.IndividuationServer.site = server.site # to make the site reachable by the Individuation class (wrong, I know)
+        SoapIndividuationServer.IndividuationServer.site = server.site
 
         # The reactor can only be run once in a process, it can not be rerun.
         # Besides, twisted.trial takes care of all that.
         return server
 
     def setupServer(self, encrypt=False, server_key=None, server_cert=None,
-            client_cert=None, instance=None, whitelist=None):
+                    client_cert=None, instance=None, whitelist=None):
         """Start up the Individuation webservice.
         """
-        self.tearDownServer() # reset if not correctly stopped by last test
+        self.tearDownServer()  # reset if not correctly stopped by last test
 
         if not instance:
             # Force Individuation to use same database:
@@ -284,17 +291,18 @@ class IndividuationTestSetup:
                 db = self.db
             elif hasattr(self.__class__, 'db'):
                 db = self.db
-            Individuation.db = db 
+            Individuation.db = db
             Individuation.Individuation.db = db
             instance = Individuation.Individuation
         # overwrite some functionality
+
         def send_token_grabber(self, phone_no, token):
             self.last_token = token
             return True
         instance.send_token = send_token_grabber
 
         def sendmail_grabber(toaddr, fromaddr, subject, body, cc=None,
-                charset='iso-8859-1', debug=False):
+                             charset='utf-8', debug=False):
             log.msg("email %s -> %s (%s)" % (fromaddr, toaddr, subject))
         Individuation.sendmail = sendmail_grabber
 
@@ -316,10 +324,12 @@ class IndividuationTestSetup:
     def setupSudsClient(self, url=None):
         """Set up suds and connect to webservice."""
         if not url:
-            url = "http://cere-utv01.uio.no:%d/SOAP/?wsdl" % self.server.port.getHost().port
+            url = ("http://cere-utv01.uio.no:%d/SOAP/?wsdl" %
+                   self.server.port.getHost().port)
         # A bug in suds fetches the xml dtd, which is wrong. This caches it
         from suds.xsd import sxbasic
-        sxbasic.Import.bind('http://www.w3.org/2001/XMLSchema', 
+        sxbasic.Import.bind(
+            'http://www.w3.org/2001/XMLSchema',
             'file://' + os.path.join('/tmp/', 'cache', 'suds', 'XMLSchema.xml'))
         client = suds.client.Client(url)
         client.options.cache.setduration(days=100)
@@ -337,7 +347,7 @@ class IndividuationTestSetup:
             url = '%s://%s:%d/SOAP/?wsdl' % (proto, host.host, host.port)
         return soap.Proxy(url)
 
-    def createPerson(self, birth=DateTime(1970,2,3), first_name=None,
+    def createPerson(self, birth=DateTime(1970, 2, 3), first_name=None,
                      last_name=None, system=None, gender=True, fnr=None,
                      ansnr=None, studnr=None):
         """Shortcut for creating a test person in the db"""
@@ -366,20 +376,22 @@ class IndividuationTestSetup:
             pe.find(pe_id)
         if studnr:
             pe.affect_external_id(co.system_fs, co.externalid_studentnr)
-            pe.populate_external_id(co.system_fs, co.externalid_studentnr, studnr)
+            pe.populate_external_id(co.system_fs, co.externalid_studentnr,
+                                    studnr)
             pe.write_db()
             self.db.commit()
             pe.clear()
             pe.find(pe_id)
         if ansnr:
             pe.affect_external_id(co.system_sap, co.externalid_sap_ansattnr)
-            pe.populate_external_id(co.system_sap, co.externalid_sap_ansattnr, ansnr)
+            pe.populate_external_id(co.system_sap, co.externalid_sap_ansattnr,
+                                    ansnr)
             pe.write_db()
             self.db.commit()
         pe.write_db()
         self.db.commit()
         return pe
-        
+
     def createAccount(self, owner, uname):
         """Shortcut for creating an account in the test db"""
         ac = Factory.get('Account')(self.db)
@@ -404,14 +416,14 @@ class IndividuationTestSetup:
         format_str = ''.join(fmt)
         format_var = tuple(var)
         return os.path.join(cereconf.DB_AUTH_DIR,
-                                format_str % format_var)
+                            format_str % format_var)
 
     def helper_generate_sms_token(self,
-                             username='rogertst',
-                             ext_id='externalid_sap_ansattnr',
-                             id='10001626',
-                             phone_no='91726078',
-                             browser_token='123qwe'):
+                                  username='rogertst',
+                                  ext_id='externalid_sap_ansattnr',
+                                  id='10001626',
+                                  phone_no='91726078',
+                                  browser_token='123qwe'):
         """Helper method for generating an SMS token and returning it from the
         db, so validation of it can be tested."""
         self.client.service.generate_token(ext_id, id, username, phone_no,
@@ -441,12 +453,16 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
             del self.last_token
         # reset variables in cereconf that should be set to default
         cereconf.INDIVIDUATION_PHONE_TYPES = {
-            'system_sap': { 'types': { 'contact_mobile_phone': {}, 'contact_private_mobile': {}, },
-                'priority': 1,
-            },
-            'system_fs':  { 'types': { 'contact_mobile_phone': {'delay': 7}, 'contact_private_mobile': {'delay': 7}, },
-                'priority': 1,
-            },}
+            'system_sap': {
+                'types': {
+                    'contact_mobile_phone': {},
+                    'contact_private_mobile': {}},
+                'priority': 1},
+            'system_fs':  {
+                'types': {
+                    'contact_mobile_phone': {'delay': 7},
+                    'contact_private_mobile': {'delay': 7}},
+                'priority': 1}}
 
     def assertAccounts(self, data, match):
         """Check that returned accounts are as expected."""
@@ -465,25 +481,25 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
     def test_config_priorities(self):
         cereconf.INDIVIDUATION_PHONE_TYPES = {
             'system_sap': {
-                'types': { 'contact_private_mobile': {}, },
-                'priority': 1,
-            },
+                'types': {
+                    'contact_private_mobile': {}},
+                'priority': 1},
             'system_fs':  {
-                'types': { 'contact_mobile_phone': {'delay': 7}, },
-                'priority': 2,
-            },
+                'types': {
+                    'contact_mobile_phone': {'delay': 7}},
+                'priority': 2},
             'system_pbx': {
-                'types': { 'contact_mobile_phone': {}, },
-                'priority': 2,
-            },
+                'types': {
+                    'contact_mobile_phone': {}},
+                'priority': 2},
         }
         pri = list(Individuation.Individuation()._get_priorities())
         self.assertEquals(len(pri), 2)
-        self.assertTrue(pri[0].has_key('system_sap'))
+        self.assertTrue('system_sap' in pri[0])
         # order doesn't matter inside each priority
         self.assertEquals(len(pri[1]), 2)
-        self.assertTrue(pri[1].has_key('system_fs'))
-        self.assertTrue(pri[1].has_key('system_pbx'))
+        self.assertTrue('system_fs' in pri[1])
+        self.assertTrue('system_pbx' in pri[1])
 
     def test_get_nonexisting_user(self):
         d = self.client.callRemote('get_usernames',
@@ -505,8 +521,8 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         d = self.client.callRemote('get_usernames',
                                    id_type='externalid_sap_ansattnr',
                                    ext_id='1001234')
-        d.addCallback(self.assertAccounts, ('tarnfrid',));
-        return d
+        d.addCallback(self.assertAccounts, ('tarnfrid',))
+        return
 
     def test_get_usernames(self):
         pe = self.createPerson(DateTime(1984, 8, 1), "Ola", "Nordmann",
@@ -515,8 +531,9 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         self.createAccount(pe, 'olano')
         self.createAccount(pe, 'norman')
 
-        d = self.client.callRemote('get_usernames', id_type='externalid_sap_ansattnr',
-                                                    ext_id='12387001')
+        d = self.client.callRemote('get_usernames',
+                                   id_type='externalid_sap_ansattnr',
+                                   ext_id='12387001')
         d.addCallback(self.assertAccounts, ('ola', 'olano', 'norman'))
         return d
 
@@ -528,7 +545,8 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         return d
 
     def test_validate_password(self):
-        d = self.client.callRemote('validate_password', password='q_i#A%U1sB4f+Q')
+        d = self.client.callRemote('validate_password',
+                                   password='q_i#A%U1sB4f+Q')
         d.addCallback(self.assertEquals, 'true')
         return d
 
@@ -543,9 +561,10 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         ou = Factory.get('OU')(self.db)
         ou.find_stedkode(0, 0, 0, 0)
 
-        pe.populate_affiliation(source_system=co.system_sap, ou_id=ou.entity_id,
-                affiliation=co.affiliation_ansatt,
-                status=co.affiliation_status_ansatt_vitenskapelig)
+        pe.populate_affiliation(
+            source_system=co.system_sap, ou_id=ou.entity_id,
+            affiliation=co.affiliation_ansatt,
+            status=co.affiliation_status_ansatt_vitenskapelig)
         pe.populate_contact_info(source_system=co.system_sap,
                                  type=co.contact_mobile_phone,
                                  value='12345678')
@@ -555,33 +574,40 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
 
         pe = Factory.get('Person')(self.db)
         d = self.client.callRemote('generate_token',
-                id_type="externalid_sap_ansattnr", ext_id='1001235',
-                username=uname, phone_no='12345678',
-                browser_token=browser_token)
+                                   id_type="externalid_sap_ansattnr",
+                                   ext_id='1001235', username=uname,
+                                   phone_no='12345678',
+                                   browser_token=browser_token)
         d.addCallback(self.assertEquals, 'true')
+
         def checkPassword(data):
             ac.clear()
             ac.find_by_name(uname)
             assert ac.verify_auth(new_password), "Password not set"
+
         def setPassword(data):
+            NEW_password = None
             d = self.client.callRemote('set_password', username=uname,
-                    new_passworD=NEW_password, token=self.last_token,
-                    browser_token=browser_token)
+                                       new_password=NEW_password,
+                                       token=self.last_token,
+                                       browser_token=browser_token)
             d.addCallback(self.assertEquals, 'true')
             d.addCallback(checkPassword)
             return d
+
         def checkToken(data):
             d = self.client.callRemote('check_token', username=uname,
-                    token=self.last_token, browser_token=browser_token)
+                                       token=self.last_token,
+                                       browser_token=browser_token)
             # the soap client doesn't seem to handle booleans correctly?
-            d.addCallback(self.assertEquals, 'true') 
+            d.addCallback(self.assertEquals, 'true')
             d.addCallback(setPassword)
             return d
         d.addCallback(checkToken)
         return d
 
     def test_max_user_attempts(self):
-        # TODO: 
+        # TODO:
         # 1. generate tokens for a given user as many times as defined in
         #    cereconf.INDIVIDUATION_ATTEMPTS
         # 2. check that you are not allowed to try more times.
@@ -610,7 +636,8 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
     test_max_token_fail_password.skip = "TODO"
 
     def test_abort_token(self):
-        d = self.client.callRemote('abort_token', username=cereconf.INITIAL_ACCOUNTNAME)
+        d = self.client.callRemote('abort_token',
+                                   username=cereconf.INITIAL_ACCOUNTNAME)
         # this should never return any error, even if account exists or not
         return d
     test_abort_token.skip = "TODO"
@@ -624,24 +651,28 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
     test_abort_correct_token.skip = "TODO"
 
     def test_abort_token_nonexisting_user(self):
-        d = self.client.callRemote('abort_token', username='test1234_username_125_nonexisting')
+        d = self.client.callRemote('abort_token',
+                                   username='test1234_username_125_nonexisting')
         # this should never return any error, even if account exists or not
         return d
 
     def test_phonenumberchange_delay(self):
         """Fresh phone numbers should not be used if config says so."""
-        cereconf.INDIVIDUATION_PHONE_TYPES['system_fs']['types']['contact_mobile_phone']['delay'] = 7
-        cereconf.INDIVIDUATION_PHONE_TYPES['system_fs']['types']['contact_private_mobile']['delay'] = 7
+        cereconf.INDIVIDUATION_PHONE_TYPES[
+            'system_fs']['types']['contact_mobile_phone']['delay'] = 7
+        cereconf.INDIVIDUATION_PHONE_TYPES[
+            'system_fs']['types']['contact_private_mobile']['delay'] = 7
 
         ou = Factory.get('OU')(self.db)
         co = Factory.get('Constants')(self.db)
         ou.find_stedkode(0, 0, 0, 0)
-        pe = self.createPerson(first_name='Miss', last_name='Test', studnr='007')
+        pe = self.createPerson(first_name='Miss', last_name='Test',
+                               studnr='007')
         ac = self.createAccount(pe, 'mstest')
 
         pe.populate_affiliation(source_system=co.system_fs, ou_id=ou.entity_id,
-                affiliation=co.affiliation_student,
-                status=co.affiliation_status_student_aktiv)
+                                affiliation=co.affiliation_student,
+                                status=co.affiliation_status_student_aktiv)
         pe.write_db()
         pe.populate_contact_info(source_system=co.system_fs,
                                  type=co.contact_mobile_phone,
@@ -667,37 +698,40 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         # hack the create_date in change_log
         self.db.execute("""
             UPDATE [:table schema=cerebrum name=change_log]
-            SET tstamp = :tid 
-            WHERE 
+            SET tstamp = :tid
+            WHERE
                 subject_entity = :s_id AND
-                change_type_id = :ct_id""", 
-                    {'s_id': pe.entity_id,
-                    'ct_id': co.person_create,
-                    'tid': DateTime(2009, 10, 4),})
+                change_type_id = :ct_id""",
+                        {'s_id': pe.entity_id,
+                         'ct_id': co.person_create,
+                         'tid': DateTime(2009, 10, 4)})
         self.db.commit()
 
         d = self.client.callRemote('generate_token',
-                id_type="externalid_studentnr", ext_id='007',
-                username='mstest', phone_no='98012345',
-                browser_token='a')
+                                   id_type="externalid_studentnr", ext_id='007',
+                                   username='mstest', phone_no='98012345',
+                                   browser_token='a')
         d = self.assertFailure(d, error.Error)
         # TODO: test that sendmail is called with the correct to-address
         return d
 
     def test_phonenumberchange_fresh_person(self):
         """Fresh phone numbers should still be available for new persons"""
-        cereconf.INDIVIDUATION_PHONE_TYPES['system_fs']['types']['contact_mobile_phone']['delay'] = 7
-        cereconf.INDIVIDUATION_PHONE_TYPES['system_fs']['types']['contact_private_mobile']['delay'] = 7
+        cereconf.INDIVIDUATION_PHONE_TYPES[
+            'system_fs']['types']['contact_mobile_phone']['delay'] = 7
+        cereconf.INDIVIDUATION_PHONE_TYPES[
+            'system_fs']['types']['contact_private_mobile']['delay'] = 7
 
         ou = Factory.get('OU')(self.db)
         co = Factory.get('Constants')(self.db)
         ou.find_stedkode(0, 0, 0, 0)
-        pe = self.createPerson(first_name='Miss', last_name='Test2', studnr='008')
-        ac = self.createAccount(pe, 'mstest2')
+        pe = self.createPerson(first_name='Miss', last_name='Test2',
+                               studnr='008')
+        self.createAccount(pe, 'mstest2')
 
         pe.populate_affiliation(source_system=co.system_fs, ou_id=ou.entity_id,
-                affiliation=co.affiliation_student,
-                status=co.affiliation_status_student_aktiv)
+                                affiliation=co.affiliation_student,
+                                status=co.affiliation_status_student_aktiv)
         pe.write_db()
         pe.populate_contact_info(source_system=co.system_fs,
                                  type=co.contact_mobile_phone,
@@ -708,18 +742,18 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         # hack the create_date in change_log
         print self.db.execute("""
             UPDATE [:table schema=cerebrum name=change_log]
-            SET tstamp = :tid 
-            WHERE 
+            SET tstamp = :tid
+            WHERE
                 subject_entity = :s_id AND
-                change_type_id = :ct_id""", 
-                    {'s_id': pe.entity_id,
-                    'ct_id': co.person_create,
-                    'tid': now() - DateTimeDelta(5),})
+                change_type_id = :ct_id""",
+                              {'s_id': pe.entity_id,
+                               'ct_id': co.person_create,
+                               'tid': now() - DateTimeDelta(5)})
 
         d = self.client.callRemote('generate_token',
-                id_type="externalid_studentnr", ext_id='008',
-                username='mstest2', phone_no='98012345',
-                browser_token='a')
+                                   id_type="externalid_studentnr", ext_id='008',
+                                   username='mstest2', phone_no='98012345',
+                                   browser_token='a')
         d.addCallback(self.assertEquals, 'true')
         return d
 
@@ -728,10 +762,14 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         config says so."""
         # TODO: make sure this affects the Individuation module
         cereconf.INDIVIDUATION_PHONE_TYPES = {
-            'system_sap': { 'types': {'contact_mobile_phone': {}, },
+            'system_sap': {
+                'types': {
+                    'contact_mobile_phone': {}},
                 'priority': 1, },
-            'system_fs':  { 'types': { 'contact_mobile_phone': {'delay': 7}, },
-                'priority': 2, }, }
+            'system_fs':  {
+                'types': {
+                    'contact_mobile_phone': {'delay': 7}},
+                'priority': 2}}
         co = Factory.get('Constants')(self.db)
         ou = Factory.get('OU')(self.db)
         ou.find_stedkode(0, 0, 0, 0)
@@ -739,9 +777,10 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
                                ansnr='12345', studnr='12344')
         pe_id = pe.entity_id
 
-        pe.populate_affiliation(source_system=co.system_sap, ou_id=ou.entity_id,
-                affiliation=co.affiliation_ansatt,
-                status=co.affiliation_status_ansatt_vitenskapelig)
+        pe.populate_affiliation(
+            source_system=co.system_sap, ou_id=ou.entity_id,
+            affiliation=co.affiliation_ansatt,
+            status=co.affiliation_status_ansatt_vitenskapelig)
         pe.populate_contact_info(source_system=co.system_sap,
                                  type=co.contact_mobile_phone,
                                  value='12345678')
@@ -750,20 +789,20 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         pe.clear()
         pe.find(pe_id)
         pe.populate_affiliation(source_system=co.system_fs, ou_id=ou.entity_id,
-                affiliation=co.affiliation_student,
-                status=co.affiliation_status_student_aktiv)
+                                affiliation=co.affiliation_student,
+                                status=co.affiliation_status_student_aktiv)
         pe.populate_contact_info(source_system=co.system_fs,
                                  type=co.contact_mobile_phone,
                                  value='87654321')
         pe.write_db()
         self.db.commit()
 
-        ac = self.createAccount(pe, 'mrduble')
+        self.createAccount(pe, 'mrduble')
 
         d = self.client.callRemote('generate_token',
-                id_type="externalid_studentnr", ext_id='12344',
-                username='mrduble', phone_no='87654321',
-                browser_token='b')
+                                   id_type="externalid_studentnr",
+                                   ext_id='12344', username='mrduble',
+                                   phone_no='87654321', browser_token='b')
         d = self.assertFailure(d, error.Error)
         return d
 
@@ -772,10 +811,13 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         says so."""
         # TODO: make sure this affects the Individuation module
         cereconf.INDIVIDUATION_PHONE_TYPES = {
-            'system_sap': { 'types': {'contact_mobile_phone': {}, },
-                'priority': 2, },
-            'system_fs':  { 'types': { 'contact_mobile_phone': {'delay': 7}, },
-                'priority': 2, }, }
+            'system_sap': {
+                'types': {'contact_mobile_phone': {}},
+                'priority': 2},
+            'system_fs':  {
+                'types': {
+                    'contact_mobile_phone': {'delay': 7}},
+                'priority': 2}}
         co = Factory.get('Constants')(self.db)
         ou = Factory.get('OU')(self.db)
         ou.find_stedkode(0, 0, 0, 0)
@@ -783,9 +825,10 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
                                ansnr='22345', studnr='22344')
         pe_id = pe.entity_id
 
-        pe.populate_affiliation(source_system=co.system_sap, ou_id=ou.entity_id,
-                affiliation=co.affiliation_ansatt,
-                status=co.affiliation_status_ansatt_vitenskapelig)
+        pe.populate_affiliation(
+            source_system=co.system_sap, ou_id=ou.entity_id,
+            affiliation=co.affiliation_ansatt,
+            status=co.affiliation_status_ansatt_vitenskapelig)
         pe.populate_contact_info(source_system=co.system_sap,
                                  type=co.contact_mobile_phone,
                                  value='12345678')
@@ -794,20 +837,20 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         pe.clear()
         pe.find(pe_id)
         pe.populate_affiliation(source_system=co.system_fs, ou_id=ou.entity_id,
-                affiliation=co.affiliation_student,
-                status=co.affiliation_status_student_aktiv)
+                                affiliation=co.affiliation_student,
+                                status=co.affiliation_status_student_aktiv)
         pe.populate_contact_info(source_system=co.system_fs,
                                  type=co.contact_mobile_phone,
                                  value='87654321')
         pe.write_db()
         self.db.commit()
 
-        ac = self.createAccount(pe, 'mrdubl2')
+        self.createAccount(pe, 'mrdubl2')
 
         d = self.client.callRemote('generate_token',
-                id_type="externalid_studentnr", ext_id='12344',
-                username='mrduble', phone_no='87654321',
-                browser_token='b')
+                                   id_type="externalid_studentnr",
+                                   ext_id='12344', username='mrduble',
+                                   phone_no='87654321', browser_token='b')
         d.addCallback(self.assertEquals, 'true')
         return d
 
@@ -821,6 +864,7 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         if hasattr(cls, 'server'):
             del cls.server
 
+
 class EmptyIndividuation(Individuation.Individuation):
     """Empty Individuation class, to mimic webservice's behaviour without
     Cerebrum."""
@@ -833,26 +877,36 @@ class EmptyIndividuation(Individuation.Individuation):
                     'priority': 'test',
                     'status': 'statt'})
         return ret
+
     def generate_token(self, id_type, ext_id, uname, phone_no, browser_token):
         return None
+
     def send_token(self, phone_no, token):
         return None
+
     def check_token(self, uname, token, browser_token):
         return None
+
     def delete_token(self, uname):
         """Overwriting this to an echo method, for checking data"""
         return uname
+
     def _check_password(self, password, account=None):
         return False
+
     def set_password(self, uname, new_password, token, browser_token):
         return None
+
     def get_person(self, id_type, ext_id):
         return None
+
     def get_account(self, uname):
         return None
+
     def validate_password(self, password):
         """Overwriting this to return data in an exception, for checking data"""
         raise Errors.CerebrumRPCException(password)
+
 
 class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
     """Testing the connection of the Individuation webservice, independent of
@@ -860,12 +914,10 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
 
     @classmethod
     def setUpClass(cls):
-        #from twisted.internet.base import DelayedCall
-        #DelayedCall.debug = True
         pass
 
     def setUp(self):
-        self.timeout = 5 # only testing connection, should not take long
+        self.timeout = 5  # only testing connection, should not take long
         if hasattr(self, 'server'):
             del self.server
 
@@ -889,14 +941,14 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
 
         req = X509.Request()
         # Seems to default to 0, but we can now set it as well, so just API test
-        req.set_version(req.get_version()) # TODO: set to version 2 as well
+        req.set_version(req.get_version())  # TODO: set to version 2 as well
         req.set_pubkey(pkey)
         req.set_subject_name(name)
 
-        #ext1 = X509.new_extension('Comment', 'Auto Generated')
-        #extstack = X509.X509_Extension_Stack()
-        #extstack.push(ext1)
-        #req.add_extensions(extstack)
+        # ext1 = X509.new_extension('Comment', 'Auto Generated')
+        # extstack = X509.X509_Extension_Stack()
+        # extstack.push(ext1)
+        # req.add_extensions(extstack)
         req.sign(pkey, 'sha1')
         return req
 
@@ -927,9 +979,9 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         cert.set_issuer(name)
         cert.set_pubkey(pkey)
 
-        #ext = X509.new_extension('subjectAltName', 'DNS:localhost')
-        #ext.set_critical(0)
-        #cert.add_ext(ext)
+        # ext = X509.new_extension('subjectAltName', 'DNS:localhost')
+        # ext.set_critical(0)
+        # cert.add_ext(ext)
         cert.sign(pkey, 'sha1')
         return cert
 
@@ -951,9 +1003,9 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         cert.set_issuer(cacert.get_subject())
         cert.set_pubkey(request.get_pubkey())
 
-        #ext = X509.new_extension('subjectAltName', 'DNS:localhost')
-        #ext.set_critical(0)
-        #cert.add_ext(ext)
+        # ext = X509.new_extension('subjectAltName', 'DNS:localhost')
+        # ext.set_critical(0)
+        # cert.add_ext(ext)
         cert.sign(cakey, 'sha1')
         return cert
 
@@ -1004,20 +1056,20 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
             f.close()
         return (keylocation, certlocation)
 
-
     def test_unencrypted_connection(self):
         self.server = self.setupServer(encrypt=False,
-                                                instance=EmptyIndividuation)
+                                       instance=EmptyIndividuation)
         client = self.setupClient()
         d = client.callRemote('get_usernames', id_type=3, ext_id=4)
         return d
 
     def test_bad_method(self):
         self.server = self.setupServer(encrypt=False,
-                                        instance=EmptyIndividuation)
+                                       instance=EmptyIndividuation)
         client = self.setupClient()
         d = client.callRemote('call_nonexisting_method_14151', 3, param1=4)
         d = self.assertFailure(d, error.Error)
+
         def cb(err):
             self.assertEquals(int(err.status), 500)
         d.addCallback(cb)
@@ -1025,7 +1077,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
 
     def test_bad_params(self):
         self.server = self.setupServer(encrypt=False,
-                                        instance=EmptyIndividuation)
+                                       instance=EmptyIndividuation)
         client = self.setupClient()
         d = client.callRemote('get_usernames')
         d = self.assertFailure(d, error.Error)
@@ -1038,6 +1090,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
                                        instance=EmptyIndividuation)
         client = self.setupClient()
         d = client.callRemote('get_usernames', id_type=string, ext_id=string2)
+
         def cb(data):
             print data.Account
             self.assertEquals(len(data.Account), 2)
@@ -1048,12 +1101,13 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         return d
 
     def test_xml_data(self):
-        string = u'test & 1% ¤2© ª”«»3' # how to parse this correctly?
+        string = u'test & 1% ¤2© ª”«»3'  # how to parse this correctly?
         string2 = u'9³ 5² 8¼'
         self.server = self.setupServer(encrypt=False,
                                        instance=EmptyIndividuation)
         client = self.setupClient()
         d = client.callRemote('get_usernames', id_type=string, ext_id=string2)
+
         def cb(data):
             print data.Account
             self.assertEquals(len(data.Account), 2)
@@ -1066,24 +1120,24 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
     def test_encrypted_server_start(self):
         (key, cert) = self.helper_get_certificate()
         self.server = self.setupServer(encrypt=True, server_key=key,
-                                        server_cert=cert,
-                                        instance=EmptyIndividuation)
+                                       server_cert=cert,
+                                       instance=EmptyIndividuation)
         client = self.setupClient(encrypt=True)
         d = client.callRemote('get_usernames', id_type=1, ext_id=None)
         return d
 
     def test_no_client_certificate(self):
-        #client_cert_name = '/tmp/nosetest_individuation.client.pem'
+        # client_cert_name = '/tmp/nosetest_individuation.client.pem'
         (key, cert) = self.helper_get_certificate()
-        #(c_key, c_pkey) = self.helper_generate_key()
-        #c_cert = self.helper_generate_certificate(c_pkey)
-        #f = open(client_cert_name, 'w')
-        #f.write(c_cert.as_pem())
-        #f.close()
+        # (c_key, c_pkey) = self.helper_generate_key()
+        # c_cert = self.helper_generate_certificate(c_pkey)
+        # f = open(client_cert_name, 'w')
+        # f.write(c_cert.as_pem())
+        # f.close()
         self.server = self.setupServer(encrypt=True, server_key=key,
-                                        server_cert=cert,
-                                        client_cert=cert,
-                                        instance=EmptyIndividuation)
+                                       server_cert=cert,
+                                       client_cert=cert,
+                                       instance=EmptyIndividuation)
         # TODO: create a twisted ssl connection instead, and only try to get the
         # wsdl definitions in a deferred. It should be blocked!
         client = self.setupClient(encrypt=True)
@@ -1091,75 +1145,79 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         return self.assertFailure(d, OpenSSL.SSL.Error)
 
     def test_connection_with_certificate(self):
-        (key, cert)   = self.helper_get_certificate()
+        (key, cert) = self.helper_get_certificate()
         (ckey, ccert) = self.helper_get_client_certificate()
         self.server = self.setupServer(encrypt=True, server_key=key,
-                                        server_cert=cert,
-                                        client_cert=cert,
-                                        instance=EmptyIndividuation)
+                                       server_cert=cert,
+                                       client_cert=cert,
+                                       instance=EmptyIndividuation)
         f = ConnectionDebuggerFactory()
         ccf = ssl.DefaultOpenSSLContextFactory(ckey, ccert)
         ctx = ccf.getContext()
+
         def cb2(data):
             print "ssl: %s" % data
         ctx.set_info_callback(cb2)
 
-        port = reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
+        reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
 
         def cb(data):
-            print "data: %s"% data
+            print "data: %s" % data
+
         def cbfail(data):
-            print "fail: %s"% data
+            print "fail: %s" % data
         f.d.addErrback(cbfail)
         f.d.addCallback(cb)
         # TODO: times out - probably wrong use of deferred in test code
         return f.d
 
     def test_connection_with_whitelisted_certificate(self):
-        (key, cert)   = self.helper_get_certificate()
+        (key, cert) = self.helper_get_certificate()
         (ckey, ccert) = self.helper_get_client_certificate()
         client_cert = X509.load_cert(ccert)
         fingerprint = str(client_cert.get_fingerprint('sha1'))
         self.server = self.setupServer(encrypt=True, server_key=key,
-                                        server_cert=cert,
-                                        client_cert=cert,
-                                        instance=EmptyIndividuation,
-                                        whitelist=fingerprint)
+                                       server_cert=cert,
+                                       client_cert=cert,
+                                       instance=EmptyIndividuation,
+                                       whitelist=fingerprint)
         f = ConnectionDebuggerFactory()
         ccf = ssl.DefaultOpenSSLContextFactory(ckey, ccert)
-        port = reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
+        reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
+
         def cb(data):
-            print "data: %s"% data
+            print "data: %s" % data
+
         def cbfail(data):
-            print "fail: %s"% data
+            print "fail: %s" % data
         f.d.addErrback(cbfail)
         f.d.addCallback(cb)
         # TODO: times out - probably wrong use of deferred in test code
         return f.d
 
     def test_connection_with_nonwhitelisted_certificate(self):
-        (key, cert)   = self.helper_get_certificate()
+        (key, cert) = self.helper_get_certificate()
         (ckey, ccert) = self.helper_get_client_certificate()
         self.server = self.setupServer(encrypt=True, server_key=key,
-                                        server_cert=cert,
-                                        client_cert=cert,
-                                        instance=EmptyIndividuation,
-                                        whitelist='asdfasdf')
+                                       server_cert=cert,
+                                       client_cert=cert,
+                                       instance=EmptyIndividuation,
+                                       whitelist='asdfasdf')
         f = ConnectionDebuggerFactory()
         ccf = ssl.DefaultOpenSSLContextFactory(ckey, ccert)
-        port = reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
+        reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
         return self.assertFailure(f.d, OpenSSL.SSL.Error)
 
     def test_connection_with_wrong_certificate(self):
-        (key, cert)   = self.helper_get_certificate()
+        (key, cert) = self.helper_get_certificate()
         (ckey, ccert) = self.helper_get_client_certificate()
         self.server = self.setupServer(encrypt=True, server_key=key,
-                                        server_cert=cert,
-                                        client_cert=ccert,
-                                        instance=EmptyIndividuation)
+                                       server_cert=cert,
+                                       client_cert=ccert,
+                                       instance=EmptyIndividuation)
         f = ConnectionDebuggerFactory()
         ccf = ssl.DefaultOpenSSLContextFactory(ckey, ccert)
-        port = reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
+        reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
         return self.assertFailure(f.d, OpenSSL.SSL.Error)
 
     def test_selfsigned_client_certificate(self):
@@ -1169,18 +1227,19 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         #    twisted's ssl connection and aim for the wsdl.
         # 4. check that connection is blocked!
 
-        # Simply done by switching the certificates, since ca certificate is self signed
+        # Simply done by switching the certificates, since ca certificate is
+        # self signed
         (cakey, ca) = self.helper_get_certificate()
         (key, cert) = self.helper_get_client_certificate()
 
         (ckey, ccert) = self.helper_get_client_certificate()
         self.server = self.setupServer(encrypt=True, server_key=key,
-                                        server_cert=cert,
-                                        client_cert=cert,
-                                        instance=EmptyIndividuation)
+                                       server_cert=cert,
+                                       client_cert=cert,
+                                       instance=EmptyIndividuation)
         f = ConnectionDebuggerFactory()
         ccf = ssl.DefaultOpenSSLContextFactory(cakey, ca)
-        port = reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
+        reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
         return self.assertFailure(f.d, OpenSSL.SSL.Error)
 
     def tearDown(self):
@@ -1195,6 +1254,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
     def tearDownClass(cls):
         pass
 
+
 class ConnectionDebuggerProtocol(Protocol):
     def connectionMade(self):
         print "connection made!"
@@ -1206,14 +1266,17 @@ class ConnectionDebuggerProtocol(Protocol):
     def connectionLost(self, reason):
         print "connection lost..."
 
+
 class ConnectionDebuggerFactory(ClientFactory):
     """Class which puts the activity into a deferred, as the attribute "d"."""
-    protocol = ConnectionDebuggerProtocol # not necessary to debug the protocol when testing tls
+    # not necessary to debug the protocol when testing tls
+    protocol = ConnectionDebuggerProtocol
+
     def __init__(self):
         self.d = defer.Deferred()
 
-    #def startedConnecting(self, connector):
-    #    print "started connecting..."
+    # def startedConnecting(self, connector):
+    #     print "started connecting..."
 
     def clientConnectionFailed(self, _, reason):
         return self.d.errback(reason)
@@ -1224,6 +1287,7 @@ class ConnectionDebuggerFactory(ClientFactory):
     def gotData(self, data):
         print "data received: %s" % data
         self.d.callback(data)
+
 
 def get_token(uname):
     db = Factory.get('Database')()

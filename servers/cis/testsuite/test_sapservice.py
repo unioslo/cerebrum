@@ -5,13 +5,8 @@
 Test SAP service using a simple suds client.
 
 """
-import sys
-import getopt
 import suds
-from suds.cache import Cache
-from urllib2 import URLError
 import logging
-
 
 
 class TestSapService:
@@ -21,17 +16,16 @@ class TestSapService:
         logging.getLogger('suds').setLevel(logging.INFO)
         self.client = suds.client.Client(url)
         self.client.set_options(cache=None)
-    
 
     def test_get_person_data(self):
         "Get person data for person with active account(s)"
-        res = self.client.service.get_person_data("externalid_sap_ansattnr",
-                                                  "10001626")
+        self.client.service.get_person_data("externalid_sap_ansattnr",
+                                            "10001626")
 
     def test_get_person_data_2(self):
         "get_person_data must handle persons without (active) accounts"
-        res = self.client.service.get_person_data("externalid_sap_ansattnr",
-                                                  "10004159")
+        self.client.service.get_person_data("externalid_sap_ansattnr",
+                                            "10004159")
 
     # TODO: se om vi kan sette opp feilsituasjoner som logges på en
     # fornuftig måte.
@@ -66,59 +60,56 @@ class TestUpdatePerson:
         pa.Landkode = "N"
         self.p.PersonAddress.append(pa)
 
-
     def test_update_or_create_person(self):
-        res = self.client.service.update_person(self.p)        
+        self.client.service.update_person(self.p)
 
     def test_update_name(self):
         self.p.PersonInfo[0].Etternavn = "Anker-Hansen"
-        res = self.client.service.update_person(self.p)        
+        self.client.service.update_person(self.p)
 
     def test_update_title(self):
         self.p.PersonInfo[0].Title = "Flink IT-mann"
-        res = self.client.service.update_person(self.p)        
+        self.client.service.update_person(self.p)
 
     def test_update_fnr(self):
         self.p.PersonInfo[0].Fodselsnummer = "28067502000"
-        res = self.client.service.update_person(self.p)        
-    
+        self.client.service.update_person(self.p)
+
     # def test_update_adr(self):
     #     pass
-    # 
+    #
     # def test_update_reservert(self):
     #     pass
-    # 
+    #
     # def test_update_(self):
     #     pass
-    # 
+    #
     # def test_update_(self):
     #     pass
-    # 
+    #
     # def test_update_(self):
     #     pass
-    # 
+    #
     # def test_update_(self):
     #     pass
-    # 
+    #
     # def test_update_(self):
     #     pass
-    # 
+    #
     # def test_update_(self):
     #     pass
-    # 
+    #
     # def test_update_(self):
     #     pass
-    # 
+    #
     # def test_update_(self):
     #     pass
-    # 
+    #
     # def test_update_(self):
     #     pass
-    # 
+    #
     # def test_update_(self):
     #     pass
-    # 
+    #
     # def test_create_new_person(self):
     #     pass
-
-
