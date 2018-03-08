@@ -19,6 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 import hotshot
 import hotshot.stats
 proffile = 'hotshot.prof'
@@ -26,6 +28,7 @@ proffile = 'hotshot.prof'
 import getopt
 import sys
 import os
+import io
 import pickle
 import traceback
 from time import localtime, strftime, time
@@ -47,7 +50,7 @@ from Cerebrum.modules.templates.letters import TemplateHandler
 
 del cerebrum_path
 
-db = Factory.get('Database')()
+db = Factory.get('Database')(client_encoding='UTF-8')
 db.cl_init(change_program='process_students')
 const = Factory.get('Constants')(db)
 all_passwords = {}
@@ -166,7 +169,8 @@ class AccountUtil(object):
                                             const.name_full)
                 assert last_name.count(' ') == 0
             suggestions = account.suggest_unames(const.account_namespace,
-                                                 first_name, last_name)
+                                                 first_name.encode('latin1'),
+                                                 last_name.encode('latin1'))
             for sugg in suggestions:
                 try:
                     group_obj.clear()
@@ -255,7 +259,7 @@ class AccountUtil(object):
         for c_id, dta in changes:
             if c_id == 'dfg':
                 user.gid_id = dta
-                logger.debug("Used dfg: "+str(dta))
+                logger.debug("Used dfg: %s", dta)
                 accounts[account_id].append_group(dta)
             elif c_id == 'expire':
                 user.expire_date = dta
@@ -1091,9 +1095,8 @@ def get_existing_accounts():
 
 def make_letters(data_file=None, type=None, range=None):
     if data_file is not None:  # Load info on letters to print from file
-        f = open(data_file, 'r')
-        tmp_passwords = pickle.load(f)
-        f.close()
+        with io.open(data_file, 'rb') as f:
+            tmp_passwords = pickle.load(f)
         if range == '*':
             s = 0
             while s <= len(tmp_passwords):
@@ -1211,11 +1214,11 @@ def make_letters(data_file=None, type=None, range=None):
         letter_type = "%s-%s.%s" % (brev_profil['mal'],
                                     printer, brev_profil['type'])
         if letter_type not in files:
-            files[letter_type] = open("letter-%i-%s" % (time(), letter_type),
-                                      "w")
+            files[letter_type] = io.open("letter-%i-%s" % (time(), letter_type),
+                                         "w", encoding='UTF-8')
             printers[letter_type] = printer
             tpls[letter_type] = TemplateHandler(
-                letter_dir, brev_profil['mal'], brev_profil['type'])
+                letter_dir, brev_profil['mal'], brev_profil['type'], 'UTF-8')
             if tpls[letter_type]._hdr is not None:
                 files[letter_type].write(tpls[letter_type]._hdr)
             counters[letter_type] = 1
@@ -1240,9 +1243,8 @@ def make_letters(data_file=None, type=None, range=None):
     # Save passwords for created users so that letters may be
     # re-printed at a later time in case of print-jam etc.
     if data_file is None:
-        f = open("letters.info", 'w')
-        pickle.dump(letter_info, f)
-        f.close()
+        with io.open("letters.info", 'wb') as f:
+            pickle.dump(letter_info, f)
     # Close files and spool jobs
     for letter_type in files.keys():
         if tpls[letter_type]._footer is not None:
