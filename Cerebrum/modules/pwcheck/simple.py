@@ -38,6 +38,7 @@ from __future__ import unicode_literals
 import re
 import operator
 import string
+from six import text_type
 
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
@@ -275,17 +276,17 @@ class CheckSimpleEntropyCalculator(PasswordChecker):
                       entropy_value=entropy_value,
                       min_required_entropy=self.min_required_entropy)]
 
-    def __character_groups(self, basestring_sequence):
+    def __character_groups(self, seq):
         """
         Returns a (character groups used,
         min. amount of characters for each of those groups)-tuple
         """
-        counters = {string.ascii_lowercase: 0,
-                    string.ascii_uppercase: 0,
-                    string.digits: 0,
+        counters = {text_type(string.ascii_lowercase): 0,
+                    text_type(string.ascii_uppercase): 0,
+                    text_type(string.digits): 0,
                     # here we define ' ' as a punctuation character
-                    string.punctuation + ' ': 0}
-        for character in basestring_sequence:
+                    text_type(string.punctuation) + ' ': 0}
+        for character in seq:
             for group in counters.keys():
                 if character in group:
                     counters[group] += 1
