@@ -33,6 +33,8 @@ structure of the dictionary checks, please see:
 
 """
 
+from __future__ import unicode_literals
+
 import re
 import operator
 import string
@@ -41,15 +43,6 @@ from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 
 from .checker import pwchecker, PasswordChecker, l33t_speak
-
-
-def unicodify(password):
-    if isinstance(password, str):
-        try:
-            password = password.decode('UTF-8')
-        except UnicodeDecodeError:
-            password = password.decode('ISO-8859-1')
-    return password
 
 
 @pwchecker('space_or_null')
@@ -96,9 +89,9 @@ class CheckASCIICharacters(PasswordChecker):
         self._requirement = _('Can contain only a-z, A-Z, digits, '
                               'and: {special_characters}').format(
                                   special_characters=string.punctuation)
-        self.allowed_chars = unicodify(string.ascii_letters +
-                                       string.digits +
-                                       string.punctuation + ' ')
+        self.allowed_chars = (string.ascii_letters +
+                              string.digits +
+                              string.punctuation + ' ')
 
     def check_password(self, password, account=None):
         """
@@ -108,14 +101,13 @@ class CheckASCIICharacters(PasswordChecker):
         ascii_characters =
         string.ascii_letters, string.string.digits, string.punctuation, space
         """
-        password = unicodify(password)
         errors = []
         for character in password:
             if character not in self.allowed_chars:
                 errors.append(
                     _('Password can not contain the character: '
                       '{character}').format(
-                          character=character.encode('utf-8')))
+                          character=character))
         return errors
 
 
@@ -133,7 +125,6 @@ class CheckLatinCharacters(PasswordChecker):
         """
         Check that the password contains only latin1 compatible characters only
         """
-        password = unicodify(password)
         try:
             # attempt latin1 encoding
             password.encode('ISO-8859-1')
@@ -157,25 +148,23 @@ class CheckIllegalCharacters(PasswordChecker):
         :param illegal_characters: defined illegal characters
         :type password: str or unicode
         """
-        self.illegal_characters = unicodify(illegal_characters)
+        self.illegal_characters = illegal_characters
         self._requirement = _('Can not contain one or more of the following '
                               'characters: {illegal_characters}').format(
-                                  illegal_characters=illegal_characters.encode(
-                                      'utf-8'))
+                                  illegal_characters=illegal_characters)
 
     def check_password(self, password, account=None):
         """
         Check that the password does not contain one or more of the characters
         defined as illegal
         """
-        password = unicodify(password)
         errors = []
         for character in self.illegal_characters:
             if character in password:
                 errors.append(
                     _('Password can not contain the character: '
                       '{character}').format(
-                          character=character.encode('utf-8')))
+                          character=character))
         return errors
 
 
@@ -425,7 +414,6 @@ class CheckCharacterSequence(PasswordChecker):
     def check_password(self, password, account=None):
         """Check for sequences of closely related characters."""
         errors = []
-        password = unicodify(password)
         passwd = password.lower()
         ordpw = map(ord, passwd)
 
@@ -574,11 +562,10 @@ class CheckOwnerNameMixin(PasswordChecker):
         except NotFoundError:
             return
 
-        password = unicodify(password).lower()
+        password = password.lower()
 
         for row in person.get_all_names():
             for name in row["name"].split():
-                name = unicodify(name)
                 if (
                         self.min_length and len(filter(
                             lambda x: x not in self.initial_chars,
@@ -606,7 +593,6 @@ class CheckOwnerNameMixin(PasswordChecker):
             return
         if not hasattr(account, 'owner_id'):
             return
-        password = unicodify(password)
         return self._check_human_owner(account, password, self.name_seq_len)
 
     def _check_human_owner(self, account, password, seqlen):
@@ -694,12 +680,10 @@ class CheckLettersSpacesOnly(PasswordChecker):
     def __init__(self, extra_chars=None):
         self._requirement = _('Must only contain letters and spaces')
         if extra_chars:
-            self.extra_chars = list(unicodify(extra_chars))
+            self.extra_chars = list(extra_chars)
 
     def check_password(self, password, account=None):
         """Does the password contain characters and spaces only?"""
-        password = unicodify(password)
-
         for char in password:
             if char in string.ascii_letters:
                 continue
