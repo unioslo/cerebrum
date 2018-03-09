@@ -2560,7 +2560,7 @@ class BofhdExtension(BofhdCommonMethods):
         ("misc", "check_password"),
         AccountPassword(),
         fs=FormatSuggestion([
-            ("OK.", ()),
+            ("%s.", ('message', )),  # To keep old jbofh happy :-(
             ("crypt3-DES:    %s", ('des3', )),
             ("MD5-crypt:     %s", ('md5', )),
             ("SHA256-crypt:  %s", ('sha256', )),
@@ -2590,6 +2590,7 @@ class BofhdExtension(BofhdCommonMethods):
         sha256 = ac.encrypt_password(co.auth_type_sha256_crypt, password)
         sha512 = ac.encrypt_password(co.auth_type_sha512_crypt, password)
         return {
+            'message': 'OK',
             'des-3': crypt,
             'md5': md5,
             'sha256': sha256,
