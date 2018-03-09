@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# coding: utf-8
+# -*- coding: utf-8 -*-
 #
 # Copyright 2016 University of Oslo, Norway
 #
@@ -44,7 +44,7 @@ ValueError: value is too small (actual=0, min=1)
 TODO: Replace this module with the `webargs` package.
 
 """
-
+from six import text_type
 
 class Chain(object):
 
@@ -80,7 +80,7 @@ class String(object):
         self.trim = trim
 
     def __call__(self, value):
-        value = unicode(value)
+        value = text_type(value)
         if self.trim:
             value = value.strip()
         l = len(value)

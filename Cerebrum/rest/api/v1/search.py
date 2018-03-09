@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,8 +20,11 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Generic search API. """
 
+from __future__ import unicode_literals
+
 from flask_restplus import Namespace, Resource, abort
 from flask_restplus import fields as base_fields
+from six import text_type
 
 from Cerebrum.Entity import EntityExternalId
 from Cerebrum import Errors
@@ -60,17 +63,17 @@ class ExternalIdResource(Resource):
     extid_search_filter = api.parser()
     extid_search_filter.add_argument(
         'source_system',
-        type=str,
+        type=text_type,
         action='append',
         help='Filter by one or more source systems.')
     extid_search_filter.add_argument(
         'id_type',
-        type=str,
+        type=text_type,
         action='append',
         help='Filter by one or more ID types.')
     extid_search_filter.add_argument(
         'external_id',
-        type=str,
+        type=text_type,
         required=True,
         help='Filter by external ID.')
 
@@ -95,7 +98,7 @@ class ExternalIdResource(Resource):
                     source_systems.append(code)
                 except Errors.NotFoundError:
                     abort(404,
-                          message=u'Unknown source system for source_system={}'.format(
+                          message='Unknown source system for source_system={}'.format(
                               entry))
             filters['source_system'] = source_systems
 
@@ -111,13 +114,14 @@ class ExternalIdResource(Resource):
                     id_types.append(code)
                 except Errors.NotFoundError:
                     abort(404,
-                          message=u'Unknown external ID type for id_type={}'.format(
+                          message='Unknown external ID type for id_type={}'.format(
                               entry))
             filters['id_type'] = id_types
 
+        strip_wildcards = {ord(c): '' for c in '*?%_'}
         if 'external_id' in filters:
             filters['external_id'] = filters['external_id'].translate(
-                None, '*?%_')
+                strip_wildcards)
 
         results = list()
         for row in eei.search_external_ids(**filters):

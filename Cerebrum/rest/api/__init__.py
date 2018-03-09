@@ -29,6 +29,7 @@ import time
 
 from flask import Flask, g, request
 from werkzeug.contrib.fixers import ProxyFix
+from six import text_type
 
 from . import database as _database
 from . import auth as _auth
@@ -73,7 +74,7 @@ def create_app(config=None):
                             method=request.method,
                             path=request.full_path,
                             code=response.status_code,
-                            auth=str(auth.ctx.module),
+                            auth=text_type(auth.ctx.module),
                             ip=request.remote_addr,
                             ua=request.user_agent,
                             req_time=req_time_millis))

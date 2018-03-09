@@ -1,8 +1,30 @@
-# coding: utf-8
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright 2016-2018 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Person API. """
+
+from __future__ import unicode_literals
 
 from flask import url_for
 from flask_restplus import Namespace, Resource, abort
+from six import text_type
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
@@ -170,11 +192,7 @@ class PersonResource(Resource):
         # Filter out appropriate fields from db_row objects
         names = [filter(lambda (k, _): k in name_keys, e.items()) for
                  e in pe.get_all_names()]
-
-        # decode name into unicode-object
-        names = [dict(map(lambda (k, v):
-                          (k, utils._db_decode(v) if k == 'name' else v), e))
-                 for e in names]
+        names = [dict(n) for n in names]
 
         return {
             'id': pe.entity_id,
@@ -282,9 +300,9 @@ class PersonConsentListResource(Resource):
             consent = db.const.EntityConsent(c['consent_code'])
             consent_type = db.const.ConsentType(consent.consent_type)
             consents.append({
-                'name': str(consent),
+                'name': text_type(consent),
                 'description': consent.description,
-                'type': str(consent_type),
+                'type': text_type(consent_type),
                 'set_at': c.time_set,
                 'expires': c.expiry,
             })
