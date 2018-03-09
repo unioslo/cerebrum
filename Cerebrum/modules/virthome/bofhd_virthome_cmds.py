@@ -24,6 +24,9 @@ This module contains implementation of bofhd commands used in VirtHome.
 It should be possible to use the jbofh client with this bofhd command set,
 although the help strings won't be particularily useful.
 """
+
+from __future__ import unicode_literals
+
 import pickle
 import re
 
@@ -521,10 +524,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             check_password(password, account, structured=False)
         except RigidPasswordNotGoodEnough as e:
             raise CerebrumError('Password too weak: {err_msg}'.format(
-                err_msg=str(e).decode('utf-8').encode('latin-1')))
+                err_msg=e))
         except PhrasePasswordNotGoodEnough as e:
             raise CerebrumError('Passphrase too weak: {err_msg}'.format(
-                err_msg=str(e).decode('utf-8').encode('latin-1')))
+                err_msg=e))
         except PasswordNotGoodEnough as e:
             raise CerebrumError('Password too weak: {err_msg}'.format(
                 err_msg=e))
