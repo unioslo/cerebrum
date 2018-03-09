@@ -1,6 +1,25 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-u"""Application bootstrap"""
+#
+# Copyright 2016-2018 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+"""Application bootstrap"""
 
 from __future__ import absolute_import, unicode_literals
 
@@ -10,6 +29,7 @@ import time
 
 from flask import Flask, g, request
 from werkzeug.contrib.fixers import ProxyFix
+
 from . import database as _database
 from . import auth as _auth
 
@@ -18,9 +38,11 @@ db = _database.DatabaseContext()
 auth = _auth.Authentication()
 
 
-def create_app(config):
+def create_app(config=None):
     app = Flask(__name__)
-    app.config.from_object(config)
+    app.config.from_object('Cerebrum.rest.default_config')
+    if config:
+        app.config.from_object(config)
     app.config['RESTFUL_JSON'] = {'ensure_ascii': False, 'encoding': 'utf-8'}
     app.wsgi_app = ProxyFix(app.wsgi_app)
     logging.config.dictConfig(app.config['LOGGING'])
