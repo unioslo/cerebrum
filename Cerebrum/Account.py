@@ -648,13 +648,15 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def __eq__(self, other):
         assert isinstance(other, Account)
 
-        if (self.account_name != other.account_name or
-            int(self.owner_type) != int(other.owner_type) or
-            self.owner_id != other.owner_id or
-            self.np_type != other.np_type or
-            self.creator_id != other.creator_id or
-            self.expire_date != other.expire_date or
-            self.description != other.description):
+        if (
+                self.account_name != other.account_name or
+                int(self.owner_type) != int(other.owner_type) or
+                self.owner_id != other.owner_id or
+                self.np_type != other.np_type or
+                self.creator_id != other.creator_id or
+                self.expire_date != other.expire_date or
+                self.description != other.description
+        ):
             return False
         return True
 
@@ -757,18 +759,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         :type binary: bool
         :param binary: Treat plaintext as binary data
         """
-        # TODO: Temporary (and ugly) fix for CRB-162
-        # Strings should be represented as unicode objects everywhere
-        # in the entire system
         unicode_plaintext = plaintext
-        if not isinstance(unicode_plaintext, six.text_type):
-            try:
-                unicode_plaintext = plaintext.decode('utf-8')
-            except:
-                unicode_plaintext = plaintext.decode('ISO-8859-1')
         if binary:
             utf8_plaintext = plaintext  # a small lie
         else:
+            assert(isinstance(unicode_plaintext, six.text_type))
             utf8_plaintext = unicode_plaintext.encode('utf-8')
         if method in (self.const.auth_type_md5_crypt,
                       self.const.auth_type_crypt3_des,
@@ -826,7 +821,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                       self.const.auth_type_sha256_crypt,
                       self.const.auth_type_sha512_crypt,
                       self.const.auth_type_md4_nt):
-            raise NotImplementedError("Can't decrypt {method}".format(method=method))
+            raise NotImplementedError(
+                "Can't decrypt {method}".format(method=method))
         elif method == self.const.auth_type_plaintext:
             return cryptstring
         raise ValueError('Unknown method {method}'.format(method=method))
