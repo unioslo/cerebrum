@@ -22,12 +22,12 @@
 from __future__ import print_function
 
 import codecs
-import functools
 import unicodedata
 
 import six
 
 NORMALIZATION_FORMS = ('NFC', 'NFKC', 'NFD', 'NFKD')
+DEFAULT_FORM = 'NFC'
 
 
 @six.python_2_unicode_compatible
@@ -48,7 +48,7 @@ class UnicodeNormalizer(object):
 
     """
 
-    def __init__(self, form, codec=False):
+    def __init__(self, form=DEFAULT_FORM, codec=False):
         """
         :param str form:
             Choice of normalization form, check `NORMALIZATION_FORMS` for valid
@@ -117,6 +117,9 @@ class UnicodeNormalizer(object):
             return norm, num
         else:
             return norm
+
+
+normalize = UnicodeNormalizer()
 
 
 class NormalizingCodec(codecs.Codec, object):
@@ -229,6 +232,11 @@ def normalize_stream(stream,
     Reader = NormalizingCodec.patch(Reader, decode=normalize)
     Writer = NormalizingCodec.patch(Writer, encode=normalize)
     return codecs.StreamReaderWriter(stream, Reader, Writer, errors=errors)
+
+
+def normalize_text(value):
+    """ Turns a value into an normalized unicode object. """
+    return normalize(six.text_type(value))
 
 
 def _main(inargs=None):
