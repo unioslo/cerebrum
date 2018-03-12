@@ -44,7 +44,8 @@ ValueError: value is too small (actual=0, min=1)
 TODO: Replace this module with the `webargs` package.
 
 """
-from six import text_type
+from Cerebrum.utils.textnorm import normalize_text
+
 
 class Chain(object):
 
@@ -80,7 +81,7 @@ class String(object):
         self.trim = trim
 
     def __call__(self, value):
-        value = text_type(value)
+        value = normalize_text(value)
         if self.trim:
             value = value.strip()
         l = len(value)

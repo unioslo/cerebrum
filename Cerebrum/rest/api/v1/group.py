@@ -473,12 +473,12 @@ class GroupMemberListResource(Resource):
     group_member_filter = api.parser()
     group_member_filter.add_argument(
         'type',
-        type=text_type,
+        type=validator.String(),
         dest='member_type',
         help='Filter by entity type.')
     group_member_filter.add_argument(
         'context',
-        type=text_type,
+        type=validator.String(),
         dest='member_spread',
         help='Filter by context. Accepts * and ? as wildcards.')
     group_member_filter.add_argument(
@@ -621,15 +621,15 @@ class GroupListResource(Resource):
     group_search_filter = api.parser()
     group_search_filter.add_argument(
         'name',
-        type=text_type,
+        type=validator.String(),
         help='Filter by name. Accepts * and ? as wildcards.')
     group_search_filter.add_argument(
         'description',
-        type=text_type,
+        type=validator.String(),
         help='Filter by description. Accepts * and ? as wildcards.')
     group_search_filter.add_argument(
         'context',
-        type=text_type,
+        type=validator.String(),
         dest='spread',
         help='Filter by context. Accepts * and ? as wildcards.')
     group_search_filter.add_argument(

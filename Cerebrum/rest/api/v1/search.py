@@ -29,7 +29,7 @@ from six import text_type
 from Cerebrum.Entity import EntityExternalId
 from Cerebrum import Errors
 
-from Cerebrum.rest.api import db, auth, utils
+from Cerebrum.rest.api import db, auth, validator
 from Cerebrum.rest.api import fields as crb_fields
 from Cerebrum.rest.api.v1 import models
 
@@ -63,17 +63,17 @@ class ExternalIdResource(Resource):
     extid_search_filter = api.parser()
     extid_search_filter.add_argument(
         'source_system',
-        type=text_type,
+        type=validator.String(),
         action='append',
         help='Filter by one or more source systems.')
     extid_search_filter.add_argument(
         'id_type',
-        type=text_type,
+        type=validator.String(),
         action='append',
         help='Filter by one or more ID types.')
     extid_search_filter.add_argument(
         'external_id',
-        type=text_type,
+        type=validator.String(),
         required=True,
         help='Filter by external ID.')
 

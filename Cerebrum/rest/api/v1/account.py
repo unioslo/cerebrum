@@ -27,7 +27,7 @@ from six import text_type
 
 import mx.DateTime
 
-from Cerebrum.rest.api import db, auth, fields, utils
+from Cerebrum.rest.api import db, auth, fields, utils, validator
 from Cerebrum.rest.api.v1 import group
 from Cerebrum.rest.api.v1 import models
 from Cerebrum.rest.api.v1 import emailaddress
@@ -297,7 +297,7 @@ class AccountQuarantineListResource(Resource):
     account_quarantines_filter = api.parser()
     account_quarantines_filter.add_argument(
         'context',
-        type=text_type,
+        type=validator.String(),
         help='Consider locked status based on context.')
 
     @api.marshal_with(AccountQuarantineList)
@@ -508,11 +508,11 @@ class AccountListResource(Resource):
     account_search_filter = api.parser()
     account_search_filter.add_argument(
         'name',
-        type=text_type,
+        type=validator.String(),
         help='Filter by account name. Accepts * and ? as wildcards.')
     account_search_filter.add_argument(
         'context',
-        type=text_type,
+        type=validator.String(),
         dest='spread',
         help='Filter by context. Accepts * and ? as wildcards.')
     account_search_filter.add_argument(
@@ -521,15 +521,15 @@ class AccountListResource(Resource):
         help='Filter by owner entity ID.')
     account_search_filter.add_argument(
         'owner_type',
-        type=text_type,
+        type=validator.String(),
         help='Filter by owner entity type.')
     account_search_filter.add_argument(
         'expire_start',
-        type=text_type,
+        type=validator.String(),
         help='Filter by expiration start date.')
     account_search_filter.add_argument(
         'expire_stop',
-        type=text_type,
+        type=validator.String(),
         help='Filter by expiration end date.')
 
     @api.marshal_with(AccountList)

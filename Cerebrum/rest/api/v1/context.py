@@ -22,9 +22,8 @@
 from __future__ import unicode_literals
 
 from flask_restplus import Namespace, Resource, abort
-from six import text_type
 
-from Cerebrum.rest.api import db, auth, fields
+from Cerebrum.rest.api import db, auth, fields, validator
 
 from Cerebrum import Errors
 from Cerebrum.Entity import EntitySpread
@@ -53,7 +52,7 @@ class ContextListResource(Resource):
     context_search_filter = api.parser()
     context_search_filter.add_argument(
         'entity_types',
-        type=text_type,
+        type=validator.String(),
         action='append',
         help='Filter by entity type(s)')
 

@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 """ Tests for api.validator """
 
+from __future__ import unicode_literals
+
 import pytest
 
 from Cerebrum.rest.api import validator
@@ -23,7 +25,8 @@ def test_integer():
     chain = validator.Chain()
     chain.add(validator.Integer(min_val=10))
     chain.add(validator.Integer(max_val=20))
-    assert chain(15) == 15
+    assert chain(10) == 10
+    assert chain(20) == 20
     with pytest.raises(ValueError):
         chain(5)
     with pytest.raises(ValueError):
