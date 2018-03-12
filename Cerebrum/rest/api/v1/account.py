@@ -667,7 +667,7 @@ class AccountHomeListResource(Resource):
         return {'homes': homes}
 
 
-@api.route('/<string:name>/password')
+@api.route('/<string:name>/password', endpoint='account-password')
 @api.doc(params={'name': 'account name'})
 class AccountPasswordResource(Resource):
     """Resource for account password change."""
@@ -698,7 +698,8 @@ class AccountPasswordResource(Resource):
         return {'password': password}
 
 
-@api.route('/<string:name>/password/verify')
+@api.route('/<string:name>/password/verify',
+           endpoint='account-password-verify')
 @api.doc(params={'name': 'account name'})
 class AccountPasswordVerifierResource(Resource):
     """Resource for account password verification."""
@@ -717,7 +718,8 @@ class AccountPasswordVerifierResource(Resource):
         return {'verified': verified}
 
 
-@api.route('/<string:name>/password/check')
+@api.route('/<string:name>/password/check',
+           endpoint='account-password-check')
 @api.doc(params={'name': 'account name'})
 class AccountPasswordCheckerResource(Resource):
     """Resource for account password checking."""

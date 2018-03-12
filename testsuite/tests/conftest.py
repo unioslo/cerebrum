@@ -8,6 +8,7 @@ import pytest
 import types
 import cerebrum_path
 
+
 @pytest.fixture
 def cereconf():
     u""" 'cereconf' config.

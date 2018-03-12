@@ -59,14 +59,15 @@ CLASS_CONSTANTS = [
 
 CLASS_ENTITY = ['Cerebrum.modules.EntityTrait/EntityTrait',]
 
+# TODO: The commented mixins are not testable
 CLASS_ACCOUNT = (
-    'Cerebrum.modules.no.uio.Account/AccountUiOMixin',
+    # 'Cerebrum.modules.no.uio.Account/AccountUiOMixin',
     'Cerebrum.modules.pwcheck.history/PasswordHistoryMixin',
     'Cerebrum.modules.AccountExtras/AutoPriorityAccountMixin',
-    'Cerebrum.modules.AuthPGP/AuthPGPAccountMixin',
+    # 'Cerebrum.modules.AuthPGP/AuthPGPAccountMixin',
     'Cerebrum.modules.Email/AccountEmailMixin',
     'Cerebrum.modules.Email/AccountEmailQuotaMixin',
-    'Cerebrum.modules.gpg.password/AccountPasswordEncrypterMixin',
+    # 'Cerebrum.modules.gpg.password/AccountPasswordEncrypterMixin',
 )
 
 CLASS_GROUP = (
