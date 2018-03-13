@@ -33,6 +33,7 @@ from six import text_type
 
 from . import database as _database
 from . import auth as _auth
+from .routing import NormalizedUnicodeConverter
 
 
 db = _database.DatabaseContext()
@@ -53,6 +54,12 @@ def create_app(config=None):
     logger = logging.getLogger('')
     for handler in logger.handlers:
         app.logger.addHandler(handler)
+
+    # Replace builtin URL rule converters. Must be done before rules are added.
+    app.url_map.converters.update({
+        'default': NormalizedUnicodeConverter,
+        'string': NormalizedUnicodeConverter,
+    })
 
     from Cerebrum.rest.api import v1
     app.register_blueprint(v1.blueprint, url_prefix='/v1')

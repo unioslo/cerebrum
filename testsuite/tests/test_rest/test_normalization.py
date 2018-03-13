@@ -4,12 +4,20 @@
 
 from __future__ import unicode_literals
 
-import pytest
-
 from Cerebrum.rest.api import validator
 
+OHM_SIGN = '\N{OHM SIGN}'
+LETTER_OMEGA = '\N{GREEK CAPITAL LETTER OMEGA}'
 
-def test_string_normalizes_unicode():
-    ohm_sign = '\N{OHM SIGN}'
-    letter_omega = '\N{GREEK CAPITAL LETTER OMEGA}'
-    assert validator.String()(ohm_sign) == letter_omega
+
+def test_string_validator_normalizes_unicode():
+    assert validator.String()(OHM_SIGN) == LETTER_OMEGA
+
+
+def test_url_mapper_normalizes_unicode(app):
+    converters = app.url_map.converters
+    assert converters['default'].__name__ == 'NormalizedUnicodeConverter'
+    assert converters['string'].__name__ == 'NormalizedUnicodeConverter'
+    adapter = app.url_map.bind('localhost', '/')
+    match = adapter.match('/v1/accounts/' + OHM_SIGN)
+    assert match == ('api_v1.account', {'name': LETTER_OMEGA})
