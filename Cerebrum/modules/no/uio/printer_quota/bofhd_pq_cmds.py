@@ -1,6 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2004 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2004-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -226,7 +225,7 @@ class BofhdExtension(BofhdCommandBase):
                  """Enter person id as idtype:id.
 If idtype=fnr, the idtype does not have to be specified.
 The currently defined id-types are:
-  - fnr : norwegian fødselsnummer."""],
+  - fnr : norwegian fÃ¸dselsnummer."""],
             'quota_date':
                 ['from_date', 'Enter from date'],
             'int_new_quota':

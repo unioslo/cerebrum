@@ -1,6 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2004-2007 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2004-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -115,7 +114,7 @@ class BofhdUtils(object):
 
     def _map_person_id(self, id_data):
         """Map <id_type:id> to const.<id_type>, id.  Recognizes
-        fødselsnummer without <id_type>.  Also recognizes entity_id"""
+        fÃ¸dselsnummer without <id_type>.  Also recognizes entity_id"""
         if id_data.isdigit() and len(id_data) >= 10:
             return self.const.externalid_fodselsnr, id_data
         if id_data.find(":") == -1:     # Assume it is an account
@@ -131,7 +130,7 @@ class BofhdUtils(object):
     def find_person(self, id_data, id_type=None):
         """Return person_id matching id_data.  id_data can be an
         account name or an id_type:id string as well as an 11 digit
-        fødselsnummer."""
+        fÃ¸dselsnummer."""
 
         if not id_type:
             id_type, id_data = self._map_person_id(id_data)

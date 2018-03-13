@@ -1,8 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-
-import cereconf
-
-# Copyright 2004 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2004-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,6 +16,8 @@ import cereconf
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import Person
@@ -93,7 +92,7 @@ class PPQUtil(object):
             # that the initial semester quota is granted on first run,
             # and not on first run after user has printed something.
             raise errors.InvalidQuotaData, "quota already at that value"
-        
+
         self.ppq._add_transaction(
             self.const.pqtt_quota_fill_free,
             person_id,
@@ -170,7 +169,7 @@ class PPQUtil(object):
                 delta = min(abs(old_paid), page_units)
                 delta_paid = delta
                 page_units -= delta
-                # får igjen etter samme sidepris som ble betalt
+                # fÃ¥r igjen etter samme sidepris som ble betalt
                 delta_kroner = delta_paid * abs(old_kroner/old_paid)
             if page_units and old_accum < 0:  # old job had accum pages
                 delta = min(abs(old_accum), page_units)
@@ -235,7 +234,7 @@ class PPQUtil(object):
             #
             # Avoiding giving a person the same free-pages more than
             # once is not the responsibility of this method.
-            
+
             # Keep these values from the entry that had quota
             for k in ('has_quota', 'has_blocked_quota', 'weekly_quota',
                       'max_quota'):
@@ -247,7 +246,7 @@ class PPQUtil(object):
             # updating of them to whatever magic set them in the first
             # place.
             pass  # Don't need to do anything special for this case
-            
+
         self.ppq._change_history_owner(old_id, new_id)
         self.ppq._delete_status(old_id)
         for k in ('free_quota', 'accum_quota', 'total_pages', 'kroner'):

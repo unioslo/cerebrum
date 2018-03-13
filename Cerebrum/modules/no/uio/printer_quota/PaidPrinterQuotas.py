@@ -65,7 +65,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
     #
     # Note that if two simultaneous updates occour there is a chance
     # that free_quota gets negative.
-    
+
     def __init__(self, database):
         super(PaidPrinterQuotas, self).__init__(database)
         self.co = Factory.get('Constants')(database)
@@ -189,7 +189,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
                                  ", ".join([":%s" % k for k in binds.keys()])),
                                  binds)
         return job_id
-    
+
     def _add_quota_history(self, transaction_type, person_id,
                            pageunits_free, pageunits_accum, pageunits_paid,
                            pageunits_total, kroner,
@@ -201,10 +201,10 @@ class PaidPrinterQuotas(DatabaseAccessor):
             id = int(self.nextval('printer_log_id_seq'))
         binds = {
             'job_id': id,
-            'transaction_type': int(transaction_type), 
-            'person_id': person_id, 
+            'transaction_type': int(transaction_type),
+            'person_id': person_id,
             'update_by': update_by,
-            'update_program': update_program, 
+            'update_program': update_program,
             'pageunits_free': pageunits_free,
             'pageunits_paid': pageunits_paid,
             'pageunits_accum': pageunits_accum,
@@ -212,14 +212,14 @@ class PaidPrinterQuotas(DatabaseAccessor):
             'kroner': kroner}
         if tstamp:                  # Should only used when importing data
             binds['tstamp'] = tstamp
-        
+
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=paid_quota_history]
           (%s) VALUES (%s)""" % (", ".join(binds.keys()),
                                  ", ".join([":%s" % k for k in binds.keys()])),
                                  binds)
         return id
-        
+
 
     def _add_transaction(
         self, transaction_type, person_id, update_by, update_program,
@@ -327,7 +327,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
         DELETE FROM [:table schema=cerebrum name=paid_quota_history]
         WHERE job_id=:job_id""",{
             'job_id': int(job_id)})
-        
+
 
     def get_quota_status(self, has_quota_filter=None, person_id=None):
         where = []
@@ -400,13 +400,13 @@ class PaidPrinterQuotas(DatabaseAccessor):
         where = []
         print_only = False
         if isinstance(person_id, str) and person_id == 'NULL':   # TODO: We need a generic way for this
-            where.append("person_id is NULL")            
+            where.append("person_id is NULL")
         elif person_id:
             where.append("person_id=:person_id")
         if job_id:
             where.append("pqh.job_id=:job_id")
         elif after_job_id:
-            where.append("pqh.job_id > :after_job_id")            
+            where.append("pqh.job_id > :after_job_id")
         if transaction_type:
             where.append("transaction_type=:transaction_type")
         if target_job_id:
@@ -504,4 +504,4 @@ class PaidPrinterQuotas(DatabaseAccessor):
         %s""" % (extra_cols, where, group_by)
         return self.query(qry, binds)
 
-    
+
