@@ -184,16 +184,14 @@ AccountHomeList = api.model('AccountHomeList', {
         description='Home directories'),
 })
 
-PasswordPayload = api.model('PasswordPayload', {
-    'password': fields.base.String(
-        description='Password',
-        required=True),
-})
-
-PasswordChangePayload = api.model('PasswordChangePayload', {
-    'password': fields.base.String(
-        description='Password, leave empty to generate one'),
-})
+password_parser = api.parser()
+password_parser.add_argument(
+    'password',
+    type=validator.String(),
+    required=True,
+    location='form',
+    help='Password',
+)
 
 PasswordChanged = api.model('PasswordChanged', {
     'password': fields.base.String(
@@ -672,9 +670,18 @@ class AccountHomeListResource(Resource):
 class AccountPasswordResource(Resource):
     """Resource for account password change."""
 
+    new_password_parser = api.parser()
+    new_password_parser.add_argument(
+        'password',
+        type=validator.String(),
+        required=False,
+        location='form',
+        help='Password, leave empty to generate one',
+    )
+
     @db.autocommit
     @auth.require()
-    @api.expect(PasswordChangePayload, validate=True)
+    @api.expect(new_password_parser)
     @api.response(200, 'Password changed', PasswordChanged)
     @api.response(400, 'Invalid password')
     def post(self, name):
@@ -705,7 +712,7 @@ class AccountPasswordVerifierResource(Resource):
     """Resource for account password verification."""
 
     @auth.require()
-    @api.expect(PasswordPayload, validate=True)
+    @api.expect(password_parser)
     @api.response(200, 'Password verification', PasswordVerification)
     @api.response(400, 'Password missing or contains unsupported characters')
     def post(self, name):
@@ -725,7 +732,7 @@ class AccountPasswordCheckerResource(Resource):
     """Resource for account password checking."""
 
     @auth.require()
-    @api.expect(PasswordPayload, validate=True)
+    @api.expect(password_parser)
     @api.response(200, 'Password check result')
     @api.response(400, 'Password missing or contains unsupported characters')
     def post(self, name):
