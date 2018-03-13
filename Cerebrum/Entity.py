@@ -780,8 +780,8 @@ class EntityContactInfo(Entity):
         #
         # To avoid such problems, the 'value' argument is always
         # converted to a string before being stored in self.__data.
-        self.__data[idx] = {'value': str(value),
-                            'alias': alias and str(alias) or None,
+        self.__data[idx] = {'value': six.text_type(value),
+                            'alias': alias and six.text_type(alias) or None,
                             'description': description}
 
     def write_db(self):
