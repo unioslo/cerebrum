@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2006-2011 University of Oslo, Norway
+# Copyright 2006-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,11 +32,11 @@ import pickle
 
 from Cerebrum import Utils
 from Cerebrum import QuarantineHandler
-from Cerebrum.modules import ADutilMixIn
 from Cerebrum.modules import CLHandler
+from Cerebrum.modules.no.uio import ADutils
 
 
-class ADFullUserSync(ADutilMixIn.ADuserUtil):
+class ADFullUserSync(ADutils.ADuserUtil):
 
     def __init__(self, *args, **kwargs):
         super(ADFullUserSync, self).__init__(*args, **kwargs)
@@ -730,7 +730,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 ##################################################
 
 
-class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
+class ADFullGroupSync(ADutils.ADgroupUtil):
 
     def __init__(self, *args, **kwargs):
         super(ADFullGroupSync, self).__init__(*args, **kwargs)
@@ -1431,4 +1431,3 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         
         
         self.logger.info("Finished group-sync")
-
