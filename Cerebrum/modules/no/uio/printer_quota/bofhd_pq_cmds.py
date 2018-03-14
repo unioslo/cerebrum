@@ -734,7 +734,7 @@ The currently defined id-types are:
 
 if __name__ == '__main__':  # For testing
     import xmlrpclib
-    svr = xmlrpclib.Server("http://127.0.0.1:8000", encoding='iso8859-1')
+    svr = xmlrpclib.Server("http://127.0.0.1:8000", encoding='utf-8')
     secret = svr.login("bootstrap_account", "test")
     personid = raw_input("Give me a person id to test: ")
     print svr.run_command(secret, 'pquota_status', personid)
