@@ -549,9 +549,9 @@ class ad_export:
             # If the account object contains contact data not in contact list, the relevant data will be appended to the contact list.
             # The person2contact dict will then be used when writing the xml file.
             #
-            logger.debug("contact contains:%s" % contact)
+            #logger.debug("contact contains:%s" % contact)
             contact_account = self.account2contact.get(accid)
-            logger.debug("contact_account contains:%s" % contact_account)
+            #logger.debug("contact_account contains:%s" % contact_account)
             if contact and contact_account:
                 new_contact = {}
                 for a in contact_account:
@@ -565,7 +565,7 @@ class ad_export:
                                 c['contact_value']  = a['contact_value']                                
                                 replaced = True
                     if already_exists == False and replaced == False:
-                        logger.debug("new entry from account:%s" % a)
+                        #logger.debug("new entry from account:%s" % a)
                         new_contact.update(a)
                     
                 if len(new_contact) > 0:

@@ -7,9 +7,7 @@
 	same source and type as the person object, the account object
 	contact value will superseede the value from the person object.
 	in effect the value from the person oject will NOT be exported.
-
-
-	
+	(ad_export.build_xml): removed debug lines
 
 2018-03-02    <cerebrum@gagarin.uit.no>
 
