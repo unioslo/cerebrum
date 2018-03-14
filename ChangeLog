@@ -1,3 +1,16 @@
+2018-03-14    <cerebrum@gagarin.uit.no>
+
+	* export_ad.py (ad_export.build_xml): This script will now also
+	export new contact data from the account object (and not only on the
+	person object). Additionally, the following check is performed: if
+	the account objects containts a new contact value, but from the
+	same source and type as the person object, the account object
+	contact value will superseede the value from the person object.
+	in effect the value from the person oject will NOT be exported.
+
+
+	
+
 2018-03-02    <cerebrum@gagarin.uit.no>
 
 	* import_FS.py (rem_old_aff): Fagpersons from FS are to lose their

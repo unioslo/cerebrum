@@ -337,6 +337,15 @@ class ad_export:
         for c in person.list_contact_info(entity_type=co.entity_person):
             self.person2contact.setdefault(c['entity_id'], list()).append(c)
 
+        logger.info("Retrieve contact info (phonenrs and such) for account objects")
+        # uit account stuff
+        self.account2contact=dict()
+        # valid uit source systems
+        for c in person.list_contact_info(entity_type=co.entity_account):
+            logger.debug("appending uit data:%s" % c)
+            self.account2contact.setdefault(c['entity_id'], list()).append(c)
+
+
         logger.info("Retreiving person campus loaction")
         self.person2campus=dict()
         for c in person.list_entity_addresses(entity_type=co.entity_person,source_system=co.system_paga,address_type=co.address_location):
@@ -530,6 +539,42 @@ class ad_export:
 
             accid=self.accname2accid[item['name']]
             contact=self.person2contact.get(self.accid2ownerid[accid])
+
+            #
+            # In some cases the person object AND the account object will have different contact information.
+            # If an account object contains contact data of the same type as the person object and from the same source,
+            # the account contact data will superseede the person object contact data of that type.
+            # To facilitate this, we will parse the person2contact dict and account2contact dict and replace
+            # the relevant contact data in the person2contact dict.
+            # If the account object contains contact data not in contact list, the relevant data will be appended to the contact list.
+            # The person2contact dict will then be used when writing the xml file.
+            #
+            logger.debug("contact contains:%s" % contact)
+            contact_account = self.account2contact.get(accid)
+            logger.debug("contact_account contains:%s" % contact_account)
+            if contact and contact_account:
+                new_contact = {}
+                for a in contact_account:
+                    already_exists = False
+                    replaced = False
+                    for c in contact:
+                        if a['contact_type'] == c['contact_type'] and a['source_system'] == c['source_system']:
+                            already_exists = True
+                            if not any(d['contact_value'] == a['contact_value'] for d in contact):
+                                logger.debug("replace:%s with: %s" % (c['contact_value'],a['contact_value']))
+                                c['contact_value']  = a['contact_value']                                
+                                replaced = True
+                    if already_exists == False and replaced == False:
+                        logger.debug("new entry from account:%s" % a)
+                        new_contact.update(a)
+                    
+                if len(new_contact) > 0:
+                    logger.debug("appending the following:%s" % new_contact)
+                    contact.append(new_contact)
+
+                                
+
+
             # get campus information
             campus=self.person2campus.get(self.accid2ownerid[accid])
             if campus:
