@@ -36,12 +36,8 @@ from twisted.python import log
 
 from rpclib.model.primitive import Unicode
 from rpclib.model.complex import Array
-# Note the difference between rpc and the static srpc - the former sets the
-# first parameter as the current MethodContext. Very nice if you want
-# environment details.
 from rpclib.decorator import rpc
 
-import cerebrum_path
 from cisconf import postmaster as cisconf
 from Cerebrum.Utils import dyn_import
 from Cerebrum import Errors
@@ -74,9 +70,8 @@ class PostmasterServer(SoapListener.BasicSoapServer):
         criteria."""
         if not source and not status:
             raise Errors.CerebrumRPCException('Input needed')
-        return ctx.udc['postmaster'].get_addresses_by_affiliation(status=status,
-                                                                  skos=skos,
-                                                                  source=source)
+        return ctx.udc['postmaster'].get_addresses_by_affiliation(
+            status=status, skos=skos, source=source)
 
 # Events for the project:
 
@@ -84,6 +79,8 @@ class PostmasterServer(SoapListener.BasicSoapServer):
 def event_method_call(ctx):
     """Event for incoming calls."""
     ctx.udc['postmaster'] = ctx.service_class.cere_class()
+
+
 PostmasterServer.event_manager.add_listener('method_call', event_method_call)
 
 
@@ -96,6 +93,8 @@ def event_exit(ctx):
     # context? Are these deleted after each call? Check it out!
     if 'postmaster' in ctx.udc:
         ctx.udc['postmaster'].close()
+
+
 PostmasterServer.event_manager.add_listener('method_return_object', event_exit)
 PostmasterServer.event_manager.add_listener('method_exception_object',
                                             event_exit)
@@ -128,13 +127,14 @@ Fire up the Postmaster's webservice.
     """
     sys.exit(exitcode)
 
+
 if __name__ == '__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h',
                                    ['port=', 'unencrypted', 'logfile=',
                                     'help', 'fingerprints=', 'instance=',
                                     'interface='])
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         print e
         usage(1)
 
@@ -205,7 +205,8 @@ if __name__ == '__main__':
             logfile=logfilename,
             log_prefix=log_prefix,
             log_formatters=log_formatters)
-    PostmasterServer.site = server.site  # to make it global and reachable
+    # to make it global and reachable (wrong, I know)
+    PostmasterServer.site = server.site
 
     # If sessions' behaviour should be changed (e.g. timeout):
     # server.site.sessionFactory = BasicSession

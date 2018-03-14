@@ -62,9 +62,11 @@ class TestSoapAPI:
                     if service.name == 'PasswordAuthenticationService':
                         continue
                     test_method = "_".join(('test', service.name, method))
-                    if hasattr(self, test_method) and callable(getattr(self, test_method)):
+                    if hasattr(self, test_method) and callable(
+                            getattr(self, test_method)):
                         print "Testable",
-                        to_test.append((service.name, method, getattr(self, test_method)))
+                        to_test.append((service.name, method,
+                                        getattr(self, test_method)))
                     else:
                         print "Not testable",
                     print "\tMethod: %s.%s" % (service.name, method)
@@ -98,7 +100,8 @@ class TestSoapAPI:
     def test_GroupAPIService_group_create(self):
         from datetime import datetime
 
-        random_group_name = 'test_group_' + ''.join(random.sample(string.lowercase, 10))
+        random_group_name = 'test_group_' + ''.join(
+            random.sample(string.lowercase, 10))
         print "\tCreating a group that does not exist:", random_group_name
         self.test_method(
             method_name='group_create',
@@ -118,7 +121,8 @@ class TestSoapAPI:
         )
 
         print "\tCreating a group with invalid group visibility:"
-        random_group_name = 'test_group_' + ''.join(random.sample(string.lowercase, 10))
+        random_group_name = 'test_group_' + ''.join(
+            random.sample(string.lowercase, 10))
         self.test_method(
             method_name='group_create',
             group_name=random_group_name,
@@ -135,8 +139,10 @@ class TestSoapAPI:
             group_id='bootstrap_group',
         )
 
-        random_group_name = 'test_group_' + ''.join(random.sample(string.lowercase, 10))
-        print "\tGetting group information about a non-existing group:", random_group_name
+        random_group_name = 'test_group_' + ''.join(
+            random.sample(string.lowercase, 10))
+        print("\tGetting group information about a non-existing group:",
+              random_group_name)
         self.test_method(
             method_name='group_info',
             group_id_type='group_name',
@@ -144,7 +150,8 @@ class TestSoapAPI:
         )
 
     def test_GroupAPIService_group_add_member(self):
-        print "\tAdding member account_name:bootstrap_account to group_name:testgruppe"
+        print("\tAdding member account_name:bootstrap_account to group_name:"
+              "testgruppe")
         self.test_method(
             method_name='group_add_member',
             group_id_type='group_name',
@@ -154,7 +161,8 @@ class TestSoapAPI:
         )
 
     def test_GroupAPIService_group_remove_member(self):
-        print "\tRemoving member account_name:bootstrap_account from group_name:testgruppe"
+        print("\tRemoving member account_name:bootstrap_account from "
+              "group_name:testgruppe")
         self.test_method(
             method_name='group_remove_member',
             group_id_type='group_name',
@@ -167,7 +175,8 @@ class TestSoapAPI:
 def usage(exitcode=0):
     print "USAGE:"
     print "\tNo auth:   python test_soapapi.py -w <your WSDL>"
-    print "\tWith auth: python test_soapapi.py -w <your WSDL> -u <username> -p <password>"
+    print("\tWith auth: python test_soapapi.py -w <your WSDL> -u <username> "
+          "-p <password>")
     print "OPTIONS:"
     print "\t-w / --wsdl:     Sets the WSDL URI"
     print "\t-d / --debug:    Gives more logging!"
@@ -178,8 +187,8 @@ def usage(exitcode=0):
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'wdup',
-                                   ['wsdl=', 'debug=', 'username=', 'password='])
+        opts, args = getopt.getopt(
+            sys.argv[1:], 'wdup', ['wsdl=', 'debug=', 'username=', 'password='])
     except getopt.GetoptError, e:
         print e
         sys.exit(1)
@@ -206,4 +215,5 @@ if __name__ == '__main__':
         print 'Missing WSDL'
         usage(1)
 
-    test = TestSoapAPI(wsdl=wsdl, username=username, password=password, debug=debug)
+    test = TestSoapAPI(wsdl=wsdl, username=username, password=password,
+                       debug=debug)
