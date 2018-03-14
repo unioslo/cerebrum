@@ -25,7 +25,8 @@ This is the glue between Cerebrum and twisted's soap server, as the Cerebrum
 specific functionality should not know anything about twisted.
 
 Each public method's docstring is the string that is put into the wsdl file for
-the web service, and is therefore given to those who should use the web service.
+the web service, and is therefore given to those who should use the web
+service.
 
 Note that the logger is twisted's own logger and not Cerebrum's, since twisted
 has special needs, as it works with callbacks and runs in threads - it must for
@@ -45,12 +46,9 @@ from rpclib.model.primitive import String, Integer, Boolean
 # environment details.
 from rpclib.decorator import rpc
 
-import cerebrum_path
 from cisconf import individuation as cisconf
 from Cerebrum.Utils import Messages, dyn_import
 from Cerebrum.modules.cis import SoapListener, faults
-
-del cerebrum_path
 
 
 class Account(ComplexModel):
@@ -66,10 +64,10 @@ class IndividuationServer(SoapListener.BasicSoapServer):
     those actions are decorated as an rpc, defining what parameters the
     methods accept, types and what is returned.
 
-    Note that the service classes will _not_ be instantiated by rpclib. Instead,
-    rpclib creates a MethodContext instance for each call and feeds it to the
-    public methods. To avoid thread conflicts, you should use this ctx instance
-    for storing local variables, and _not_ the service class.
+    Note that the service classes will _not_ be instantiated by rpclib.
+    Instead, rpclib creates a MethodContext instance for each call and feeds it
+    to the public methods. To avoid thread conflicts, you should use this ctx
+    instance for storing local variables, and _not_ the service class.
 
     """
 
@@ -97,7 +95,10 @@ class IndividuationServer(SoapListener.BasicSoapServer):
 
     @rpc(String, String, _returns=Iterable(Account))
     def get_usernames(ctx, id_type, ext_id):
-        """Based on id-type and the ID, identify a person in Cerebrum and return
+        """
+        Get a person's accounts.
+
+        Based on id-type and the ID, identify a person in Cerebrum and return
         a list of the person's accounts and their status. If the person exist
         but doesn't have an account an empty list is returned. If no person
         match the id_type and ID an exception is thrown.
@@ -107,10 +108,10 @@ class IndividuationServer(SoapListener.BasicSoapServer):
 
         The types of user statuses are:
 
-          - *Inactive*: if the account is reserved, deleted or expired, or if it
-            has an active quarantine. Note that some quarantines are ignored,
-            e.g. autopassord, since the user is still able to use the forgotten
-            password service with this quarantine.
+          - *Inactive*: if the account is reserved, deleted or expired, or if
+            it has an active quarantine. Note that some quarantines are
+            ignored, e.g. autopassord, since the user is still able to use the
+            forgotten password service with this quarantine.
           - *PasswordQuarantined*: if the account is not inactive, but has a
             quarantine of type 'autopassord'.
           - *Active*: if the account is active and without quarantine.
@@ -128,7 +129,8 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         return ret
 
     @rpc(String, String, String, String, String, _returns=Boolean)
-    def generate_token(ctx, id_type, ext_id, username, phone_no, browser_token):
+    def generate_token(ctx, id_type, ext_id, username, phone_no,
+                       browser_token):
         """Send a token by SMS to the person's phone and store the token in
         Cerebrum. All input must match the same, existing person in Cerebrum,
         include the phone number. Phone numbers are only retrieved for some
@@ -166,9 +168,10 @@ class IndividuationServer(SoapListener.BasicSoapServer):
 
     @rpc(String, String, String, String, _returns=Boolean)
     def set_password(ctx, username, new_password, token, browser_token):
-        """Set a new password for a given user. Note that both the token and the
-        browser token must match the ones stored in Cerebrum. Also, the password
-        must match the instance' password criterias.
+        """
+        Set a new password for a given user. Note that both the token and the
+        browser token must match the ones stored in Cerebrum. Also, the
+        password must match the instance' password criterias.
 
         """
         return ctx.udc['individuation'].set_password(username, new_password,
@@ -207,7 +210,8 @@ class IndividuationServer(SoapListener.BasicSoapServer):
                                                                False))
 
     @rpc(String, String, Boolean, _returns=String)
-    def structured_password_validation(ctx, password, account_name, structured):
+    def structured_password_validation(
+            ctx, password, account_name, structured):
         """
         Check if a given password is good enough.
 
@@ -250,22 +254,27 @@ def _on_method_call(ctx):
     if 'msgs' not in ctx.udc['session']:
         ctx.udc['session']['msgs'] = Messages(
             text=ctx.udc['individuation'].messages)
+
+
 IndividuationServer.event_manager.add_listener('method_call', _on_method_call)
 
 
 def _on_method_exception(ctx):
-    """Event for updating raised exceptions to return a proper error message in
-    the chosen language. The individuation instance could then raise errors with
-    a code that corresponds to a message, and this event updates the error with
-    the message in the correct language.
+    """
+    Event for updating raised exceptions to return a proper error message in
+    the chosen language. The individuation instance could then raise errors
+    with a code that corresponds to a message, and this event updates the error
+    with the message in the correct language.
     """
     if isinstance(ctx.out_error, faults.EndUserFault):
         err = ctx.out_error
         try:
             err.faultstring = (ctx.udc['session']['msgs'][err.faultstring] %
                                err.extra)
-        except KeyError, e:
+        except KeyError as e:
             log.msg('WARNING: Unknown error: %s - %s' % (err.faultstring, e))
+
+
 IndividuationServer.event_manager.add_listener('method_exception_object',
                                                _on_method_exception)
 
@@ -279,6 +288,8 @@ def _on_method_exit(ctx):
     # context? Are these deleted after each call?
     if 'individuation' in ctx.udc:
         ctx.udc['individuation'].close()
+
+
 IndividuationServer.event_manager.add_listener('method_return_object',
                                                _on_method_exit)
 IndividuationServer.event_manager.add_listener('method_exception_object',
@@ -320,7 +331,7 @@ if __name__ == '__main__':
         opts, args = getopt.getopt(sys.argv[1:], 'p:l:h',
                                    ['port=', 'unencrypted', 'logfile=',
                                     'help', 'instance=', 'interface='])
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         print e
         usage(1)
 

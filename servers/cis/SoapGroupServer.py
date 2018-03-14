@@ -31,12 +31,9 @@ from rpclib.model.primitive import String
 # environment details.
 from rpclib.decorator import rpc
 
-import cerebrum_path
 from cisconf import groupservice as cisconf
 from Cerebrum.Utils import dyn_import
 from Cerebrum.modules.cis import SoapListener, auth, faults
-
-del cerebrum_path
 
 
 class GroupMember(ComplexModel):
