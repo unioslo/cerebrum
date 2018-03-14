@@ -20,6 +20,8 @@
 import os
 import time
 
+import six
+
 import cereconf
 
 from Cerebrum import Account
@@ -138,7 +140,7 @@ class BofhdUtils(object):
         person = Person.Person(self.db)
         person.clear()
         try:
-            if str(id_type) == 'account_name':
+            if six.text_type(id_type) == 'account_name':
                 ac = self.get_account(id_data)
                 person.find(ac.owner_id)
             elif isinstance(id_type, Constants._CerebrumCode):

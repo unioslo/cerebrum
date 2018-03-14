@@ -20,6 +20,7 @@
 import time
 import cereconf
 from mx import DateTime
+import six
 
 from Cerebrum import Cache
 from Cerebrum import Constants
@@ -187,7 +188,7 @@ class BofhdExtension(BofhdCommandBase):
             self.__ttcode_mapping = {}
             for c in self.const.fetch_constants(
                     self.const.PaidQuotaTransactionTypeCode):
-                self.__ttcode_mapping[int(c)] = str(c)
+                self.__ttcode_mapping[int(c)] = six.text_type(c)
             return self.__ttcode_mapping
 
     @classmethod
@@ -274,8 +275,8 @@ The currently defined id-types are:
                     # TBD: Can this happen?
                     return person + ": Quota has been blocked, person not in FS"
                 try:
-                    fs = database.connect(user="I0185_ureg2000",
-                                          service="FSPROD.uio.no",
+                    fs = database.connect(user=cereconf.FS_USER,
+                                          service=cereconf.FS_DATABASE_NAME,
                                           DB_driver=cereconf.DB_DRIVER_ORACLE)
                 except database.DatabaseError, e:
                     self.logger.warn("Can't connect to FS (%s)" % e)
@@ -443,17 +444,17 @@ The currently defined id-types are:
             if not r['update_by']:
                 r['update_by'] = r['update_program']
             tmp['update_by'] = r['update_by'][:10]
-            if r['transaction_type'] == str(self.const.pqtt_printout):
+            if r['transaction_type'] == six.text_type(self.const.pqtt_printout):
                 tmp['data'] = (
                     "%s:%s" % (r['printer_queue'][:10], r['job_name']))[:20]
-            elif r['transaction_type'] == str(self.const.pqtt_quota_fill_pay):
+            elif r['transaction_type'] == six.text_type(self.const.pqtt_quota_fill_pay):
                 tmp['data'] = "%s:%s kr" % (r['description'][:10], r['kroner'])
-            elif r['transaction_type'] == str(self.const.pqtt_quota_fill_free):
+            elif r['transaction_type'] == six.text_type(self.const.pqtt_quota_fill_free):
                 tmp['data'] = r['description']
-            elif r['transaction_type'] == str(self.const.pqtt_undo):
+            elif r['transaction_type'] == six.text_type(self.const.pqtt_undo):
                 tmp['data'] = ("undo %s: %s" % (r['target_job_id'],
                                                 r['description']))[:20]
-            elif r['transaction_type'] == str(self.const.pqtt_balance):
+            elif r['transaction_type'] == six.text_type(self.const.pqtt_balance):
                 tmp['data'] = "balance"
             ret.append(tmp)
 
@@ -529,7 +530,7 @@ The currently defined id-types are:
         for c in ('person_id', 'update_by', 'pages', 'target_job_id',
                   'kroner', 'account_id'):
             if ret.has_key(c):
-                ret[c] = str(ret[c])
+                ret[c] = six.text_type(ret[c])
         ret['transaction_type'] = self.tt_mapping[ret['transaction_type']]
         return ret
 
@@ -633,17 +634,17 @@ The currently defined id-types are:
             if not t['update_by']:
                 t['update_by'] = t['update_program']
             tmp['update_by'] = t['update_by'][:10]
-            if t['transaction_type'] == str(self.const.pqtt_printout):
+            if t['transaction_type'] == six.text_type(self.const.pqtt_printout):
                 tmp['data'] = (
                     "%s:%s" % (t['printer_queue'][:10], t['job_name']))[:20]
-            elif t['transaction_type'] == str(self.const.pqtt_quota_fill_pay):
+            elif t['transaction_type'] == six.text_type(self.const.pqtt_quota_fill_pay):
                 tmp['data'] = "%s:%s kr" % (t['description'][:10], t['kroner'])
-            elif t['transaction_type'] == str(self.const.pqtt_quota_fill_free):
+            elif t['transaction_type'] == six.text_type(self.const.pqtt_quota_fill_free):
                 tmp['data'] = t['description']
-            elif t['transaction_type'] == str(self.const.pqtt_undo):
+            elif t['transaction_type'] == six.text_type(self.const.pqtt_undo):
                 tmp['data'] = ("undo %s: %s" % (t['target_job_id'],
                                                 t['description']))[:20]
-            elif t['transaction_type'] == str(self.const.pqtt_balance):
+            elif t['transaction_type'] == six.text_type(self.const.pqtt_balance):
                 tmp['data'] = "balance"
             ret.append(tmp)
         return ret
