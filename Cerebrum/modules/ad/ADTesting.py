@@ -1,7 +1,6 @@
-#!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2012 University of Oslo, Norway
+# Copyright 2012-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,14 +17,11 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """This file contains functionality for being able to test the AD sync in
 different ways.
 
 """
 
-import cerebrum_path
-import cereconf
 
 class MockADServer(object):
     """A mock AD server used for testing the sync when in dry run mode and we
@@ -53,7 +49,7 @@ class MockADServer(object):
             return {}
         return ()
 
-    def setUserAttributes(self, Attributes = None, AccountControl = None):
+    def setUserAttributes(self, Attributes=None, AccountControl=None):
         """Register a set of userFields that should be used when syncing.
         """
         self.userAttributes = Attributes
@@ -63,26 +59,26 @@ class MockADServer(object):
     def moveObject(self, OU, Name=None):
         self.distinguishedName
         retur = self.checkObject('moveObject')
-        if not retur[0]: 
+        if not retur[0]:
             return retur
 
         retur = self.bindObject(OU)
-        if not retur[0]: 
+        if not retur[0]:
             return retur
 
-        return (True,'moveObject %s' % self.distinguishedName)
+        return (True, 'moveObject %s' % self.distinguishedName)
 
     def checkObject(self, func='check_object'):
-        if self.Object == None:
+        if self.Object is None:
             self.logger.warn("Object is None in %s" % func)
             return (False, "Object is None in %s" % func)
         else:
             return (True, "checkObject")
 
     def bindObject(self, LDAPAccount):
-        self.Object = object() # normally the win32com object for connecting to
-                               # the AD's LDAP
-        self.distinguishedName = LDAPAccount # Note that this is not correct
+        # normally the win32com object for connecting to the AD's LDAP
+        self.Object = object()
+        self.distinguishedName = LDAPAccount  # Note that this is not correct
         return (True, "Object bound to %s" % self.distinguishedName)
 
     def rebindObject(self):
@@ -100,34 +96,34 @@ class MockADServer(object):
 
     def deleteObject(self):
         retur = self.checkObject('deleteObject')
-        if not retur[0]: 
+        if not retur[0]:
             return retur
 
         OUparts = self.distinguishedName.split(',')
         OU = ",".join(OUparts[1:])
-        name = OUparts[0] 
+        name = OUparts[0]
 
         retur = self.bindObject(OU)
-        if not retur[0]: 
+        if not retur[0]:
             return retur
 
-        self.clearObject()          
+        self.clearObject()
         return (True, 'deleteObject "type" %s, %s' % (name, OU))
 
     def createObject(self, objType, OU, Name):
         retur = self.bindObject(OU)
-        if not retur[0]: 
+        if not retur[0]:
             return retur
-
         sid = '1234566778990'
-
-        self.distinguishedName = Name # not correct
+        self.distinguishedName = Name  # not correct
         return (True, 'createObject %s%s,%s' % ('CN=', Name, OU), sid)
 
     def getObjectProperties(self, properties):
         retur = self.checkObject('getObjectProperties')
-        if not retur[0]: 
+        if not retur[0]:
             return retur
+
+        accprop = {}
 
         for attr in properties:
             accprop[attr] = 'test'
@@ -135,7 +131,7 @@ class MockADServer(object):
 
     def setObjectProperties(self, accprop):
         retur = self.checkObject('putObjectProperties')
-        if not retur[0]: 
+        if not retur[0]:
             return retur
         return (True, "putObjectProperty %s" % self.distinguishedName)
 
@@ -151,7 +147,7 @@ class MockADServer(object):
         # Returning False for now, might want to simulate a DistinguishedName.
         return False
 
-    def getSid(self,acObject):
+    def getSid(self, acObject):
         return '123124125412'
 
     def getGUID(self, acObject):
