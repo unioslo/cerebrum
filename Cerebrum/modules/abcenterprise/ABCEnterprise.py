@@ -21,10 +21,6 @@ from __future__ import unicode_literals
 import sys
 import getopt
 
-import cerebrum_path
-import abcconf
-
-from Cerebrum.Utils import Factory
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
 
 # TODO:
@@ -73,7 +69,6 @@ class ABCPreParser:
         self.logger = logger
 
         filename = dryrun = None
-        verbose = False
         try:
             opts, args = getopt.getopt(argv,
                                        self.short_args,
@@ -89,7 +84,7 @@ class ABCPreParser:
                 dryrun = True
             elif opt in ('-f', '--file='):
                 filename = val
-        if filename == None:
+        if filename is None:
             # TBD: let config decide? Set a default?
             self.usage(1)
         self.settings = ABCFactory.get('Settings')()
@@ -121,7 +116,6 @@ class ABCAnalyzer(object):
     in return. Use Mixins for more options."""
 
     def __init__(self, argv, logger):
-        #self._data_source = None
         # Get argv into variables and make am object for all of it
         pp = ABCFactory.get('PreParser')(argv, logger)
         self.settings = pp.get_settings()
