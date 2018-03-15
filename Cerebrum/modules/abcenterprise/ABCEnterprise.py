@@ -154,37 +154,27 @@ class ABCAnalyzer(object):
          self.settings.variables['target'],
          self.settings.variables['timestamp']) = setiter.next()
 
+    def _get_iterator(self, element):
+        return ABCFactory.get('EntityIterator')(
+            self.settings.variables['filename'],
+            element)
 
     def iter_properties(self):
-        elem = "properties"
-        it = ABCFactory.get('EntityIterator')(self.settings.variables['filename'],
-                                              elem)
-        return ABCFactory.get('PropertiesParser')(iter(it))
-
+        return ABCFactory.get('PropertiesParser')(
+            iter(self._get_iterator("properties")))
 
     def iter_persons(self):
-        elem = "person"
-        it = ABCFactory.get('EntityIterator')(self.settings.variables['filename'],
-                                              elem)
-        return ABCFactory.get('PersonParser')(iter(it))
-
+        return ABCFactory.get('PersonParser')(
+            iter(self._get_iterator("person")))
 
     def iter_orgs(self):
-        elem = "organization"
-        it = ABCFactory.get('EntityIterator')(self.settings.variables['filename'],
-                                              elem)
-        return ABCFactory.get('OrgParser')(iter(it))
-
+        return ABCFactory.get('OrgParser')(
+            iter(self._get_iterator("organization")))
 
     def iter_groups(self):
-        elem = "group"
-        it = ABCFactory.get('EntityIterator')(self.settings.variables['filename'],
-                                              elem)
-        return ABCFactory.get('GroupParser')(iter(it))
+        return ABCFactory.get('GroupParser')(
+            iter(self._get_iterator("group")))
 
     def iter_relations(self):
-        elem = "relation"
-        it = ABCFactory.get('EntityIterator')(self.settings.variables['filename'],
-                                              elem)
-        return ABCFactory.get('RelationParser')(iter(it))
-
+        return ABCFactory.get('RelationParser')(
+            iter(self._get_iterator("relation")))
