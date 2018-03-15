@@ -22,3 +22,4 @@
 --extra-file=mod_voip.sql
 --extra-file=mod_printer_quota.sql
 --extra-file=mod_events.sql
+--extra-file=mod_gpg.sql

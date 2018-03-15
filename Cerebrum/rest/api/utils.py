@@ -1,5 +1,27 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# Copyright 2016-2018 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 from __future__ import unicode_literals
+
+from six import text_type
 
 from Cerebrum.rest.api import db
 
@@ -19,11 +41,11 @@ class EntityLookupError(Exception):
 def get_account(identifier, idtype=None, actype='Account'):
     """Fetch an account by name, ID or POSIX UID.
 
-    :param str identifier:
+    :param text/int identifier:
         The identifier for the account to be retrived
-    :param str idtype:
+    :param text idtype:
         The identifier type. Can be 'name', 'entity_id' or 'posix_uid'
-    :param str actype:
+    :param text actype:
         The wanted account subclass
 
     :rtype:
@@ -33,22 +55,22 @@ def get_account(identifier, idtype=None, actype='Account'):
         exception.
     """
     if actype == 'Account':
-        account = Factory.get(b'Account')(db.connection)
+        account = Factory.get('Account')(db.connection)
     elif actype == 'PosixUser':
-        account = Factory.get(b'PosixUser')(db.connection)
+        account = Factory.get('PosixUser')(db.connection)
 
     try:
         if idtype == 'name':
             account.find_by_name(identifier, db.const.account_namespace)
         elif idtype == 'entity_id':
-            if isinstance(identifier, str) and not identifier.isdigit():
-                raise EntityLookupError(u"entity_id must be a number")
+            if isinstance(identifier, text_type) and not identifier.isdigit():
+                raise EntityLookupError("entity_id must be a number")
             account.find(identifier)
         elif idtype == 'posix_uid':
-            if isinstance(identifier, str) and not identifier.isdigit():
-                raise EntityLookupError(u"posix_uid must be a number")
+            if isinstance(identifier, text_type) and not identifier.isdigit():
+                raise EntityLookupError("posix_uid must be a number")
             if actype != 'PosixUser':
-                account = Factory.get(b'PosixUser')(db.connection)
+                account = Factory.get('PosixUser')(db.connection)
                 account.clear()
             account.find_by_uid(identifier)
         else:
@@ -64,11 +86,11 @@ def get_account(identifier, idtype=None, actype='Account'):
 def get_group(identifier, idtype=None, grtype='Group'):
     """Fetch a group by name, ID or POSIX GID.
 
-    :param str identifier:
+    :param text/int identifier:
         The identifier for the group to be retrived
-    :param str idtype:
+    :param text idtype:
         The identifier type. Can be 'name', 'entity_id' or 'posix_gid'
-    :param str actype:
+    :param text actype:
         The wanted group subclass
 
     :rtype:
@@ -79,13 +101,13 @@ def get_group(identifier, idtype=None, grtype='Group'):
     """
     group = None
     if grtype == 'Group':
-        group = Factory.get(b'Group')(db.connection)
+        group = Factory.get('Group')(db.connection)
     elif grtype == 'PosixGroup':
-        group = Factory.get(b'PosixGroup')(db.connection)
+        group = Factory.get('PosixGroup')(db.connection)
     elif grtype == 'DistributionGroup':
-        group = Factory.get(b'DistributionGroup')(db.connection)
+        group = Factory.get('DistributionGroup')(db.connection)
     else:
-        raise EntityLookupError(u"Invalid group type {}".format(grtype))
+        raise EntityLookupError("Invalid group type {}".format(grtype))
 
     try:
         if idtype == "name":
@@ -107,12 +129,12 @@ def get_group(identifier, idtype=None, grtype='Group'):
 def get_entity(identifier=None, entype=None, idtype=None):
     """Fetches an entity.
 
-    :param str identifier:
+    :param text/int identifier:
         The identifier for the entity to be retrived
-    :param str/None entype:
+    :param text/None entype:
         The entity type. If None, 'identifier' is assumed to be numeric, and
         the subclassed object is returned.
-    :param str idtype:
+    :param text idtype:
         The identifier type
 
     :rtype:
@@ -121,7 +143,7 @@ def get_entity(identifier=None, entype=None, idtype=None):
         The entity object
     """
     if identifier is None:
-        raise EntityLookupError(u"Missing identifier")
+        raise EntityLookupError("Missing identifier")
     if entype == 'account':
         return get_account(idtype=idtype, identifier=identifier)
     # if entype == 'person':
@@ -136,7 +158,7 @@ def get_entity(identifier=None, entype=None, idtype=None):
         try:
             int(identifier)
         except ValueError:
-            raise EntityLookupError(u"Expected numeric identifier")
+            raise EntityLookupError("Expected numeric identifier")
         en = Factory.get(b'Entity')(db.connection)
         try:
             return en.get_subclassed_object(identifier)
@@ -144,7 +166,7 @@ def get_entity(identifier=None, entype=None, idtype=None):
             raise EntityLookupError(
                 "Could not find an Entity with {}={}".format(idtype,
                                                              identifier))
-    raise EntityLookupError(u"Invalid entity type {}".format(entype))
+    raise EntityLookupError("Invalid entity type {}".format(entype))
 
 
 def get_entity_name(entity):
@@ -155,11 +177,11 @@ def get_entity_name(entity):
     :param Entity/int/long entity:
         The entity object or its ID
 
-    :return str:
+    :return text:
         The name of the entity
     """
     if isinstance(entity, (int, long)):
-        entity_obj = Factory.get(b'Entity')(db.connection)
+        entity_obj = Factory.get('Entity')(db.connection)
         try:
             entity_obj.find(entity)
             entity = entity_obj.get_subclassed_object()
@@ -286,10 +308,3 @@ def str_to_bool(value):
     if value not in ('true', 'false'):
         raise ValueError('Need true or false; got {}'.format(value))
     return value == 'true'
-
-
-def _db_decode(text):
-    # hack to decode db-strings in utf-8
-    if text is None:
-        return None
-    return text.decode(db.encoding, 'replace')
