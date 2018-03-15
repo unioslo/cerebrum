@@ -54,7 +54,7 @@ class XMLEntityIterator:
 CLASS_XMLPARSER in abcconf only supports 'ElementTree' and cElementTree'."""
             sys.exit(1)
 
-        self.it = iter(iterparse(filename, ("start", "end")))
+        self.it = iter(iterparse(filename, (b"start", b"end")))
         self.element_name = element
 
         # Keep track of the root element (to prevent element caching)

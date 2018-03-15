@@ -68,7 +68,7 @@ class ABCObj2Cerebrum(object):
         for i in entity._contacts.keys():
             entity._contacts[self._conv_cons(i)] = entity._contacts[i]
             del entity._contacts[i]
-	return entity
+        return entity
 
     def _process_tags(self, entity):
         """Process known <tag> mechanics. Translate the tagtype into something
