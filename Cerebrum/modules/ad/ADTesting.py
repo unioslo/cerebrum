@@ -70,7 +70,7 @@ class MockADServer(object):
 
     def checkObject(self, func='check_object'):
         if self.Object is None:
-            self.logger.warn("Object is None in %s" % func)
+            self.logger.warn("Object is None in %s", func)
             return (False, "Object is None in %s" % func)
         else:
             return (True, "checkObject")

@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2011 University of Oslo, Norway
+#
+# Copyright 2011-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 Generic module for AD synchronisation
 
@@ -36,13 +34,14 @@ write a subclass and overwrite the methods neccessary for a custom
 sync.
 
 """
-
+import itertools
 import time
 
 import cereconf
+
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.Utils import unicode2str, Factory
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.ad.ADUtils import ADUserUtils, ADGroupUtils
 from Cerebrum.modules.ad.CerebrumData import CerebrumDistGroup
 from Cerebrum.modules.ad.CerebrumData import CerebrumGroup
@@ -96,11 +95,11 @@ class UserSync(ADUserUtils):
         self.sync_attrs = cereconf.AD_ATTRIBUTES
         if self.exchange_sync:
             self.sync_attrs += cereconf.AD_EXCHANGE_ATTRIBUTES
-        self.logger.info("Configuration done. Will compare attributes: %s" %
+        self.logger.info("Configuration done. Will compare attributes: %s",
                          ", ".join(self.sync_attrs))
         if self.subset:
-            self.logger.info("Sync will only be run for the subset %s" %
-                             str(self.subset))
+            self.logger.info("Sync will only be run for the subset %r",
+                             self.subset)
 
     def fullsync(self):
         """
@@ -113,7 +112,7 @@ class UserSync(ADUserUtils):
         if addump is None or addump is False:
             self.logger.critical("No data from AD. Something's wrong!")
             return
-        self.logger.info("Fetched %i AD users" % len(addump))
+        self.logger.info("Fetched %i AD users", len(addump))
         # Fetch cerebrum data. store in self.accounts
         self.logger.debug("Fetching cerebrum user data...")
         self.fetch_cerebrum_data()
@@ -129,7 +128,7 @@ class UserSync(ADUserUtils):
                 self.accounts[uname].in_ad = True
                 self.compare(ad_user, self.accounts[uname])
             else:
-                self.logger.debug3("User %s in AD, but not in Cerebrum", uname)
+                self.logger.debug3("User %r in AD, but not in Cerebrum", uname)
                 self.deactivate_user(ad_user)
 
         # Users exist in Cerebrum and has ad spread, but not in AD.
@@ -187,8 +186,8 @@ class UserSync(ADUserUtils):
             # We need to map account_id -> CerebrumUser as well
             # TBD: join self.accounts and self.id2uname?
             self.id2uname[int(row["account_id"])] = uname
-        self.logger.info("Fetched %i cerebrum users with spread %s" % (
-            len(self.accounts), self.user_spread))
+        self.logger.info("Fetched %i cerebrum users with spread %s",
+                         len(self.accounts), self.user_spread)
 
         # If exchange sync, get all users with exchange spread
         if self.exchange_sync:
@@ -234,7 +233,7 @@ class UserSync(ADUserUtils):
 
         # Set quarantine flag
         for a_id in set(self.id2uname) & set(quarantined_accounts):
-            self.logger.debug("Quarantine flag is set for %s" %
+            self.logger.debug("Quarantine flag is set for %s",
                               self.accounts[self.id2uname[a_id]])
             self.accounts[self.id2uname[a_id]].quarantined = True
 
@@ -325,7 +324,7 @@ class UserSync(ADUserUtils):
         # Fetch ad data
         self.logger.debug("Fetching ad data about contact objects...")
         ad_contacts = self.fetch_ad_data_contacts()
-        self.logger.info("Fetched %i ad forwards" % len(ad_contacts))
+        self.logger.info("Fetched %i ad forwards", len(ad_contacts))
 
         # Fetch forward_info
         self.logger.debug("Fetching forwardinfo from cerebrum...")
@@ -482,9 +481,8 @@ class UserSync(ADUserUtils):
                     dn = "%s,%s" % (cb_cn, self.get_ou(dn))
                 # Normal cases
                 elif result:
-                    self.logger.debug("Changing attr %s from %s to %s",
-                                      attr, unicode2str(ad_attr),
-                                      unicode2str(cb_attr))
+                    self.logger.debug("Changing attr %s from %r to %r",
+                                      attr, ad_attr, cb_attr)
                     cb_user.add_change(attr, result)
             elif cb_attr:
                 # attribute is not in AD and cerebrum value is set => update AD
@@ -529,24 +527,29 @@ class UserSync(ADUserUtils):
                     self.move_contact(cb_dn, ou)
 
                 # Compare other attributes
-                for attr_type, cb_fwd_attr in fwd.iteritems():
-                    ad_fwd_attr = ad_fwd.get(attr_type)
-                    if cb_fwd_attr and ad_fwd_attr:
-                        # value both in ad and cerebrum => compare
-                        result = self.attr_cmp(cb_fwd_attr, ad_fwd_attr)
-                        if result:
-                            self.logger.debug("Changing attr %s from %s to %s",
-                                              attr, unicode2str(ad_fwd_attr),
-                                              unicode2str(cb_fwd_attr))
-                            cb_user.add_change(attr, result)
-                    elif cb_fwd_attr:
-                        # attribute is not in AD and cerebrum value is set 
-                        # => update AD
-                        cb_user.add_change(attr, cb_fwd_attr)
-                    elif ad_fwd_attr:
-                        # value only in ad => delete value in ad
-                        # TBD: is this correct behavior?
-                        cb_user.add_change(attr, "")
+                # TODO: This block of code is riddled with NameErrors...
+                #       There's no way this ever worked
+                raise NotImplementedError("If you reached this,"
+                                          " you've encountered a bug!")
+                #   for attr_type, cb_fwd_attr in fwd.iteritems():
+                #       ad_fwd_attr = ad_fwd.get(attr_type)
+                #       if cb_fwd_attr and ad_fwd_attr:
+                #           # value both in ad and cerebrum => compare
+                #           result = self.attr_cmp(cb_fwd_attr, ad_fwd_attr)
+                #           if result:
+                #               self.logger.debug(
+                #                   "Changing attr %s from %s to %s",
+                #                   attr, unicode2str(ad_fwd_attr),
+                #                   unicode2str(cb_fwd_attr))
+                #               cb_user.add_change(attr, result)
+                #       elif cb_fwd_attr:
+                #           # attribute is not in AD and cerebrum value is set
+                #           # => update AD
+                #           cb_user.add_change(attr, cb_fwd_attr)
+                #       elif ad_fwd_attr:
+                #           # value only in ad => delete value in ad
+                #           # TBD: is this correct behavior?
+                #           cb_user.add_change(attr, "")
 
             # Remaining contacts in AD should be deleted
             for ad_fwd in ad_contacts.itervalues():
@@ -571,7 +574,7 @@ class UserSync(ADUserUtils):
                                    self.co.externalid_accountsid)
         self.ac.populate_external_id(self.co.system_ad,
                                      self.co.externalid_accountsid, sid)
-        self.logger.debug("Storing sid %s for %s" % (sid, account_id))
+        self.logger.debug("Storing sid %r for %r", sid, account_id)
         self.ac.write_db()
 
 
@@ -613,7 +616,8 @@ class GroupSync(ADGroupUtils):
             if k in config_args:
                 setattr(self, k, self.co.Spread(config_args[k]))
         for k in ("exchange_sync", "delete_groups", "dryrun", "store_sid",
-                  "ad_ldap", "ad_domain", "subset", "name_prefix", "first_run"):
+                  "ad_ldap", "ad_domain", "subset", "name_prefix",
+                  "first_run"):
             setattr(self, k, config_args[k])
 
         # Set which attrs that are to be compared with AD
@@ -633,7 +637,7 @@ class GroupSync(ADGroupUtils):
             return
         self.logger.info("Fetched %i AD groups", len(addump))
 
-        #Fetch cerebrum data.
+        # Fetch cerebrum data.
         self.logger.debug("Fetching cerebrum data...")
         self.fetch_cerebrum_data()
 
@@ -736,14 +740,12 @@ class GroupSync(ADGroupUtils):
         """
         for attr in self.sync_attrs:
             cb_attr = cb_group.ad_attrs.get(attr)
-            ad_attr   = ad_group.get(attr)
-            #self.logger.debug3("attr: %s, c: %s, %s, a: %s, %s" % (
-            #    attr, type(cb_attr), cb_attr, type(ad_attr), ad_attr))
+            ad_attr = ad_group.get(attr)
             if cb_attr and ad_attr:
                 # value both in ad and cerebrum => compare
                 result = self.attr_cmp(cb_attr, ad_attr)
                 if result:
-                    self.logger.debug("Changing attr %s from %s to %s",
+                    self.logger.debug("Changing attr %s from %r to %r",
                                       attr, ad_attr, cb_attr)
                     cb_group.add_change(attr, result)
             elif cb_attr:
@@ -751,11 +753,12 @@ class GroupSync(ADGroupUtils):
                 cb_group.add_change(attr, cb_attr)
             elif ad_attr:
                 # value only in ad => delete value in ad
-                cb_group.add_change(attr,"")
+                cb_group.add_change(attr, "")
 
         # Commit changes
         if cb_group.changes:
-            self.commit_changes(ad_group["distinguishedName"], **cb_group.changes)
+            self.commit_changes(ad_group["distinguishedName"],
+                                **cb_group.changes)
 
     def get_default_ou(self):
         """
@@ -772,17 +775,19 @@ class GroupSync(ADGroupUtils):
         for grp in self.groups.itervalues():
             # Find account members
             members = list()
-            for usr in self.group.search_members(group_id=grp.group_id,
-                                                 member_spread=self.user_spread,
-                                                 include_member_entity_name=True):
+            for usr in self.group.search_members(
+                    group_id=grp.group_id,
+                    member_spread=self.user_spread,
+                    include_member_entity_name=True):
                 uname = usr['member_name']
                 if uname:
                     members.append(uname)
 
             # Find group members
             # TBD: also allow dist groups
-            for memgrp in self.group.search_members(group_id=grp.group_id,
-                                                    member_spread=self.sec_group_spread):
+            for memgrp in self.group.search_members(
+                    group_id=grp.group_id,
+                    member_spread=self.sec_group_spread):
                 gname = memgrp.get('member_name')
                 if gname:
                     members.append(gname)
@@ -813,13 +818,14 @@ class DistGroupSync(GroupSync):
             if k in config_args:
                 setattr(self, k, self.co.Spread(config_args[k]))
         for k in ("exchange_sync", "delete_groups", "dryrun", "store_sid",
-                  "ad_ldap", "ad_domain", "subset", "name_prefix", "first_run"):
+                  "ad_ldap", "ad_domain", "subset", "name_prefix",
+                  "first_run"):
             setattr(self, k, config_args[k])
 
         # Set which attrs that are to be compared with AD
         self.sync_attrs = cereconf.AD_DIST_GRP_ATTRIBUTES
-        self.logger.info("Configuration done. Will compare attributes: %s" %
-                         str(self.sync_attrs))
+        self.logger.info("Configuration done. Will compare attributes: %r",
+                         self.sync_attrs)
 
     def fullsync(self):
         """
@@ -831,9 +837,9 @@ class DistGroupSync(GroupSync):
         if addump is None or addump is False:
             self.logger.critical("No data from AD. Something's wrong!")
             return
-        self.logger.info("Fetched %i AD groups" % len(addump))
+        self.logger.info("Fetched %i AD groups", len(addump))
 
-        #Fetch cerebrum data.
+        # Fetch cerebrum data.
         self.logger.debug("Fetching cerebrum data...")
         self.fetch_cerebrum_data()
 
@@ -844,7 +850,7 @@ class DistGroupSync(GroupSync):
                 self.groups[gname].in_ad = True
                 self.compare(ad_group, self.groups[gname])
             else:
-                self.logger.debug("Group %s in AD, but not in Cerebrum" % gname)
+                self.logger.debug("Group %r in AD, but not in Cerebrum", gname)
                 # Group in AD, but not in Cerebrum:
                 if self.delete_groups:
                     self.delete_group(ad_group["distinguishedName"])
@@ -888,7 +894,8 @@ class DistGroupSync(GroupSync):
                  distribution groupproperties (dict)
         """
         ret = dict()
-        attrs = cereconf.AD_DIST_GRP_ATTRIBUTES + tuple(cereconf.AD_DIST_GRP_DEFAULTS.keys())
+        attrs = tuple(itertools.chain(cereconf.AD_DIST_GRP_ATTRIBUTES,
+                                      cereconf.AD_DIST_GRP_DEFAULTS.keys()))
         self.server.setGroupAttributes(attrs)
         ad_dist_grps = self.server.listObjects('group', True, self.ad_ldap)
         # Check if we get any dat from AD. If no data the AD service

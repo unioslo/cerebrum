@@ -93,8 +93,8 @@ class ADUtils(object):
         @type changes: dict (keyword args)
         """
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not setting attributes for %s: %s" %
-                              (dn, changes))
+            self.logger.debug("DRYRUN: Not setting attributes for %r: %r",
+                              dn, changes)
             return
 
         if self.run_cmd('bindObject', dn):
@@ -104,7 +104,7 @@ class ADUtils(object):
             for k, v in changes.iteritems():
                 if v is None:
                     del changes[k]
-            self.logger.info("Setting attributes for %s: %s" % (dn, changes))
+            self.logger.info("Setting attributes for %r: %r", dn, changes)
             if changes:
                 self.run_cmd('putProperties', changes)
                 self.run_cmd('setObject')
@@ -156,24 +156,24 @@ class ADUtils(object):
         """
         cmd = getattr(self.server, command)
         try:
-            self.logger.debug3("Running cmd: %s%s", command, str(args))
+            self.logger.debug3("Running cmd: %s(%r)", command, args)
             ret = cmd(*args)
-        except xmlrpclib.ProtocolError, xpe:
-            self.logger.critical("Error connecting to AD service: %s %s" %
+        except xmlrpclib.ProtocolError as xpe:
+            self.logger.critical("Error connecting to AD service: %s %s",
                                  (xpe.errcode, xpe.errmsg))
             return False,
-        except xmlrpclib.Fault, msg:
+        except xmlrpclib.Fault as msg:
             self.logger.warn("Exception from AD service: %s", msg)
             return False
         except Exception:
             self.logger.warn("Unexpected exception", exc_info=1)
-            self.logger.debug("Failed to run cmd: %s%s", command, str(args))
+            self.logger.debug("Failed to run cmd: %s(%r)", command, args)
             return False
 
         # ret is a list in the form [bool, msg] where the first
         # element tells if the command was successful or not
         if not ret[0]:
-            self.logger.warn("Server couldn't execute %s(%s): %s" %
+            self.logger.warn("Server couldn't execute %s(%r): %r",
                              (command, args, ret[1:]))
             return False
         # cmd was run successfully on the server.
@@ -195,26 +195,26 @@ class ADUtils(object):
         @type ou: str
         """
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not moving %s %s to %s" % (
-                obj_type, dn, ou))
+            self.logger.debug("DRYRUN: Not moving %s %r to %r",
+                              obj_type, dn, ou)
             return
 
         if self.run_cmd('bindObject', dn):
-            self.logger.info("Moving %s %s to %s" % (obj_type, dn, ou))
+            self.logger.info("Moving %s %r to %r", obj_type, dn, ou)
             self.run_cmd('moveObject', ou)
 
     def rename_object(self, dn, ou, cn):
         if self.dryrun:
-            self.logger.info("DRYRUN: Not renaming %s to %s,%s" % (dn, cn, ou))
+            self.logger.info("DRYRUN: Not renaming %s to %s,%s", dn, cn, ou)
             return
 
         if self.run_cmd('bindObject', dn):
-            self.logger.info("Renaming %s to %s,%s" % (dn, cn, ou))
+            self.logger.info("Renaming %s to %s,%s", dn, cn, ou)
             self.run_cmd('moveObject', ou, cn)
 
     def move_contact(self, dn, ou):
         if self.dryrun:
-            self.logger.info("DRYRUN: Not moving contact %s" % dn)
+            self.logger.info("DRYRUN: Not moving contact %s", dn)
             return
         self.move_object(dn, ou, obj_type="contact")
 
@@ -230,14 +230,14 @@ class ADUtils(object):
         """
         name = attrs.pop("sAMAccountName")
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not creating contact %s" % name)
+            self.logger.debug("DRYRUN: Not creating contact %s", name)
             return
 
         ret = self.run_cmd("createObject", "contact", ou, name)
         if not ret:
             # Don't continue if createObject fails
             return
-        self.logger.info("created contact %s" % name)
+        self.logger.info("created contact %s", name)
 
         self.run_cmd("putProperties", attrs)
         self.run_cmd("setObject")
@@ -293,11 +293,11 @@ class ADUserUtils(ADUtils):
         @type dn: str
         """
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not deleting user %s" % dn)
+            self.logger.debug("DRYRUN: Not deleting user %s", dn)
             return
 
         if self.run_cmd('bindObject', dn):
-            self.logger.info("Deleting user %s" % dn)
+            self.logger.info("Deleting user %s", dn)
             self.run_cmd('deleteObject')
 
     def disable_user(self, dn):
@@ -308,9 +308,9 @@ class ADUserUtils(ADUtils):
         @type dn: str
         """
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not disabling user %s" % dn)
+            self.logger.debug("DRYRUN: Not disabling user %s", dn)
             return
-        self.logger.info("Disabling user %s" % dn)
+        self.logger.info("Disabling user %s", dn)
         self.commit_changes(dn, ACCOUNTDISABLE=True)
 
     def create_ad_account(self, attrs, ou, create_homedir=False):
@@ -324,7 +324,7 @@ class ADUserUtils(ADUtils):
         """
         uname = attrs.pop("sAMAccountName")
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not creating user %s" % uname)
+            self.logger.debug("DRYRUN: Not creating user %s", uname)
             return
 
         sid = self.run_cmd("createObject", "User", ou, uname)
@@ -381,7 +381,7 @@ class ADGroupUtils(ADUtils):
         @type changes: dict (keyword args)
         """
         if not self.dryrun and self.run_cmd('bindObject', dn):
-            self.logger.info("Setting attributes for %s: %s" % (dn, changes))
+            self.logger.info("Setting attributes for %s: %r", dn, changes)
             # Set attributes in AD
             self.run_cmd('putGroupProperties', changes)
             self.run_cmd('setObject')
@@ -397,7 +397,7 @@ class ADGroupUtils(ADUtils):
         """
         gname = attrs.pop("name")
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not creating group %s" % gname)
+            self.logger.debug("DRYRUN: Not creating group %s", gname)
             return
 
         # Create group object
@@ -422,11 +422,11 @@ class ADGroupUtils(ADUtils):
         @type dn: str
         """
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not deleting %s" % dn)
+            self.logger.debug("DRYRUN: Not deleting %s", dn)
             return
 
         if self.run_cmd('bindObject', dn):
-            self.logger.info("Deleting group %s" % dn)
+            self.logger.info("Deleting group %s", dn)
             self.run_cmd('deleteObject')
 
     def sync_members(self, dn, members):
@@ -440,9 +440,9 @@ class ADGroupUtils(ADUtils):
 
         """
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not syncing members for %s" % dn)
+            self.logger.debug("DRYRUN: Not syncing members for %s", dn)
             return
         # We must bind to object before calling syncMembers
         if dn and self.run_cmd('bindObject', dn):
             if self.run_cmd("syncMembers", members, False, False):
-                self.logger.info("Synced members for group %s" % dn)
+                self.logger.info("Synced members for group %s", dn)
