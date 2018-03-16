@@ -118,12 +118,14 @@ copy_uio = [
     methods=copy_helpers)
 class BofhdExtension(BofhdCommonMethods):
 
+    external_id_mappings = {}
     all_commands = {}
     parent_commands = True
     authz = BofhdAuth
 
     def __init__(self, *args, **kwargs):
         super(BofhdExtension, self).__init__(*args, **kwargs)
+        self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
 
         # Quick fix to replace the `person_find_uio` hack
         self.__uio_impl = base(*args, **kwargs)
