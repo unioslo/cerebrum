@@ -51,7 +51,7 @@ class SocketConnection(object):
 
     eof = b'\0'
     buffer_size = 1024 * 2
-    max_size = 1024 * 16
+    max_size = 1024 * 128
 
     def __init__(self, sock):
         self._sock = sock
