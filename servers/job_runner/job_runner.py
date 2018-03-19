@@ -227,15 +227,8 @@ def main(inargs=None):
     install_subparser(parser)
     args = parser.parse_args(inargs)
 
-    # autoconf('cronjob', args)
-    # TODO:
-    autoconf('console', args)
-
+    autoconf('cronjob', args)
     logger.debug("job_runner args=%r", args)
-
-    # TODO: Fix
-    setattr(cereconf, 'JOB_RUNNER_SOCKET',
-            os.path.join(os.getcwd(), 'jr.sock'))
     logger.debug("job runner socket=%r exists=%r",
                  cereconf.JOB_RUNNER_SOCKET,
                  os.path.exists(cereconf.JOB_RUNNER_SOCKET))
@@ -245,16 +238,17 @@ def main(inargs=None):
     # What to do:
     if args.command:
         command = args.command
-        args = []
+        c_args = []
     elif args.run_job:
         command = 'RUNJOB'
-        args = [args.run_job, args.run_with_deps]
+        c_args = [args.run_job, args.run_with_deps]
     elif args.show_job:
         command = 'SHOWJOB'
-        args = [args.show_job, ]
+        c_args = [args.show_job, ]
 
     if command:
-        print(run_command(command, *args))
+        logger.debug("job_runner running command=%r, args=%r", command, c_args)
+        print(run_command(command, *c_args))
         raise SystemExit(0)
 
     # Not running a command, so we'll need a config:
