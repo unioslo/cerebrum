@@ -61,16 +61,12 @@ class ADutil(object):
 
         self.ad_ldap = ad_ldap
 
-    def run_cmd(self, command, dry_run, arg1=None, arg2=None, arg3=None):
+    def run_cmd(self, command, dry_run, *args):
 
         if dry_run:
-            nr_args = 0
-            for i in (arg1, arg1, arg2):
-                if i:
-                    nr_args += 1
             self.logger.debug(
-                'Dryrun of server.%s(%d args)' %
-                (command, nr_args))
+                'Dryrun of server.%s(%d args)',
+                command, len(args))
             # Assume success on all changes.
             # Note that some commands are required to return a tuple of either
             # two or three, so this might not always work.
@@ -78,14 +74,7 @@ class ADutil(object):
         else:
             cmd = getattr(self.server, command)
             try:
-                if arg1 is None:
-                    ret = cmd()
-                elif arg2 is None:
-                    ret = cmd(arg1)
-                elif arg3 is None:
-                    ret = cmd(arg1, arg2)
-                else:
-                    ret = cmd(arg1, arg2, arg3)
+                ret = cmd(*args)
             except xmlrpclib.ProtocolError as xpe:
                 self.logger.critical("Error connecting to AD service."
                                      " Giving up!: %r %r",
@@ -94,7 +83,7 @@ class ADutil(object):
             except Exception:
                 self.logger.error("Unexpected exception", exc_info=1)
                 self.logger.debug("Command: %s",
-                                  repr((command, dry_run, arg1, arg2, arg3)))
+                                  repr((command, dry_run, args)))
                 return [None]
             return ret
 
