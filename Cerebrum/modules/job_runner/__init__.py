@@ -56,13 +56,14 @@ runner_cw = threading.Condition()
 
 def sigchld_handler(signum, frame):
     """Sigchild-handler that wakes the main-thread when a child exits"""
-    logger.debug("sigchld_handler(%r, %r)", signum, frame)
+    # logger.debug("sigchld_handler(%r, %r)", signum, frame)
     signal.signal(signal.SIGCHLD, sigchld_handler)
 
 
 def sig_general_handler(signum, frame):
     """ General signal handler, for places where we use signal.pause()"""
-    logger.debug("siggeneral_handler(%r, %r)" % (signum, frame))
+    # logger.debug("siggeneral_handler(%r, %r)" % (signum, frame))
+    pass
 
 
 class JobRunner(object):
