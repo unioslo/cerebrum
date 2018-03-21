@@ -21,6 +21,22 @@
 different ways.
 
 """
+import md5
+
+import cereconf
+
+DEFAULT_OU = getattr(cereconf, 'AD_LDAP', 'ad_ldap_root')
+
+
+def _make_guid(value):
+    uid = md5.md5(value).hexdigest().upper()
+    return '-'.join((uid[:8], uid[8:12], uid[12:16], uid[16:20], uid[20:]))
+
+
+def _make_sid(value):
+    uid = md5.md5(value).hexdigest().upper()
+    return 'S-1-5-' + '-'.join(
+        str(int(n, 16)) for n in (uid[:4], uid[4:12], uid[12:20], uid[20:]))
 
 
 class MockADServer(object):
@@ -40,7 +56,7 @@ class MockADServer(object):
     def __init__(self, logger):
         self.logger = logger
 
-    def listObjects(self, searchtype, prop=False, OU='ad_ldap_root'):
+    def listObjects(self, searchtype, prop=False, OU=DEFAULT_OU):
         """Return a list of distinguishedName for all objects of a specific
         type, e.g. 'user', 'group' or 'organizationalUnit'.
 
@@ -152,3 +168,39 @@ class MockADServer(object):
 
     def getGUID(self, acObject):
         return '12412512512512'
+
+    def getObjectID(self, getSid=True, getGUID=False, OU=DEFAULT_OU,
+                    searchtype='user'):
+        """ Gets the SID and/or GUID for users or groups and return a dict """
+        fields = 'distinguishedName, sAMAccountName'
+        objecttype = ''
+
+        if searchtype == 'user':
+            objecttype = "objectclass='user' AND objectcategory='Person'"
+        elif searchtype == 'group':
+            objecttype = "objectclass='group' AND objectcategory='group'"
+        else:
+            self.logger.error('getObjectID unknown type %r', searchtype)
+            return False
+
+        if getSid:
+            fields = '%s,%s' % (fields, 'objectSid')
+        if getGUID:
+            fields = '%s,%s' % (fields, 'objectGUID')
+        self.logger.debug(
+            "SELECT '%s' FROM 'LDAP://%s' where %s", fields, OU, objecttype)
+
+        names = ['foo', 'bar', 'baz', ]
+        data = {}
+        for n in names:
+            data[n] = {
+                'distinguishedName': 'cn=%s,%s' % (n, OU),
+            }
+            if getSid:
+                data[n]['Sid'] = _make_sid(n)
+            if getGUID:
+                # per-user unique 128b value
+                data[n]['objectGUID'] = _make_guid(n)
+            self.logger.debug("obj=%r", data[n])
+
+        return data
