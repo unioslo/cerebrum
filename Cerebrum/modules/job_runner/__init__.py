@@ -87,6 +87,7 @@ class JobRunner(object):
     def signal_sleep(self, seconds):
         # SIGALRM is already used by the SocketThread, se we arrange
         # for a SIGUSR1 to be delivered instead
+        logger.debug("starting timer")
         runner_cw.acquire()
         if not self.timer_wait:  # Only have one signal-sleep thread
             logger.info("Signalling sleep: %r seconds", seconds)
@@ -105,17 +106,19 @@ class JobRunner(object):
         """
         did_wait = False
 
-        logger.info("handle_completed_jobs: ")
+        logger.debug("handle_completed_jobs")
         for job in self.job_queue.get_running_jobs():
             try:
                 ret = job['call'].cond_wait(job['pid'])
             except OSError as e:
-                if e.errno != 4:
+                if e.errno == 4:
                     # 4 = "Interrupted system call", which we may get
                     # as we catch SIGCHLD
                     # TODO: We need to filter out false positives from being
                     # logged:
-                    logger.error("error (%r): %r" % (job['name'], e))
+                    logger.debug("cond_wait(%r) interrupt %r", job['name'], e)
+                else:
+                    logger.error("cond_wait(%r) error %r", job['name'], e)
                 time.sleep(1)
                 continue
             logger.debug("cond_wait(%r) = %r" % (job['name'], ret))
@@ -233,6 +236,7 @@ class JobRunner(object):
         self.jobs_has_completed = False
 
         while not self._should_quit:
+            logger.debug("job_runner main loop run")
             self.handle_completed_jobs()
 
             # re-fill / append to the ready to run queue.  If delay
@@ -289,6 +293,7 @@ class JobRunner(object):
             # continue on SIGCHLD/SIGALRM.  Won't hurt if we get another signal
             signal.pause()
 
+            logger.debug("stopping timer")
             runner_cw.acquire()
             self.timer_wait.cancel()
             self.timer_wait = None
@@ -307,3 +312,4 @@ class JobRunner(object):
             self.job_queue.kill_running_jobs(signal.SIGKILL)
             time.sleep(3)
             self.handle_completed_jobs()
+        logger.info("job_runner main loop stopping")
