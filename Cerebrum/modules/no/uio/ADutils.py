@@ -17,6 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 import re
+import urlparse
 import xmlrpclib
 
 import cereconf
@@ -28,7 +29,7 @@ class ADutil(object):
 
     def __init__(self, db, co, logger,
                  host=cereconf.AD_SERVER_HOST, port=cereconf.AD_SERVER_PORT,
-                 url=None, ad_ldap=cereconf.AD_LDAP, dry_run=False):
+                 url=None, ad_ldap=cereconf.AD_LDAP, mock=False):
         """
         Initialize AD syncronization, i.e. connect to AD service on
         given host.
@@ -36,35 +37,28 @@ class ADutil(object):
         self.db = db
         self.co = co
         self.logger = logger
-        ad_domain_admin = cereconf.AD_DOMAIN_ADMIN_USER
-        try:
-            if url is None:
-                password = read_password(ad_domain_admin, host)
-                url = "https://%s:%s@%s:%i" % (ad_domain_admin, password,
-                                               host, port)
-            else:
-                m = re.match(r'([^:]+)://([^:]+):(\d+)', url)
-                if not m:
-                    raise ValueError("Error parsing URL: %s" % url)
-                protocol = m.group(1)
-                host = m.group(2)
-                port = m.group(3)
-                password = read_password(ad_domain_admin, host)
-                url = "%s://%s:%s@%s:%s" % (
-                    protocol,
-                    ad_domain_admin,
-                    password,
-                    host,
-                    port)
-            self.server = xmlrpclib.Server(url)
-        except IOError as e:
-            if not dry_run:
-                raise e
-            self.logger.critical(e)
-            self.logger.error(
-                "No AD connection, so dryrunning cerebrum code only")
+
+        if mock:
+            self.logger.warn("Using mock server")
             from Cerebrum.modules.ad import ADTesting
             self.server = ADTesting.MockADServer(self.logger)
+        else:
+            parts = urlparse.urlsplit(url or '')
+
+            scheme = parts.scheme or 'https'
+            host = parts.hostname or host
+            port = parts.port or port
+            username = parts.username or cereconf.AD_DOMAIN_ADMIN_USER
+            password = read_password(username, host)
+
+            netloc = "%s:%s@%s:%d" % (username, '********', host, port)
+            url = urlparse.urlunsplit((scheme, netloc, ) + parts[2:])
+            self.logger.debug("Connecting to %s", url)
+
+            netloc = "%s:%s@%s:%d" % (username, password, host, port)
+            url = urlparse.urlunsplit((scheme, netloc, ) + parts[2:])
+            self.server = xmlrpclib.Server(url)
+
         self.ad_ldap = ad_ldap
 
     def run_cmd(self, command, dry_run, arg1=None, arg2=None, arg3=None):
