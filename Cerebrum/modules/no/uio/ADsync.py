@@ -25,6 +25,7 @@ ADutilMixIn.py to work with the AD setup at the University of Oslo.
 """
 import copy
 import pickle
+from collections import defaultdict
 
 import cereconf
 
@@ -120,6 +121,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
                           if r['host_id'] and r['host_id'] in hid2hostname)
 
         # Assigning homeDirectory to users
+        users_wo_homedir = defaultdict(int)
         for k, v in user_dict.iteritems():
             if k in uname2disk:
                 home_srv = hid2hostname[uname2disk[k]['host_id']]
@@ -131,8 +133,11 @@ class ADFullUserSync(ADutils.ADuserUtil):
                 else:
                     v['homeDirectory'] = r"\\%s\%s" % (home_srv, k)
             else:
-                self.logger.info("Can not find home server for %r", k)
+                users_wo_homedir[k.partition('-')[2]] += 1
                 v['homeDirectory'] = ""
+        self.logger.debug("Number of users without homeDirectory: %d (%r)",
+                          sum(users_wo_homedir.values()),
+                          dict(users_wo_homedir))
 
     def get_default_ou(self):
         """
