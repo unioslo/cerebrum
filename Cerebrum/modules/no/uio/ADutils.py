@@ -1,6 +1,5 @@
-#!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-# Copyright 2006-2011 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2006-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,11 +16,11 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-import cerebrum_path
-import cereconf
-import xmlrpclib
 import re
+import urlparse
+import xmlrpclib
+
+import cereconf
 
 from Cerebrum.Utils import Factory, read_password
 
@@ -30,7 +29,7 @@ class ADutil(object):
 
     def __init__(self, db, co, logger,
                  host=cereconf.AD_SERVER_HOST, port=cereconf.AD_SERVER_PORT,
-                 url=None, ad_ldap=cereconf.AD_LDAP, dry_run=False):
+                 url=None, ad_ldap=cereconf.AD_LDAP, mock=False):
         """
         Initialize AD syncronization, i.e. connect to AD service on
         given host.
@@ -38,47 +37,36 @@ class ADutil(object):
         self.db = db
         self.co = co
         self.logger = logger
-        ad_domain_admin = cereconf.AD_DOMAIN_ADMIN_USER
-        try:
-            if url is None:
-                password = read_password(ad_domain_admin, host)
-                url = "https://%s:%s@%s:%i" % (ad_domain_admin, password,
-                                               host, port)
-            else:
-                m = re.match(r'([^:]+)://([^:]+):(\d+)', url)
-                if not m:
-                    raise ValueError, "Error parsing URL: %s" % url
-                protocol = m.group(1)
-                host = m.group(2)
-                port = m.group(3)
-                password = read_password(ad_domain_admin, host)
-                url = "%s://%s:%s@%s:%s" % (
-                    protocol,
-                    ad_domain_admin,
-                    password,
-                    host,
-                    port)
-            self.server = xmlrpclib.Server(url)
-        except IOError, e:
-            if not dry_run:
-                raise e
-            self.logger.critical(e)
-            self.logger.error(
-                "No AD connection, so dryrunning cerebrum code only")
+
+        if mock:
+            self.logger.warn("Using mock server")
             from Cerebrum.modules.ad import ADTesting
             self.server = ADTesting.MockADServer(self.logger)
+        else:
+            parts = urlparse.urlsplit(url or '')
+
+            scheme = parts.scheme or 'https'
+            host = parts.hostname or host
+            port = parts.port or port
+            username = parts.username or cereconf.AD_DOMAIN_ADMIN_USER
+            password = read_password(username, host)
+
+            netloc = "%s:%s@%s:%d" % (username, '********', host, port)
+            url = urlparse.urlunsplit((scheme, netloc, ) + parts[2:])
+            self.logger.debug("Connecting to %s", url)
+
+            netloc = "%s:%s@%s:%d" % (username, password, host, port)
+            url = urlparse.urlunsplit((scheme, netloc, ) + parts[2:])
+            self.server = xmlrpclib.Server(url)
+
         self.ad_ldap = ad_ldap
 
-    def run_cmd(self, command, dry_run, arg1=None, arg2=None, arg3=None):
+    def run_cmd(self, command, dry_run, *args):
 
         if dry_run:
-            nr_args = 0
-            for i in (arg1, arg1, arg2):
-                if i:
-                    nr_args += 1
             self.logger.debug(
-                'Dryrun of server.%s(%d args)' %
-                (command, nr_args))
+                'Dryrun of server.%s(%d args)',
+                command, len(args))
             # Assume success on all changes.
             # Note that some commands are required to return a tuple of either
             # two or three, so this might not always work.
@@ -86,23 +74,16 @@ class ADutil(object):
         else:
             cmd = getattr(self.server, command)
             try:
-                if arg1 is None:
-                    ret = cmd()
-                elif arg2 is None:
-                    ret = cmd(arg1)
-                elif arg3 is None:
-                    ret = cmd(arg1, arg2)
-                else:
-                    ret = cmd(arg1, arg2, arg3)
-            except xmlrpclib.ProtocolError, xpe:
-                self.logger.critical("Error connecting to AD service. Giving up!: %s %s" %
-                                     (xpe.errcode, xpe.errmsg))
+                ret = cmd(*args)
+            except xmlrpclib.ProtocolError as xpe:
+                self.logger.critical("Error connecting to AD service."
+                                     " Giving up!: %r %r",
+                                     xpe.errcode, xpe.errmsg)
                 return [None]
-            except Exception, e:
+            except Exception:
                 self.logger.error("Unexpected exception", exc_info=1)
-                self.logger.debug(
-                    "Command: %s" %
-                    repr((command, dry_run, arg1, arg2, arg3)))
+                self.logger.debug("Command: %s",
+                                  repr((command, dry_run, args)))
                 return [None]
             return ret
 
@@ -116,15 +97,15 @@ class ADutil(object):
     def move_object(self, chg, dry_run):
         ret = self.run_cmd('moveObject', dry_run, chg['OU'])
         if not ret[0]:
-            self.logger.warning("moveObject on %s failed: %r" %
-                               (chg['distinguishedName'], ret))
+            self.logger.warning("moveObject on %r failed: %r",
+                                chg['distinguishedName'], ret)
 
     def delete_object(self, chg, dry_run):
         self.logger.debug('DELETE %s', chg)
         ret = self.run_cmd('deleteObject', dry_run)
         if not ret[0]:
-            self.logger.warning("%s on %s failed: %r" %
-                               (chg['type'], chg['distinguishedName'], ret))
+            self.logger.warning("%r on %r failed: %r",
+                                chg['type'], chg['distinguishedName'], ret)
 
     def create_object(self, chg, dry_run):
         self.logger.debug('CREATE %s', chg)
@@ -142,13 +123,13 @@ class ADutil(object):
 
         ret = self.run_cmd('putProperties', dry_run, chg)
         if not ret[0]:
-            self.logger.warning("putproperties on %s failed: %r" %
-                               (distName, ret))
+            self.logger.warning("putproperties on %r failed: %r",
+                                distName, ret)
         else:
             ret = self.run_cmd('setObject', dry_run)
             if not ret[0]:
-                self.logger.warning("setObject on %s failed: %r" %
-                                   (distName, ret))
+                self.logger.warning("setObject on %r failed: %r",
+                                    distName, ret)
 
     def perform_changes(self, changelist, dry_run):
         if isinstance(changelist, dict):
@@ -161,16 +142,16 @@ class ADutil(object):
                 ret = self.run_cmd('bindObject', dry_run,
                                    chg['distinguishedName'])
                 if not ret[0]:
-                    self.logger.warning("bindObject on %s failed: %r" %
-                                       (chg['distinguishedName'], ret))
+                    self.logger.warning("bindObject on %r failed: %r",
+                                        chg['distinguishedName'], ret)
                 else:
                     func = getattr(self, chg['type'])
                     func(chg, dry_run)
 
     def full_sync(self, type, delete, spread, dry_run, user_spread=None):
 
-        self.logger.info("Starting %s-sync(delete = %s, dry_run = %s)" %
-                        (type, delete, dry_run))
+        self.logger.info("Starting %s-sync(delete=%r, dry_run=%r)",
+                         type, delete, dry_run)
 
         # Fetch cerebrum data.
         self.logger.debug("Fetching cerebrum data...")
@@ -215,8 +196,8 @@ class ADgroupUtil(ADutil):
         return self.server.listObjects('group', True)
 
     def sync_groups(self, cerebrumgroups, group_spread, user_spread, dry_run):
-        # To reduce traffic, we send current list of groupmembers to AD, and the
-        # server ensures that each group have correct members.
+        # To reduce traffic, we send current list of groupmembers to AD, and
+        # the server ensures that each group have correct members.
 
         const = Factory.get("Constants")(self.db)
         entity2name = dict([(x["entity_id"], x["entity_name"]) for x in
@@ -268,8 +249,8 @@ class ADgroupUtil(ADutil):
                 self.server.bindObject(dn)
                 res = self.server.syncMembers(members, False, False)
                 if not res[0]:
-                    self.logger.warn("syncMembers %s failed for:%r" %
-                                    (dn, res[1:]))
+                    self.logger.warn("syncMembers %r failed for:%r",
+                                     dn, res[1:])
                 # Sync description
                 if grp_desc is None:
                     grp_desc = "Not available"
@@ -374,7 +355,7 @@ class ADuserUtil(ADutil):
 
     def create_object(self, chg, dry_run):
 
-        if chg.has_key('OU'):
+        if 'OU' in chg:
             ou = chg['OU']
         else:
             ou = self.get_default_ou(chg)
@@ -402,21 +383,21 @@ class ADuserUtil(ADutil):
 
                 uname = ""
                 del chg['type']
-                if chg.has_key('distinguishedName'):
+                if 'distinguishedName' in chg:
                     del chg['distinguishedName']
-                if chg.has_key('sAMAccountName'):
+                if 'sAMAccountName' in chg:
                     uname = chg['sAMAccountName']
                     del chg['sAMAccountName']
 
                 # Setting default for undefined AD_ACCOUNT_CONTROL values.
                 for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
-                    if not chg.has_key(acc):
+                    if acc not in chg:
                         chg[acc] = value
 
                 ret = self.run_cmd('putProperties', dry_run, chg)
                 if not ret[0]:
-                    self.logger.warning("putproperties on %s failed: %r" %
-                                       (uname, ret))
+                    self.logger.warning("putproperties on %r failed: %r",
+                                        uname, ret)
 
                 ret = self.run_cmd('setObject', dry_run)
                 if not ret[0]:
@@ -434,11 +415,11 @@ class ADuserUtil(ADutil):
 
         for usr, dta in adusrs.items():
             changes = {}
-            if cerebrumusrs.has_key(usr):
+            if usr in cerebrumusrs:
                 # User is both places, we want to check correct data.
 
                 # Checking for correct OU.
-                if cerebrumusrs[usr].has_key('OU'):
+                if 'OU' in cerebrumusrs[usr]:
                     ou = cerebrumusrs[usr]['OU']
                 else:
                     tmp = self.get_default_ou(cerebrumusrs[usr])
@@ -460,54 +441,53 @@ class ADuserUtil(ADutil):
                         home_drive = self.get_home_drive(cerebrumusrs[usr])
                         if adusrs[usr].get('homeDrive') != home_drive:
                             changes['homeDrive'] = home_drive
+                        continue
 
                     # Treating general cases
-                    else:
-                        if cerebrumusrs[usr].has_key(attr) and \
-                                adusrs[usr].has_key(attr):
-                            if isinstance(cerebrumusrs[usr][attr], (list)):
-                                # Multivalued, it is assumed that a
-                                # multivalue in cerebrumusrs always is
-                                # represented as a list.
-                                Mchange = False
+                    if attr in cerebrumusrs[usr] and attr in adusrs[usr]:
+                        if isinstance(cerebrumusrs[usr][attr], (list)):
+                            # Multivalued, it is assumed that a
+                            # multivalue in cerebrumusrs always is
+                            # represented as a list.
+                            Mchange = False
 
-                                if isinstance(adusrs[usr][attr], (str, int, long, unicode)):
-                                    # Transform single-value to a list for
-                                    # comparison.
-                                    val2list = []
-                                    val2list.append(adusrs[usr][attr])
-                                    adusrs[usr][attr] = val2list
+                            if isinstance(adusrs[usr][attr],
+                                          (str, int, long, unicode)):
+                                # Transform single-value to a list for
+                                # comparison.
+                                val2list = []
+                                val2list.append(adusrs[usr][attr])
+                                adusrs[usr][attr] = val2list
 
-                                for val in cerebrumusrs[usr][attr]:
-                                    if val not in adusrs[usr][attr]:
-                                        Mchange = True
+                            for val in cerebrumusrs[usr][attr]:
+                                if val not in adusrs[usr][attr]:
+                                    Mchange = True
 
-                                if Mchange:
-                                    changes[attr] = cerebrumusrs[usr][attr]
-                            else:
-                                if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
-                                    changes[attr] = cerebrumusrs[usr][attr]
+                            if Mchange:
+                                changes[attr] = cerebrumusrs[usr][attr]
                         else:
-                            if cerebrumusrs[usr].has_key(attr):
-                                # A blank value in cerebrum and <not
-                                # set> in AD -> do nothing.
-                                if cerebrumusrs[usr][attr] != "":
-                                    changes[attr] = cerebrumusrs[usr][attr]
-                            elif adusrs[usr].has_key(attr):
-                                # Delete value
-                                changes[attr] = ''
+                            if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
+                                changes[attr] = cerebrumusrs[usr][attr]
+                    else:
+                        if attr in cerebrumusrs[usr]:
+                            # A blank value in cerebrum and <not
+                            # set> in AD -> do nothing.
+                            if cerebrumusrs[usr][attr] != "":
+                                changes[attr] = cerebrumusrs[usr][attr]
+                        elif attr in adusrs[usr]:
+                            # Delete value
+                            changes[attr] = ''
 
                 for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
-                    if cerebrumusrs[usr].has_key(acc):
-                        if adusrs[usr].has_key(acc) and \
-                                adusrs[usr][acc] == cerebrumusrs[usr][acc]:
+                    if acc in cerebrumusrs[usr]:
+                        if (acc in adusrs[usr] and
+                                adusrs[usr][acc] == cerebrumusrs[usr][acc]):
                             pass
                         else:
                             changes[acc] = cerebrumusrs[usr][acc]
 
                     else:
-                        if adusrs[usr].has_key(acc) and adusrs[usr][acc] == \
-                                value:
+                        if acc in adusrs[usr] and adusrs[usr][acc] == value:
                             pass
                         else:
                             changes[acc] = value
@@ -525,7 +505,8 @@ class ADuserUtil(ADutil):
                 if [s for s in cereconf.AD_DO_NOT_TOUCH if
                         adusrs[usr]['distinguishedName'].find(s) >= 0]:
                     pass
-                elif adusrs[usr]['distinguishedName'].find(cereconf.AD_PW_EXCEPTION_OU) >= 0:
+                elif (adusrs[usr]['distinguishedName'].find(
+                        cereconf.AD_PW_EXCEPTION_OU) >= 0):
                     # Account do not have AD_spread, but is in AD to
                     # register password changes, do nothing.
                     pass
@@ -551,8 +532,10 @@ class ADuserUtil(ADutil):
                             changelist.append(changes)
                             changes = {}
                         # Moving account.
-                        if adusrs[usr]['distinguishedName'] != "CN=%s,OU=%s,%s" % \
-                                (usr, cereconf.AD_LOST_AND_FOUND, self.ad_ldap):
+                        if (adusrs[usr]['distinguishedName']
+                                != "CN=%s,OU=%s,%s" % (
+                                    usr, cereconf.AD_LOST_AND_FOUND,
+                                    self.ad_ldap)):
                             changes['type'] = 'move_object'
                             changes[
                                 'distinguishedName'] = adusrs[
