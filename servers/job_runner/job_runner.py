@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2003-2010 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,13 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""job_runner is a scheduler that runs specific commands at certain times.
 
-# $Id$
-# TBD: Paralellitet: dersom det er flere jobber i ready_to_run køen
-# som ikke har noen ukjørte pre-requisites, kan de startes samtidig.
-
-"""job_runner is a scheduler that runs specific commands at certain
-times.  Each command is represented by an Action class that may have
+Each command is represented by an Action class that may have
 information about when and how often a job should be run, as well as
 information about jobs that should be run before or after itself; see
 the class documentation for details.
@@ -49,403 +45,156 @@ TODO:
   should normally start immediately
 """
 
-import time
+# TBD: Paralellitet: dersom det er flere jobber i ready_to_run kÃ¸en
+# som ikke har noen ukjÃ¸rte pre-requisites, kan de startes samtidig.
+
+import argparse
+import logging
 import os
 import signal
-import sys
-import getopt
 import threading
-import traceback
-import string
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.job_runner.job_utils import SocketHandling, JobQueue
-from Cerebrum.modules.job_runner.job_actions import CallableAction, LockExists
+from Cerebrum.logutils import autoconf
+from Cerebrum.logutils.options import install_subparser
+from Cerebrum.modules.job_runner import JobRunner, sigchld_handler
+from Cerebrum.modules.job_runner.job_actions import LockFile, LockExists
+from Cerebrum.modules.job_runner.job_config import get_job_config, dump_jobs
+from Cerebrum.modules.job_runner.queue import JobQueue
+from Cerebrum.modules.job_runner.socket_ipc import (SocketServer,
+                                                    SocketTimeout)
 
+logger = logging.getLogger('job_runner')
 
-debug_time = 0        # increase time by N seconds every second
-max_sleep = 60
-noia_sleep_seconds = 70 # trap missing SIGCHLD (known race-condition,
-                          # see comment in run_job_loop)
-current_time = time.time()
-db = Factory.get('Database')()
-
-logger = Factory.get_logger("cronjob")
-runner_cw = threading.Condition()
-
-use_thread_lock = False  # don't seem to work
-
-if False:
-    # useful for debugging, and to work-around a wierd case where the
-    # logger would hang
-    ppid = os.getpid()
-    class MyLogger(object):
-        def __init__(self):
-            self.last_msg = time.time()
-            
-        def show_msg(self, lvl, msg, exc_info=None):
-            delta = int(time.time() - self.last_msg)
-            self.last_msg = time.time()
-            lvl = "%3i %s" % (delta, lvl)
-            if os.getpid() != ppid:
-                lvl = "      %s" % lvl
-            if exc_info:
-                type, value, tb = sys.exc_info()
-                msg = "%s: %s: %s\n%s" % (
-                    msg,  str(type), str(value),
-                    string.join(traceback.format_tb(tb)))
-            sys.stdout.write("%s [%i] %s\n" % (lvl, os.getpid(), msg))
-            sys.stdout.flush()
-
-        def debug2(self, msg, **kwargs):
-            self.show_msg("DEBUG2", msg, **kwargs)
-        
-        def debug(self, msg, **kwargs):
-            self.show_msg("DEBUG", msg, **kwargs)
-
-        def warn(self, msg, **kwargs):
-            self.show_msg("WARNING", msg, **kwargs)
-
-        def error(self, msg, **kwargs):
-            self.show_msg("ERROR", msg, **kwargs)
-
-        def fatal(self, msg, **kwargs):
-            self.show_msg("FATAL", msg, **kwargs)
-
-        def critical(self, msg, **kwargs):
-            self.show_msg("CRITICAL", msg, **kwargs)
-
-    logger = MyLogger()
-
-def sigchld_handler(signum, frame):
-    """Sigchild-handler that wakes the main-thread when a child exits"""
-    logger.debug2("sigchld_handler(%s)" % (str(signum)))
-    signal.signal(signal.SIGCHLD, sigchld_handler)
 signal.signal(signal.SIGCHLD, sigchld_handler)
 
-class JobRunner(object):
-    def __init__(self, scheduled_jobs):
-        self.my_pid = os.getpid()
-        self.timer_wait = None
-        signal.signal(signal.SIGUSR1, JobRunner.sig_general_handler)
-        self.job_queue = JobQueue(scheduled_jobs, db, logger)
-        self._should_quit = False
-        self._should_kill = False
-        self.sleep_to = None
-        self.queue_paused_at = 0
-        self.queue_killed_at = 0
-        self._last_pause_warn = 0
 
-    def sig_general_handler(signum, frame):
-        """General signal handler, for places where we use signal.pause()"""
-        logger.debug2("siggeneral_handler(%s)" % (str(signum)))
-    sig_general_handler = staticmethod(sig_general_handler)
+def make_parser():
+    parser = argparse.ArgumentParser(
+        description="Start a job runner daemon, or send command to daemon")
 
-    def signal_sleep(self, seconds):
-        # SIGALRM is already used by the SocketThread, se we arrange
-        # for a SIGUSR1 to be delivered instead
-        runner_cw.acquire()
-        if not self.timer_wait:  # Only have one signal-sleep thread
-            logger.debug("Signalling sleep: %s seconds" % str(seconds))
-            self.timer_wait = threading.Timer(seconds, self.wake_runner_signal)
-            self.timer_wait.setDaemon(True)
-            self.timer_wait.start()
-            self.sleep_to = time.time() + seconds
-        else:
-            logger.debug("already doing a signal sleep")
-        runner_cw.release()
+    parser.add_argument(
+        '--quiet',
+        dest='quiet',
+        action='store_true',
+        default=False,
+        help='exit silently if another server is already running')
 
-    def handle_completed_jobs(self):
-        """Handle any completed jobs (only jobs that has
-        call != None).  Will block if any of the jobs has wait=1"""
-        did_wait = False
+    config = parser.add_mutually_exclusive_group()
+    config.add_argument(
+        '--config',
+        dest='config',
+        metavar='NAME',
+        default='scheduled_jobs',
+        help='use alternative config (filename or module name)')
 
-        logger.debug("handle_completed_jobs: ")
-        for job in self.job_queue.get_running_jobs():
-            try:
-                ret = job['call'].cond_wait(job['pid'])
-            except OSError, msg:
-                if not str(msg).startswith("[Errno 4]"):
-                    # 4 = "Interrupted system call", which we may get
-                    # as we catch SIGCHLD
-                    # TODO: We need to filter out false positives from being
-                    # logged:
-                    logger.error("error (%s): %s" % (job['name'], msg))
-                time.sleep(1)
-                continue
-            logger.debug2("cond_wait(%s) = %s" % (job['name'], ret))
-            if ret is None:          # Job not completed
-                job_def = self.job_queue.get_known_job(job['name'])
-                if job_def.max_duration is not None:
-                    run_for = time.time() - job['started']
-                    if run_for > job_def.max_duration:
-                        # We sleep a little so that we don't risk entering
-                        # a tight loop with lots of logging
-                        time.sleep(1)
-                        logger.error("%s (pid %d) has run for %d seconds, "
-                                     "sending SIGTERM" %
-                                     (job['name'], job['pid'], run_for))
-                        try:
-                            os.kill(job['pid'], signal.SIGTERM)
-                            # By setting did_wait to True, the main loop
-                            # will immediately call this function again to
-                            # reap the job we just killed.  (If we don't,
-                            # the SIGCHLD may be delivered before we reach
-                            # sigpause)
-                            did_wait = True
-                        except OSError, msg:
-                            # Don't die if we're not allowed to kill
-                            # the job. The reason is probably that the
-                            # process is run by root (sudo)
-                            logger.error("Couldn't kill job %s (pid %d): %s" %
-                                         (job['name'], job['pid'], msg))
-            else:
-                did_wait = True
-                if isinstance(ret, tuple):
-                    if os.WIFEXITED(ret[0]):
-                        msg = "exit_code=%i" % os.WEXITSTATUS(ret[0])
-                    else:
-                        msg = "exit_status=%i" % ret[0]
-                    logger.error("%s for %s, check %s" % (msg, job['name'], ret[1]))
-                self.job_queue.job_done(job['name'], job['pid'])
-        return did_wait
+    commands = parser.add_mutually_exclusive_group()
 
-    def wake_runner_signal(self):
-        logger.debug("Waking up")
-        os.kill(self.my_pid, signal.SIGUSR1)
+    commands.add_argument(
+        '--reload',
+        dest='command',
+        action='store_const',
+        const='RELOAD',
+        help='re-read the config file')
 
-    def quit(self):
-        self._should_kill = True
-        self._should_quit = True
-        self.wake_runner_signal()
+    commands.add_argument(
+        '--quit',
+        dest='command',
+        action='store_const',
+        const='QUIT',
+        help='exit gracefully (allow current jobs to complete)')
 
-    def process_queue(self, queue, num_running, force=False):
-        completed_nowait_job = False
-        delta = None
-        if self.queue_paused_at > 0:
-            if self.queue_paused_at > self._last_pause_warn:
-                self._last_pause_warn = self.queue_paused_at
-            if time.time() > self._last_pause_warn + cereconf.JOB_RUNNER_PAUSE_WARN:
-                logger.warn("Job runner has been paused for %s hours" % (time.strftime(
-                    '%H:%M.%S', time.gmtime(time.time() - self.queue_paused_at))))
-                self._last_pause_warn = time.time()
-        for job_name in queue:
-            job_ref = self.job_queue.get_known_job(job_name)
-            if not force:
-                if self.queue_paused_at > 0:
-                    delta = max_sleep
-                    break
-                if (job_ref.call and job_ref.call.wait and
-                    num_running >= cereconf.JOB_RUNNER_MAX_PARALELL_JOBS):
-                    # This is a minor optimalization that may be
-                    # skipped.  Hopefully it makes the log easier to
-                    # read
-                    continue
-                if self.job_queue.has_queued_prerequisite(job_name):
-                    logger.debug2("has queued prereq: %s" % job_name)
-                    continue
-                if self.job_queue.has_conflicting_jobs_running(job_name):
-                    # "Abort" the job for now, but let it remain in
-                    # the queue for re-evaluation the next time around
-                    logger.debug2("has conflicting job(s) running: %s" % job_name)
-                    continue
-            logger.debug("  ready: %s (force: %s)", job_name, force)
+    commands.add_argument(
+        '--kill',
+        dest='command',
+        action='store_const',
+        const='KILL',
+        help='exit, but kill jobs not finished after 5 seconds')
 
-            if job_ref.call is not None:
-                logger.debug("  exec: %s, # running_jobs=%i" % (
-                    job_name, len(self.job_queue.get_running_jobs())))
-                if (not force and job_ref.call.wait and
-                    num_running >= cereconf.JOB_RUNNER_MAX_PARALELL_JOBS):
-                    logger.debug("  too many paralell jobs (%s/%i)" % (
-                        job_name, num_running))
-                    continue
-                if job_ref.call.setup():
-                    child_pid = job_ref.call.execute()
-                    self.job_queue.job_started(job_name, child_pid, force=force)
-                    if job_ref.call.wait:
-                        num_running += 1
-            # Mark jobs that we should not wait for as completed
-            if job_ref.call is None or not job_ref.call.wait:
-                logger.debug("  Call-less/No-wait job '%s' processed" , job_name)
-                self.job_queue.job_done(job_name, None, force=force)
-                completed_nowait_job = True
-                
-        return delta, completed_nowait_job, num_running
+    commands.add_argument(
+        '--status',
+        dest='command',
+        action='store_const',
+        const='STATUS',
+        help='show status for a running job-runner')
 
-    def run_job_loop(self):
-        self.jobs_has_completed = False
+    commands.add_argument(
+        '--pause',
+        dest='command',
+        action='store_const',
+        const='PAUSE',
+        help='pause the queue, i.e. don\'t start any new jobs')
 
-        while not self._should_quit:
-            self.handle_completed_jobs()
+    commands.add_argument(
+        '--resume',
+        dest='command',
+        action='store_const',
+        const='RESUME',
+        help='resume from paused state')
 
-            # re-fill / append to the ready to run queue.  If delay
-            # queue-filling until the queue is empty, we will end up
-            # waiting for all running jobs, thus reducing paralellism.
-            #
-            # TBD: This could in theory lead to starvation.  Is that a
-            # relevant issue?
+    commands.add_argument(
+        '--run',
+        dest='run_job',
+        metavar='NAME',
+        help='adds %(metavar)s to the fron of the run queue'
+             ' (without dependencies')
 
-            # Run forced jobs
-            tmp_queue = self.job_queue.get_forced_run_queue()
-            self.process_queue(tmp_queue, -1, force=True)
+    parser.add_argument(
+        '--with-deps',
+        dest='run_with_deps',
+        action='store_true',
+        default=False,
+        help='make --run honor dependencies')
 
-            if not self.job_queue.get_run_queue():
-                delta = self.job_queue.get_next_job_time()
-            else:
-                self.job_queue.get_next_job_time(append=True)
-                
-            # Keep track of number of running non-wait jobs
-            num_running = 0
-            for job in self.job_queue.get_running_jobs():
-                job_ref = self.job_queue.get_known_job(job['name'])
-                if job_ref.call and job_ref.call.wait:
-                    num_running += 1
-            logger.debug("Queue: %s" % self.job_queue.get_run_queue())
-            tmp_queue = self.job_queue.get_run_queue()[:]   # loop modifies list
-            tmp_delta, completed_nowait_job, num_running = self.process_queue(
-                tmp_queue, num_running)
-            logger.debug("Proc Queue: '%s', '%s', '%s', delta: '%s'", tmp_delta,
-                         completed_nowait_job, num_running, delta)
-            if tmp_delta is not None:
-                delta = tmp_delta
-            
-            # now sleep for delta seconds, or until XXX wakes us
-            # because a job has completed
-            # TODO: We have a race-condition here if SIGCHLD is
-            # received before we do signal.pause()            
-            if self.handle_completed_jobs() or completed_nowait_job:
-                continue     # Check for new jobs immeadeately
-            if delta > 0:
-                self.signal_sleep(min(max_sleep, delta))
-            else:
-                if not self.job_queue.get_running_jobs():
-                    logger.fatal("AIEE! no running jobs and negative delta")
-                    sys.exit()
-                # TODO: if run_queue has a lon-running job, we should
-                # only sleep until next delta.
-                self.signal_sleep(noia_sleep_seconds)  # Trap missing sigchld
-            logger.debug("signal.pause()")
-            signal.pause() # continue on SIGCHLD/SIGALRM.  Won't hurt if we
-                           # get another signal
-            runner_cw.acquire()
-            self.timer_wait.cancel()
-            self.timer_wait = None
-            runner_cw.release()
-            logger.debug("resumed")
-        if self._should_kill:
-            logger.debug("Sending SIGTERM to running jobs")
-            self.job_queue.kill_running_jobs()
-            # ignore SIGCHLD from now on
-            signal.signal(signal.SIGCHLD, signal.SIG_DFL)
-            logger.debug("Sleeping for 5 secs to let jobs handle signal")
-            time.sleep(5)
-            self.handle_completed_jobs()
-            logger.debug("Sending SIGKILL to running jobs")
-            self.job_queue.kill_running_jobs(signal.SIGKILL)
-            time.sleep(3)
-            self.handle_completed_jobs()
+    commands.add_argument(
+        '--show-job',
+        dest='show_job',
+        metavar='NAME',
+        help='show detailed information about the job %(metavar)s')
 
-    
-def usage(exitcode=0):
-    print """job_runner.py [options]:
-      --config file : use alternative config-file
-      --dump level : shows dependency graph, level must be in the range 0-3
+    commands.add_argument(
+        '--dump',
+        dest='dump_jobs',
+        nargs=1,
+        type=int,
+        default=None,
+        metavar='DEPTH',
+        help='')
 
-      Options for communicating with a running server:
+    commands.set_defaults(command=None)
 
-      --reload: re-read the config file
-      --quit : exit gracefully (allowing current job to complete)
-      --kill : exit, but kill jobs not finished after cereconf.HALT_PERIOD
-      --quiet : exit silently if another server is already running
-      --status : show status for a running job-runner
-      --pause : pause the queue, won't start any new jobs
-      --resume : resume from paused state
-      --run jobname : adds jobname to the front of the run queue, ignoring
-        dependencies
-      --with-deps : make --run honour dependencies
-      --show-job name: show detailed information about a job
-        """
+    return parser
 
-    sys.exit(exitcode)
 
-def main():
+def run_command(command, *args):
     try:
-        opts, args = getopt.getopt(sys.argv[1:], '',
-                                   ['reload', 'quit', 'status', 'config=',
-                                    'dump=', 'run=', 'pause', 'quiet', 'resume',
-                                    'show-job=', 'with-deps', 'kill'])
-    except getopt.GetoptError:
-        usage(1)
-    #global scheduled_jobs
-    alt_config = with_deps = quiet = False
-    for opt, val in opts:
-        if opt == '--with-deps':
-            with_deps = True
-        elif opt == '--quiet':
-            quiet = True
-    for opt, val in opts:
-        if opt in('--reload', '--quit', '--status', '--run', '--pause',
-                  '--resume', '--show-job', '--kill'):
-            if opt == '--reload':
-                cmd = 'RELOAD'
-            elif opt == '--quit':
-                cmd = 'QUIT'
-            elif opt == '--status':
-                cmd = 'STATUS'
-            elif opt == '--pause':
-                cmd = 'PAUSE'
-            elif opt == '--resume':
-                cmd = 'RESUME'
-            elif opt == '--run':
-                cmd = 'RUNJOB %s %i' % (val, with_deps)
-            elif opt == '--show-job':
-                cmd = 'SHOWJOB %s' % val
-            elif opt == '--kill':
-                cmd = 'KILL'
-            sock = SocketHandling(logger)
-            try:
-                print "Response: %s" % sock.send_cmd(cmd)
-            except SocketHandling.Timeout:
-                print "Timout contacting server, is it running?"
-            sys.exit(0)
-        elif opt in ('--config',):
-            if val.find("/") == -1:
-                sys.path.insert(0, '.')
-                name = val
-            else:
-                sys.path.insert(0, val[:val.rindex("/")])
-                name = val[val.rindex("/")+1:]
-            name = name[:name.rindex(".")]
-            exec("import %s as tmp" % name)
-            scheduled_jobs = tmp
-            # sys.path = sys.path[1:] #With this reload(module) loads another file(!)
-            alt_config = True
-        elif opt in ('--dump',):
-            JobQueue.dump_jobs(scheduled_jobs, int(val))
-            sys.exit(0)
-    if not alt_config:
-        import scheduled_jobs
-    sock = SocketHandling(logger)
-    ca = CallableAction()
-    ca.set_id("master_jr_lock")
+        return SocketServer.send_cmd(command, args=args)
+    except SocketTimeout:
+        raise RuntimeError("Timout contacting server, is it running?")
+
+
+def run_daemon(jobs, quiet=False, thread=True):
+    """ Try to start a new job runner daemon. """
+    sock = SocketServer()
+
+    # Abstract Action to get a lockfile
+    # TODO: Couldn't we just use the socket to see if we're running?
+    lock = LockFile('master_jq_lock')
+
     try:
-        if(sock.ping_server()):
-            if not quiet:
-                print "Server already running"
-            sys.exit(1)
+        if sock.ping_server():
+            raise SystemExit(int(quiet) or "Server already running")
         try:
-            ca.check_lockfile()
+            lock.acquire()
         except LockExists:
             logger.error(
-                ("%s: Master lock exists, but jr-socket didn't respond to "+
-                 "ping. This should be a very rare error!") %
-                ca.lockfile_name)
-            sys.exit(1)
-        ca.make_lockfile()
-    except SocketHandling.Timeout:
+                "%s: Master lock exists, but jr-socket didn't respond to "
+                "ping. This should be a very rare error!",
+                lock.filename)
+            raise SystemExit(1)
+    except SocketTimeout:
         # Assuming that previous run aborted without removing socket
         logger.warn("Socket timeout, assuming server is dead")
         try:
@@ -453,18 +202,66 @@ def main():
         except OSError:
             pass
         pass
-    jr = JobRunner(scheduled_jobs)
-    if True:
-        socket_thread = threading.Thread(target=sock.start_listener, args=(jr,))
+
+    # TODO: Why don't we re-aquire the lock here?
+
+    queue = JobQueue(jobs, Factory.get('Database')())
+    runner = JobRunner(queue)
+
+    if thread:
+        socket_thread = threading.Thread(
+            target=sock.start_listener,
+            args=(runner, ))
         socket_thread.setDaemon(True)
         socket_thread.setName("socket_thread")
         socket_thread.start()
 
-    jr.run_job_loop()
+    runner.run_job_loop()
     logger.debug("bye")
     sock.cleanup()
-    ca.free_lock()
-    
+    lock.release()
+
+
+def main(inargs=None):
+    parser = make_parser()
+    install_subparser(parser)
+    args = parser.parse_args(inargs)
+
+    autoconf('cronjob', args)
+    logger.debug("job_runner args=%r", args)
+    logger.debug("job runner socket=%r exists=%r",
+                 cereconf.JOB_RUNNER_SOCKET,
+                 os.path.exists(cereconf.JOB_RUNNER_SOCKET))
+
+    command = None
+
+    # What to do:
+    if args.command:
+        command = args.command
+        c_args = []
+    elif args.run_job:
+        command = 'RUNJOB'
+        c_args = [args.run_job, args.run_with_deps]
+    elif args.show_job:
+        command = 'SHOWJOB'
+        c_args = [args.show_job, ]
+
+    if command:
+        logger.debug("job_runner running command=%r, args=%r", command, c_args)
+        print(run_command(command, *c_args))
+        raise SystemExit(0)
+
+    # Not running a command, so we'll need a config:
+    scheduled_jobs = get_job_config(args.config)
+
+    if args.dump_jobs is not None:
+        print("Showing jobs in {0!r}".format(scheduled_jobs))
+        dump_jobs(scheduled_jobs, args.dump_jobs)
+        raise SystemExit(0)
+
+    logger.info("Starting daemon with jobs from %r", scheduled_jobs)
+    run_daemon(scheduled_jobs)
+
+
 if __name__ == '__main__':
     main()
-
