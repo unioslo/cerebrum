@@ -26,6 +26,7 @@ raven
 requests
 rpclib==2.7.0-beta
 sasl
+six>=1.10
 smbpasswd
 statsd>=3.2.1
 suds

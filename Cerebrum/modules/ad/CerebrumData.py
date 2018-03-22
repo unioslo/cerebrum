@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011 University of Oslo, Norway
+# Copyright 2011-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,8 +32,8 @@ compared with attributes from data objects from AD.
 
 """
 
-import cerebrum_path
 import cereconf
+
 
 class CerebrumEntity(object):
     """
@@ -41,30 +41,15 @@ class CerebrumEntity(object):
     base class with common methods and attributes for users and
     groups.
     """
-    # @classmethod
-    # def initialize(cls, ou, domain):
-    #     """
-    #     OU and domain are the same for all instances. Thus set as
-    #     class variables.
-    # 
-    #     @param ou: LDAP path to base ou for the entity type
-    #     @type ou: str
-    #     @param domain: AD domain
-    #     @type domain: str    
-    #     """
-    #     cls.default_ou = ou
-    #     cls.domain = domain
-
-
     def __init__(self, domain, ou):
         self.domain = domain
         self.ou = ou
         # Default state
-        self.quarantined = False      # quarantined in Cerebrum?
-        self.in_ad = False            # entity exists in AD?
+        self.quarantined = False       # quarantined in Cerebrum?
+        self.in_ad = False             # entity exists in AD?
         # TBD: Move these two to CerebrumUser?
-        self.to_exchange = False      # entity has exchange spread?
-        self.update_recipient = False # run update_Recipients?
+        self.to_exchange = False       # entity has exchange spread?
+        self.update_recipient = False  # run update_Recipients?
         # ad_attrs contains values calculated from cerebrum data
         self.ad_attrs = dict()
         # changes contains attributes that should be updated in AD
@@ -83,7 +68,7 @@ class CerebrumUser(CerebrumEntity):
     def __init__(self, account_id, owner_id, uname, domain, ou):
         """
         CerebrumUser constructor
-        
+
         @param account_id: Cerebrum id
         @type account_id: int
         @param owner_id: Cerebrum owner id
@@ -91,7 +76,7 @@ class CerebrumUser(CerebrumEntity):
         @param uname: Cerebrum account name
         @type uname: str
         """
-        CerebrumEntity.__init__(self, domain, ou)
+        super(CerebrumUser, self).__init__(domain, ou)
         self.account_id = account_id
         self.owner_id = owner_id
         self.uname = uname
@@ -106,16 +91,14 @@ class CerebrumUser(CerebrumEntity):
     def __str__(self):
         return "%s (%s)" % (self.uname, self.account_id)
 
-
     def __repr__(self):
         return "Account: %s (%s, %s)" % (self.uname, self.account_id,
                                          self.owner_id)
 
-
     def calc_ad_attrs(self, exchange=False):
         """
         Calculate AD attrs from Cerebrum data.
-        
+
         How to calculate AD attr values from Cerebrum data and policy
         must be hardcoded somewhere. Do this here and try to leave the
         rest of the code general.
@@ -129,19 +112,22 @@ class CerebrumUser(CerebrumEntity):
         # Set predefined default values
         ad_attrs.update(cereconf.AD_ACCOUNT_CONTROL)
         ad_attrs.update(cereconf.AD_DEFAULTS)
-        
+
         # Do the hardcoding for this sync.
         # Name and case of attributes should be as they are in AD
-        ad_attrs["sAMAccountName"] = self.uname
-        ad_attrs["sn"] = self.name_last
-        ad_attrs["givenName"] = self.name_first
-        ad_attrs["displayName"] = "%s %s" % (self.name_first, self.name_last)
-        ad_attrs["distinguishedName"] = "CN=%s,%s" % (self.uname,
-                                                      self.ou)
-        ad_attrs["ACCOUNTDISABLE"] = self.quarantined
-        ad_attrs["userPrincipalName"] = "%s@%s" % (self.uname, self.domain) 
-        ad_attrs["title"] = self.title
-        ad_attrs["telephoneNumber"] = self.contact_phone
+
+        ad_attrs.update({
+            "sAMAccountName": self.uname,
+            "sn": self.name_last,
+            "givenName": self.name_first,
+            "displayName": "%s %s" % (self.name_first, self.name_last),
+            "distinguishedName": "CN=%s,%s" % (self.uname, self.ou),
+            "ACCOUNTDISABLE": self.quarantined,
+            "userPrincipalName": "%s@%s" % (self.uname, self.domain),
+            "title": self.title,
+            "telephoneNumber": self.contact_phone,
+        })
+
         if self.email_addrs:
             ad_attrs["mail"] = self.email_addrs[0]
 
@@ -153,8 +139,8 @@ class CerebrumUser(CerebrumEntity):
             for k in cereconf.AD_EXCHANGE_ATTRIBUTES:
                 ad_attrs[k] = None
             ad_attrs.update(cereconf.AD_EXCHANGE_DEFAULTS)
-            
-            # Do the hardcoding for this sync. 
+
+            # Do the hardcoding for this sync.
             ad_attrs["mailNickname"] = self.uname
             # set proxyAddresses attr
             if self.email_addrs:
@@ -171,12 +157,10 @@ class CerebrumUser(CerebrumEntity):
 
         self.ad_attrs.update(ad_attrs)
 
-
     def add_forward(self, forward_addr):
         contact = CerebrumContact(self.ad_attrs["displayName"], forward_addr,
                                   self.domain, )
         self.contact_objects.append(contact)
-
 
     def create_dist_group(self):
         name = getattr(cereconf, "AD_FORWARD_GROUP_PREFIX", "") + self.uname
@@ -184,7 +168,6 @@ class CerebrumUser(CerebrumEntity):
         description = "Forward group for " + self.uname
         dg = CerebrumDistGroup(name, description)
         dg.calc_ad_attrs()
-
 
     def add_change(self, attr_type, value):
         """
@@ -199,7 +182,8 @@ class CerebrumUser(CerebrumEntity):
         """
         self.changes[attr_type] = value
         # Should update_Recipients be run for this account?
-        if not self.update_recipient and attr_type in cereconf.AD_EXCHANGE_ATTRIBUTES:
+        if (not self.update_recipient and
+                attr_type in cereconf.AD_EXCHANGE_ATTRIBUTES):
             self.update_recipient = True
 
 
@@ -208,41 +192,41 @@ class CerebrumContact(CerebrumEntity):
     This class contains forward info for a Cerebrum account.
 
     """
+
     def __init__(self, name, forward_addr, domain, ou):
         """
         CerebrumContact constructor
-        
-        @param name: Owners name 
+
+        @param name: Owners name
         @type name: str
         @param forward_addr: forward address
         @type forward_addr: str
         """
-        CerebrumEntity.__init__(self, domain, ou)
+        super(CerebrumContact, self).__init__(domain, ou)
         # forward_attrs contains values calculated from cerebrum data
         self.forward_attrs = dict()
         self.name = name
         self.forward_addr = forward_addr
 
-
     def __str__(self):
         return self.name
-
 
     def calc_forward_attrs(self):
         """
         Calculate forward attributes for the accounts with forward
         email addresses.
         """
-        self.forward_attrs["name"] = "Contact for " + self.name
-        self.forward_attrs["displayName"] = "Contact for " + self.name
-        self.forward_attrs["mail"] = self.forward_addr
-        self.forward_attrs["mailNickname"] = self.forward_addr
-        self.forward_attrs["sAMAccountName"] = "contact_for_" + self.forward_addr
-        self.forward_attrs["proxyAddresses"] = self.forward_addr
-        self.forward_attrs["msExchPoliciesExcluded"] = True
-        self.forward_attrs["msExchHideFromAddressLists"] = True
-        self.forward_attrs["targetAddress"] = self.forward_addr
-
+        self.forward_attrs.update({
+            "name": "Contact for " + self.name,
+            "displayName": "Contact for " + self.name,
+            "mail": self.forward_addr,
+            "mailNickname": self.forward_addr,
+            "sAMAccountName": "contact_for_" + self.forward_addr,
+            "proxyAddresses": self.forward_addr,
+            "msExchPoliciesExcluded": True,
+            "msExchHideFromAddressLists": True,
+            "targetAddress": self.forward_addr,
+        })
 
     def add_change(self, attr_type, value):
         """
@@ -266,10 +250,11 @@ class CerebrumGroup(CerebrumEntity):
     An instance contains information from Cerebrum and methods for
     comparing this information with the data from AD.
     """
+
     def __init__(self, gname, group_id, description, domain, ou):
         """
         CerebrumGroup constructor
-        
+
         @param name: Cerebrum group name
         @type name: str
         @param group_id: Cerebrum id
@@ -277,7 +262,7 @@ class CerebrumGroup(CerebrumEntity):
         @param description: Group description
         @type description: str
         """
-        CerebrumEntity.__init__(self, domain, ou)
+        super(CerebrumGroup, self).__init__(domain, ou)
         self.gname = gname
         self.description = description
         self.group_id = group_id
@@ -285,11 +270,10 @@ class CerebrumGroup(CerebrumEntity):
         # differ. We need to know both
         self.ad_dn = None
 
-
     def calc_ad_attrs(self):
         """
         Calculate AD attrs from Cerebrum data.
-        
+
         How to calculate AD attr values from Cerebrum data and policy
         must be hardcoded somewhere. Do this here and try to leave the
         rest of the code general.
@@ -297,22 +281,22 @@ class CerebrumGroup(CerebrumEntity):
         # Read which attrs to calculate from cereconf
         ad_attrs = dict().fromkeys(cereconf.AD_GRP_ATTRIBUTES, None)
         ad_attrs.update(cereconf.AD_GRP_DEFAULTS)
-        
+
         # Do the hardcoding for this sync.
-        ad_attrs["displayName"] = self.gname
-        ad_attrs["displayNamePrintable"] = self.gname
-        ad_attrs["name"] = cereconf.AD_GROUP_PREFIX + self.gname
-        ad_attrs["distinguishedName"] = "CN=%s,%s" % (ad_attrs["name"],
-                                                      self.ou)
-        ad_attrs["description"] = self.description or "N/A"
+        ad_attrs.update({
+            "displayName": self.gname,
+            "displayNamePrintable": self.gname,
+            "name": cereconf.AD_GROUP_PREFIX + self.gname,
+            "distinguishedName": "CN=%s,%s" % (ad_attrs["name"], self.ou),
+            "description": self.description or "N/A",
+        })
 
         # Convert str to unicode before comparing with AD
         for attr_type, attr_val in ad_attrs.iteritems():
             if type(attr_val) is str:
                 ad_attrs[attr_type] = unicode(attr_val, cereconf.ENCODING)
-        
-        self.ad_attrs.update(ad_attrs)
 
+        self.ad_attrs.update(ad_attrs)
 
     def add_change(self, attr_type, value):
         """
@@ -331,10 +315,11 @@ class CerebrumDistGroup(CerebrumGroup):
     This class represent a virtual Cerebrum distribution group that
     contain contact objects.
     """
+
     def __init__(self, gname, group_id, description, domain, ou):
         """
         CerebrumDistGroup constructor
-        
+
         @param name: Cerebrum group name
         @type name: str
         @param group_id: Cerebrum id
@@ -342,10 +327,10 @@ class CerebrumDistGroup(CerebrumGroup):
         @param description: Group description
         @type description: str
         """
-        CerebrumGroup.__init__(self, gname, group_id, description, domain, ou)
+        super(CerebrumDistGroup, self).__init__(gname, group_id, description,
+                                                domain, ou)
         # Dist groups should be exposed to Exchange
         self.to_exchange = True
-        
 
     def add_change(self, attr_type, value):
         """
@@ -360,14 +345,14 @@ class CerebrumDistGroup(CerebrumGroup):
         """
         self.changes[attr_type] = value
         # Should update_Recipients be run for this dist group?
-        if not self.update_recipient and attr_type in cereconf.AD_DIST_GRP_UPDATE_EX:
+        if (not self.update_recipient and
+                attr_type in cereconf.AD_DIST_GRP_UPDATE_EX):
             self.update_recipient = True
-
 
     def calc_ad_attrs(self):
         """
         Calculate AD attrs from Cerebrum data.
-        
+
         How to calculate AD attr values from Cerebrum data and policy
         must be hardcoded somewhere. Do this here and try to leave the
         rest of the code general.
@@ -375,20 +360,20 @@ class CerebrumDistGroup(CerebrumGroup):
         # Read which attrs to calculate from cereconf
         ad_attrs = dict().fromkeys(cereconf.AD_DIST_GRP_ATTRIBUTES, None)
         ad_attrs.update(cereconf.AD_DIST_GRP_DEFAULTS)
-        
+
         # Do the hardcoding for this sync.
-        ad_attrs["name"] = self.gname
-        ad_attrs["displayName"] = cereconf.AD_DIST_GROUP_PREFIX + self.gname
-        ad_attrs["description"] = self.description or "N/A"
-        ad_attrs["displayNamePrintable"] = ad_attrs["displayName"]
-        ad_attrs["distinguishedName"] = "CN=%s,%s" % (self.gname, self.ou)
+        ad_attrs.update({
+            "name": self.gname,
+            "displayName": cereconf.AD_DIST_GROUP_PREFIX + self.gname,
+            "description": self.description or "N/A",
+            "displayNamePrintable": ad_attrs["displayName"],
+            "distinguishedName": "CN=%s,%s" % (self.gname, self.ou),
+        })
         # TODO: add mail and proxyAddresses, etc
 
         # Convert str to unicode before comparing with AD
         for attr_type, attr_val in ad_attrs.iteritems():
             if type(attr_val) is str:
                 ad_attrs[attr_type] = unicode(attr_val, cereconf.ENCODING)
-        
+
         self.ad_attrs.update(ad_attrs)
-
-
