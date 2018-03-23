@@ -57,7 +57,7 @@ from rpclib.server.wsgi import WsgiApplication
 from rpclib.protocol.soap import Soap11
 from rpclib.interface.wsdl import Wsdl11
 from rpclib.model.complex import ComplexModel
-from rpclib.model.primitive import Unicode, String
+from rpclib.model.primitive import Unicode
 
 from twisted.web.server import Site, Session
 from twisted.web.resource import Resource
@@ -224,7 +224,7 @@ class SessionHeader(ComplexModel):
     header."""
     __namespace__ = 'tns'  # TODO: what is correct tns?
     # __namespace__ = 'SoapListener.session' # TODO: what is correct tns?
-    session_id = String
+    session_id = Unicode
 
 
 class SessionCacher(Session, dict):
@@ -293,30 +293,6 @@ class TwistedSoapStarter(BasicSoapStarter):
         an rpclib service in the standard WSGI format."""
         if type(applications) not in (list, tuple, dict):
             applications = [applications]
-
-        # Set the encoding for SOAP data, converting it from unicode to some
-        # str encoding. We could instead use the Unicode classes, but Cerebrum
-        # doesn't support unicode natively quite yet.
-        Unicode.Attributes.encoding = 'UTF-8'
-        String.Attributes.encoding = 'UTF-8'
-
-        # Ignore unencodable characters
-        # The following function does the same as String.from_string, except
-        # that it supplies 'ignore' as an argument to encode()
-        from rpclib.model import nillable_string
-
-        @classmethod
-        @nillable_string
-        def from_string(cls, value):
-            retval = value
-            if isinstance(value, unicode):
-                if cls.Attributes.encoding is None:
-                    raise Exception("You need to define an encoding to "
-                                    "convert the incoming unicode values to.")
-                else:
-                    retval = value.encode(cls.Attributes.encoding, 'ignore')
-            return retval
-        String.from_string = from_string
 
         self.service = rpclib.application.Application(
             applications,

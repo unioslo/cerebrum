@@ -108,16 +108,16 @@ class Utils(object):
         :type db: <Cerebrum.database.Database>
         :param db: A Cerebrum database object
 
-        :type etype: str
+        :type etype: text
         :param etype: Type of entity to find
                       Valid entity types: 'entity', 'account', 'group'
 
 
-        :type id_type: str
+        :type id_type: text
         :param id_type: The type of the identifier
                         Valid identifiers: 'id', 'account_name', 'group_name'
 
-        :type entity: str
+        :type entity: text
         :param entity: The identifier for the entity we want
         """
         obj = None

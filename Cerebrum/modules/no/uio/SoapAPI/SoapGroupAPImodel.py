@@ -21,7 +21,6 @@
 from rpclib.model.complex import ComplexModel
 # TODO: Fix'n move
 from Cerebrum.modules.cis.Utils import Unicode, DateTime
-from rpclib.model.primitive import String
 
 NAMESPACE = 'GroupAPI'
 
@@ -31,10 +30,10 @@ class GroupInfo(ComplexModel):
     __namespace__ = NAMESPACE
     __tns__ = NAMESPACE
 
-    name = String
+    name = Unicode
     description = Unicode
     expire_date = DateTime
-    visibility = String
+    visibility = Unicode
 
 
 class GroupMember(ComplexModel):
@@ -42,6 +41,6 @@ class GroupMember(ComplexModel):
     __namespace__ = NAMESPACE
     __tns__ = NAMESPACE
 
-    type = String
-    name = String
+    type = Unicode
+    name = Unicode
     # TBD: Not here: id, expire1, expire2, expire_date

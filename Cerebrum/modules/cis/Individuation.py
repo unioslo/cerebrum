@@ -417,9 +417,9 @@ class Individuation:
         Validate any password
 
         :param password: the password to be validated
-        :type password: str
+        :type password: string
         :param account_name: the account name to be used or ''
-        :type account_name: str
+        :type account_name: string
         :param structured: whether to ask for a strctured (json) output
         :type structured: bool
         """

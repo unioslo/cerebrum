@@ -25,7 +25,7 @@ import getopt
 from twisted.python import log
 
 from rpclib.model.complex import ComplexModel, Iterable
-from rpclib.model.primitive import String
+from rpclib.model.primitive import Unicode
 # Note the difference between rpc and the static srpc - the former sets the
 # first parameter as the current MethodContext. Very nice if you want
 # environment details.
@@ -42,13 +42,13 @@ class GroupMember(ComplexModel):
     __tns__ = 'tns'
 
     # The username
-    uname = String
+    uname = Unicode
 
     # The entity_type of the member
-    member_type = String
+    member_type = Unicode
 
     # The entity_id of the member
-    member_id = String
+    member_id = Unicode
 
     # TODO more info about a member?
 
@@ -71,12 +71,12 @@ class GroupService(SoapListener.BasicSoapServer):
     # The hock for the site object
     site = None
 
-    @rpc(String, _returns=Iterable(GroupMember),
+    @rpc(Unicode, _returns=Iterable(GroupMember),
          _throws=faults.EndUserFault)
     def get_members(ctx, groupname):
         """Get a list of all the members of a given group.
 
-        @type groupname: String
+        @type groupname: Unicode
         @param groupname: The name of the group that should be listed.
 
         @rtype: List/array of GroupMember objects

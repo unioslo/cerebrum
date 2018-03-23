@@ -20,7 +20,7 @@
 """Generalized SOAP interface for Cerebrums Entity functionality."""
 
 from Cerebrum.modules.cis import SoapListener, faults
-from rpclib.model.primitive import String, Boolean
+from rpclib.model.primitive import Unicode, Boolean
 from rpclib.model.complex import Array
 from rpclib.decorator import rpc
 
@@ -44,18 +44,21 @@ class EntityAPIService(SoapListener.BasicSoapServer):
     # The hook for the site object
     site = None
 
-    @rpc(String, String, _throws=faults.EndUserFault, _returns=Array(String))
+    @rpc(Unicode, Unicode, _throws=faults.EndUserFault,
+         _returns=Array(Unicode))
     def spread_list(ctx, id_type, entity_id):
         return ctx.udc[NAMESPACE].spread_list(id_type, entity_id)
 
-    @rpc(String, String, String, _throws=faults.EndUserFault, _returns=Boolean)
+    @rpc(Unicode, Unicode, Unicode, _throws=faults.EndUserFault,
+         _returns=Boolean)
     def in_system(ctx, id_type, entity_id, system):
         return ctx.udc[NAMESPACE].in_system(id_type, entity_id, system)
 
-    @rpc(String, String, String, _throws=faults.EndUserFault, _returns=Boolean)
+    @rpc(Unicode, Unicode, Unicode, _throws=faults.EndUserFault,
+         _returns=Boolean)
     def active_in_system(ctx, id_type, entity_id, system):
         return ctx.udc[NAMESPACE].active_in_system(id_type, entity_id, system)
 
-    @rpc(String, String, String, _throws=faults.EndUserFault)
+    @rpc(Unicode, Unicode, Unicode, _throws=faults.EndUserFault)
     def add_to_system(ctx, id_type, entity_id, system):
         return ctx.udc[NAMESPACE].add_to_system(id_type, entity_id, system)

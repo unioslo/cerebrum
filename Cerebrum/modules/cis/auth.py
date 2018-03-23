@@ -90,7 +90,7 @@ from mx import DateTime
 
 from twisted.python import log
 
-from rpclib.model.primitive import String
+from rpclib.model.primitive import Unicode
 from rpclib.decorator import rpc
 
 import cereconf
@@ -213,18 +213,18 @@ class PasswordAuthenticationService(AuthenticationService):
     # Standard message to return in case of errors:
     error_msg = 'Unknown username or password'
 
-    @rpc(String, String, _returns=String, _throws=AuthenticationError)
+    @rpc(Unicode, Unicode, _returns=Unicode, _throws=AuthenticationError)
     def authenticate(ctx, username, password):
         """The authentication method, as some methods require you to be
         authenticated before use. Please add your username and password.
 
-        @type username: String
+        @type username: Unicode
         @param username: Your username. The user must exist in Cerebrum.
 
-        @type password: String
+        @type password: Unicode
         @param password: Your password.
 
-        @rtype: String
+        @rtype: Unicode
         @return:
             The new authenticated session ID. It is also available in the
             returned SOAP headers, as session_id.
@@ -282,10 +282,7 @@ class PasswordAuthenticationService(AuthenticationService):
             # Close the database-connection
             db.close()
             raise AuthenticationError(ctx.service_class.error_msg)
-        # User exists here, check password 
-        if isinstance(password, unicode):  # crypt.crypt don't like unicode
-            # TODO: ideally we should not hardcode charset here.
-            password = password.encode('iso8859-1')
+        # User exists here, check password
         if not account.verify_auth(password):
             # Close the database-connection
             db.close()
@@ -310,15 +307,15 @@ class UsernameAuthenticationService(AuthenticationService):
     # Standard message to return in case of errors:
     error_msg = 'Unknown username'
 
-    @rpc(String, _returns=String, _throws=AuthenticationError)
+    @rpc(Unicode, _returns=Unicode, _throws=AuthenticationError)
     def authenticate(ctx, username):
         """The authentication method, as some methods require you to be
         authenticated before use.
 
-        @type username: String
+        @type username: Unicode
         @param username: Your username. The user must exist in Cerebrum.
 
-        @rtype: String
+        @rtype: Unicode
         @return:
             The new authenticated session ID. It is also available in the
             returned SOAP headers, as session_id.

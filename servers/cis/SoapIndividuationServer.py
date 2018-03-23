@@ -40,7 +40,7 @@ import sys
 from twisted.python import log
 
 from rpclib.model.complex import ComplexModel, Iterable
-from rpclib.model.primitive import String, Integer, Boolean
+from rpclib.model.primitive import Unicode, Integer, Boolean
 # Note the difference between rpc and the static srpc - the former sets the
 # first parameter as the current MethodContext. Very nice if you want
 # environment details.
@@ -54,9 +54,9 @@ from Cerebrum.modules.cis import SoapListener, faults
 class Account(ComplexModel):
     # FIXME: define namespace properly
     __namespace__ = 'account'
-    uname = String
+    uname = Unicode
     priority = Integer
-    status = String
+    status = Unicode
 
 
 class IndividuationServer(SoapListener.BasicSoapServer):
@@ -84,7 +84,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
     # The hock for the site object
     site = None
 
-    @rpc(String, _returns=Boolean)
+    @rpc(Unicode, _returns=Boolean)
     def set_language(ctx, language):
         """Sets what language feedback messages should be returned in."""
         # TODO: improve validation of the language code
@@ -93,7 +93,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         ctx.udc['session']['msgs'].lang = language
         return True
 
-    @rpc(String, String, _returns=Iterable(Account))
+    @rpc(Unicode, Unicode, _returns=Iterable(Account))
     def get_usernames(ctx, id_type, ext_id):
         """
         Get a person's accounts.
@@ -128,7 +128,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
             ret.append(a)
         return ret
 
-    @rpc(String, String, String, String, String, _returns=Boolean)
+    @rpc(Unicode, Unicode, Unicode, Unicode, Unicode, _returns=Boolean)
     def generate_token(ctx, id_type, ext_id, username, phone_no,
                        browser_token):
         """Send a token by SMS to the person's phone and store the token in
@@ -141,7 +141,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
                                                        username, phone_no,
                                                        browser_token)
 
-    @rpc(String, String, String, _returns=Boolean)
+    @rpc(Unicode, Unicode, Unicode, _returns=Boolean)
     def check_token(ctx, username, token, browser_token):
         """Check if given token is the same token as the last one generated
         through L{generate_token} for the given user. This is to validate that
@@ -157,7 +157,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         return ctx.udc['individuation'].check_token(username, token,
                                                     browser_token)
 
-    @rpc(String, _returns=Boolean)
+    @rpc(Unicode, _returns=Boolean)
     def abort_token(ctx, username):
         """Remove the temporary token for the given user from Cerebrum. This
         should be used in case the user wants to abort the process of setting a
@@ -166,7 +166,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         """
         return ctx.udc['individuation'].delete_token(username)
 
-    @rpc(String, String, String, String, _returns=Boolean)
+    @rpc(Unicode, Unicode, Unicode, Unicode, _returns=Boolean)
     def set_password(ctx, username, new_password, token, browser_token):
         """
         Set a new password for a given user. Note that both the token and the
@@ -177,7 +177,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         return ctx.udc['individuation'].set_password(username, new_password,
                                                      token, browser_token)
 
-    @rpc(String, _returns=Boolean)
+    @rpc(Unicode, _returns=Boolean)
     def validate_password(ctx, password):
         """
         Check if a given password is good enough.
@@ -192,7 +192,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
                                                                '',
                                                                False))
 
-    @rpc(String, String, _returns=Boolean)
+    @rpc(Unicode, Unicode, _returns=Boolean)
     def validate_password_for_account(ctx, account_name, password):
         """
         Check if a given password is good enough.
@@ -209,7 +209,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
                                                                account_name,
                                                                False))
 
-    @rpc(String, String, Boolean, _returns=String)
+    @rpc(Unicode, Unicode, Boolean, _returns=Unicode)
     def structured_password_validation(
             ctx, password, account_name, structured):
         """

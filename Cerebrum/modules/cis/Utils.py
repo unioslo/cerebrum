@@ -27,7 +27,8 @@ from functools import wraps
 
 # only needed for the rpclib-types
 from rpclib.model import nillable_string
-from rpclib.model.primitive import DateTime as RpcDateTime, Unicode as RpcUnicode
+from rpclib.model.primitive import (DateTime as RpcDateTime,
+                                    Unicode as RpcUnicode)
 from mx.DateTime import DateTimeType as MxDateTimeType, DateTime as MxDateTime
 
 
@@ -143,7 +144,7 @@ class CisModule(object):
     def __init__(self, name):
         """ Init
 
-        @type name: str
+        @type name: text
         @param name: A name identifying this instance, for the changelog.
         """
         self.db = Factory.get('Database')()

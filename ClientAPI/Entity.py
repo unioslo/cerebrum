@@ -42,7 +42,7 @@ class Entity(ClientAPI):
         :type operator_id: int
         :param operator_id: The operators id, used for auth.
 
-        :type service_name: str
+        :type service_name: string
         :param service_name: The calling serices name.
         """
         super(Entity, self).__init__(service_name)
@@ -54,10 +54,10 @@ class Entity(ClientAPI):
     def spread_list(self, id_type, entity_id):
         """List account's spreads.
 
-        :type id_type: basestring
+        :type id_type: string
         :param id_type: The id-type to look-up by.
 
-        :type entity_id: basestring
+        :type entity_id: string
         :param entity_id: The entitys id."""
         co = Factory.get('Constants')(self.db)
         e = Utils.get(self.db, 'entity', id_type, entity_id)
@@ -163,13 +163,13 @@ class Entity(ClientAPI):
     def add_to_system(self, id_type, entity_id, system):
         """Add an entity to a system.
 
-        :type id_type: basestring
+        :type id_type: string
         :param id_type: The id-type to look-up by.
 
-        :type entity_id: basestring
+        :type entity_id: string
         :param entity_id: The entitys id.
 
-        :type system: basestring
+        :type system: string
         :param system: The system the entity should be added to."""
         # Fetch entity
         en = Utils.get(self.db, 'entity', id_type, entity_id)
