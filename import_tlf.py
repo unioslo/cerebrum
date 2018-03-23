@@ -363,6 +363,11 @@ def process_telefoni(filename,checknames,checkmail,notify_recipient):
                     'firstname': row[FNAME], 'lastname': row[LNAME],
                     'building': row[BUILDING]}
 
+
+            if row[USERID] not in uname2ownerid:
+                logger.warn("Unknown user:%s, continue with next user" % row[USERID])
+                continue
+
             #
             # Set phone extension or mark for deletion based on the first internal number's digits
             #
