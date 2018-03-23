@@ -77,6 +77,7 @@ class delete:
             delete_tables.append({'entity_trait':'entity_id'})
             delete_tables.append({'entity_contact_info' : 'entity_id'})
             delete_tables.append({'entity_info':'entity_id'})
+            delete_tables.append({'entity_contact_info':'entity_id'})
             
             delete_mail_tables=[]
             delete_mail_tables.append({'mailq':'entity_id'})

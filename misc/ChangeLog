@@ -1,3 +1,13 @@
+2018-03-23    <cerebrum@gagarin.uit.no>
+
+	* delete_account.py (delete.delete_account): because some ppl
+        being employee at uit and sito at the same time, we have to save
+        skype contact info on the account objectm and not on the person
+        object as before. This means we have to add the
+        entity_contact_info table to the list of tables to delete from,
+        when deleting an account
+
+
 2018-02-16    <cerebrum@gagarin.uit.no>
 
 	* rename_account.py (Changer.update_email): removed logger as in parameter to the script, also fixed how to calculate email addresses as the old version would fail if script wasnt able to get ad_email
