@@ -18,6 +18,9 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Generalized Entity operations presented in a functional API."""
 
+from __future__ import unicode_literals
+
+from six import text_type
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -63,9 +66,9 @@ class Entity(ClientAPI):
 
         def fixer(id):
             if id[0] in spreads:
-                return str(spreads[id[0]])
+                return text_type(spreads[id[0]])
             s = spreads[id[0]] = co.map_const(id[0])
-            return str(s)
+            return text_type(s)
         try:
             return map(fixer, e.get_subclassed_object().get_spread())
         except NameError:

@@ -19,6 +19,8 @@
 
 """Generalized SOAP interface for Cerebrums Entity functionality."""
 
+from __future__ import unicode_literals
+
 from Cerebrum.modules.cis import SoapListener, faults
 from rpclib.model.primitive import Unicode, Boolean
 from rpclib.model.complex import Array

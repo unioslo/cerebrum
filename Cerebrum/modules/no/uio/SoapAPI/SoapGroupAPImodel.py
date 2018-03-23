@@ -18,6 +18,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Group models."""
 
+from __future__ import unicode_literals
+
 from rpclib.model.complex import ComplexModel
 # TODO: Fix'n move
 from Cerebrum.modules.cis.Utils import Unicode, DateTime

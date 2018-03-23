@@ -41,6 +41,8 @@ The structure is:
 
 """
 
+from __future__ import unicode_literals
+
 import socket
 import traceback
 import time

@@ -29,6 +29,8 @@ on later.
 
 """
 
+from __future__ import unicode_literals
+
 import sys
 import getopt
 

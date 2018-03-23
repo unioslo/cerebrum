@@ -20,6 +20,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Utility methods for CIS webservices. """
 
+from __future__ import unicode_literals
+
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import CerebrumError, CerebrumRPCException
 import twisted.python.log

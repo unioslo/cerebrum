@@ -30,6 +30,8 @@ contain the explanation to what went wrong.
 
 """
 
+from __future__ import unicode_literals
+
 from rpclib.model.fault import Fault
 
 # TODO: define type name and faultcodes better

@@ -87,6 +87,9 @@ To support access control, add the following to your Cerebrum class:
             ...
 
 """
+
+from __future__ import unicode_literals
+
 from mx import DateTime
 
 from twisted.python import log

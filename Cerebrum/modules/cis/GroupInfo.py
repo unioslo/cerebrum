@@ -19,6 +19,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
+from six import text_type
+
 import twisted.python.log
 
 from Cerebrum import Errors

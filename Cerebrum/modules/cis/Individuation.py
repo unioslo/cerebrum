@@ -18,6 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+from __future__ import unicode_literals
+
 """Basic Cerebrum functionality for the Individuation service.
 
 """
@@ -28,6 +31,8 @@ import random
 import pickle
 import string
 from mx.DateTime import RelativeDateTime, now
+
+from six import text_type
 
 import cereconf
 
@@ -350,7 +355,7 @@ class Individuation:
 
     def create_token(self):
         """Return random sample of alphanumeric characters"""
-        alphanum = string.digits + string.ascii_letters
+        alphanum = text_type(string.digits + string.ascii_letters)
         return ''.join(random.sample(alphanum,
                                      cereconf.INDIVIDUATION_TOKEN_LENGTH))
 
@@ -368,7 +373,8 @@ class Individuation:
     def hash_token(self, token, uname):
         """Generates a hash of a given token, to avoid storing tokens in
         plaintext."""
-        return hashlib.sha1(uname + token).hexdigest()
+        return text_type(hashlib.sha1((uname + token).encode('UTF-8'))
+                         .hexdigest())
 
     def check_token(self, uname, token, browser_token):
         """Check if token and other data from user is correct."""
@@ -451,13 +457,13 @@ class Individuation:
             # compatibility here (f.i. old brukerinfo clients)
         except PhrasePasswordNotGoodEnough as e:
             # assume that structured is False
-            m = str(e).decode('utf-8')
+            m = text_type(e)
             # separate exception for phrases on the client??
             # no point of having separate except block otherwise
             raise Errors.CerebrumRPCException('password_invalid', m)
         except PasswordNotGoodEnough as e:
             # assume that structured is False
-            m = str(e).decode('utf-8')
+            m = text_type(e)
             raise Errors.CerebrumRPCException('password_invalid', m)
         else:
             if structured:

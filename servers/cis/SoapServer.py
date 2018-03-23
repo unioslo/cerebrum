@@ -19,6 +19,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This file provides a SOAP service that provides an API for Digeksd."""
+
+from __future__ import unicode_literals
+
 import sys
 import getopt
 from Cerebrum.Utils import dyn_import
@@ -31,7 +34,7 @@ def import_class(cls):
     :type cls: str
     :param cls: The class path, i.e. 'Cerebrum.modules.cheese/Stilton'
     """
-    module, classname = cls.split('/', 1)
+    module, classname = cls.split(str('/'), 1)
     mod = dyn_import(module)
     return getattr(mod, classname)
 
@@ -173,9 +176,9 @@ if __name__ == '__main__':
     services = []
     # Get the service tier classes and give it to the server
     for key in getattr(cisconf, 'CLASS_CONFIG'):
-        srv_cls = import_class(key)
+        srv_cls = import_class(str(key))
         srv_cls.cere_class = import_class(
-            getattr(cisconf, 'CLASS_CONFIG').get(key))
+            str(getattr(cisconf, 'CLASS_CONFIG').get(key)))
         srv_cls.dryrun = dryrun
         Service(srv_cls)
         services.append(srv_cls)

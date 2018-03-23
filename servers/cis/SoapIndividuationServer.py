@@ -34,6 +34,8 @@ instance not be blocked.
 
 """
 
+from __future__ import unicode_literals
+
 import getopt
 import sys
 
