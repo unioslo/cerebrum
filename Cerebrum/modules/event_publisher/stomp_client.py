@@ -38,6 +38,7 @@ $ coilmq -b 127.0.0.1 -p 6161 --debug
 
 import uuid
 import json
+import six
 
 from stompest.config import StompConfig
 from stompest.protocol import StompSpec
@@ -105,7 +106,7 @@ class StompClient(object):
             header = None
         elif self.transactions_enabled:
             if not self.transaction:
-                self.transaction = str(uuid.uuid4())
+                self.transaction = six.text_type(uuid.uuid4())
                 try:
                     self.client.begin(transaction=self.transaction)
                 except error.StompProtocolError as e:
