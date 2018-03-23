@@ -31,27 +31,27 @@ class SimpleLogger(object):
     def __init__(self):
         pass
 
-    def _log(self, *args):
+    def _log(self, level, msg, *args):
         """ Log to the twisted logger."""
         # TODO: note that this has to be changed if we won't use twisted in
         # the future
-        twisted.python.log.msg(' '.join(args))
+        twisted.python.log.msg(level + (msg % args if args else msg))
 
-    def error(self, msg):
+    def error(self, msg, *args):
         """ Log an error. Will show up as 'ERROR: <msg>' """
-        self._log('ERROR:', msg)
+        self._log('ERROR:', msg, *args)
 
-    def warning(self, msg):
+    def warning(self, msg, *args):
         """ Log a warning. Will show up as 'WARNING: <msg>' """
-        self._log('WARNING:', msg)
+        self._log('WARNING:', msg, *args)
 
-    def info(self, msg):
+    def info(self, msg, *args):
         """ Log a notice. Will show up as 'INFO: <msg>' """
-        self._log('INFO:', msg)
+        self._log('INFO:', msg, *args)
 
-    def debug(self, msg):
+    def debug(self, msg, *args):
         """ Log a debug notice. Will show up as 'DEBUG: <msg>' """
-        self._log('DEBUG:', msg)
+        self._log('DEBUG:', msg, *args)
 
 
 class ClientAPI(object):

@@ -45,44 +45,21 @@ class SimpleLogger(object):
         # the future
         twisted.python.log.msg(' '.join(args))
 
-    def error(self, msg):
+    def error(self, msg, *args):
         """ Log an error. Will show up as 'ERROR: <msg>' """
-        self._log('ERROR:', msg)
+        self._log('ERROR:', msg % args if args else msg)
 
-    def warning(self, msg):
+    def warning(self, msg, *args):
         """ Log a warning. Will show up as 'WARNING: <msg>' """
-        self._log('WARNING:', msg)
+        self._log('WARNING:', msg % args if args else msg)
 
-    def info(self, msg):
+    def info(self, msg, *args):
         """ Log a notice. Will show up as 'INFO: <msg>' """
-        self._log('INFO:', msg)
+        self._log('INFO:', msg % args if args else msg)
 
-    def debug(self, msg):
+    def debug(self, msg, *args):
         """ Log a debug notice. Will show up as 'DEBUG: <msg>' """
-        self._log('DEBUG:', msg)
-
-
-# This is only used by SoapSAPIntegrationServer
-#db = Factory.get('Database')()
-#co = Factory.get('Constants')(db)
-#pe = Factory.get('Person')(db)
-#ac = Factory.get('Account')(db)
-
-
-#def get_person_data(id_type, ext_id):    
-    #try:
-        #id_type = getattr(co, id_type)
-    #except AttributeError:
-        #raise CerebrumError("No such id type: " + id_type)
-    ## find person
-    #pe.clear()
-    #pe.find_by_external_id(id_type, ext_id)
-    #account_id = pe.get_primary_account()
-    #if account_id is None:
-        #return None, None
-    #ac.clear()
-    #ac.find(account_id)
-    #return ac.get_account_name(), ac.get_primary_mailaddress()
+        self._log('DEBUG:', msg % args if args else msg)
 
 
 def require_id(method):

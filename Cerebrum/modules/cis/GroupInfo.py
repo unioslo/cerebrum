@@ -48,20 +48,22 @@ class SimpleLogger(object):
         # the future
         twisted.python.log.msg(' '.join(args))
 
-    def error(self, msg):
-        self._log('ERROR:', msg)
+    def error(self, msg, *args):
+        self._log('ERROR:', msg % args if args else msg)
 
-    def warning(self, msg):
-        self._log('WARNING:', msg)
+    def warning(self, msg, *args):
+        self._log('WARNING:', msg % args if args else msg)
 
-    def info(self, msg):
-        self._log('INFO:', msg)
+    def info(self, msg, *args):
+        self._log('INFO:', msg % args if args else msg)
 
-    def debug(self, msg):
-        self._log('DEBUG:', msg)
+    def debug(self, msg, *args):
+        self._log('DEBUG:', msg % args if args else msg)
 
-## Globals
+
+# Globals
 log = SimpleLogger()
+
 
 class GroupInfo(object):
     """The general functionality for the Group service project that is talking
