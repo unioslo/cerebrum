@@ -149,26 +149,26 @@ class ABCAnalyzer(object):
          self.settings.variables['timestamp']) = setiter.next()
 
     def _get_iterator(self, element):
-        return ABCFactory.get('EntityIterator')(
+        return iter(ABCFactory.get('EntityIterator')(
             self.settings.variables['filename'],
-            element)
+            element))
 
     def iter_properties(self):
         return ABCFactory.get('PropertiesParser')(
-            iter(self._get_iterator("properties")))
+            self._get_iterator("properties"))
 
     def iter_persons(self):
         return ABCFactory.get('PersonParser')(
-            iter(self._get_iterator("person")))
+            self._get_iterator("person"))
 
     def iter_orgs(self):
         return ABCFactory.get('OrgParser')(
-            iter(self._get_iterator("organization")))
+            self._get_iterator("organization"))
 
     def iter_groups(self):
         return ABCFactory.get('GroupParser')(
-            iter(self._get_iterator("group")))
+            self._get_iterator("group"))
 
     def iter_relations(self):
         return ABCFactory.get('RelationParser')(
-            iter(self._get_iterator("relation")))
+            self._get_iterator("relation"))
