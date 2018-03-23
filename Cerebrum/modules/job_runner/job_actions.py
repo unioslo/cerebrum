@@ -316,8 +316,8 @@ class System(CallableAction):
     def cond_wait(self, child_pid):
         # May raise OSError: [Errno 4]: Interrupted system call
         pid, exit_code = os.waitpid(child_pid, os.WNOHANG)
-        self.logger.debug("Wait (wait=%i) ret: %s/%s",
-                          self.wait, pid, exit_code)
+        self.logger.debug("cond_wait(%r) id=%r, wait=%r, ret=%r",
+                          child_pid, self.id, self.wait, (pid, exit_code))
         if pid == child_pid:
             if not all(os.path.exists(p) for p in (self.run_dir,
                                                    self.stdout_file,

@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011 University of Oslo, Norway
+# Copyright 2011-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,7 +21,7 @@
 """
 This module contains classes and methods that handle communication and
 interaction with the AD service. The idea is to let this module be a
-layer between the AD service and the different AD syncs. 
+layer between the AD service and the different AD syncs.
 
 TODO:
 
@@ -34,8 +33,9 @@ TODO:
 
 import time
 import xmlrpclib
-import cerebrum_path
+
 import cereconf
+
 from Cerebrum.Utils import read_password
 from Cerebrum.Utils import Factory
 
@@ -58,20 +58,19 @@ class ADUtils(object):
         url = "https://%s:%s@%s:%s" % (ad_domain_admin, password, host, port)
         self.server = xmlrpclib.Server(url)
 
-
     def update_Exchange(self, ad_obj):
         """
         Telling the AD-service to start the Windows Power Shell command
         Update-Recipient on object in order to prep them for Exchange.
-        
+
         @param ad_objs : object to run command on
         @type  ad_objs: str
         """
-        msg = "Running Update-Recipient for object '%s' against Exchange" % ad_obj
+        msg = "Running Update-Recipient for object '%s' against Exchange"
         if self.dryrun:
-            self.logger.debug("Not %s", msg)
+            self.logger.debug("Not " + msg, ad_obj)
             return
-        self.logger.info(msg)
+        self.logger.info(msg, ad_obj)
 
         # Use self.ad_dc if it exists, otherwise try cereconf.AD_DC
         try:
@@ -83,22 +82,21 @@ class ADUtils(object):
             self.run_cmd('run_UpdateRecipient', ad_obj, ad_dc)
         else:
             self.run_cmd('run_UpdateRecipient', ad_obj)
-            
 
     def commit_changes(self, dn, **changes):
         """
         Set attributes for account
 
-        @param dn: AD attribute distinguishedName 
+        @param dn: AD attribute distinguishedName
         @type dn: str
         @param changes: attributes that should be changed in AD
         @type changes: dict (keyword args)
         """
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not setting attributes for %s: %s" %
-                              (dn, changes))
+            self.logger.debug("DRYRUN: Not setting attributes for %r: %r",
+                              dn, changes)
             return
-        
+
         if self.run_cmd('bindObject', dn):
             # Set attributes in AD
             # Check that no values in changes == None.
@@ -106,22 +104,21 @@ class ADUtils(object):
             for k, v in changes.iteritems():
                 if v is None:
                     del changes[k]
-            self.logger.info("Setting attributes for %s: %s" % (dn, changes))
+            self.logger.info("Setting attributes for %r: %r", dn, changes)
             if changes:
                 self.run_cmd('putProperties', changes)
                 self.run_cmd('setObject')
 
-
     def attr_cmp(self, cb_attr, ad_attr):
         """
         Compare new (attribute calculated from Cerebrum data) and old
-        ad attribute. 
+        ad attribute.
 
         @param cb_attr: attribute calculated from Cerebrum data
         @type cb_attr: unicode, list or tuple
         @param ad_attr: Attribute fetched from AD
         @type ad_attr: list || unicode || str
-        
+
         @rtype: cb_attr or None
         @return: cb_attr if attributes differ. None if no difference or
         comparison cannot be made.
@@ -129,25 +126,24 @@ class ADUtils(object):
         # Sometimes attrs from ad are put in a list
         if isinstance(ad_attr, (list, tuple)) and len(ad_attr) == 1:
             ad_attr = ad_attr[0]
-        
+
         # Handle list, tuples and (unicode) strings
         if isinstance(cb_attr, (list, tuple)):
             cb_attr = list(cb_attr)
-            # if cb_attr is a list, make sure ad_attr is a list 
+            # if cb_attr is a list, make sure ad_attr is a list
             if not isinstance(ad_attr, (list, tuple)):
                 ad_attr = [ad_attr]
             cb_attr.sort()
             ad_attr.sort()
 
         # Now we can compare the attrs
-        if isinstance(ad_attr, (str, unicode)) and isinstance(cb_attr, (str, unicode)):
+        if all(isinstance(v, basestring) for v in (ad_attr, cb_attr)):
             # Don't care about case
             if cb_attr.lower() != ad_attr.lower():
                 return cb_attr
         else:
             if cb_attr != ad_attr:
                 return cb_attr
-
 
     def run_cmd(self, command, *args):
         """
@@ -156,28 +152,28 @@ class ADUtils(object):
         @param command: command to run via rpc on AD server
         @type command: str
         @param args: args to command
-        @type args: tuple 
+        @type args: tuple
         """
         cmd = getattr(self.server, command)
         try:
-            self.logger.debug3("Running cmd: %s%s", command, str(args))
-            ret = cmd(*args)                
-        except xmlrpclib.ProtocolError, xpe:
-            self.logger.critical("Error connecting to AD service: %s %s" %
+            self.logger.debug3("Running cmd: %s(%r)", command, args)
+            ret = cmd(*args)
+        except xmlrpclib.ProtocolError as xpe:
+            self.logger.critical("Error connecting to AD service: %s %s",
                                  (xpe.errcode, xpe.errmsg))
             return False,
-        except xmlrpclib.Fault, msg:
+        except xmlrpclib.Fault as msg:
             self.logger.warn("Exception from AD service: %s", msg)
             return False
-        except Exception, e:
+        except Exception:
             self.logger.warn("Unexpected exception", exc_info=1)
-            self.logger.debug("Failed to run cmd: %s%s", command, str(args))
+            self.logger.debug("Failed to run cmd: %s(%r)", command, args)
             return False
-            
+
         # ret is a list in the form [bool, msg] where the first
         # element tells if the command was successful or not
         if not ret[0]:
-            self.logger.warn("Server couldn't execute %s(%s): %s" %
+            self.logger.warn("Server couldn't execute %s(%r): %r",
                              (command, args, ret[1:]))
             return False
         # cmd was run successfully on the server.
@@ -189,68 +185,63 @@ class ADUtils(object):
             self.logger.debug3("Command %s ran successfully", command)
             return True
 
-
     def move_object(self, dn, ou, obj_type="user"):
         """
         Move given object in Ad to given ou.
 
-        @param dn: AD attribute distinguishedName 
+        @param dn: AD attribute distinguishedName
         @type dn: str
         @param ou: LDAP path to base ou for the entity type
-        @type ou: str        
+        @type ou: str
         """
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not moving %s %s to %s" % (
-                obj_type, dn, ou))
+            self.logger.debug("DRYRUN: Not moving %s %r to %r",
+                              obj_type, dn, ou)
             return
 
         if self.run_cmd('bindObject', dn):
-            self.logger.info("Moving %s %s to %s" % (obj_type, dn, ou))
+            self.logger.info("Moving %s %r to %r", obj_type, dn, ou)
             self.run_cmd('moveObject', ou)
-
 
     def rename_object(self, dn, ou, cn):
         if self.dryrun:
-            self.logger.info("DRYRUN: Not renaming %s to %s,%s" % (dn, cn, ou))
+            self.logger.info("DRYRUN: Not renaming %s to %s,%s", dn, cn, ou)
             return
 
         if self.run_cmd('bindObject', dn):
-            self.logger.info("Renaming %s to %s,%s" % (dn, cn, ou))
+            self.logger.info("Renaming %s to %s,%s", dn, cn, ou)
             self.run_cmd('moveObject', ou, cn)
-
 
     def move_contact(self, dn, ou):
         if self.dryrun:
-            self.logger.info("DRYRUN: Not moving contact %s" % dn)
+            self.logger.info("DRYRUN: Not moving contact %s", dn)
             return
         self.move_object(dn, ou, obj_type="contact")
-        
 
     # TBD: correct placement?
     def create_ad_contact(self, attrs, ou):
         """
-        Create AD account, set password and default properties. 
+        Create AD account, set password and default properties.
 
         @param attrs: AD attrs to be set for the account
-        @type attrs: dict        
+        @type attrs: dict
         @param ou: LDAP path to base ou for the entity type
-        @type ou: str        
+        @type ou: str
         """
         name = attrs.pop("sAMAccountName")
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not creating contact %s" % name)
+            self.logger.debug("DRYRUN: Not creating contact %s", name)
             return
-        
+
         ret = self.run_cmd("createObject", "contact", ou, name)
         if not ret:
             # Don't continue if createObject fails
             return
-        self.logger.info("created contact %s" % name)
+        self.logger.info("created contact %s", name)
 
         self.run_cmd("putProperties", attrs)
         self.run_cmd("setObject")
         return ret
-
 
     def get_ou(self, dn):
         """
@@ -266,6 +257,7 @@ class ADUserUtils(ADUtils):
     """
     User specific methods
     """
+
     def __init__(self, db, logger, host, port, ad_domain_admin):
         ADUtils.__init__(self, db, logger, host, port, ad_domain_admin)
         self.ac = Factory.get("Account")(self.db)
@@ -273,7 +265,6 @@ class ADUserUtils(ADUtils):
 
     def move_user(self, dn, ou):
         self.move_object(dn, ou, obj_type="user")
-
 
     def deactivate_user(self, ad_user):
         """
@@ -294,51 +285,48 @@ class ADUserUtils(ADUtils):
             if self.get_ou(dn) != self.get_deleted_ou():
                 self.move_user(dn, self.get_deleted_ou())
 
-
     def delete_user(self, dn):
         """
         Delete user object in AD.
 
-        @param dn: AD attribute distinguishedName 
+        @param dn: AD attribute distinguishedName
         @type dn: str
         """
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not deleting user %s" % dn)
+            self.logger.debug("DRYRUN: Not deleting user %s", dn)
             return
-        
-        if self.run_cmd('bindObject', dn):
-            self.logger.info("Deleting user %s" % dn)
-            self.run_cmd('deleteObject')
 
+        if self.run_cmd('bindObject', dn):
+            self.logger.info("Deleting user %s", dn)
+            self.run_cmd('deleteObject')
 
     def disable_user(self, dn):
         """
         Disable user in AD.
 
-        @param dn: AD attribute distinguishedName 
+        @param dn: AD attribute distinguishedName
         @type dn: str
         """
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not disabling user %s" % dn)
+            self.logger.debug("DRYRUN: Not disabling user %s", dn)
             return
-        self.logger.info("Disabling user %s" % dn)
+        self.logger.info("Disabling user %s", dn)
         self.commit_changes(dn, ACCOUNTDISABLE=True)
-         
 
     def create_ad_account(self, attrs, ou, create_homedir=False):
         """
-        Create AD account, set password and default properties. 
+        Create AD account, set password and default properties.
 
         @param attrs: AD attrs to be set for the account
-        @type attrs: dict        
+        @type attrs: dict
         @param ou: LDAP path to base ou for the entity type
-        @type ou: str        
+        @type ou: str
         """
         uname = attrs.pop("sAMAccountName")
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not creating user %s" % uname)
+            self.logger.debug("DRYRUN: Not creating user %s", uname)
             return
-        
+
         sid = self.run_cmd("createObject", "User", ou, uname)
         if not sid:
             # Don't continue if createObject fails
@@ -354,16 +342,18 @@ class ADUserUtils(ADUtils):
             pw = self.ac.make_passwd(uname)
         self.run_cmd("setPassword", pw)
 
-        # Set properties. First remove any properties that cannot be set like this
+        # Set properties. First remove any properties that cannot be set like
+        # this
         for a in ("distinguishedName", "cn"):
-            if attrs.has_key(a):
+            if a in attrs:
                 del attrs[a]
         # Don't send attrs with value == None
         for k, v in attrs.items():
             if v is None:
                 del attrs[k]
         if self.run_cmd("putProperties", attrs) and self.run_cmd("setObject"):
-            # TBD: A bool here to decide if createDir should be performed or not?
+            # TBD: A bool here to decide if createDir should be performed or
+            #      not?
             # Create accountDir for new account if attributes where set.
             # Give AD time to take a breath before creating homeDir
             if create_homedir:
@@ -376,39 +366,38 @@ class ADGroupUtils(ADUtils):
     """
     Group specific methods
     """
+
     def __init__(self, db, logger, host, port, ad_domain_admin):
         ADUtils.__init__(self, db, logger, host, port, ad_domain_admin)
         self.group = Factory.get("Group")(self.db)
-    
 
     def commit_changes(self, dn, **changes):
         """
         Set attributes for account
 
-        @param dn: AD attribute distinguishedName 
+        @param dn: AD attribute distinguishedName
         @type dn: str
         @param changes: attributes that should be changed in AD
         @type changes: dict (keyword args)
         """
         if not self.dryrun and self.run_cmd('bindObject', dn):
-            self.logger.info("Setting attributes for %s: %s" % (dn, changes))
+            self.logger.info("Setting attributes for %s: %r", dn, changes)
             # Set attributes in AD
             self.run_cmd('putGroupProperties', changes)
             self.run_cmd('setObject')
-
 
     def create_ad_group(self, attrs, ou):
         """
         Create AD group.
 
         @param attrs: AD attrs to be set for the account
-        @type attrs: dict        
+        @type attrs: dict
         @param ou: LDAP path to base ou for the entity type
-        @type ou: str        
+        @type ou: str
         """
         gname = attrs.pop("name")
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not creating group %s" % gname)
+            self.logger.debug("DRYRUN: Not creating group %s", gname)
             return
 
         # Create group object
@@ -418,44 +407,42 @@ class ADGroupUtils(ADUtils):
             return
         self.logger.info("created group %s with sid %s", gname, sid)
         # # Set other properties
-        if attrs.has_key("distinguishedName"):
+        if "distinguishedName" in attrs:
             del attrs["distinguishedName"]
         self.run_cmd("putGroupProperties", attrs)
         self.run_cmd("setObject")
         # createObject succeded, return sid
         return sid
 
-
     def delete_group(self, dn):
         """
         Delete group object in AD.
 
-        @param dn: AD attribute distinguishedName 
+        @param dn: AD attribute distinguishedName
         @type dn: str
         """
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not deleting %s" % dn)
+            self.logger.debug("DRYRUN: Not deleting %s", dn)
             return
 
         if self.run_cmd('bindObject', dn):
-            self.logger.info("Deleting group %s" % dn)
+            self.logger.info("Deleting group %s", dn)
             self.run_cmd('deleteObject')
-
 
     def sync_members(self, dn, members):
         """
         Sync members for a group to AD.
 
-        @param dn: AD attribute distinguishedName 
+        @param dn: AD attribute distinguishedName
         @type dn: str
         @param members: List of account and group names
         @type members: list
-        
+
         """
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not syncing members for %s" % dn)
+            self.logger.debug("DRYRUN: Not syncing members for %s", dn)
             return
         # We must bind to object before calling syncMembers
         if dn and self.run_cmd('bindObject', dn):
             if self.run_cmd("syncMembers", members, False, False):
-                self.logger.info("Synced members for group %s" % dn)
+                self.logger.info("Synced members for group %s", dn)

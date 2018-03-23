@@ -92,6 +92,13 @@ def make_parser():
 
     commands = parser.add_mutually_exclusive_group()
 
+    parser.add_argument(
+        '-t', '--timeout',
+        dest='timeout',
+        default=2,
+        type=int,
+        help="timeout for running commands")
+
     commands.add_argument(
         '--reload',
         dest='command',
@@ -168,9 +175,9 @@ def make_parser():
     return parser
 
 
-def run_command(command, *args):
+def run_command(command, args, timeout):
     try:
-        return SocketServer.send_cmd(command, args=args)
+        return SocketServer.send_cmd(command, args=args, timeout=timeout)
     except SocketTimeout:
         raise RuntimeError("Timout contacting server, is it running?")
 
@@ -247,8 +254,9 @@ def main(inargs=None):
         c_args = [args.show_job, ]
 
     if command:
-        logger.debug("job_runner running command=%r, args=%r", command, c_args)
-        print(run_command(command, *c_args))
+        logger.debug("job_runner running command=%r, args=%r, timeout=%r",
+                     command, c_args, args.timeout)
+        print(run_command(command, c_args, args.timeout))
         raise SystemExit(0)
 
     # Not running a command, so we'll need a config:

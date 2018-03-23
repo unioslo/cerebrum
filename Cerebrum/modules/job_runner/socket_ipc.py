@@ -363,11 +363,12 @@ class SocketServer(object):
         Raises SocketTimeout if no response has come in timeout seconds.
         """
         args = args or []
+        signal.signal(signal.SIGALRM, signal_timeout)
         signal.alarm(timeout)
         try:
-            sock = socket.socket(socket.AF_UNIX)
-            sock.connect(cereconf.JOB_RUNNER_SOCKET)
-            return SocketProtocol.call(SocketConnection(sock), command, args)
+            with closing(socket.socket(socket.AF_UNIX)) as sock:
+                sock.connect(cereconf.JOB_RUNNER_SOCKET)
+                return SocketProtocol.call(SocketConnection(sock), command,
+                                           args)
         finally:
-            sock.close()
             signal.alarm(0)
