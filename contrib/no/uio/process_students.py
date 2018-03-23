@@ -50,7 +50,7 @@ from Cerebrum.modules.templates.letters import TemplateHandler
 
 del cerebrum_path
 
-db = Factory.get('Database')(client_encoding='UTF-8')
+db = Factory.get('Database')()
 db.cl_init(change_program='process_students')
 const = Factory.get('Constants')(db)
 all_passwords = {}
@@ -169,8 +169,7 @@ class AccountUtil(object):
                                             const.name_full)
                 assert last_name.count(' ') == 0
             suggestions = account.suggest_unames(const.account_namespace,
-                                                 first_name.encode('latin1'),
-                                                 last_name.encode('latin1'))
+                                                 first_name, last_name)
             for sugg in suggestions:
                 try:
                     group_obj.clear()
