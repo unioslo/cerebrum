@@ -112,6 +112,7 @@ def _event_cleanup(ctx):
     if 'groupinfo' in ctx.udc:
         ctx.udc['groupinfo'].close()
 
+
 # Add session support to the group service:
 GroupService.event_manager.add_listener('method_call',
                                         SoapListener.on_method_call_session)
@@ -157,6 +158,7 @@ Starts up the GroupService webservice on a given port. Please note that config
   --help            Show this and quit.
     """
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     try:

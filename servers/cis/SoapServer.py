@@ -57,6 +57,7 @@ def _event_cleanup(ctx):
 
 class Service(object):
     """Utility class to allow run-time configuration."""
+
     def __init__(self, ServiceCls):
         """Adds listeners to the service-class loaded at run-time."""
 

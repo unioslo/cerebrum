@@ -27,58 +27,58 @@ from Cerebrum.modules.cis import Individuation
 class Individuation(Individuation.Individuation):
     # The feedback messages
     messages = {
-        'error_unknown':
-            {'en': u'An unknown error occured',
-             'no': u'En ukjent feil oppstod'},
-        'person_notfound':
-            {'en': u'Some of the data is wrong, please try again.',
-             'no': u'Noe av den oppgitte informasjonen er feil, vennligst'
-                   u' prøv igjen.'},
-        'person_notfound_usernames':
-            {'en': u'You are either reserved or have the given wrong information.',
-             'no': u'Du er reservert eller har oppgitt feil informasjon.'},
-        'person_miss_info':
-            {'en': u'Not all your information is available. Please contact your'
-                   u' local student office.',
-             'no': u'Ikke all din informasjon er tilgjengelig. Vennligst ta'
-                   u' kontakt med ditt lokale studentkontor.'},
-        'account_blocked':
-            {'en': u'This account is inactive. Please contact your local IT.',
-             'no': u'Denne brukerkontoen er ikke aktiv. Vennligst ta kontakt'
-                   u' med din lokale IT-avdeling.'},
-        'account_reserved':
-            {'en': u'You are blocked from using this service. Please contact'
-                   u' your local IT department.',
-             'no': u'Du er blokkert fra å bruke denne tjenesten. Vennligst ta'
-                   u' kontakt med din lokale IT-avdeling.'},
-        'account_self_reserved':
-            {'en': u'You have reserved yourself from using this service. Please'
-                   u' contact your local IT department.',
-             'no': u'Du har reservert deg fra å bruke denne tjenesten.'
-                   u' Vennligst ta kontakt med din lokale IT-avdeling.'},
-        'token_notsent':
-            {'en': u'Could not send one-time password to your phone',
-             'no': u'Kunne ikke sende engangspassord til din telefon'},
-        'toomanyattempts':
-            {'en': u'Too many attempts. You have temporarily been blocked from'
-                   u' this service',
-             'no': u'For mange forsøk. Du er midlertidig utestengt fra denne'
-                   u' tjenesten'},
-        'toomanyattempts_check':
-            {'en': u'Too many attempts, one-time password got invalid',
-             'no': u'For mange forsøk, engangspassordet er blitt gjort'
-                   u' ugyldig'},
-        'timeout_check':
-            {'en': u'Timeout, one-time password got invalid',
-             'no': u'Tidsavbrudd, engangspassord ble gjort ugyldig'},
-        'fresh_phonenumber':
-            {'en': u'Your phone number has recently been changed,'
-                   u' and cannot be used for a few days due to security reasons.'
-                   u' Please contact your local IT department.',
-             'no': u'Ditt mobilnummer er nylig byttet, og kan av'
-                   u' sikkerhetsmessige årsaker ikke benyttes før etter noen'
-                   u' dager. Vennligst ta kontakt med din lokale IT-avdeling.'},
-        'password_invalid':
-            {'en': u'Bad password: %s',
-             'no': u'Ugyldig passord: %s'},
+        'error_unknown': {
+            'en': 'An unknown error occured',
+            'no': 'En ukjent feil oppstod'},
+        'person_notfound': {
+            'en': 'Some of the data is wrong, please try again.',
+            'no': ('Noe av den oppgitte informasjonen er feil, vennligst'
+                   ' prøv igjen.')},
+        'person_notfound_usernames': {
+            'en': ('You are either reserved or have the given wrong '
+                   'information.'),
+            'no': 'Du er reservert eller har oppgitt feil informasjon.'},
+        'person_miss_info': {
+            'en': ('Not all your information is available. Please contact your'
+                   ' local student office.'),
+            'no': ('Ikke all din informasjon er tilgjengelig. Vennligst ta'
+                   ' kontakt med ditt lokale studentkontor.')},
+        'account_blocked': {
+            'en': 'This account is inactive. Please contact your local IT.',
+            'no': ('Denne brukerkontoen er ikke aktiv. Vennligst ta kontakt'
+                   ' med din lokale IT-avdeling.')},
+        'account_reserved': {
+            'en': ('You are blocked from using this service. Please contact'
+                   ' your local IT department.'),
+            'no': ('Du er blokkert fra å bruke denne tjenesten. Vennligst ta'
+                   ' kontakt med din lokale IT-avdeling.')},
+        'account_self_reserved': {
+            'en': ('You have reserved yourself from using this service. Please'
+                   ' contact your local IT department.'),
+            'no': ('Du har reservert deg fra å bruke denne tjenesten.'
+                   ' Vennligst ta kontakt med din lokale IT-avdeling.')},
+        'token_notsent': {
+            'en': 'Could not send one-time password to your phone',
+            'no': 'Kunne ikke sende engangspassord til din telefon'},
+        'toomanyattempts': {
+            'en': ('Too many attempts. You have temporarily been blocked from'
+                   ' this service'),
+            'no': ('For mange forsøk. Du er midlertidig utestengt fra denne'
+                   ' tjenesten')},
+        'toomanyattempts_check': {
+            'en': 'Too many attempts, one-time password got invalid',
+            'no': 'For mange forsøk, engangspassordet er blitt gjort ugyldig'},
+        'timeout_check': {
+            'en': 'Timeout, one-time password got invalid',
+            'no': 'Tidsavbrudd, engangspassord ble gjort ugyldig'},
+        'fresh_phonenumber': {
+            'en': ('Your phone number has recently been changed, and cannot '
+                   'be used for a few days due to security reasons. '
+                   'Please contact your local IT department.'),
+            'no': ('Ditt mobilnummer er nylig byttet, og kan av '
+                   'sikkerhetsmessige årsaker ikke benyttes før etter noen '
+                   'dager. Vennligst ta kontakt med din lokale IT-avdeling.')},
+        'password_invalid': {
+            'en': 'Bad password: %s',
+            'no': 'Ugyldig passord: %s'},
     }

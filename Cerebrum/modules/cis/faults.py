@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
+#
 # Copyright 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -21,7 +21,7 @@
 """The faults that are used by the different CIS services.
 
 Faults are a concept that is used e.g. in the SOAP standards, and are almost
-like exceptions. 
+like exceptions.
 
 In SOAP, faults are returned to the client by the use of a faultcode and a
 faultstring. The faultcode gives the type of fault, e.g. 'client' for errors
@@ -34,10 +34,11 @@ from rpclib.model.fault import Fault
 
 # TODO: define type name and faultcodes better
 
-class CerebrumFault(Fault):
-    """The base Fault for our usage. All our Faults should be subclassed out of
-    this, to be able to catch and return the faults correctly.
 
+class CerebrumFault(Fault):
+    """
+    The base Fault for our usage. All our Faults should be subclassed out of
+    this, to be able to catch and return the faults correctly.
     """
     __namespace__ = 'tns'
     __tns__ = 'tns'
@@ -54,15 +55,17 @@ class CerebrumFault(Fault):
             self.extra = err.args[1:]
         faultstring = str(faultstring)
         Fault.__init__(self, faultcode=self.faultcode,
-                             faultstring=faultstring)
+                       faultstring=faultstring)
+
 
 class EndUserFault(CerebrumFault):
-    """This is the Fault that should be returned and given to the end user.
+    """
+    This is the Fault that should be returned and given to the end user.
     Faults of this type should be understandable by an end user.
-    
     """
     __type_name__ = 'UserError'
     faultcode = 'Client.UserError'
+
 
 class UnknownFault(CerebrumFault):
     """A generic Fault when unknown errors occur on the server side."""
@@ -73,6 +76,7 @@ class UnknownFault(CerebrumFault):
         if not err:
             err = 'Unknown Error'
         super(UnknownFault, self).__init__(err)
+
 
 class NotAuthorizedError(CerebrumFault):
     """The Fault that is returned if the end user is authenticated, but is not
@@ -89,15 +93,18 @@ class NotAuthorizedError(CerebrumFault):
             err = 'Not authorized'
         super(NotAuthorizedError, self).__init__(err)
 
+
 class AuthenticationError(CerebrumFault):
     """The Fault that is returned if the authentication process failed.
     """
     __type_name__ = 'AuthenticationFault'
     faultcode = 'Client.AuthenticationFault'
+
     def __init__(self, err=None):
         if not err:
             err = 'Authenticated failed'
         super(AuthenticationError, self).__init__(err)
+
 
 class NotAuthenticatedError(CerebrumFault):
     """The Fault that is returned if the end user has not authenticated before
@@ -111,4 +118,3 @@ class NotAuthenticatedError(CerebrumFault):
         if not err:
             err = 'Not authenticated'
         super(NotAuthenticatedError, self).__init__(err)
-

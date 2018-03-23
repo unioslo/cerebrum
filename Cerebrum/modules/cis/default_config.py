@@ -21,9 +21,11 @@ instance and for most CIS services.
 
 """
 
-###
-### The connection
-###
+from __future__ import unicode_literals
+
+#
+# The connection
+#
 
 # The port the CIS daemon should run at.
 PORT = 0
@@ -32,9 +34,9 @@ PORT = 0
 # that it accept incoming connections from every interface.
 INTERFACE = '0.0.0.0'
 
-###
-### Certificate management
-###
+#
+# Certificate management
+#
 
 # The file with the private key used by the CIS servers for TLS connections.
 # Note that the server's certificate's public key must correspond to this
@@ -48,8 +50,8 @@ SERVER_CERTIFICATE_FILE = None
 # The file(s) with the certificates for which is accepted as the issuers of
 # client certificates. This means that a client must have a certificate that is
 # signed by one of these CAs to be able to connect to the CIS service. A normal
-# solution is to let CIS' own server certificate be the CA, which means that the
-# clients has to be signed by the server itself.
+# solution is to let CIS' own server certificate be the CA, which means that
+# the clients has to be signed by the server itself.
 #
 # Note that to support chains of certificates, you need to supply all the
 # certificates in the chain to be able to accept them. An example of a chain is
@@ -58,8 +60,8 @@ SERVER_CERTIFICATE_FILE = None
 #
 # You could specify directories in the list, but you then have to run
 # `cacertdir_rehash` on the directory to make it work. This creates hashed
-# symlinks to the certificates, so that OpenSSL could easily find them. What the
-# script does is just running::
+# symlinks to the certificates, so that OpenSSL could easily find them. What
+# the script does is just running::
 #
 #   openssl x509 -noout -subject_hash -in cert.pem
 #
@@ -68,10 +70,10 @@ SERVER_CERTIFICATE_FILE = None
 CERTIFICATE_AUTHORITIES = []
 
 # Whitelist of fingerprints of client certificates that should get accepted for
-# connecting to the server(s). If the list is None, it will be ignored and every
-# client signed by the CAs will be accepted. Note that if it's an empty list no
-# client will be accepted - this is to avoid misconfigurations leading to a wide
-# open service.
+# connecting to the server(s). If the list is None, it will be ignored and
+# every client signed by the CAs will be accepted. Note that if it's an empty
+# list no client will be accepted - this is to avoid misconfigurations leading
+# to a wide open service.
 #
 # Note that it is not enough to just put a fingerprint in this list. The issuer
 # of the client certificate must be listed in CERTIFICATE_AUTHORITIES as well.
@@ -79,29 +81,29 @@ CERTIFICATE_AUTHORITIES = []
 # The fingerprints are by default in SHA-1 format, but that could be changed,
 # see FINGERPRINT_ALGORITHM.
 #
-# The reason for having such a whitelist is to avoid accepting every certificate
-# from an issuer, e.g. the server certificate, in case it is used for other
-# services as well.
+# The reason for having such a whitelist is to avoid accepting every
+# certificate from an issuer, e.g. the server certificate, in case it is used
+# for other services as well.
 #
 # Note that every certificate that is used in a certificate chain has to be
-# whitelisted, which includes the CAs certificates. To get the SHA-1 fingerprint
-# of a certificate, use the command:
+# whitelisted, which includes the CAs certificates. To get the SHA-1
+# fingerprint of a certificate, use the command:
 #
 #   openssl x509 -in certificate.pem -noout -fingerprint -sha1
 #
 FINGERPRINTS = []
 
 # The algorithm used to create the fingerprint of an algorithm. Fingerprints
-# can, in theory, be hacked through collision attacks. Use SHA-256 or SHA-512 in
-# the future. Or rather SHA-3 when that is ready.
+# can, in theory, be hacked through collision attacks. Use SHA-256 or SHA-512
+# in the future. Or rather SHA-3 when that is ready.
 #
 # See `openssl dgst -h` for a list of supported algorithms.
 FINGERPRINT_ALGORITHM = 'sha1'
 
 
-###
-### Logging
-###
+#
+# Logging
+#
 
 # Note that the CIS services use twisted's log functionality instead of
 # Cerebrum's own. This is to avoid blocking conflicts, since the services are
@@ -133,16 +135,16 @@ LOG_FORMATTERS = ()
 #
 #  YYYY-MM-DD HH:mm:ss <jobname>: <loglevel> <message>
 #
-# The job name is an identifier to be able to separate the different jobs' logs,
-# and is useful e.g. for mailloggers. The default is just 'cis' for all CIS
-# servers, but it is changeable to split out certain servers.
+# The job name is an identifier to be able to separate the different jobs'
+# logs, and is useful e.g. for mailloggers. The default is just 'cis' for all
+# CIS servers, but it is changeable to split out certain servers.
 LOG_NAME = 'cis'
 
 # The number of bytes a log file may contain before it gets rotated.
-LOG_LENGTH = 50 * 1024 * 1024 # = 50MiB
+LOG_LENGTH = 50 * 1024 * 1024  # = 50MiB
 
-# The maxiumum number of rotated files. If the number is reached, the oldest log
-# file gets deleted.
+# The maxiumum number of rotated files. If the number is reached, the oldest
+# log file gets deleted.
 LOG_MAXROTATES = 10
 
 # The prefix to be added to logs. This is to comply with Cerebrum's log
@@ -154,9 +156,9 @@ LOG_MAXROTATES = 10
 # logs will not get parsed and sent by e-mail to the sysadmins.
 LOG_PREFIX = 'cis:'
 
-###
-### Miscellaneous
-###
+#
+# Miscellaneous
+#
 
 # The Cerebrum class that will be used for the Cerebrum related functionality.
 # A server's main service contains public methods that is callable by the
@@ -171,9 +173,9 @@ LOG_PREFIX = 'cis:'
 CEREBRUM_CLASS = None
 
 
-###
-### Individuation specific settings
-###
+#
+# Individuation specific settings
+#
 
 # The following settings are only related to the forgotten-password service.
 
@@ -183,4 +185,3 @@ CEREBRUM_CLASS = None
 # that this must be longer than the max delay value, to avoid that some fresh
 # students could still be blocked.
 FRESH_DAYS = 10
-

@@ -18,12 +18,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Group client stuff."""
 
-# TODO: Describe the above better.
-
-import cerebrum_path
-getattr(cerebrum_path, '', None)  # Silence the linter.
-import cereconf
-getattr(cereconf, '', None)  # Silence the linter.
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors

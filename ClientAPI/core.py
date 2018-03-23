@@ -79,7 +79,7 @@ class ClientAPI(object):
         try:
             self.db.close()
         except Exception, e:
-            self.log.warning("Problems with db.close: %s" % e)
+            self.log.warning("Problems with db.close: %s", e)
 
 
 # TODO: Should this be here?

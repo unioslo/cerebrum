@@ -44,9 +44,6 @@ from Cerebrum import Errors
 from Cerebrum.modules.cis import SoapListener
 
 
-del cerebrum_path
-
-
 class PostmasterServer(SoapListener.BasicSoapServer):
     """The SOAP commands available for the clients.
 

@@ -18,8 +18,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Generalized Entity operations presented in a functional API."""
 
-import cerebrum_path
-getattr(cerebrum_path, '', None)  # Silence the linter.
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
+#
 # Copyright 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -42,7 +42,8 @@ To add authentication for all public methods in a Service class::
 
     # This will check if the client is authenticated and raise
     # NotAuthenticatedErrors for everyone that are not authenticated.
-    NewService.event_manager.add_listener('method_call', auth.on_method_authentication)
+    NewService.event_manager.add_listener('method_call',
+        auth.on_method_authentication)
 
     # ...
 
@@ -52,8 +53,8 @@ To add authentication for all public methods in a Service class::
     server = SoapListener.TwistedSoapStarter(applications = services, ...)
     server.run()
 
-TODO: add documentation for how to only require authentication for single public
-methods.
+TODO: add documentation for how to only require authentication for single
+public methods.
 
 Access control
 --------------
@@ -95,15 +96,12 @@ from rpclib.decorator import rpc
 
 import cereconf
 from Cerebrum import Errors
-from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum import QuarantineHandler
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.cis import SoapListener
-from Cerebrum.modules.cis.faults import *
+from Cerebrum.modules.cis.faults import (AuthenticationError,
+                                         NotAuthenticatedError)
 
-# TODO: This will only use the generic auth class, and not the instance
-# specific ones... How to be able to import those?
-from Cerebrum.modules.bofhd.auth import BofhdAuth
 
 class Authenticator(object):
     """Class for handling an authenticated entity. Could be subclassed for more
@@ -135,6 +133,7 @@ class Authenticator(object):
         # only trust twisted's session timeout?
         return False
 
+
 class AuthenticationService(SoapListener.BasicSoapServer):
     """A generic authentication service. Subclass it to support different ways
     of authenticating.
@@ -148,7 +147,6 @@ class AuthenticationService(SoapListener.BasicSoapServer):
     TODO: there is probably a cleaner way to solve the subclassing here.
 
     """
-    #__tns__ = 'rpclib.examples.authentication'
 
     __in_header__ = SoapListener.SessionHeader
 
@@ -162,7 +160,8 @@ class AuthenticationService(SoapListener.BasicSoapServer):
 
     @staticmethod
     def _authenticate(ctx, id):
-        """The method for setting the authenticate values. Should only be called
+        """
+        The method for setting the authenticate values. Should only be called
         internally by an Auth Service that has authenticated a client/user
         properly. This method blindly accepts an entity as authenticated.
 
@@ -200,11 +199,13 @@ class AuthenticationService(SoapListener.BasicSoapServer):
             auth.expire()
             del ctx.udc['session']['authenticated']
 
-AuthenticationService.event_manager.add_listener('method_call',
-                                        SoapListener.on_method_call_session)
 
-AuthenticationService.event_manager.add_listener('method_return_object',
-                                        SoapListener.on_method_exit_session)
+AuthenticationService.event_manager.add_listener(
+    'method_call', SoapListener.on_method_call_session)
+
+AuthenticationService.event_manager.add_listener(
+    'method_return_object', SoapListener.on_method_exit_session)
+
 
 class PasswordAuthenticationService(AuthenticationService):
     """Authentication Service where the auth is handled by username and
@@ -232,8 +233,9 @@ class PasswordAuthenticationService(AuthenticationService):
         if not username or not password:
             raise AuthenticationError(ctx.service_class.error_msg)
 
-        # TODO: should add some short, random delay at startup, to avoid letting
-        #       people know what went wrong, e.g. if a username exists or not.
+        # TODO: should add some short, random delay at startup, to avoid
+        # letting people know what went wrong, e.g. if a username exists or
+        # not.
 
         # TODO: need to limit brute force attacks somehow, e.g. block per IP.
 
@@ -249,16 +251,15 @@ class PasswordAuthenticationService(AuthenticationService):
             raise AuthenticationError(ctx.service_class.error_msg)
 
         # TODO: bofhd.py's bofhd_login has much functionality - put much of it
-        # into the Account class to be able to use same code in both places? For
-        # instance::
+        # into the Account class to be able to use same code in both places?
+        # For instance::
         #
         #   ac.find_by_name(username) # could raise exception
         #   ac.authenticate(password) # could raise exception
         #
         # If success, we could create session etc.
         # Check quarantines
-        quarantines = []  
-        now = DateTime.now()
+        quarantines = []
         for qrow in account.get_entity_quarantine(only_active=True):
                 # The quarantine found in this row is currently
                 # active. Some quarantine types may not restrict
@@ -272,13 +273,13 @@ class PasswordAuthenticationService(AuthenticationService):
                 # routines don't support a more appopriate solution yet
                 if not str(constant.Quarantine(qrow['quarantine_type'])) \
                        in cereconf.BOFHD_NONLOCK_QUARANTINES:
-                    quarantines.append(qrow['quarantine_type'])            
+                    quarantines.append(qrow['quarantine_type'])
         qh = QuarantineHandler.QuarantineHandler(db, quarantines)
         if qh.should_skip() or qh.is_locked():
             qua_repr = ", ".join(constant.Quarantine(q).description
                                  for q in quarantines)
-            log.msg("INFO: user has active quarantine. Access denied: %s" 
-                    %qua_repr)
+            log.msg("INFO: user has active quarantine. Access denied: %s"
+                    % qua_repr)
             # Close the database-connection
             db.close()
             raise AuthenticationError(ctx.service_class.error_msg)
@@ -298,6 +299,7 @@ class PasswordAuthenticationService(AuthenticationService):
 
         """
         ctx.service_class._deauthenticate(ctx)
+
 
 class UsernameAuthenticationService(AuthenticationService):
     """Authentication Service where the auth is handled by username only.
@@ -333,18 +335,17 @@ class UsernameAuthenticationService(AuthenticationService):
             raise AuthenticationError(ctx.service_class.error_msg)
 
         # Check quarantines
-        quarantines = []  
-        now = DateTime.now()
+        quarantines = []
         for qrow in account.get_entity_quarantine(only_active=True):
                 if not str(constant.Quarantine(qrow['quarantine_type'])) \
                        in cereconf.BOFHD_NONLOCK_QUARANTINES:
-                    quarantines.append(qrow['quarantine_type'])            
+                    quarantines.append(qrow['quarantine_type'])
         qh = QuarantineHandler.QuarantineHandler(db, quarantines)
         if qh.should_skip() or qh.is_locked():
             qua_repr = ", ".join(constant.Quarantine(q).description
                                  for q in quarantines)
-            log.msg("INFO: user has active quarantine. Access denied: %s" 
-                    %qua_repr)
+            log.msg("INFO: user has active quarantine. Access denied: %s"
+                    % qua_repr)
             raise AuthenticationError(ctx.service_class.error_msg)
 
         # User exists, let's authenticate it
@@ -360,9 +361,9 @@ class UsernameAuthenticationService(AuthenticationService):
         ctx.service_class._deauthenticate(ctx)
 
 
-###
-### Events
-###
+#
+# Events
+#
 def on_method_authentication(ctx):
     """Event for checking that the client is authenticated before calling a
     method. This event should be added to every Service class that require

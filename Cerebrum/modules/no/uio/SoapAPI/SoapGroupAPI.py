@@ -19,12 +19,15 @@
 
 """Generalized SOAP interface for Cerebrums group functionality."""
 
+from __future__ import unicode_literals
+
 from Cerebrum.modules.cis import SoapListener, faults
 from rpclib.model.primitive import Unicode, DateTime, Integer, Boolean
 from rpclib.model.complex import Array
 from rpclib.decorator import rpc
 
-from Cerebrum.modules.no.uio.SoapAPI.SoapGroupAPImodel import GroupInfo, GroupMember
+from Cerebrum.modules.no.uio.SoapAPI.SoapGroupAPImodel import (GroupInfo,
+                                                               GroupMember)
 
 
 NAMESPACE = 'GroupAPI'

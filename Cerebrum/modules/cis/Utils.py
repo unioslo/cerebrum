@@ -73,14 +73,16 @@ def require_id(method):
     def wrapper(self, *args, **kwargs):
         if not getattr(self, 'operator_id', None):
             if hasattr(self, 'log'):
-                self.log.debug('Method (%s) requires operator_id')
-            raise CerebrumError('%s requires login')
+                self.log.debug('Method (%s) requires operator_id',
+                               method.__name__)
+            raise CerebrumError('%s requires login' % method.__name__)
         return method(self, *args, **kwargs)
     return wrapper
 
 
 def commit_handler(dryrun=False):
-    """ Decorator for I{methods} that do database write operations. 
+    """
+    Decorator for I{methods} that do database write operations.
     This method handles decorator arguments, the actual wrapper is C{wrap}.
     The decorator will only work on instance methods with a DatabaseAccessor
     attribute C{db}.
@@ -112,20 +114,21 @@ def commit_handler(dryrun=False):
 
             try:
                 result = method(self, *args, **kwargs)
-            except CerebrumRPCException, e:
+            except CerebrumRPCException as e:
                 # Failed looking up arguments, nothing to roll back or commit.
                 if hasattr(self, 'log'):
-                    self.log.debug('Method (%s) failed: %s.' % (method, e))
+                    self.log.debug('Method (%s) failed: %s.', method, e)
                 raise
-            except:
+            except Exception:
                 # L{method} has been called, we need to roll back.
                 if hasattr(self, 'log'):
-                    self.log.debug('Method (%s) failed, roll back.' % method)
+                    self.log.debug('Method (%s) failed, roll back.', method)
                 self.db.rollback()
                 raise
 
             if hasattr(self, 'log'):
-                self.log.debug('Method (%s) succeeded, Dryrun: %s' % (method, dryrun))
+                self.log.debug('Method (%s) succeeded, Dryrun: %s', method,
+                               dryrun)
             if dryrun:
                 self.db.rollback()
             else:
@@ -133,7 +136,6 @@ def commit_handler(dryrun=False):
             return result
         return wrapper
     return wrap
-
 
 
 class CisModule(object):
@@ -172,8 +174,8 @@ class CisModule(object):
         destroy the instance. """
         try:
             self.db.close()
-        except Exception, e:
-            self.log.warning("Problems with db.close: %s" % e)
+        except Exception as e:
+            self.log.warning("Problems with db.close: %s", e)
 
 
 # The following classes are fixes for rpclib 2.6. These classes replaces the

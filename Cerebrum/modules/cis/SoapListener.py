@@ -18,13 +18,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""The core functionality for SOAP services running in the CIS framework. CIS is
-based on the twisted framework and rpclib (now called spyne).
+"""The core functionality for SOAP services running in the CIS framework. CIS
+is based on the twisted framework and rpclib (now called spyne).
 
-This file contains the main parts that are needed for a basic setup of a new CIS
-service. The new service itself has to be created in its own file, and be given
-to a TwistedSoapStarter class. Other settings are available, e.g. to apply SSL
-encryption, authentication and authorization.
+This file contains the main parts that are needed for a basic setup of a new
+CIS service. The new service itself has to be created in its own file, and be
+given to a TwistedSoapStarter class. Other settings are available, e.g. to
+apply SSL encryption, authentication and authorization.
 
 The structure is:
 
@@ -64,32 +64,30 @@ from twisted.web.resource import Resource
 from twisted.internet import reactor
 from twisted.python import log, logfile, util
 from twisted.web.wsgi import WSGIResource
+from OpenSSL import SSL
+
+from Cerebrum import Errors
+from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.cis.faults import (EndUserFault, NotAuthorizedError,
+                                         CerebrumFault, UnknownFault)
 
 CRYPTO_AVAILABLE = True
 try:
     from twisted.internet import ssl
 except ImportError:
     CRYPTO_AVAILABLE = False
-from OpenSSL import SSL
-
-import cerebrum_path
-from Cerebrum import Errors
-from Cerebrum.modules.bofhd.errors import PermissionDenied
-from Cerebrum.modules.cis.faults import (EndUserFault, NotAuthorizedError,
-                                         CerebrumFault, UnknownFault)
-
-
-del cerebrum_path
 
 
 class BasicSoapServer(rpclib.service.ServiceBase):
-    """Base class for our SOAP services, with general setup useful for us.
+    """
+    Base class for our SOAP services, with general setup useful for us.
     Public methods should be defined in subclasses.
 
     """
     @classmethod
     def call_wrapper(cls, ctx):
-        """The wrapper for calling a public service method.
+        """
+        The wrapper for calling a public service method.
 
         Service classes can raise CerebrumRPCException, which should be
         returned to the client and considered to be shown to the end users.
@@ -130,6 +128,8 @@ def _event_setup_basic(ctx):
     if ctx.udc is None:
         # TBD: Should we have this as an object instead?
         ctx.udc = dict()
+
+
 BasicSoapServer.event_manager.add_listener('method_call', _event_setup_basic)
 
 
@@ -160,6 +160,8 @@ def _event_unknown_exceptions(ctx):
         for faultstring in root.iter('faultstring'):
             faultstring.text = 'Unknown Error'
         ctx.out_string[0] = etree.tostring(root)
+
+
 BasicSoapServer.event_manager.add_listener('method_exception_string',
                                            _event_unknown_exceptions)
 
@@ -234,12 +236,13 @@ class SessionCacher(Session, dict):
 
     To make use of this as your session, you have to set site.sessionFactory to
     this class."""
-    # Not sure if zope.interface.components should be used instead, but this was
-    # easier.
+    # Not sure if zope.interface.components should be used instead, but this
+    # was easier.
     sessionTimeout = 60  # in seconds
 
-    # TODO: create a __copy__ method to be able to copy data from an old session
-    # to a new one. This is needed for switching session ID when authenticating.
+    # TODO: create a __copy__ method to be able to copy data from an old
+    # session to a new one. This is needed for switching session ID when
+    # authenticating.
 
 
 class BasicSoapStarter(object):
@@ -390,8 +393,8 @@ class TLSTwistedSoapStarter(TwistedSoapStarter):
                               certificate_file=certificate_file)
         super(TLSTwistedSoapStarter, self).__init__(**kwargs)
 
-    def setup_sslcontext(self, client_ca, client_fingerprints, private_key_file,
-                         certificate_file):
+    def setup_sslcontext(self, client_ca, client_fingerprints,
+                         private_key_file, certificate_file):
         """Setup the ssl context and its settings."""
         self.sslcontext = ssl.DefaultOpenSSLContextFactory(private_key_file,
                                                            certificate_file)
