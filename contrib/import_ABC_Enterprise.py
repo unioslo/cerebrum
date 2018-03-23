@@ -20,18 +20,14 @@
 
 import sys
 
-import cerebrum_path
-import cereconf
-import abcconf
-
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
 
+
 def main():
     logger = Factory.get_logger("cronjob")
-    parser = ABCFactory.get('Analyzer')(sys.argv[1:], logger)
-    
+    ABCFactory.get('Analyzer')(sys.argv[1:], logger)
+
 
 if __name__ == '__main__':
     main()
-

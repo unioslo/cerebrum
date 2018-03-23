@@ -21,10 +21,6 @@ from __future__ import unicode_literals
 import sys
 import getopt
 
-import cerebrum_path
-import abcconf
-
-from Cerebrum.Utils import Factory
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
 
 # TODO:
@@ -73,7 +69,6 @@ class ABCPreParser:
         self.logger = logger
 
         filename = dryrun = None
-        verbose = False
         try:
             opts, args = getopt.getopt(argv,
                                        self.short_args,
@@ -89,7 +84,7 @@ class ABCPreParser:
                 dryrun = True
             elif opt in ('-f', '--file='):
                 filename = val
-        if filename == None:
+        if filename is None:
             # TBD: let config decide? Set a default?
             self.usage(1)
         self.settings = ABCFactory.get('Settings')()
@@ -121,7 +116,6 @@ class ABCAnalyzer(object):
     in return. Use Mixins for more options."""
 
     def __init__(self, argv, logger):
-        #self._data_source = None
         # Get argv into variables and make am object for all of it
         pp = ABCFactory.get('PreParser')(argv, logger)
         self.settings = pp.get_settings()
@@ -154,37 +148,27 @@ class ABCAnalyzer(object):
          self.settings.variables['target'],
          self.settings.variables['timestamp']) = setiter.next()
 
+    def _get_iterator(self, element):
+        return iter(ABCFactory.get('EntityIterator')(
+            self.settings.variables['filename'],
+            element))
 
     def iter_properties(self):
-        elem = "properties"
-        it = ABCFactory.get('EntityIterator')(self.settings.variables['filename'],
-                                              elem)
-        return ABCFactory.get('PropertiesParser')(iter(it))
-
+        return ABCFactory.get('PropertiesParser')(
+            self._get_iterator("properties"))
 
     def iter_persons(self):
-        elem = "person"
-        it = ABCFactory.get('EntityIterator')(self.settings.variables['filename'],
-                                              elem)
-        return ABCFactory.get('PersonParser')(iter(it))
-
+        return ABCFactory.get('PersonParser')(
+            self._get_iterator("person"))
 
     def iter_orgs(self):
-        elem = "organization"
-        it = ABCFactory.get('EntityIterator')(self.settings.variables['filename'],
-                                              elem)
-        return ABCFactory.get('OrgParser')(iter(it))
-
+        return ABCFactory.get('OrgParser')(
+            self._get_iterator("organization"))
 
     def iter_groups(self):
-        elem = "group"
-        it = ABCFactory.get('EntityIterator')(self.settings.variables['filename'],
-                                              elem)
-        return ABCFactory.get('GroupParser')(iter(it))
+        return ABCFactory.get('GroupParser')(
+            self._get_iterator("group"))
 
     def iter_relations(self):
-        elem = "relation"
-        it = ABCFactory.get('EntityIterator')(self.settings.variables['filename'],
-                                              elem)
-        return ABCFactory.get('RelationParser')(iter(it))
-
+        return ABCFactory.get('RelationParser')(
+            self._get_iterator("relation"))

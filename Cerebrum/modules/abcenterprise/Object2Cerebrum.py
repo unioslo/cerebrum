@@ -18,22 +18,23 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from __future__ import unicode_literals
-import cerebrum_path
 import cereconf
 import abcconf
 
 from mx import DateTime
 
 from Cerebrum import Errors
-from Cerebrum import Constants
 from Cerebrum.Utils import Factory, auto_super
 from Cerebrum.extlib.doc_exception import DocstringException
+
 
 class ABCMultipleEntitiesExistsError(DocstringException):
     """Several Entities exist with the same ID."""
 
+
 class ABCErrorInData(DocstringException):
     """We hit an error in the data."""
+
 
 class Object2Cerebrum(object):
 
@@ -63,52 +64,64 @@ class Object2Cerebrum(object):
         self._groups = dict()
         self._affiliations = dict()
 
-
     def _add_external_ids(self, entity, id_dict):
         """Common external ID operations."""
         entity.affect_external_id(self.source_system, *id_dict.keys())
         for id_type in id_dict.keys():
             if id_type is None:
-                raise ABCErrorInData, "None not allowed as type: '%s'" % id_type
+                raise ABCErrorInData(
+                    "None not allowed as type: '%s'" % id_type)
             elif id_dict[id_type] is None:
-                raise ABCErrorInData, "None not alowed as a value: '%s': '%s'" % (id_type, id_dict[id_type])
+                raise ABCErrorInData(
+                    "None not alowed as a value: '%s': '%s'" %
+                    (id_type, id_dict[id_type]))
             entity.populate_external_id(self.source_system,
                                         id_type,
                                         id_dict[id_type])
-        # Remove external IDs not seen in the ABC file but present in the database
-        # with source_system equal to ours.
+        # Remove external IDs not seen in the ABC file but present in the
+        # database with source_system equal to ours.
         # New entities have no entity_id but have no depricated ext IDs either.
         if hasattr(entity, 'entity_id'):
-            for row in entity.get_external_id(source_system=self.source_system):
+            for row in entity.get_external_id(
+                    source_system=self.source_system):
                 id_type = row['id_type']
                 if id_type not in id_dict.keys():
                     entity._delete_external_id(self.source_system, id_type)
-                    self.logger.info("Entity: '%d' removed external ID type '%s'." % (entity.entity_id,id_type))
+                    self.logger.info(
+                        "Entity: '%d' removed external ID type '%s'." %
+                        (entity.entity_id, id_type))
 
     def _process_tags(self, entity, tag_dict):
         """Process an entity's tags."""
         for tag_type in tag_dict.keys():
             if tag_type is None:
-                raise ABCErrorInData, "None not allowed as type: '%s'" % tag_type
+                raise ABCErrorInData(
+                    "None not allowed as type: '%s'" % tag_type)
             elif tag_dict[tag_type] is None:
-                raise ABCErrorInData, "None not alowed as a value: '%s': '%s'" % (tag_type, tag_dict[tag_type])
-            # Add other actions to the following list if general events. Otherwise
-            # override through Mixin
+                raise ABCErrorInData(
+                    "None not alowed as a value: '%s': '%s'" %
+                    (tag_type, tag_dict[tag_type]))
+            # Add other actions to the following list if general events.
+            # Otherwise override through Mixin
             if tag_type == "ADD_SPREAD":
                 for spread in tag_dict[tag_type]:
                     if not entity.has_spread(spread):
                         entity.add_spread(spread)
-                        self.logger.info("Entity: '%d' got spread '%s'." % (entity.entity_id,spread))
-                    self._spreads.setdefault(entity.entity_id, []).append(spread)
+                        self.logger.info("Entity: '%d' got spread '%s'." %
+                                         (entity.entity_id, spread))
+                    self._spreads.setdefault(entity.entity_id,
+                                             []).append(spread)
             else:
-                raise ABCErrorInData, "Type: '%s' is not known in _process_tags()" % tag_type
+                raise ABCErrorInData(
+                    "Type: '%s' is not known in _process_tags()" % tag_type)
 
     def _check_entity(self, entity, data_entity):
         """Check for conflicting entities or return found or None."""
         entities = list()
         for id_type in data_entity._ids.keys():
-            lst = entity.list_external_ids(id_type=id_type,
-                                           external_id = data_entity._ids[id_type])
+            lst = entity.list_external_ids(
+                id_type=id_type,
+                external_id=data_entity._ids[id_type])
             for row in lst:
                 entities.append(row['entity_id'])
         entity_id = None
@@ -119,7 +132,8 @@ class Object2Cerebrum(object):
                 ou = Factory.get('OU')(self.db)
                 ou.find(id)
                 found = ou.get_external_id(id_type=id_type)
-                raise ABCMultipleEntitiesExistsError, "found: '%s', current: '%s'" % (found, data_entity)
+                raise ABCMultipleEntitiesExistsError(
+                    "found: '%s', current: '%s'" % (found, data_entity))
             entity_id = id
 
         if entity_id:
@@ -130,20 +144,14 @@ class Object2Cerebrum(object):
             # This is fine, write_db() figures it up.
             return None
 
-
     def _add_entity_addresses(self, entity, addresses):
         """Add an entity's addresses."""
         for addr in addresses.keys():
-            #for tag in ("pobox", "street", "postcode", "city", "country"):
             entity.populate_address(self.source_system, type=addr,
                                     address_text=addresses[addr].street,
                                     p_o_box=addresses[addr].pobox,
                                     postal_number=addresses[addr].postcode,
                                     city=addresses[addr].city)
-            ## todo fetch reference to country in country-table
-            ## ,
-            ##                        country=addresses[addr].country)
-
 
     def _add_entity_contact_info(self, entity, contact_info):
         """Add contact info for an entity."""
@@ -159,7 +167,6 @@ class Object2Cerebrum(object):
         if len(number) > 8 and not number.startswith('+'):
             number = "+%s" % number
         return number
-
 
     def store_ou(self, ou):
         """Pass a DataOU to this function and it gets stored
@@ -200,7 +207,6 @@ class Object2Cerebrum(object):
         self._ou.set_parent(perspective, parent)
         return self._ou.write_db()
 
-
     def store_person(self, person):
         """Pass a DataPerson to this function and it gets stored
         in Cerebrum."""
@@ -216,8 +222,8 @@ class Object2Cerebrum(object):
             # Noone in the database could be found with our IDs.
             # This is fine, write_db() figures it out.
 
-        if person.birth_date == None:
-            raise ABCErrorInData, "No birthdate for person: %s." % person._ids
+        if person.birth_date is None:
+            raise ABCErrorInData("No birthdate for person: %s." % person._ids)
 
         # Populate the person
         self._person.populate(person.birth_date, person.gender)
@@ -234,7 +240,6 @@ class Object2Cerebrum(object):
         self._add_entity_contact_info(self._person, person._contacts)
         ret = self._person.write_db()
         return ret
-
 
     def store_group(self, group):
         """Stores a group in Cerebrum."""
@@ -261,20 +266,17 @@ class Object2Cerebrum(object):
         self._groups.setdefault(group.name, [])
         return ret
 
-
     def _add_group_cache(self, group, member):
-        if self._groups.has_key(group):
+        if group in self._groups:
             if member not in self._groups[group]:
                 self._groups[group].append(member)
         else:
             self.logger.warning("Group '%s' is not in the file." % group)
 
-
     def add_group_member(self, group, entity_type, member):
         """Add an entity to a group."""
         self._group.clear()
         self._group.find_by_name(group[1])
-        e_t = None
         if entity_type == "person":
             self._person.clear()
             self._person.find_by_external_id(member[0], member[1])
@@ -284,15 +286,14 @@ class Object2Cerebrum(object):
             self._add_group_cache(group[1], self._person.entity_id)
             return self._group.write_db()
 
-
     def add_person_affiliation(self, ou, person, affiliation, status):
         """Add an affiliation for a person."""
         self._person.clear()
         try:
             self._person.find_by_external_id(person[0], person[1])
         except Errors.NotFoundError:
-            raise ABCErrorInData, "no person with id: %s, %s" % (person[0],
-                                                                 person[1])
+            raise ABCErrorInData("no person with id: %s, %s" % (person[0],
+                                                                person[1]))
         if self._ou is None:
             self._ou = Factory.get("OU")(self.db)
         self._ou.clear()
@@ -307,35 +308,38 @@ class Object2Cerebrum(object):
                                                            self._ou.entity_id))
         return ret
 
-
     def _post_process_tags(self):
         """Process possible after-effects of tags. This may include removing
         spreads, roles and such.
 
         Currently only spreads are supported."""
         # Do nothing if the config doesn't have TAG_REWRITE or it's empty.
-        # In the latter case you get very serious side-effects that will wipe all
-        # spreads on all entities due to entity.list_all_with_spread()'s way of
-        # handling an empty argument.
+        # In the latter case you get very serious side-effects that will wipe
+        # all spreads on all entities due to entity.list_all_with_spread()'s
+        # way of handling an empty argument.
         if not hasattr(abcconf, "TAG_REWRITE") or not abcconf.TAG_REWRITE:
             return
         # Access Entity objects directly.
         from Cerebrum.Entity import EntitySpread
         es = EntitySpread(self.db)
-        for row in es.list_all_with_spread([int(s) for s in abcconf.TAG_REWRITE.values()]):
-            if self._spreads.has_key(int(row['entity_id'])):
+        for row in es.list_all_with_spread(
+                [int(s) for s in abcconf.TAG_REWRITE.values()]):
+            if int(row['entity_id']) in self._spreads:
                 # Entity found, check spreads in database
-                if not int(row['spread']) in self._spreads[int(row['entity_id'])]:
+                if (not int(row['spread']) in
+                        self._spreads[int(row['entity_id'])]):
                     es.clear()
                     es.find(int(row['entity_id']))
                     es.delete_spread(int(row['spread']))
-                    self.logger.info("Entity: '%d', removed spread '%s'" % (es.entity_id,int(row['spread'])))
+                    self.logger.info("Entity: '%d', removed spread '%s'" %
+                                     (es.entity_id, int(row['spread'])))
             else:
                 # Entity missing from file, remove all spreads
                 es.clear()
                 es.find(int(row['entity_id']))
                 es.delete_spread(int(row['spread']))
-                self.logger.info("Entity: '%d', removed spread '%s'" % (es.entity_id,int(row['spread'])))
+                self.logger.info("Entity: '%d', removed spread '%s'" %
+                                 (es.entity_id, int(row['spread'])))
 
     def _update_groups(self):
         """Run through the cache and remove people's group membership if it hasn't
@@ -377,20 +381,24 @@ class Object2Cerebrum(object):
     def _update_person_affiliations(self):
         """Run through the cache and remove people's affiliation if it hasn't
         been seen in this push."""
-        for row in self._person.list_affiliations(source_system=self.source_system):
+        for row in self._person.list_affiliations(
+                source_system=self.source_system):
             p_id = int(row['person_id'])
             aff = row['affiliation']
             ou_id = row['ou_id']
             # If we find an entry both in the database and the cache, continue
-            if self._affiliations.has_key(p_id) and (aff, ou_id) in self._affiliations[p_id]:
+            if (p_id in self._affiliations and
+                    (aff, ou_id) in self._affiliations[p_id]):
                 continue
 
-            if not hasattr(self._person, "entity_id") or not self._person.entity_id == p_id:
+            if (not hasattr(self._person, "entity_id") or
+                    not self._person.entity_id == p_id):
                 self._person.clear()
                 self._person.find(p_id)
             self._person.delete_affiliation(ou_id, aff, self.source_system)
-            self.logger.info("Person '%d', removed affiliation '%d' from ou '%d'" % (p_id,aff,ou_id))
-
+            self.logger.info(
+                "Person '%d', removed affiliation '%d' from ou '%d'" %
+                (p_id, aff, ou_id))
 
     def commit(self):
         """Do some cleanups and call db.commit()"""
@@ -404,7 +412,6 @@ class Object2Cerebrum(object):
         self._update_person_affiliations()
         self.db.commit()
 
-
     def rollback(self):
         # Process the cache before calling commit.
         self._post_process_tags()
@@ -412,6 +419,3 @@ class Object2Cerebrum(object):
         # Update affiliations for people
         self._update_person_affiliations()
         self.db.rollback()
-
-
-

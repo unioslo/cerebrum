@@ -34,20 +34,9 @@ LDIFutils.base64_attrs.update({
     'userpassword': 0, 'ofkpassword': 0, 'userpasswordct': 0})
 
 
-def get_person_contact():
-    global p_id2cont
-
-    p_id2cont = dict()
-    for row in p.list_contact_info(contact_type=co.contact_mobile_phone,
-                                   entity_type=co.entity_person):
-        # Assume we have only one contact type of this sort
-        p_id2cont[row['entity_id']] = row['contact_value']
-        
-
-
 def get_account_info():
     global a_id2email, p_id2name, p_id2fnr, a_id2auth
-    global a_id2p_id, p_id2a_id, ou_id2name, const2str
+    global p_id2a_id, ou_id2name
     global acc_spreads, ou_spreads
 
     acc_spreads = []
@@ -62,7 +51,7 @@ def get_account_info():
     p_id2fnr = dict()
     for row in p.list_external_ids(id_type=co.externalid_fodselsnr):
         p_id2fnr[int(row['entity_id'])] = row['external_id']
-        
+
     a_id2auth = dict()
     for row in ac.list_account_authentication(auth_type=(co.auth_type_md4_nt,
                                                          co.auth_type_plaintext,
@@ -76,27 +65,21 @@ def get_account_info():
             a_id2auth[aid].insert(1, dict())
         a_id2auth[aid][1].setdefault(int(row['method']), row['auth_data'])
 
-    a_id2p_id = dict()
     p_id2a_id = dict()
     for row in ac.list_accounts_by_type(primary_only=True):
-        a_id2p_id[int(row['account_id'])] = int(row['person_id'])
         p_id2a_id[int(row['person_id'])] = int(row['account_id'])
 
     ou_id2name = dict((r["entity_id"], r["name"])
                       for r in ou.search_name_with_language(entity_type=co.entity_ou,
                                      name_variant=co.ou_name_acronym,
                                      name_language=co.language_nb))
-    const2str = dict()
-    const2str[int(co.affiliation_ansatt)] = "ANSATTE"
-    const2str[int(co.affiliation_elev)] = "ELEVER"
-    const2str[int(co.affiliation_tilknyttet)] = "TILKNYTTET"
 
     for row in ac.list_all_with_spread(co.spread_oid_acc):
         acc_spreads.append(row['entity_id'])
 
     for row in ou.list_all_with_spread(co.spread_oid_ou):
         ou_spreads.append(row['entity_id'])
-    
+
 def process_txt_file(file):
     users_ou = dict()
 
@@ -147,16 +130,16 @@ def main():
     global db, co, ac, p, ou, et, logger
 
     logger = Factory.get_logger("cronjob")
-    
+
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
     ac = Factory.get('Account')(db)
     p = Factory.get('Person')(db)
     ou = Factory.get('OU')(db)
-    et = Email.EmailTarget(db) 
+    et = Email.EmailTarget(db)
 
     txt_path = "/cerebrum/var/cache/txt"
-    
+
     options, rest = getopt.getopt(sys.argv[1:],
                                   "t:", ["txt-path=",])
     for option, value in options:
@@ -165,14 +148,13 @@ def main():
 
     # Load dicts with misc info.
     get_account_info()
-    get_person_contact()
 
-    # Dump OFK info 
+    # Dump OFK info
     f = SimilarSizeWriter("%s/ofk.txt" % txt_path, "w")
     f.max_pct_change = 10
     users = process_txt_file(f)
     f.close()
-    
+
 if __name__ == '__main__':
     main()
 

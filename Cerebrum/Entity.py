@@ -1308,12 +1308,12 @@ class EntityExternalId(Entity):
         if hasattr(self, '_extid_source'):
             dbvalues = {}
             for row in self.get_external_id(source_system=self._extid_source):
-                dbvalues[row['id_type']] = str(row['external_id'])
+                dbvalues[row['id_type']] = six.text_type(row['external_id'])
             for type in self._extid_types:
                 val = self._external_id.get(type)
                 dbval = dbvalues.get(type)
                 if val is not None:
-                    val = str(val)
+                    val = six.text_type(val)
                 if val != dbval:
                     if val is None:
                         self._delete_external_id(self._extid_source, type)
@@ -1418,7 +1418,7 @@ class EntityExternalId(Entity):
         if id_type is not None:
             cols['id_type'] = int(id_type)
         if external_id is not None:
-            cols['external_id'] = str(external_id)
+            cols['external_id'] = six.text_type(external_id)
         if entity_id is not None:
             cols['entity_id'] = int(entity_id)
         if cols:
@@ -1547,11 +1547,11 @@ class EntityExternalId(Entity):
             return ret
 
         def make_bind_str(id_type, external_id, source_system=None):
-            ret = {'id_type': str(id_type),
+            ret = {'id_type': six.text_type(id_type),
                    'ext_id': external_id,
                    'src': None}
             if source_system:
-                ret['src'] = str(source_system)
+                ret['src'] = six.text_type(source_system)
             return "(id_type:{id_type} id:{ext_id} source:{src})".format(**ret)
 
         opt_ss = query + " AND source_system=:src"
