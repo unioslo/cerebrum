@@ -562,11 +562,6 @@ EMAIL_HARD_QUOTA = None
 # LDAP.
 EMAIL_SOFT_QUOTA = 90
 
-# Some Cerebrum instances communicate with Cyrus via registered requests in
-# bofhd_request-table in Cerebrum, while others don't. This variable decides
-# whether a request should be added or not {True/False}
-EMAIL_ADD_QUOTA_REQUEST = False
-
 # When an email_target is created default spam settings should be
 # registered. Keys must be _EmailTargetCode code strings.
 # example:

@@ -148,16 +148,6 @@ def email_delivery_stopped(user):
     return True
 
 
-def get_email_hardquota(user_id, local_db=db):
-    eq = Email.EmailQuota(local_db)
-    try:
-        eq.find_by_target_entity(user_id)
-    except Errors.NotFoundError:
-        # unlimited/no quota
-        return 0
-    return eq.email_quota_hard
-
-
 def get_email_server(account_id, local_db=db):
     """Return Host object for account's mail server."""
     et = Email.EmailTarget(local_db)
@@ -253,7 +243,6 @@ def process_requests(types):
          (const.bofh_move_user, proc_move_user, 24*60)],
         'email':
         [(const.bofh_email_create, proc_email_create, 0),
-         (const.bofh_email_hquota, proc_email_hquota, 0),
          (const.bofh_email_delete, proc_email_delete, 4*60),
          ],
         'sympa':
@@ -307,18 +296,11 @@ def process_requests(types):
 
 
 def proc_email_create(r):
-    hq = get_email_hardquota(r['entity_id'])
     es = None
     if r['destination_id']:
         es = Email.EmailServer(db)
         es.find(r['destination_id'])
-    return (cyrus_create(r['entity_id'], host=es) and
-            cyrus_set_quota(r['entity_id'], hq, host=es))
-
-
-def proc_email_hquota(r):
-    hq = get_email_hardquota(r['entity_id'])
-    return cyrus_set_quota(r['entity_id'], hq)
+    return cyrus_create(r['entity_id'], host=es)
 
 
 def proc_email_delete(r):
@@ -400,8 +382,6 @@ def email_move_child(host, r):
     reqlock = RequestLockHandler()
     if not reqlock.grab(r_id):
         return
-    # Disable quota while copying so the move doesn't fail
-    cyrus_set_quota(acc.entity_id, 0, host=new_server, local_db=local_db)
     # Call the script
     cmd = [SSH_CMD, "cerebrum@%s" % host, cereconf.IMAPSYNC_SCRIPT,
            '--user1', acc.account_name, '--host1', old_server.name,
@@ -460,9 +440,6 @@ def email_move_child(host, r):
     logger.info('%s: managesieve_sync completed successfully',
                 acc.account_name)
     # The move was successful, update the user's server
-    # Now set the correct quota.
-    hq = get_email_hardquota(acc.entity_id, local_db=local_db)
-    cyrus_set_quota(acc.entity_id, hq, host=new_server, local_db=local_db)
     et = Email.EmailTarget(local_db)
     et.find_by_target_entity(acc.entity_id)
     et.email_server_id = new_server.entity_id
@@ -618,32 +595,6 @@ def cyrus_delete(host, uname, generation):
             return False
     cyradm.logout()
     return True
-
-
-def cyrus_set_quota(user_id, hq, host=None, local_db=db):
-    try:
-        uname = get_account(user_id, local_db=local_db).account_name
-    except Errors.NotFoundError:
-        logger.error("cyrus_set_quota: %d: user not found", user_id)
-        return False
-    if host is None:
-        host = get_email_server(user_id, local_db=local_db)
-    if not (cereconf.DEBUG_HOSTLIST is None or
-            host.name in cereconf.DEBUG_HOSTLIST):
-        logger.info("cyrus_set_quota(%s, %d, %s): skipping",
-                    uname, hq, host.name)
-        return False
-    try:
-        cyradm = connect_cyrus(username=uname, host=host)
-    except (CyrusConnectError, socket.error), e:
-        logger.error("cyrus_set_quota(%s, %d): %s" % (uname, hq, e))
-        return False
-    quotalist = '(STORAGE %d)' % (hq * 1024)
-    if hq == 0:
-        quotalist = '()'
-    res, msg = cyradm.setquota("user.%s" % uname, quotalist)
-    logger.debug("cyrus_set_quota(%s, %d): %s" % (uname, hq, repr(res)))
-    return res == 'OK'
 
 
 def archive_cyrus_data(uname, mail_server, generation):

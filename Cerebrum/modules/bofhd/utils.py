@@ -209,8 +209,6 @@ class Constants(Constants.Constants):
                                             'Create user mailboxes')
     bofh_email_delete = _BofhdRequestOpCode('br_email_delete',
                                             'Delete all user mailboxes')
-    bofh_email_hquota = _BofhdRequestOpCode('br_email_hquota',
-                                            'Set e-mail hard quota')
     bofh_email_convert = _BofhdRequestOpCode('br_email_convert',
                                              'Convert user mail config')
     bofh_email_restore = _BofhdRequestOpCode('br_email_restore',
@@ -275,13 +273,11 @@ class BofhdRequests(object):
                                            const.bofh_delete_user],
             int(const.bofh_email_delete): [const.bofh_email_create,
                                            const.bofh_email_move],
-            int(const.bofh_email_hquota): [const.bofh_email_delete],
             int(const.bofh_email_convert): [const.bofh_email_delete],
             int(const.bofh_sympa_create): [const.bofh_sympa_remove],
             int(const.bofh_sympa_remove): [const.bofh_sympa_create],
             int(const.bofh_quarantine_refresh): None,
-            int(const.bofh_email_restore): [const.bofh_email_create,
-                                            const.bofh_email_hquota],
+            int(const.bofh_email_restore): [const.bofh_email_create],
             int(const.bofh_homedir_restore): [const.bofh_move_user,
                                               const.bofh_move_user_now,
                                               const.bofh_move_student,

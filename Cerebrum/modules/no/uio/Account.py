@@ -134,8 +134,7 @@ class AccountUiOMixin(Account.Account):
                             self.const.entity_account,
                             server_id=es.entity_id)
             et.write_db()
-            self.update_email_quota(force=True,
-                                    spread=self.const.spread_exchange_account)
+            self.update_email_quota()
             # register default spam and filter settings
             self._UiO_default_spam_settings(et)
             if is_new_target:
@@ -155,13 +154,7 @@ class AccountUiOMixin(Account.Account):
             # Cyrus EmailTarget, we need to do so.
             et = self._UiO_update_email_server(
                 self.const.email_server_type_cyrus)
-            # Make sure that Cyrus is told about the quota, the
-            # previous call probably didn't change the database value
-            # and therefore didn't add a request.
-            # this is not very good, we should do something about
-            # update_email_quota not using order_cyrus_action and
-            # order_cyrus_action in general.
-            self.update_email_quota(force=True)
+            self.update_email_quota()
             # register default spam and filter settings
             self._UiO_default_spam_settings(et)
             self._UiO_default_filter_settings(et)
@@ -233,33 +226,6 @@ class AccountUiOMixin(Account.Account):
         # (Try to) perform the actual spread removal.
         ret = self.__super.delete_spread(spread)
         return ret
-
-    # exchange-relatert-jazz
-    # update_email_quota is very different for Exchange and we
-    # therefore have to override the method defined in
-    # Email.AccountEmailQuotaMixin. After migration to Exchange is
-    # completed the method should be updated as documented there and
-    # this override removed. Jazz (2013-11)
-    #
-    def update_email_quota(self, force=False, spread=None):
-        if spread is None or spread == self.const.spread_uio_imap:
-            return self.__super.update_email_quota()
-        if spread == self.const.spread_exchange_account:
-            quota = self._calculate_account_emailquota()
-            eq = Email.EmailQuota(self._db)
-            try:
-                eq.find_by_target_entity(self.entity_id)
-            except Errors.NotFoundError:
-                if quota is not None:
-                    eq.populate(cereconf.EMAIL_SOFT_QUOTA, quota)
-                    eq.write_db()
-            else:
-                # We never decrease quota, because of manual overrides
-                if quota is None:
-                    eq.delete()
-                elif quota > eq.email_quota_hard:
-                    eq.email_quota_hard = quota
-                    eq.write_db()
 
     def set_home(self, spread, homedir_id):
         self.__super.set_home(spread, homedir_id)
@@ -525,7 +491,7 @@ class AccountUiOMixin(Account.Account):
             # super, since without an email server, no target or address
             # will be created.
             self._UiO_update_email_server(self.const.email_server_type_cyrus)
-            self.update_email_quota(spread=self.const.spread_uio_imap)
+            self.update_email_quota()
             return self.__super.update_email_addresses()
         elif self.const.spread_exchange_account in spreads:
             self.__super.update_email_addresses()
@@ -551,8 +517,7 @@ class AccountUiOMixin(Account.Account):
                     ea.populate(self.account_name, ed.entity_id, et.entity_id,
                                 expire=None)
                     ea.write_db()
-            return self.update_email_quota(
-                spread=self.const.spread_exchange_account)
+            return self.update_email_quota()
 
     def is_employee(self):
         for r in self.get_account_types():
