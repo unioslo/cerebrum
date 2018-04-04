@@ -224,8 +224,8 @@ class ADgroupUtil(ADutil):
                         user_id)
                     continue
                 members.append(entity2name[user_id])
-                self.logger.debug2("Try to sync member account id=%s, name=%s",
-                                   user_id, entity2name[user_id])
+                self.logger.debug("Try to sync member account id=%s, name=%s",
+                                  user_id, entity2name[user_id])
 
             for grp in self.group.search_members(group_id=grp_id,
                                                  member_spread=group_spread):
@@ -235,8 +235,8 @@ class ADgroupUtil(ADutil):
                     continue
                 members.append('%s%s' % (entity2name[group_id],
                                          cereconf.AD_GROUP_POSTFIX))
-                self.logger.debug2("Try to sync member group id=%s, name=%s",
-                                   group_id, entity2name[group_id])
+                self.logger.debug("Try to sync member group id=%s, name=%s",
+                                  group_id, entity2name[group_id])
 
             dn = self.server.findObject('%s%s' %
                                         (grp_name, cereconf.AD_GROUP_POSTFIX))
