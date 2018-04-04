@@ -552,7 +552,13 @@ def update_person_perms(person, client, remove_superfluous=False):
                     userid, *perm)
 
     # Add new permissions
-    for perm in cerebrum_perms:
+    #
+    # Note that we sort the permissions by organisational unit, so that the
+    # permissions for the OU 999999 is not overwritten by a permission of the
+    # same type at another OU. This seems to be a quirkiness in ePhorte. Also
+    # note that we reverse the sort, since the ePhorte expects None instead of
+    # 999999 🤣
+    for perm in sorted(cerebrum_perms, key=lambda x: x[1], reverse=True):
         if perm not in ephorte_perms:
             logger.info(u"Adding new perm for %s: %s@%s, authorized=%s",
                         userid, *perm)
