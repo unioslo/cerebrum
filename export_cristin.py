@@ -190,11 +190,11 @@ class system_xRepresentation(object):
                                  
             aff_str = const.PersonAffStatus(aff[0]['status'])
             aff_id = aff[0]['ou_id']
-            print "person.entity_id says:%s" % person.entity_id
+            # print "person.entity_id says:%s" % person.entity_id
             fornavn = person.get_name(current_source_system,const.name_first)
             etternavn = person.get_name(current_source_system,const.name_last)    
-            print "fornavn for this person is:%s" % fornavn
-            print "etternavn for this person is:%s" % etternavn
+            # print "fornavn for this person is:%s" % fornavn
+            # print "etternavn for this person is:%s" % etternavn
 
             acc_id = person.get_primary_account()
             if (acc_id):
