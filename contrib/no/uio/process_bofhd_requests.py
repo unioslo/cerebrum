@@ -30,8 +30,6 @@ import sys
 import time
 import socket
 import ssl
-import subprocess
-from select import select
 
 import cereconf
 
@@ -236,37 +234,30 @@ def process_requests(types):
         'quarantine':
         [(const.bofh_quarantine_refresh, proc_quarantine_refresh, 0)],
         'delete':
-        [(const.bofh_archive_user, proc_archive_user, 2*60),
-         (const.bofh_delete_user, proc_delete_user, 2*60)],
+        [(const.bofh_archive_user, proc_archive_user, 2 * 60),
+         (const.bofh_delete_user, proc_delete_user, 2 * 60)],
         'move':
-        [(const.bofh_move_user_now, proc_move_user, 24*60),
-         (const.bofh_move_user, proc_move_user, 24*60)],
+        [(const.bofh_move_user_now, proc_move_user, 24 * 60),
+         (const.bofh_move_user, proc_move_user, 24 * 60)],
         'email':
         [(const.bofh_email_create, proc_email_create, 0),
-         (const.bofh_email_delete, proc_email_delete, 4*60),
+         (const.bofh_email_delete, proc_email_delete, 4 * 60),
          ],
         'sympa':
-        [(const.bofh_sympa_create, proc_sympa_create, 2*60),
-         (const.bofh_sympa_remove, proc_sympa_remove, 2*60)],
-        }
+        [(const.bofh_sympa_create, proc_sympa_create, 2 * 60),
+         (const.bofh_sympa_remove, proc_sympa_remove, 2 * 60)],
+    }
     """Each type (or category) of requests consists of a list of which
     requests to process.  The tuples are operation, processing function,
     and how long to delay the request (in minutes) if the function returns
     False.
-
     """
-
-    # TODO: There is no variable containing the default log directory
-    # in cereconf
-
     reqlock = RequestLockHandler()
     br = BofhdRequests(db, const)
     for t in types:
         if t == 'move' and is_ok_batch_time(time.strftime("%H:%M")):
             # convert move_student into move_user requests
             process_move_student_requests()
-        if t == 'email':
-            process_email_move_requests()
         for op, process, delay in operations[t]:
             set_operator()
             start_time = time.time()
@@ -342,174 +333,6 @@ def proc_email_delete(r):
     else:
         return False
 
-pwfile = os.path.join(cereconf.DB_AUTH_DIR,
-                      'passwd-%s@%s' % (cereconf.CYRUS_ADMIN,
-                                        cereconf.CYRUS_HOST))
-
-
-def email_move_child(host, r):
-    local_db = Utils.Factory.get('Database')()
-    local_co = Utils.Factory.get('Constants')(local_db)
-    r_id = r['request_id']
-    if not is_valid_request(r_id, local_db=local_db, local_co=local_co):
-        return
-    if dependency_pending(r['state_data'], local_db=local_db,
-                          local_co=local_co):
-        logger.debug("Request '%d' still has deps: '%s'.",  r_id,
-                     r['state_data'])
-        return
-    try:
-        acc = get_account(r['entity_id'], local_db=local_db)
-    except Errors.NotFoundError:
-        logger.error("email_move: user %d not found",
-                     r['entity_id'])
-        return
-    old_server = get_email_server(r['entity_id'], local_db=local_db)
-    new_server = Email.EmailServer(local_db)
-    new_server.find(r['destination_id'])
-    if old_server.entity_id == new_server.entity_id:
-        logger.error("Trying to move %s from " % acc.account_name +
-                     "and to the same server! Deleting request")
-        br = BofhdRequests(local_db, local_co)
-        br.delete_request(request_id=r_id)
-        local_db.commit()
-        return
-    if not email_delivery_stopped(acc.account_name):
-        logger.debug("E-mail delivery not stopped for %s",
-                     acc.account_name)
-        return
-    logger.debug("User being moved: '%s'.",  acc.account_name)
-    reqlock = RequestLockHandler()
-    if not reqlock.grab(r_id):
-        return
-    # Call the script
-    cmd = [SSH_CMD, "cerebrum@%s" % host, cereconf.IMAPSYNC_SCRIPT,
-           '--user1', acc.account_name, '--host1', old_server.name,
-           '--user2', acc.account_name, '--host2', new_server.name,
-           '--authusing', cereconf.CYRUS_ADMIN,
-           '--passfile1', '/etc/cyrus.pw',
-           '--useheader', 'Message-ID',
-           '--regexmess', 's/\\0/ /g',
-           '--ssl', '--subscribe', '--nofoldersizes']
-    proc = subprocess.Popen(cmd, capturestderr=True, bufsize=10240,
-                            close_fds=True, stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    pid = proc.pid
-    logger.debug("Called cmd(%d): '%s'", pid, cmd)
-    proc.stdin.close()
-    # Stolen from Utils.py:spawn_and_log_output()
-    descriptor = {proc.stdout: logger.debug,
-                  proc.stderr: logger.info}
-    while descriptor:
-        # select() is called for _every_ line, since we can't inspect
-        # the buffering in Python's file object.  This works OK since
-        # select() will return "readable" for an unread EOF, and
-        # Python won't read the EOF until the buffers are exhausted.
-        ready, x, x = select(descriptor.keys(), [], [])
-        for fd in ready:
-            line = fd.readline()
-            if line == '':
-                fd.close()
-                del descriptor[fd]
-            else:
-                descriptor[fd]("[%d] %s" % (pid, line.rstrip()))
-    status = proc.wait()
-    if status == EXIT_SUCCESS:
-        logger.debug("[%d] Completed successfully", pid)
-    elif os.WIFSIGNALED(status):
-        # The process was killed by a signal.
-        sig = os.WTERMSIG(status)
-        logger.warning('[%d] Command "%r" was killed by signal %d',
-                       pid, cmd, sig)
-        return
-    else:
-        # The process exited with an exit status
-        sig = os.WSTOPSIG(status)
-        logger.warning("[%d] Return value was %d from command %r",
-                       pid, sig, cmd)
-        return
-    # Need move SIEVE filters as well
-    cmd = [cereconf.MANAGESIEVE_SCRIPT,
-           '-v', '-a', cereconf.CYRUS_ADMIN, '-p', pwfile,
-           acc.account_name, old_server.name, new_server.name]
-    if Utils.spawn_and_log_output(
-            cmd,
-            connect_to=[old_server.name, new_server.name]) != 0:
-        logger.warning('%s: managesieve_sync failed!', acc.account_name)
-        return
-    logger.info('%s: managesieve_sync completed successfully',
-                acc.account_name)
-    # The move was successful, update the user's server
-    et = Email.EmailTarget(local_db)
-    et.find_by_target_entity(acc.entity_id)
-    et.email_server_id = new_server.entity_id
-    et.write_db()
-    # We need to delete this request before adding the
-    # delete to avoid triggering the conflicting request
-    # test.
-    br = BofhdRequests(local_db, local_co)
-    br.delete_request(request_id=r_id)
-    local_db.commit()
-    br.add_request(r['requestee_id'], r['run_at'],
-                   local_co.bofh_email_delete,
-                   r['entity_id'], old_server.entity_id)
-    local_db.commit()
-    logger.info("%s: move_email success.", acc.account_name)
-    reqlock.release()
-
-
-def process_email_move_requests():
-    # Easy round robin to balance load on real mail servers
-    round_robin = {}
-    for i in cereconf.PROC_BOFH_REQ_MOVE_SERVERS:
-        round_robin[i] = 0
-
-    def get_srv():
-        srv = ""
-        low = -1
-        for s in round_robin:
-            if round_robin[s] < low or low == -1:
-                srv = s
-                low = round_robin[s]
-        round_robin[srv] += 1
-        return srv
-
-    br = BofhdRequests(db, const)
-    rows = [r for r in br.get_requests(operation=const.bofh_email_move,
-                                       only_runnable=True)]
-    if len(rows) == 0:
-        return
-
-    procs = []
-    while len(rows) > 0 or len(procs) > 0:
-        start = time.time()
-        if len(procs) < 20 and len(rows) > 0:
-            host = get_srv()
-            r = rows.pop()
-            pid = os.fork()
-            if pid == 0:
-                email_move_child(host, r)
-                sys.exit(0)
-            else:
-                procs.append((pid, host))
-
-        for pid, host in procs:
-            status = os.waitpid(pid, os.WNOHANG)
-            # (X, Y) = waitpid
-            # X = 0   - still running
-            # X = pid - finished
-            # Y = exit value
-            if status[0] != 0:
-                # process finished
-                if status[1] != 0:
-                    logger.error("fork '%d' exited with code: %d",
-                                 status[0], status[1])
-                procs.remove((pid, host))
-                round_robin[host] -= 1
-        # Don't hog the CPU while throttling
-        if time.time() <= start + 1:
-            time.sleep(0.5)
-
 
 def cyrus_create(user_id, host=None):
     try:
@@ -532,7 +355,7 @@ def cyrus_create(user_id, host=None):
         return False
     status = True
     for sub in ("", ".spam", ".Sent", ".Drafts", ".Trash", ".Templates"):
-        res, folders = cyradm.list('user.', pattern=uname+sub)
+        res, folders = cyradm.list('user.', pattern=uname + sub)
         if res == 'OK' and folders[0]:
             continue
         mbox = 'user.%s%s' % (uname, sub)
@@ -568,7 +391,7 @@ def cyrus_delete(host, uname, generation):
         logger.error("bofh_email_delete: %s: %s" % (host.name, e))
         return False
     res, listresp = cyradm.list("user.", pattern=uname)
-    if res != 'OK' or listresp[0] == None:
+    if res != 'OK' or listresp[0] is None:
         logger.error("bofh_email_delete: %s: no mailboxes", uname)
         cyradm.logout()
         return True
@@ -1212,6 +1035,7 @@ def usage(exitcode=0):
     --student-info-file file:
     """
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()

@@ -590,10 +590,6 @@ EMAIL_EXPIRE_ADDRESSES = 180
 # such domains to this list will ensure they are *not* marked as deletable.
 EMAIL_NON_DELETABLE_DOMAINS = []
 
-# contrib/no/uio/process_bofhd_requests.py needs a list of servers to
-# pass off to cereconf.IMAPSYNC_SCRIPT.
-PROC_BOFH_REQ_MOVE_SERVERS = []
-
 # Base reference for URLs on webpages
 WEBROOT = "/"
 

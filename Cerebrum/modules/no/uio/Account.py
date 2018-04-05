@@ -403,8 +403,6 @@ class AccountUiOMixin(Account.Account):
                 new_server = self._pick_email_server()
                 et.email_server_id = new_server
                 et.write_db()
-                self._UiO_order_cyrus_action(self.const.bofh_email_move,
-                                             new_server)
         elif target_type == self.const.email_target_deleted:
             if srv_is_cyrus and email_server_in_use:
                 # Create cyrus account on active server
