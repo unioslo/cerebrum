@@ -50,18 +50,28 @@ class TemplateHandler(object):
 
     """
 
-    def __init__(self, lang=None, tplname=None, type=None):
+    def __init__(self, lang=None, tplname=None, type=None, encoding=None):
+        self.encoding = encoding
         if lang is not None:
             self._type = type
             (self._hdr, self._body, self._footer) = self.read_templates(lang, tplname)
 
     def read_templates(self, lang, tplname):
         pathinfo = (cereconf.TEMPLATE_DIR, lang, tplname, self._type)
-        f = open("%s/%s/%s.%s" % pathinfo, 'rb')
-        hdr = body = footer = ''
+        if self.encoding is None:
+            bodytag = b'<body>'
+            hdr = body = footer = b''
+        else:
+            bodytag = u'<body>'
+            hdr = body = footer = u''
+        f = io.open("%s/%s/%s.%s" % pathinfo,
+                    'rb' if self.encoding is None else 'r',
+                    encoding=self.encoding)
         for t in f.readlines():
-            if t.startswith("<BODY>"):
-                f2 = open("%s/%s/%s_body.%s" % pathinfo, 'rb')
+            if t.startswith(bodytag):
+                f2 = io.open("%s/%s/%s_body.%s" % pathinfo,
+                             'rb' if self.encoding is None else 'r',
+                             encoding=self.encoding)
                 for t2 in f2.readlines():
                     body += t2
             else:

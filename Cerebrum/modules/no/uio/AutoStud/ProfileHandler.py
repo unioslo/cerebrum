@@ -18,21 +18,32 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 import pprint
 
 import cereconf
-from Cerebrum.modules.no import fodselsnr
-from Cerebrum import Disk
-from Cerebrum.modules.no.uio.AutoStud.ProfileConfig import StudconfigParser
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 from Cerebrum.modules.no.uio.AutoStud import DiskTool
 
 pp = pprint.PrettyPrinter(indent=4)
 
-class NoMatchingQuotaSettings(AutostudError): pass
-class NoMatchingProfiles(AutostudError): pass
-class NoAvailableDisk(AutostudError): pass
-class NoDefaultGroup(AutostudError): pass
+
+class NoMatchingQuotaSettings(AutostudError):
+    ''' No matching quota settings found '''
+
+
+class NoMatchingProfiles(AutostudError):
+    ''' No matching profile in config '''
+
+
+class NoAvailableDisk(AutostudError):
+    ''' No available disk found '''
+
+
+class NoDefaultGroup(AutostudError):
+    ''' No default group '''
+
 
 class Profile(object):
     """Profile implements the logic that maps a persons student_info
@@ -49,11 +60,7 @@ class Profile(object):
         # topics may contain data from get_studieprog_list
         self._logger = logger
         self.pc = pc
-        
-        reserve = 0
-        mail_user = 0
-        full_account = 0
-        
+
         self.matcher = ProfileMatcher(pc, student_info, logger,
                                       member_groups=member_groups,
                                       person_affs=person_affs)
@@ -72,16 +79,17 @@ class Profile(object):
         looking in the profiles in original and their parents.
         Will remove the entries in 'candidate' that matches.
         """
-        self._logger.debug2("_check_elimination: %s, %s" % (candidate, original))
-        
+        self._logger.debug2("_check_elimination: %s, %s", candidate, original)
+
         n = len(candidate) - 1
         while n >= 0:
             for o in original:
                 self._logger.debug2("supr-check: %s in %s" % (
                     candidate[n], self.pc.profilename2profile[o].super_names))
                 if (candidate[n] == o or
-                    candidate[n] in self.pc.profilename2profile[o].super_names):
-                    del(candidate[n])
+                        candidate[n] in self.pc.profilename2profile[o]
+                        .super_names):
+                    del candidate[n]
                     break
             n -= 1
         if candidate:
@@ -177,7 +185,8 @@ class Profile(object):
         * it is OK to move the user from the disk it resides on
         * the user currently does not reside on a disk that matches"""
 
-        disk_def = self.pc.autostud.disk_tool.get_diskdef_by_diskid(current_disk)
+        disk_def = self.pc.autostud.disk_tool.get_diskdef_by_diskid(
+            current_disk)
         if not disk_def or disk_def.auto not in ('auto', 'from'):
             return False   # Won't move users from this disk
 
@@ -319,6 +328,7 @@ class Profile(object):
             'termin_quota': ret['max_sem']
             }
 
+
 class ProfileMatcher(object):
     """Methods for determining which profiles match a given person."""
 
@@ -329,7 +339,7 @@ class ProfileMatcher(object):
         self._matches, self._matched_settings = pc.select_tool.get_person_match(
             student_info, member_groups=member_groups, person_affs=person_affs)
         if not self._matched_settings:
-            raise NoMatchingProfiles, "No matching profiles"
+            raise NoMatchingProfiles("No matching profiles")
 
     def get_match(self, match_type):
         return [x[0] for x in self._matched_settings.get(match_type, [])]
@@ -343,5 +353,3 @@ class ProfileMatcher(object):
         ret += "\nSettings: "
         ret += pp.pformat(self._matched_settings)
         return ret
-
-
