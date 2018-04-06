@@ -852,7 +852,7 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
             if grp_name not in cerebrum_dict:
                 if self.ad_ldap in ad_dict[grp_name]['OU']:
                     if is_blacklisted(ad_dict[grp_name]['distinguishedName']):
-                        self.logger.debug2(
+                        self.logger.debug(
                             "%r (dn=%r) in AD_DO_NOT_TOUCH, skipping",
                             grp_name,
                             ad_dict[grp_name]['distinguishedName'])
@@ -1130,7 +1130,7 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
                         member_type=self.co.entity_person):
                     primary = pe2primary.get(usr['member_id'], None)
                     if primary:
-                        self.logger.debug2('Adding primary: %r', primary)
+                        self.logger.debug('Adding primary: %r', primary)
                         user_members.add(primary)
                     else:
                         self.logger.debug("Person %r has no primary account",

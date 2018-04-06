@@ -156,7 +156,7 @@ class ADUtils(object):
         """
         cmd = getattr(self.server, command)
         try:
-            self.logger.debug3("Running cmd: %s(%r)", command, args)
+            self.logger.debug("Running cmd: %s(%r)", command, args)
             ret = cmd(*args)
         except xmlrpclib.ProtocolError as xpe:
             self.logger.critical("Error connecting to AD service: %s %s",
@@ -182,7 +182,7 @@ class ADUtils(object):
         if command == "createObject" and len(ret) == 3:
             return ret[2]
         else:
-            self.logger.debug3("Command %s ran successfully", command)
+            self.logger.debug("Command %s ran successfully", command)
             return True
 
     def move_object(self, dn, ou, obj_type="user"):
