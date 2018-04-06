@@ -128,7 +128,7 @@ class UserSync(ADUserUtils):
                 self.accounts[uname].in_ad = True
                 self.compare(ad_user, self.accounts[uname])
             else:
-                self.logger.debug3("User %r in AD, but not in Cerebrum", uname)
+                self.logger.debug("User %r in AD, but not in Cerebrum", uname)
                 self.deactivate_user(ad_user)
 
         # Users exist in Cerebrum and has ad spread, but not in AD.
