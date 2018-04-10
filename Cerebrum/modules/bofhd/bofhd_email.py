@@ -1323,7 +1323,7 @@ class BofhdEmailCommands(BofhdEmailBase):
 
         # Allow us to delete an address, even if it is malformed.
         lp, dom = self._split_email_address(address, with_checks=False)
-        ed = self._get_email_domain(dom)
+        ed = self._get_email_domain_from_str(dom)
         et, acc = self._get_email_target_and_account(address)
         self.ba.can_email_forward_create(operator.get_entity_id(), domain=ed)
         epat = Email.EmailPrimaryAddressTarget(self.db)
@@ -2037,7 +2037,7 @@ class BofhdEmailCommands(BofhdEmailBase):
     def email_delete_pipe(self, operator, addr):
         """ Delete email pipe. """
         lp, dom = self._split_email_address(addr, with_checks=False)
-        ed = self._get_email_domain(dom)
+        ed = self._get_email_domain_from_str(dom)
         self.ba.can_email_pipe_create(operator.get_entity_id(), domain=ed)
         ea = Email.EmailAddress(self.db)
         et = Email.EmailTarget(self.db)
