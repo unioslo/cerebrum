@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2003-2017 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,9 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
-
 """Module for making Cerebrum into a local email address database.
 
 This module contains various classes that enables Cerebrum to act as a
@@ -56,10 +53,12 @@ See contrib/generate_mail_ldif.py for an example of a script exporting
 the email data.  Note, though, that this example assumes that your
 Cerebrum instance uses more than the minimal subset of email-related
 classes."""
+from __future__ import unicode_literals
 
 import re
 import string
 import time
+
 import six
 
 from Cerebrum import Utils
@@ -1871,7 +1870,6 @@ class EmailVirusScan(EmailTarget):
 
 
 class EmailForward(EmailTarget):
-
     """Forwarding addresses attached to EmailTargets."""
 
     def find(self, target_id):
@@ -2531,18 +2529,7 @@ class AccountEmailMixin(Account.Account):
             full = self.get_fullname()
         except Errors.NotFoundError:
             full = self.account_name
-        # A very ugly and hopefully temporary fix for CRB-2170 and CRB-2255
-        # `latin1_to_iso646_60 expects` a latin1 (iso-8859-1) string.
-        # Since `full` may be different depending on the DB connection
-        # backend, we need to make sure that it always ends up being latin-1.
-        if isinstance(full, str):
-            try:
-                full = full.decode('utf-8')
-            except:  # probably latin1
-                full = full.decode('iso-8859-1')
-        try:
-            full = full.encode('iso-8859-1')
-        except UnicodeEncodeError:
+        if not isinstance(full, six.text_type):
             raise Errors.CerebrumError(
                 'Corrupt input while converting full_name')
         return self.get_email_cn_given_local_part(
@@ -2995,7 +2982,8 @@ class AccountEmailQuotaMixin(Account.Account):
         # '*' is default quota size in EMAIL_HARD_QUOTA dict
         max_quota = quota_settings['*']
         for r in self.get_account_types():
-            affiliation = str(self.const.PersonAffiliation(r['affiliation']))
+            affiliation = six.text_type(self.const.PersonAffiliation(
+                r['affiliation']))
             if affiliation in quota_settings:
                 # always choose the largest quota
                 if quota_settings[affiliation] is None:

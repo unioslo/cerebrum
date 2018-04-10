@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# encoding: utf-8
+# -*- coding: utf-8 -*-
 #
-# Copyright 2002-2015 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,8 +30,9 @@ import threading
 import re
 
 import cereconf
-from six import string_types as string, text_type as text, \
-    python_2_unicode_compatible
+from six import (string_types as string,  # standard Python module?!?
+                 text_type as text,
+                 python_2_unicode_compatible)
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -39,7 +40,7 @@ from Cerebrum.utils import context
 
 
 def _uchlp(arg):
-    """ 'Anything' to text (unicode) """
+    """'Anything' to text (unicode)"""
     if isinstance(arg, text):
         return arg
     if isinstance(arg, bytes):
@@ -53,7 +54,6 @@ def _uchlp(arg):
 
 
 class CodeValuePresentError(RuntimeError):
-
     """Error raised when an already existing code value is inserted."""
     pass
 
@@ -111,7 +111,6 @@ class SynchronizedDatabase(Database_class):
 
 @python_2_unicode_compatible
 class _CerebrumCode(DatabaseAccessor):
-
     """Abstract base class for accessing code tables in Cerebrum.
 
     The class needs a connection to the database (to enable constant
@@ -957,8 +956,8 @@ class _ChangeTypeCode(_CerebrumCode):
                           'desc': self.msg_string})
 
     def format_message(self, subject, dest):
-        """ Format self.msg_string with subject and dest.
-        
+        """Format self.msg_string with subject and dest.
+
         :type subject: unicode or ascii bytes
         :param subject: subject entity_name
 
@@ -1129,7 +1128,6 @@ def format_cl_quarantine_type(co, val):
 @_ChangeTypeCode.formatter('id_type')
 def format_cl_id_type(co, val):
     return _get_code(co.ChangeType, val)
-
 
 
 class ConstantsBase(DatabaseAccessor):
