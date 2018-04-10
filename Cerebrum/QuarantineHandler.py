@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2016 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -49,9 +49,9 @@ quarantine code which is essentially random.  A specific order can be
 set using the 'sort_num' key, if so, all dicts must contain a unique
 'sort_num' value.  If the handler was initialised with an empty list
 of spreads, only the default values will be used.
-
-
 """
+
+import six
 
 import cereconf
 from Cerebrum import Entity
@@ -91,7 +91,7 @@ class QuarantineHandler(object):
                         del(settings['spread'])
                     else:
                         tmp_spreads = ('*',)
-                    if isinstance(tmp_spreads, str):
+                    if isinstance(tmp_spreads, six.text_type):
                         tmp_spreads = (tmp_spreads,)
                     for c in tmp_spreads:
                         if c != '*':
