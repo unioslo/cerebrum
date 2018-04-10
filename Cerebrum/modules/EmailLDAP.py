@@ -232,7 +232,6 @@ class EmailLDAP(DatabaseAccessor):
         # We define near future as 15 minutes from now.
         near_future = mx.DateTime.now() + mx.DateTime.DateTimeDelta(0, 0, 15)
         for op in (self.const.bofh_email_create,
-                   self.const.bofh_email_move,
                    self.const.bofh_email_convert):
             for r in br.get_requests(operation=op):
                 if r['run_at'] < near_future:

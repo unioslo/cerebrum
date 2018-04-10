@@ -2899,67 +2899,25 @@ class AccountEmailMixin(Account.Account):
 class AccountEmailQuotaMixin(Account.Account):
     """Email-quota module for core class 'Account'."""
 
-    def update_email_quota(self, force=False):
+    def update_email_quota(self):
         """Set e-mail quota according to values in cereconf.EMAIL_HARD_QUOTA.
-         EMAIL_HARD_QUOTA is in MiB andbased on affiliations.
-         If cereconf.EMAIL_ADD_QUOTA_REQUEST = True, any change is made and
-         user's e-mail is on a Cyrus server, add a request in Cerebrum to have
-         Cyrus updated accordingly.  If force is true, such a request is always
-         made for Cyrus users (i.e. quota < new_quota).
+         EMAIL_HARD_QUOTA is in MiB and based on affiliations.
          Soft quota is in percent, fetched from EMAIL_SOFT_QUOTA."""
-        change = force
         quota = self._calculate_account_emailquota()
         eq = EmailQuota(self._db)
         try:
             eq.find_by_target_entity(self.entity_id)
         except Errors.NotFoundError:
             if quota is not None:
-                change = True
                 eq.populate(cereconf.EMAIL_SOFT_QUOTA, quota)
                 eq.write_db()
         else:
-            # We never decrease the quota, to allow for manual overrides
+            # We never decrease quota, because of manual overrides
             if quota is None:
                 eq.delete()
             elif quota > eq.email_quota_hard:
-                change = True
                 eq.email_quota_hard = quota
                 eq.write_db()
-        if not change:
-            return
-        # exchange-relatert-jazz
-        # after migration to exchange is completed this part of the
-        # method may be removed along with the default_config.py and
-        # cereconf.py definitions of EMAIL_ADD_QUOTA_REQUEST as they
-        # will no longer be necessary
-        # Jazz (2013-11)
-        if cereconf.EMAIL_ADD_QUOTA_REQUEST:
-            from Cerebrum.modules.bofhd.utils import BofhdRequests
-            br = BofhdRequests(self._db, self.const)
-            et = EmailTarget(self._db)
-            try:
-                et.find_by_target_entity(self.entity_id)
-            except:
-                return
-            if not et.email_server_id:
-                return
-            es = EmailServer(self._db)
-            es.find(et.email_server_id)
-            if es.email_server_type == self.const.email_server_type_cyrus:
-                br = BofhdRequests(self._db, self.const)
-                # The call graph is too complex when creating new users or
-                # migrating old users.  So to avoid problems with this
-                # function being called more than once, we just remove any
-                # conflicting requests, so that the last request added
-                # wins.
-                br.delete_request(entity_id=self.entity_id,
-                                  operation=self.const.bofh_email_hquota)
-                # If the ChangeLog module knows who the user requesting
-                # this change is, use that knowledge.  Otherwise, set
-                # requestor to None; it's the best we can do.
-                requestor = getattr(self._db, 'change_by', None)
-                br.add_request(requestor, br.now, self.const.bofh_email_hquota,
-                               self.entity_id, None)
 
     # Calculate quota for this account
     def _calculate_account_emailquota(self):
