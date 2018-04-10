@@ -2037,7 +2037,7 @@ class BofhdEmailCommands(BofhdEmailBase):
     def email_delete_pipe(self, operator, addr):
         """ Delete email pipe. """
         lp, dom = self._split_email_address(addr, with_checks=False)
-        ed = self._get_email_domain(dom)
+        ed = self._get_email_domain_from_str(dom)
         self.ba.can_email_pipe_create(operator.get_entity_id(), domain=ed)
         ea = Email.EmailAddress(self.db)
         et = Email.EmailTarget(self.db)
