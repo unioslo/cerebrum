@@ -3090,7 +3090,6 @@ class BofhdExtension(BofhdCommonMethods):
                 dest = self._get_entity_name(r['destination_id'],
                                              self.const.entity_group)
             elif op in (self.const.bofh_email_create,
-                        self.const.bofh_email_move,
                         self.const.bofh_email_delete):
                 dest = self._get_entity_name(r['destination_id'],
                                              self.const.entity_host)
@@ -7246,17 +7245,6 @@ class EmailAuth(UiOAuth, bofhd_email.BofhdEmailAuth):
                 raise PermissionDenied('Invalid given name: {}'.format(n))
         return True
 
-    def can_email_migrate(self, operator, account=None, query_run_any=False):
-        if query_run_any or (account and operator == account.entity_id):
-            return True
-        if self._is_local_postmaster(operator,
-                                     self.const.auth_email_migrate,
-                                     account=account,
-                                     domain=None,
-                                     query_run_any=query_run_any):
-            return True
-        raise PermissionDenied("Currently limited to postmasters")
-
     def can_email_move(self, operator, account=None, query_run_any=False):
         if self.is_postmaster(operator, query_run_any):
             return True
@@ -7280,8 +7268,6 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
             'email': {
                 'email_forward_info':
                     "Show information about an address that is forwarded to",
-                'email_migrate':
-                    "Migrate users from old to new e-mail service",
                 'email_move':
                     "Move a user's e-mail to another server",
                 'email_show_reservation_status':
@@ -7537,48 +7523,15 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         }
 
     #
-    # email migrate
-    #
-    all_commands['email_migrate'] = Command(
-        ("email", "migrate"),
-        AccountName(help_ref="account_name", repeat=True),
-        perm_filter='can_email_migrate')
-
-    def email_migrate(self, operator, uname):
-        """ Migrate email. """
-        acc = self._get_account(uname)
-        op = operator.get_entity_id()
-        self.ba.can_email_migrate(op, account=acc)
-        for r in acc.get_spread():
-            if r['spread'] == int(self.const.spread_uio_imap):
-                raise CerebrumError("%s is already an IMAP user" % uname)
-        acc.add_spread(self.const.spread_uio_imap)
-        if op != acc.entity_id:
-            # the local sysadmin should get a report as well, if
-            # possible, so change the request add_spread() put in so
-            # that he is named as the requestee.  the list of requests
-            # may turn out to be empty, ie. processed already, but this
-            # unlikely race condition is too hard to fix.
-            br = BofhdRequests(self.db, self.const)
-            for r in br.get_requests(operation=self.const.bofh_email_move,
-                                     entity_id=acc.entity_id):
-                br.delete_request(request_id=r['request_id'])
-                br.add_request(op, r['run_at'], r['operation'], r['entity_id'],
-                               r['destination_id'], r['state_data'])
-        return 'OK'
-
-    #
     # email move
     #
     all_commands['email_move'] = Command(
         ("email", "move"),
         AccountName(help_ref="account_name", repeat=True),
         SimpleString(help_ref='string_email_host'),
-        SimpleString(help_ref='string_email_move_type', optional=True),
-        Date(optional=True),
         perm_filter='can_email_move')
 
-    def email_move(self, operator, uname, server, move_type='file', when=None):
+    def email_move(self, operator, uname, server):
         acc = self._get_account(uname)
         self.ba.can_email_move(operator.get_entity_id(), acc)
         et = Email.EmailTarget(self.db)
@@ -7593,75 +7546,9 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         if old_server == es.entity_id:
             raise CerebrumError("User is already at %s" % server)
 
-        # Explicitly check if move_type is 'file' or 'nofile'.
-        if move_type == 'nofile':
-            et.email_server_id = es.entity_id
-            et.write_db()
-            return "OK, updated e-mail server for %s (to %s)" % (uname, server)
-        elif not move_type == 'file':
-            raise CerebrumError("Unknown move_type %r; must be "
-                                "either 'file' or 'nofile'" % move_type)
-
-        # TODO: Remove this when code has been checked after migrating to
-        # murder.
-        raise CerebrumError("Only 'nofile' is to be used at this time.")
-
-        if when is None:
-            when = DateTime.now()
-        else:
-            when = self._parse_date(when)
-            if when < DateTime.now():
-                raise CerebrumError("Request time must be in the future")
-
-        if es.email_server_type == self.const.email_server_type_cyrus:
-            spreads = [int(r['spread']) for r in acc.get_spread()]
-            br = BofhdRequests(self.db, self.const)
-            if self.const.spread_uio_imap not in spreads:
-                # UiO's add_spread mixin will not do much since
-                # email_server_id is set to a Cyrus server already.
-                acc.add_spread(self.const.spread_uio_imap)
-            # Create the mailbox.
-            req = br.add_request(operator.get_entity_id(), when,
-                                 self.const.bofh_email_create,
-                                 acc.entity_id, es.entity_id)
-            # Now add a move request.
-            br.add_request(operator.get_entity_id(), when,
-                           self.const.bofh_email_move,
-                           acc.entity_id, es.entity_id, state_data=req)
-            # TODO: Proper template
-            # Norwegian (nynorsk) names:
-            wdays_nn = [u"måndag", u"tysdag", u"onsdag", u"torsdag",
-                        u"fredag", u"laurdag", u"søndag"]
-            when_nn = "%s %d. kl %02d:%02d" % (
-                wdays_nn[when.day_of_week],
-                when.day,
-                when.hour,
-                when.minute - when.minute % 10)
-            nth_en = ["th"] * 32
-            nth_en[1] = nth_en[21] = nth_en[31] = "st"
-            nth_en[2] = nth_en[22] = "nd"
-            nth_en[3] = nth_en[23] = "rd"
-            when_en = "%s %d%s at %02d:%02d" % (
-                DateTime.Weekday[when.day_of_week],
-                when.day,
-                nth_en[when.day],
-                when.hour,
-                when.minute - when.minute % 10)
-            try:
-                mail_template(acc.get_primary_mailaddress(),
-                              cereconf.USER_EMAIL_MOVE_WARNING,
-                              sender="postmaster@usit.uio.no",
-                              substitute={'USER': acc.account_name,
-                                          'WHEN_EN': when_en,
-                                          'WHEN_NN': when_nn})
-            except Exception as e:
-                self.logger.info("Sending mail failed: %r", e)
-        else:
-            # TBD: should we remove spread_uio_imap ?
-            # It does not do much good to add to a bofh request, mvmail
-            # can't handle this anyway.
-            raise CerebrumError("can't move to non-IMAP server")
-        return "OK, '%s' scheduled for move to '%s'" % (uname, server)
+        et.email_server_id = es.entity_id
+        et.write_db()
+        return "OK, updated e-mail server for %s (to %s)" % (uname, server)
 
     #
     # email tripnote
