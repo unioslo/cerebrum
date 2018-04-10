@@ -562,11 +562,6 @@ EMAIL_HARD_QUOTA = None
 # LDAP.
 EMAIL_SOFT_QUOTA = 90
 
-# Some Cerebrum instances communicate with Cyrus via registered requests in
-# bofhd_request-table in Cerebrum, while others don't. This variable decides
-# whether a request should be added or not {True/False}
-EMAIL_ADD_QUOTA_REQUEST = False
-
 # When an email_target is created default spam settings should be
 # registered. Keys must be _EmailTargetCode code strings.
 # example:
@@ -594,10 +589,6 @@ EMAIL_EXPIRE_ADDRESSES = 180
 # will be marked as deletable, when they should remain non-deletable. Adding
 # such domains to this list will ensure they are *not* marked as deletable.
 EMAIL_NON_DELETABLE_DOMAINS = []
-
-# contrib/no/uio/process_bofhd_requests.py needs a list of servers to
-# pass off to cereconf.IMAPSYNC_SCRIPT.
-PROC_BOFH_REQ_MOVE_SERVERS = []
 
 # Base reference for URLs on webpages
 WEBROOT = "/"

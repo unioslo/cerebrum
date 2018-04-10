@@ -127,8 +127,6 @@ class Constants(Constants.Constants):
         'email_forw_off', "Disable user's forwards")
     auth_email_vacation_off = _AuthRoleOpCode(
         'email_vac_off', "Disable user's vacation message")
-    auth_email_migrate = _AuthRoleOpCode(
-        'email_migrate', "Move user's mailbox")
     auth_email_quota_set = _AuthRoleOpCode(
         'email_quota_set', "Set quota on user's mailbox")
     auth_email_create = _AuthRoleOpCode(
@@ -191,7 +189,6 @@ class Constants(Constants.Constants):
     bofh_homedir_restore = _BofhdRequestOpCode('br_homedir_rest',
                                                'Restore users homedir')
 
-    # br_email_move stays in queue until delivery has stopped.
     # generate_mail_ldif.py will set the mailPause attribute based on
     # entries in the request queue.
     #
@@ -203,14 +200,10 @@ class Constants(Constants.Constants):
     # state_data is optionally a request_id: wait if that request is
     # in queue (typically a create request).  A bofh_email_convert is
     # inserted when done.
-    bofh_email_move = _BofhdRequestOpCode('br_email_move',
-                                          'Move user among e-mail servers')
     bofh_email_create = _BofhdRequestOpCode('br_email_create',
                                             'Create user mailboxes')
     bofh_email_delete = _BofhdRequestOpCode('br_email_delete',
                                             'Delete all user mailboxes')
-    bofh_email_hquota = _BofhdRequestOpCode('br_email_hquota',
-                                            'Set e-mail hard quota')
     bofh_email_convert = _BofhdRequestOpCode('br_email_convert',
                                              'Convert user mail config')
     bofh_email_restore = _BofhdRequestOpCode('br_email_restore',
@@ -270,18 +263,14 @@ class BofhdRequests(object):
                                           const.bofh_move_user_now,
                                           const.bofh_move_student,
                                           const.bofh_email_create],
-            int(const.bofh_email_move): [const.bofh_delete_user],
             int(const.bofh_email_create): [const.bofh_email_delete,
                                            const.bofh_delete_user],
-            int(const.bofh_email_delete): [const.bofh_email_create,
-                                           const.bofh_email_move],
-            int(const.bofh_email_hquota): [const.bofh_email_delete],
+            int(const.bofh_email_delete): [const.bofh_email_create],
             int(const.bofh_email_convert): [const.bofh_email_delete],
             int(const.bofh_sympa_create): [const.bofh_sympa_remove],
             int(const.bofh_sympa_remove): [const.bofh_sympa_create],
             int(const.bofh_quarantine_refresh): None,
-            int(const.bofh_email_restore): [const.bofh_email_create,
-                                            const.bofh_email_hquota],
+            int(const.bofh_email_restore): [const.bofh_email_create],
             int(const.bofh_homedir_restore): [const.bofh_move_user,
                                               const.bofh_move_user_now,
                                               const.bofh_move_student,

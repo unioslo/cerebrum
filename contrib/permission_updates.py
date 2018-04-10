@@ -43,10 +43,11 @@ changes easier to spot.
 import argparse
 import os
 import sys
+import six
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet
+from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthRole
 
 
 logger = Factory.get_logger("tee")
@@ -165,6 +166,34 @@ def import_opsets(db, opsets):
         fix_opset(db, k, v)
 
 
+def clean_opsets(db, opsets):
+    """ Remove opsets not defined in `opsets.operation_sets`. """
+    operation_sets = getattr(opsets, 'operation_sets', dict())
+    if not operation_sets:
+        raise OpsetConfigError("No opsets defined in operation_sets!")
+
+    co = Factory.get('Constants')(db)
+    baos = BofhdAuthOpSet(db)
+    bar = BofhdAuthRole(db)
+    for op_set_id, name in baos.list():
+        if name not in operation_sets.keys():
+            logger.info('Opset %s is no longer defined', name)
+            baos.clear()
+            baos.find(op_set_id)
+            for op_code, op_id, _ in baos.list_operations():
+                logger.info(
+                    'Deleting operation for opset %s: op_code=%s op_id=%s',
+                    baos.name, six.text_type(co.AuthRoleOp(op_code)), op_id)
+                baos.del_operation(op_code, op_id)
+
+            for role in bar.list(op_set_id=op_set_id):
+                logger.info('Revoking %s for %s on %s',
+                            baos.name, role['entity_id'], role['op_target_id'])
+                bar.revoke_auth(**role)
+            logger.info('Deleting opset %s', name)
+            baos.delete()
+
+
 def get_opset_config(filename=None):
     """ Load an `opset_config` module.
 
@@ -215,6 +244,13 @@ def make_parser():
         action='store_const',
         const=import_opsets,
         help="Import/update opset-definitions in database")
+    action.add_argument(
+        '--clean',
+        dest='action',
+        action='store_const',
+        const=clean_opsets,
+        help=("Remove opsets (and associated operations/roles) "
+              "not defined in config"))
 
     return parser
 
