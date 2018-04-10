@@ -190,6 +190,7 @@ def clean_opsets(db, opsets):
                 logger.info('Revoking %s for %s on %s',
                             baos.name, role['entity_id'], role['op_target_id'])
                 bar.revoke_auth(**role)
+            logger.info('Deleting opset %s', name)
             baos.delete()
 
 
