@@ -10,7 +10,7 @@
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
 #
-# Cerebrum is distributed in the hope that it will be useful, but
+# Cerebrum is distributed in the hope that it will be useful, butq
 # WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
 
 import errno
 import fcntl
@@ -38,6 +36,7 @@ import cereconf
 
 from Cerebrum import Utils
 from Cerebrum import Errors
+from Cerebrum.utils import json
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
 
@@ -59,8 +58,6 @@ SSH_CMD = "/usr/bin/ssh"
 SUDO_CMD = "sudo"
 SSH_CEREBELLUM = [SSH_CMD, "cerebrum@cerebellum"]
 
-ldapconns = None
-
 DEBUG = False
 EXIT_SUCCESS = 0
 
@@ -70,10 +67,6 @@ EXIT_SUCCESS = 0
 # something else.  The proper solution is to change the databasetable
 # and/or letting state_data be pickled.
 default_spread = const.spread_uio_nis_user
-
-
-class RequestLocked(Exception):
-    pass
 
 
 class RequestLockHandler(object):
@@ -121,34 +114,6 @@ class RequestLockHandler(object):
             self.lockfd = None
 
 
-class CyrusConnectError(Exception):
-    pass
-
-
-def email_delivery_stopped(user):
-    global ldapconns
-    import ldap
-    import ldap.filter
-    import ldap.ldapobject
-    if ldapconns is None:
-        ldapconns = [ldap.ldapobject.ReconnectLDAPObject("ldap://%s/" % server)
-                     for server in cereconf.LDAP_SERVERS]
-    userfilter = ("(&(target=%s)(mailPause=TRUE))" %
-                  ldap.filter.escape_filter_chars(user))
-    for conn in ldapconns:
-        try:
-            # FIXME: cereconf.LDAP_MAIL['dn'] has a bogus value, so we
-            # must hardcode the DN.
-            res = conn.search_s("cn=targets,cn=mail,dc=uio,dc=no",
-                                ldap.SCOPE_ONELEVEL, userfilter, ["1.1"])
-            if len(res) != 1:
-                return False
-        except ldap.LDAPError, e:
-            logger.error("LDAP search failed: %s", e)
-            return False
-    return True
-
-
 def get_email_server(account_id, local_db=db):
     """Return Host object for account's mail server."""
     et = Email.EmailTarget(local_db)
@@ -158,38 +123,8 @@ def get_email_server(account_id, local_db=db):
     return server
 
 
-def get_home(acc, spread=None):
-    if not spread:
-        spread = default_spread
-    try:
-        return acc.get_homepath(spread)
-    except Errors.NotFoundError:
-        return None
-
-
-def add_forward(user_id, addr):
-    ef = Email.EmailForward(db)
-    ef.find_by_target_entity(user_id)
-    # clean up input a little
-    if addr.startswith('\\'):
-        addr = addr[1:]
-    addr = addr.strip()
-
-    if addr.startswith('|') or addr.startswith('"|'):
-        logger.warn("forward to pipe ignored: %s", addr)
-        return
-    elif not addr.count('@'):
-        try:
-            acc = get_account(name=addr)
-        except Errors.NotFoundError:
-            logger.warn("forward to unknown username: %s", addr)
-            return
-        addr = acc.get_primary_mailaddress()
-    for r in ef.get_forward():
-        if r['forward_to'] == addr:
-            return
-    ef.add_forward(addr)
-    ef.write_db()
+class CyrusConnectError(Exception):
+    pass
 
 
 def connect_cyrus(host=None, username=None, as_admin=True):
@@ -218,16 +153,6 @@ def connect_cyrus(host=None, username=None, as_admin=True):
     except (imapconn.error, socket.error) as e:
         raise CyrusConnectError("%s@%s: %s" % (username, host.name, e))
     return imapconn
-
-
-def dependency_pending(dep_id, local_db=db, local_co=const):
-    if not dep_id:
-        return False
-    br = BofhdRequests(local_db, local_co)
-    for dr in br.get_requests(request_id=dep_id):
-        logger.debug("waiting for request %d" % int(dep_id))
-        return True
-    return False
 
 
 def process_requests(types):
@@ -448,15 +373,25 @@ def proc_sympa_create(request):
     try:
         listname = get_address(request["entity_id"])
     except Errors.NotFoundError:
-        logger.warn("Sympa list address id:%s is deleted! No need to create",
+        logger.info("Sympa list address id:%s is deleted! No need to create",
                     request["entity_id"])
         return True
 
     try:
-        state = pickle.loads(str(request["state_data"]))
-    except:
-        logger.exception("Corrupt request state for sympa list=%s: %s",
-                         listname, request["state_data"])
+        state = json.loads(request["state_data"])
+    except ValueError:
+        state = None
+
+    # Remove this when there's no chance of pickled data
+    if state is None:
+        try:
+            state = pickle.loads(str(request["state_data"]))
+        except Exception:
+            pass
+
+    if state is None:
+        logger.error("Cannot parse request state for sympa list=%s: %s",
+                     listname, request["state_data"])
         return True
 
     try:
@@ -486,10 +421,20 @@ def proc_sympa_remove(request):
     """
 
     try:
-        state = pickle.loads(str(request["state_data"]))
-    except:
-        logger.exception("Corrupt request state for sympa request %s: %s",
-                         request["request_id"], request["state_data"])
+        state = json.loads(request["state_data"])
+    except ValueError:
+        state = None
+
+    # Remove this when there's no chance of pickled data
+    if state is None:
+        try:
+            state = pickle.loads(request["state_data"])
+        except Exception:
+            pass
+
+    if state is None:
+        logger.error("Cannot parse request state for sympa request %s: %s",
+                     request["request_id"], request["state_data"])
         return True
 
     try:
