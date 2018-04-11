@@ -18,12 +18,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Group client stuff."""
 
-# TODO: Describe the above better.
-
-import cerebrum_path
-getattr(cerebrum_path, '', None)  # Silence the linter.
-import cereconf
-getattr(cereconf, '', None)  # Silence the linter.
+from __future__ import unicode_literals
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
@@ -46,7 +41,7 @@ class Group(ClientAPI):
         :type operator_id: int
         :param operator_id: The operator ID, used for auth
 
-        :type service_name: str
+        :type service_name: string
         :param service_name: The calling service name
         """
         super(Group, self).__init__(service_name)
@@ -60,16 +55,16 @@ class Group(ClientAPI):
                      expire_date=None, visibility='A'):
         """Create a group.
 
-        :type name: str
+        :type name: string
         :param name: The groups name.
 
-        :type description: str
+        :type description: string
         :param description: The groups description.
 
         :type expire_date: DateTime
         :param expire_date: The groups expiration date.
 
-        :type visibility: str
+        :type visibility: string
         :param visibility: The groups visibility. Can one of:
             'A'  All
             'I'  Internal
@@ -111,10 +106,10 @@ class Group(ClientAPI):
     def group_info(self, group_id_type, group_id):
         """Get information about a group.
 
-        :type group_id_type: str
+        :type group_id_type: string
         :param group_id_type: Group identifier type, 'id' or 'group_name'
 
-        :type group_id: str
+        :type group_id: string
         :param group_id: Group identifier
         """
         gr = Utils.get(self.db, 'group', group_id_type, group_id)
@@ -130,10 +125,10 @@ class Group(ClientAPI):
     def group_list(self, group_id_type, group_id):
         """Get list of group members
 
-        :type group_id_type: str
+        :type group_id_type: string
         :param group_id_type: Group identifier type, 'id' or 'group_name'
 
-        :type group_id: unicode or str
+        :type group_id: string
         :param group_id: Group identifier
 
         :rtype: list(dict{'name': name or id, 'type': type})
@@ -154,16 +149,16 @@ class Group(ClientAPI):
                          member_id_type, member_id):
         """Add a member to a group.
 
-        :type group_id_type: str
+        :type group_id_type: string
         :param group_id_type: Group identifier type, 'id' or 'group_name'
 
-        :type group_id: str
+        :type group_id: string
         :param group_id: Group identifier
 
-        :type member_id_type: str
+        :type member_id_type: string
         :param member_id_type: Member identifier type, 'id' or 'account_name'
 
-        :type member_id: str
+        :type member_id: string
         :param member_id: Member identifier
 
         :rtype: boolean
@@ -196,16 +191,16 @@ class Group(ClientAPI):
                             member_id_type, member_id):
         """Remove a member from a group.
 
-        :type group_id_type: str
+        :type group_id_type: string
         :param group_id_type: Group identifier type, 'id' or 'group_name'
 
-        :type group_id: str
+        :type group_id: string
         :param group_id: Group identifier
 
-        :type member_id_type: str
+        :type member_id_type: string
         :param member_id_type: Member identifier type, 'id' or 'account_name'
 
-        :type member_id: str
+        :type member_id: string
         :param member_id: Member identifier
 
         :rtype: boolean

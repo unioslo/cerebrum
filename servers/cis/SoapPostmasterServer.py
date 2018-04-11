@@ -29,6 +29,8 @@ on later.
 
 """
 
+from __future__ import unicode_literals
+
 import sys
 import getopt
 
@@ -42,9 +44,6 @@ from cisconf import postmaster as cisconf
 from Cerebrum.Utils import dyn_import
 from Cerebrum import Errors
 from Cerebrum.modules.cis import SoapListener
-
-
-del cerebrum_path
 
 
 class PostmasterServer(SoapListener.BasicSoapServer):

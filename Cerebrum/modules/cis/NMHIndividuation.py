@@ -23,6 +23,8 @@
 Functionality for the Individuation project that is specific to NMH.
 """
 
+from __future__ import unicode_literals
+
 import cereconf, cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory

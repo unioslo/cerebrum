@@ -18,6 +18,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Core functionality and utilities for the ClientAPI."""
 
+from __future__ import unicode_literals
+
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 import twisted.python.log
@@ -31,27 +33,27 @@ class SimpleLogger(object):
     def __init__(self):
         pass
 
-    def _log(self, *args):
+    def _log(self, level, msg, *args):
         """ Log to the twisted logger."""
         # TODO: note that this has to be changed if we won't use twisted in
         # the future
-        twisted.python.log.msg(' '.join(args))
+        twisted.python.log.msg(level + (msg % args if args else msg))
 
-    def error(self, msg):
+    def error(self, msg, *args):
         """ Log an error. Will show up as 'ERROR: <msg>' """
-        self._log('ERROR:', msg)
+        self._log('ERROR:', msg, *args)
 
-    def warning(self, msg):
+    def warning(self, msg, *args):
         """ Log a warning. Will show up as 'WARNING: <msg>' """
-        self._log('WARNING:', msg)
+        self._log('WARNING:', msg, *args)
 
-    def info(self, msg):
+    def info(self, msg, *args):
         """ Log a notice. Will show up as 'INFO: <msg>' """
-        self._log('INFO:', msg)
+        self._log('INFO:', msg, *args)
 
-    def debug(self, msg):
+    def debug(self, msg, *args):
         """ Log a debug notice. Will show up as 'DEBUG: <msg>' """
-        self._log('DEBUG:', msg)
+        self._log('DEBUG:', msg, *args)
 
 
 class ClientAPI(object):
@@ -79,7 +81,7 @@ class ClientAPI(object):
         try:
             self.db.close()
         except Exception, e:
-            self.log.warning("Problems with db.close: %s" % e)
+            self.log.warning("Problems with db.close: %s", e)
 
 
 # TODO: Should this be here?
@@ -108,16 +110,16 @@ class Utils(object):
         :type db: <Cerebrum.database.Database>
         :param db: A Cerebrum database object
 
-        :type etype: str
+        :type etype: text
         :param etype: Type of entity to find
                       Valid entity types: 'entity', 'account', 'group'
 
 
-        :type id_type: str
+        :type id_type: text
         :param id_type: The type of the identifier
                         Valid identifiers: 'id', 'account_name', 'group_name'
 
-        :type entity: str
+        :type entity: text
         :param entity: The identifier for the entity we want
         """
         obj = None
