@@ -58,17 +58,17 @@ class SimpleLogger(object):
         Individuation.log = twisted.log
 
     """
-    def error(self, msg):
-        print "ERROR: " + msg
+    def error(self, msg, *args):
+        print "ERROR: " + msg % args
 
-    def warning(self, msg):
-        print "WARNING: " + msg
+    def warning(self, msg, *args):
+        print "WARNING: " + msg % args
 
-    def info(self, msg):
-        print "INFO: " + msg
+    def info(self, msg, *args):
+        print "INFO: " + msg % args
 
-    def debug(self, msg):
-        print "DEBUG: " + msg
+    def debug(self, msg, *args):
+        print "DEBUG: " + msg % args
 
 
 # Globals
