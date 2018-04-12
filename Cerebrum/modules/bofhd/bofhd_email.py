@@ -2574,10 +2574,11 @@ class BofhdEmailCommands(BofhdEmailBase):
         conn_params = [
             cereconf.LDAP_MASTER,
             cereconf.LDAP_BIND_DN % cereconf.LDAP_UPDATE_USER,
-            Utils.read_password(cereconf.LDAP_SYSTEM,
-                                cereconf.LDAP_UPDATE_USER),
+            Utils.read_password(cereconf.LDAP_UPDATE_USER,
+                                cereconf.LDAP_SYSTEM)
             cereconf.LDAP_RETRY_MAX,
-            cereconf.LDAP_RETRY_DELAY, ]
+            cereconf.LDAP_RETRY_DELAY,
+        ]
 
         ldap = LdapUpdater()
 
