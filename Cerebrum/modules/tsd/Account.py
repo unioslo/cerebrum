@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013-2017 University of Oslo, Norway
+# Copyright 2013-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,8 +23,10 @@ Accounts in TSD needs to be controlled. The most important issue is that one
 account is only allowed to be a part of one single project, which is why we
 should refuse account_types from different OUs for a single account.
 """
+from __future__ import unicode_literals
 
 import base64
+import os
 import re
 
 import cerebrum_path
@@ -48,7 +50,6 @@ class AccountTSDMixin(Account.Account):
     Accounts should only be part of a single project (OU), and should for
     instance have defined a One Time Password (OTP) key for two-factor
     authentication.
-
     """
 
     # TODO: create and deactive - do they need to be subclassed?
@@ -106,7 +107,6 @@ class AccountTSDMixin(Account.Account):
         Since OUs are treated as separate projects in TSD, we need to add some
         protection to them. An account should only be allowed to be part of a
         single OU, no others, to avoid mixing different projects' data.
-
         """
         if affiliation == self.const.affiliation_project:
             for row in self.list_accounts_by_type(
@@ -135,7 +135,6 @@ class AccountTSDMixin(Account.Account):
             If the account has more than one project affiliation, which is not
             allowed in TSD, or if the account is not affiliated with any
             project.
-
         """
         rows = self.list_accounts_by_type(
                     account_id=self.entity_id,
@@ -182,22 +181,17 @@ class AccountTSDMixin(Account.Account):
             The number of bits that should be generated. Note that the number
             is rounded upwards to be contained in a full byte (8 bits).
 
-        @rtype: str
+        @rtype: str (bytes)
         @return:
             The OTP key, formed as a string of the hexadecimal values. Each
             hexadecimal value represent 8 bits.
-
         """
         # Round upwards to nearest full byte by adding 7 to the number of bits.
         # This makes sure that it's always rounded upwards if not modulo 0 to 8
-        bytes = (length + 7) / 8
-        ret = ''
-        f = open('/dev/urandom', 'rb')
-        # f.read _could_ return less than what is needed, so need to make sure
-        # that we have enough data, in case the read should stop:
-        while len(ret) < bytes:
-            ret += f.read(bytes - len(ret))
-        f.close()
+        int_bytes = (length + 7) / 8
+        ret = six.binary_type()
+        while len(ret) < int_bytes:
+            ret += os.urandom(int_bytes - len(ret))
         return ret
 
     def regenerate_otpkey(self, tokentype=None):
@@ -218,7 +212,7 @@ class AccountTSDMixin(Account.Account):
             If this parameter is None, the person's default OTP type will be
             used, or 'totp' by default if no value is set for the person.
 
-        @rtype: string
+        @rtype: string (unicode)
         @return:
             The full URI of otpauth, as defined in cereconf.OTP_URI_FORMAT,
             filled with the proper data. The format should follow
@@ -226,8 +220,9 @@ class AccountTSDMixin(Account.Account):
 
         """
         # Generate a new key:
-        secret = base64.b32encode(self._generate_otpkey(
-                                    getattr(cereconf, 'OTP_KEY_LENGTH', 160)))
+        secret = base64.b32encode(
+            self._generate_otpkey(
+                getattr(cereconf, 'OTP_KEY_LENGTH', 160))).decode()
         # Get the tokentype
         if not tokentype:
             tokentype = 'totp'
@@ -256,7 +251,6 @@ class AccountTSDMixin(Account.Account):
 
         This checks both project accounts and system accounts, so the project
         prefix is not checked.
-
         """
         tmp = super(AccountTSDMixin, self).illegal_name(name)
         if tmp:
@@ -277,7 +271,6 @@ class AccountTSDMixin(Account.Account):
 
         :rtype: bool
         :return: True i
-
         """
         # Check user quarantine:
         if self.get_entity_quarantine(qtype=self.const.quarantine_not_approved,
