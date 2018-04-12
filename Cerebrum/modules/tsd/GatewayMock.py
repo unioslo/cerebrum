@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014 University of Oslo, Norway
+# Copyright 2014-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,26 +18,31 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Mock Gateway Client for TSD.
+"""
+Mock Gateway Client for TSD.
 
 This client can be used as a replacement for the .Gateway.GatewayClient and an
 actual gateway when testing code that needs to communicate with the TSD
 gateway.
-
 """
+from __future__ import unicode_literals
+
+import six
+
 import cerebrum_path
 import cereconf
+
 from mx import DateTime
 from .Gateway import GatewayClient
 from .Gateway import GatewayException as Err
 
 
+@six.python_2_unicode_compatible
 class MockClient(GatewayClient):
-
-    """ Mock client for testing integration with the TSD gateway. """
+    """Mock client for testing integration with the TSD gateway."""
 
     def __init__(self, logger, uri=cereconf.TSD_GATEWAY_URL, dryrun=False):
-        """ Sets the proper URL. """
+        """Sets the proper URL."""
         self.logger = logger
         self.uri = uri
         self.dryrun = dryrun
@@ -58,52 +63,53 @@ class MockClient(GatewayClient):
         self.setup_demo_values()
 
     def __getattr__(self, name):
-        """ Used to fetch xmlrpc methods. """
+        """Used to fetch xmlrpc methods."""
         raise AttributeError("Mock client has no attribute '%s'" % name)
 
     def __request(self, methodname, params):
-        """ Used to call xmlrpc methods. """
+        """Used to call xmlrpc methods."""
         raise NotImplementedError("Mock client has no request method!")
 
     def __repr__(self):
-        """ The parent __repr__ requires that __init__ was called. """
-        return "MockClient(%r, uri=%r, dryrun=%r)" % (
-            self.logger, self.uri, self.dryrun)
+        """The parent __repr__ requires that __init__ was called."""
+        return "MockClient(%r, uri=%r, dryrun=%r)" % (self.logger,
+                                                      self.uri,
+                                                      self.dryrun)
 
     def __str__(self):
-        """ The parent __str__ requires that __init__ was called. """
+        """The parent __str__ requires that __init__ was called."""
         return "<Mock Proxy for %s>" % self.uri
 
     def _get_project_idx(self, pid):
-        """ Get list index of project in cache. """
+        """Get list index of project in cache."""
         for idx, p in enumerate(self._projects):
             if p['name'] == pid:
                 return idx
         raise Err("No project %s" % (pid))
 
     def _get_user_idx(self, uname, pid=None):
-        """ Get list index of user in cache. """
+        """Get list index of user in cache."""
         for idx, u in enumerate(self._users):
             if u['username'] == uname and (pid is None or u['project'] == pid):
                 return idx
         raise Err("No user %s (in project %s)" % (uname, pid))
 
     def _get_group_idx(self, gname, pid):
-        """ Get list index of group in cache. """
+        """Get list index of group in cache."""
         for idx, g in enumerate(self._groups):
             if g['groupname'] == gname and g['project'] == pid:
                 return idx
         raise Err("No group %s in project %s" % (gname, pid))
 
     def _get_host_idx(self, hname, pid):
-        """ Get list index of host in cache. """
+        """Get list index of host in cache."""
         for idx, h in enumerate(self._hosts):
             if h['name'] == hname and h['project'] == pid:
                 return idx
         raise Err("No host %s in project %s" % (hname, pid))
 
     def _get_ip_idx(self, hname, addr, pid):
-        """ Get list index of ip in cache. """
+        """Get list index of ip in cache."""
         for idx, ip in enumerate(self._ips):
             if (ip['host'] == hname and ip['addr'] == addr and
                     ip['project'] == pid):
@@ -111,7 +117,7 @@ class MockClient(GatewayClient):
         raise Err("No host %s with ip %s in project %s" % (hname, addr, pid))
 
     def _get_subnet_idx(self, addr, pfx, vlan, pid):
-        """ Get list index of subnet in cache. """
+        """Get list index of subnet in cache."""
         for idx, sub in enumerate(self._subnets):
             if (sub['project'] == pid and sub['netaddr'] == addr and
                     sub['prefixlen'] == pfx and sub['vlantag'] == vlan):
@@ -120,42 +126,42 @@ class MockClient(GatewayClient):
             addr, pfx, pid, vlan))
 
     def _get_vlan_idx(self, vlan):
-        """ Get list index of vlan in cache. """
+        """Get list index of vlan in cache."""
         for idx, v in enumerate(self._vlans):
             if v['vlantag'] == vlan:
                 return idx
         raise Err("No VLAN %s" % vlan)
 
     def list_projects(self):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         return self._projects
 
     def list_users(self):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         return self._users
 
     def list_groups(self):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         return self._groups
 
     def list_hosts(self):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         return self._hosts
 
     def list_subnets(self):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         return self._subnets
 
     def list_ips(self):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         return self._ips
 
     def list_vlans(self):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         return self._vlans
 
     def create_project(self, pid):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Creating project: %s", pid)
         try:
             self._get_project_idx(pid)
@@ -170,7 +176,7 @@ class MockClient(GatewayClient):
         return p
 
     def delete_project(self, pid):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Deleting project: %s", pid)
         idx = self._get_project_idx(pid)
         # TODO: everything related to project
@@ -178,7 +184,7 @@ class MockClient(GatewayClient):
         return
 
     def freeze_project(self, pid, when=None):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Freezing project: %s", pid)
         idx = self._get_project_idx(pid)
         if self._projects[idx]['frozen']:
@@ -187,7 +193,7 @@ class MockClient(GatewayClient):
         return self._projects[idx]
 
     def thaw_project(self, pid):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Thawing project: %s", pid)
         idx = self._get_project_idx(pid)
         if not self._projects[idx]['frozen']:
@@ -196,9 +202,8 @@ class MockClient(GatewayClient):
         return self._projects[idx]
 
     # User methods
-
     def create_user(self, pid, username, uid, realname=None):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Creating user: %s", username)
         self._get_project_idx(pid)
         try:
@@ -215,7 +220,7 @@ class MockClient(GatewayClient):
         return n
 
     def delete_user(self, pid, username):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self._get_project_idx(pid)
         idx = self._get_user_idx(username, pid)
         # TODO: remove group memberships, hosts, etc...
@@ -223,7 +228,7 @@ class MockClient(GatewayClient):
         return {}
 
     def freeze_user(self, pid, username, when=None):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Freezing account: %s", username)
         self._get_project_idx(pid)
         idx = self._get_user_idx(username, pid)
@@ -233,7 +238,7 @@ class MockClient(GatewayClient):
         return self._users[idx]
 
     def thaw_user(self, pid, username):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Thawing user: %s", username)
         self._get_project_idx(pid)
         idx = self._get_user_idx(username, pid)
@@ -243,7 +248,7 @@ class MockClient(GatewayClient):
         return self._users[idx]
 
     def user_otp(self, pid, username, otpuri):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("New OTP key for user: %s", username)
         self._get_project_idx(pid)
         idx = self._get_user_idx(username, pid)
@@ -251,9 +256,8 @@ class MockClient(GatewayClient):
         return self._users[idx]
 
     # Group methods
-
     def create_group(self, pid, groupname, gid):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Creating group: %s (%s)", groupname, pid)
         self._get_project_idx(pid)
         try:
@@ -269,7 +273,7 @@ class MockClient(GatewayClient):
         return n
 
     def delete_group(self, pid, groupname):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Deleting group: %s (%s)", groupname, pid)
         idx = self._get_group_idx(groupname, pid)
         # TODO: remove memberships from user dicts
@@ -277,7 +281,7 @@ class MockClient(GatewayClient):
         return
 
     def add_member(self, pid, groupname, membername):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Adding member to group %s: %s", groupname,
                          membername)
         self._get_project_idx(pid)
@@ -289,7 +293,7 @@ class MockClient(GatewayClient):
         return self._groups[gidx]
 
     def remove_member(self, pid, groupname, membername):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Removing member from group %s: %s",
                          groupname, membername)
         self._get_project_idx(pid)
@@ -302,9 +306,8 @@ class MockClient(GatewayClient):
         return self._groups[gidx]
 
     # Host methods
-
     def create_host(self, pid, fqdn):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Create host: %s", fqdn)
         self._get_project_idx(pid)
         try:
@@ -315,13 +318,13 @@ class MockClient(GatewayClient):
             raise Err("Host %s exists in project %s" % (fqdn, pid))
 
         n = {'name': fqdn, 'project': pid,
-             'created': DateTime.now(), 'expires': DateTime.now()+10,
+             'created': DateTime.now(), 'expires': DateTime.now() + 10,
              'ips': [], 'frozen': None, }
         self._hosts.append(n)
         return n
 
     def delete_host(self, pid, fqdn):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Delete host: %s", fqdn)
         self._get_project_idx(pid)
         idx = self._get_host_idx(fqdn, pid)
@@ -330,7 +333,7 @@ class MockClient(GatewayClient):
         return
 
     def create_ip(self, pid, fqdn, ipadr, mac=None):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Add IP addr for %s: %s", fqdn, ipadr)
         self._get_project_idx(pid)
         self._get_host_idx(fqdn, pid)
@@ -347,7 +350,7 @@ class MockClient(GatewayClient):
         return n
 
     def delete_ip(self, pid, fqdn, ipadr):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Delete IP addr for %s: %s", fqdn, ipadr)
         self._get_project_idx(pid)
         hidx = self._get_host_idx(fqdn, pid)
@@ -360,7 +363,7 @@ class MockClient(GatewayClient):
     # Subnet methods
 
     def create_subnet(self, pid, netaddr, prefixlen, vlan):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Creating subnet for %s: %s/%s, vlan: %s",
                          pid, netaddr, prefixlen, vlan)
         self._get_project_idx(pid)
@@ -379,7 +382,7 @@ class MockClient(GatewayClient):
         return n
 
     def delete_subnet(self, pid, netaddr, prefixlen, vlan):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Delete subnet for %s: %s", pid, netaddr)
         self._get_project_idx(pid)
         self._get_vlan_idx(vlan)
@@ -388,9 +391,8 @@ class MockClient(GatewayClient):
         return {}
 
     # VLAN methods
-
     def create_vlan(self, vlan):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Creating VLAN %s", vlan)
         try:
             self._get_vlan_idx(vlan)
@@ -404,7 +406,7 @@ class MockClient(GatewayClient):
         return n
 
     def delete_vlan(self, vlan):
-        """ See .Gateway.GatewayClient. """
+        """See .Gateway.GatewayClient."""
         self.logger.info("Delete VLAN %s", vlan)
         idx = self._get_vlan_idx(vlan)
         # TODO: Remove subnets?
@@ -412,7 +414,7 @@ class MockClient(GatewayClient):
         return {}
 
     def setup_demo_values(self):
-        """ Initialize cache with mock data. """
+        """Initialize cache with mock data."""
         _created = DateTime.now() - 10
         _expires = DateTime.now() + 10
 

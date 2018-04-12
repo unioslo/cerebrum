@@ -22,6 +22,9 @@
 This script is used to set / remove user auto-freeze on users that are
 members of projects that have been frozen.
 """
+from __future__ import unicode_literals
+
+import six
 
 import cerebrum_path
 import cereconf
@@ -200,7 +203,8 @@ def update_user_freeze(db, dryrun):
         else:
             db.commit()
     except Exception, e:
-        logger.critical('Unexpected exception: %s' % (str(e)), exc_info=True)
+        logger.critical('Unexpected exception: {e}'.format(six.text_type(e)),
+                        exc_info=True)
         db.rollback()
         raise
 
@@ -208,10 +212,8 @@ def update_user_freeze(db, dryrun):
 def main(args=None):
     """
     """
-    try:
-        import argparse
-    except ImportError:
-        from Cerebrum.extlib import argparse
+    import argparse
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '-d', '--dryrun',
