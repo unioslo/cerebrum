@@ -172,7 +172,7 @@ def proc_sympa_create(request):
     # Remove this when there's no chance of pickled data
     if state is None:
         try:
-            state = pickle.loads(str(request["state_data"]))
+            state = pickle.loads(request["state_data"])
         except Exception:
             pass
 

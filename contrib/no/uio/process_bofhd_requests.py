@@ -10,7 +10,7 @@
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
 #
-# Cerebrum is distributed in the hope that it will be useful, butq
+# Cerebrum is distributed in the hope that it will be useful, but
 # WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
@@ -385,7 +385,7 @@ def proc_sympa_create(request):
     # Remove this when there's no chance of pickled data
     if state is None:
         try:
-            state = pickle.loads(str(request["state_data"]))
+            state = pickle.loads(request["state_data"])
         except Exception:
             pass
 
