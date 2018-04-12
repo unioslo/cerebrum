@@ -4104,7 +4104,7 @@ class LdapUpdater(object):
     @property
     def connection(self):
         """ cached connection object. """
-        getattr(self, '_connection', None)
+        return getattr(self, '_connection', None)
 
     @connection.setter
     def connection(self, connection):
