@@ -2575,7 +2575,7 @@ class BofhdEmailCommands(BofhdEmailBase):
             cereconf.LDAP_MASTER,
             cereconf.LDAP_BIND_DN % cereconf.LDAP_UPDATE_USER,
             Utils.read_password(cereconf.LDAP_UPDATE_USER,
-                                cereconf.LDAP_SYSTEM)
+                                cereconf.LDAP_SYSTEM),
             cereconf.LDAP_RETRY_MAX,
             cereconf.LDAP_RETRY_DELAY,
         ]
