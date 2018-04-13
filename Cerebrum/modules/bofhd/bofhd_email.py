@@ -41,6 +41,7 @@ import re
 
 from flanker.addresslib import address as email_validator
 from mx import DateTime
+from six import text_type
 
 import cereconf
 
@@ -532,7 +533,8 @@ class BofhdEmailBase(BofhdCommandBase):
         setting 'EMAIL_DEFAULT_SPAM_SETTINGS'.
 
         """
-        target_type = self.const.EmailTarget(email_target.email_target_type)
+        target_type = text_type(
+            self.const.EmailTarget(email_target.email_target_type))
         settings = cereconf.EMAIL_DEFAULT_SPAM_SETTINGS
         if target_type not in settings:
             return
@@ -551,7 +553,8 @@ class BofhdEmailBase(BofhdCommandBase):
         setting 'EMAIL_DEFAULT_FILTERS'.
 
         """
-        target_type = self.const.EmailTarget(email_target.email_target_type)
+        target_type = text_type(
+            self.const.EmailTarget(email_target.email_target_type))
         settings = cereconf.EMAIL_DEFAULT_FILTERS
         if target_type not in settings:
             return False
