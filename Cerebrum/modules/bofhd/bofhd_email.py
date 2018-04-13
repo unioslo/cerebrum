@@ -41,6 +41,7 @@ import re
 
 from flanker.addresslib import address as email_validator
 from mx import DateTime
+from six import text_type
 
 import cereconf
 
@@ -531,8 +532,11 @@ class BofhdEmailBase(BofhdCommandBase):
         Adds spam settings for an email target according to the cereconf
         setting 'EMAIL_DEFAULT_SPAM_SETTINGS'.
 
+        TODO: This method should be moved to Cerebrum.modules.Email and used
+              everywhere for setting defaults.
         """
-        target_type = self.const.EmailTarget(email_target.email_target_type)
+        target_type = text_type(
+            self.const.EmailTarget(email_target.email_target_type))
         settings = cereconf.EMAIL_DEFAULT_SPAM_SETTINGS
         if target_type not in settings:
             return
@@ -550,8 +554,11 @@ class BofhdEmailBase(BofhdCommandBase):
         Adds spam settings for an email target according to the cereconf
         setting 'EMAIL_DEFAULT_FILTERS'.
 
+        TODO: This method should be moved to Cerebrum.modules.Email and used
+              everywhere for setting defaults.
         """
-        target_type = self.const.EmailTarget(email_target.email_target_type)
+        target_type = text_type(
+            self.const.EmailTarget(email_target.email_target_type))
         settings = cereconf.EMAIL_DEFAULT_FILTERS
         if target_type not in settings:
             return False
@@ -2736,7 +2743,7 @@ class BofhdEmailCommands(BofhdEmailBase):
             target_ids = self._get_all_related_maillist_targets(address)
         elif int(et.email_target_type) == (self.const.email_target_RT):
             # Same, will fail if we don't have the BofhdEmailListMixin
-            target_ids = self.__get_all_related_rt_targets(address)
+            target_ids = self._get_all_related_rt_targets(address)
         for target_id in target_ids:
             try:
                 et.clear()
