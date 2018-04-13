@@ -532,6 +532,8 @@ class BofhdEmailBase(BofhdCommandBase):
         Adds spam settings for an email target according to the cereconf
         setting 'EMAIL_DEFAULT_SPAM_SETTINGS'.
 
+        TODO: This method should be moved to Cerebrum.modules.Email and used
+              everywhere for setting defaults.
         """
         target_type = text_type(
             self.const.EmailTarget(email_target.email_target_type))
@@ -552,6 +554,8 @@ class BofhdEmailBase(BofhdCommandBase):
         Adds spam settings for an email target according to the cereconf
         setting 'EMAIL_DEFAULT_FILTERS'.
 
+        TODO: This method should be moved to Cerebrum.modules.Email and used
+              everywhere for setting defaults.
         """
         target_type = text_type(
             self.const.EmailTarget(email_target.email_target_type))
@@ -2739,7 +2743,7 @@ class BofhdEmailCommands(BofhdEmailBase):
             target_ids = self._get_all_related_maillist_targets(address)
         elif int(et.email_target_type) == (self.const.email_target_RT):
             # Same, will fail if we don't have the BofhdEmailListMixin
-            target_ids = self.__get_all_related_rt_targets(address)
+            target_ids = self._get_all_related_rt_targets(address)
         for target_id in target_ids:
             try:
                 et.clear()
