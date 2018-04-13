@@ -541,8 +541,8 @@ class BofhdEmailBase(BofhdCommandBase):
         if target_type not in settings:
             return
         spam_level, spam_action = (
-            int(self.const.EmailSpamLevel(settings[target_type][0])),
-            int(self.const.EmailSpamAction(settings[target_type][1])))
+            self.const.EmailSpamLevel(settings[target_type][0]),
+            self.const.EmailSpamAction(settings[target_type][1]))
         esf = Email.EmailSpamFilter(self.db)
         esf.populate(spam_level, spam_action, parent=email_target)
         esf.write_db()
@@ -562,11 +562,11 @@ class BofhdEmailBase(BofhdCommandBase):
         settings = cereconf.EMAIL_DEFAULT_FILTERS
         if target_type not in settings:
             return False
-        filter_code = int(self.const.EmailTargetFilter(settings[target_type]))
-
-        etf = Email.EmailTargetFilter(self.db)
-        etf.populate(filter_code, parent=email_target)
-        etf.write_db()
+        for target_filter in (self.const.EmailTargetFilter(f)
+                              for f in settings[target_type]):
+            etf = Email.EmailTargetFilter(self.db)
+            etf.populate(target_filter, parent=email_target)
+            etf.write_db()
         return True
 
     #
