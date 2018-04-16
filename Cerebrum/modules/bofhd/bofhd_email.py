@@ -36,11 +36,11 @@ some sort of callback system, where each email target type could register how
 to handle addresses and targets of that type.
 
 """
-import pickle
 import re
 
 from flanker.addresslib import address as email_validator
 from mx import DateTime
+from six import text_type
 
 import cereconf
 
@@ -69,6 +69,7 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.utils.email import sendmail
+from Cerebrum.utils import json
 
 
 def format_day(field):
@@ -193,7 +194,7 @@ class BofhdEmailBase(BofhdCommandBase):
 
     def _get_email_address_from_str(self, email_str):
         """ Get EmailAddress from string. """
-        if not isinstance(email_str, str):
+        if not isinstance(email_str, (str, text_type)):
             raise CerebrumError(
                 "Invalid argument type: %s" % type(email_str))
         elif email_str.count('@') != 1:
@@ -3870,13 +3871,7 @@ class BofhdSympaCommands(BofhdEmailBase):
         ea.clear()
         ea.find_by_local_part_and_domain(lp, ed.entity_id)
         list_id = ea.entity_id
-        # IVR 2008-08-01 TBD: this is a big ugly. We need to pass several
-        # arguments to p_b_r, but we cannot really store them anywhere :( The
-        # idea is then to take a small dict, pickle it, shove into state_data,
-        # unpickle in p_b_r and be on our merry way. It is at the very best
-        # suboptimal.
-        state = {"runhost": run_host,  # IVR 2008-08-01 FIXME: non-fqdn? force?
-                                       # check?
+        state = {"runhost": run_host,
                  "admins": admin_list,
                  "profile": list_profile,
                  "description": list_description, }
@@ -3889,7 +3884,7 @@ class BofhdSympaCommands(BofhdEmailBase):
         br.add_request(operator.get_entity_id(),
                        DateTime.now() + DateTime.DateTimeDelta(0, 0, 30),
                        self.const.bofh_sympa_create, list_id, ea.entity_id,
-                       state_data=pickle.dumps(state))
+                       state_data=json.dumps(state))
         return {'listname': listname}
 
     #
@@ -3977,7 +3972,7 @@ class BofhdSympaCommands(BofhdEmailBase):
                        # than a confusing error burp from sympa.
                        DateTime.now() + DateTime.DateTimeDelta(0, 1),
                        self.const.bofh_sympa_remove,
-                       list_id, None, state_data=pickle.dumps(state))
+                       list_id, None, state_data=json.dumps(state))
 
         return {'listname': listname, 'request': True}
 
