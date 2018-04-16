@@ -47,6 +47,7 @@ quarantine changes.
 from __future__ import absolute_import
 
 import copy
+import six
 
 from Cerebrum.ChangeLog import ChangeLog
 from Cerebrum.Entity import EntitySpread
@@ -76,7 +77,7 @@ def get_entity_ref(db, entity_id):
     # Lookup type
     try:
         ent = entity.get_subclassed_object(id=entity_id)
-        entity_type = str(constants.EntityType(ent.entity_type))
+        entity_type = six.text_type(constants.EntityType(ent.entity_type))
         try:
             namespace = constants.ValueDomain(
                 ENTITY_TYPE_NAMESPACE.get(entity_type, None))
@@ -93,7 +94,7 @@ def get_entity_ref(db, entity_id):
     return EntityRef(
         entity_id,
         entity_type,
-        entity_ident or str(entity_id))
+        entity_ident or six.text_type(entity_id))
 
 
 def get_entity_spreads(db, entity_id):
@@ -107,7 +108,7 @@ def get_entity_spreads(db, entity_id):
     entity = EntitySpread(db)
     try:
         entity.find(int(entity_id))
-        return [str(constants.Spread(s['spread']))
+        return [six.text_type(constants.Spread(s['spread']))
                 for s in entity.get_spread()]
     except (NotFoundError, ValueError):
         pass
@@ -139,7 +140,7 @@ def change_type_to_event(db, change_type, subject_id, dest_id, params):
         msg['objects'].append(get_entity_ref(db, dest_id))
 
     if 'spread' in msg['data']:
-        msg['context'] = [str(constants.Spread(msg['data']['spread'])), ]
+        msg['context'] = [six.text_type(constants.Spread(msg['data']['spread'])), ]
         del msg['data']['spread']
     else:
         msg['context'] = get_entity_spreads(db, subject_id)

@@ -35,6 +35,7 @@ Connect and publish messages with the client:
 """
 import json
 import pika
+import six
 
 from Cerebrum.modules.event.clients import ClientErrors
 from Cerebrum.modules.event.clients import amqp_client
@@ -91,7 +92,7 @@ class AMQP091Publisher(amqp_client.BaseAMQP091Client):
             if isinstance(message, basestring):
                 # Validate any previously stored json strings?
                 # message = json.loads(message)
-                msg_body = str(message)
+                msg_body = six.text_type(message)
             else:
                 msg_body = json.dumps(message)
         except Exception as e:

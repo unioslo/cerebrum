@@ -22,6 +22,8 @@
 from __future__ import absolute_import
 
 import json
+import six
+
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from .event import Event, EventType, EntityRef
 
@@ -67,11 +69,11 @@ class EventsAccessor(DatabaseAccessor):
         """
 
         binds['event_id'] = int(self.nextval('events_seq'))
-        binds['event_type'] = str(event_type)
+        binds['event_type'] = six.text_type(event_type)
         binds['schedule'] = schedule
         binds['subject_id'] = int(subject_id)
-        binds['subject_ident'] = str(subject_ident)
-        binds['subject_type'] = str(subject_type)
+        binds['subject_ident'] = six.text_type(subject_ident)
+        binds['subject_type'] = six.text_type(subject_type)
         binds['event_data'] = json.dumps(data)
 
         return self.query_1(query, binds)

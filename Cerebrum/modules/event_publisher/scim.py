@@ -27,6 +27,7 @@ from __future__ import absolute_import
 import calendar
 import datetime
 import uuid
+import six
 
 from Cerebrum.config.configuration import (Configuration,
                                            ConfigDescriptor,
@@ -140,7 +141,7 @@ class EventScimFormatter(ScimFormatter):
         """ Get and translate the entity_id of an EntityRef. """
         if entity_ref.entity_type in ('account', 'group'):
             return entity_ref.ident
-        return str(entity_ref.entity_id)
+        return six.text_type(entity_ref.entity_id)
 
     def get_url(self, entity_ref):
         """ Format an url to the EntityRef. """
@@ -157,7 +158,7 @@ class EventScimFormatter(ScimFormatter):
 
     def __call__(self, event):
         """Create and return payload as jsonable dict."""
-        jti = str(uuid.uuid4())
+        jti = six.text_type(uuid.uuid4())
         event_uri = self.get_uri(event.event_type.verb)
         issued_at = self.make_timestamp(event.timestamp)
         issuer = self.config.issuer
