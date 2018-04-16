@@ -22,7 +22,7 @@
 import os
 import sys
 import getopt
-
+from datetime import datetime
 
 __filename__=os.path.basename(sys.argv[0])
 __doc__ = """
@@ -72,6 +72,7 @@ def clean_acc_affs():
     for per_aff in per_affs:
         affs.append((per_aff['person_id'], per_aff['ou_id'], per_aff['affiliation']))
 
+
     # List all accounts (also closed ones!)
     logger.info("Deleting account affiliations with no corresponding person affiliation...")
     ac_list = ac.list(filter_expired=False)
@@ -81,16 +82,33 @@ def clean_acc_affs():
 
          # Get account affiliations
          acc_affs = ac.get_account_types(filter_expired=False)
-
+         num_acc_affs = len(acc_affs)
+         
          # Cycle affiliations
+         num_deleted = 0
          for acc_aff in acc_affs:
+
              aux = (acc_aff['person_id'], acc_aff['ou_id'], acc_aff['affiliation'])
+             
+             
+             
+             #if num_deleted == num_acc_affs:
+             #    logger.debug("not deleting last affiliation %s on ou %s for account %s" % acc_aff['affiliation'],acc_aff['ou_id'],acc_aff['account_id'])
 
              # If affiliation not in person affiliations at all - DELETE!
+             # Do not delete the last account_type. process_students is unable to reactivate accounts that 
+             # doesnt have a single account_type
+             #
              if aux not in affs:
-                 logger.info('Deleting affiliation %s on ou %s for account %s' %
-                             (acc_aff['affiliation'], acc_aff['ou_id'], a['account_id']))
-                 ac.del_account_type(acc_aff['ou_id'], acc_aff['affiliation'])
+                 if num_deleted+1  == num_acc_affs:
+                     pass
+                     #logger.debug("not deleting last affiliation %s on ou %s for account %s" % (acc_aff['affiliation'],acc_aff['ou_id'],acc_aff['account_id']))
+                 else:
+                     num_deleted +=1
+                     logger.info('Deleting affiliation %s on ou %s for account %s' %
+                                 (acc_aff['affiliation'], acc_aff['ou_id'], a['account_id']))
+                     ac.del_account_type(acc_aff['ou_id'], acc_aff['affiliation'])
+            
     logger.info("Done verifying account affiliations.")
 
 

@@ -1,3 +1,9 @@
+2018-04-16    <cerebrum@gagarin.uit.no>
+
+	* account_affiliation_cleaner.py (clean_acc_affs): Script changed to NOT delete the last account_type for an account. Even closed accounts will
+	have at least 1 account_type, even if it is no longer valid. this was done because process_students was unable to activate an old account
+	if said account had lost all its account_types.
+
 2018-04-05  Karen   <cerebrum@gagarin.uit.no>
 
     * export_cristin.py: Commented out unnecessary prints.
