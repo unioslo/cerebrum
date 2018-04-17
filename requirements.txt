@@ -9,7 +9,7 @@ Flask>=0.11.0
 flask-restplus
 functools32
 gunicorn
-Jinja2
+Jinja2==2.10
 jsonschema
 lxml
 nose
