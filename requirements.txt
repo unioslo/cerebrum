@@ -13,7 +13,7 @@ Jinja2
 jsonschema
 lxml
 nose
-phonenumbers
+phonenumbers==8.9.3
 pika
 psycopg2-binary
 pygpgme
