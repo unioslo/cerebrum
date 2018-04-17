@@ -43,6 +43,7 @@ from UserDict import IterableUserDict
 import getopt
 import sys
 import traceback
+import six
 
 import cerebrum_path
 
@@ -59,6 +60,7 @@ constants = Factory.get("Constants")()
 database = Factory.get("Database")()
 
 
+@six.python_2_unicode_compatible
 class SimplePerson(IterableUserDict, object):
     """FS-relevant info storage.
 
@@ -132,7 +134,7 @@ def exc2message(exc_tuple):
     # poke in the exception objects easily.
     msg = traceback.format_exception_only(exc, exc_type)[0]
     msg = msg.split("\n", 1)[0]
-    return str(msg)
+    return six.text_type(msg)
 # end exc2message
 
 
@@ -343,7 +345,7 @@ def find_my_affiliations(person, selection_criteria, authoritative_system):
 
     logger.debug("Person id=%s has affiliations: %s",
                  person.entity_id,
-                 [(x, str(constants.PersonAffiliation(y)))
+                 [(x, six.text_type(constants.PersonAffiliation(y)))
                   for x, y in my_affiliations])
     return my_affiliations
 # end find_my_affiliations
@@ -722,7 +724,7 @@ def select_FS_candidates(selection_criteria, authoritative_system):
                             source_system=authoritative_system))
     logger.debug("%d db-rows match %s criteria",
                  len(rows),
-                 list(str(x) for x in selection_criteria))
+                 list(six.text_type(x) for x in selection_criteria))
     for row in rows:
         person_id = int(row["person_id"])
         if person_id in result:
