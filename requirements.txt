@@ -6,7 +6,7 @@ cx-Oracle
 egenix-mx-base
 flanker
 Flask>=0.11.0
-flask-restplus
+flask-restplus==0.10.1
 functools32
 gunicorn
 Jinja2
