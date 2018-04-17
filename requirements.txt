@@ -30,4 +30,4 @@ six>=1.10
 smbpasswd
 statsd>=3.2.1
 suds
-Twisted==10.2.0
+Twisted==17.9.0
