@@ -2,7 +2,7 @@ aniso8601
 backports.ssl-match-hostname
 celery
 cffi
-cx-Oracle
+cx-Oracle==6.2.1
 egenix-mx-base
 flanker
 Flask>=0.11.0
