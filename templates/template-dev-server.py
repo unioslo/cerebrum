@@ -5,12 +5,11 @@ Helper tool for developing Cerebrum template-files.
 Launches a web-server that serves the template-file with live reloading.
 """
 
-import sys
-from livereload import Server, shell
-from flask import Flask, render_template, request
 import json
 import os
 import formic
+from livereload import Server, shell
+from flask import Flask, render_template, request
 from distutils.dir_util import copy_tree
 from subprocess import Popen
 from env import create_environment
@@ -35,11 +34,15 @@ usage = """
 <p>.scss-files found in the ./scss-folder will be automatically compiled and
    placed inside the ./templates-folder as .css-files. 
 </p>
+<p>In order to render a template into a PDF-file, add pdf=1
+ as a query parameter in the URL, like this:</p>
+<p>http://localhost:5500/?template=my-template.html&vars=my-vars.json&pdf=1</p>
+<p>The PDF can the be viewed at http://localhost:5500/static/output.pdf</p>
 <p>Happy templating!</p>
 """
 
 
-def start(host, port, render_pdf):
+def start(host, port):
     app = Flask(
         __name__,
         static_folder='/static'
@@ -103,14 +106,9 @@ def main():
         type=str,
         default='5500')
 
-    parser.add_argument(
-        '--no-pdf',
-        help='Turn off auto-rendering the template into a PDF-file.',
-        action='store_false')
-
     args = parser.parse_args()
 
-    start(args.i, args.p, args.no_pdf)
+    start(args.i, args.p)
 
 
 if __name__ == '__main__':
