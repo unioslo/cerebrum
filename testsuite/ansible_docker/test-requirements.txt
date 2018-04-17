@@ -3,6 +3,6 @@ coverage
 pep8
 pylint
 pytest
-pytest-cov
+pytest-cov==2.5.1
 pytest-flask
 pytest-watch
