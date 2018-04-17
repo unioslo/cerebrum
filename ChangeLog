@@ -1,3 +1,11 @@
+2018-04-17    <cerebrum@gagarin.uit.no>
+
+	* process_uit_email.py (calculate_uit_emails): Rewrote how we
+	decide who gets cnaddr email address. The new solution only
+	collects valid/current person affiliation and uses that as its
+	basis on who gets what. the old solution also collected expired
+	person affiliatiosn which didnt scale all that well.
+
 2018-04-16    <cerebrum@gagarin.uit.no>
 
 	* account_affiliation_cleaner.py (clean_acc_affs): Script changed to NOT delete the last account_type for an account. Even closed accounts will

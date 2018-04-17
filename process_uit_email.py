@@ -195,16 +195,17 @@ def get_cn_addr(username,domain):
 def calculate_uit_emails(uname,affs):
     uidaddr=True
     cnaddr=False
-    logger.debug("in calculate_uit_emails:%s" % affs)
+    #logger.debug("in calculate_uit_emails:%s" % affs)
     for (aff,sko,status) in affs:
-        logger.debug("status is:%s" % status)
-        # if aff == ansatt and status[0] is anything else than timelonnet_midlertidig, it means that you are an emeployee that should have cn_addr email address
-        # this is why we only check the first element [0]
-        if (aff==co.affiliation_ansatt):
+        #logger.debug("status is:%s" % status)
+        # set cnaddr == true if you are an employee (but not if you are a "timelønnet employee")
+        # why only check timelønnet status against status[0]?
+        # if you only have 1 status, then status[0] == timelønnet
+        # if you have more than 1 status, then timelønnet is only 1 of the status values
+        # and the rest is something else. the 'something else' means that you get cnaddr.
+        if ((aff==co.affiliation_ansatt) and (co.affiliation_status_timelonnet_midlertidig != status[0])):
             cnaddr = True
-            if ((len(status) == 1) and (co.affiliation_status_timelonnet_midlertidig == status[0])):
-                logger.debug("i am employee:%s  but only have timelonnet status, i do not get cnaddr"% uname)
-                cnaddr=False
+            # even if you are an employee you do not get cnaddr==True if you belong to a stedkode defined in EMPLOYEE_FILTER_EXCHANGE_SKO
             for flt in cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO:
                 #TBD hva om bruker har flere affs og en av dem matcher?
                 #TBD kanskje også se på priority mellom affs?
@@ -269,7 +270,7 @@ def process_mail():
     phone_list = {}
     # get all account affiliations that belongs to UiT
     aff_cached=aff_skipped=0
-    for row in  ac.list_accounts_by_type(filter_expired=True,
+    for row in  ac.list_accounts_by_type(filter_expired=True,                                       
                                          primary_only=False,
                                          fetchall=False):
         # get person_id
@@ -298,7 +299,7 @@ def process_mail():
 
         
         #i_am_drgrad = False
-        person_affs = p.get_affiliations(include_deleted = True)
+        person_affs = p.get_affiliations(include_deleted = False)
         #logger.debug("aff:%s,aff status:%s" % (person_affs[0]['affiliation'],person_affs[0]['status']))
         #pprint("person_affs=%s" % person_affs)
         aff_status = {}
@@ -318,6 +319,7 @@ def process_mail():
         # is this a UiT affiliation? or am i a drgrad student ?
         #logger.debug("aff status dict:%s"% aff_status)
         #logger.debug("affiliation:%s" % (row['affiliation']))
+        #logger.debug("row is:%s" % row)
         if row['affiliation'] in (co.affiliation_ansatt,
                                   co.affiliation_student,
                                   co.affiliation_tilknyttet,
@@ -329,6 +331,9 @@ def process_mail():
                 # get_sko cannot find active stedkode. continue to next account
                 logger.debug("unable to get affiliation stedkode ou_id:%s for account_id:%s Skip." % (row['ou_id'],row['account_id']))
                 continue
+            except KeyError:
+                pass
+                #logger.debug("account:%s Unable to append the following affilation %s - %s . it has no active/valid status code" % (row['account_id'],row['affiliation'],get_sko(row['ou_id'])))
             aff_cached+=1
         else:
             aff_skipped+=1
@@ -398,8 +403,8 @@ def process_mail():
             logger.debug("User %s has mailaddress %s" % 
                 (uname,old_addrs))
             new_addrs_set=should_have_addrs_set-old_addrs_set
-            logger.debug("new set is %s, list() is %s" % 
-                (new_addrs_set,list(new_addrs_set)))
+            #logger.debug("new set is %s, list() is %s" % 
+                #(new_addrs_set,list(new_addrs_set)))
         else:
             new_addrs_set = should_have_addrs_set
             
