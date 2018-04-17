@@ -37,7 +37,7 @@ usage = """
 <p>In order to render a template into a PDF-file, add pdf=1
  as a query parameter in the URL, like this:</p>
 <p>http://localhost:5500/?template=my-template.html&vars=my-vars.json&pdf=1</p>
-<p>The PDF can the be viewed at http://localhost:5500/static/output.pdf</p>
+<p>The PDF can then be viewed at http://localhost:5500/static/output.pdf</p>
 <p>Happy templating!</p>
 """
 
