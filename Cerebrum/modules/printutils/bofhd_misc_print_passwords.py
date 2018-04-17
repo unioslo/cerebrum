@@ -36,7 +36,7 @@ import tempfile
 
 import cereconf
 
-from Cerebrum.modules.templates.config import config as tmpl_config
+from Cerebrum.modules.templates import config as tmpl_config
 from Cerebrum.modules.templates import renderers
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.errors import CerebrumError
@@ -52,7 +52,7 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands = {}
     parent_commands = False
 
-    def __get_template(self, selection):
+    def __get_template(self, selection, template_config):
         u""" Get a template.
 
         :param str selection:
@@ -62,7 +62,7 @@ class BofhdExtension(BofhdCommonMethods):
         :return list,dict: A template dict or list of template descriptions.
 
         """
-        tpl_options = tmpl_config.print_password_templates
+        tpl_options = template_config.print_password_templates
 
         # Numeric selection
         try:
@@ -174,7 +174,7 @@ class BofhdExtension(BofhdCommonMethods):
     def _get_mappings(self, account, password, template):
         raise NotImplementedError
 
-    def _make_password_document(self, tpl, account, password):
+    def _make_password_document(self, tpl, tpl_config, account, password):
         """ Make the password document to print.
 
         :param str tpl:
@@ -206,7 +206,7 @@ class BofhdExtension(BofhdCommonMethods):
             barcode_file_path = os.path.join(tmp_dir, mappings['barcode_file'])
             try:
                 renderers.render_barcode(
-                    tmpl_config, account.entity_id, barcode_file_path
+                    tpl_config, account.entity_id, barcode_file_path
                 )
             except Exception as msg:
                 self.logger.error(
@@ -222,7 +222,7 @@ class BofhdExtension(BofhdCommonMethods):
         )
         try:
             pdf_file = renderers.html_template_to_pdf(
-                tmpl_config, tmp_dir, tpl['file'], mappings,
+                tpl_config, tmp_dir, tpl['file'], mappings,
                 lang, static_files, pdf_abspath
             )
             return pdf_file
@@ -279,18 +279,18 @@ class BofhdExtension(BofhdCommonMethods):
 
         """
         all_args = list(args[:])
-
+        template_config = tmpl_config.get_config()
         # Ask for template argument
         if not all_args:
             mapping = [(("Alternatives",), None)]
             n = 1
-            for t in tmpl_config['print_password_templates']:
+            for t in template_config['print_password_templates']:
                 mapping.append(((t.get('desc'),), n))
                 n += 1
             return {'prompt': "Choose template #",
                     'map': mapping,
                     'help_ref': 'print_select_template'}
-        tpl = self.__get_template(all_args.pop(0))
+        tpl = self.__get_template(all_args.pop(0), template_config)
 
         # Ask for printer argument
         if not self._get_printer(session, tpl):
@@ -353,7 +353,8 @@ class BofhdExtension(BofhdCommonMethods):
 
         """
         args = list(args[:])
-        template = self.__get_template(args.pop(0))
+        template_config = tmpl_config.get_config()
+        template = self.__get_template(args.pop(0), template_config)
         destination = self._get_printer(operator, template)
         if not destination:
             destination = args.pop(0)
@@ -379,6 +380,7 @@ class BofhdExtension(BofhdCommonMethods):
             documents.append(
                 self._make_password_document(
                     template,
+                    template_config,
                     account,
                     pwd['password']))
             ret.append(

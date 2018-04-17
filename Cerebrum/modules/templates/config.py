@@ -131,6 +131,3 @@ def get_config(config_file=None, namespace=DEFAULT_TEMPLATES_CONFIG):
     else:
         loader.read(templates_config, root_ns=namespace)
     return templates_config
-
-
-config = get_config()
