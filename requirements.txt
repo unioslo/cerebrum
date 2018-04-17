@@ -10,7 +10,7 @@ flask-restplus
 functools32
 gunicorn
 Jinja2
-jsonschema
+jsonschema==2.6.0
 lxml
 nose
 phonenumbers
