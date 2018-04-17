@@ -11,7 +11,7 @@ functools32
 gunicorn
 Jinja2
 jsonschema
-lxml
+lxml==4.2.1
 nose
 phonenumbers
 pika
