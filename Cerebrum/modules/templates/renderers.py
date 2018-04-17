@@ -50,9 +50,9 @@ def render_pdf(config, src, dest):
     intelligently, all files referenced within the HTML-file must be present
     in the same folder.
 
-    @param config: TemplatesConfig-object/dict built by create_template_config.
-    @param src: absolute path to a HTML-file.
-    @param dest: absolute path to the PDF-file to render.
+    :param config: TemplatesConfig-object/dict built by create_template_config.
+    :param src: absolute path to a HTML-file.
+    :param dest: absolute path to the PDF-file to render.
     """
     Popen(
         config['render_pdf_cmd'].format(src=src, dest=dest), shell=True
@@ -63,9 +63,9 @@ def render_barcode(config, number, dest):
     """
     Render a barcode image in PNG-format from a number.
 
-    @param config: TemplatesConfig-object/dict built by create_template_config.
-    @param number: int number used to generate the barcode.
-    @param dest: absolute path to the PNG-file to render.
+    :param config: TemplatesConfig-object/dict built by create_template_config.
+    :param number: int number used to generate the barcode.
+    :param dest: absolute path to the PNG-file to render.
     """
     Popen(
         config['render_barcode_cmd'].format(number=number, dest=dest),
@@ -79,13 +79,13 @@ def render_to_file(config, file_path, template_name, tmpl_vars, lang=None):
     When rendering a HTML-based template that relies on the presence of
     static files, use render_html_to_file instead.
 
-    @param config: TemplatesConfig-object/dict built by create_template_config.
-    @param file_path: absolute path to file.
-    @param template_name: name of the template.
-    @param tmpl_vars: dict of vars to be used when rendering template.
-    @param lang: language code to use if template has
+    :param config: TemplatesConfig-object/dict built by create_template_config.
+    :param file_path: absolute path to file.
+    :param template_name: name of the template.
+    :param tmpl_vars: dict of vars to be used when rendering template.
+    :param lang: language code to use if template has
            language-specific versions, eg. "en"/"no".
-    @return: absolute file path of the output file.
+    :returns: absolute file path of the output file.
     """
     rendered_template = render(config, template_name, tmpl_vars, lang)
     with io.open(file_path, 'w') as f:
@@ -99,14 +99,14 @@ def render_html_to_file(config, folder, template_name, tmpl_vars,
     Renders a HTML-based template, along with the required static files,
     into a folder.
 
-    @param config: TemplatesConfig-object/dict built by create_template_config.
-    @param folder: The folder to generate html and static files.
-    @param template_name: Name of the template.
-    @param tmpl_vars: Dict of vars to be used when rendering template.
-    @param lang: Language code to use if template has
+    :param config: TemplatesConfig-object/dict built by create_template_config.
+    :param folder: The folder to generate html and static files.
+    :param template_name: Name of the template.
+    :param tmpl_vars: Dict of vars to be used when rendering template.
+    :param lang: Language code to use if template has
            language-specific versions, eg. "en"/"no".
-    @param static_files: List of required static files to copy.
-    @return:
+    :param static_files: List of required static files to copy.
+    :returns: absolute file path of the output file.
     """
     file_path = os.path.join(folder, template_name)
     rendered_html_file = render_to_file(
@@ -119,15 +119,15 @@ def render_html_to_file(config, folder, template_name, tmpl_vars,
 def html_template_to_pdf(config, folder, template_name, tmpl_vars,
                          lang=None, static_files=[], pdf_abspath=None):
     """
-    @param config: TemplatesConfig-object/dict built by create_template_config.
-    @param folder: The folder to generate html and static files.
-    @param template_name: Name of the template.
-    @param tmpl_vars: Dict of vars to be used when rendering template.
-    @param lang: Language code to use if template has
+    :param config: TemplatesConfig-object/dict built by create_template_config.
+    :param folder: The folder to generate html and static files.
+    :param template_name: Name of the template.
+    :param tmpl_vars: Dict of vars to be used when rendering template.
+    :param lang: Language code to use if template has
            language-specific versions, eg. "en"/"no".
-    @param static_files: List of required static files to copy.
-    @param pdf_abspath: Path to pdf file.
-    @return: Path to pdf file. If pdf_abspath is None, this will be placed
+    :param static_files: List of required static files to copy.
+    :param pdf_abspath: Path to pdf file.
+    :returns: Path to pdf file. If pdf_abspath is None, this will be placed
              inside the passed folder path.
     """
     html_file_path = render_html_to_file(

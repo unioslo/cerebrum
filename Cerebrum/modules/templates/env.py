@@ -19,22 +19,20 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from __future__ import unicode_literals
+import os
+import shutil
+from os.path import isfile, join
+
 from jinja2 import (Environment,
                     FileSystemLoader,
                     StrictUndefined,
                     nodes)
 from jinja2.ext import Extension
-import os
-from os.path import isfile, join
-import shutil
 
 
 class StylesExtension(Extension):
     # a set of names that trigger the extension.
     tags = set(['styles'])
-
-    def __init__(self, environment):
-        super(StylesExtension, self).__init__(environment)
 
     def parse(self, parser):
         lineno = next(parser.stream).lineno
