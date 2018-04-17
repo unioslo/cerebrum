@@ -7,11 +7,13 @@ Launches a web-server that serves the template-file with live reloading.
 
 import json
 import os
-import formic
-from livereload import Server, shell
-from flask import Flask, render_template, request
-from distutils.dir_util import copy_tree
 from subprocess import Popen
+from distutils.dir_util import copy_tree
+
+import formic
+from flask import Flask, request
+from livereload import Server, shell
+
 from env import create_environment
 
 render_pdf_cmd = 'google-chrome --no-sandbox --headless --no-margins --disable-gpu --print-to-pdf=/static/output.pdf file:///static/pdf_tmp.html'
