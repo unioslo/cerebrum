@@ -4,5 +4,5 @@ pep8
 pylint
 pytest
 pytest-cov
-pytest-flask
+pytest-flask==0.10.0
 pytest-watch
