@@ -1,5 +1,5 @@
 nose
-coverage
+coverage==4.5.1
 pep8
 pylint
 pytest
