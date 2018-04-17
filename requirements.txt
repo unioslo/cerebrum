@@ -24,7 +24,7 @@ pytz
 PyYAML
 raven
 requests
-rpclib==2.7.0-beta
+rpclib==2.8.0-rc
 sasl
 six>=1.10
 smbpasswd
