@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2016 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,7 +30,7 @@ from Cerebrum.modules.templates import mappers
 
 class BofhdExtension(base.BofhdExtension):
     def _get_printer(self, session, template):
-        u""" Get printer preset.
+        """ Get printer preset.
 
         UIA doesn't actually print the files, but copies them onto a file
         exchange server. We just need a placeholder printer name here to
@@ -70,7 +70,7 @@ class BofhdExtension(base.BofhdExtension):
         return mappings
 
     def _get_mappings(self, account, password, tpl):
-        u""" Get mappings for a given template. """
+        """ Get mappings for a given template. """
         mappings = super(BofhdExtension, self)._get_mappings(
             account, password, tpl
         )

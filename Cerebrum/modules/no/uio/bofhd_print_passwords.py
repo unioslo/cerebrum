@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains a password print command for UiO. """
-
+from __future__ import unicode_literals
 import cereconf
 
 import Cerebrum.modules.printutils.bofhd_misc_print_passwords as base
@@ -29,21 +29,21 @@ from Cerebrum.modules.templates import mappers
 
 class BofhdExtension(base.BofhdExtension):
 
-    u""" Alter how password letters are printed at UiO. """
+    """ Alter how password letters are printed at UiO. """
 
     def _get_default_printer(self, session):
-        u""" Get a default printer for the prompt. """
+        """ Get a default printer for the prompt. """
         previous = super(BofhdExtension, self)._get_default_printer(session)
         return previous or 'pullprint'
 
     def _get_printer(self, session, template):
-        u""" Get printer preset. """
+        """ Get printer preset. """
         if template.get('type', '') == 'letter':
             return cereconf.PRINT_PRINTER
         return 'pullprint'
 
     def _can_set_spool_user(self, session, template):
-        u""" Can spool user be set? """
+        """ Can spool user be set? """
         return self._get_printer(session, template) == 'pullprint'
 
     def _get_group_account_mappings(self, account):
@@ -72,7 +72,7 @@ class BofhdExtension(base.BofhdExtension):
         return mappings
 
     def _get_mappings(self, account, password, tpl):
-        u""" Get mappings for a given template.
+        """ Get mappings for a given template.
 
         :param Cerebrum.Account account: The account to generate mappings for
         :param str password: The account's password
