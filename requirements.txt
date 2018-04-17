@@ -3,7 +3,7 @@ backports.ssl-match-hostname
 celery
 cffi
 cx-Oracle
-egenix-mx-base
+egenix-mx-base==3.2.9
 flanker
 Flask>=0.11.0
 flask-restplus
