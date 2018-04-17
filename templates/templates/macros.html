@@ -1,0 +1,108 @@
+{% macro letter_header(lang, sender) %}
+    <header class="header">
+	<div class="container">
+	    <div class="row">
+		<div class="col-6">
+		    <div class="addresses">
+                <address class="addresses__recipient">
+                    <p><b>{{ recipient(lang) }}</b></p>
+                    <p>{{ fullname }}</p>
+                    <p>{{ address_line2 }}</p>
+                    <p>{{ address_line3 }}</p>
+                    <p>{{ zip }} {{ city }}</p>
+                    <p>{{ country }}</p>
+                </address>
+                <address class="addresses__sender">
+                    {{ from(lang) }} {{ sender }}
+                </address>
+		    </div>
+		</div>
+		<div class="col-2">
+		    <div class="header__serialno">
+			    {{ serial_no }}
+		    </div>
+		</div>
+		<div class="col-2">
+		    <div class="header__barcode">
+                <div class="header__barcode__inner">
+                    <p class="huge-a">A</p>
+                    <img src="{{ image(barcode_file) }}" class="barcode-image">
+                </div>
+		    </div>
+		</div>
+		<div class="col-2">
+		    <div class="header__stamp">
+			<img src={{ image("frankopatrykk.png") }}
+			     class="stamp-image"/>
+			<p>911000/211</p>
+		    </div>
+		</div>
+	    </div>
+	</div>
+    </header>
+{% endmacro %}
+
+{% macro image(img) %}
+    {{ static_prefix }}{{ img }}
+{% endmacro %}
+
+{% macro recipient(lang) %}
+    {% if lang == 'no' %}
+        Mottaker:
+    {% elif lang == 'nn' %}
+        Mottakar:
+    {% elif lang == 'en' %}
+        To:
+    {% endif %}
+{% endmacro %}
+
+{% macro from(lang) %}
+    {% if lang == 'no' %}
+        Avsender:
+    {% elif lang == 'nn' %}
+        Avsendar:
+    {% elif lang == 'en' %}
+        From:
+    {% endif %}
+{% endmacro %}
+
+{% macro name_birthdate() %}
+    <div class="col-6">
+        <br>
+        <p><b>{{ fullname }}</b></p>
+    </div>
+    <div class="col-6">
+        <br>
+        <p><b>{{ birthdate }}</b></p>
+    </div>
+{% endmacro %}
+
+{% macro user_info(username_tag, password_tag, email_tag=None) %}
+    <div class="col-3">
+        <div class="text-small-margin">
+            {{ username_tag }}:
+        </div>
+        <div class="text-small-margin">
+            {{ password_tag }}:
+        </div>
+        {% if email_tag != None %}
+            <div class="text-small-margin">
+            {{ email_tag }}:
+            </div>
+        {% endif %}
+    </div>
+    <div class="col-9">
+        <div class="text-small-margin username">
+            {{ username }}
+        </div>
+        <div class="text-small-margin password">
+            {{ password }}
+        </div>
+        {% if email_tag != None %}
+            <div class="text-small-margin">
+            {{ email_adr }}
+            </div>
+        {% endif %}
+        </div>
+    <div class="col-12"><br></div>
+{% endmacro %}

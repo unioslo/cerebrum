@@ -83,8 +83,8 @@ def _get_print_log():
     global __print_log
     if __print_log is None or not os.path.isfile(__print_log):
         fd, __print_log = tempfile.mkstemp(
-            prefix='cerebrum_print_{}'.format(time.time()))
-        fd.close()
+            prefix='cerebrum_print_{}'.format(time.time())
+        )
     return __print_log
 
 

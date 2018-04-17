@@ -1,0 +1,42 @@
+{% import "macros.html" as macros with context %}
+
+<html>
+    <head>
+	{% block head %}
+	    {% styles "papersheet.css" %}
+	{% endblock %}
+    </head>
+    <body>
+	<section class="sheet">
+
+	    {% block letter_header %}{% endblock %}
+
+	    <main class="main">
+            <div class="container">
+                <div class="row">
+                    {% block logo %}{% endblock %}
+                    {% block body %}{% endblock %}
+                <div class="col-12">
+                    <div class="signature">
+                        {% block signature %}{% endblock %}
+                    </div>
+                </div>
+                </div>
+            </div>
+	    </main>
+
+	    <footer class="footer">
+            <div class="container">
+                <div class="row">
+                <div class="col-12">
+                    {% block footer %}{% endblock %}
+                </div>
+                </div>
+            </div>
+	    </footer>
+
+	</section>
+    </body>
+</html>
+
+
