@@ -7,7 +7,7 @@ egenix-mx-base
 flanker
 Flask>=0.11.0
 flask-restplus
-functools32
+functools32==3.2.3-2
 gunicorn
 Jinja2
 jsonschema
