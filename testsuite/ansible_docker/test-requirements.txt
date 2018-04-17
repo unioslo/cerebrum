@@ -2,7 +2,7 @@ nose
 coverage
 pep8
 pylint
-pytest
+pytest==3.5.0
 pytest-cov
 pytest-flask
 pytest-watch
