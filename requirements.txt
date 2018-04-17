@@ -27,7 +27,7 @@ requests
 rpclib==2.7.0-beta
 sasl
 six>=1.10
-smbpasswd
+smbpasswd==1.0.2
 statsd>=3.2.1
 suds
 Twisted==10.2.0
