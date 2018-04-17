@@ -21,7 +21,7 @@ pyOpenSSL
 pytest
 python-ldap
 pytz
-PyYAML
+PyYAML==3.12
 raven
 requests
 rpclib==2.7.0-beta
