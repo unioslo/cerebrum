@@ -1,5 +1,5 @@
 aniso8601
-backports.ssl-match-hostname
+backports.ssl-match-hostname==3.5.0.1
 celery
 cffi
 cx-Oracle
