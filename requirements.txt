@@ -29,5 +29,5 @@ sasl
 six>=1.10
 smbpasswd
 statsd>=3.2.1
-suds
+suds==0.4
 Twisted==10.2.0
