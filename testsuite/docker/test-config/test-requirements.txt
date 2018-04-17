@@ -1,6 +1,6 @@
 nose
 coverage
-pep8
+pep8==1.7.1
 pylint
 pytest
 pytest-cov
