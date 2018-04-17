@@ -71,9 +71,7 @@ class BofhdExtension(base.BofhdExtension):
 
     def _get_mappings(self, account, password, tpl):
         """ Get mappings for a given template. """
-        mappings = super(BofhdExtension, self)._get_mappings(
-            account, password, tpl
-        )
+        mappings = mappers.get_account_mappings(account, password)
 
         if account.owner_type == self.const.entity_group:
             mappings.update(self._get_group_account_mappings(account,
