@@ -20,7 +20,7 @@ pygpgme
 pyOpenSSL
 pytest
 python-ldap
-pytz
+pytz==2018.4
 PyYAML
 raven
 requests
