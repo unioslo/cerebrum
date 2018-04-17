@@ -22,7 +22,7 @@ pytest
 python-ldap
 pytz
 PyYAML
-raven
+raven==6.6.0
 requests
 rpclib==2.7.0-beta
 sasl
