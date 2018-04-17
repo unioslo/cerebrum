@@ -1,6 +1,6 @@
 aniso8601
 backports.ssl-match-hostname
-celery
+celery==4.1.0
 cffi
 cx-Oracle
 egenix-mx-base
