@@ -1,3 +1,9 @@
+2018-04-18    <cerebrum@gagarin.uit.no>
+
+	* process_uit_email.py (calculate_uit_emails): Rewrote how to
+	check for timelonnet. the previous check did not work as intended
+	if a person had more than 1 affiliation to an ou where one of the affiliations had timelonnet status
+
 2018-04-17    <cerebrum@gagarin.uit.no>
 
 	* process_uit_email.py (calculate_uit_emails): Rewrote how we

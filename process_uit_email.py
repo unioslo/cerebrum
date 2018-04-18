@@ -198,21 +198,26 @@ def calculate_uit_emails(uname,affs):
     #logger.debug("in calculate_uit_emails:%s" % affs)
     for (aff,sko,status) in affs:
         #logger.debug("status is:%s" % status)
+        #logger.debug("sko is:%s" % sko)
+        #logger.debug("aff is:%s" % aff)
         # set cnaddr == true if you are an employee (but not if you are a "timelønnet employee")
-        # why only check timelønnet status against status[0]?
-        # if you only have 1 status, then status[0] == timelønnet
-        # if you have more than 1 status, then timelønnet is only 1 of the status values
-        # and the rest is something else. the 'something else' means that you get cnaddr.
-        if ((aff==co.affiliation_ansatt) and (co.affiliation_status_timelonnet_midlertidig != status[0])):
-            cnaddr = True
-            # even if you are an employee you do not get cnaddr==True if you belong to a stedkode defined in EMPLOYEE_FILTER_EXCHANGE_SKO
-            for flt in cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO:
-                #TBD hva om bruker har flere affs og en av dem matcher?
-                #TBD kanskje også se på priority mellom affs?
-                logger.debug("Filter: %s on %s" % (flt,sko))
-                if sko.startswith(flt):
-                    logger.warning("employee %s has affiliation with sko(%s) that is in cn-filterset %s" % (uname,sko,flt))
-                    cnaddr=False
+        if (aff==co.affiliation_ansatt):
+            valid_cnaddr_aff = False
+            for item in status:
+                if item != co.affiliation_status_timelonnet_midlertidig:
+                    valid_cnaddr_aff = True
+            if valid_cnaddr_aff == True:
+                #and (co.affiliation_status_timelonnet_midlertidig != status[0]) and (len(status)==1)):
+                #logger.debug("i am employee and not timelonnet")
+                cnaddr = True
+                # even if you are an employee you do not get cnaddr==True if you belong to a stedkode defined in EMPLOYEE_FILTER_EXCHANGE_SKO
+                for flt in cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO:
+                    #TBD hva om bruker har flere affs og en av dem matcher?
+                    #TBD kanskje også se på priority mellom affs?
+                    #logger.debug("Filter: %s on %s" % (flt,sko))
+                    if sko.startswith(flt):
+                        logger.warning("employee %s has affiliation with sko(%s) that is in cn-filterset %s" % (uname,sko,flt))
+                        cnaddr=False
 
                 
         elif(co.affiliation_status_student_drgrad in status):
@@ -270,7 +275,7 @@ def process_mail():
     phone_list = {}
     # get all account affiliations that belongs to UiT
     aff_cached=aff_skipped=0
-    for row in  ac.list_accounts_by_type(filter_expired=True,                                       
+    for row in  ac.list_accounts_by_type(filter_expired=True,
                                          primary_only=False,
                                          fetchall=False):
         # get person_id
