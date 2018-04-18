@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: iso-8859-1 -*-
 
 # Copyright 2003 University of Oslo, Norway
 #
@@ -20,18 +20,20 @@
 
 """This module provides method for parsing the studconfig.xml file and
 translating it to an internal datastructure"""
-
+from __future__ import unicode_literals
 import sys
-import xml.sax
 import pprint
+
+from six import python_2_unicode_compatible
+
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
 from Cerebrum.modules.no.uio.AutoStud.Util import LookupHelper
 from Cerebrum.modules.no.uio.AutoStud.Select import SelectTool
-from Cerebrum.modules.no.uio.AutoStud import DiskTool
 from Cerebrum.modules import PosixGroup
 from Cerebrum import Errors
 
 pp = pprint.PrettyPrinter(indent=4)
+
 
 class Config(object):
     def __init__(self, autostud, logger, cfg_file=None, debug=0):
@@ -68,14 +70,14 @@ class Config(object):
             profilename2profile[p.name] = p
             p.post_config(self.lookup_helper, self)
             if p.priority is not None:
-                self.using_priority=True
+                self.using_priority = True
             self.profilename2profile[p.name] = p
         for p in self.profiles:
             p.expand_super(profilename2profile)
             if self.using_priority and p.priority is None:
                 self.add_error("Priority used, but not defined for %s" % \
                                p.name)
-            
+
         self.select_tool = SelectTool(self.profiles, self._logger, self)
         # Change keys in group_defs from name to entity_id
         pg = PosixGroup.PosixGroup(self.autostud.db)
@@ -97,9 +99,10 @@ class Config(object):
             sys.exit(1)
 
     def debug_dump(self):
+        return ''
         ret = "Profile definitions:"
         for p in self.profiles:
-            ret += p.debug_dump()+"\n"
+            ret += p.debug_dump() + "\n"
         ret += "Select mappings:\n"
         for tag, sm in self.select_tool.select_map_defs.items():
             ret += "  %s\n" % tag
@@ -109,9 +112,11 @@ class Config(object):
     def add_error(self, msg):
         self._errors.append(msg)
 
+
+@python_2_unicode_compatible
 class ProfileDefinition(object):
     """Represents a profile as defined in the studconfig.xml file"""
-    
+
     def __init__(self, config, name, logger, super=None):
         self.config = config
         self.name = name
@@ -122,8 +127,8 @@ class ProfileDefinition(object):
         self.priority = None
         self.super_names = []
 
-    def __repr__(self):
-        return "Profile object(%s)" % self.name
+    def __str__(self):
+        return "ProfileDefinition object({})".format(self.name)
 
     def post_config(self, lookup_helper, config):
         self._convertToDatabaseRefs(lookup_helper, config)
@@ -133,7 +138,7 @@ class ProfileDefinition(object):
         # setting, <name of profile that gave the setting>.  This
         # allows us to detect if the setting originated from the
         # current profile, or if it originated from a super.
-        
+
         for k, v in self._settings.items():
             self._settings[k] = [(x, self.name) for x in v]
 
@@ -211,7 +216,7 @@ class ProfileDefinition(object):
                     "Conflicting priorities in %s" % self.name)
             self.priority = int(p['level'])
         if self.priority is not None:
-            del(self._settings['priority'])
+            del (self._settings['priority'])
         tmp = []
         for spread in self._settings.get("spread", []):
             tmp.append(lookup_helper.get_spread(spread['system']))
@@ -220,11 +225,11 @@ class ProfileDefinition(object):
         for group in self._settings.get("gruppe", []):
             # TODO: Should assert that entry is in group_defs
             tmp.append(lookup_helper.get_group(group['navn']))
-        self._settings["gruppe"] = tmp  
+        self._settings["gruppe"] = tmp
         tmp = []
         for group in self._settings.get("primarygroup", []):
             tmp.append(lookup_helper.get_group(group['navn']))
-        self._settings["primarygroup"] = tmp  
+        self._settings["primarygroup"] = tmp
         tmp = []
         for stedkode in self._settings.get("stedkode", []):
             tmp2 = lookup_helper.get_stedkode(stedkode['verdi'],
@@ -242,9 +247,10 @@ class ProfileDefinition(object):
             tmp.append({'quarantine': config.autostud.co.Quarantine(q['navn']),
                         'start_at': int(q.get('start_at', 0)) * 3600 * 24,
                         'scope': q.get('scope', None)})
-        self._settings["quarantine"] = tmp  
+        self._settings["quarantine"] = tmp
         for m in lookup_helper.get_lookup_errors():
             self.config.add_error(m)
+
 
 class StudconfigParser(object):
     """
@@ -269,10 +275,10 @@ class StudconfigParser(object):
     def __init__(self, config, cfg_file):
         cfg = ((['studconfig', 'default_values'], self.got_default_values),
                (['studconfig', 'disk_oversikt'], self.got_disk_oversikt),
-               (['studconfig', 'gruppe_oversikt',], self.got_gruppe_oversikt),
-               (['studconfig', 'spread_oversikt',], self.got_spread_oversikt),
-               (['studconfig', 'profil',], self.got_profil),
-               (['studconfig', 'disk_pools',], self.got_disk_pool),
+               (['studconfig', 'gruppe_oversikt', ], self.got_gruppe_oversikt),
+               (['studconfig', 'spread_oversikt', ], self.got_spread_oversikt),
+               (['studconfig', 'profil', ], self.got_profil),
+               (['studconfig', 'disk_pools', ], self.got_disk_pool),
                )
         self._config = config
         self._legal_groups = {}
@@ -300,13 +306,13 @@ class StudconfigParser(object):
                     'auto', elem_stack[-1][-1].get('default_auto', None))
                 attrs['orderby'] = attrs.get(
                     'orderby', elem_stack[-1][-1].get('default_orderby', None))
-                if not attrs['auto'] :
+                if not attrs['auto']:
                     self._config.add_error(
                         "Missing auto attribute for %s" % repr(attrs))
                 attrs['disk_kvote'] = attrs.get(
                     'disk_kvote', elem_stack[-1][-1].get(
-                    'default_disk_kvote', self._config.default_values.get(
-                    'disk_kvote_value', None)))
+                        'default_disk_kvote', self._config.default_values.get(
+                            'disk_kvote_value', None)))
                 if attrs['disk_kvote'] is not None:
                     self._config.using_disk_kvote = True
                 attrs['spreads'] = tmp_disk_spreads
@@ -323,7 +329,7 @@ class StudconfigParser(object):
                         self._config.autostud.disk_tool.append_to_pool(
                             attrs['name'], orderby=attrs.get('orderby', None),
                             **attrs2)
-                        
+
     def got_gruppe_oversikt(self, dta, elem_stack):
         for ename, txt, attrs, children in dta:
             if ename == 'gruppedef':
@@ -334,7 +340,7 @@ class StudconfigParser(object):
             else:
                 self._config.add_error(
                     "Unexpected tag %s in gruppe_oversikt" % ename)
-    
+
     def got_spread_oversikt(self, dta, elem_stack):
         for ename, txt, attrs, children in dta:
             if ename == 'spreaddef':
@@ -353,11 +359,11 @@ class StudconfigParser(object):
         for ename, txt, attrs, children in dta:
             if ename in self.profil_settings:
                 if ename == 'gruppe' and not self._legal_groups.has_key(
-                    attrs['navn']):
+                        attrs['navn']):
                     self._config.add_error("Not in groupdef: %s" % \
                                            attrs['navn'])
                 elif ename == 'spread' and not self.legal_spreads.has_key(
-                    attrs['system']):
+                        attrs['system']):
                     self._config.add_error("Not in spreaddef: %s" % \
                                            attrs['system'])
                 elif ename == 'disk_kvote':
@@ -372,11 +378,10 @@ class StudconfigParser(object):
                     if not ename2 in SelectTool.select_map_defs:
                         self._config.add_error(
                             "Unexpected tag '%s', attr=%s in %s" % (
-                            ename2, str(attrs2), repr(elem_stack)))
+                                ename2, str(attrs2), repr(elem_stack)))
                         continue
                     in_profil.add_selection_criteria(ename2, attrs2)
             else:
                 self._config.add_error("Unexpected tag %s in %s" % (
                     ename, repr(elem_stack)))
         self._config.profiles.append(in_profil)
-

@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 """How this stuff works:
 
@@ -15,9 +15,15 @@ apropriate, making SelectMap*._select_map look like:
   { <studieprogram="TVIJF">: <profile> }
 
 """
+from __future__ import unicode_literals
 import pprint
+
+from six import python_2_unicode_compatible
+
 pp = pprint.PrettyPrinter(indent=4)
 
+
+@python_2_unicode_compatible
 class SelectMapSuper(object):
     """SelectMap* provides the rules to match a <select> line in
     studconfig.xml with a line from merged_persons.xml.
@@ -25,9 +31,10 @@ class SelectMapSuper(object):
 
     def __init__(self):
         self._select_map = {}
-    
+
     def __str__(self):
-        return "c=%s, select_map: %s" % (self.__class__.__name__, pp.pformat(self._select_map))
+        return "c={}, select_map: {}".format(
+            self.__class__.__name__, pp.pformat(self._select_map))
 
     def _append_match(self, lst, profiles, nivakode=0):
         if isinstance(profiles, (list, tuple)):
@@ -42,12 +49,14 @@ class SelectMapSuper(object):
             niva = 50
         elif niva >= 100 and niva < 500: # Laveregrad, Cand.Mag, Bachelor
             niva = 100
-        elif niva >= 500 and niva < 900: # Høyeregrad, Profesjon, hovedfag, master
+        elif niva >= 500 and niva < 900: # HÃ¸yeregrad, Profesjon, hovedfag, master
             niva = 500
         elif niva >= 900: # PHD
             niva = 900
         return niva
 
+
+@python_2_unicode_compatible
 class SelectMapTag(SelectMapSuper):
     """Map studconfig.xml:
       <select><aktiv studieprogram="JFM5-RV"/></select>
@@ -109,18 +118,19 @@ class SelectMapTag(SelectMapSuper):
                         break
 
                 if n_matches == len(select_attrs):
-                    self._logger.debug2("OK: %s -> %s" % (select_attrs, profile))
+                    self._logger.debug2("OK: %s -> %s", select_attrs, profile)
                     self._append_match(matches, profile, pdta)
         return matches
 
     def __str__(self):
-        return "config_attr: %s, match_tag: %s, match_attr: %s, %s" % (
+        return "config_attr: {}, match_tag: {}, match_attr: {}, {}".format(
             self._config_attr, self._match_tag, self._match_attr,
             super(SelectMapTag, self).__str__())
 
+
 class SelectMapAktivtSted(SelectMapSuper):
-    def __init__(self, ):
-        self._select_map = {}
+    def __init__(self):
+        super(SelectMapAktivtSted, self).__init__()
         
     def _append_match(self, lst, profiles, fs_info):
         nivakode = self._normalize_nivakode(fs_info.get('studienivakode', 0))
@@ -191,6 +201,7 @@ class SelectMapAktivtSted(SelectMapSuper):
                         continue
                     self._append_match(matches, select_attrs['profiles'], fs_info)
         return matches
+
 
 class SelectMapEmnestudSted(SelectMapAktivtSted):
     def get_matches(self, person_info, member_groups=None, person_affs=None):
@@ -264,9 +275,10 @@ class SelectMapTilbudSted(SelectMapAktivtSted):
                     self._append_match(matches, select_attrs['profiles'], fs_info)
         return matches
 
+
 class SelectMapEvuSted(SelectMapAktivtSted):
     def set_select_map(self, select_attrs, profile):
-        self._logger.debug2("EVU Map: %s -> %s" % (select_attrs, profile))
+        self._logger.debug("EVU Map: %s -> %s", select_attrs, profile)
         super(SelectMapEvuSted, self).set_select_map(select_attrs, profile)
     
     def get_matches(self, person_info, member_groups=None, person_affs=None):
@@ -277,10 +289,11 @@ class SelectMapEvuSted(SelectMapAktivtSted):
                                     int(entry['gruppenr_adm_ansvar']))
             for select_attrs in self._select_map.values():
                 if sko in select_attrs['steder']:
-                    # TBD: finnes det noen nivåkode vi kan bruke?
+                    # TBD: finnes det noen nivÃ¥kode vi kan bruke?
                     super(SelectMapAktivtSted, self)._append_match(
                         matches, select_attrs['profiles'])
         return matches
+
 
 class SelectMapAny(SelectMapSuper):
     def set_select_map(self, select_attrs, profile):
@@ -292,7 +305,8 @@ class SelectMapAny(SelectMapSuper):
         for p in self._select_map.get('ALL', []):
             self._append_match(matches, p)
         return matches
-    
+
+
 class SelectMapGroupMember(SelectMapSuper):
     def set_select_map(self, select_attrs, profile):
         for s_attr in select_attrs:
@@ -391,7 +405,7 @@ class SelectTool(object):
         """Append all v in values to tgt_list iff they are not already
         there.  We also store the nivakode for the first time the
         value was seen.  We store the name of all profiles that has
-        this value at this nivåkode
+        this value at this nivÃ¥kode
         """
         if not isinstance(values, (tuple, list)):
             values = (values,)
@@ -414,10 +428,10 @@ class SelectTool(object):
         for mtype, sm in self.select_map_defs.items():
             tmp = sm.get_matches(person_info, member_groups=member_groups,
                                  person_affs=person_affs)
-            self._logger.debug2("check-type: %s -> %s" % (mtype, tmp))
+            self._logger.debug("check-type: %s -> %s", mtype, tmp)
             matches.extend(tmp)
 
-        self._logger.debug2("pre-priority filter: m= %s" % matches)
+        self._logger.debug("pre-priority filter: m= %s", matches)
         if self._pc.using_priority:
             # Only use matches at prioritylevel with lowest value
             tmp = []
@@ -431,9 +445,8 @@ class SelectTool(object):
             self._logger.debug2("Priority filter gave %i -> %i entries" % (
                 len(matches), len(tmp)))
             matches = tmp
-
-        self._logger.debug("Matching settings: %s" % matches)
-        # Sort matches on nivåkode, and remove duplicates
+        self._logger.debug("Matching settings: %s",  matches)
+        # Sort matches on nivÃ¥kode, and remove duplicates
         matches.sort(self._matches_sort)
         matched_settings = {}
         for match in matches:

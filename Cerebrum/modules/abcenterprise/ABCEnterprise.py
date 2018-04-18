@@ -23,6 +23,7 @@ import getopt
 
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
 
+
 # TODO:
 # * Map types to variables i <properties>. Check these variables against
 #   allowed types defined in abcconf. Make assert_type()?
@@ -73,7 +74,7 @@ class ABCPreParser:
             opts, args = getopt.getopt(argv,
                                        self.short_args,
                                        self.long_args)
-        except getopt.GetoptError, e:
+        except getopt.GetoptError as e:
             self.logger.warning(e)
             self.usage(1)
 
@@ -92,11 +93,11 @@ class ABCPreParser:
         self.settings.set('dryrun', dryrun)
 
     def usage(self, exit_code=0):
-        print """
+        print("""
         -h, --help         This message
         -d, --dry-run      Dry-run import
         -f, --file <file>  File to parse
-        """
+        """)
         sys.exit(exit_code)
 
     def get_settings(self):

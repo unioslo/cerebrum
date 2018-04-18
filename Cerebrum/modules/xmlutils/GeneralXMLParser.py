@@ -47,7 +47,6 @@ class GeneralXMLParser(xml.sax.ContentHandler):
         self.top_elementstack = []
         self.cfg = cfg
         self._in_dta = None
-
         parser = xml.sax.make_parser()
         parser.setContentHandler(self)
         # Don't resolve external entities
@@ -62,10 +61,11 @@ class GeneralXMLParser(xml.sax.ContentHandler):
         self.var = ch.strip() or None
 
     def startElement(self, ename, attrs):
+        attrs_dict = dict(attrs)
         self.ename = ename
         self._elementstack.append(ename)
         if not self._in_dta:
-            self.top_elementstack.append((ename, attrs))
+            self.top_elementstack.append((ename, attrs_dict))
             for loc, cb in self.cfg:
                 if loc == self._elementstack:
                     self._in_dta = loc
@@ -77,7 +77,7 @@ class GeneralXMLParser(xml.sax.ContentHandler):
         else:
             children = []
             self._child_stack.append(children)
-            self._tmp_pos.append([ename, self.var, attrs, children])
+            self._tmp_pos.append([ename, self.var, attrs_dict, children])
             self.var = None
             self._tmp_pos = children
 
@@ -102,5 +102,5 @@ class GeneralXMLParser(xml.sax.ContentHandler):
     @staticmethod
     def dump_tree(dta, level=0):
         for ename, attrs, children in dta:
-            print "%s%s %s" % (" " * level * 2, ename, attrs)
+            print("{}{} {}".format(" " * level * 2, ename, attrs))
             GeneralXMLParser.dump_tree(children, level + 1)

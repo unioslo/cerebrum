@@ -37,7 +37,6 @@ class ABCErrorInData(DocstringException):
 
 
 class Object2Cerebrum(object):
-
     __metaclass__ = auto_super
 
     def __init__(self, source_system, logger):
@@ -70,11 +69,11 @@ class Object2Cerebrum(object):
         for id_type in id_dict.keys():
             if id_type is None:
                 raise ABCErrorInData(
-                    "None not allowed as type: '%s'" % id_type)
+                    "None not allowed as type: '{}'".format(id_type))
             elif id_dict[id_type] is None:
                 raise ABCErrorInData(
-                    "None not alowed as a value: '%s': '%s'" %
-                    (id_type, id_dict[id_type]))
+                    "None not alowed as a value: '{}': '{}'"
+                        .format(id_type, id_dict[id_type]))
             entity.populate_external_id(self.source_system,
                                         id_type,
                                         id_dict[id_type])
@@ -96,11 +95,11 @@ class Object2Cerebrum(object):
         for tag_type in tag_dict.keys():
             if tag_type is None:
                 raise ABCErrorInData(
-                    "None not allowed as type: '%s'" % tag_type)
+                    "None not allowed as type: '{}'".format(tag_type))
             elif tag_dict[tag_type] is None:
                 raise ABCErrorInData(
-                    "None not alowed as a value: '%s': '%s'" %
-                    (tag_type, tag_dict[tag_type]))
+                    "None not alowed as a value: '{}': '{}'"
+                        .format(tag_type, tag_dict[tag_type]))
             # Add other actions to the following list if general events.
             # Otherwise override through Mixin
             if tag_type == "ADD_SPREAD":
@@ -113,7 +112,8 @@ class Object2Cerebrum(object):
                                              []).append(spread)
             else:
                 raise ABCErrorInData(
-                    "Type: '%s' is not known in _process_tags()" % tag_type)
+                    "Type: '{}' is not known in _process_tags()"
+                        .format(tag_type))
 
     def _check_entity(self, entity, data_entity):
         """Check for conflicting entities or return found or None."""
@@ -133,7 +133,7 @@ class Object2Cerebrum(object):
                 ou.find(id)
                 found = ou.get_external_id(id_type=id_type)
                 raise ABCMultipleEntitiesExistsError(
-                    "found: '%s', current: '%s'" % (found, data_entity))
+                    "found: '{}', current: '{}'".format(found, data_entity))
             entity_id = id
 
         if entity_id:
@@ -158,7 +158,7 @@ class Object2Cerebrum(object):
         for cont in contact_info.keys():
             if cont in getattr(abcconf, 'WITH_PHONE_FILTER', ()):
                 contact_info[cont] = self._filter_phone_number(
-                                                            contact_info[cont])
+                    contact_info[cont])
             entity.populate_contact_info(self.source_system, type=cont,
                                          value=contact_info[cont])
 
@@ -185,7 +185,7 @@ class Object2Cerebrum(object):
         self._ou.write_db()
 
         # Handle names
-        for type, name in ou.ou_names.iteritems():
+        for type, name in ou.ou_names.items():
             self._ou.add_name_with_language(name_variant=type,
                                             name_language=self.co.language_nb,
                                             name=name)
@@ -193,7 +193,7 @@ class Object2Cerebrum(object):
         self._add_external_ids(self._ou, ou._ids)
         self._add_entity_addresses(self._ou, ou._address)
         self._add_entity_contact_info(self._ou, ou._contacts)
-        return (self._ou.write_db(), self._ou.entity_id)
+        return self._ou.write_db(), self._ou.entity_id
 
     def set_ou_parent(self, child_entity_id, perspective, parent):
         """Set a parent ID on an OU. Parent may be an entity_id or a
@@ -219,11 +219,12 @@ class Object2Cerebrum(object):
             # We found one
             self._person.find(entity_id)
         # else:
-            # Noone in the database could be found with our IDs.
-            # This is fine, write_db() figures it out.
+        # Noone in the database could be found with our IDs.
+        # This is fine, write_db() figures it out.
 
         if person.birth_date is None:
-            raise ABCErrorInData("No birthdate for person: %s." % person._ids)
+            raise ABCErrorInData("No birthdate for person: {}."
+                                 .format(person._ids))
 
         # Populate the person
         self._person.populate(person.birth_date, person.gender)
@@ -292,8 +293,8 @@ class Object2Cerebrum(object):
         try:
             self._person.find_by_external_id(person[0], person[1])
         except Errors.NotFoundError:
-            raise ABCErrorInData("no person with id: %s, %s" % (person[0],
-                                                                person[1]))
+            raise ABCErrorInData("no person with id: {}, {}"
+                                 .format(person[0], person[1]))
         if self._ou is None:
             self._ou = Factory.get("OU")(self.db)
         self._ou.clear()
