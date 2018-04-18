@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2006-2017 University of Oslo, Norway
+# Copyright 2006-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -54,10 +54,15 @@ These two fields will be added as extra contactinfo-tags, like this:
 """
 
 import argparse
+import logging
 import time
+
+from six import text_type
 
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
@@ -66,7 +71,17 @@ from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.access_FS import make_fs
 
 
-logger = Factory.get_logger('cronjob')
+logger = logging.getLogger(__name__)
+
+
+def text_decoder(encoding, allow_none=True):
+    def to_text(value):
+        if allow_none and value is None:
+            return None
+        if isinstance(value, bytes):
+            return value.decode(encoding)
+        return text_type(value)
+    return to_text
 
 
 def out(element, element_data, attributes={}):
@@ -78,12 +93,13 @@ def out(element, element_data, attributes={}):
         xmlwriter.dataElement(element, element_data, attributes)
 
 
-def output_OU(sko):
+def output_ou(sko):
     """Typeset exactly one OU (this happens often enough)."""
 
     xmlwriter.startElement("org")
-    out("orgid", str(cereconf.DEFAULT_INSTITUSJONSNR), {"orgidtype":
-                                                        "institusjonsnummer"})
+    out("orgid",
+        text_type(cereconf.DEFAULT_INSTITUSJONSNR),
+        {"orgidtype": "institusjonsnummer"})
     out("ouid", sko, {"ouidtype": "sko"})
     xmlwriter.endElement("org")
 
@@ -95,8 +111,7 @@ def make_sko(fakultet, institutt, avdeling):
 
 def make_id(*rest):
     """Make an ID out of a sequence."""
-
-    return ":".join([str(x) for x in rest])
+    return u":".join([text_type(x) for x in rest])
 
 
 def fnr_to_external_id(fnr, person, person_info):
@@ -166,8 +181,8 @@ def _cache_id_types():
     # <affiliation, status> -> description
     _id_type_cache["affiliation"] = dict()
     for tmp in c.fetch_constants(c.PersonAffStatus):
-        affiliation, status = int(tmp.affiliation), int(tmp)
-        _id_type_cache["affiliation"][affiliation, status] = tmp.description
+        aff, status = int(tmp.affiliation), int(tmp)
+        _id_type_cache["affiliation"][aff, status] = text_type(tmp.description)
 
 
 def get_name_type(name_type):
@@ -180,7 +195,7 @@ def get_contact_type(name):
 
 def get_person_id_type(external_id):
     # FIXME: Perhaps we ought to validate whatever is fed in here.
-    return str(external_id)
+    return text_type(external_id)
 
 
 def get_affiliation_type(affiliation, status):
@@ -229,16 +244,17 @@ def prepare_kull():
     'kull'.
 
     This function prepares a cache, mapping 'kull' IDs (studieprogramkode,
-    terminkode, årstall) to the OU associated with that particular 'kull' ID.
+    terminkode, Ã¥rstall) to the OU associated with that particular 'kull' ID.
     It also output the corresponding <group> elements.
     """
 
     logger.debug("Generating <group>-elements for kull")
     kull_cache = dict()
+    u = text_decoder(fs_db.db.encoding)
 
     for row in fs_db.info.list_kull():
-        studieprogram = str(row["studieprogramkode"])
-        terminkode = str(row["terminkode"])
+        studieprogram = u(row["studieprogramkode"])
+        terminkode = u(row["terminkode"])
         arstall = int(row["arstall"])
 
         internal_id = studieprogram, terminkode, arstall
@@ -246,7 +262,7 @@ def prepare_kull():
             continue
 
         xml_id = make_id(*internal_id)
-        name_for_humans = "Studiekull %s" % row["studiekullnavn"]
+        name_for_humans = u"Studiekull %s" % u(row["studiekullnavn"])
         sko = make_sko(*[row[x] for x in ("faknr_studieansv",
                                           "instituttnr_studieansv",
                                           "gruppenr_studieansv")])
@@ -268,16 +284,17 @@ def prepare_ue():
 
     logger.debug("Generating <group>-elements for ue")
     ue_cache = dict()
+    u = text_decoder(fs_db.db.encoding)
 
     for row in fs_db.undervisning.list_undervisningenheter():
-        id = tuple([row[field] for field in
+        id = tuple([u(row[field]) for field in
                    ("institusjonsnr", "emnekode", "versjonskode",
                     "terminkode", "arstall", "terminnr")])
         if id in ue_cache:
             continue
 
         xml_id = make_id(*id)
-        name_for_humans = "Undervisningsenhet %s" % xml_id
+        name_for_humans = u"Undervisningsenhet %s" % xml_id
         sko = make_sko(*[row[x] for x in ("faknr_kontroll",
                                           "instituttnr_kontroll",
                                           "gruppenr_kontroll")])
@@ -312,17 +329,19 @@ def fetch_external_ids(db_person):
     # with non-existing entries. Any source_system is more important than
     # None.
     system_weights = dict()
+    u = text_decoder(cerebrum_db.encoding)
     for counter, system in enumerate([int(getattr(constants, s))
                                       for s in cereconf.SYSTEM_LOOKUP_ORDER]):
         system_weights[system] = counter
     # If an id is registered to some now-unknown system (like migrate), it is
     # less important than the "official" systems.
-    unknown_weight = counter+1
-    system_weights[None] = unknown_weight+1
+    unknown_weight = counter + 1
+    system_weights[None] = unknown_weight + 1
 
     tmp = dict()
     seq = db_person.list_external_ids(entity_type=constants.entity_person)
     for entity_id, id_type, source, external_id in seq:
+        external_id = u(external_id)
         entity_id, id_type, source = map(int, (entity_id, id_type, source))
 
         e_dict = tmp.get(entity_id, dict())
@@ -358,19 +377,23 @@ def cache_person_info(db_person, db_account):
 
     logger.debug("Populating all person caches")
     logger.debug("person-id -> names")
+    u = text_decoder(cerebrum_db.encoding)
 
     person_id2names = db_person.getdict_persons_names(
         source_system=constants.system_cached,
         name_types=(constants.name_full, constants.name_last,
                     constants.name_first))
+    for k in person_id2names:
+        for v in person_id2names[k]:
+            person_id2names[k][v] = u(person_id2names[k][v])
 
-    variant = constants.work_title
+    variant = int(constants.work_title)
     for row in db_person.search_name_with_language(
                             entity_type=constants.entity_person,
                             name_variant=variant,
                             name_language=constants.language_nb):
         person_id = row["entity_id"]
-        person_id2names.setdefault(person_id, dict())[variant] = row["name"]
+        person_id2names.setdefault(person_id, dict())[variant] = u(row["name"])
 
     logger.debug("person-id -> external ids")
     # IVR 2007-11-06: We cannot blindly grab external ids, since there may be
@@ -379,8 +402,10 @@ def cache_person_info(db_person, db_account):
     person_id2external_ids = fetch_external_ids(db_person)
 
     logger.debug("fnr -> primary uname")
-    fnr2uname = db_person.getdict_external_id2primary_account(
-        constants.externalid_fodselsnr)
+    fnr2uname = dict(
+        (u(fnr), u(uname))
+        for fnr, uname in db_person.getdict_external_id2primary_account(
+                constants.externalid_fodselsnr).items())
 
     if with_email:
         logger.debug("uname -> e-mail")
@@ -393,9 +418,9 @@ def cache_person_info(db_person, db_account):
         # Helper function for ordering items.
         def lookup_order_index(system):
             i = 0
-            system = str(constants.AuthoritativeSystem(system))
+            system = text_type(constants.AuthoritativeSystem(system))
             for x in cereconf.SYSTEM_LOOKUP_ORDER:
-                if str(getattr(constants, x)) == system:
+                if text_type(getattr(constants, x)) == system:
                     return i
                 else:
                     i = i + 1
@@ -405,13 +430,14 @@ def cache_person_info(db_person, db_account):
         for x in db_person.list_contact_info(
                 contact_type=constants.contact_mobile_phone):
             eid2cell.setdefault(x['entity_id'], []).append(
-                    (x['source_system'], x['contact_value'],))
+                    (x['source_system'], u(x['contact_value']),))
 
         # Sort according to SYSTEM_LOOKUP_ORDER and pick the first.
         for x in eid2cell:
-            eid2cell[x] = sorted(eid2cell[x],
-                                 cmp=lambda p, n: lookup_order_index(p[1]) -
-                                 lookup_order_index(n[1]))[0][1]
+            eid2cell[x] = sorted(
+                eid2cell[x],
+                cmp=lambda p, n: (lookup_order_index(p[1]) -
+                                  lookup_order_index(n[1])))[0][1]
 
     extra_fields = dict()
     if extra_contact_fields is not None:
@@ -423,7 +449,7 @@ def cache_person_info(db_person, db_account):
                     contact_type=cont_type,
                     source_system=src_sys)
             for x in contact_info_entries:
-                eid2contact_field[x['entity_id']] = x['contact_value']
+                eid2contact_field[x['entity_id']] = u(x['contact_value'])
             extra_fields[contact_field['xml_name']] = eid2contact_field
 
     logger.debug("person caching complete")
@@ -548,11 +574,12 @@ def output_people():
     return person_info
 
 
-def output_all_OUs(orgname):
+def output_all_ous(orgname):
     """Output all OUs in target organization."""
 
     logger.debug("outputting all OUs")
 
+    u = text_decoder(cerebrum_db.encoding)
     ou = Stedkode.Stedkode(cerebrum_db)
     _cache_ou2sko(ou)
 
@@ -578,8 +605,8 @@ def output_all_OUs(orgname):
         xmlwriter.startElement("ou")
         out("ouid", sko, {"ouidtype": "sko"})
         # FIXME: Is there any guarantee that lang==no holds?
-        out("ouname", ou.get_name_with_language(constants.ou_name_display,
-                                                constants.language_nb),
+        out("ouname", u(ou.get_name_with_language(constants.ou_name_display,
+                                                  constants.language_nb)),
             {"ounametype": "name", "lang": "no"})
         xmlwriter.endElement("ou")
 
@@ -702,7 +729,9 @@ def sort_affiliations(sequence):
         if not sko:
             logger.warn("Aiee! There is an affiliation %s:%s with ou_id %s "
                         "but there is no sko for that ou_id",
-                        row["affiation"], row["status"], row["ou_id"])
+                        text_type(row["affiliation"]),
+                        text_type(row["status"]),
+                        row["ou_id"])
             continue
 
         result.setdefault(sko, list()).append(row)
@@ -717,7 +746,7 @@ def output_affiliation_relation(affiliation, status, sko, people, person_info):
                            {"relationtype":
                             get_affiliation_type(affiliation, status)})
     xmlwriter.startElement("subject")
-    output_OU(sko)
+    output_ou(sko)
     xmlwriter.endElement("subject")
 
     xmlwriter.startElement("object")
@@ -802,7 +831,7 @@ def output_kull_relations(kull_info, person_info):
         # Output a relation linking kull and OU:
         xmlwriter.startElement("relation", {"relationtype": "kull-ou"})
         xmlwriter.startElement("subject")
-        output_OU(sko)
+        output_ou(sko)
         xmlwriter.endElement("subject")
         xmlwriter.startElement("object")
         out("groupid", xml_id, {"groupidtype": get_group_id_type("kull")})
@@ -863,7 +892,7 @@ def output_ue_relations(ue_info, person_info):
         # Output a relation linking UE and OU:
         xmlwriter.startElement("relation", {"relationtype": "ue-ou"})
         xmlwriter.startElement("subject")
-        output_OU(sko)
+        output_ou(sko)
         xmlwriter.endElement("subject")
         xmlwriter.startElement("object")
         out("groupid", xml_id, {"groupidtype": get_group_id_type("ue")})
@@ -899,7 +928,7 @@ def generate_report(orgname):
     output_properties()
 
     # Write out OU information
-    output_all_OUs(orgname)
+    output_all_ous(orgname)
 
     person_info = output_people()
 
@@ -921,12 +950,9 @@ def generate_report(orgname):
     xmlwriter.endDocument()
 
 
-def main():
+def main(inargs=None):
     global cerebrum_db, constants, fs_db, xmlwriter
     global with_email, with_cell, extra_contact_fields
-
-    cerebrum_db = Factory.get("Database")()
-    constants = Factory.get("Constants")(cerebrum_db)
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-f', '--out-file', dest='filename',
@@ -953,7 +979,15 @@ def main():
                               'Format: xml_name:contact_type:source_system. '
                               'contact_type and source_system must be valid '
                               'constant names.'))
-    args = parser.parse_args()
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start of script %s', parser.prog)
+    logger.debug("args: %r", args)
+
+    cerebrum_db = Factory.get("Database")()
+    constants = Factory.get("Constants")(cerebrum_db)
 
     if args.extra_contact_fields is not None:
         extra_fields_unparsed = args.extra_contact_fields.split(',')
@@ -981,10 +1015,10 @@ def main():
         xmlwriter = xmlprinter.xmlprinter(stream,
                                           indent_level=2,
                                           # human-friendly output
-                                          data_mode=True,
-                                          input_encoding="latin1")
+                                          data_mode=True)
         generate_report(args.institution)
-    logger.info("done")
+        logger.info('Report written to %s', stream.name)
+    logger.info('Done with script %s', parser.prog)
 
 
 if __name__ == "__main__":
