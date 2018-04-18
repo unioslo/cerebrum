@@ -1,7 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2009 University of Oslo, Norway
+# Copyright 2009-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,90 +18,85 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Dump affiliation count. """
+from __future__ import print_function
 
-import cerebrum_path
 from Cerebrum.Utils import Factory
-from Cerebrum import Errors
+from collections import defaultdict
 
-db=Factory.get("Database")()
-co=Factory.get("Constants")(db)
-person=Factory.get("Person")(db)
+from six import text_type
 
-class statdict(dict):
-    def inc(self, key):
-        self[key] = self.get(key, 0) + 1
 
-naffs = 0
-naffs_by_type = statdict()
-naffs_by_subtype = statdict()
-naffs_by_ou = statdict()
-naffs_by_ou_type = statdict()
-naffs_by_ou_subtype = statdict()
+class AffiliationStatistics(object):
+    """ Cache person affiliation by type/ou. """
 
-npaffs = 0
-npaffs_by_type = {}
-npaffs_by_subtype = {}
-npaffs_by_ou = {}
-npaffs_by_ou_type = {}
-npaffs_by_ou_subtype = {}
+    def __init__(self, db):
+        co = Factory.get("Constants")(db)
+        pe = Factory.get("Person")(db)
 
-allaffs = set()
-allstatus = set()
-allous = set()
+        # observed ous, affs
+        affs = set()
+        stat = set()
+        ous = set()
 
-def fetch_statistics():
-    # There is no API to do select count(...)
-    # Therefore this method (a single full select)
-    # should put the least strain on the db
-    paffs = set()
-    paffs_by_type = {}
-    paffs_by_subtype = {}
-    paffs_by_ou = {}
-    paffs_by_ou_type = {}
-    paffs_by_ou_subtype = {}
-    global naffs
-    global npaffs
-    #
-    affs=person.list_affiliations()
-    for a in affs:
-        naffs += 1
-        naffs_by_type.inc(a["affiliation"])
-        naffs_by_subtype.inc(a["status"])
-        naffs_by_ou.inc(a["ou_id"])
-        naffs_by_ou_type.inc((a["ou_id"], a["affiliation"]))
-        naffs_by_ou_subtype.inc((a["ou_id"], a["status"]))
-        paffs.add(a["person_id"])
-        paffs_by_type.setdefault(a["affiliation"], set()).add(a["person_id"])
-        paffs_by_subtype.setdefault(a["status"], set()).add(a["person_id"])
-        paffs_by_ou.setdefault(a["ou_id"], set()).add(a["person_id"])
-        paffs_by_ou_type.setdefault((a["ou_id"], a["affiliation"]), set()).add(a["person_id"])
-        paffs_by_ou_subtype.setdefault((a["ou_id"], a["status"]), set()).add(a["person_id"])
-        allaffs.add(a["affiliation"])
-        allstatus.add(a["status"])
-        allous.add(a["ou_id"])
+        data = defaultdict(list)
 
-    npaffs = len(paffs)
-    for k, v in paffs_by_type.items(): npaffs_by_type[k] = len(v)
-    for k, v in paffs_by_subtype.items(): npaffs_by_subtype[k] = len(v)
-    for k, v in paffs_by_ou.items(): npaffs_by_ou[k] = len(v)
-    for k, v in paffs_by_ou_type.items(): npaffs_by_ou_type[k] = len(v)
-    for k, v in paffs_by_ou_subtype.items(): npaffs_by_ou_subtype[k] = len(v)
+        for row in pe.list_affiliations():
+            affs.add(row['affiliation'])
+            stat.add(row['status'])
+            ous.add(row['ou_id'])
 
-def print_affiliation_summary():
-    status_by_aff = {}
-    for s in allstatus:
-        s = co.PersonAffStatus(s)
-        status_by_aff.setdefault(s.affiliation, set()).add(s)   
+            # record person by aff, status, ou
+            for key in (
+                (None,               None,          None),
+                (row['affiliation'], None,          None),
+                (None,               row['status'], None),
+                (None,               None,          row['ou_id']),
+                (row['affiliation'], None,          row['ou_id']),
+                (None,               row['status'], row['ou_id']),
+            ):
+                data[key].append(row['person_id'])
 
-    print "%-29s %9s %9s" % ("", "#persons", "#affs")
-    print "%-29s %9d %9d" % ("total", npaffs, naffs)
-    for a in allaffs:
-        a = co.PersonAffiliation(a)
-        print "%-29s %9d %9d" % (str(a), npaffs_by_type[a], naffs_by_type[a])
+        self._data = dict(data)
+        self.ous = ous
+        self.types = tuple((co.PersonAffiliation(a) for a in affs))
+        self.subtypes = tuple((co.PersonAffStatus(s) for s in stat))
+
+    def count(self, affiliation=None, status=None, ou=None):
+        return len(self._data[affiliation, status, ou])
+
+    def count_unique(self, affiliation=None, status=None, ou=None):
+        return len(set(self._data[affiliation, status, ou]))
+
+
+def print_affiliation_summary(stats):
+
+    status_by_aff = defaultdict(set)
+
+    for s in stats.subtypes:
+        status_by_aff[s.affiliation].add(s)
+
+    entry = "{key:29} {persons:>9} {affs:>9}"
+
+    print(entry.format(key='', persons='#persons', affs='#affs'))
+    print(entry.format(key='total',
+                       persons=stats.count_unique(),
+                       affs=stats.count()))
+    for a in stats.types:
+        print(entry.format(key=text_type(a),
+                           persons=stats.count_unique(affiliation=a),
+                           affs=stats.count(affiliation=a)))
         for s in status_by_aff.get(a, []):
-            print "%-29s %9d %9d" % (str(s), npaffs_by_subtype[s], naffs_by_subtype[s])
+            print(entry.format(key=text_type(s),
+                               persons=stats.count_unique(status=s),
+                               affs=stats.count(status=s)))
 
-fetch_statistics()
-print_affiliation_summary()
+
+def main():
+    db = Factory.get("Database")()
+    stats = AffiliationStatistics(db)
+    print_affiliation_summary(stats)
 
 
+if __name__ == '__main__':
+    main()
