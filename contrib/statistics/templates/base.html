@@ -2,7 +2,7 @@
 <html>
   <head>
     {% block additional_headers %}
-    <meta charset="utf-8">
+    <meta charset="{{ encoding | default('utf-8') }}">
     {% endblock %}
     <title>{% block title %}{% endblock %}</title>
   </head>
