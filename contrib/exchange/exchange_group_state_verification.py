@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014 University of Oslo, Norway
+# Copyright 2014-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,25 +26,38 @@ This is done by:
     - Compare the two above.
     - Send a report by mail/file.
 """
+import argparse
+import itertools
+import logging
+import pickle
+import time
 
-import cerebrum_path
+import ldap
+from six import text_type
+
 import cereconf
 import eventconf
 
-import time
-import pickle
-import getopt
-import sys
-
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+from Cerebrum import Utils
 from Cerebrum.Utils import Factory
+from Cerebrum.Utils import read_password
 from Cerebrum.modules.Email import EmailAddress
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
-from Cerebrum import Utils
-from Cerebrum.Utils import read_password
-from Cerebrum import Errors
-import ldap
+from Cerebrum.utils.ldaputils import decode_attrs
 
-logger = Utils.Factory.get_logger('cronjob')
+logger = logging.getLogger(__name__)
+
+
+def text_decoder(encoding, allow_none=True):
+    def to_text(value):
+        if allow_none and value is None:
+            return None
+        if isinstance(value, bytes):
+            return value.decode(encoding)
+        return text_type(value)
+    return to_text
 
 
 class StateChecker(object):
@@ -55,7 +68,15 @@ class StateChecker(object):
     verify and report deviances between Cerebrum and Exchange.
     """
 
-    def __init__(self, logger, conf):
+    # Connect params
+    LDAP_RETRY_DELAY = 60
+    LDAP_RETRY_MAX = 5
+
+    # Search and result params
+    LDAP_COM_DELAY = 30
+    LDAP_COM_MAX = 3
+
+    def __init__(self, conf):
         """Initzialize a new instance of out state-checker.
 
         :param logger logger: The logger to use.
@@ -71,57 +92,68 @@ class StateChecker(object):
         self.ut = CerebrumUtils()
 
         self.config = conf
-        self.logger = logger
 
         self._ldap_page_size = 1000
+
+    def u(self, db_value):
+        """ Decode bytestring from database. """
+        if isinstance(db_value, bytes):
+            return db_value.decode(self.db.encoding)
+        return text_type(db_value)
 
     def init_ldap(self):
         """Initzialize LDAP connection."""
         self.ldap_srv = ldap.ldapobject.ReconnectLDAPObject(
             '%s://%s/' % (self.config['ldap_proto'],
                           self.config['ldap_server']),
-            retry_max=5, retry_delay=60)
+            retry_max=self.LDAP_RETRY_MAX,
+            retry_delay=self.LDAP_RETRY_DELAY)
         usr = self.config['ldap_user'].split('\\')[1]
-        self.ldap_srv.bind_s(self.config['ldap_user'], read_password(
-            usr, self.config['ldap_server']))
+        self.ldap_srv.bind_s(
+            self.config['ldap_user'],
+            read_password(usr, self.config['ldap_server']))
 
         self.ldap_lc = ldap.controls.SimplePagedResultsControl(
             True, self._ldap_page_size, '')
 
-    # Wrapping the search with retries if the server is busy or similar errors
     def _searcher(self, ou, scope, attrs, ctrls):
-        c_fail = 0
-        e_save = None
-        while c_fail <= 3:
+        """ Perform ldap.search(), but retry in the event of an error.
+
+        This wraps the search with error handling, so that the search is
+        repeated with a delay between attempts.
+        """
+        for attempt in itertools.count(1):
             try:
                 return self.ldap_srv.search_ext(
                     ou, scope, attrlist=attrs, serverctrls=ctrls)
-                c_fail = 0
-                e_save = None
-            except ldap.LDAPError, e:
-                c_fail = c_fail + 1
-                e_save = e
-                self.logger.debug('Caught %s in _searcher' % str(e))
-                time.sleep(30)
-        if e_save:
-            raise e_save
+            except ldap.LDAPError as e:
+                if attempt < self.LDAP_COM_MAX:
+                    logger.debug('Caught %r in _searcher on attempt %d',
+                                 e, attempt)
+                    time.sleep(self.LDAP_COM_DELAY)
+                    continue
+                raise
 
-    # Wrapping the fetch with retries if the server is busy or similar errors
     def _recvr(self, msgid):
-        c_fail = 0
-        e_save = None
-        while c_fail <= 3:
+        """ Perform ldap.result3(), but retry in the event of an error.
+
+        This wraps the result fetching with error handling, so that the fetch
+        is repeated with a delay between attempts.
+
+        It also decodes all attributes and attribute text values.
+        """
+        for attempt in itertools.count(1):
             try:
-                return self.ldap_srv.result3(msgid)
-                c_fail = 0
-                e_save = None
-            except ldap.LDAPError, e:
-                c_fail = c_fail + 1
-                e_save = e
-                self.logger.debug('Caught %s in _recvr' % str(e))
-                time.sleep(30)
-        if e_save:
-            raise e_save
+                # return self.ldap_srv.result3(msgid)
+                rtype, rdata, rmsgid, sc = self.ldap_srv.result3(msgid)
+                return rtype, decode_attrs(rdata), rmsgid, sc
+            except ldap.LDAPError as e:
+                if attempt < self.LDAP_COM_MAX:
+                    logger.debug('Caught %r in _recvr on attempt %d',
+                                 e, attempt)
+                    time.sleep(self.LDAP_COM_DELAY)
+                    continue
+                raise
 
     # This is a paging searcher, that should be used for large amounts of data
     def search(self, ou, attrs, scope=ldap.SCOPE_SUBTREE):
@@ -156,8 +188,9 @@ class StateChecker(object):
                 else:
                     break
             else:
-                self.logger.warn('Server ignores RFC 2696 control.')
+                logger.warn('Server ignores RFC 2696 control.')
                 break
+        # Skip the OU itself, only return objects in the OU
         return data[1:]
 
     # This search wrapper should be used for fetching members
@@ -171,21 +204,20 @@ class StateChecker(object):
         :return: The return-type and the result.
         """
         # Wrapping the search, try three times
-        c_fail = 0
-        e_save = None
-        while c_fail <= 3:
+        for attempt in itertools.count(1):
             try:
                 # Search
                 msgid = self.ldap_srv.search(dn, scope, attrlist=attrs)
                 # Fetch
                 rtype, r = self.ldap_srv.result(msgid)
                 return rtype, r
-            except ldap.LDAPError, e:
-                c_fail = c_fail + 1
-                e_save = e
-                self.logger.debug('Caught %s in member_searcher' % str(e))
-                time.sleep(30)
-        raise e_save
+            except ldap.LDAPError as e:
+                if attempt < self.LDAP_COM_MAX:
+                    logger.debug('Caught %r in member_searcher on attempt %d',
+                                 e, attempt)
+                    time.sleep(self.LDAP_COM_DELAY)
+                    continue
+                raise
 
     # We need to implement a special function to pull out all the members from
     # a group, since the idiots at M$ forces us to select a range...
@@ -236,9 +268,10 @@ class StateChecker(object):
         """Close the connection to the LDAP server."""
         self.ldap_srv.unbind_s()
 
-###
-# Group related fetching & comparison
-###
+    ###
+    # Group related fetching & comparison
+    ###
+
     def collect_exchange_group_info(self, group_ou):
         """Collect group-information from Exchange, via LDAP.
 
@@ -257,21 +290,21 @@ class StateChecker(object):
             name = cn[3:].split(',')[0]
             for key in data:
                 if key == 'info':
-                    tmp[u'Description'] = data[key][0].decode('UTF-8')
+                    tmp[u'Description'] = data[key][0]
                 elif key == 'displayName':
-                    tmp[u'DisplayName'] = data[key][0].decode('UTF-8')
+                    tmp[u'DisplayName'] = data[key][0]
                 elif key == 'proxyAddresses':
                     addrs = []
                     for addr in data[key]:
                         if addr.startswith('SMTP:'):
-                            tmp[u'Primary'] = addr[5:].decode('UTF-8')
+                            tmp[u'Primary'] = addr[5:]
                         # TODO: Correct var?
                         if (cereconf.EXCHANGE_DEFAULT_ADDRESS_PLACEHOLDER not
                                 in addr):
-                            addrs.append(addr[5:].decode('UTF-8'))
+                            addrs.append(addr[5:])
                     tmp[u'Aliases'] = sorted(addrs)
                 elif key == 'managedBy':
-                    tmp_man = data[key][0][3:].split(',')[0].decode('UTF-8')
+                    tmp_man = data[key][0][3:].split(',')[0]
                     if tmp_man == 'Default group moderator':
                         tmp_man = u'groupadmin'
                     tmp[u'ManagedBy'] = [tmp_man]
@@ -290,8 +323,7 @@ class StateChecker(object):
             if 'msExchHideFromAddressLists' in data:
                 tmp_key = 'msExchHideFromAddressLists'
                 tmp[u'HiddenFromAddressListsEnabled'] = (
-                    True if data[tmp_key][0].decode('UTF-8') == 'TRUE' else
-                    False)
+                    True if data[tmp_key][0] == 'TRUE' else False)
             else:
                 tmp[u'HiddenFromAddressListsEnabled'] = False
             ret[name] = tmp
@@ -307,6 +339,8 @@ class StateChecker(object):
         """
         mb_spread = self.co.Spread(mb_spread)
         ad_spread = self.co.Spread(ad_spread)
+
+        u = text_decoder(self.db.encoding)
 
         def _true_or_false(val):
             # Yes, we know...
@@ -325,19 +359,19 @@ class StateChecker(object):
             data = self.dg.get_distgroup_attributes_and_targetdata(
                 roomlist=roomlist)
 
-            tmp[self.dg.group_name] = {
-                u'Description': self.dg.description,
-                u'DisplayName': data['displayname'],
+            tmp[u(self.dg.group_name)] = {
+                u'Description': u(self.dg.description),
+                u'DisplayName': u(data['displayname']),
             }
 
             if not roomlist:
                 # Split up the moderated by field, and resolve group members
                 # from groups if there are groups in the moderated by field!
-                tmp[self.dg.group_name].update({
+                tmp[u(self.dg.group_name)].update({
                     u'HiddenFromAddressListsEnabled':
                         _true_or_false(data['hidden']),
-                    u'Primary': data['primary'],
-                    u'Aliases': sorted(data['aliases'])
+                    u'Primary': u(data['primary']),
+                    u'Aliases': [u(v) for v in sorted(data['aliases'])]
                 })
 
             # Collect members
@@ -346,8 +380,8 @@ class StateChecker(object):
                 spread=mb_spread,
                 filter_spread=ad_spread
             )
-            members = [member['name'] for member in membs_unfiltered]
-            tmp[self.dg.group_name].update({u'Members': sorted(members)})
+            members = [u(member['name']) for member in membs_unfiltered]
+            tmp[u(self.dg.group_name)].update({u'Members': sorted(members)})
 
         return tmp
 
@@ -426,8 +460,8 @@ class StateChecker(object):
         ret = {
             'new_group': diff_new,
             'stale_group': diff_stale,
-            'group': diff_group
-            }
+            'group': diff_group,
+        }
 
         if not state:
             return ret, []
@@ -491,62 +525,69 @@ class StateChecker(object):
 
         return ret, report
 
-###
-# Main control flow or something
-###
-if __name__ == '__main__':
+
+def eventconf_type(value):
     try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                                   't:f:s:m:r:',
-                                   ['type=',
-                                    'file=',
-                                    'sender=',
-                                    'mail=',
-                                    'report-file='])
-    except getopt.GetoptError, err:
-        logger.warn(str(err))
+        return eventconf.CONFIG[value]
+    except KeyError as e:
+        raise ValueError(e)
 
-    state_file = None
-    mail = None
-    sender = None
-    repfile = None
 
-    for opt, val in opts:
-        if opt in ('-t', '--type'):
-            conf = eventconf.CONFIG[val]
-        if opt in ('-f', '--file',):
-            state_file = val
-        if opt in ('-m', '--mail',):
-            mail = val
-        if opt in ('-s', '--sender',):
-            sender = val
-        if opt in ('-r', '--report-file',):
-            repfile = val
+def main(inargs=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-t', '--type',
+        dest='config',
+        type=eventconf_type,
+        required=True,
+        help="Sync type (a valid entry in eventconf.CONFIG)")
 
-    attr_config = conf['state_check_conf']
-    group_ou = conf['group_ou']
+    parser.add_argument(
+        '-f', '--file',
+        dest='state',
+        required=True,
+        help="read and write state to %(metavar)s")
 
-    # TODO: Check if state file is defined here. If it does not contain any
-    # data, or it is not defined trough the command line, create an empty data
-    # structure
+    parser.add_argument(
+        '-m', '--mail',
+        help="Send reports to %(metavar)s")
+
+    parser.add_argument(
+        '-s', '--sender',
+        help="Send reports from %(metavar)s")
+
+    parser.add_argument(
+        '-r', '--report-file',
+        dest='report',
+        help="Write the report to %(metavar)s")
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+
+    if bool(args.mail) ^ bool(args.sender):
+        raise ValueError("Must give both mail and sender")
+
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    attr_config = args.config['state_check_conf']
+    group_ou = args.config['group_ou']
 
     try:
-        f = open(state_file, 'r')
-        state = pickle.load(f)
-        f.close()
+        with open(args.state, 'r') as f:
+            state = pickle.load(f)
     except IOError:
-        # First run, can't read state
+        logger.warn('No existing state file %s', args.state)
         state = None
 
-    sc = StateChecker(logger, conf)
-
-    # Collect group infor from Cerebrum and Exchange
+    sc = StateChecker(args.config)
+    # Collect group info from Cerebrum and Exchange
     sc.init_ldap()
     ex_group_info = sc.collect_exchange_group_info(group_ou)
     sc.close()
 
-    cere_group_info = sc.collect_cerebrum_group_info(conf['mailbox_spread'],
-                                                     conf['ad_spread'])
+    cere_group_info = sc.collect_cerebrum_group_info(
+        args.config['mailbox_spread'],
+        args.config['ad_spread'])
 
     # Compare group state
     new_state, report = sc.compare_group_state(ex_group_info,
@@ -556,24 +597,27 @@ if __name__ == '__main__':
 
     try:
         rep = u'\n'.join(report)
-    except UnicodeDecodeError, e:
-        print(str(e))
+    except UnicodeError as e:
+        logger.warn('Bytestring data in report: %r', e)
         tmp = []
         for x in report:
             tmp.append(x.decode('UTF-8'))
         rep = u'\n'.join(tmp)
+
     # Send a report by mail
-    if mail and sender:
-        Utils.sendmail(mail, sender, 'Exchange group state report',
+    if args.mail and args.sender:
+        Utils.sendmail(args.mail, args.sender,
+                       'Exchange group state report',
                        rep.encode('utf-8'))
 
     # Write report to file
-    if repfile:
-        f = open(repfile, 'w')
-        f.write(rep.encode('utf-8'))
-        f.close()
+    if args.report:
+        with open(args.report, 'w') as f:
+            f.write(rep.encode('utf-8'))
 
-    # TODO: Exceptions?
-    f = open(state_file, 'w')
-    pickle.dump(new_state, f)
-    f.close()
+    with open(args.state, 'w') as f:
+        pickle.dump(new_state, f)
+
+
+if __name__ == '__main__':
+    main()
