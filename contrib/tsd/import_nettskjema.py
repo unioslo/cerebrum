@@ -216,7 +216,7 @@ class InputControl(object):
         """Check that a given projectname validates."""
         try:
             return ou._validate_project_name(name)
-        except Errors.CerebrumError, e:
+        except Errors.CerebrumError as e:
             raise BadInputError(e)
 
     def is_valid_date(self, date):
@@ -939,11 +939,8 @@ class Processing(object):
         # Find the project:
         pid = input['p_id']
         ou.clear()
-        try:
-            ou.find_by_tsd_projectid(pid)
-        except Errors.NotFoundError:
-            # Retry with lowercase, just in case:
-            ou.find_by_tsd_projectid(pid.lower())
+
+        ou.find_by_tsd_projectid(pid)
 
         # Check that the person is not already in the project:
         for row in pe.list_affiliations(person_id=pe.entity_id,
