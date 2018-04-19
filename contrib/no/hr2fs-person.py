@@ -859,7 +859,8 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
         fs.person.update_fagperson(**values2push)
     instno = primary_sko[0]
     phone = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
-                                    instno, 'ARB')
+                                    instno, 'ARB', fetchall=True)
+
     if phone:
         if phone[0]['telefonlandnr']:
             phone = '+' + phone[0]['telefonlandnr'] + phone[0]['telefonnr']
@@ -879,7 +880,7 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
         logger.info("Could not set phone %s: %s", info_chunk.phone, e)
 
     fax = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
-                                  instno, 'FAKS')
+                                  instno, 'FAKS', fetchall=True)
     if fax:
         if fax[0]['telefonlandnr']:
             fax = '+' + fax[0]['telefonlandnr'] + fax[0]['telefonnr']
