@@ -4339,7 +4339,7 @@ class BofhdExtension(BofhdCommonMethods):
             ("Name:          %s\n"
              "Entity-id:     %i\n"
              "Birth:         %s\n"
-             "Spreads:       %s\n", ("name", "entity_id", "birth", "spreads")),
+             "Spreads:       %s", ("name", "entity_id", "birth", "spreads")),
             ("Affiliations:  %s [from %s]", ("affiliation_1",
                                              "source_system_1")),
             ("               %s [from %s]", ("affiliation", "source_system")),
