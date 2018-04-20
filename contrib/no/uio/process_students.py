@@ -32,8 +32,12 @@ import io
 import pickle
 import traceback
 from time import localtime, strftime, time
-from mx.DateTime import now
+from tempfile import mkdtemp
+from subprocess import Popen
 import pprint
+import shutil
+
+from mx.DateTime import now
 
 import cerebrum_path
 import cereconf
@@ -46,8 +50,10 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.no.uio import DiskQuota
 from Cerebrum.modules.no.uio import PrinterQuotas
-from Cerebrum.modules.templates.letters import TemplateHandler
-
+from Cerebrum.modules.templates import config as _tmpl_config
+from Cerebrum.modules.templates import renderers
+from Cerebrum.modules.printutils.printer import LinePrinter
+from Cerebrum.modules.templates import mappers
 del cerebrum_path
 
 db = Factory.get('Database')()
@@ -95,9 +101,16 @@ with_diskquota = False
 autostud = logger = accounts = persons = None
 default_creator_id = default_expire_date = default_shell = None
 
+merge_pdfs_cmd = ("/usr/bin/gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 "
+                  "-dPDFSETTINGS=/default -dNOPAUSE -dQUIET -dBATCH "
+                  "-dDetectDuplicateImages -dCompressFonts=true -r150 -"
+                  "sOutputFile={merged_file} {pdf_files}")
+
 
 def pformat(obj):
     return pformat.pp.pformat(obj)
+
+
 pformat.pp = pprint.PrettyPrinter(indent=4)
 
 
@@ -1093,6 +1106,7 @@ def get_existing_accounts():
 
 
 def make_letters(data_file=None, type=None, range=None):
+    tmpl_config = _tmpl_config.get_config()
     if data_file is not None:  # Load info on letters to print from file
         with io.open(data_file, 'rb') as f:
             tmp_passwords = pickle.load(f)
@@ -1110,10 +1124,9 @@ def make_letters(data_file=None, type=None, range=None):
                 all_passwords[tmp[0]] = tmp[1]
     person = Factory.get('Person')(db)
     account = Factory.get('Account')(db)
-    ou = Factory.get('OU')(db)
-    sko = None
     dta = {}
     logger.debug("Making %i letters", len(all_passwords))
+    current_dir = os.getcwd()
     for account_id in all_passwords.keys():
         try:
             account.clear()
@@ -1123,55 +1136,22 @@ def make_letters(data_file=None, type=None, range=None):
         except Errors.NotFoundError:
             logger.warn("NotFoundError for account_id=%s", account_id)
             continue
-        try:
-            # get e-mail address
-            primary_email_address = account.get_primary_mailaddress()
-        except Errors.NotFoundError:
-            primary_email_address = ""
-        # get valid ou for the student
-        ou_id = None
-        sko = None
-        for at in account.get_account_types():
-            if at['affiliation'] == int(const.affiliation_student):
-                ou_id = at['ou_id']
-                break
-        if ou_id:
-            ou.clear()
-            ou.find(ou_id)
-            sko = "%02d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
-        tpl = {}
-        address = None
-        for source, kind in ((const.system_fs, const.address_post),
-                             (const.system_fs, const.address_post_private)):
-            address = person.get_entity_address(source=source,
-                                                type=kind)
-            if address:
-                break
+
+        address_lookups = ((const.system_fs, const.address_post),
+                           (const.system_fs, const.address_post_private))
+        address = mappers.get_person_address(person, address_lookups)
+
         if not address:
             logger.info("Could not find authoritative address for %s",
                         account_id)
             continue
-        address = address[0]
-        alines = address['address_text'].split("\n")+[""]
-        logger.debug("ALINES: %s", alines)
-        fullname = person.get_name(const.system_cached, const.name_full)
-        tpl['address_line1'] = fullname
-        tpl['address_line2'] = alines[0]
-        tpl['address_line3'] = alines[1]
-        tpl['zip'] = address['postal_number']
-        tpl['city'] = address['city']
-        tpl['country'] = address['country']
 
-        tpl['uname'] = account.account_name
-        tpl['password'] = all_passwords[account_id][0]
-        tpl['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
-        tpl['fullname'] = fullname
-        tmp = person.get_external_id(id_type=const.externalid_fodselsnr,
-                                     source_system=const.system_fs)
-        tpl['birthno'] = tmp[0]['external_id']
-        tpl['emailadr'] = primary_email_address
-        tpl['account_id'] = account_id
-        tpl['sko'] = sko
+        mappings = mappers.get_account_mappings(
+            account, all_passwords[account_id][0]
+        )
+        mappings.update(mappers.get_account_primary_email(account))
+        mappings.update(mappers.get_person_info(person, const))
+        mappings.update(mappers.get_address_mappings(address))
 
         # First we group letters by 'order_by', default is 'zip'
         brev_profil = all_passwords[account_id][1]
@@ -1179,7 +1159,7 @@ def make_letters(data_file=None, type=None, range=None):
                     else 'zip')
         if order_by not in dta:
             dta[order_by] = {}
-        dta[order_by][account_id] = tpl
+        dta[order_by][account_id] = mappings
 
     # Do the actual sorting. We end up with one array with account_id's
     # sorted in groups on sorting criteria.
@@ -1192,10 +1172,10 @@ def make_letters(data_file=None, type=None, range=None):
     # Each template type has its own letter number sequence
     letter_info = {}
     files = {}
-    tpls = {}
     counters = {}
     printers = {}
     send_abroad = cereconf.AUTOADMIN_PRODUCE_ABROAD_LETTERS
+    rendered_pdf_files = {}
     for account_id in sorted_keys:
         password, brev_profil = all_passwords[account_id][:2]
         order_by = (brev_profil['order_by'] if 'order_by' in brev_profil
@@ -1208,70 +1188,79 @@ def make_letters(data_file=None, type=None, range=None):
                 logger.info("Not sending abroad: %s",
                             dta[order_by][account_id]['uname'])
                 continue
-        letter_dir = cereconf.AUTOADMIN_PRINT_LETTER_DIRECTORY
         printer = brev_profil.get('printer', cereconf.PRINT_PRINTER)
-        letter_type = "%s-%s.%s" % (brev_profil['mal'],
-                                    printer, brev_profil['type'])
+
+        letter_type = "{}-{}.pdf".format(brev_profil['mal'], printer)
         if letter_type not in files:
-            files[letter_type] = io.open("letter-%i-%s" % (time(), letter_type),
-                                         "w", encoding='UTF-8')
-            printers[letter_type] = printer
-            tpls[letter_type] = TemplateHandler(
-                letter_dir, brev_profil['mal'], brev_profil['type'], 'UTF-8')
-            if tpls[letter_type]._hdr is not None:
-                files[letter_type].write(tpls[letter_type]._hdr)
             counters[letter_type] = 1
+            files[letter_type] = "{}-{}".format(letter_type, time())
+            printers[letter_type] = printer
         if data_file is not None:
-            dta[order_by][account_id]['lopenr'] = all_passwords[account_id][2]
-            if not os.path.exists("barcode_%s.eps" % account_id):
-                make_barcode(account_id)
+            dta[order_by][account_id]['serial_no'] = all_passwords[account_id][2]
         else:
-            dta[order_by][account_id]['lopenr'] = counters[letter_type]
-            letter_info["%s-%i" %
-                        (brev_profil['mal'], counters[letter_type])] = [
+            dta[order_by][account_id]['serial_no'] = counters[letter_type]
+            letter_info["{}-{}".format(
+                brev_profil['mal'], counters[letter_type])] = [
                             account_id, [password, brev_profil,
                                          counters[letter_type]]]
-            # We allways create a barcode file, this is not strictly
-            # neccesary
-            make_barcode(account_id)
-        dta[order_by][account_id]['barcode'] = os.path.realpath(
-            'barcode_%s.eps' % account_id)
-        files[letter_type].write(tpls[letter_type].apply_template(
-            'body', dta[order_by][account_id], no_quote=('barcode',)))
+
+        def get_template_config(template_name):
+            for t in tmpl_config.process_students_templates:
+                if template_name == t['file']:
+                    return t
+            raise Errors.NotFoundError(template_name)
+
+        try:
+            tmpl = get_template_config(brev_profil['mal'])
+            tmp_dir = mkdtemp(prefix='ps-letter-{}'.format(account_id))
+            barcode_file_path = os.path.join(
+                tmp_dir, 'barcode_{}.png'.format(account_id)
+            )
+            renderers.render_barcode(tmpl_config, account_id, barcode_file_path)
+            pdf_file_path = os.path.join(
+                current_dir, 'account_{}.pdf'.format(account_id)
+            )
+            renderers.html_template_to_pdf(
+                tmpl_config, tmp_dir, tmpl['file'], dta[order_by][account_id],
+                lang='no', static_files=tmpl['static_files'],
+                pdf_abspath=pdf_file_path
+            )
+            shutil.rmtree(tmp_dir)
+        except Exception as e:
+            logger.info("Error while generating letter for account %s: %s",
+                        account_id, e)
+            continue
         counters[letter_type] += 1
+        # Add the rendered pdf to the list of generated files for
+        # the given template type, so they can be merged together
+        # before they are printed.
+        if letter_type not in rendered_pdf_files:
+            rendered_pdf_files[letter_type] = [pdf_file_path]
+        else:
+            rendered_pdf_files[letter_type].append(pdf_file_path)
     # Save passwords for created users so that letters may be
     # re-printed at a later time in case of print-jam etc.
     if data_file is None:
         with io.open("letters.info", 'wb') as f:
             pickle.dump(letter_info, f)
-    # Close files and spool jobs
-    for letter_type in files.keys():
-        if tpls[letter_type]._footer is not None:
-            files[letter_type].write(tpls[letter_type]._footer)
-        files[letter_type].close()
+
+    # Merge the generated PDFs into files for each template type that was used
+    for letter_type, file_name in files.items():
+        merged_file_name = os.path.join(current_dir, file_name)
+        pdf_files_str = ' '.join(rendered_pdf_files[letter_type])
         try:
-            tpls[letter_type].spool_job(files[letter_type].name,
-                                        tpls[letter_type]._type,
-                                        printers[letter_type],
-                                        skip_lpr=skip_lpr)
-            os.unlink(tpls[letter_type].logfile)
-        except IOError as msg:
-            print msg
+            Popen(merge_pdfs_cmd.format(merged_file=merged_file_name,
+                                        pdf_files=pdf_files_str),
+                  shell=True).wait()
+        except Exception as e:
+            logger.warn('Failed to merge PDF-files: {}'.format(e))
 
-
-def make_barcode(account_id):
-    if cereconf.PRINT_BARCODE is None:
-        # Barcodes shouldn't be used at this institution, but further
-        # processing seems to require that the file exists
-        barcode_cmd = "touch barcode_%s.eps" % account_id
-    else:
-        barcode_cmd = "%s -e EAN -E -n -b %012i > barcode_%s.eps" % (
-            cereconf.PRINT_BARCODE, account_id, account_id)
-
-    logger.debug("Running barcode-command: '%s'", barcode_cmd)
-    ret = os.system(barcode_cmd)
-    if ret:
-        logger.warn("Barcode-related syscmd returned %s", ret)
+        if not skip_lpr:
+            line_printer = LinePrinter(
+                printers[letter_type], 'unknown', os.uname()[1],
+                'process_students_pw_letters.pdf'
+            )
+            line_printer.spool(file_name)
 
 
 def _filter_person_info(person_info):
@@ -1473,7 +1462,7 @@ def main():
     bootstrap()
     if validate:
         validate_config()
-        print "The configuration was successfully validated."
+        print("The configuration was successfully validated.")
         sys.exit(0)
     if _range is not None:
         make_letters("letters.info", type=_type, range=_range)
@@ -1492,8 +1481,8 @@ def main():
 
 def usage(error=None):
     if error:
-        print "Error:", error
-    print """Usage: process_students.py
+        print("Error:", error)
+    print("""Usage: process_students.py
     Actions:
       -c | --create-user: create new users
       -u | --update-accounts: update existing accounts
@@ -1540,12 +1529,12 @@ To create new users:
 To reprint letters of a given type:
   ./contrib/no/uio/process_students.py --workdir tmp/ps-2003-09-25.1265
       --type new_stud_account --reprint 1,2
-    """
+    """)
     sys.exit(0)
 
 if __name__ == '__main__':
     if False:
-        print "Profilerer..."
+        print("Profilerer...")
         prof = hotshot.Profile(proffile)
         prof.runcall(main)                # profiler hovedprogrammet
         prof.close()

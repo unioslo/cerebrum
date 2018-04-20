@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import unicode_literals
 
 import re
 import sys
@@ -28,9 +29,11 @@ import procconf
 from Cerebrum.Utils import Factory, auto_super
 from Cerebrum.modules.process_entity.ProcUtils import ProcFactory
 
+
 # Classes like this are very segmented. Sequential code may be split
 # up into several methods to allow better Mixin support. Crucial
 # code should be split into a method so it can be overridden.
+
 
 class ProcBatchRunner(object):
     """Class for wrapping process_entity into a batch job. Deals
@@ -41,7 +44,7 @@ class ProcBatchRunner(object):
 
     def __init__(self, argv, logger):
         self.short_args = 'hd'
-        self.long_args = ['help', 'dry-run',]
+        self.long_args = ['help', 'dry-run', ]
 
         self.logger = logger
         self.dryrun = False
@@ -49,7 +52,7 @@ class ProcBatchRunner(object):
             opts, args = getopt.getopt(argv,
                                        self.short_args,
                                        self.long_args)
-        except getopt.GetoptError, e:
+        except getopt.GetoptError as e:
             self.logger.warning(e)
             self.usage(1)
 
@@ -58,22 +61,21 @@ class ProcBatchRunner(object):
                 self.usage()
             elif opt in ('-d', '--dry-run'):
                 self.dryrun = True
-                
+
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
         self.proc = ProcFactory.get('Handler')(self.db, logger)
         self.process_entities()
 
-
-    def usage(self, exit_code=0):
-        print """
+    @staticmethod
+    def usage(exit_code=0):
+        print("""
         This is a script for processing data in Cerebrum according to
         a set of rules defined by business logic and a config file.
           -h, --help         This message
           -d, --dry-run      Dry-run the process
-        """
+        """)
         sys.exit(exit_code)
-
 
     def process_entities(self):
         """Here we simulate a ChangeLogHandler and create events
@@ -95,7 +97,6 @@ class ProcBatchRunner(object):
             self.logger.info("commit()")
             self.proc.commit()
 
-
     def process_persons(self):
         """Feed the Handler Person objects."""
         per = Factory.get('Person')(self.db)
@@ -105,7 +106,6 @@ class ProcBatchRunner(object):
             per.clear()
             per.find(p_id)
             self.proc.process_person(per)
-
 
     def process_groups(self):
         """Feed the Handler Group names. Groups can be deleted before
@@ -122,12 +122,12 @@ class ProcBatchRunner(object):
             if not normal_name:
                 self.logger.warning("Group '%s' has an odd name for a generated group. Skipping" % row['name'])
                 continue
-            if not group_names.has_key(normal_name):
-                self.logger.debug("prc_grps: Group '%s' added to check list. Derived from '%s'" % (normal_name, row['name']))
+            if normal_name not in group_names:
+                self.logger.debug(
+                    "prc_grps: Group '%s' added to check list. Derived from '%s'" % (normal_name, row['name']))
                 group_names[normal_name] = None
         for name in group_names:
             self.proc.process_group(name)
-
 
     def process_OUs(self):
         """Feed the Handler OU objects."""
@@ -137,7 +137,6 @@ class ProcBatchRunner(object):
             ou.clear()
             ou.find(row['ou_id'])
             self.proc.process_ou(ou)
-
 
     def process_account_types(self):
         """Feed the handler account_types that should be updated. An
@@ -163,16 +162,14 @@ class ProcBatchRunner(object):
 
         group_name_re = re.compile('(\w+)\s+(\w+)')
         # TODO: move into procconf.py
-        txt2aff = { 'Tilsette': (self.co.affiliation_ansatt,self.co.affiliation_teacher),
-                    'Elevar' : (self.co.affiliation_elev,) }
+        txt2aff = {'Tilsette': (self.co.affiliation_ansatt, self.co.affiliation_teacher),
+                   'Elevar': (self.co.affiliation_elev,)}
         aff_grp2ac = {}
         # Resolve the group into an OU and an affiliation. 
         for row in grp.list_traits(self.co.trait_group_affiliation):
             grp.clear()
             grp.find(row['entity_id'])
             self.logger.debug("Processing '%s'." % grp.group_name)
-            ou_acronym = None
-            affiliation = None
             m = group_name_re.search(grp.group_name)
             if m:
                 affiliation = m.group(2)
@@ -182,9 +179,9 @@ class ProcBatchRunner(object):
                 self.logger.warning("Group '%s' has an odd name for a generated aff group. Skipping" % grp.group_name)
                 continue
             ous = ou.search_name_with_language(entity_type=self.co.entity_ou,
-                                          name_variant=self.co.ou_name_acronym,
-                                          name=ou_acronym,
-                                          name_language=self.co.language_nb)
+                                               name_variant=self.co.ou_name_acronym,
+                                               name=ou_acronym,
+                                               name_language=self.co.language_nb)
             if len(ous) > 1:
                 self.logger.warning("Acronym '%s' results in more than one OU. "
                                     "Skipping" % ou_acronym)
@@ -201,9 +198,11 @@ class ProcBatchRunner(object):
             for member in grp.search_members(group_id=grp.entity_id):
                 member_id = int(member["member_id"])
                 for a in txt2aff[affiliation]:
-                    if (ac2aff.has_key((int(a), ou.entity_id)) and
-                        member_id in ac2aff[(int(a), ou.entity_id)]):
-                        aff_grp2ac.setdefault((int(a),ou.entity_id), []).append(member_id)
+                    if ((int(a), ou.entity_id) in ac2aff and
+                            member_id in ac2aff[(int(a), ou.entity_id)]):
+                        aff_grp2ac.setdefault(
+                            (int(a), ou.entity_id), []
+                        ).append(member_id)
                         break
                 else:
                     self.proc.ac_type_del(member_id, affiliation, ou.entity_id)
@@ -211,7 +210,7 @@ class ProcBatchRunner(object):
         # Let the handler take take of added account_types.
         for i in ac2aff:
             for account in ac2aff[i]:
-                if not (aff_grp2ac.has_key(i) and account in aff_grp2ac[i]):
+                if not (i in aff_grp2ac and account in aff_grp2ac[i]):
                     self.proc.ac_type_add(account, i[0], i[1])
     # end process_account_types
 

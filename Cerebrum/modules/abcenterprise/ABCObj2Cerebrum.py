@@ -172,7 +172,7 @@ class ABCObj2Cerebrum(object):
                     self._o2c.set_ou_parent(i,
                                             abcconf.OU_PERSPECTIVE,
                                             ou_struct[i])
-                except Exception, e:
+                except Exception as e:
                     self.logger.warning("Error(ou_parent): %s" % e)
 
     def parse_persons(self, iterator):
@@ -181,7 +181,7 @@ class ABCObj2Cerebrum(object):
             new_person = self._conv_const_person(person)
             try:
                 self._o2c.store_person(new_person)
-            except Exception, e:
+            except Exception as e:
                 self.logger.warning(
                     "Error(person): %s, %s" % (e, list(person.iterids())))
 
@@ -231,7 +231,7 @@ class ABCObj2Cerebrum(object):
                 rewrite = getattr(abcconf, "GROUP_REWRITE", None)
                 if s == "group" and rewrite:
                     sub[1] = rewrite(sub[1])
-            except Exception, e:
+            except Exception as e:
                 txt = ("Error(relations) subject: s: "
                        "%s, t: %s - %s" % (rel.subject, rel.type, e))
                 self.logger.warning(txt)
@@ -279,7 +279,7 @@ class ABCObj2Cerebrum(object):
                         raise ABCNotSupportedError(
                             "'%s' is not supported." % type)
 
-                except Exception, e:
+                except Exception as e:
                     txt = ("Error(relations): s: %s, t: %s, o: %s: %s" %
                            (rel.subject, rel.type, obj, e))
                     self.logger.warning(txt)

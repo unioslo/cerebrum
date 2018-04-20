@@ -17,14 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import unicode_literals
 
 import cerebrum_path
-import cereconf
 import procconf
 
 from Cerebrum.Utils import dyn_import
-from Cerebrum.extlib.doc_exception import DocstringException
-from Cerebrum.extlib.doc_exception import ProgrammingError
 
 
 # TBD: It is stupid to define this several places with only components
@@ -38,12 +36,11 @@ class ProcFactory(object):
         try:
             conf_var = components[comp]
         except KeyError:
-            raise ValueError, "Unknown component %r" % comp
+            raise ValueError("Unknown component %r".format(comp))
         import_spec = getattr(procconf, conf_var)
         if not isinstance(import_spec, (tuple, list)):
-            raise ValueError, \
-                  "Invalid import spec for component %s: %r" % (comp,
-                                                                import_spec)
+            raise ValueError("Invalid import spec for component {}: {!r}"
+                             .format(comp, import_spec))
         bases = []
         for c in import_spec:
             (mod_name, class_name) = c.split("/", 1)
@@ -63,10 +60,11 @@ class ProcFactory(object):
             # misconfiguration won't be used.
             for override in bases:
                 if issubclass(cls, override):
-                    raise RuntimeError, \
-                          ("Class %r should appear earlier in"
-                           " procconf.%s, as it's a subclass of"
-                           " class %r." % (cls, conf_var, override))
+                    raise RuntimeError(
+                        "Class {!r} should appear earlier in procconf.{}, "
+                        "as it's a subclass of class {!r}."
+                        .format(cls, conf_var, override)
+                    )
             bases.append(cls)
         if len(bases) == 1:
             comp_class = bases[0]

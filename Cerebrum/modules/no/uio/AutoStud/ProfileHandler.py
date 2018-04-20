@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2003 University of Oslo, Norway
 #
@@ -223,7 +223,7 @@ class Profile(object):
         that the user is not moved to a new disk with the same
         prefix. (i.e from /foo/bar/u11 to /foo/bar/u12)"""
 
-        # Detect conflicting disks at same 'nivåkode'
+        # Detect conflicting disks at same 'nivÃ¥kode'
         disk_spread = int(disk_spread)
 
         new_disk = self._solve_disk_match(disk_spread)
@@ -348,8 +348,9 @@ class ProfileMatcher(object):
         return self._matched_settings.get(match_type, [])
 
     def debug_dump(self):
-        ret = "Dumping %i match entries\n" % len(self._matches)
-        ret += pp.pformat(self._matches)
-        ret += "\nSettings: "
-        ret += pp.pformat(self._matched_settings)
+        ret = "Dumping {} match entries\n{}\nSettings: {}".format(
+            len(self._matches), self._matches,
+            pp.pformat(self._matches),
+            pp.pformat(self._matched_settings)
+        )
         return ret
