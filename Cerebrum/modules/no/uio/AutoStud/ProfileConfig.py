@@ -53,7 +53,7 @@ class Config(object):
         except:
             if self._errors:
                 logger.fatal("Got the following errors, and a stack trace: \n"
-                             "%s" % "\n".join(self._errors))
+                             "{}".format("\n".join(self._errors)))
             raise
         self.spread_defs = [int(autostud.co.Spread(x)) for x in sp.legal_spreads.keys()]
         self._post_process_config()
@@ -66,7 +66,7 @@ class Config(object):
         self.using_priority = False
         for p in self.profiles:
             if profilename2profile.has_key(p.name):
-                self.add_error("Duplicate profile-name %s" % p.name)
+                self.add_error("Duplicate profile-name {}".format(p.name))
             profilename2profile[p.name] = p
             p.post_config(self.lookup_helper, self)
             if p.priority is not None:
@@ -75,8 +75,8 @@ class Config(object):
         for p in self.profiles:
             p.expand_super(profilename2profile)
             if self.using_priority and p.priority is None:
-                self.add_error("Priority used, but not defined for %s" % \
-                               p.name)
+                self.add_error("Priority used, but not defined for {}".format(
+                               p.name))
 
         self.select_tool = SelectTool(self.profiles, self._logger, self)
         # Change keys in group_defs from name to entity_id
@@ -94,19 +94,21 @@ class Config(object):
             tmp[id] = t
         self.group_defs = tmp
         if self._errors:
-            self._logger.fatal("The configuration file has errors, refusing to "
-                               "continue: \n%s" % "\n".join(self._errors))
+            self._logger.fatal(
+                "The configuration file has errors, refusing to "
+                "continue: \n{}".format("\n".join(self._errors)))
             sys.exit(1)
 
     def debug_dump(self):
-        return ''
         ret = "Profile definitions:"
         for p in self.profiles:
             ret += p.debug_dump() + "\n"
         ret += "Select mappings:\n"
         for tag, sm in self.select_tool.select_map_defs.items():
-            ret += "  %s\n" % tag
-            ret += "".join(["    %s\n" % line for line in str(sm).split("\n")])
+            ret += "  {}\n".format(tag)
+            ret += "".join(
+                ["    {}\n".format(line for line in repr(sm).split("\n"))]
+            )
         return ret
 
     def add_error(self, msg):
@@ -148,7 +150,7 @@ class ProfileDefinition(object):
 
         if self.super is not None:
             if not name2profile.has_key(self.super):
-                self.config.add_error("Illegal super '%s' for '%s'" % (
+                self.config.add_error("Illegal super '{}' for '{}'".format(
                     self.super, self.name))
             tmp_super = name2profile[self.super]
             tmp_super.expand_super(name2profile)
@@ -163,9 +165,11 @@ class ProfileDefinition(object):
             if self.priority is None and tmp_super.priority is not None:
                 self.priority = tmp_super.priority
             if self.priority != tmp_super.priority:
-                self.config.add_error("priority diff in %s vs %s (%s/%s)" % (
-                    self.name, tmp_super.name, self.priority,
-                    tmp_super.priority))
+                self.config.add_error(
+                    "priority diff in {} vs {} ({}/{})".format(
+                        self.name, tmp_super.name, self.priority,
+                        tmp_super.priority)
+                )
             self.super = None
             self._settings["spread"] = self._sort_spreads(self._settings["spread"])
 
@@ -213,7 +217,7 @@ class ProfileDefinition(object):
         for p in self._settings.get("priority", []):
             if self.priority is not None and self.priority != int(p['level']):
                 self.config.add_error(
-                    "Conflicting priorities in %s" % self.name)
+                    "Conflicting priorities in {}".format(self.name))
             self.priority = int(p['level'])
         if self.priority is not None:
             del (self._settings['priority'])
@@ -288,7 +292,7 @@ class StudconfigParser(object):
     def got_default_values(self, dta, elem_stack):
         for ename, txt, attrs, children in dta:
             for a in attrs:
-                self._config.default_values['%s_%s' % (ename, a)] = attrs[a]
+                self._config.default_values['{}_{}'.format(ename, a)] = attrs[a]
 
     def got_disk_oversikt(self, dta, elem_stack):
         tmp_disk_spreads = []
@@ -299,7 +303,7 @@ class StudconfigParser(object):
                 self._config.autostud.disk_tool.add_known_spread(s)
             elif ename == 'diskdef':
                 if not tmp_disk_spreads:
-                    raise ValueError, "DTD-violation: no disk_spread defined"
+                    raise ValueError("DTD-violation: no disk_spread defined")
                 attrs['max'] = attrs.get(
                     'max', elem_stack[-1][-1]['default_max'])
                 attrs['auto'] = attrs.get(
@@ -319,7 +323,7 @@ class StudconfigParser(object):
                 self._config.autostud.disk_tool.add_disk_def(**attrs)
             else:
                 self._config.add_error(
-                    "Unexpected tag %s in disk_oversikt" % ename)
+                    "Unexpected tag {} in disk_oversikt".format(ename))
 
     def got_disk_pool(self, dta, elem_stack):
         for ename, txt, attrs, children in dta:
@@ -339,7 +343,7 @@ class StudconfigParser(object):
                                       elem_stack[-1][-1]['default_auto'])}
             else:
                 self._config.add_error(
-                    "Unexpected tag %s in gruppe_oversikt" % ename)
+                    "Unexpected tag {} in gruppe_oversikt".format(ename))
 
     def got_spread_oversikt(self, dta, elem_stack):
         for ename, txt, attrs, children in dta:
@@ -349,7 +353,7 @@ class StudconfigParser(object):
                 self.legal_spreads[attrs['kode']] = 1
             else:
                 self._config.add_error(
-                    "Unexpected tag %s in spread_oversikt" % ename)
+                    "Unexpected tag {} in spread_oversikt".format(ename))
 
     def got_profil(self, dta, elem_stack):
         in_profil = ProfileDefinition(
@@ -360,12 +364,12 @@ class StudconfigParser(object):
             if ename in self.profil_settings:
                 if ename == 'gruppe' and not self._legal_groups.has_key(
                         attrs['navn']):
-                    self._config.add_error("Not in groupdef: %s" % \
-                                           attrs['navn'])
+                    self._config.add_error("Not in groupdef: {}".format(
+                                           attrs['navn']))
                 elif ename == 'spread' and not self.legal_spreads.has_key(
                         attrs['system']):
-                    self._config.add_error("Not in spreaddef: %s" % \
-                                           attrs['system'])
+                    self._config.add_error("Not in spreaddef: {}".format(
+                                           attrs['system']))
                 elif ename == 'disk_kvote':
                     self._config.autostud.disk_tool.using_disk_kvote = True
                 elif ename == 'printer_kvote':
@@ -377,11 +381,11 @@ class StudconfigParser(object):
                 for ename2, txt2, attrs2, children2 in children:
                     if not ename2 in SelectTool.select_map_defs:
                         self._config.add_error(
-                            "Unexpected tag '%s', attr=%s in %s" % (
+                            "Unexpected tag '{}', attr={} in {}".format(
                                 ename2, str(attrs2), repr(elem_stack)))
                         continue
                     in_profil.add_selection_criteria(ename2, attrs2)
             else:
-                self._config.add_error("Unexpected tag %s in %s" % (
+                self._config.add_error("Unexpected tag {} in {}".format(
                     ename, repr(elem_stack)))
         self._config.profiles.append(in_profil)

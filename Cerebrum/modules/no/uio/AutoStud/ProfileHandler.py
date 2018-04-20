@@ -348,7 +348,6 @@ class ProfileMatcher(object):
         return self._matched_settings.get(match_type, [])
 
     def debug_dump(self):
-        return ''
         ret = "Dumping {} match entries\n{}\nSettings: {}".format(
             len(self._matches), self._matches,
             pp.pformat(self._matches),
