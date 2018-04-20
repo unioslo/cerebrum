@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2014 University of Oslo, Norway
+# Copyright 2014-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,21 +26,41 @@ This is done by:
     - Compare the two above.
     - Send a report by mail/file.
 """
+import argparse
+import itertools
+import logging
+import pickle
+import time
+from collections import defaultdict
+
+import ldap
+from six import text_type
 
 import eventconf
 
-import time
-import pickle
-import getopt
-import sys
-
-from Cerebrum.Utils import Factory, read_password
-from Cerebrum.utils.email import sendmail
-from Cerebrum.modules.Email import EmailQuota, EmailAddress, EmailForward
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+from Cerebrum import Utils
+from Cerebrum.Utils import Factory
+from Cerebrum.Utils import read_password
+from Cerebrum.modules.Email import EmailAddress
+from Cerebrum.modules.Email import EmailForward
+from Cerebrum.modules.Email import EmailQuota
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
-import ldap
+from Cerebrum.utils.email import sendmail
+from Cerebrum.utils.ldaputils import decode_attrs
 
-logger = Factory.get_logger('cronjob')
+logger = logging.getLogger(__name__)
+
+
+def text_decoder(encoding, allow_none=True):
+    def to_text(value):
+        if allow_none and value is None:
+            return None
+        if isinstance(value, bytes):
+            return value.decode(encoding)
+        return text_type(value)
+    return to_text
 
 
 class StateChecker(object):
@@ -51,7 +71,15 @@ class StateChecker(object):
     verify and report deviances between Cerebrum and Exchange.
     """
 
-    def __init__(self, logger, conf):
+    # Connect params
+    LDAP_RETRY_DELAY = 60
+    LDAP_RETRY_MAX = 5
+
+    # Search and result params
+    LDAP_COM_DELAY = 30
+    LDAP_COM_MAX = 3
+
+    def __init__(self, conf):
         """Initzialize a new instance of out state-checker.
 
         :param logger logger: The logger to use.
@@ -69,7 +97,6 @@ class StateChecker(object):
         self.cu = CerebrumUtils()
 
         self.config = conf
-        self.logger = logger
 
         self._ldap_page_size = 1000
 
@@ -92,50 +119,55 @@ class StateChecker(object):
         self.ldap_srv = ldap.ldapobject.ReconnectLDAPObject(
             '%s://%s/' % (self.config['ldap_proto'],
                           self.config['ldap_server']),
-            retry_max=5, retry_delay=60)
+            retry_max=self.LDAP_RETRY_MAX,
+            retry_delay=self.LDAP_RETRY_DELAY)
 
         usr = self.config['ldap_user'].split('\\')[1]
-        self.ldap_srv.bind_s(self.config['ldap_user'], read_password(
-            usr, self.config['ldap_server']))
+        self.ldap_srv.bind_s(
+            self.config['ldap_user'],
+            read_password(usr, self.config['ldap_server']))
 
         self.ldap_lc = ldap.controls.SimplePagedResultsControl(
             True, self._ldap_page_size, '')
 
-    # Wrapping the search with retries if the server is busy or similar errors
     def _searcher(self, ou, scope, attrs, ctrls):
-        c_fail = 0
-        e_save = None
-        while c_fail <= 3:
-            try:
-                return self.ldap_srv.search_ext(ou, scope,
-                                                attrlist=attrs,
-                                                serverctrls=ctrls)
-                c_fail = 0
-                e_save = None
-            except ldap.LDAPError, e:
-                c_fail = c_fail + 1
-                e_save = e
-                self.logger.debug('Caught %s in _searcher' % str(e))
-                time.sleep(30)
-        if e_save:
-            raise e_save
+        """ Perform ldap.search(), but retry in the event of an error.
 
-    # Wrapping the fetch with retries if the server is busy or similar errors
-    def _recvr(self, msgid):
-        c_fail = 0
-        e_save = None
-        while c_fail <= 3:
+        This wraps the search with error handling, so that the search is
+        repeated with a delay between attempts.
+        """
+        for attempt in itertools.count(1):
             try:
-                return self.ldap_srv.result3(msgid)
-                c_fail = 0
-                e_save = None
-            except ldap.LDAPError, e:
-                c_fail = c_fail + 1
-                e_save = e
-                self.logger.debug('Caught %s in _recvr' % str(e))
-                time.sleep(30)
-        if e_save:
-            raise e_save
+                return self.ldap_srv.search_ext(
+                    ou, scope, attrlist=attrs, serverctrls=ctrls)
+            except ldap.LDAPError as e:
+                if attempt < self.LDAP_COM_MAX:
+                    logger.debug('Caught %r in _searcher on attempt %d',
+                                 e, attempt)
+                    time.sleep(self.LDAP_COM_DELAY)
+                    continue
+                raise
+
+    def _recvr(self, msgid):
+        """ Perform ldap.result3(), but retry in the event of an error.
+
+        This wraps the result fetching with error handling, so that the fetch
+        is repeated with a delay between attempts.
+
+        It also decodes all attributes and attribute text values.
+        """
+        for attempt in itertools.count(1):
+            try:
+                # return self.ldap_srv.result3(msgid)
+                rtype, rdata, rmsgid, sc = self.ldap_srv.result3(msgid)
+                return rtype, decode_attrs(rdata), rmsgid, sc
+            except ldap.LDAPError as e:
+                if attempt < self.LDAP_COM_MAX:
+                    logger.debug('Caught %r in _recvr on attempt %d',
+                                 e, attempt)
+                    time.sleep(self.LDAP_COM_DELAY)
+                    continue
+                raise
 
     def search(self, ou, attrs, scope=ldap.SCOPE_SUBTREE):
         """Wrapper for the search- and result-calls.
@@ -167,7 +199,7 @@ class StateChecker(object):
                 else:
                     break
             else:
-                self.logger.warn('Server ignores RFC 2696 control.')
+                logger.warn('Server ignores RFC 2696 control.')
                 break
         return data[1:]
 
@@ -175,27 +207,37 @@ class StateChecker(object):
         """Close the LDAP connection."""
         self.ldap_srv.unbind_s()
 
-#
-# Various cache-generating functions.
-#
+    #
+    # Various cache-generating functions.
+    #
+
     def _populate_randzone_cache(self, randzone):
         self.gr.clear()
         self.gr.find_by_name(randzone)
-        return [x['name'] for x in self.cu.get_group_members(
-            self.gr.entity_id)]
+        u = text_decoder(self.db.encoding)
+        return [u(x['name'])
+                for x in self.cu.get_group_members(self.gr.entity_id)]
 
     def _populate_account_cache(self, spread):
-        return self.ac.search(spread=spread)
+        u = text_decoder(self.db.encoding)
+
+        def to_dict(row):
+            d = dict(row)
+            d['name'] = u(row['name'])
+            d['description'] = u(row['description'])
+            return d
+
+        return [to_dict(r) for r in self.ac.search(spread=spread)]
 
     def _populate_address_cache(self):
-        tmp = {}
+        u = text_decoder(self.db.encoding)
+        tmp = defaultdict(list)
+
         # TODO: Implement fetchall?
         for addr in self.ea.list_email_addresses_ext():
-            tmp.setdefault(
-                addr['target_id'], []).append(u'%s@%s' %
-                                              (addr['local_part'],
-                                               addr['domain']))
-        return tmp
+            tmp[addr['target_id']].append(
+                u'%s@%s' % (u(addr['local_part']), u(addr['domain'])))
+        return dict(tmp)
 
     def _populate_local_delivery_cache(self):
         r = {}
@@ -204,48 +246,49 @@ class StateChecker(object):
         return r
 
     def _populate_forward_cache(self):
-        tmp = {}
+        u = text_decoder(self.db.encoding)
+        tmp = defaultdict(list)
+
         for fwd in self.ef.list_email_forwards():
             if fwd['enable'] == 'T':
-                tmp.setdefault(
-                    fwd['target_id'], []).append(fwd['forward_to'])
-        return tmp
+                tmp[fwd['target_id']].append(u(fwd['forward_to']))
+        return dict(tmp)
 
     def _populate_quota_cache(self):
-        tmp = {}
+        tmp = defaultdict(dict)
+
         # TODO: Implement fetchall?
         for quota in self.eq.list_email_quota_ext():
-            tmp.setdefault(
-                quota['target_id'], {})['soft'] = quota['quota_soft']
-            tmp.setdefault(
-                quota['target_id'], {})['hard'] = quota['quota_hard']
-        return tmp
+            tmp[quota['target_id']]['soft'] = quota['quota_soft']
+            tmp[quota['target_id']]['hard'] = quota['quota_hard']
+        return dict(tmp)
 
     def _populate_target_cache(self):
-        tmp = {}
+        u = text_decoder(self.db.encoding)
+        tmp = defaultdict(dict)
         for targ in self.et.list_email_target_primary_addresses(
                 target_type=self.co.email_target_account):
-            tmp.setdefault(targ['target_entity_id'], {})['target_id'] = \
-                targ['target_id']
-            tmp.setdefault(targ['target_entity_id'], {})['primary'] = \
-                u'%s@%s' % (targ['local_part'], targ['domain'])
-        return tmp
+            tmp[targ['target_entity_id']]['target_id'] = targ['target_id']
+            tmp[targ['target_entity_id']]['primary'] = \
+                u'%s@%s' % (u(targ['local_part']), u(targ['domain']))
+        return dict(tmp)
 
     def _populate_name_cache(self):
-        tmp = {}
+        u = text_decoder(self.db.encoding)
+        tmp = defaultdict(dict)
         for name in self.pe.search_person_names(
             name_variant=[self.co.name_first,
                           self.co.name_last,
                           self.co.name_full],
                 source_system=self.co.system_cached):
-                tmp.setdefault(
-                    name['person_id'], {})[name['name_variant']] = name['name']
-        return tmp
+            tmp[name['person_id']][name['name_variant']] = u(name['name'])
+        return dict(tmp)
 
     def _populate_group_name_cache(self):
+        u = text_decoder(self.db.encoding)
         tmp = {}
         for eid, dom, name in self.gr.list_names(self.co.group_namespace):
-            tmp[eid] = name
+            tmp[eid] = u(name)
         return tmp
 
     def _populate_no_reservation_cache(self):
@@ -261,9 +304,10 @@ class StateChecker(object):
         for acc in self.ac.list_accounts_by_type(primary_only=True):
             primary.append(acc['account_id'])
         return primary
-###
-# Mailbox related state fetching & comparison
-###
+
+    ###
+    # Mailbox related state fetching & comparison
+    ###
 
     def collect_cerebrum_mail_info(self):
         """Collect E-mail related information from Cerebrum.
@@ -277,8 +321,8 @@ class StateChecker(object):
             try:
                 tid = self._cache_targets[acc['account_id']]['target_id']
             except KeyError:
-                self.logger.warn('Could not find account with id:%d in list '
-                                 'of targets, skipping..' % acc['account_id'])
+                logger.warn('Could not find account with id:%d in list '
+                            'of targets, skipping..', acc['account_id'])
                 continue
             # Fetch addresses
             tmp[u'EmailAddresses'] = sorted(self._cache_addresses[tid])
@@ -370,24 +414,24 @@ class StateChecker(object):
                     'ExchangeActiveSyncDevices' in cn:
                 continue
             tmp = {}
-            name = cn[3:].split(',')[0].decode('UTF-8')
+            name = cn[3:].split(',')[0]
             for key in data:
                 if key == 'proxyAddresses':
                     addrs = []
                     for addr in data[key]:
                         if addr.startswith('SMTP:'):
-                            tmp[u'PrimaryAddress'] = addr[5:].decode('UTF-8')
-                        addrs.append(addr[5:].decode('UTF-8'))
+                            tmp[u'PrimaryAddress'] = addr[5:]
+                        addrs.append(addr[5:])
                     tmp[u'EmailAddresses'] = sorted(addrs)
                 elif key == 'displayName':
-                    tmp[u'DisplayName'] = data[key][0].decode('UTF-8')
+                    tmp[u'DisplayName'] = data[key][0]
                 elif key == 'givenName':
-                    tmp[u'FirstName'] = data[key][0].decode('UTF-8')
+                    tmp[u'FirstName'] = data[key][0]
                 elif key == 'sn':
-                    tmp[u'LastName'] = data[key][0].decode('UTF-8')
+                    tmp[u'LastName'] = data[key][0]
                 elif key == 'mDBUseDefaults':
-                    tmp[u'UseDatabaseQuotaDefaults'] = True if \
-                        data[key][0].decode('UTF-8') == 'TRUE' else False
+                    tmp[u'UseDatabaseQuotaDefaults'] = (
+                        True if data[key][0] == 'TRUE' else False)
                 elif key == 'mDBOverQuotaLimit':
                     q = data[key][0]
                     tmp[u'ProhibitSendQuota'] = q
@@ -402,22 +446,21 @@ class StateChecker(object):
             # Collect status about if the mbox is hidden or not
             tmp[u'HiddenFromAddressListsEnabled'] = False
             if 'msExchHideFromAddressLists' in data:
-                val = (True if
-                       data['msExchHideFromAddressLists'][0].decode('UTF-8')
-                       == 'TRUE' else False)
+                val = (True if data['msExchHideFromAddressLists'][0] == 'TRUE'
+                       else False)
                 tmp[u'HiddenFromAddressListsEnabled'] = val
 
             # Collect local delivery status
             tmp[u'DeliverToMailboxAndForward'] = False
             if 'deliverAndRedirect' in data:
-                val = (True if data['deliverAndRedirect'][0].decode('UTF-8')
-                       == 'TRUE' else False)
+                val = (True if data['deliverAndRedirect'][0] == 'TRUE'
+                       else False)
                 tmp[u'DeliverToMailboxAndForward'] = val
 
             # Collect forwarding address
             tmp[u'ForwardingSmtpAddress'] = None
             if 'msExchGenericForwardingAddress' in data:
-                val = data['msExchGenericForwardingAddress'][0].decode('UTF-8')
+                val = data['msExchGenericForwardingAddress'][0]
                 # We split of smtp:, and store
                 tmp[u'ForwardingSmtpAddress'] = val.split(':')[1]
 
@@ -482,7 +525,7 @@ class StateChecker(object):
                     diff_mb[key][attr] = {
                         u'Exchange': None,
                         u'Cerebrum': ce_state[key][attr],
-                        u'Time': t_0
+                        u'Time': t_0,
                     }
                 elif ce_state[key][attr] != ex_state[key][attr]:
                     # For quotas, we only want to report mismatches if the
@@ -505,7 +548,7 @@ class StateChecker(object):
                     diff_mb[key][attr] = {
                         u'Exchange': ex_state[key][attr],
                         u'Cerebrum': ce_state[key][attr],
-                        u'Time': t_0
+                        u'Time': t_0,
                     }
 
         ret = {'new_mb': diff_new, 'stale_mb': diff_stale, 'mb': diff_mb}
@@ -565,59 +608,62 @@ class StateChecker(object):
 
         return ret, report
 
-###
-# Main control flow or something
-###
-if __name__ == '__main__':
+
+def eventconf_type(value):
     try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                                   't:f:s:m:r:',
-                                   ['type=',
-                                    'file=',
-                                    'sender=',
-                                    'mail=',
-                                    'report-file='])
-    except getopt.GetoptError, err:
-        logger.warn(str(err))
+        return eventconf.CONFIG[value]
+    except KeyError as e:
+        raise ValueError(e)
 
-    state_file = None
-    mail = None
-    sender = None
-    repfile = None
 
-    for opt, val in opts:
-        if opt in ('-t', '--type'):
-            conf = eventconf.CONFIG[val]
-        if opt in ('-f', '--file',):
-            state_file = val
-        if opt in ('-m', '--mail',):
-            mail = val
-        if opt in ('-s', '--sender',):
-            sender = val
-        if opt in ('-r', '--report-file',):
-            repfile = val
+def main(inargs=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-t', '--type',
+        dest='config',
+        type=eventconf_type,
+        required=True,
+        help="Sync type (a valid entry in eventconf.CONFIG)")
 
-    # Load config
-    attr_config = conf['state_check_conf']
-    mb_ou = conf['mailbox_ou']
+    parser.add_argument(
+        '-f', '--file',
+        dest='state',
+        required=True,
+        help="read and write state to %(metavar)s")
 
-    # TODO: Check if state file is defined here. If it does not contain any
-    # data, or it is not defined trough the command line, create an empty data
-    # structure
+    parser.add_argument(
+        '-m', '--mail',
+        help="Send reports to %(metavar)s")
 
-    # Load state file
+    parser.add_argument(
+        '-s', '--sender',
+        help="Send reports from %(metavar)s")
+
+    parser.add_argument(
+        '-r', '--report-file',
+        dest='report',
+        help="Write the report to %(metavar)s")
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+
+    if bool(args.mail) ^ bool(args.sender):
+        raise ValueError("Must give both mail and sender")
+
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    attr_config = args.config['state_check_conf']
+    mb_ou = args.config['mailbox_ou']
+
     try:
-        f = open(state_file, 'r')
-        state = pickle.load(f)
-        f.close()
+        with open(args.state, 'r') as f:
+            state = pickle.load(f)
     except IOError:
-        # First run, can't read state
+        logger.warn('No existing state file %s', args.state)
         state = None
 
-    # Init our state checker
-    sc = StateChecker(logger, conf)
-
-    # Collect and parse mailbox and user data from Exchange
+    sc = StateChecker(args.config)
+    # Collect group info from Cerebrum and Exchange
     sc.init_ldap()
     mb_info = sc.collect_exchange_mail_info(mb_ou)
     sc.close()
@@ -629,29 +675,29 @@ if __name__ == '__main__':
     new_state, report = sc.compare_mailbox_state(mb_info, cere_mb_info,
                                                  state, attr_config)
 
-    # Join the report together
     try:
         rep = u'\n'.join(report)
-    except UnicodeDecodeError, e:
-        print(str(e))
+    except UnicodeError as e:
+        logger.warn('Bytestring data in report: %r', e)
         tmp = []
         for x in report:
             tmp.append(x.decode('UTF-8'))
         rep = u'\n'.join(tmp)
 
-    # Send the report by mail
-    if mail and sender:
-        sendmail(mail, sender, 'Exchange mailbox state report',
+    # Send a report by mail
+    if args.mail and args.sender:
+        sendmail(args.mail, args.sender,
+                 'Exchange group state report',
                  rep.encode('utf-8'))
 
-    # Write the report to file
-    if repfile:
-        f = open(repfile, 'w')
-        f.write(rep.encode('utf-8'))
-        f.close()
+    # Write report to file
+    if args.report:
+        with open(args.report, 'w') as f:
+            f.write(rep.encode('utf-8'))
 
-    # TODO: Exceptions?
-    # Overwrite the old state with the new one.
-    f = open(state_file, 'w')
-    pickle.dump(new_state, f)
-    f.close()
+    with open(args.state, 'w') as f:
+        pickle.dump(new_state, f)
+
+
+if __name__ == '__main__':
+    main()

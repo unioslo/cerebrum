@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012-2016 University of Oslo, Norway
+# Copyright 2012-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,97 +18,52 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""A script for sending out SMS to new users. Originally created for sending
-out usernames to student accounts created by process_students.py, but it could
-hopefully be used by other user groups if necessary."""
+""" A script for sending out SMS to new users.
 
-import sys
-import os
-import getopt
+This script finds accounts that has the given trait and sends out a welcome
+SMS to them with their username. The 'sms_welcome' trait is set on SMS'ed
+accounts to avoid sending them duplicate SMSs.
+
+Note that we will not send out an SMS to the same account twice in a period
+of 180 days. We don't want to spam the users.
+
+Originally created for sending out usernames to student accounts created by
+process_students.py, but it could hopefully be used by other user groups if
+necessary.
+"""
+import argparse
+import functools
+import logging
 
 from mx.DateTime import now, DateTimeDelta
+from six import text_type
 
 import cereconf
+
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.sms import SMSSender
+from Cerebrum.utils import argutils
 
-logger = Factory.get_logger('cronjob')
-db = Factory.get('Database')()
-db.cl_init(change_program='send_welcome_sms')
-co = Factory.get('Constants')(db)
+
+logger = logging.getLogger(__name__)
 sms = SMSSender(logger=logger)
 
 
-def usage(exitcode=0):
-    print """Usage: %(scriptname)s [--commit] [options...]
-
-    This script finds accounts that has the given trait and sends out a welcome
-    SMS to them with their username. The 'sms_welcome' trait is set on SMS'ed
-    accounts to avoid sending them duplicate SMSs.
-
-    Note that we will not send out an SMS to the same account twice in a period
-    of 180 days. We don't want to spam the users.
-
-    --trait TRAIT   The trait that defines new accounts. Default:
-                    trait_student_new
-
-    --phone-types   The phone types and source systems to get phone numbers
-                    from. Can be a comma separated list, and its format is:
-
-                        <source sys name>:<contact type>,...
-
-                    E.g. FS:MOBILE,FS:PRIVATEMOBILE,SAP:MOBILE
-
-                    Source systems: FS, SAP
-                    Contact types: MOBILE, PRIVATEMOBILE
-
-                    Default: FS:MOBILE
-
-    --affiliations  A comma separated list of affiliations. If set, the person
-                    must have at least one affiliation of these types.
-
-    --skip-if-password-set Do not send SMS if the account has had a password
-                    set after the account recieved the trait defined by
-                    --trait. Also remove the trait defined by --trait.
-
-    --message-cereconf If the message is located in cereconf, this is its
-                    variable name. Default: AUTOADMIN_WELCOME_SMS
-
-    --message       The message to send to the users. Should not be given if
-                    --message-cereconf is specified.
-
-    --too-old DAYS  How many days the given trait can exist before we give up
-                    trying to send the welcome SMS. This is for the cases where
-                    the phone number e.g. is incorrect, or the person hasn't a
-                    phone number. After a while it will be too late to try
-                    sending the SMS. When the given number of days has passed,
-                    the trait will be deleted, and a warning will be logged.
-                    Default: 180 days.
-
-    --min-attempts ATTEMPTS
-                    The minimum number of attempts per account. If this option
-                    is set, the trait will be removed if these two conditions
-                    apply:
-                        1) the trait is too old
-                    and 2) number of attempts > minimum number of attempts
-
-    --commit        Actual send out the SMSs and update traits.
-
-    --help          Show this and quit
-    """ % {'scriptname': os.path.basename(sys.argv[0])}
-    sys.exit(exitcode)
-
-
-def process(trait, message, phone_types, affiliations, too_old, min_attempts,
-            commit=False, filters=[]):
+def process(db, trait, message, phone_types, affiliations, too_old,
+            min_attempts, commit=False, filters=[]):
     """Go through the given trait type and send out welcome SMSs to the users.
+
     Remove the traits, and set a new message-is-sent-trait, to avoid spamming
-    the users."""
+    the users.
+    """
     logger.info('send_welcome_sms started')
     if not commit:
         logger.debug('In dryrun mode')
 
+    co = Factory.get('Constants')(db)
     ac = Factory.get('Account')(db)
     pe = Factory.get('Person')(db)
 
@@ -119,34 +74,34 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
 
         # increase attempt counter for this account
         if min_attempts:
-            attempt = inc_attempt(ac, row, commit)
+            attempt = inc_attempt(db, ac, row, commit)
 
         is_too_old = (row['date'] < (now() - too_old))
 
         # remove trait if older than too_old days and min_attempts is not set
         if is_too_old and not min_attempts:
             logger.warn('Too old trait %s for entity_id=%s, giving up',
-                        trait, row['entity_id'])
-            remove_trait(ac, trait, commit)
+                        text_type(trait), row['entity_id'])
+            remove_trait(db, ac, trait, commit)
             continue
 
         # remove trait if more than min_attempts attempts have been made and
         # trait is too old
         if (min_attempts and is_too_old and min_attempts < attempt):
             logger.warn(
-                'Too old trait and too many attempts (%s) for '
-                'entity_id=%s, giving up',
+                'Too old trait and too many attempts (%r) for '
+                'entity_id=%r, giving up',
                 attempt, row['entity_id'])
-            remove_trait(ac, trait, commit)
+            remove_trait(db, ac, trait, commit)
             continue
 
         if ac.owner_type != co.entity_person:
-            logger.warn('Tagged new user %s not personal, skipping',
+            logger.warn('Tagged new user %r not personal, skipping',
                         ac.account_name)
             # TODO: remove trait?
             continue
         if ac.is_expired():
-            logger.debug('New user %s is expired, skipping', ac.account_name)
+            logger.debug('New user %r is expired, skipping', ac.account_name)
             # TODO: remove trait?
             continue
 
@@ -154,15 +109,15 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
         # further.
         def apply_filters(filter_name, filter_func):
             if isinstance(filter_func, list):
-                result = all(map(lambda fun: fun(ac, row), filter_func))
+                result = all(map(lambda fun: fun(db, ac, row), filter_func))
             else:
-                result = filter_func(ac, row)
+                result = filter_func(db, ac, row)
 
             if result:
-                remove_trait(ac, trait, commit)
+                remove_trait(db, ac, trait, commit)
                 logger.info(
-                    'New user filtered out by {} function, '
-                    'removing trait {}'.format(filter_name, row))
+                    'New user filtered out by %r function, '
+                    'removing trait %r', filter_name, row)
                 return True
             return False
 
@@ -176,7 +131,7 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
                 affs.append(a['affiliation'])
                 affs.append(a['status'])
             if not any(a in affs for a in affiliations):
-                logger.debug('No required person affiliation for %s, skipping',
+                logger.debug('No required person affiliation for %r, skipping',
                              ac.account_name)
                 # TODO: Doesn't remove trait, in case the person gets it later
                 # on.
@@ -188,15 +143,15 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
         # Check if user already has been texted. If so, the trait is removed.
         tr = ac.get_trait(co.trait_sms_welcome)
         if tr and tr['date'] > (now() - 300):
-            logger.debug('User %s already texted last %d days, removing trait',
+            logger.debug('User %r already texted last %d days, removing trait',
                          ac.account_name, 180)
-            remove_trait(ac, trait, commit)
+            remove_trait(db, ac, trait, commit)
             continue
 
         # get phone number
         phone = get_phone_number(pe=pe, phone_types=phone_types)
         if not phone:
-            logger.debug('Person %s had no phone number, skipping for now',
+            logger.debug('User %r had no phone number, skipping for now',
                          ac.account_name)
             continue
 
@@ -208,10 +163,17 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
         except Errors.NotFoundError:
             pass
 
-        msg = message % {'username': ac.account_name,
-                         'email': email}
+        def u(db_value):
+            if isinstance(db_value, bytes):
+                return db_value.decode(db.encoding)
+            return text_type(db_value)
+
+        msg = message % {
+            'username': u(ac.account_name),
+            'email': u(email),
+        }
         if not send_sms(phone, msg, commit):
-            logger.warn('Could not send SMS to %s (%s)',
+            logger.warn('Could not send SMS to %r (%r)',
                         ac.account_name,
                         phone)
             continue
@@ -224,13 +186,13 @@ def process(trait, message, phone_types, affiliations, too_old, min_attempts,
             db.commit()
         else:
             db.rollback()
-        logger.debug('Traits updated for %s', ac.account_name)
+        logger.debug('Traits updated for %r', ac.account_name)
     if not commit:
         logger.debug('Changes rolled back')
     logger.info('send_welcome_sms done')
 
 
-def remove_trait(ac, trait, commit=False):
+def remove_trait(db, ac, trait, commit=False):
     """Remove a given trait from an account."""
     logger.debug("Deleting trait %s from account %s", trait, ac.account_name)
     ac.delete_trait(code=trait)
@@ -241,14 +203,14 @@ def remove_trait(ac, trait, commit=False):
         db.rollback()
 
 
-def inc_attempt(ac, row, commit=False):
+def inc_attempt(db, ac, row, commit=False):
     """Increase the attempt counter (stored in trait) for a given account."""
     attempt = row['numval']
     if not attempt:
         attempt = 1
     else:
         attempt = int(attempt) + 1
-    logger.debug("Attempt number %s for account %s", attempt, ac.account_name)
+    logger.debug("Attempt number %r for account %r", attempt, ac.account_name)
     ac.populate_trait(code=row['code'], numval=attempt, date=row['date'])
     ac.write_db()
     if commit:
@@ -269,15 +231,16 @@ def get_phone_number(pe, phone_types):
 
 def send_sms(phone, message, commit=False):
     """Send an SMS to a given phone number"""
-    logger.debug('Sending SMS to %s: %s', phone, message)
+    logger.debug('Sending SMS to %r: %r', phone, message)
     if not commit:
         logger.debug('Dryrun mode, SMS not sent')
         return True
-    return sms(phone, message)
+    return sms(phone, message.encode('utf-8'))
 
 
-def skip_if_password_set(ac, trait):
+def skip_if_password_set(db, ac, trait):
     """ Has the password been changed after the trait was set? """
+    co = Factory.get('Constants')(db)
     # The trait and initial password is set in the same transaction. We add
     # a minute to skip this initial password change event.
     try:
@@ -290,81 +253,199 @@ def skip_if_password_set(ac, trait):
         types=co.account_password)] else False
 
 
-def main():
-    try:
-        opts, args = getopt.getopt(
-            sys.argv[1:],
-            'h',
-            ['trait=', 'phone-types=', 'affiliations=', 'message=',
-             'too-old=', 'message-cereconf=', 'commit', 'min-attempts=',
-             'skip-if-password-set'])
-    except getopt.GetoptError, e:
-        print e
-        usage(1)
+def lalign(s):
+    lines = s.split('\n')
+    striplen = min(len(l) - len(l.lstrip())
+                   for l in lines
+                   if len(l.lstrip()))
+    return '\n'.join(l[striplen:] for l in lines)
 
-    affiliations = []
-    phone_types = []
-    message = trait = None
-    commit = False
-    too_old = 180
-    min_attempts = None
-    filters = []
 
-    for opt, arg in opts:
-        if opt in ('-h', '--help'):
-            usage()
-        elif opt == '--trait':
-            trait = getattr(co, arg)
-        elif opt == '--too-old':
-            too_old = int(arg)
-            assert 0 < too_old, "--too_old must be a positive integer"
-        elif opt == '--min-attempts':
-            min_attempts = int(arg)
-            assert 0 < min_attempts, ("--min-attempts must be a positive "
-                                      "integer")
-        elif opt == '--phone-types':
-            phone_types.extend(
-                (co.human2constant(t[0], co.AuthoritativeSystem),
-                 co.human2constant(t[1], co.ContactInfo))
-                for t in (a.split(':') for a in arg.split(',')))
-        elif opt == '--affiliations':
-            affiliations.extend(co.human2constant(a, (co.PersonAffiliation,
-                                                      co.PersonAffStatus))
-                                for a in arg.split(','))
-        elif opt == '--skip-if-password-set':
-            filters.append(('skip-if-password-set', skip_if_password_set))
-        elif opt == '--message':
-            if message:
-                print 'Message already set'
-                usage(1)
-            message = arg
-        elif opt == '--message-cereconf':
-            if message:
-                print 'Message already set'
-                usage(1)
-            message = arg
-        elif opt == '--commit':
-            commit = True
+def try_decode(value):
+    # TODO: Temporary fix, args.message should *always* be unicode from
+    # cereconf!
+    if isinstance(value, bytes):
+        tmp = value
+        for encoding in ('utf-8', 'latin-1'):
+            try:
+                value = tmp.decode(encoding)
+                break
+            except UnicodeError:
+                continue
         else:
-            print "Unknown argument: %s" % opt
-            usage(1)
+            raise ValueError("Unable to decode cereconf-value")
+    return text_type(value)
 
-    # DEFAULTS
-    if not message:
-        message = cereconf.AUTOADMIN_WELCOME_SMS
-    if not phone_types:
-        phone_types = [(co.system_fs, co.contact_mobile_phone,)]
-    if not trait:
-        trait = co.trait_student_new
 
-    process(trait=trait,
-            message=message,
-            phone_types=phone_types,
-            affiliations=affiliations,
-            too_old=too_old,
-            min_attempts=min_attempts,
-            commit=commit,
-            filters=filters)
+DEFAULT_TRAIT = 'trait_student_new'
+DEFAULT_PHONES = ['FS:MOBILE']
+DEFAULT_MESSAGE_ATTR = 'AUTOADMIN_WELCOME_SMS'
+DEFAULT_TOO_OLD = 180
+
+
+def main(inargs=None):
+    doc = __doc__.strip().splitlines()
+
+    parser = argparse.ArgumentParser(
+        description=doc[0],
+        epilog='\n'.join(doc[1:]),
+        formatter_class=argparse.RawTextHelpFormatter)
+
+    # TODO: send_welcome_sms *really* needs a config
+    trait_arg = parser.add_argument(
+        '--trait',
+        default=DEFAULT_TRAIT,
+        metavar='TRAIT',
+        help='The trait that defines new accounts,\n'
+             'default: %(default)s')
+
+    phone_arg = parser.add_argument(
+        '--phone-types',
+        action='append',
+        default=[],
+        help=lalign(
+            """
+            The phone types and source systems to get phone numbers
+            from. Can be a comma separated list, and its format is:
+
+                <source sys name>:<contact type>,...
+
+            E.g. FS:MOBILE,FS:PRIVATEMOBILE,SAP:MOBILE
+
+            Source systems: FS, SAP
+            Contact types: MOBILE, PRIVATEMOBILE
+
+            Default: {0}
+            """).strip().format(','.join(DEFAULT_PHONES)))
+
+    aff_arg = parser.add_argument(
+        '--affiliations',
+        action='append',
+        default=[],
+        help=lalign(
+            """
+            A comma separated list of affiliations. If set, the person
+            must have at least one affiliation of these types.
+            """).strip())
+
+    parser.add_argument(
+        '--skip-if-password-set',
+        dest='filters',
+        action='append_const',
+        const=('skip-if-password-set', skip_if_password_set),
+        help=lalign(
+            """
+            Do not send SMS if the account has had a password
+            set after the account recieved the trait defined by
+            --trait. Also remove the trait defined by --trait.
+            """).strip())
+
+    msg_group = parser.add_mutually_exclusive_group()
+    msg_group.add_argument(
+        '--message-cereconf',
+        dest='message',
+        type=argutils.attr_type(cereconf, try_decode),
+        default=DEFAULT_MESSAGE_ATTR,
+        metavar='ATTR',
+        help=lalign(
+            """
+            If the message is located in cereconf, this is its
+            variable name. Default: %(default)s
+            """).strip())
+
+    msg_group.add_argument(
+        '--message',
+        dest='message',
+        type=argutils.UnicodeType(),
+        help=lalign(
+            """
+            The message to send to the users. Should not be given if
+            --message-cereconf is specified.
+            """).strip())
+
+    parser.add_argument(
+        '--too-old',
+        type=argutils.IntegerType(minval=0),
+        default=DEFAULT_TOO_OLD,
+        metavar='DAYS',
+        help=lalign(
+            """
+            How many days the given trait can exist before we give up
+            trying to send the welcome SMS. This is for the cases where
+            the phone number e.g. is incorrect, or the person hasn't a
+            phone number. After a while it will be too late to try
+            sending the SMS. When the given number of days has passed,
+            the trait will be deleted, and a warning will be logged.
+            Default: %(default)s days.
+            """).strip())
+
+    parser.add_argument(
+        '--min-attempts',
+        type=argutils.IntegerType(minval=0),
+        default=None,
+        metavar='ATTEMPTS',
+        help=lalign(
+            """
+            The minimum number of attempts per account. If this option
+            is set, the trait will be removed if these two conditions
+            apply:
+                1) the trait is too old
+            and 2) number of attempts > minimum number of attempts
+            """).strip())
+
+    parser.add_argument(
+        '--commit',
+        action='store_true',
+        default=False,
+        help="Actually send out the SMSs and update traits.")
+
+    parser.set_defaults(filters=[])
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+
+    db = Factory.get('Database')()
+    co = Factory.get('Constants')(db)
+    check_constant = functools.partial(argutils.get_constant, db, parser)
+
+    trait = check_constant(co.EntityTrait, args.trait, trait_arg)
+
+    # so ','.join(list).split(',') is a little weird -- but the getopt
+    # parsing allowed e.g. "--phone-types foo,bar --phone-types baz"
+    phone_types = [
+        (check_constant(co.AuthoritativeSystem, t[0], phone_arg),
+         check_constant(co.ContactInfo, t[1], phone_arg))
+        for t in (a.split(':')
+                  for a in ','.join(args.phone_types or
+                                    DEFAULT_PHONES).split(','))]
+    affiliations = [
+        check_constant((co.PersonAffiliation, co.PersonAffStatus), v, aff_arg)
+        for v in ','.join(args.affiliations).split(',') if v]
+
+    Cerebrum.logutils.autoconf('cronjob', args)
+    db.cl_init(change_program='send_welcome_sms')
+
+    logger.info('Start of script %s', parser.prog)
+    logger.debug("trait:        %r", trait)
+    logger.debug("phone-types:  %r", phone_types)
+    logger.debug("affiliations: %r", affiliations)
+    logger.debug("message:      %r", args.message)
+    logger.debug("too-old:      %r", args.too_old)
+    logger.debug("min-attempts: %r", args.min_attempts)
+    logger.debug("commit:       %r", args.commit)
+    logger.debug("filters:      %r", args.filters)
+
+    process(
+        db=db,
+        trait=trait,
+        message=args.message,
+        phone_types=phone_types,
+        affiliations=affiliations,
+        too_old=args.too_old,
+        min_attempts=args.min_attempts,
+        commit=args.commit,
+        filters=args.filters,
+    )
+
 
 if __name__ == '__main__':
     main()

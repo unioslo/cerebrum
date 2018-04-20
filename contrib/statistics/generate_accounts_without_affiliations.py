@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012, 2014 University of Oslo, Norway
+# Copyright 2012-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,147 +18,193 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""This program reports users on disk without affiliations, and any quarantines
+""" Generate an HTML or CSV report with non-affiliated accounts.
+
+This program reports users on disk without affiliations, and any quarantines
 that are ACTIVE for that user.
-
-    The following functions are defined:
-        main():
-            This function initializes database-connections, parses command line
-            parameters and starts other functions used to collect data and
-            generate a report.
-        get_accs_wo_affs():
-            This function searches the database for accounts that are owned by
-            a person which is not affiliated with anything, or accounts that have
-            no affiliations but are owned by a person who is affiliated with
-            something (depending on script options).
-        gen_affles_users_report():
-            This function generates an HTML-report.
-        usage():
-            - Prints usage information
-        preamble():
-            - Print HTML preable, for the report.
-        usage():
-            - Prints a help text about options.
-
-Overall flow of execution looks like:
-    main():
-        - Initializes database connections
-        - Parses command line options
-        - Starts 'get_accs_wo_affs()'
-        - Starts 'gen_affles_users_report()'
-        - Closes filehandle, then exits
-
-    get_accs_wo_affs():
-        - Starts by checking if the spread we are going to use is valid.
-        - Loops over all disks
-            - If the disk has a NIS_user@uio spread, list all accounts (but only
-                those with the NIS_user@uio spread) in a var.
-                - For each of these accounts, find the owners entity. The owners
-                    entity must be checked to makes sure it is a person, and if
-                    so, the person is fetched. Then one of the following, depending
-                    on script options:
-                    - Get the person's affiliations, if there are none, we add the
-                        account to our report-dict.
-                    - Get the account's affiliations, if there are none but there
-                        are person affiliations, we add the account to our
-                        report-dict.
-
-    gen_affles_users_report():
-        - Prints out the HTML preamble via the preamble() function
-        - For each disk in our result-dictionary:
-            - Generate a table header
-            - Loop over the accounts on the disk in question
-                - Print a row of info.
-
 """
-
-import sys
-import getopt
+import argparse
+import codecs
 import csv
-from mx.DateTime import now
+import datetime
+import io
+import logging
+import sys
 
-import cerebrum_path
-import cereconf
-from Cerebrum.Utils import Factory
+from jinja2 import Environment
+from six import text_type
+
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory
 
-class CSVDialect(csv.excel):
+logger = logging.getLogger(__name__)
+now = datetime.datetime.now
+
+# TODO: Move to actual template, or at least use a base template
+template = u"""
+{# HTML template for 'generate_accounts_without_affiliations.py'
+ # Note: this template requires a custom filter, sort_by_quarantine
+-#}
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type"
+          content="text/html; charset={{ encoding | default('utf-8') }}">
+    <title>{{ title | default('Users on disk without affiliations') }}</title>
+    <style type="text/css">
+      /* <![CDATA[ */
+      h1 {
+        margin: 1em .8em 1em .8em;
+        font-size: 1.4em;
+      }
+      h2 {
+        margin: 1.5em 1em 1em 1em;
+        font-size: 1em;
+      }
+      table + h1 {
+        margin-top: 3em;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        text-align: left;
+      }
+      table thead {
+        border-bottom: solid gray 1px;
+      }
+      table th, table td {
+        padding: .5em 1em;
+        width: 10%;
+      }
+      .meta {
+        color: gray;
+        text-align: right;
+      }
+      /* ]] >*/
+    </style>
+  </head>
+  <body>
+    <p class="meta">
+      {{ num_accounts }} account(s) on disk {{ criteria }}
+    </p>
+
+    {% for disk in disks | sort %}
+    <h2>{{ disk }}</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Full Name</th>
+          <th>Quarantine type</th>
+          <th>Quarantine description</th>
+          <th>Quarantine start date</th>
+        </tr>
+      </thead>
+
+      {% for user in disks[disk] | sort_by_quarantine %}
+      <tr>
+        <td>{{ user['account_name'] }}</td>
+        <td>{{ user['full_name'] }}</td>
+        <td>{{ user['quarantine']['type'] }}</td>
+        <td>{{ user['quarantine']['description'] }}</td>
+        <td>{{ user['quarantine']['date_set'] }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    {% endfor %}
+
+    <p class="meta">
+      Generated: {{ when }}
+    </p>
+  </body>
+</html>
+""".strip()
+
+
+class CsvDialect(csv.excel):
     """Specifying the CSV output dialect the script uses.
 
     See the module `csv` for a description of the settings.
 
     """
-    delimiter = ';'    
+    delimiter = ';'
     lineterminator = '\n'
 
-def usage(exitcode=0):
-    print """Usage:
-    %s [Options]
 
-    Generate an HTML formatted report of accounts on disk, belonging to persons
-    without affiliations (or, if -a is used, accounts without affiliations
-    belonging to persons with affiliations).
+class CsvUnicodeWriter:
+    """ Unicode-compatible CSV writer.
 
-    Options:
-    -o, --output FILE       The file to print the report to. Defaults to stdout.
+    Adopted from https://docs.python.org/2/library/csv.html
+    """
+    def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
+        self.queue = io.BytesIO()
+        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
+        self.stream = f
+        self.encoder = codecs.getincrementalencoder(encoding)()
 
-    -s, --spread SPREAD     Spread to filter users by. Defaults to NIS_user@uio.
+    def writerow(self, row):
+        # Write utf-8 encoded output to queue
+        self.writer.writerow([text_type(s).encode("utf-8") for s in row])
+        data = self.queue.getvalue()
 
-    -a, --check-accounts    Find the accounts lacking affiliations, belonging to
-                            persons who have affiliations.
-                            If this option is not set, the default behavior is
-                            instead to find the accounts of persons who lack
-                            affiliations, regardless of whether the accounts
-                            have affiliations or not.
+        # Read formatted CSV data from queue, re-encode and write to stream
+        data = data.decode("utf-8")
+        data = self.encoder.encode(data)
+        self.stream.write(data)
+        self.queue.truncate(0)
+        self.queue.seek(0)
 
-    -f, --output-format FMT The type of format. Defaults to 'html'. Available
-                            options: html and csv.
+    def writerows(self, rows):
+        for row in rows:
+            self.writerow(row)
 
-    -h, --help              Show this and quit.
 
-    """ % sys.argv[0] 
-    sys.exit(exitcode)
+def get_accs_wo_affs(db, target_spread, check_accounts=False):
+    """ Search disks for users owned by persons without affiliations.
 
-def get_accs_wo_affs(logger, filter_by_spread, ac, pe, di, co, check_accounts=False):
-    """Search disks for users owned by persons without affiliations.
-
-    :rtype: dict
-    :return:
-        All targeted users, sorted by disk name. The dict's values are dicts
-        with information about each users:
+    :return dict:
+        A mapping from *disk name* to a list of unaffiliated users.  Each user
+        is a dict with the following user info:
 
         - account_name: account name
         - full_name:    full name
-        - quarantine:   {
-                         type:           the type of the quarantine
-                         description:    general description
-                         date_set:       The date the quarantine was set
-                        }
+        - quarantine:
+            - type:         the type of the quarantine
+            - description:  general description
+            - date_set:     The date the quarantine was set
 
     """
-    logger.debug("Start fetching accounts...")
+    logger.info("Fetching accounts...")
 
-    # We fetch the spread from constants, and check if it exists by comparing it
-    # to itself. This is a bit ugly. 
-    try:
-        target_spread = co.Spread(filter_by_spread)
-        int(target_spread)
-    except Errors.NotFoundError:
-        logger.error('The spread %s is invalid', filter_by_spread)
-        sys.exit(1)
+    ac = Factory.get('Account')(db)
+    pe = Factory.get('Person')(db)
+    di = Factory.get('Disk')(db)
+    co = Factory.get('Constants')(db)
+
+    def _u(db_value):
+        if isinstance(db_value, bytes):
+            return db_value.decode(db.encoding)
+        return db_value
+
+    def _row_to_quar(row):
+        """ list_entity_quarantines row to dict """
+        return {
+            'type': text_type(co.Quarantine(row['quarantine_type'])),
+            'description': _u(row['description']),
+            'date_set': text_type(row['start_date'].strftime('%Y-%m-%d')),
+        }
 
     no_aff = {}
 
     # Cache the person affiliations
-    target_person_affs = {}
-    # Might want to be able to set the affiliation type, for later being able to
-    # include e.g. manual affiliations in the person list.
-    for row in pe.list_affiliations():
-        target_person_affs.setdefault(row['person_id'], []).append(row)
+    target_person_affs = set((
+        row['person_id'] for row in pe.list_affiliations()))
 
     # Counter values, number of disks checked and number of accounts checked.
-    no_disks = 0
-    no_accounts = 0
+    stats = {'disk': 0, 'user': 0}
 
     # We iterate over the disks:
     for d in di.list():
@@ -166,21 +212,22 @@ def get_accs_wo_affs(logger, filter_by_spread, ac, pe, di, co, check_accounts=Fa
         if d['spread'] != target_spread:
             continue
 
-        logger.debug2("Targeting disk: %s", d['path'])
-        no_disks += 1
+        logger.debug("Targeting disk: %s", _u(d['path']))
+        stats['disk'] += 1
 
         # We only pull users from NIS_user@uio..
         users = ac.list_account_home(disk_id=d['disk_id'],
                                      home_spread=target_spread)
-        logger.debug2("Users found on disk: %s", len(users))
+        logger.debug("Users found on disk: %d", len(users))
 
         for u in users:
             ac.clear()
             try:
                 ac.find(u['account_id'])
             except Errors.NotFoundError:
-                logger.warn("Can't find account_id = %d", u['account_id'])
+                logger.warn("Can't find account_id=%r", u['account_id'])
                 continue
+            stats['user'] += 1
             # Exclude non personal accounts:
             if ac.owner_type != co.entity_person:
                 continue
@@ -195,227 +242,159 @@ def get_accs_wo_affs(logger, filter_by_spread, ac, pe, di, co, check_accounts=Fa
                                    ac.owner_id not in target_person_affs):
                 continue
 
-            # We pull out the first entry from the quarantine list,
-            # and put parts of it in a dict for easier handling.
             quar = ac.get_entity_quarantine(only_active=True)
-            quar_subset = {}
-            if len(quar):
-                quar_subset = {
-                        'type': str(co.Quarantine(quar[0]['quarantine_type'])),
-                        'description': quar[0]['description'],
-                        'date_set': str(quar[0]['start_date']).split()[0],
-                        }
-            report_item = {'account_name': ac.account_name,
-                           'full_name': ac.get_fullname(),
-                           'quarantine': quar_subset,
-                           }
-            no_aff.setdefault(d['path'], []).append(report_item)
-            no_accounts += 1
+            report_item = {
+                'account_name': _u(ac.account_name),
+                'full_name': _u(ac.get_fullname()),
+                'quarantine': _row_to_quar(quar[0]) if len(quar) else {},
+            }
+            no_aff.setdefault(_u(d['path']), []).append(report_item)
 
-    # Log the counts of disks and accounts checked.
-    logger.debug('%d disks and %d accounts checked', no_disks, no_accounts)
-    
-    # We count the number of accounts on disk whithout affiliations, and report
-    # via logger.
-    r = len(reduce(lambda x, y: x+y, no_aff.values())) if len(no_aff) else 0
-    logger.debug('%d users on disk without affiliations', r)
-
-    # Function end, we return the dict.
+    logger.debug('%(disk)d disks and %(user)d accounts checked', stats)
+    logger.info('... fetched %d users on disk without affiliations',
+                sum(len(users) for users in no_aff.values()))
     return no_aff
 
-# Own function to print out the HTML-preamble. 'title' is the title of the
-# HTML-page, while 'output' is the file-object used for output.
-def preamble(output, title):
-    output.write("""<html>
-    <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
-        <title>%s</title>
-        <style type="text/css">
-            h1 {
-                margin: 1em .8em 1em .8em;
-                font-size: 1.4em;
-            }
-            h2 {
-                margin: 1.5em 1em 1em 1em;
-                font-size: 1em;
-            }
-            table + h1 {
-                margin-top: 3em;
-            }
-            table {
-                border-collapse: collapse;
-                width: 100%%;
-                text-align: left;
-            }
-            table thead {
-                border-bottom: solid gray 1px;
-            }
-            table th, table td {
-                padding: .5em 1em;
-                width: 10%%;
-            }
-            .meta {
-                color: gray;
-                text-align: right;
-            }
-        </style>
-    </head>
-    <body>
-    """ % title)
 
-def gen_affles_users_report(output, no_aff, output_format, check_accounts=False):
-    """Produce the output for the report, based on the given input.
+def do_sort_by_quarantine(l):
+    """ Sort by 'has quarantine'. """
+    return sorted(l, cmp=lambda a, b: cmp(len(a['quarantine']),
+                                          len(b['quarantine'])))
 
-    :param file output: The stream the report is written to.
 
-    :param dict no_aff:
-        The list of users without affiliations, grouped per disk. This is the
-        data that is written out in the report.
+def write_csv_report(stream, codec, no_aff, check_accounts):
+    """ Write a CSV report to an open bytestream. """
+    number_of_users = sum(len(users) for users in no_aff.values())
 
-    :param str output_format:
-        Sets the format of the report. Available formats:
+    output = codec.streamwriter(stream)
+    output.write('# Encoding: %s\n' % codec.name)
+    output.write('# Generated: %s\n' % now().strftime('%Y-%m-%d %H:%M:%S'))
+    output.write('# Number of users found: %d\n' % number_of_users)
 
-        - `html` - With focus on being more human readable. The output is sorted
-          per disk, grouped in HTML `<table>` elements.
+    writer = CsvUnicodeWriter(stream, dialect=CsvDialect, encoding=codec.name)
+    for disk_path in sorted(no_aff):
+        for user in do_sort_by_quarantine(no_aff[disk_path]):
+            quarantine = user['quarantine'] or ''
+            if quarantine:
+                quarantine = ','.join(quarantine.get(a) or ''
+                                      for a in ('type', 'description',
+                                                'date_set'))
+            writer.writerow((
+                disk_path,
+                user['account_name'],
+                user['full_name'],
+                quarantine,
+            ))
+    return
 
-        - `csv` - For easier parsing and post processing. All data is written
-          per line.
 
-    """
-    assert output_format in ('html', 'csv')
+def write_html_report(stream, codec, no_aff, check_accounts):
+    """ Write an HTML report to an open bytestream. """
+    output = codec.streamwriter(stream)
+    template_env = Environment(trim_blocks=True, lstrip_blocks=True)
+    template_env.filters['sort_by_quarantine'] = do_sort_by_quarantine
 
-    # Counting the total number of users
-    number_of_users = len(reduce(lambda x, y: x+y, no_aff.values())) \
-                       if len(no_aff) else 0
-
-    # Sort function used to sort entries depending on whether they have
-    # a quarantine or not (to be used on list of users, not the disks).
-    sa = lambda x,y: -1 if len(x['quarantine']) < len(y['quarantine']) else \
-            0 if len(x['quarantine']) == len(y['quarantine']) else 1
-
-    if output_format == 'csv':
-        # Print out status first:
-        output.write('# Generated: %s\n' % now())
-        output.write('# Number of users found: %d\n' % number_of_users)
-        writer = csv.writer(output, dialect=CSVDialect)
-        for disk in sorted(no_aff):
-            for user in sorted(no_aff[disk], cmp=sa):
-                q = user.get('quarantine', '')
-                if q:
-                    q = ','.join((q['type'], q['description'], q['date_set']))
-                writer.writerow((disk,
-                                 user['account_name'],
-                                 user['full_name'],
-                                 q,
-                                ))
-        return
-
-    # Print the header. Then some info
-    preamble(output, 'Users on disk without affiliations')
+    number_of_users = sum(len(users) for users in no_aff.values())
     if check_accounts:
-        output.write('<p class="meta">%d users on disk without affiliations, '
-                     'owned by persons with affiliations.</p>\n' % number_of_users)
+        criteria = ('without affiliations, owned by persons with'
+                    ' affiliations')
     else:
-        output.write('<p class="meta">%d users without person affiliations on '
-                     'disk.</p>\n' % number_of_users)
+        criteria = 'without person affiliations'
+    report = template_env.from_string(template)
+    output.write(
+        report.render({
+            'disks': no_aff,
+            'num_accounts': number_of_users,
+            'criteria': criteria,
+            'when': now().strftime('%Y-%m-%d %H:%M:%S'),
+            'encoding': codec.name,
+        })
+    )
+    output.write('\n')
 
-    # Print tables of disks with users:
-    # For each disk
-    for key in sorted(no_aff):
-        output.write('<h2>%s</h2>\n' % key)
-        output.write('<table>\n<thead><tr>')
-        output.write('<th>Username</th>')
-        output.write('<th>Full Name</th>')
-        output.write('<th>Quarantine type</th>')
-        output.write('<th>Quarantine description</th>')
-        output.write('<th>Quarantine start date</th>')
-        output.write('</thead></tr>\n')
 
-        # For each user on disk (sorted by sa-function)
-        for i in sorted(no_aff[key], cmp=sa):
-            output.write('<tr>\n')
-            output.write('<td>%s</td>' % i['account_name'])
-            output.write('<td>%s</td>' % i['full_name'])
+FORMATS = {
+    'csv': write_csv_report,
+    'html': write_html_report,
+}
 
-            # Try to print out quarantine-information. If the account isn't
-            # quarantined, print out a placeholder.
-            try:
-                output.write('<td>%s</td>' % i['quarantine']['type'])
-                output.write('<td>%s</td>' % i['quarantine']['description'])
-                output.write('<td>%s</td>' % i['quarantine']['date_set'])
-            except KeyError:
-                output.write('<td></td>' * 3)
-            output.write('\n</tr>\n')
-        output.write('</table>\n')
+DEFAULT_FORMAT = 'html'
+DEFAULT_SPREAD = 'NIS_user@uio'
+DEFAULT_ENCODING = 'utf-8'
 
-    output.write('<p class="meta">Generert: %s</p>\n' % 
-                                     now().strftime('%Y-%m-%d kl %H:%M'))
-    output.write('</body></html>\n')
 
-# The main function. This is where the database connection, logger and various
-# variables (spreadname and output-channel) is initialized, before options from
-# the command line are parsed, and the report generation starts.
-def main():
-    # Initialization of database connections
+def codec_type(encoding):
+    try:
+        return codecs.lookup(encoding)
+    except LookupError as e:
+        raise ValueError(str(e))
+
+
+def main(inargs=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-o', '--output',
+        metavar='FILE',
+        type=argparse.FileType('w'),
+        default='-',
+        help='The file to print the report to, defaults to stdout')
+    parser.add_argument(
+        '-f', '--output-format',
+        choices=FORMATS.keys(),
+        default=DEFAULT_FORMAT,
+        help='Output file format, defaults to %(default)s')
+    parser.add_argument(
+        '-e', '--encoding',
+        dest='codec',
+        default=DEFAULT_ENCODING,
+        type=codec_type,
+        help="Output file encoding, defaults to %(default)s")
+    spread_arg = parser.add_argument(
+        '-s', '--spread',
+        metavar='SPREAD',
+        default=DEFAULT_SPREAD,
+        help='Spread to filter users by, defaults to %(default)s')
+    parser.add_argument(
+        '-a', '--check-accounts',
+        action='store_true',
+        default=False,
+        help='Find accounts without affiliations, but where the owner'
+             ' has affiliations.  The default is to find accounts of persons'
+             ' without affiliations')
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    # Initialization of database connection
     db = Factory.get('Database')()
-    ac = Factory.get('Account')(db)
-    pe = Factory.get('Person')(db)
-    di = Factory.get('Disk')(db)
     co = Factory.get('Constants')(db)
 
-    # Initialization of logger
-    logger = Factory.get_logger('cronjob')
-
-    # Default output channel and spread to search by
-    output = sys.stdout
-    output_format = 'html'
-    spread = 'NIS_user@uio'
-    check_accounts = False
-
-    # Parsing opts
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'o:s:f:a',
-                                   ['output=', 
-                                    'output-format=',
-                                    'spread='])
-    except getopt.GetoptError, e:
-        print e
-        usage(1)
+        spread = co.Spread(args.spread)
+        int(spread)
+    except Errors.NotFoundError:
+        raise argparse.ArgumentError(
+            spread_arg, 'invalid spread {}'.format(repr(args.spread)))
 
-    for opt, val in opts:
-        if opt in ('-o', '--output'):
-            try:
-                output = open(val, 'w')
-            except IOError, e:
-                logger.error(e)
-                sys.exit(2)
-        elif opt in ('-f', '--output-format'):
-            if val not in ('html', 'csv'):
-                print "Invalid output-format: %s" % val
-                usage(1)
-            output_format = val
-        elif opt in ('-s', '--spread'):
-            spread = val
-        elif opt in ('-a', '--check-accounts'):
-            check_accounts = True
-        else:
-            print "Unknown argument: %s" % opt
-            usage(1)
-
-    logger.info('Start of accounts without affiliation report')
+    logger.info('Start of script %s', parser.prog)
+    logger.debug("args: %r", args)
 
     # Search for accounts without affiliations
-    no_aff = get_accs_wo_affs(logger, spread, ac, pe, di, co, check_accounts)
-   
-   # Generate HTML report of results
-    gen_affles_users_report(output, no_aff, output_format, check_accounts)
+    no_aff = get_accs_wo_affs(db, spread, args.check_accounts)
+
+    # Generate report of results
+    writer = FORMATS[args.output_format]
+    writer(args.output, args.codec, no_aff, args.check_accounts)
+    args.output.flush()
 
     # If the output is being written to file, close the filehandle
-    if not output is sys.stdout:
-        output.close()
+    if args.output is not sys.stdout:
+        args.output.close()
 
-    logger.info('End of accounts without affiliation report')
+    logger.info('Report written to %s', args.output.name)
+    logger.info('Done with script %s', parser.prog)
 
-# If we run as a program, execute main(), then exit
+
 if __name__ == '__main__':
-        sys.exit(main())
+    main()
