@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2015-2018 University of Oslo, Norway
@@ -18,28 +19,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains a password print command for UiA. """
-
-import os
-import time
-
+from __future__ import unicode_literals
 import cereconf
 
 import Cerebrum.modules.printutils.bofhd_misc_print_passwords as base
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.templates import mappers
 
 
 class BofhdExtension(base.BofhdExtension):
-
-    """ Alter how password letters are printed at UiA. """
-
-    def _template_filename(self, operator, tpl):
-        u""" Generate a filename for the template. """
-        op = self._get_account(operator.get_entity_id(), idtype='id')
-        now = time.strftime("%Y-%m-%d-%H%M%S", time.localtime())
-        return "%s-%s-%s.%s" % (
-            op.account_name, now, os.getpid(), tpl.get('fmt', 'file'))
-
     def _get_printer(self, session, template):
         """ Get printer preset.
 
@@ -50,53 +39,48 @@ class BofhdExtension(base.BofhdExtension):
         """
         return getattr(cereconf, 'PRINT_PRINTER', 'no_printer')
 
-    def _get_mappings(self, account, tpl):
-        """ Get mappings for a given template. """
+    def _get_group_account_mappings(self, account, tmpl_type):
+        grp = self._get_group(account.owner_id, idtype='id')
         mapping = dict()
+        if tmpl_type == 'letter':
+            mapping.update(dict.fromkeys(
+                ('address_line2', 'address_line3', 'zip', 'city', 'country'),
+                ''
+            ))
+        mapping['fullname'] = 'group:%s' % grp.group_name
+        mapping['birthdate'] = account.created_at.strftime('%Y-%m-%d')
+        return mapping
+
+    def _get_person_account_mappings(self, account, tmpl_type):
+        person = self._get_person('id', account.owner_id)
+        mappings = mappers.get_person_info(person, self.const)
+
+        if tmpl_type == 'letter':
+            address_lookups = (
+                (self.const.system_sap, self.const.address_post),
+                (self.const.system_fs, self.const.address_post),
+                (self.const.system_fs, self.const.address_post_private)
+            )
+            address = mappers.get_person_address(person, address_lookups)
+            mappings.update(mappers.get_address_mappings(address))
+            try:
+                mappings['email_adr'] = account.get_primary_mailaddress()
+            except Errors.NotFoundError:
+                mappings['email_adr'] = ''
+        return mappings
+
+    def _get_mappings(self, account, password, tpl):
+        """ Get mappings for a given template. """
+        mappings = mappers.get_account_mappings(account, password)
 
         if account.owner_type == self.const.entity_group:
-            grp = self._get_group(account.owner_id, idtype='id')
-            mapping['fullname'] = 'group:%s' % grp.group_name
-            mapping['birthdate'] = account.created_at.strftime('%Y-%m-%d')
+            mappings.update(self._get_group_account_mappings(account,
+                                                             tpl['type']))
         elif account.owner_type == self.const.entity_person:
-            person = self._get_person('entity_id', account.owner_id)
-            mapping['fullname'] = person.get_name(self.const.system_cached,
-                                                  self.const.name_full)
-            mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
+            mappings.update(self._get_person_account_mappings(account,
+                                                              tpl['type']))
         else:
             raise CerebrumError(
                 "Unsupported owner type. Please use `misc list_passwords'")
 
-        if tpl.get('lang', '').endswith("letter"):
-            mapping['barcode'] = 'barcode_%s.eps' % account.entity_id
-            mapping.update(
-                dict.fromkeys(('address_line1', 'address_line2',
-                               'address_line3', 'zip', 'city', 'country'), ''))
-
-            if account.owner_type == self.const.entity_person:
-                address = None
-                for source, kind in (
-                        (self.const.system_sap, self.const.address_post),
-                        (self.const.system_fs, self.const.address_post),
-                        (self.const.system_fs,
-                         self.const.address_post_private)):
-                    address = person.get_entity_address(source=source,
-                                                        type=kind)
-                    if address:
-                        break
-                if address:
-                    mapping['address_line1'] = mapping.get('fullname', '')
-                    address = address[0]
-                    if address['address_text']:
-                        alines = address['address_text'].split("\n")+[""]
-                        mapping['address_line2'] = alines[0]
-                        mapping['address_line3'] = alines[1]
-                    mapping['zip'] = address['postal_number']
-                    mapping['city'] = address['city']
-                    mapping['country'] = address['country']
-            try:
-                mapping['emailadr'] = account.get_primary_mailaddress()
-            except Errors.NotFoundError:
-                mapping['emailadr'] = ''
-
-        return mapping
+        return mappings

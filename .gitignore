@@ -18,3 +18,6 @@ TAGS
 root.log
 Cerebrum.egg-info/
 ClientAPI.egg-info/
+/templates/template-vars
+/templates/synced-templates
+/templates/env.py
