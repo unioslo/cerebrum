@@ -1,7 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2009 University of Oslo, Norway
+# Copyright 2009-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,117 +18,170 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Report statistics about new persons in Cerebrum. """
+import argparse
+import logging
 
-"""
-This program provides simple statistics about new persons created in
-Cerebrum.
-"""
+from mx.DateTime import now, ISO, RelativeDateTime
+from six import text_type
 
-import sys
-import getopt
-from mx import DateTime 
-
-import cerebrum_path
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 
-db = Factory.get('Database')()
-constants = Factory.get('Constants')(db)
-account = Factory.get('Account')(db)
-person = Factory.get('Person')(db)
-logger = Factory.get_logger("cronjob")
-log_events = [constants.person_create,]
+logger = logging.getLogger(__name__)
 
 
-def get_new_persons(sdate, change_program=None):
-    new_persons = []
-    for row in db.get_log_events(sdate=sdate, types=log_events,
+def text_decoder(encoding, allow_none=True):
+    def to_text(value):
+        if allow_none and value is None:
+            return None
+        if isinstance(value, bytes):
+            return value.decode(encoding)
+        return text_type(value)
+    return to_text
+
+
+def get_new_persons(db, start_date, change_program=None):
+    co = Factory.get('Constants')(db)
+    pe_cls = Factory.get('Person')
+    ac_cls = Factory.get('Account')
+    u = text_decoder(db.encoding)
+
+    log_events = [co.person_create]
+
+    def get_person(person_id):
+        pe = pe_cls(db)
+        try:
+            pe.find(person_id)
+            return pe
+        except Errors.NotFoundError:
+            return None
+
+    def get_account(account_id):
+        ac = ac_cls(db)
+        try:
+            ac.clear()
+            ac.find(account_id)
+            return ac
+        except Errors.NotFoundError:
+            return None
+
+    for row in db.get_log_events(sdate=start_date,
+                                 types=log_events,
                                  change_program=change_program):
         logger.debug("New person: %s" % row['subject_entity'])
-        new_persons.append(row['subject_entity'])
-    return new_persons
+        pe = get_person(row['subject_entity'])
+        if pe is None:
+            logger.error("Couldn't find a person with entity_id=%r",
+                         row['subject_entity'])
+            continue
+
+        account_name = None
+        ac = get_account(pe.get_primary_account())
+        if ac is not None:
+            account_name = u(ac.account_name)
+
+        yield pe.entity_id, account_name
 
 
 def report_new_persons(new_persons):
-    report = ["New persons", "", "entity_id  account", "-"*18]
-    for p in new_persons:
-        try:
-            person.clear()
-            person.find(p)
-            tmp = "%8s  " % p
-            p_account = person.get_primary_account()
-            if p_account:
-                account.clear()
-                account.find(p_account)
-                tmp += account.account_name
-            report.append(tmp)
-        except Errors.NotFoundError:
-            logger.error("Couldn't find person %s" % p)
-    return '\n'.join(report)
+    fields_fmt = u"{0:>10} {1}"
+    yield u"New persons"
+    yield u""
+    yield fields_fmt.format('entity_id', 'account')
+    yield fields_fmt.format(u'-' * len('entity_id'), u'-' * len('account'))
+    for person_id, account_name in new_persons:
+        yield fields_fmt.format(text_type(person_id), account_name or u'')
 
 
-def usage(exitcode=0):
-    print """\nUsage: %s [options]
+def main(inargs=None):
+    parser = argparse.ArgumentParser(description=__doc__)
 
-    --help            Prints this message.
-    --dryrun          Print report, don't send mail
-    --start-date      Start date for events. Default is yesterday
-    --change-program  Specify which program that created the person
-    --mail-to         Mail recipient
-    --mail-from       From header
-    
-    'start-date' must be given in standard ISO format, i.e.
-    YYYY-MM-DD.
+    dryrun_arg = parser.add_argument(
+        '-d', '--dryrun',
+        dest='dryrun',
+        action='store_true',
+        default=False,
+        help='Dry-run (do not send report email)')
 
-    """ % (sys.argv[0])
-    sys.exit(exitcode)
+    parser.add_argument(
+        '-s', '--start-date',
+        dest='start_date',
+        type=ISO.ParseDate,
+        default=now() + RelativeDateTime(days=-1),
+        help='Start date (YYYY-MM-DD) for events,'
+             ' defaults to %(default)s (1 day ago)')
 
+    parser.add_argument(
+        '-c', '--change-program',
+        dest='change_program',
+        help='Only get events for %(metavar)s')
 
-def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "hds:c:t:f:",
-                                   ["help", "dryrun", "start-date=",
-                                    "change-program=", "mail-to=",
-                                    "mail-from="])
-    except getopt.GetoptError:
-        usage(1)
+    mail_from_arg = parser.add_argument(
+        '-f', '--mail-from',
+        dest='mail_from',
+        help="Send reports to %(metavar)s")
 
-    change_program = None
-    mail_to = None
-    mail_from = None
-    dryrun = False
-    sdate = DateTime.now() - 1
-    for opt, val in opts:
-        if opt in ('-h', '--help',):
-            usage()
-        if opt in ('-d', '--dryrun',):
-            dryrun = True
-        elif opt in ('-s', '--start-date',):
-            try:
-                sdate = DateTime.ISO.ParseDate(val)
-            except ValueError:
-                logger.error("Incorrect date format")
-                usage(exitcode=2)
-        elif opt in ('-c', '--change-program',):
-            change_program = val
-        elif opt in ('-t', '--mail-to',):
-            mail_to= val
-        elif opt in ('-f', '--mail-from',):
-            mail_from= val
+    mail_to_arg = parser.add_argument(
+        '-t', '--mail-to',
+        dest='mail_to',
+        help="Send reports from %(metavar)s")
 
-    new_persons = get_new_persons(sdate, change_program=change_program)
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+
+    # Require mail_to and mail_from, or neither
+    if bool(args.mail_from) ^ bool(args.mail_to):
+        apply_to = mail_to_arg if args.mail_to else mail_from_arg
+        missing = mail_from_arg if args.mail_to else mail_to_arg
+        raise argparse.ArgumentError(
+            apply_to,
+            "Must set {0} as well".format('/'.join(missing.option_strings)))
+
+    # Require mail_to or dryrun to be set
+    if not any((args.mail_to, args.dryrun)):
+        raise argparse.ArgumentError(
+            mail_to_arg,
+            "Must set {0} if not sending mail".format(
+                '/'.join(dryrun_arg.option_strings)))
+
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start of script %s', parser.prog)
+    logger.debug("args: %r", args)
+
+    db = Factory.get('Database')()
+    new_persons = list(
+        get_new_persons(
+            db,
+            args.start_date,
+            change_program=args.change_program))
+
+    if args.change_program:
+        subject = u'New persons from %s since %s' % (args.change_program,
+                                                     args.start_date.date)
+    else:
+        subject = u'New persons since %s' % (args.start_date.date, )
+    message = u'\n'.join(report_new_persons(new_persons))
+
     if new_persons:
-        msg = report_new_persons(new_persons)
-        if change_program:
-            subject = "New persons from %s since %s" % (change_program, sdate.date)
+        if args.mail_to and not args.dryrun:
+            Utils.sendmail(args.mail_to, args.mail_from, subject, message)
+            logger.info("Sent report to %s", args.mail_to)
         else:
-            subject = "New persons since %s" % sdate.date
-        if mail_to and not dryrun:
-            Utils.sendmail(mail_to, mail_from, subject, msg)
-        else:
-            print msg
+            print("To: {0}".format(args.mail_to))
+            print("From: {0}".format(args.mail_from))
+            print("Subject: {0}".format(subject))
+            print("")
+            print(message)
+    else:
+        logger.info("Nothing to report")
+
+    logger.info('Done with script %s', parser.prog)
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2006 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2006-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,10 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Generate a report over persons and user accounts.
 
-"""This script produces a report over people and usernames.
-
-This script produces a (daily?) report over people, their user names and their
+This script produces a report over people, their usernames and their
 activity statuses.
 
 For each person in the database we report the following:
@@ -37,118 +36,151 @@ cereconf.SYSTEM_LOOKUP_ORDER is respected.
 [2] A *person* with at least one valid affiliation is considered active. All
 others are inactive.
 
-This job has been requested for ØFK, but it could be used at any institution
+This job has been requested for Ã˜FK, but it could be used at any institution
 using Cerebrum.
 """
-
-
-
+import argparse
+import codecs
+import logging
 import sys
-import getopt
+from collections import defaultdict
 
-import cerebrum_path
 import cereconf
+
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
-logger = Factory.get_logger("cronjob")
+
+logger = logging.getLogger(__name__)
 
 
+def get_account_data(db, id_type, source_systems):
+    pe = Factory.get("Person")(db)
+    ac = Factory.get("Account")(db)
+    co = Factory.get("Constants")(db)
 
-def generate_person_uname_report(stream, fnr_src_sys=None):
-    """Display statistics about people/unames.
+    def _u(db_value):
+        if db_value is None:
+            return u''
+        if isinstance(db_value, bytes):
+            return db_value.decode(db.encoding)
+        return db_value
 
-    Each person in Cerebrum gets as many entries at (s)he has usernames.
+    has_affiliation = set(row['person_id'] for row in pe.list_affiliations())
+    logger.debug('cached person_id of %d persons with affs',
+                 len(has_affiliation))
 
-    Each entry is formatted thus:
-
-    fnr:uname:aktiv/inaktiv
-
-    ... where
-
-    fnr		constants.externalid_fodselsnr
-    uname	account name owned by that person
-    aktiv	aktiv, if the *person* has at least one valid
-                affiliation. inaktiv otherwise.
-    """
-
-    db = Factory.get("Database")()
-    person = Factory.get("Person")(db)
-    acc = Factory.get("Account")(db)
-    const = Factory.get("Constants")(db)
-
-    #
-    # Get the right source system for external ids. If no source system is
-    # specified, we'll prioritise the IDs as specified in SYSTEM_LOOKUP_ORDER.
-    if fnr_src_sys:
-        source_systems = [int(getattr(const, x))
-                          for x in fnr_src_sys.split(",")]
-    else:
-        source_systems = [int(getattr(const, x))
-                          for x in cereconf.SYSTEM_LOOKUP_ORDER]
-
-    for p in person.list_persons():
-        pid = p["person_id"]
-
-        try:
-            person.clear()
-            person.find(pid)
-        except Errors.NotFoundError:
-            logger.warn("list_persons() reported a person, but person.find() "
-                        "did not find it")
+    extid_cache = defaultdict(dict)
+    for r in pe.list_external_ids(id_type=id_type,
+                                  entity_type=co.entity_person):
+        if r['source_system'] not in source_systems:
             continue
+        extid_cache[r['entity_id']][r['source_system']] = r['external_id']
+    logger.debug('cached external id for %d persons', len(extid_cache))
 
-        # Select fnr from the list of candidates.
-        fnrs = dict([(int(src), eid) for (junk, src, eid) in
-                     person.get_external_id(id_type=const.externalid_fodselsnr)])
-        fnr = ""
-        for system in source_systems:
-            if system in fnrs:
-                fnr = fnrs[system]
+    account_cache = defaultdict(list)
+    for row in ac.search(owner_type=co.entity_person,
+                         expire_start=None):
+        account_cache[row['owner_id']].append(row['name'])
+    logger.debug('cached accounts for %d persons', len(account_cache))
+
+    status_map = {True: "aktiv", False: "inaktiv"}
+
+    for row in pe.list_persons():
+        pid = row["person_id"]
+
+        ext_id = None
+        ext_ids = extid_cache[pid]
+        for src in source_systems:
+            if src in ext_ids:
+                ext_id = ext_ids[src]
                 break
 
-        # at least one active affiliation => 'aktiv'
-        status = "inaktiv"
-        if person.get_affiliations():
-            status = "aktiv"
-
-        # for all (unexpired) accounts owned by the person...
-        accounts = acc.search(owner_id=pid, expire_start=None)
-        for entry in accounts:
-            stream.write(":".join((fnr, entry["name"], status)))
-            stream.write("\n")
-# end generate_person_uname_report
+        for account_name in account_cache[pid]:
+            yield {
+                'person_id': pid,
+                'external_id': _u(ext_id),
+                'account_name': _u(account_name),
+                'status': status_map[pid in has_affiliation],
+            }
 
 
+def write_report(stream, codec, iterable):
+    output = codec.streamwriter(stream)
+    # TODO: This looks CSV-ish, use csv?
+    for data in iterable:
+        output.write("%(external_id)s:%(account_name)s:%(status)s\n" % data)
+    output.write("\n")
 
-def main(argv=None):
-    """Main processing hub for program."""
-    if argv is None:
-        argv = sys.argv
-        
+
+def codec_type(encoding):
     try:
-        opts, args = getopt.getopt(argv[1:],
-                                   "f:s:",
-                                   ["file=","fnr-systems="])
-    except getopt.GetoptError, error:
-        usage(message=error.msg)
-        return 1
+        return codecs.lookup(encoding)
+    except LookupError as e:
+        raise ValueError(str(e))
 
-    output_stream = sys.stdout
-    fnr_src_sys = None
-    for opt, val in opts:
-        if opt in ('-f', '--file',):
-            output_stream = open(val, "w")
-        elif opt in ('-s', '--fnr-systems',):
-            fnr_src_sys = val
 
-    generate_person_uname_report(output_stream, fnr_src_sys)
+DEFAULT_ENCODING = 'utf-8'
 
-    if output_stream not in (sys.stdout, sys.stderr):
-        output_stream.close()
 
-    return 0
-# end main
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description="Generate a report on persons and accounts")
 
+    parser.add_argument(
+        '-f', '--file',
+        dest='output',
+        metavar='FILE',
+        type=argparse.FileType('w'),
+        default='-',
+        help='Output file for report, defaults to stdout')
+    parser.add_argument(
+        '-e', '--encoding',
+        dest='codec',
+        default=DEFAULT_ENCODING,
+        type=codec_type,
+        help="Output file encoding, defaults to %(default)s")
+
+    id_source_arg = parser.add_argument(
+        '-s', '--fnr-systems',
+        dest='id_source_systems',
+        type=lambda v: [s.strip() for s in v.split(',')],
+        help='Ordered, comma-separated list of external id preference,'
+             ' defaults to cereconf.SYSTEM_LOOKUP_ORDER')
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start of script %s', parser.prog)
+    logger.debug("args: %r", args)
+
+    db = Factory.get("Database")()
+    co = Factory.get("Constants")(db)
+
+    source_systems = []
+    for source_sys in (args.id_source_systems or cereconf.SYSTEM_LOOKUP_ORDER):
+        source_const = co.human2constant(source_sys, co.AuthoritativeSystem)
+        if source_const is None:
+            raise argparse.ArgumentError(
+                id_source_arg,
+                'invalid source system {}'.format(repr(source_sys)))
+        source_systems.append(source_const)
+    logger.debug("source_systems: %r", source_systems)
+
+    account_iter = get_account_data(db,
+                                    co.externalid_fodselsnr,
+                                    source_systems)
+
+    write_report(args.output, args.codec, account_iter)
+
+    args.output.flush()
+    if args.output is not sys.stdout:
+        args.output.close()
+
+    logger.info('Report written to %s', args.output.name)
+    logger.info('Done with script %s', parser.prog)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

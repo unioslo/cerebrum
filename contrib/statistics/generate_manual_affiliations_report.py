@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2016 University of Oslo, Norway
+#
+# Copyright 2016-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,121 +18,123 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Generate an HTML or CSV report with manual affiliations.
+
+This program reports on persons with affiliation in the MANUAL source system.
+"""
 
 import argparse
-import cStringIO
 import codecs
-import copy
 import csv
 import datetime
+import io
+import logging
 import os
 import sys
 
 from jinja2 import Environment, FileSystemLoader
+from six import text_type
 
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 
-
-def _format_ou_name(ou, const):
-    short_name = ou.get_name_with_language(
-        name_variant=const.ou_name_short,
-        name_language=const.language_nb,
-        default="")
-    return "%02i%02i%02i (%s)" % (ou.fakultet,
-                                  ou.institutt,
-                                  ou.avdeling,
-                                  short_name)
+logger = logging.getLogger(__name__)
+now = datetime.datetime.now
 
 
-class UnicodeWriter(object):
+class CsvDialect(csv.excel):
+    """Specifying the CSV output dialect the script uses.
+
+    See the module `csv` for a description of the settings.
+
     """
-    A CSV writer which will write dict-rows to CSV file "f",
-    which is encoded in the given encoding.
+    delimiter = ';'
+    lineterminator = '\n'
 
-    Inspired by: https://docs.python.org/2.7/library/csv.html#module-csv
+
+class CsvUnicodeWriter:
+    """ Unicode-compatible CSV writer.
+
+    Adopted from https://docs.python.org/2/library/csv.html
     """
-    def __init__(self,
-                 f,
-                 dialect=csv.excel,
-                 encoding='utf-8',
-                 fieldnames=None,
+
+    def __init__(self, f, fieldnames, dialect=csv.excel, encoding="utf-8",
                  **kwds):
-        # Redirect output to a queue
-        self.queue = cStringIO.StringIO()
-        self.writer = csv.DictWriter(self.queue,
-                                     dialect=dialect,
-                                     fieldnames=fieldnames,
+        self.queue = io.BytesIO()
+        self.writer = csv.DictWriter(self.queue, fieldnames, dialect=dialect,
                                      **kwds)
         self.stream = f
         self.encoder = codecs.getincrementalencoder(encoding)()
 
     def writeheader(self):
-        # Unicode headers are not supported here
-        self.writer.writeheader()
+        return self.writer.writeheader()
 
     def writerow(self, row):
-        row = copy.copy(row)  # do not ruine the original dict
-        for key in row.keys():
-            if isinstance(row[key], unicode):
-                row[key] = row[key].encode('utf-8')
-        self.writer.writerow(row)
-        # self.writer.writerow([s.encode('utf-8') for s in row])
-        # Fetch UTF-8 output from the queue ...
+        # Write utf-8 encoded output to queue
+        self.writer.writerow(dict((k, text_type(v).encode("utf-8"))
+                                  for k, v in row.items()))
         data = self.queue.getvalue()
-        data = data.decode('utf-8')
-        # ... and reencode it into the target encoding
+
+        # Read formatted CSV data from queue, re-encode and write to stream
+        data = data.decode("utf-8")
         data = self.encoder.encode(data)
-        # write to the target stream
         self.stream.write(data)
-        # empty queue
         self.queue.truncate(0)
+        self.queue.seek(0)
 
     def writerows(self, rows):
         for row in rows:
             self.writerow(row)
 
 
-class CustomCSVDialect(csv.excel):
-    """
-    """
-    delimiter = ';'
-    lineterminator = '\n'
+class OuCache(object):
+    def __init__(self, db):
+        co = Factory.get('Constants')(db)
+        ou = Factory.get('OU')(db)
+
+        self._ou2sko = dict(
+            (row['ou_id'], (u"%02d%02d%02d" % (row['fakultet'],
+                                               row['institutt'],
+                                               row['avdeling'])))
+            for row in ou.get_stedkoder())
+
+        self._ou2name = dict(
+            (row['entity_id'], row['name'].decode(db.encoding))
+            for row in ou.search_name_with_language(
+                name_variant=co.ou_name_short,
+                name_language=co.language_nb))
+
+    def format_ou(self, ou_id):
+        return u'{0} ({1})'.format(self._ou2sko[ou_id], self._ou2name[ou_id])
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        '--csv',
-        type=str,
-        dest='csv',
-        default='',
-        help=('The CSV-file to print the report to. '
-              'Default: Do not generate CSV file.'))
-    parser.add_argument(
-        '-l', '--logger-name',
-        dest='logname',
-        type=str,
-        default='cronjob',
-        help='Specify logger (default: cronjob).')
-    parser.add_argument(
-        '-o', '--output',
-        type=str,
-        dest='output',
-        default='',
-        help='The file to print the report to. Defaults to stdout.')
-    args = parser.parse_args()
+def get_manual_users(db, stats=None):
+
+    if stats is None:
+        stats = dict()
+
+    stats.update({
+        'total_person_count': 0,
+        'person_count': 0,
+        'manual_count': 0,
+    })
 
     db = Factory.get('Database')()
     person = Factory.get('Person')(db)
     const = Factory.get('Constants')(db)
     account = Factory.get('Account')(db)
-    person_ou = Factory.get('OU')(db)
-    account_ou = Factory.get('OU')(db)
-    logger = Factory.get_logger(args.logname)
-    total_person_count = 0
-    person_count = 0
+
+    def _u(db_value):
+        if db_value is None:
+            return text_type('')
+        if isinstance(db_value, bytes):
+            return db_value.decode(db.encoding)
+        return text_type(db_value)
+
+    ou_cache = OuCache(db)
 
     # TODO: Dynamic exemptions
     EXEMPT_AFFILIATIONS = [
@@ -145,111 +147,183 @@ def main():
         const.affiliation_manuell_alumni  # MANUELL/alumni
     ]
 
-    manual_users = list()
-    logger.info('{script_name} started'.format(script_name=sys.argv[0]))
     for person_row in person.list_affiliated_persons(
             aff_list=EXEMPT_AFFILIATIONS,
             status_list=EXEMPT_AFFILIATION_STATUSES,
             inverted=True):
+
         person.clear()
-        total_person_count += 1
+        stats['total_person_count'] += 1
         person.find(person_row['person_id'])
         has_exempted = False
-        person_affiliations = [
-            (const.PersonAffiliation(aff['affiliation']),
-             const.PersonAffStatus(aff['status']),
-             aff['ou_id']) for aff in
-            person.get_affiliations()]
+        person_affiliations = [(const.PersonAffiliation(aff['affiliation']),
+                                const.PersonAffStatus(aff['status']),
+                                aff['ou_id'])
+                               for aff in person.get_affiliations()]
         person_affiliations_list = list()
         person_ou_list = list()
         for paff_row in person_affiliations:
             if (
-                    (paff_row[0] in EXEMPT_AFFILIATIONS) or
-                    (paff_row[1] in EXEMPT_AFFILIATION_STATUSES)
+                    paff_row[0] in EXEMPT_AFFILIATIONS
+                    or paff_row[1] in EXEMPT_AFFILIATION_STATUSES
             ):
                 has_exempted = True
                 break
-            person_ou.clear()
-            person_ou.find(paff_row[2])
-            person_ou_list.append(_format_ou_name(person_ou, const))
-            person_affiliations_list.append(str(paff_row[1]))
+            person_ou_list.append(ou_cache.format_ou(paff_row[2]))
+            person_affiliations_list.append(text_type(paff_row[1]))
+
         if has_exempted:
             # This person has at least one exempted affiliation / status
             # We ignore this person
             continue
+
         accounts = person.get_accounts()
         if accounts:
-            person_count += 1
+            stats['person_count'] += 1
+
         for account_row in accounts:
             account.clear()
             account.find(account_row['account_id'])
             account_affiliations = list()
             for row in account.get_account_types(filter_expired=False):
-                account_ou.clear()
-                account_ou.find(row['ou_id'])
-                account_affiliations.append('{affiliation}@{ou}'.format(
-                    affiliation=const.PersonAffiliation(
-                        row['affiliation']),
-                    ou=_format_ou_name(account_ou, const)))
+                account_affiliations.append(
+                    u'{affiliation}@{ou}'.format(
+                        affiliation=text_type(
+                            const.PersonAffiliation(row['affiliation'])),
+                        ou=ou_cache.format_ou(row['ou_id'])))
             if not account_affiliations:
                 account_affiliations.append('EMPTY')
+
             # jinja2 accepts only unicode strings
-            manual_users.append({
-                'account_name': account.account_name.decode('latin1'),
-                'account_affiliations': str(
-                    account_affiliations).decode('utf-8'),
-                'person_name': person.get_name(
-                    const.system_cached,
-                    getattr(
-                        const, cereconf.DEFAULT_GECOS_NAME)).decode('latin1'),
-                'person_ou_list': str(person_ou_list).decode('latin1'),
-                'person_affiliations': str(
-                    person_affiliations_list).decode('latin1')})
-    sorted_manual_users = sorted(manual_users,
-                                 key=lambda x: x['person_ou_list'])
-    iso_timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    summary = (u'{0}: {1} accounts for {2} persons of total {3} '
-               u'persons processed').format(
-                   iso_timestamp,
-                   len(manual_users),
-                   person_count,
-                   total_person_count)
-    logger.info(summary)
+            stats['manual_count'] += 1
+            yield {
+                'account_name': _u(account.account_name),
+                'account_affiliations': ', '.join(account_affiliations),
+                'person_name': _u(
+                    person.get_name(
+                        const.system_cached,
+                        getattr(const, cereconf.DEFAULT_GECOS_NAME))),
+                'person_ou_list': ', '.join(person_ou_list),
+                'person_affiliations': ', '.join(person_affiliations_list),
+            }
+
+    logger.info('%(manual_count)d accounts for %(total_person_count)d persons'
+                ' of total %(person_count)d persons processed', stats)
+
+
+def write_csv_report(stream, codec, users):
+    """ Write a CSV report to an open bytestream. """
+    # number_of_users = sum(len(users) for users in no_aff.values())
+
+    output = codec.streamwriter(stream)
+    output.write('# Encoding: %s\n' % codec.name)
+    output.write('# Generated: %s\n' % now().strftime('%Y-%m-%d %H:%M:%S'))
+    # output.write('# Number of users found: %d\n' % number_of_users)
+    fields = ['person_ou_list', 'person_affiliations', 'person_name',
+              'account_name', 'account_affiliations']
+
+    writer = CsvUnicodeWriter(stream, dialect=CsvDialect, encoding=codec.name,
+                              fieldnames=fields)
+    writer.writeheader()
+    writer.writerows(users)
+
+
+def write_html_report(stream, codec, users, summary):
+    """ Write an HTML report to an open bytestream. """
+    output = codec.streamwriter(stream)
+
     env = Environment(
         loader=FileSystemLoader(os.path.join(os.path.dirname(__file__),
                                              'templates')))
     template = env.get_template('simple_list_overview.html')
-    output_str = template.render(
-        headers=(
-            ('person_ou_list', u'Person OU list'),
-            ('person_affiliations', u'Persont affiliations'),
-            ('person_name', u'Name'),
-            ('account_name', u'Account name'),
-            ('account_affiliations', u'Account affiliations')),
-        title=u'Manual affiliations report ({timestamp})'.format(
-            timestamp=iso_timestamp),
-        prelist=u'<h3>Manual affiliations report</h3>',
-        postlist=u'<p>{summary}</p>'.format(summary=summary),
-        items=sorted_manual_users).encode('utf-8')
-    if args.output:
-        with open(args.output, 'w') as fp:
-            fp.write(output_str)
-    else:
-        sys.stdout.write(output_str)
+
+    output.write(
+        template.render({
+            'headers': (
+                ('person_ou_list', u'Person OU list'),
+                ('person_affiliations', u'Persont affiliations'),
+                ('person_name', u'Name'),
+                ('account_name', u'Account name'),
+                ('account_affiliations', u'Account affiliations')),
+            'title': u'Manual affiliations report ({})'.format(
+                now().strftime('%Y-%m-%d %H:%M:%S')),
+            'prelist': u'<h3>Manual affiliations report</h3>',
+            'postlist': u'<p>{}</p>'.format(summary),
+            'items': users,
+        })
+    )
+    output.write('\n')
+
+
+def codec_type(encoding):
+    try:
+        return codecs.lookup(encoding)
+    except LookupError as e:
+        raise ValueError(str(e))
+
+
+DEFAULT_ENCODING = 'utf-8'
+
+
+def main(inargs=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '-o', '--output',
+        metavar='FILE',
+        type=argparse.FileType('w'),
+        default='-',
+        help='output file for html report, defaults to stdout')
+    parser.add_argument(
+        '-e', '--output-encoding',
+        dest='codec',
+        default=DEFAULT_ENCODING,
+        type=codec_type,
+        help="output file encoding, defaults to %(default)s")
+
+    parser.add_argument(
+        '--csv',
+        metavar='FILE',
+        type=argparse.FileType('w'),
+        default=None,
+        help='output file for csv report, if needed')
+    parser.add_argument(
+        '--csv-encoding',
+        dest='csv_codec',
+        default=DEFAULT_ENCODING,
+        type=codec_type,
+        help="output file encoding, defaults to %(default)s")
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    db = Factory.get('Database')()
+
+    logger.info('Start of script %s', parser.prog)
+    logger.debug("args: %r", args)
+
+    stats = dict()
+    manual_users = get_manual_users(db, stats)
+
+    sorted_manual_users = sorted(manual_users,
+                                 key=lambda x: x['person_ou_list'])
+    summary = ('{manual_count} accounts for {total_person_count} persons of'
+               ' total {person_count} persons processed').format(**stats)
+    write_html_report(args.output, args.codec, sorted_manual_users, summary)
+
+    args.output.flush()
+    if args.output is not sys.stdout:
+        args.output.close()
+    logger.info('HTML report written to %s', args.output.name)
+
     if args.csv:
-        with open(args.csv, 'w') as fp:
-            writer = UnicodeWriter(fp,
-                                   encoding='utf-8',
-                                   fieldnames=['person_ou_list',
-                                               'person_affiliations',
-                                               'person_name',
-                                               'account_name',
-                                               'account_affiliations'],
-                                   dialect=CustomCSVDialect)
-            writer.writeheader()
-            writer.writerows(sorted_manual_users)
-    logger.info('{script_name} finished'.format(script_name=sys.argv[0]))
-    sys.exit(0)
+        write_csv_report(args.csv, args.csv_codec, sorted_manual_users)
+        args.csv.flush()
+        if args.csv is not sys.stdout:
+            args.csv.close()
+        logger.info('CSV report written to %s', args.csv.name)
+
+    logger.info('Done with script %s', parser.prog)
 
 
 if __name__ == '__main__':

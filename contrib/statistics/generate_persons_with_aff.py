@@ -18,131 +18,200 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""
-This script lists all persons with a specific affiliation and an active
-primary account.
-"""
-
+""" Generate an HTML report on persons with a specific affiliation. """
 from __future__ import unicode_literals
 
 import argparse
+import codecs
+import datetime
+import logging
 import os
 import sys
+
 import jinja2
-import datetime
 from six import text_type
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
 
-logger = Factory.get_logger("cronjob")
-db = Factory.get(b'Database')()
-pe = Factory.get(b'Person')(db)
-ac = Factory.get(b'Account')(db)
-co = Factory.get(b'Constants')(db)
-ou = Factory.get(b'OU')(db)
-
-pe2sapid = dict((r['entity_id'], r['external_id']) for r in
-           pe.list_external_ids(source_system=co.system_sap,
-           id_type=co.externalid_sap_ansattnr))
-
-@memoize
-def ou_info(ou_id):
-    ou.clear()
-    ou.find(ou_id)
-    sko = "{:02d}{:02d}{:02d}".format(ou.fakultet, ou.institutt, ou.avdeling)
-    name = ou.get_name_with_language(name_variant=co.ou_name_acronym,
-                                     name_language=co.language_nb)
-    return sko, name
+logger = logging.getLogger(__name__)
+now = datetime.datetime.now
 
 
-def persons_with_aff_status(status):
-    data = []
+def make_sko_lookup(db):
+    ou = Factory.get(b'OU')(db)
+    co = Factory.get(b'Constants')(db)
+
+    @memoize
+    def sko_lookup(ou_id):
+        ou.clear()
+        ou.find(ou_id)
+        sko = "{:02d}{:02d}{:02d}".format(ou.fakultet,
+                                          ou.institutt,
+                                          ou.avdeling)
+        try:
+            name = ou.get_name_with_language(name_variant=co.ou_name_acronym,
+                                             name_language=co.language_nb)
+        except NotFoundError:
+            name = '<no acronym in nb_no>'
+        return sko, name
+    return sko_lookup
+
+
+def persons_with_aff_status(db, status):
+    co = Factory.get(b'Constants')(db)
+    pe = Factory.get(b'Person')(db)
+    ac = Factory.get(b'Account')(db)
+    ou_info = make_sko_lookup(db)
+
+    def _u(db_value):
+        if db_value is None:
+            return text_type('')
+        if isinstance(db_value, bytes):
+            return db_value.decode(db.encoding)
+        return text_type(db_value)
+
+    logger.debug('caching employee ids ...')
+    pe2sapid = dict(
+        (r['entity_id'], r['external_id'])
+        for r in pe.list_external_ids(source_system=co.system_sap,
+                                      id_type=co.externalid_sap_ansattnr))
+
+    logger.debug('caching non-expired accounts ...')
+    ac2name = dict((r['account_id'], r['name']) for r in ac.search())
+
+    logger.debug('finding persons with aff=%s...', text_type(status))
+    unique = set()
+    affiliations = 0
     for row in pe.list_affiliations(status=status):
         person_id = row['person_id']
-        sap_id = pe2sapid.get(person_id)
         ou_id = row['ou_id']
         pe.clear()
         pe.find(person_id)
+
         primary = pe.get_primary_account()
-        if not primary:
+        if primary not in ac2name:
             continue
-        ac.clear()
-        ac.find(primary)
-        if ac.is_expired():
-            continue
+
+        sap_id = pe2sapid.get(person_id)
+        account_name = ac2name[primary]
         full_name = pe.get_name(source_system=co.system_cached,
                                 variant=co.name_full)
-        birth = pe.birth_date.Format('%Y-%m-%d')
+        birth = pe.birth_date.strftime('%Y-%m-%d')
         sko, ou_name = ou_info(ou_id)
-        if not isinstance(full_name, text_type):
-            full_name = full_name.decode('latin1')
-        if not isinstance(ou_name, text_type):
-            ou_name = ou_name.decode('latin1')
-        data.append({
-            'account_name': ac.account_name,
-            'person_name': full_name,
-            'birth': birth,
-            'sap_id': sap_id,
+
+        unique.add(primary)
+        affiliations += 1
+        yield {
+            'account_name': _u(account_name),
+            'person_name': _u(full_name),
+            'birth': text_type(birth),
+            'sap_id': _u(sap_id),
             'affiliation': text_type(status),
-            'ou_sko': sko,
-            'ou_name': ou_name,
-        })
-    return data
+            'ou_sko': text_type(sko),
+            'ou_name': _u(ou_name),
+        }
+
+    logger.info('Found %d affiliations', affiliations)
+    logger.info('Found %d unique persons', len(unique))
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        '--aff-status',
-        type=co.human2constant,
-        dest='status',
-        required=True,
-        help='Lists persons with this affiliation status')
-    parser.add_argument(
-        '-o', '--output',
-        type=str,
-        dest='output',
-        default='',
-        help='The file to print the report to. Defaults to stdout.')
-    args = parser.parse_args()
-
-    logger.info('Starting with args: {}'.format(args))
-
-    persons = persons_with_aff_status(args.status)
-    sorted_persons = sorted(persons,
-                            key=lambda x: (x['ou_sko'],
-                                           x['account_name']))
-    logger.info('Found {} affiliations'.format(len(persons)))
-    logger.info('Found {} unique persons'.format(
-                len(set(map(lambda x: x['account_name'], persons)))))
+def write_html_report(stream, codec, person_data, aff_status):
+    output = codec.streamwriter(stream)
 
     env = jinja2.Environment(
         loader=jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__),
                                        'templates')))
     template = env.get_template('simple_list_overview.html')
-    iso_timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    iso_timestamp = now().strftime('%Y-%m-%d %H:%M:%S')
     title = 'List of persons with affiliation {aff} ({timestamp})'.format(
-        timestamp=iso_timestamp, aff=args.status)
-    output_str = template.render(
-        headers=(
-            ('account_name', 'Account name'),
-            ('person_name', 'Name'),
-            ('birth', 'Birth date'),
-            ('sap_id', "SAP Id"),
-            # ('affiliation', 'Affiliation'),
-            ('ou_sko', 'OU'),
-            ('ou_name', 'OU acronym')),
-        title=title,
-        prelist='<h3>{}</h3>'.format(title),
-        items=sorted_persons).encode('utf-8')
-    if args.output:
-        with open(args.output, 'w') as fp:
-            fp.write(output_str)
-    else:
-        sys.stdout.write(output_str)
-    logger.info('Done')
+        timestamp=iso_timestamp, aff=text_type(aff_status))
+
+    output.write(
+        template.render(
+            encoding=codec.name,
+            headers=(
+                ('account_name', 'Account name'),
+                ('person_name', 'Name'),
+                ('birth', 'Birth date'),
+                ('sap_id', "SAP Id"),
+                # ('affiliation', 'Affiliation'),
+                ('ou_sko', 'OU'),
+                ('ou_name', 'OU acronym')),
+            title=title,
+            prelist='<h3>{}</h3>'.format(title),
+            items=person_data,
+        )
+    )
+    output.write("\n")
+
+
+def codec_type(encoding):
+    try:
+        return codecs.lookup(encoding)
+    except LookupError as e:
+        raise ValueError(str(e))
+
+
+DEFAULT_ENCODING = 'utf-8'
+
+
+def main(inargs=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '-o', '--output',
+        metavar='FILE',
+        type=argparse.FileType('w'),
+        default='-',
+        help='output file for report, defaults to stdout')
+    parser.add_argument(
+        '-e', '--encoding',
+        dest='codec',
+        default=DEFAULT_ENCODING,
+        type=codec_type,
+        help="output file encoding, defaults to %(default)s")
+    aff_arg = parser.add_argument(
+        '--aff-status',
+        dest='status',
+        required=True,
+        help='Lists persons with this affiliation status')
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    db = Factory.get(b'Database')()
+    co = Factory.get(b'Constants')(db)
+
+    aff_status = co.human2constant(args.status, co.PersonAffStatus)
+    if not aff_status:
+        suggestion = ', '.join(text_type(a) for a in
+                               co.fetch_constants(co.PersonAffStatus))
+        raise argparse.ArgumentError(
+            aff_arg,
+            'invalid affiliation status {}'
+            ',\nTry one of: {}'.format(repr(args.status), suggestion))
+
+    logger.info('Start of script %s', parser.prog)
+    logger.debug("args: %r", args)
+
+    persons = persons_with_aff_status(db, aff_status)
+    sorted_persons = sorted(persons,
+                            key=lambda x: (x['ou_sko'],
+                                           x['account_name']))
+
+    write_html_report(args.output, args.codec, sorted_persons, aff_status)
+
+    args.output.flush()
+    if args.output is not sys.stdout:
+        args.output.close()
+
+    logger.info('Report written to %s', args.output.name)
+    logger.info('Done with script %s', parser.prog)
 
 
 if __name__ == "__main__":
