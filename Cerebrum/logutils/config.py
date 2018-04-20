@@ -437,6 +437,9 @@ def setup_logging(config, preset_name, loglevel, disable_existing=False):
     # if no other root handlers have been set up...
     logging.basicConfig(level=loglevel)
 
+    if loglevel:
+        logging.getLogger().setLevel(loglevel)
+
     logger.debug("Logging config {!r}".format(config))
     for c in preset_files:
         logger.debug("Loaded logger config '{0}'".format(c))
@@ -470,7 +473,7 @@ def setup_warnings(warn_config):
 
 
 def configure(config, logger_name, logger_level=None):
-    logger_level = logging.NOTSET if logger_level is None else logger_level
+    logger_level = logger_level or logging.NOTSET
     setup_logging(config.logging, logger_name, logger_level)
     setup_excepthook(config.exceptions)
     setup_warnings(config.warnings)
