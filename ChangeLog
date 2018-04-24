@@ -1,3 +1,7 @@
+2018-04-24  Karen   <cerebrum@gagarin.uit.no>
+
+    * populate_fronter_groups.py: Minor tidy up. Removed reference to make_fs() as it is not used.
+
 2018-04-18    <cerebrum@gagarin.uit.no>
 
 	* process_uit_email.py (calculate_uit_emails): Rewrote how to

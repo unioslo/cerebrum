@@ -141,7 +141,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory, latin1_wash, NotSet
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
-from Cerebrum.modules.no.access_FS import roles_xml_parser, make_fs
+from Cerebrum.modules.no.access_FS import roles_xml_parser
 from Cerebrum.modules.no.uit.fronter_lib \
      import UE2KursID, key2fields, str2key, fields2key
 from Cerebrum.modules.xmlutils.fsxml2object import EduGenericIterator
@@ -1577,7 +1577,6 @@ def main():
             edu_file = val
         elif o in ('--dryrun',):
             dryrun = True
-    fs = make_fs()
 
     db = Factory.get('Database')()
     db.cl_init(change_program='CF_gen_groups')
