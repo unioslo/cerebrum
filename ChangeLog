@@ -1,3 +1,10 @@
+2018-03-15    <cerebrum@gagarin.uit.no>
+
+	* Constants.py (Constants): Added 2 new constants
+	contact_sito_mobile and contact_uit_mobile. these are needed to
+	differentiate between sito and uit skype phonenumbers (for those
+	with 2 accounts).
+
 2018-03-02    <cerebrum@gagarin.uit.no>
 
 	* bofhd_uit_cmds.py (BofhdExtension): person info formatSuggestion expects 'deceased' variable name, but gets 'deceased_date'. this caused NullPointerException in jbofh. renamed 'deceased_date' to 'deceased'

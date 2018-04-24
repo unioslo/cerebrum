@@ -94,7 +94,8 @@ class Constants(Constants.Constants):
     contact_workphone2 = _ContactInfoCode('PHONE_WORK_2', 'Secondary Work Phone')
     contact_room = _ContactInfoCode('ROOM@UIT', 'Location and room number')
     contact_building = _ContactInfoCode('BYGG@UIT', 'Building name')
-
+    contact_sito_mobile = _ContactInfoCode('PHONE_SITO', 'sito employee phone')
+    contact_uit_mobile = _ContactInfoCode('PHONE_UIT', 'uit employee phone')
 
     # address codes
     address_location = _AddressCode('Lokasjon', 'Campus')
