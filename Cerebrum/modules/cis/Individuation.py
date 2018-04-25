@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2010-2016 University of Oslo, Norway
+# Copyright 2010-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,9 +26,7 @@ from __future__ import unicode_literals
 """
 
 import hashlib
-import json
 import random
-import pickle
 import string
 from mx.DateTime import RelativeDateTime, now
 
@@ -38,6 +36,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import json
 from Cerebrum.utils.email import sendmail
 from Cerebrum.utils.sms import SMSSender
 from Cerebrum.modules.pwcheck.checker import (check_password,
@@ -650,7 +649,7 @@ class Individuation:
             for row in self.db.get_log_events(types=self.co.entity_cinfo_add,
                                               any_entity=person.entity_id,
                                               sdate=delay):
-                data = pickle.loads(row['change_params'])
+                data = json.loads(row['change_params'])
                 if num['number'] == data['value']:
                     log.info('person_id=%s recently changed phoneno',
                              person.entity_id)
