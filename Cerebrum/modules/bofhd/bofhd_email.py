@@ -532,14 +532,17 @@ class BofhdEmailBase(BofhdCommandBase):
         Adds spam settings for an email target according to the cereconf
         setting 'EMAIL_DEFAULT_SPAM_SETTINGS'.
 
+        TODO: This method should be moved to Cerebrum.modules.Email and used
+              everywhere for setting defaults.
         """
-        target_type = self.const.EmailTarget(email_target.email_target_type)
+        target_type = text_type(
+            self.const.EmailTarget(email_target.email_target_type))
         settings = cereconf.EMAIL_DEFAULT_SPAM_SETTINGS
         if target_type not in settings:
             return
         spam_level, spam_action = (
-            int(self.const.EmailSpamLevel(settings[target_type][0])),
-            int(self.const.EmailSpamAction(settings[target_type][1])))
+            self.const.EmailSpamLevel(settings[target_type][0]),
+            self.const.EmailSpamAction(settings[target_type][1]))
         esf = Email.EmailSpamFilter(self.db)
         esf.populate(spam_level, spam_action, parent=email_target)
         esf.write_db()
@@ -551,16 +554,19 @@ class BofhdEmailBase(BofhdCommandBase):
         Adds spam settings for an email target according to the cereconf
         setting 'EMAIL_DEFAULT_FILTERS'.
 
+        TODO: This method should be moved to Cerebrum.modules.Email and used
+              everywhere for setting defaults.
         """
-        target_type = self.const.EmailTarget(email_target.email_target_type)
+        target_type = text_type(
+            self.const.EmailTarget(email_target.email_target_type))
         settings = cereconf.EMAIL_DEFAULT_FILTERS
         if target_type not in settings:
             return False
-        filter_code = int(self.const.EmailTargetFilter(settings[target_type]))
-
-        etf = Email.EmailTargetFilter(self.db)
-        etf.populate(filter_code, parent=email_target)
-        etf.write_db()
+        for target_filter in (self.const.EmailTargetFilter(f)
+                              for f in settings[target_type]):
+            etf = Email.EmailTargetFilter(self.db)
+            etf.populate(target_filter, parent=email_target)
+            etf.write_db()
         return True
 
     #
@@ -1324,7 +1330,7 @@ class BofhdEmailCommands(BofhdEmailBase):
 
         # Allow us to delete an address, even if it is malformed.
         lp, dom = self._split_email_address(address, with_checks=False)
-        ed = self._get_email_domain(dom)
+        ed = self._get_email_domain_from_str(dom)
         et, acc = self._get_email_target_and_account(address)
         self.ba.can_email_forward_create(operator.get_entity_id(), domain=ed)
         epat = Email.EmailPrimaryAddressTarget(self.db)
@@ -2038,7 +2044,7 @@ class BofhdEmailCommands(BofhdEmailBase):
     def email_delete_pipe(self, operator, addr):
         """ Delete email pipe. """
         lp, dom = self._split_email_address(addr, with_checks=False)
-        ed = self._get_email_domain(dom)
+        ed = self._get_email_domain_from_str(dom)
         self.ba.can_email_pipe_create(operator.get_entity_id(), domain=ed)
         ea = Email.EmailAddress(self.db)
         et = Email.EmailTarget(self.db)
@@ -2575,10 +2581,11 @@ class BofhdEmailCommands(BofhdEmailBase):
         conn_params = [
             cereconf.LDAP_MASTER,
             cereconf.LDAP_BIND_DN % cereconf.LDAP_UPDATE_USER,
-            Utils.read_password(cereconf.LDAP_SYSTEM,
-                                cereconf.LDAP_UPDATE_USER),
+            Utils.read_password(cereconf.LDAP_UPDATE_USER,
+                                cereconf.LDAP_SYSTEM),
             cereconf.LDAP_RETRY_MAX,
-            cereconf.LDAP_RETRY_DELAY, ]
+            cereconf.LDAP_RETRY_DELAY,
+        ]
 
         ldap = LdapUpdater()
 
@@ -2736,7 +2743,7 @@ class BofhdEmailCommands(BofhdEmailBase):
             target_ids = self._get_all_related_maillist_targets(address)
         elif int(et.email_target_type) == (self.const.email_target_RT):
             # Same, will fail if we don't have the BofhdEmailListMixin
-            target_ids = self.__get_all_related_rt_targets(address)
+            target_ids = self._get_all_related_rt_targets(address)
         for target_id in target_ids:
             try:
                 et.clear()
@@ -4098,7 +4105,7 @@ class LdapUpdater(object):
     @property
     def connection(self):
         """ cached connection object. """
-        getattr(self, '_connection', None)
+        return getattr(self, '_connection', None)
 
     @connection.setter
     def connection(self, connection):
