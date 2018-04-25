@@ -52,7 +52,6 @@ Some terms:
 """
 
 import time
-import pickle
 import uuid
 
 import adconf
@@ -61,6 +60,7 @@ from Cerebrum import Entity, Errors
 from Cerebrum.modules import CLHandler, Email
 from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum.Utils import unicode2str, Factory, dyn_import, NotSet
+from Cerebrum.utils import json
 from Cerebrum.utils.email import sendmail
 
 from Cerebrum.modules.ad2 import ADUtils, ConfigUtils
@@ -2506,8 +2506,8 @@ class UserSync(BaseSync):
                 self.uname2pasw[ent.entity_name] = (password, tag)
             else:  # we fetch the plaintext from the changelog
                 try:
-                    password = pickle.loads(
-                        str(row['change_params']))['password']
+                    password = json.loads(
+                        row['change_params'])['password']
                     self.uname2pasw[ent.entity_name] = (password,
                                                         'plaintext')
                 except (KeyError, TypeError, IndexError):
@@ -2651,7 +2651,7 @@ class UserSync(BaseSync):
                 pw = gpg_data[0].get('message')
             else:  # we fetch the plaintext from the changelog
                 try:
-                    pw = pickle.loads(str(row['change_params']))['password']
+                    pw = json.loads(row['change_params'])['password']
                 except (KeyError, TypeError, IndexError):
                     self.logger.warn("Account %s missing plaintext password",
                                      row['subject_entity'])
