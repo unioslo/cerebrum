@@ -21,7 +21,6 @@
 import collections
 import errno
 import imaplib
-import pickle
 import re
 import select
 import socket
@@ -96,6 +95,7 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PhrasePasswordNotGoodEnough)
 from Cerebrum.modules.pwcheck.history import PasswordHistory
 from Cerebrum.utils.email import mail_template, sendmail
+from Cerebrum.utils import json
 
 
 # TBD: It would probably be cleaner if our time formats were specified
@@ -7119,7 +7119,7 @@ class BofhdExtension(BofhdCommonMethods):
         # _ChangeTypeCode.__doc__
         if row['change_params']:
             try:
-                params = pickle.loads(row['change_params'])
+                params = json.loads(row['change_params'])
             except TypeError:
                 self.logger.error("Bogus change_param in change_id=%s,"
                                   " row: %r", row['change_id'], row)
@@ -7156,7 +7156,7 @@ class BofhdExtension(BofhdCommonMethods):
         for r in self.db.get_log_events(0,
                                         subject_entity=account_id,
                                         types=[self.const.posix_demote]):
-            uid = pickle.loads(r['change_params'])['uid']
+            uid = json.loads(r['change_params'])['uid']
         return uid
 
     def _date_human_readable(self, date):
