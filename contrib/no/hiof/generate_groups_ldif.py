@@ -27,6 +27,8 @@ This script takes the following arguments:
 --ldiffile fname : LDIF file with the group tree
 """
 
+from __future__ import unicode_literals
+
 import getopt
 import os
 import sys
@@ -35,13 +37,11 @@ import cPickle as pickle
 from collections import defaultdict
 
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import to_unicode
-from Cerebrum.modules.LDIFutils import ldapconf
-from Cerebrum.modules.LDIFutils import entry_string
-from Cerebrum.modules.LDIFutils import iso2utf
-from Cerebrum.modules.LDIFutils import ldif_outfile
-from Cerebrum.modules.LDIFutils import end_ldif_outfile
-from Cerebrum.modules.LDIFutils import container_entry_string
+from Cerebrum.modules.LDIFutils import (ldapconf,
+                                        entry_string,
+                                        ldif_outfile,
+                                        end_ldif_outfile,
+                                        container_entry_string)
 
 logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
@@ -56,12 +56,12 @@ top_dn = ldapconf('GROUP', 'dn')
 def dump_ldif(file_handle):
     group2dn = {}
     for row in group.search(spread=co.spread_ldap_group):
-        dn = (u"cn=%s,%s" % (to_unicode(row['name'], db.encoding),
-                             top_dn)).encode('utf-8')
+        dn = ("cn={},{}".format(row['name'], top_dn))
         group2dn[row['group_id']] = dn
         file_handle.write(entry_string(dn, {
             'objectClass': ("top", "hiofGroup"),
-            'description': (iso2utf(row['description']),)}))
+            'description': (row['description'],),
+        }))
     for mbr in group.search_members(spread=co.spread_ldap_group,
                                     member_type=(co.entity_person,
                                                  co.entity_account)):
