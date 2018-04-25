@@ -6563,8 +6563,8 @@ class BofhdExtension(BofhdCommonMethods):
 
         # Add them spreads
         for s in cereconf.BOFHD_NEW_USER_SPREADS:
-            if not ac.has_spread(self.const.Spread(s)):
-                ac.add_spread(self.const.Spread(s))
+            if not pu.has_spread(self.const.Spread(s)):
+                pu.add_spread(self.const.Spread(s))
 
         # And remove them quarantines (except those defined in cereconf)
         for q in ac.get_entity_quarantine():
