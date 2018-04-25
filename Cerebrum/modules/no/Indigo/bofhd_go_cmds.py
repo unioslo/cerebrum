@@ -26,7 +26,6 @@ bofhd_uio_cmds so that the perm commands are available.
 
 """
 import imaplib
-import pickle
 import socket
 
 import mx
@@ -36,6 +35,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import json
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
@@ -716,9 +716,9 @@ class BofhdExtension(BofhdCommonMethods):
             for k, v in changes.items():
                 change_type = self.const.ChangeType(int(k))
                 params = ''
-                if k == int(self.const.account_password):
+                if k == self.const.account_password:
                     if v['change_params']:
-                        params = pickle.loads(v['change_params'])
+                        params = json.loads(v['change_params'])
                         params = params.get('password', '')
                 tmp = {
                     'tstamp': v['tstamp'],
