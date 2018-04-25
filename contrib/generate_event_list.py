@@ -20,10 +20,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Generates a JSON file with events."""
 
-import cereconf
-getattr(cereconf, 'linter', 'must be silent')
-
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import json
 
 logger = Factory.get_logger('cronjob')
 
@@ -82,12 +80,8 @@ def convert_events(db, events):
     :param list events: A list of event rows.
     :rtype: list
     :return: A list of converted events."""
-    def _unpickle(msg):
-        import pickle
-        try:
-            cp = pickle.loads(msg.get('change_params'))
-        except (TypeError, EOFError):
-            cp = None
+    def _unpack(msg):
+        cp = json.loads(msg.get('change_params'))
         msg['change_params'] = cp
         return msg
 
@@ -102,7 +96,7 @@ def convert_events(db, events):
             return None
 
     def _convert(msg):
-        msg = _unpickle(dict(msg))
+        msg = _unpack(dict(msg))
         ct = _parse_code(db, msg.get('change_type_id'))
 
         # TODO: Restructure something, this is prone to break
@@ -167,21 +161,11 @@ def dump_json(filename, events):
 
     :param list(<Cerebrum.extlib.db_row.row>) events: List of events.
     :param basestring filename: File to write to. Prints to stdout if None."""
-    import json
-
-    class Encoder(json.JSONEncoder):
-        def default(self, obj):
-            from mx.DateTime import DateTimeType
-
-            if isinstance(obj, DateTimeType):
-                return str(obj)
-            return json.JSONEncoder.default(self, obj)
-
     if filename:
         with open(filename, 'w') as f:
-            json.dump(events, f, cls=Encoder, indent=4, sort_keys=True)
+            json.dump(events, f, indent=4, sort_keys=True)
     else:
-        print(json.dumps(events, cls=Encoder, indent=4, sort_keys=True))
+        print(json.dumps(events, indent=4, sort_keys=True))
 
 
 def main(args=None):
