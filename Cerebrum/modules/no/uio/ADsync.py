@@ -651,7 +651,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
                 # if usr exists in ad change pwd, else password set when
                 # created
                 if self.ac.account_name in adusrs:
-                    pw = jsone.loads(ans['change_params'])['password']
+                    pw = json.loads(ans['change_params'])['password']
                     confirm = self.change_pwd(self.ac.account_name,
                                               pw, dry_run)
                 # but for now we dont get the password when user is created so
