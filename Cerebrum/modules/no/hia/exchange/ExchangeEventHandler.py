@@ -247,8 +247,8 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             groups = self.ut.get_account_group_memberships(uname,
                                                            self.group_spread)
             for gname, gid in groups:
-                faux_event = {'subject_entity': aid,
-                              'dest_entity': gid,
+                faux_event = {'subject_entity': gid,
+                              'dest_entity': aid,
                               'change_params': pickle.dumps(None)}
 
                 self.logger.debug1('eid:%d: Creating event: Adding %s to %s' %
@@ -346,18 +346,26 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
 
         # Check if the entity we target with this event is a person. If it is
         # not, we throw away the event.
-        try:
-            et = self.ut.get_entity_type(event['subject_entity'])
-            params = self.ut.unpickle_event_params(event)
-            if not et == self.co.entity_person:
-                raise Errors.NotFoundError
-        except Errors.NotFoundError:
-            raise EntityTypeError
+        def check_if_correct_type(entity_id):
+            try:
+                et = self.ut.get_entity_type(entity_id)
+
+                if not et == self.co.entity_person:
+                    raise Errors.NotFoundError
+            except Errors.NotFoundError:
+                raise EntityTypeError
+
+        params = self.ut.unpickle_event_params(event)
 
         # Extract event-type for readability
         ev_type = event['event_type']
+
         # Handle group additions
         if ev_type in (self.co.group_add, self.co.group_rem,):
+            group_id = event['subject_entity']
+            person_id = event['dest_entity']
+            check_if_correct_type(person_id)
+
             # Check if this group addition operation is related to
             # the randzone group. If not, raise the UnrelatedEvent exception.
             # If it is related to randzones, and the person is a member of the
@@ -365,21 +373,23 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             # person has been removed from the randzone group, load the state
             # from the database.
 
-            member_of = self.ut.get_parent_groups(event['dest_entity'])
+            member_of = self.ut.get_parent_groups(group_id)
             if self.randzone_unreserve_group not in member_of:
                 raise UnrelatedEvent
             else:
                 if (self.randzone_unreserve_group in
                         self.ut.get_person_membership_groupnames(
-                            event['subject_entity'])):
+                            person_id)):
                     hidden_from_address_book = False
                 else:
                     hidden_from_address_book = (
-                        not event['subject_entity'] ==
+                        not person_id ==
                         self.ut.get_primary_account(
-                            person_id=event['subject_entity']))
+                            person_id=person_id))
         # Handle trait settings
         else:
+            person_id = event['subject_entity']
+            check_if_correct_type(person_id)
             # Check if this is a reservation-related trait operation. If it is
             # not, we raise the UnrelatedEvent exception since we don't have
             # anything to do. If it is a reservation-related trait, load the
@@ -388,9 +398,9 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                 raise UnrelatedEvent
             else:
                 hidden_from_address_book = (
-                    not event['subject_entity'] ==
+                    not person_id ==
                     self.ut.get_primary_account(
-                        person_id=event['subject_entity']))
+                        person_id=person_id))
 
         # Utility function for setting visibility on accounts in Exchange.
         def _set_visibility(uname, vis):
@@ -423,11 +433,11 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
 
         # Fetch the primary accounts entity_id
         primary_account_id = self.ut.get_primary_account(
-            event['subject_entity'])
+            person_id)
 
         # Loop trough all the persons accounts, and set the appropriate
         # visibility state for them.
-        for aid, uname in self.ut.get_person_accounts(event['subject_entity'],
+        for aid, uname in self.ut.get_person_accounts(person_id,
                                                       self.mb_spread):
             # Set the state we deduced earlier on the primary account.
             if aid == primary_account_id:
