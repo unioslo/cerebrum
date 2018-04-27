@@ -223,13 +223,13 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
 
         :raise UnrelatedEvent: If this event is unrelated to this handler.
         :raise EventExecutionException: If the event fails to execute."""
-        destination = group_flattener.get_entity(self.db, event['dest_entity'])
-        member = group_flattener.get_entity(self.db, event['subject_entity'])
+        group_id = group_flattener.get_entity(self.db, event['subject_entity'])
+        member = group_flattener.get_entity(self.db, event['dest_entity'])
         if not member:
             return
         (destinations, candidates) = group_flattener.add_operations(
             self.db, self.co,
-            member, destination,
+            member, group_id,
             self.group_spread, self.mb_spread)
         for (group_id, group_name) in destinations:
             for (entity_id, entity_name) in candidates:
@@ -243,8 +243,8 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
                             group_name=group_name))
                     # Copy & mangle the event, so we can log it correctly
                     mod_ev = event.copy()
-                    mod_ev['dest_entity'] = group_id
-                    mod_ev['subject_entity'] = entity_id
+                    mod_ev['dest_entity'] = entity_id
+                    mod_ev['subject_entity'] = group_id
                     self.ut.log_event_receipt(mod_ev, 'dlgroup:add')
                 except AlreadyPerformedException:
                     pass
@@ -266,12 +266,12 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
         :param event: The event returned from Change- or EventLog.
 
         :raise UnrelatedEvent: Raised if the event is not to be handled."""
-        destination = group_flattener.get_entity(self.db, event['dest_entity'])
-        member = group_flattener.get_entity(self.db, event['subject_entity'])
+        group_id = group_flattener.get_entity(self.db, event['subject_entity'])
+        member = group_flattener.get_entity(self.db, event['dest_entity'])
         if not member:
             return
         removals = group_flattener.remove_operations(self.db, self.co,
-                                                     member, destination,
+                                                     member, group_id,
                                                      self.group_spread,
                                                      self.mb_spread)
 
@@ -289,8 +289,8 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
                     # Copy & mangle the event, so we can log it reciept
                     # correctly
                     mod_ev = event.copy()
-                    mod_ev['dest_entity'] = group_id
-                    mod_ev['subject_entity'] = cand_id
+                    mod_ev['dest_entity'] = cand_id
+                    mod_ev['subject_entity'] = group_id
                     self.ut.log_event_receipt(mod_ev, 'dlgroup:rem')
                 except AlreadyPerformedException:
                     pass
