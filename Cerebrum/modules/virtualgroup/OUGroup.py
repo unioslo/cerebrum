@@ -1134,26 +1134,26 @@ class PersonOuGroup(Person):
         return c, s, p
 
     def __delete_affiliation(self, ou_id, affiliation, source, status):
-        """Register group_del for deleted aff"""
+        """Register group_rem for deleted aff"""
         myid = self.entity_id
         gr = Factory.get('Group')(self._db)
         for row in gr.list_ou_groups_for(
                 ou_id=ou_id, affiliation=affiliation, status=status,
                 source=source, indirect=False,
                 member_types=self.const.virtual_group_ou_person):
-            self._db.log_change(myid, self.const.group_del, row['group_id'])
+            self._db.log_change(myid, self.const.group_rem, row['group_id'])
         for row in gr.list_ou_groups_for(
                 ou_id=ou_id, affiliation=affiliation, status=status,
                 source=source, indirect=False,
                 member_types=self.const.virtual_group_ou_person):
-            self._db.log_change(myid, self.const.group_del, row['group_id'])
+            self._db.log_change(myid, self.const.group_rem, row['group_id'])
         try:
             myid = self.get_primary_account()
             for row in gr.list_ou_groups_for(
                     ou_id=ou_id, affiliation=affiliation, status=status,
                     source=source, indirect=False,
                     member_types=self.const.virtual_group_ou_primary):
-                self._db.log_change(myid, self.const.group_del,
+                self._db.log_change(myid, self.const.group_rem,
                                     row['group_id'])
         except:
             pass
@@ -1195,7 +1195,7 @@ class AccountOuGroup(Account):
                     member_types=self.const.virtual_group_ou_primary):
                 grids.add(gid['group_id'])
         for grid in grids:
-            self._db.log_change(old, self.const.group_del, grid)
+            self._db.log_change(old, self.const.group_rem, grid)
             self._db.log_change(new, self.const.group_add, grid)
 
     def set_account_type(self, ou_id, affiliation, priority=None):
