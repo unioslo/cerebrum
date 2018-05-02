@@ -1340,7 +1340,7 @@ class ConstantsBase(DatabaseAccessor):
             # all proper constants with the parameter...
             if obj is None:
                 for const_obj in self.__iterate_constants(const_type):
-                    if str(const_obj) == human_repr:
+                    if text(const_obj) == human_repr:
                         obj = const_obj
             # assume it's a textual representation of the code int...
             if obj is None and human_repr.isdigit():
