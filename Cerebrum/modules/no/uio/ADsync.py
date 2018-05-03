@@ -24,7 +24,6 @@ Extends the functionality provided in the general AD-export module
 ADutilMixIn.py to work with the AD setup at the University of Oslo.
 """
 import copy
-import pickle
 from collections import defaultdict
 
 import cereconf
@@ -33,6 +32,7 @@ from Cerebrum import Utils
 from Cerebrum import QuarantineHandler
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules.no.uio import ADutils
+from Cerebrum.utils import json
 
 
 def is_blacklisted(name):
@@ -453,7 +453,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
                                      return_last_only=True)
         try:
             row = tmp.next()
-            params = pickle.loads(row["change_params"])
+            params = json.loads(row["change_params"])
             passwd = params["password"]
         except (StopIteration, AttributeError, KeyError, TypeError):
             passwd = self.ac.make_passwd(uname)
@@ -651,14 +651,14 @@ class ADFullUserSync(ADutils.ADuserUtil):
                 # if usr exists in ad change pwd, else password set when
                 # created
                 if self.ac.account_name in adusrs:
-                    pw = pickle.loads(ans['change_params'])['password']
+                    pw = json.loads(ans['change_params'])['password']
                     confirm = self.change_pwd(self.ac.account_name,
                                               pw, dry_run)
                 # but for now we dont get the password when user is created so
                 # we also check if user is a user with AD-spread and assume
                 # these are just created
                 elif self.ac.has_spread(self.co.Spread(spread)):
-                    pw = pickle.loads(ans['change_params'])['password']
+                    pw = json.loads(ans['change_params'])['password']
                     confirm = self.change_pwd(self.ac.account_name,
                                               pw, dry_run)
             else:

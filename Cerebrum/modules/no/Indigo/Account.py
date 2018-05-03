@@ -21,13 +21,13 @@
 import random
 import string
 import time
-import pickle
 import base64
 
 import cereconf
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
+from Cerebrum.utils import json
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import pgp_encrypt
 
@@ -164,22 +164,21 @@ class AccountOfkMixin(Account.Account):
                                            types=(self.const.trait_del,)):
             if row['change_params']:
                 try:
-                    tmp = pickle.loads(row['change_params'])
-                    if int(tmp['code']) != int(self.const.trait_homedb_info):
+                    params = json.loads(row['change_params'])
+                    if params['code'] != self.const.trait_homedb_info:
                         continue
-                    val = tmp.get('strval', None)
+                    val = params.get('strval')
                     if val:
                         # There might be more than one hit.
                         res[row['tstamp']] = val
-                except:
+                except Exception:
                     continue
         if res:
             keys = res.keys()
             # when sorting tstamps, most recent will be last in the list
             keys.sort()
             return res[keys[-1]]
-        else:
-            return None
+        return None
 
     def _autopick_homeMDB(self):
         """Return a valid homeMDB value to be used for the account.
