@@ -197,14 +197,13 @@ class safecom_export:
 	self.account_affs=dict()
         logger.info("Caching account primary affiliations.")
         for row in  account.list_accounts_by_type(filter_expired=True,
-                                             primary_only=True,
+                                             primary_only=False,
                                              fetchall=False):
             self.account_affs.setdefault(row['account_id'],list()).append((row['affiliation'],row['ou_id']))
 
         logger.info("Cache person affs")
         self.person_affs = self.list_affiliations()
-	logger.info("Calculate Pay persons")	
-	pay_persons=self.get_safecom_mode()
+	pay_accounts=self.get_safecom_mode()
 
         logger.info("Cache person names")
         self.cached_names=person.getdict_persons_names(
@@ -221,24 +220,55 @@ class safecom_export:
 		    co.affiliation_status_student_evu, co.affiliation_status_student_opptak, 
 		    co.affiliation_status_student_perm, co.affiliation_status_student_privatist,
 		    co.affiliation_status_student_sys_x, co.affiliation_status_student_tilbud,
-		    co.affiliation_status_flyt_hih_student_aktiv,co.affiliation_status_flyt_hin_student_aktiv]
-	for person in self.person_affs.keys():
-	    logger.debug("Checking person %s with affs=%s" % (person,self.person_affs[person]))
-	    for aff in self.person_affs[person]:
-                #logger.debug("Aff is: %s" % aff)
-		pay=True
-		if aff['affstatus'] not in pay_filter:
-                    logger.debug("Aff not in payfilter: %s" % aff['affstatus'])
-		    pay=False
-		    break
-		else:
-		    logger.debug("Aff in payfilter: %s" % aff['affstatus'])
-	    logger.debug("Paymode for person_id %s is %s" % (person,pay))
-	    if pay: 
-		self.pay.append(person)
-	    else:
-		self.track.append(person)
+		    co.affiliation_status_flyt_hih_student_aktiv,co.affiliation_status_flyt_hin_student_aktiv,
+                    co.affiliation_status_student_emnestud]
 
+
+        for account,values in self.account_affs.iteritems():
+            pay = True
+            try:
+                account_owner_id = self.accid2ownerid[account]
+                for single_aff in values:
+                    aff= single_aff[0]
+                    ou = single_aff[1]
+
+                    # have account aff and ou. find correct entry in person_affiliation_source
+                    aff_data=self.person_affs.get(account_owner_id,None)
+                    if not aff_data:
+                        # no valid person_affiliation_source entry (exipred ?)
+                        logger.debug("no valid person_affiliation_source for person:%s (expired?)" % account_owner_id)
+                        continue
+                    for item in aff_data:
+                        temp_aff_stat = item['affstatus']
+                        temp_ou = item['ou_id']
+                        temp_aff = item['affiliation']
+
+                        if temp_aff == aff and ou == temp_ou:                            
+                            if aff == co.affiliation_student:
+                                if temp_aff_stat not in pay_filter:
+                                    pay = False
+                                    continue
+                            if aff  == co.affiliation_ansatt_sito:
+                                pay = False
+                                continue
+                            if aff == co.affiliation_ansatt:
+                                pay = False
+                                continue
+                            if aff == co.affiliation_tilknyttet:
+                                if temp_aff_stat not in pay_filter:
+                                    pay = False
+                                    continue
+                            
+                #print "PAY == %s " % pay
+                if pay == False:
+                    self.track.append(account)
+                elif pay == True:
+                    self.pay.append(account)
+            except KeyError,m:
+                logger.warn("account:%s has no valid owner" % account)
+                continue        
+
+        
     def list_affiliations(self):
         person_affs = dict()
         skip_source = []
@@ -315,15 +345,17 @@ class safecom_export:
 		for paff in persaffs:
 		    if paff['affiliation']==primaryaff and paff['ou_id']==primary_ou:
 			costcode="%s@%s" % (paff['affstr'],paff['path'])
-			logger.debug("%s: CostCode is %s" % (name,costcode)) 
+			#logger.debug("%s: CostCode is %s" % (name,costcode)) 
 	    if costcode == "":
-		logger.warn("Account %s without affiliations. Do not process" % name)
+		logger.debug("Account %s without affiliations. Do not process" % name)
 		continue # account in grace to be closed, cannot calculate new status.	
 		
-	    if owner_id in self.pay:
+	    if acc_id in self.pay:
   		mode="Pay"
+                #logger.debug("%s has mode pay" % acc_id)
 	    else:
 		mode="Track"
+                #logger.debug("%s has mode track" % acc_id)
             owner_type=item['owner_type']
             namelist = self.cached_names.get(owner_id, None)
             first_name=last_name=worktitle=""
@@ -361,6 +393,7 @@ class safecom_export:
         xml_trk.startDocument(encoding='utf-8')
         xml_trk.startElement('UserList')
         for item in self.userexport:
+            #logger.debug("Processing user:%s" % item['UserLogon'])
 	    if item['Mode'] == "Pay":
             	xml_pay.startElement('User')
 	        xml_pay.dataElement('UserLogon',item['UserLogon'])

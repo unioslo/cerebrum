@@ -1,3 +1,10 @@
+2018-05-03    <cerebrum@gagarin.uit.no>
+
+	* export_safecom.py (safecom_export.load_cbdata): Need to collect all accounts, not only primary
+	(safecom_export.get_safecom_mode): The old function which calcualted wether an account should be pay or track, did this based on person information.
+	This will fail for persons with more than 1 account and where the accounts should end up in different file (track/pay). the new function calculates
+	the pay/track status based on person info AND account info and will yield a correct status wether a person has 1 account or more.
+
 2018-04-24  Karen   <cerebrum@gagarin.uit.no>
 
     * populate_fronter_groups.py: Minor tidy up. Removed reference to make_fs() as it is not used.
