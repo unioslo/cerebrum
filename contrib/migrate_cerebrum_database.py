@@ -35,6 +35,8 @@ from Cerebrum import Utils
 from Cerebrum import Account
 from Cerebrum import Metainfo
 from Cerebrum.Constants import _SpreadCode
+from Cerebrum.utils.funcwrap import memoize
+
 
 # run migrate_* in this order
 targets = {
@@ -886,8 +888,13 @@ def fix_change_params(params):
     return params
 
 
+@memoize
+def get_change_type(co, code):
+    return co.ChangeType(code)
+
+
 def fix_changerows(process, qin, qout, mn, mx):
-    print('started process {},: from: {}, to: {}'.format(process, mn, mx))
+    print('started process {}: from: {}, to: {}'.format(process, mn, mx))
     try:
         import cPickle as pickle
     except ImportError:
@@ -896,16 +903,14 @@ def fix_changerows(process, qin, qout, mn, mx):
     loads = pickle.loads
     try:
         db = Utils.Factory.get('Database')()
-        c = Utils.Factory.get('Constants')(db)
-        ChangeType = c.ChangeType
+        co = Utils.Factory.get('Constants')(db)
         for cid, params, ct in db.query(
                 'SELECT change_id, change_params, change_type_id FROM '
                 '[:table schema=cerebrum name=change_log] '
                 'WHERE change_params IS NOT NULL AND change_id >= :mn '
                 'AND change_id <= :mx', dict(mn=mn, mx=mx)):
             p = fix_change_params(loads(params.encode('ISO-8859-1')))
-            print(_params_to_db(p))
-            ct = ChangeType(ct)
+            ct = get_change_type(co, ct)
             orig = ct.format_params(p)
             new = ct.format_params(_params_to_db(p))
             if orig != new:
@@ -925,6 +930,8 @@ def fix_changerows(process, qin, qout, mn, mx):
             print('process {} got nack, rolling back.'.format(process))
             db.rollback()
     except Exception as e:
+        print(cid, ct, params)
+        print(e)
         qout.put(e)
 
 
@@ -938,7 +945,7 @@ def migrate_to_changelog_1_4():
                       '[:table schema=cerebrum name=change_log]')
     import multiprocessing
     try:
-        cpus = multiprocessing.cpu_count()
+        cpus = multiprocessing.cpu_count() * 2
     except NotImplementedError:
         cpus = 4
     n = int(last / cpus) + 1

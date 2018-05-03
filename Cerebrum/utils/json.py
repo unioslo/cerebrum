@@ -21,6 +21,7 @@
 from __future__ import unicode_literals, absolute_import
 import json
 import json.encoder
+import datetime
 import six
 from Cerebrum import Constants
 from Cerebrum.Entity import Entity
@@ -46,7 +47,7 @@ def _conv(cls):
 
 
 @_conv(DateTimeType)
-def mxDateTimeToJson(dt):
+def mx_DateTime_to_json(dt):
     """ Convert mx.DateTime.DateTime object to json. """
     if dt.hour == dt.minute == 0 and dt.second == 0.0:
         return dt.pydate().isoformat()
@@ -54,8 +55,16 @@ def mxDateTimeToJson(dt):
         return apply_timezone(dt.pydatetime()).isoformat()
 
 
+@_conv(datetime.datetime)
+def datetime_to_json(dt):
+    """ Convert datetime.datetime object to json. """
+    if not dt.tzinfo:
+        dt = apply_timezone(dt)
+    return dt.isoformat()
+
+
 @_conv(Constants.Constants.CerebrumCode)
-def codetojson(code):
+def code_to_json(code):
     """ Convert CerebrumCode to json """
     return dict(
         __cerebrum_object__='code',
@@ -65,13 +74,13 @@ def codetojson(code):
 
 
 @_conv(Entity)
-def entitytojson(entity):
+def entity_to_json(entity):
     """ Convert entity to json """
     return dict(
         __cerebrum_object__='entity',
         entity_id=entity.entity_id,
         str=six.text_type(entity),
-        entity_type=codetojson(Constants.Constants.EntityType(
+        entity_type=code_to_json(Constants.Constants.EntityType(
             entity.entity_type)))
 
 
@@ -174,6 +183,7 @@ class CerebrumObject(object):
             return ret
         except Errors.NotFoundError:  # Entity deleted
             return obj
+
 
 _cache_db = None
 _cache_const = None
