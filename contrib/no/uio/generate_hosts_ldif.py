@@ -1,6 +1,6 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-# Copyright 2012 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2012-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,11 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""
-Generate an LDIF file with host information which supplements DNS.
-"""
-
-import cerebrum_path
+"""Generate an LDIF file with host information which supplements DNS."""
 
 from collections import defaultdict
 from itertools import imap
@@ -31,8 +27,10 @@ from operator import itemgetter
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.dns import ARecord
 from Cerebrum.modules.dns import DnsOwner
-from Cerebrum.modules.dns import CNameRecord
-from Cerebrum.modules.LDIFutils import LDIFWriter, iso2utf
+from Cerebrum.modules.LDIFutils import LDIFWriter
+
+logger = Factory.get_logger("cronjob")
+
 
 def main():
     db = Factory.get('Database')()
@@ -40,13 +38,16 @@ def main():
     arecord = ARecord.ARecord(db)
     dns_owner = DnsOwner.DnsOwner(db)
 
-    get_id_mac  = itemgetter('dns_owner_id', 'mac_adr')
+    get_id_mac = itemgetter('dns_owner_id', 'mac_adr')
     get_id_name = itemgetter('dns_owner_id', 'name')
-    get_trait   = itemgetter('entity_id', 'code', 'strval')
-    trait2attr  = {int(co.trait_dns_comment): 'uioHostComment',
-                   int(co.trait_dns_contact): 'uioHostContact'}
+    get_trait = itemgetter('entity_id', 'code', 'strval')
+    trait2attr = {
+        int(co.trait_dns_comment): 'uioHostComment',
+        int(co.trait_dns_contact): 'uioHostContact',
+    }
 
     ldif = LDIFWriter('HOSTS', None)
+    logger.info('Start of hosts export to %s', ldif.f.name)
     ldif.write_container()
     base_dn = ldif.getconf('dn')
 
@@ -54,7 +55,7 @@ def main():
     for entity_id, code, strval in imap(get_trait, dns_owner.list_traits(
             code=trait2attr.keys())):
         if strval:
-            id2attrs[int(entity_id)][trait2attr[code]] = (iso2utf(strval),)
+            id2attrs[int(entity_id)][trait2attr[code]] = (strval,)
 
     arecords = defaultdict(set)
     for owner_id, mac in imap(get_id_mac, arecord.list_ext()):
@@ -70,13 +71,16 @@ def main():
         if key not in done:
             done.add(key)
             entry = {
-                'host':           (name,),
-                'objectClass':    ['uioHostinfo'],
-                'uioHostMacAddr': arecords.get(owner_id, ())}
+                'host': (name,),
+                'objectClass': ['uioHostinfo'],
+                'uioHostMacAddr': arecords.get(owner_id, ()),
+            }
             entry.update(id2attrs.get(owner_id, ()))
-            ldif.write_entry("host=%s,%s" % (name, base_dn), entry)
+            ldif.write_entry("host={},{}".format(name, base_dn), entry)
 
     ldif.close()
+    logger.info('Done')
+
 
 if __name__ == '__main__':
     main()

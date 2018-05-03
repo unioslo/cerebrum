@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002, 2003, 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+from __future__ import unicode_literals
 import time
 
 from Cerebrum.modules.no import access_FS
@@ -30,9 +30,9 @@ class UiOStudent(access_FS.Student):
 
     def list(self, **kwargs):  # GetStudent_50
         """Hent personer med opptak til et studieprogram ved
-        institusjonen og som enten har vært registrert siste året
+        institusjonen og som enten har vÃ¦rt registrert siste Ã¥ret
         eller opptak efter 2003-01-01.  Henter ikke de som har
-        fremtidig opptak.  Disse kommer med 65 dager før dato for
+        fremtidig opptak.  Disse kommer med 65 dager fÃ¸r dato for
         tildelt opptak.  Alle disse skal ha affiliation med status
         kode 'opptak' til stedskoden sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.
@@ -42,7 +42,7 @@ class UiOStudent(access_FS.Student):
             + self._list_gammelopptak_semreg(**kwargs)
 
     def _list_gyldigopptak(self, fodselsdato=None, personnr=None):
-        """Alle med gyldig opptak tildelt for 2 år eller mindre siden
+        """Alle med gyldig opptak tildelt for 2 Ã¥r eller mindre siden
         samt alle med opptak som blir gyldig om 65 dager.
         """
 
@@ -83,7 +83,7 @@ class UiOStudent(access_FS.Student):
         return self.db.query(qry, locals())
 
     def _list_drgradsopptak(self, fodselsdato=None, personnr=None):
-        """Alle drgradsstudenter med ikke utgått opptak til drgrads-
+        """Alle drgradsstudenter med ikke utgÃ¥tt opptak til drgrads-
         studieprogram.
         """
 
@@ -123,7 +123,7 @@ class UiOStudent(access_FS.Student):
 
     def _list_gammelopptak_semreg(self, fodselsdato=None, personnr=None):
         """Alle med gyldig opptak som har hatt en forekomst i
-        registerkort i løpet av fjoråret.
+        registerkort i lÃ¸pet av fjorÃ¥ret.
         """
 
         extra = ""
@@ -163,18 +163,18 @@ class UiOStudent(access_FS.Student):
         return self.db.query(qry, locals())
 
     def list_aktiv(self, **kwargs):  # GetStudentAktiv_50
-        """Hent fødselsnummer+studieprogram+studieretning+kull for
+        """Hent fÃ¸dselsnummer+studieprogram+studieretning+kull for
         alle aktive studenter.  Som aktive studenter regner vi alle
         studenter med opptak til et studieprogram som samtidig har en
         eksamensmelding eller en avlagt eksamen inneverende semester i
-        et emne som kan inngå i dette studieprogrammet, eller som har
-        bekreftet sin utdanningsplan.  Disse får affiliation student
+        et emne som kan inngÃ¥ i dette studieprogrammet, eller som har
+        bekreftet sin utdanningsplan.  Disse fÃ¥r affiliation student
         med kode aktiv til sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.  Vi har
         alt hentet opplysninger om adresse ol. efter som de har
-        opptak.  Henter derfor kun fødselsnummer, studieprogram,
-        studieretning og kull.  Må gjøre et eget søk for å finne
-        klasse for de som er registrert på slikt. """
+        opptak.  Henter derfor kun fÃ¸dselsnummer, studieprogram,
+        studieretning og kull.  MÃ¥ gjÃ¸re et eget sÃ¸k for Ã¥ finne
+        klasse for de som er registrert pÃ¥ slikt. """
         return self._list_aktiv_semreg(**kwargs) \
             + self._list_aktiv_enkeltemne(**kwargs) \
             + self._list_aktiv_avlagteksamen(**kwargs) \
@@ -182,7 +182,7 @@ class UiOStudent(access_FS.Student):
 
     def _list_aktiv_semreg(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som i tillegg har en
-        eksamensmelding i et emne som kan inngå i et studieprogram som
+        eksamensmelding i et emne som kan inngÃ¥ i et studieprogram som
         de har opptak til.
         """
 
@@ -225,7 +225,7 @@ class UiOStudent(access_FS.Student):
     def _list_aktiv_enkeltemne(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte med gyldig opptak til
         studieprogrammet 'ENKELTEMNE' som har en gyldig eksamensmelding
-        i et emne som kan inngå i et vilkårlig studieprogram.
+        i et emne som kan inngÃ¥ i et vilkÃ¥rlig studieprogram.
         """
 
         extra = ""
@@ -263,7 +263,7 @@ class UiOStudent(access_FS.Student):
 
     def _list_aktiv_utdplan(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som i tillegg har bekreftet
-        utdanningsplan i inneværende semester.
+        utdanningsplan i innevÃ¦rende semester.
         """
 
         extra = ""
@@ -304,9 +304,9 @@ class UiOStudent(access_FS.Student):
         return self.db.query(qry, locals())
 
     def _list_aktiv_avlagteksamen(self, fodselsdato=None, personnr=None):
-        """Alle semesterregistrerte som har avlagt eksamen i inneværende
-        år.  Ifølge STA er dette det riktige kravet. mulig at vi ønsker
-        å mene noe annet etterhvert.
+        """Alle semesterregistrerte som har avlagt eksamen i innevÃ¦rende
+        Ã¥r.  IfÃ¸lge STA er dette det riktige kravet. mulig at vi Ã¸nsker
+        Ã¥ mene noe annet etterhvert.
         """
 
         extra = ""
@@ -358,10 +358,10 @@ class UiOStudent(access_FS.Student):
         return self.db.query(qry, locals())
 
     def list_aktiv_emnestud(self, fodselsdato=None, personnr=None):
-        """Hent informasjon om personer som anses som aktive studenter på
+        """Hent informasjon om personer som anses som aktive studenter pÃ¥
         grunnlag av eksisterende gyldig undervisningsmelding og gyldig
-        semesterkort i inneværende semester. Merk at disse ikke nødvendigvis har
-        studierett på noen studieprogrammer og at det derfor må hentes ut
+        semesterkort i innevÃ¦rende semester. Merk at disse ikke nÃ¸dvendigvis har
+        studierett pÃ¥ noen studieprogrammer og at det derfor mÃ¥ hentes ut
         personopplysninger i tillegg til opplysninger om studieaktivitet.
 
         """
@@ -410,8 +410,8 @@ class UiOStudent(access_FS.Student):
         opptak til. Disse tildeles affiliation privatist til stedet
         som eier studieprogrammet de har opptak til.  Dette blir ikke
         helt riktig efter som man kan ha opptak til studieprogramet
-        'ENKELTEMNE' som betyr at man kan være ordninær student selv
-        om man havner i denne gruppen som plukkes ut av dette søket.
+        'ENKELTEMNE' som betyr at man kan vÃ¦re ordninÃ¦r student selv
+        om man havner i denne gruppen som plukkes ut av dette sÃ¸ket.
         """
 
         extra = ""
@@ -472,9 +472,9 @@ class UiOStudent(access_FS.Student):
     def list_privatist(self, fodselsdato=None, personnr=None):
         # GetStudentPrivatist_50
         """Hent personer med privatist 'opptak' til et studieprogram ved
-        institusjonen og som enten har vært registrert siste året eller
-        har fått privatist 'opptak' efter 2003-01-01.  Henter ikke de
-        som har fremtidig opptak.  Disse kommer med 14 dager før dato
+        institusjonen og som enten har vÃ¦rt registrert siste Ã¥ret eller
+        har fÃ¥tt privatist 'opptak' efter 2003-01-01.  Henter ikke de
+        som har fremtidig opptak.  Disse kommer med 14 dager fÃ¸r dato
         for tildelt privatist 'opptak'.  Alle disse skal ha affiliation
         med status kode 'privatist' til stedskoden sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.
@@ -633,7 +633,7 @@ class UiOStudent(access_FS.Student):
             r.status_reg_ok = 'J' AND
             r.status_bet_ok = 'J' AND
             r.arstall >= (TO_CHAR(SYSDATE, 'YYYY') - 1) AND
-            /* TODO: må vi sjekke terminen også? */
+            /* TODO: mÃ¥ vi sjekke terminen ogsÃ¥? */
             NVL(r.status_ugyldig, 'N') = 'N' AND
             NVL(p.status_dod, 'N') = 'N'
             %s
@@ -671,7 +671,7 @@ class UiOStudent(access_FS.Student):
             p.personnr    = sps.personnr AND
             sps.studieprogramkode = sp.studieprogramkode AND
             NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= (SYSDATE - 365) AND
-            /* TODO: er det poeng i å ta med studieprogram eit år tilbake? */
+            /* TODO: er det poeng i Ã¥ ta med studieprogram eit Ã¥r tilbake? */
             sp.studienivakode in (900, 980) AND
             NVL(p.status_dod, 'N') = 'N'
             %s
@@ -741,9 +741,9 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
 
     def list(self, **kwargs):  # GetStudent_50
         """Hent personer med opptak til et studieprogram ved
-        institusjonen og som enten har vært registrert siste året
+        institusjonen og som enten har vÃ¦rt registrert siste Ã¥ret
         eller opptak efter 2003-01-01.  Henter ikke de som har
-        fremtidig opptak.  Disse kommer med 65 dager før dato for
+        fremtidig opptak.  Disse kommer med 65 dager fÃ¸r dato for
         tildelt opptak.  Alle disse skal ha affiliation med status
         kode 'opptak' til stedskoden sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.
@@ -753,7 +753,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
             + self._list_gammelopptak_semreg(**kwargs)
 
     def _list_gyldigopptak(self, fodselsdato=None, personnr=None):
-        """Alle med gyldig opptak tildelt for 2 år eller mindre siden
+        """Alle med gyldig opptak tildelt for 2 Ã¥r eller mindre siden
         samt alle med opptak som blir gyldig om 65 dager.
         """
 
@@ -796,7 +796,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
         return self.db.query(qry, locals())
 
     def _list_drgradsopptak(self, fodselsdato=None, personnr=None):
-        """Alle drgradsstudenter med ikke utgått opptak til drgrads-
+        """Alle drgradsstudenter med ikke utgÃ¥tt opptak til drgrads-
         studieprogram.
         """
 
@@ -837,7 +837,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
 
     def _list_gammelopptak_semreg(self, fodselsdato=None, personnr=None):
         """Alle med gyldig opptak som har hatt en forekomst i
-        registerkort i løpet av fjoråret.
+        registerkort i lÃ¸pet av fjorÃ¥ret.
         """
 
         extra = ""
@@ -879,18 +879,18 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
         return self.db.query(qry, locals())
 
     def list_aktiv(self, **kwargs):  # GetStudentAktiv_50
-        """Hent fødselsnummer+studieprogram+studieretning+kull for
+        """Hent fÃ¸dselsnummer+studieprogram+studieretning+kull for
         alle aktive studenter.  Som aktive studenter regner vi alle
         studenter med opptak til et studieprogram som samtidig har en
         eksamensmelding eller en avlagt eksamen inneverende semester i
-        et emne som kan inngå i dette studieprogrammet, eller som har
-        bekreftet sin utdanningsplan.  Disse får affiliation student
+        et emne som kan inngÃ¥ i dette studieprogrammet, eller som har
+        bekreftet sin utdanningsplan.  Disse fÃ¥r affiliation student
         med kode aktiv til sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.  Vi har
         alt hentet opplysninger om adresse ol. efter som de har
-        opptak.  Henter derfor kun fødselsnummer, studieprogram,
-        studieretning og kull.  Må gjøre et eget søk for å finne
-        klasse for de som er registrert på slikt. """
+        opptak.  Henter derfor kun fÃ¸dselsnummer, studieprogram,
+        studieretning og kull.  MÃ¥ gjÃ¸re et eget sÃ¸k for Ã¥ finne
+        klasse for de som er registrert pÃ¥ slikt. """
         return self._list_aktiv_semreg(**kwargs) \
             + self._list_aktiv_enkeltemne(**kwargs) \
             + self._list_aktiv_avlagteksamen(**kwargs) \
@@ -898,7 +898,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
 
     def _list_aktiv_semreg(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som i tillegg har en
-        eksamensmelding i et emne som kan inngå i et studieprogram som
+        eksamensmelding i et emne som kan inngÃ¥ i et studieprogram som
         de har opptak til.
         """
 
@@ -941,7 +941,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
     def _list_aktiv_enkeltemne(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte med gyldig opptak til
         studieprogrammet 'ENKELTEMNE' som har en gyldig eksamensmelding
-        i et emne som kan inngå i et vilkårlig studieprogram.
+        i et emne som kan inngÃ¥ i et vilkÃ¥rlig studieprogram.
         """
 
         extra = ""
@@ -979,7 +979,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
 
     def _list_aktiv_utdplan(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som i tillegg har bekreftet
-        utdanningsplan i inneværende semester.
+        utdanningsplan i innevÃ¦rende semester.
         """
 
         extra = ""
@@ -1020,9 +1020,9 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
         return self.db.query(qry, locals())
 
     def _list_aktiv_avlagteksamen(self, fodselsdato=None, personnr=None):
-        """Alle semesterregistrerte som har avlagt eksamen i inneværende
-        år.  Ifølge STA er dette det riktige kravet. mulig at vi ønsker
-        å mene noe annet etterhvert.
+        """Alle semesterregistrerte som har avlagt eksamen i innevÃ¦rende
+        Ã¥r.  IfÃ¸lge STA er dette det riktige kravet. mulig at vi Ã¸nsker
+        Ã¥ mene noe annet etterhvert.
         """
 
         extra = ""
@@ -1074,10 +1074,10 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
         return self.db.query(qry, locals())
 
     def list_aktiv_emnestud(self, fodselsdato=None, personnr=None):
-        """Hent informasjon om personer som anses som aktive studenter på
+        """Hent informasjon om personer som anses som aktive studenter pÃ¥
         grunnlag av eksisterende gyldig undervisningsmelding og gyldig
-        semesterkort i inneværende semester. Merk at disse ikke nødvendigvis har
-        studierett på noen studieprogrammer og at det derfor må hentes ut
+        semesterkort i innevÃ¦rende semester. Merk at disse ikke nÃ¸dvendigvis har
+        studierett pÃ¥ noen studieprogrammer og at det derfor mÃ¥ hentes ut
         personopplysninger i tillegg til opplysninger om studieaktivitet.
 
         """
@@ -1128,8 +1128,8 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
         opptak til. Disse tildeles affiliation privatist til stedet
         som eier studieprogrammet de har opptak til.  Dette blir ikke
         helt riktig efter som man kan ha opptak til studieprogramet
-        'ENKELTEMNE' som betyr at man kan være ordninær student selv
-        om man havner i denne gruppen som plukkes ut av dette søket.
+        'ENKELTEMNE' som betyr at man kan vÃ¦re ordninÃ¦r student selv
+        om man havner i denne gruppen som plukkes ut av dette sÃ¸ket.
         """
 
         extra = ""
@@ -1191,9 +1191,9 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
     def list_privatist(self, fodselsdato=None, personnr=None):
         # GetStudentPrivatist_50
         """Hent personer med privatist 'opptak' til et studieprogram ved
-        institusjonen og som enten har vært registrert siste året eller
-        har fått privatist 'opptak' efter 2003-01-01.  Henter ikke de
-        som har fremtidig opptak.  Disse kommer med 14 dager før dato
+        institusjonen og som enten har vÃ¦rt registrert siste Ã¥ret eller
+        har fÃ¥tt privatist 'opptak' efter 2003-01-01.  Henter ikke de
+        som har fremtidig opptak.  Disse kommer med 14 dager fÃ¸r dato
         for tildelt privatist 'opptak'.  Alle disse skal ha affiliation
         med status kode 'privatist' til stedskoden sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.
@@ -1356,7 +1356,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
             r.status_reg_ok = 'J' AND
             r.status_bet_ok = 'J' AND
             r.arstall >= (TO_CHAR(SYSDATE, 'YYYY') - 1) AND
-            /* TODO: må vi sjekke terminen også? */
+            /* TODO: mÃ¥ vi sjekke terminen ogsÃ¥? */
             NVL(r.status_ugyldig, 'N') = 'N' AND
             NVL(p.status_dod, 'N') = 'N'
             %s
@@ -1394,7 +1394,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
             p.personnr    = sps.personnr AND
             sps.studieprogramkode = sp.studieprogramkode AND
             NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= (SYSDATE - 365) AND
-            /* TODO: er det poeng i å ta med studieprogram eit år tilbake? */
+            /* TODO: er det poeng i Ã¥ ta med studieprogram eit Ã¥r tilbake? */
             sp.studienivakode in (900, 980) AND
             NVL(p.status_dod, 'N') = 'N'
             %s
@@ -1463,7 +1463,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
 class UiOPortal(access_FS.FSObject):
     """Denne funksjonen er ikke lenger i bruk, da portal-ting ikke er i bruk
     lenger. Dersom jobben cerebrum/contrib/no/uio/generate_portal_export.py
-    skal settes i produksjon igjen, må denne funksjonen oppdateres til
+    skal settes i produksjon igjen, mÃ¥ denne funksjonen oppdateres til
     gjeldende FS versjon, med vurderingsmodul.
 
     """
@@ -1472,17 +1472,17 @@ class UiOPortal(access_FS.FSObject):
 
 @fsobject('betaling')
 class UiOBetaling(access_FS.FSObject):
-    """Kopiavgift. Ny ordning fra høsten 2004."""
+    """Kopiavgift. Ny ordning fra hÃ¸sten 2004."""
 
     def list_utskrifts_betaling(self, days_past=180):  # GetUtskriftsBetaling
-        """Lister fødselsnummer, betalingsinformasjon og beløp for de
+        """Lister fÃ¸dselsnummer, betalingsinformasjon og belÃ¸p for de
         innbetalinger som er gjordt gjennom studentweben for
         utskriftssystemet. """
 
         if days_past is None:
             where = ""
         else:
-            # Vi vet ikke om dato_betalt må være != null når status_betalt='J'
+            # Vi vet ikke om dato_betalt mÃ¥ vÃ¦re != null nÃ¥r status_betalt='J'
             where = " AND NVL(dato_betalt, [:now]) > [:now]-%i" % days_past
 
         qry = """
@@ -1504,12 +1504,12 @@ class UiOBetaling(access_FS.FSObject):
                              personnr=None):
         """List alle som har betalt kopiavgift eller har fritak for
            betaling av kopiavgift. Fritak for kopiavgift betegnes ved
-           at registerkortet for inneværende semester får
+           at registerkortet for innevÃ¦rende semester fÃ¥r
            betalingsformkode 'FRITATT' eller 'EKSTERN'. Hvis
            kun_fritak=True listes alle som har fritak uavhengig om de
            er semesterregistrert. Hvis semreg=True listet alle som har
            betalt kopiavgift eller har fritak for kopiavgift og som er
-           semesterregistrert for inneværende semester. Erstatter
+           semesterregistrert for innevÃ¦rende semester. Erstatter
            list_kopiavgift_fritak og list_ok_kopiavgift."""
 
         extra1 = extra2 = extra_semreg1 = extra_semreg2 = extra_from = ""
@@ -1603,7 +1603,7 @@ class UiOUndervisning(access_FS.Undervisning):
           ue.institusjonsnr = e.institusjonsnr AND
           ue.emnekode       = e.emnekode AND
           ue.versjonskode   = e.versjonskode AND
-          ue.terminkode IN ('VÅR', 'HØST') AND
+          ue.terminkode IN (:spring, :autumn) AND
           ue.terminkode = t.terminkode AND
           (ue.arstall > :aar OR
            (ue.arstall = :aar2 AND
@@ -1612,7 +1612,9 @@ class UiOUndervisning(access_FS.Undervisning):
                   t.sorteringsnokkel >= tt.sorteringsnokkel)))
           """, {'aar': year,
                 'aar2': year,  # db-driver bug work-around
-                'sem': sem})
+                'sem': sem,
+                'autumn': 'HÃ˜ST',
+                'spring': 'VÃ…R'})
 
     def list_aktiviteter(self,
                          start_aar=None,
@@ -1641,7 +1643,7 @@ class UiOUndervisning(access_FS.Undervisning):
           ua.undpartilopenr IS NOT NULL AND
           ua.disiplinkode IS NOT NULL AND
           ua.undformkode IS NOT NULL AND
-          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode IN (:spring, :autumn) AND
           ua.terminkode = t.terminkode AND
           ((ua.arstall = :aar AND
             EXISTS (SELECT 'x' FROM fs.arstermin tt
@@ -1649,10 +1651,12 @@ class UiOUndervisning(access_FS.Undervisning):
                           t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
            ua.arstall > :aar)""",
                              {'aar': start_aar,
-                              'semester': start_semester})
+                              'semester': start_semester,
+                              'autumn': 'HÃ˜ST',
+                              'spring': 'VÃ…R'})
 
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
-        """Hent alle studentene som er oppført på et gitt kull."""
+        """Hent alle studentene som er oppfÃ¸rt pÃ¥ et gitt kull."""
 
         query = """
         SELECT DISTINCT
@@ -1690,14 +1694,14 @@ class UiOUndervisning(access_FS.Undervisning):
     # end list_studenter_alle_kull
 
     def list_studenter_alle_undenh(self):
-        """Hent alle studenter på alle undenh.
+        """Hent alle studenter pÃ¥ alle undenh.
 
         NB! Det er ca. 800'000+ rader i FSPROD i fs.undervisningsmelding.
-        Dette kan koste en del minne, så 1) fetchall=True er nok dumt 2) Man
+        Dette kan koste en del minne, sÃ¥ 1) fetchall=True er nok dumt 2) Man
         burde bearbeide strukturen litt raskere.
 
-        Spørringen *er* litt annerledes enn L{list_studenter_underv_enhet},
-        men baardj har foreslått denne spørringen også.
+        SpÃ¸rringen *er* litt annerledes enn L{list_studenter_underv_enhet},
+        men baardj har foreslÃ¥tt denne spÃ¸rringen ogsÃ¥.
         """
 
         qry = """
@@ -1707,7 +1711,7 @@ class UiOUndervisning(access_FS.Undervisning):
         FROM
           fs.undervisningsmelding u, fs.tilbudsstatus t
         WHERE
-          u.terminkode in ('VÅR', 'HØST') AND
+          u.terminkode in (:spring, :autumn) AND
           u.arstall >= :aar1 AND
           u.tilbudstatkode = t.tilbudstatkode AND
           t.status_gir_tilbud = 'J'
@@ -1735,7 +1739,9 @@ class UiOUndervisning(access_FS.Undervisning):
         result = self.db.query(
             qry,
             {"aar1": self.prev_semester_year,
-             "aar2": self.prev_semester_year},
+             "aar2": self.prev_semester_year,
+             'autumn': 'HÃ˜ST',
+             'spring': 'VÃ…R'},
             fetchall=True
         )
         # IVR 2009-03-12 FIXME: DCOracle2 returns a float when taking a union
@@ -1746,9 +1752,9 @@ class UiOUndervisning(access_FS.Undervisning):
         return result
 
     def list_studenter_alle_undakt(self):
-        """Hent alle studenter på alle undakt.
+        """Hent alle studenter pÃ¥ alle undakt.
 
-        NB! Det kan være mange hundretusen rader i FSPROD i
+        NB! Det kan vÃ¦re mange hundretusen rader i FSPROD i
         student_pa_undervisningsparti. Det koster da en del minne.
 
         Change from parent: Use year of previous semester
@@ -1846,7 +1852,7 @@ class UiOEVU(access_FS.EVU):
     # end list_kurs
 
     def get_kurs_aktivitet(self, kurs, tid):  # GetAktivitetEvuKurs
-        """Henter information om aktive EVU-kursaktiviteter som tilhører et
+        """Henter information om aktive EVU-kursaktiviteter som tilhÃ¸rer et
         gitt EVU-kurs.
         """
 
@@ -1864,7 +1870,7 @@ class UiOEVU(access_FS.EVU):
     def list_kurs_aktiviteter(self):
         """Som get_kurs_aktivitet, men lister opp alle.
 
-        Hent alle EVU-kursaktiviteter som finnes. Vi må naturligvis følge de
+        Hent alle EVU-kursaktiviteter som finnes. Vi mÃ¥ naturligvis fÃ¸lge de
         samme begrensningene som gjelder for list_kurs (derav en join).
         """
 

@@ -18,8 +18,9 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Generalized Entity operations presented in a functional API."""
 
-import cerebrum_path
-getattr(cerebrum_path, '', None)  # Silence the linter.
+from __future__ import unicode_literals
+
+from six import text_type
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -42,7 +43,7 @@ class Entity(ClientAPI):
         :type operator_id: int
         :param operator_id: The operators id, used for auth.
 
-        :type service_name: str
+        :type service_name: string
         :param service_name: The calling serices name.
         """
         super(Entity, self).__init__(service_name)
@@ -54,10 +55,10 @@ class Entity(ClientAPI):
     def spread_list(self, id_type, entity_id):
         """List account's spreads.
 
-        :type id_type: basestring
+        :type id_type: string
         :param id_type: The id-type to look-up by.
 
-        :type entity_id: basestring
+        :type entity_id: string
         :param entity_id: The entitys id."""
         co = Factory.get('Constants')(self.db)
         e = Utils.get(self.db, 'entity', id_type, entity_id)
@@ -65,9 +66,9 @@ class Entity(ClientAPI):
 
         def fixer(id):
             if id[0] in spreads:
-                return str(spreads[id[0]])
+                return text_type(spreads[id[0]])
             s = spreads[id[0]] = co.map_const(id[0])
-            return str(s)
+            return text_type(s)
         try:
             return map(fixer, e.get_subclassed_object().get_spread())
         except NameError:
@@ -163,13 +164,13 @@ class Entity(ClientAPI):
     def add_to_system(self, id_type, entity_id, system):
         """Add an entity to a system.
 
-        :type id_type: basestring
+        :type id_type: string
         :param id_type: The id-type to look-up by.
 
-        :type entity_id: basestring
+        :type entity_id: string
         :param entity_id: The entitys id.
 
-        :type system: basestring
+        :type system: string
         :param system: The system the entity should be added to."""
         # Fetch entity
         en = Utils.get(self.db, 'entity', id_type, entity_id)

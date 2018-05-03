@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,10 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Help text for bofhd in the TSD project."""
+from __future__ import unicode_literals
 
 from Cerebrum.modules.bofhd.bofhd_core_help import group_help
 from Cerebrum.modules.bofhd.bofhd_core_help import command_help
 from Cerebrum.modules.bofhd.bofhd_core_help import arg_help
+
 import cereconf
 
 # Add instance specific help text:

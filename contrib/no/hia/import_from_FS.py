@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,13 +19,14 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
 import sys
 import getopt
 
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import XMLHelper
 from Cerebrum.utils.atomicfile import AtomicFileWriter
@@ -51,7 +52,7 @@ def write_hia_person_info(outfile):
     f.min_size = 1*MiB
     f.write(xml.xml_hdr + "<data>\n")
 
-    # Aktive ordinære studenter ved HiA
+    # Aktive ordinÃ¦re studenter ved HiA
     cols, hiastudent = _ext_cols(fs.student.list_aktiv())
     for a in hiastudent:
         fix_float(a)
@@ -77,7 +78,7 @@ def write_ou_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.min_size = 5*KiB
     f.write(xml.xml_hdr + "<data>\n")
-    cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR)) 
+    cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR))
     for o in ouer:
         sted = {}
         for fs_col, xml_attr in (
@@ -122,7 +123,7 @@ def write_ou_info(outfile):
     f.close()
 
 def write_evukurs_info(outfile):
-    """Skriv data om alle EVU-kurs (vi trenger dette bl.a. for å bygge EVU-delen av CF)."""
+    """Skriv data om alle EVU-kurs (vi trenger dette bl.a. for Ã¥ bygge EVU-delen av CF)."""
     f = MinimumSizeWriter(outfile)
     f.min_size = 1*KiB
     f.write(xml.xml_hdr + "<data>\n")
@@ -132,7 +133,7 @@ def write_evukurs_info(outfile):
     f.write("</data>\n")
     f.close()
     # end write_evukurs_info
-    
+
 def write_role_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.min_size = 5*KiB
@@ -144,7 +145,7 @@ def write_role_info(outfile):
     f.close()
 
 def write_undenh_metainfo(outfile):
-    "Skriv metadata om undervisningsenheter for inneværende+neste semester."
+    "Skriv metadata om undervisningsenheter for innevÃ¦rende+neste semester."
     f = MinimumSizeWriter(outfile)
     f.min_size = 100*KiB
     f.write(xml.xml_hdr + "<undervenhet>\n")
@@ -158,7 +159,7 @@ def write_undenh_metainfo(outfile):
 
 def write_undenh_student(outfile):
     """Skriv oversikt over personer oppmeldt til undervisningsenheter.
-    Tar med data for alle undervisingsenheter i inneværende+neste
+    Tar med data for alle undervisingsenheter i innevÃ¦rende+neste
     semester."""
     f = MinimumSizeWriter(outfile)
     f.min_size = 10*KiB
@@ -204,32 +205,32 @@ def write_emne_info(outfile):
 
 
 def write_fnrupdate_info(outfile):
-    """Lager fil med informasjon om alle fødselsnummerendringer"""
+    """Lager fil med informasjon om alle fÃ¸dselsnummerendringer"""
     stream = AtomicFileWriter(outfile, 'w')
     writer = xmlprinter.xmlprinter(stream,
                                    indent_level = 2,
                                    # Human-readable output
                                    data_mode = True,
-                                   input_encoding = "latin1")
-    writer.startDocument(encoding = "iso8859-1")
+                                   input_encoding = "utf-8")
+    writer.startDocument(encoding = "utf-8")
 
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
 
-    writer.startElement("data", {"source_system" : str(const.system_fs)})
+    writer.startElement("data", {"source_system" : unicode(const.system_fs)})
 
     data = fs.person.list_fnr_endringer()
     for row in data:
         # Make the format resemble the corresponding FS output as close as
         # possible.
-        attributes = { "type" : str(const.externalid_fodselsnr), 
+        attributes = { "type" : unicode(const.externalid_fodselsnr),
                        "new"  : "%06d%05d" % (row["fodselsdato_naverende"],
                                               row["personnr_naverende"]),
                        "old"  : "%06d%05d" % (row["fodselsdato_tidligere"],
                                               row["personnr_tidligere"]),
-                       "date" : str(row["dato_foretatt"]),
+                       "date" : unicode(row["dato_foretatt"]),
                      }
-        
+
         writer.emptyElement("external_id", attributes)
     # od
 
@@ -285,7 +286,7 @@ def assert_connected(user, service):
     global fs
     if fs is None:
         DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
-        db = Database.connect(user=user, service=service,
+        db = database.connect(user=user, service=service,
                               DB_driver=DB_driver)
         fs = FS(db)
 # end assert_connected
@@ -293,12 +294,12 @@ def assert_connected(user, service):
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "fpsruUoeE",
-                                   ["hia-personinfo-file=", "studprog-file=", 
+                                   ["hia-personinfo-file=", "studprog-file=",
                                     "hia-roleinfo-file=", "hia-undenh-file=",
                                     "hia-student-undenh-file=",
                                     "hia-emneinfo-file=",
                                     "hia-evukursinfo-file=",
-                                    "hia-fnr-update-file=", "misc-func=", 
+                                    "hia-fnr-update-file=", "misc-func=",
                                     "misc-file=", "misc-tag=",
                                     "ou-file=", "db-user=", "db-service="])
     except getopt.GetoptError:

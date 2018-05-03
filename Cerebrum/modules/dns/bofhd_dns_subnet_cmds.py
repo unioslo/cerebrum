@@ -18,6 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ dns subnet commands for bofhd. """
+from six import text_type
+
 import cereconf
 
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
@@ -396,7 +398,7 @@ class BofhdExtension(BofhdCommandBase):
             try:
                 s.check_reserved_addresses_in_use()
             except SubnetError as se:
-                res.append({'warning': str(se), })
+                res.append({'warning': text_type(se), })
 
         s.write_db(perform_checks=False)
         return res

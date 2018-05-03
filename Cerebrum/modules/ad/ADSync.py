@@ -707,7 +707,7 @@ class GroupSync(ADGroupUtils):
         """
         # Fetch name, id and description for security groups
         for row in self.group.search(spread=self.sec_group_spread):
-            gname = unicode(row["name"], cereconf.ENCODING)
+            gname = row["name"]
             self.groups[gname] = self.cb_group(gname, row["group_id"],
                                                row["description"])
         self.logger.info("Fetched %i groups with spread %s",
@@ -718,8 +718,7 @@ class GroupSync(ADGroupUtils):
 
         # Fetch name for distribution groups
         for row in self.group.search(spread=self.dist_group_spread):
-            gname = unicode(row["name"], cereconf.ENCODING)
-            self.dist_groups.append(gname)
+            self.dist_groups.append(row["name"])
         self.logger.info("Fetched %i groups with spread %s",
                          len(self.dist_groups), self.dist_group_spread)
 
@@ -928,7 +927,7 @@ class DistGroupSync(GroupSync):
         """
         # Fetch name, id and description for security groups
         for row in self.group.search(spread=self.dist_group_spread):
-            gname = unicode(row["name"], cereconf.ENCODING)
+            gname = row["name"]
             self.groups[gname] = self.cb_group(gname, row["group_id"],
                                                row["description"])
         self.logger.info("Fetched %i groups with spread %s",

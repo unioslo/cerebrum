@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-u""" This module contains a consumer for Cerebrum events. """
-import pickle
+""" This module contains a consumer for Cerebrum events. """
+
+from __future__ import unicode_literals, absolute_import
+
+import Cerebrum.utils.json as json
+
+from six import text_type
 
 from Cerebrum.modules.event.errors import EntityTypeError
 from Cerebrum.modules.event.errors import UnrelatedEvent
@@ -29,14 +34,14 @@ from Cerebrum.modules.event.mapping import EventMap
 from Cerebrum.modules.event import evhandlers
 from Cerebrum.utils.funcwrap import memoize
 
-from Cerebrum.modules.cim.client import CIMClient
+from .client import CIMClient
 
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory, dyn_import
 
 
 class CimConsumer(evhandlers.EventLogConsumer):
-    u""" Event listener and handler for CIM. """
+    """ Event listener and handler for CIM. """
 
     event_map = EventMap()
 
@@ -46,18 +51,18 @@ class CimConsumer(evhandlers.EventLogConsumer):
         super(CimConsumer, self).__init__(**kwargs)
 
     def handle_event(self, event):
-        u""" Call the appropriate handlers.
+        """ Call the appropriate handlers.
 
         :param event:
             The event to process.
         """
-        key = str(self.get_event_code(event))
-        self.logger.debug3(u'Got event key %r', key)
+        key = text_type(self.get_event_code(event))
+        self.logger.debug3('Got event key %r', key)
 
         try:
             event_handlers = self.event_map.get_callbacks(key)
         except EventHandlerNotImplemented:
-            self.logger.info(u'No event handlers for event key %r', key)
+            self.logger.info('No event handlers for event key %r', key)
             return
 
         for callback in event_handlers:
@@ -65,7 +70,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
                 callback(self, key, event)
             except (EntityTypeError, UnrelatedEvent) as e:
                 self.logger.debug3(
-                    u'Callback %r failed for event %r (%r): %s',
+                    'Callback %r failed for event %r (%r): %s',
                     callback, key, event, e)
 
     @property
@@ -146,7 +151,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
         'e_account:mod',
         'e_account:password')
     def account_change(self, key, event):
-        u""" Account change - update CIM. """
+        """ Account change """
         pe = Factory.get('Person')(self.db)
         ac = Factory.get('Account')(self.db)
 
@@ -165,7 +170,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
         'ac_type:mod',
         'ac_type:del')
     def account_pri_change(self, key, event):
-        u""" Account priority change! """
+        """ Account priority change """
         pe = Factory.get('Person')(self.db)
         ac = Factory.get('Account')(self.db)
 
@@ -190,7 +195,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
         'person:create',
         'person:update')
     def person_change(self, key, event):
-        u""" Person change. """
+        """ Person change """
         pe = Factory.get('Person')(self.db)
         try:
             pe.find(event['subject_entity'])
@@ -205,7 +210,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
         'person:name_add',
         'person:name_mod')
     def person_name_change(self, key, event):
-        u""" Person name change. """
+        """ Person name change """
         pe = Factory.get('Person')(self.db)
         try:
             pe.find(event['subject_entity'])
@@ -219,7 +224,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
         'entity_cinfo:add',
         'entity_cinfo:del')
     def entity_cinfo_change(self, key, event):
-        u""" Person contact info change. """
+        """ Person contact info change """
         pe = Factory.get('Person')(self.db)
         try:
             pe.find(event['subject_entity'])
@@ -234,8 +239,8 @@ class CimConsumer(evhandlers.EventLogConsumer):
         'spread:add',
         'spread:delete')
     def spread_change(self, key, event):
-        u""" Spread change. """
-        change_params = pickle.loads(event['change_params'])
+        """ Spread change """
+        change_params = json.loads(event['change_params'])
         if change_params.get('spread', 0) != int(self.datasource.spread):
             raise UnrelatedEvent
 
@@ -264,7 +269,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
         'person:aff_src_mod',
         'person:aff_src_del')
     def person_aff_change(self, key, event):
-        u""" Person aff change. """
+        """ Person aff change. """
         pe = Factory.get('Person')(self.db)
         try:
             pe.find(event['subject_entity'])

@@ -24,6 +24,8 @@
 This module can be used by exports or an event daemon for creating,
 deleting and updating mailboxes and distribution groups in Exchange 2013."""
 
+from __future__ import unicode_literals
+
 from Cerebrum.modules.exchange.Exceptions import ExchangeException
 from Cerebrum.modules.no.uio.exchange.ExchangeClient import ExchangeClient
 from Cerebrum.modules.exchange.Exceptions import AlreadyPerformedException
@@ -71,7 +73,7 @@ class UiAExchangeClient(ExchangeClient):
         written for Cerebrum to talk with Exchange.
 
         """
-        return u"""
+        return """
             $pass = ConvertTo-SecureString -Force -AsPlainText %(ex_pasw)s;
             $cred = New-Object System.Management.Automation.PSCredential( `
             %(ex_domain_user)s, $pass);
@@ -243,7 +245,7 @@ class UiAExchangeClient(ExchangeClient):
         @type gname: string
         @param gname: The groups name
 
-        @type description: str
+        @type description: string
         @param description: The groups description
 
         @raises ExchangeException: If the command fails to run

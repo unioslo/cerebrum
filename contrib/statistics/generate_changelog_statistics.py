@@ -1,7 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2006 University of Oslo, Norway
+# Copyright 2006-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -34,16 +34,12 @@ down by affiliation, when the 'affiliation'-option is used.
 import sys
 import getopt
 
-from mx.DateTime import *
+from mx.DateTime import now, RelativeDateTime, ISO, Monday
 
-import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.CLProcessors import *
+from Cerebrum.modules.CLProcessors import EventProcessor
 from Cerebrum.modules.CLConstants import _ChangeTypeCode
-
-__version__ = "$Revision$"
-# $Source$
 
 db = Factory.get('Database')()
 constants = Factory.get('Constants')(db)
@@ -56,8 +52,8 @@ options = {"affiliations": False,
            "details": False,
            "header": None,
            "events": "person_create,account_create,account_mod,group_create",
-           "from": now() + RelativeDateTime(days=-7,weekday=(Monday,0)),
-           "to": now() + RelativeDateTime(weekday=(Monday,0))}
+           "from": now() + RelativeDateTime(days=-7, weekday=(Monday, 0)),
+           "to": now() + RelativeDateTime(weekday=(Monday, 0))}
 
 
 def usage(exitcode=0, message=None):
@@ -65,27 +61,26 @@ def usage(exitcode=0, message=None):
 
     if message is not None:
         print "\n%s" % message
-    
     print """\nUsage: %s [options]
 
     --help           Prints this message.
-    
+
     --affiliations   Break down totals by affiliation also.
-    
+
     --source-system  Show information for given source system.
-    
+
     --from           Start date for events to be processed (inclusive).
                      Default value is Monday of last week.
-                     
+
     --to             End-date for events to be processed (exclusive).
                      Default value is Sunday of last week.
-                     
+
     --details        List details about the events in question. The
                      exact type of details will vary by event.
-                     
+
     --header         Template-file to use as header rather than the one
                      specified in cereconf.
-                     
+
     --events         Comma-seperated list of events to process.
                      Default is to process alt events that have handlers
                      defined, i.e:
@@ -99,13 +94,12 @@ def usage(exitcode=0, message=None):
     'from' and 'to' must be given in standard ISO format, i.e. YYYY-MM-DD.
 
     """ % (sys.argv[0], options["events"])
-    
     sys.exit(exitcode)
 
 
 def main():
     """Main processing 'hub' of program.
-    
+
     Decides which areas to generate, then generates them sequentially,
     dumping collected and relevant info to STDOUT along the way.
 
@@ -128,7 +122,7 @@ def main():
 
     if not event_types:
         usage(exitcode=3, message="ERROR: No valid event-types specified")
-    
+
     print ""
     print ("Statistics covering the period from %s up to %s" %
            (options['from'].date, options['to'].date))
@@ -152,28 +146,24 @@ def main():
     # based on it.
     for current_type in event_types:
         logger.info("Looking at '%s'" % current_type)
-        
         processor = EventProcessor.get_processor(current_type)
         processor.process_events(start_date=options['from'],
                                  end_date=options['to'])
-
         if options['affiliations']:
             processor.calculate_count_by_affiliation()
-
         # count by source system only makes sense for person entities
         if options['source_system'] and str(current_type) == 'person:create':
-            processor.calculate_count_by_source_system(options['source_system'])
-
-        processor.print_report(print_affiliations=options['affiliations'],
-                               print_source_system=bool(options['source_system']),
-                               print_details=options['details'])
-
+            processor.calculate_count_by_source_system(
+                options['source_system'])
+        processor.print_report(
+            print_affiliations=options['affiliations'],
+            print_source_system=bool(options['source_system']),
+            print_details=options['details'])
     print ""  # For a nice newline at the end of the report
-    
+
 
 if __name__ == '__main__':
     logger.info("Statistics for Cerebrum activities")
-    
     try:
         opts, args = getopt.getopt(sys.argv[1:],
                                    "hadf:t:h:e:s:",
@@ -187,15 +177,13 @@ if __name__ == '__main__':
     for opt, val in opts:
         if opt in ('-h', '--help',):
             usage()
-            
         elif opt in ('-f', '--from',):
             logger.debug("Will process events since %s" % val)
             try:
-                options['from'] =  ISO.ParseDate(val)
+                options['from'] = ISO.ParseDate(val)
             except ValueError:
                 logger.error("Incorrect 'from'-format")
                 usage(exitcode=2, message="ERROR: Incorrect 'from'-format")
-                
         elif opt in ('-t', '--to',):
             logger.debug("Will process events till %s" % val)
             try:
@@ -203,27 +191,21 @@ if __name__ == '__main__':
             except ValueError:
                 logger.error("Incorrect 'to'-format")
                 usage(exitcode=2, message="ERROR: Incorrect 'to'-format")
-                
         elif opt in ('-a', '--affiliations',):
             logger.debug("Will process and display info about affiliations")
             options['affiliations'] = True
-
         elif opt in ('-s', '--source-system',):
             logger.debug("Will process and display info about source system")
             options['source_system'] = val
-
         elif opt in ('-d', '--details',):
             logger.debug("Will display details about the events in question")
             options['details'] = True
-
         elif opt in ('-h', '--header',):
-            logger.debug("Will use alternative template file '%s' as header" % val)
+            logger.debug("Will use alternative template file '%s' as header",
+                         val)
             options['header'] = val
-
         elif opt in ('-e', '--events',):
             logger.debug("Will process these events: '%s'" % val)
             options['events'] = val
-
     main()
-
     logger.info("Statistics for Cerebrum activities - done")

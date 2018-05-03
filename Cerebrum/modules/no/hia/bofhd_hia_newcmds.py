@@ -19,13 +19,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Bofhd for UiA. """
-
 from mx import DateTime
+from six import text_type
 
 import cereconf
 
-from Cerebrum import Database
 from Cerebrum import Errors
+from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules import Note
@@ -373,14 +373,14 @@ class BofhdExtension(BofhdCommonMethods):
         ]))
 
     def person_info(self, operator, person_id):
+        co = self.const
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
         try:
-            p_name = person.get_name(self.const.system_cached,
-                                     getattr(self.const,
-                                             cereconf.DEFAULT_GECOS_NAME))
+            p_name = person.get_name(co.system_cached,
+                                     getattr(co, cereconf.DEFAULT_GECOS_NAME))
             p_name = p_name + ' [from Cached]'
         except Errors.NotFoundError:
             raise CerebrumError("No name is registered for this person")
@@ -398,27 +398,27 @@ class BofhdExtension(BofhdCommonMethods):
         for row in person.get_affiliations():
             ou = self._get_ou(ou_id=row['ou_id'])
             affiliations.append("%s@%s" % (
-                self.const.PersonAffStatus(row['status']),
+                text_type(co.PersonAffStatus(row['status'])),
                 self._format_ou_name(ou),
             ))
             sources.append(
-                str(self.const.AuthoritativeSystem(row['source_system']))
+                text_type(co.AuthoritativeSystem(row['source_system']))
             )
             last_seen.append(row['last_date'].date)
 
         for ss in cereconf.SYSTEM_LOOKUP_ORDER:
-            ss = getattr(self.const, ss)
+            ss = getattr(co, ss)
             person_name = ""
-            for type in [self.const.name_first, self.const.name_last]:
+            for type in [co.name_first, co.name_last]:
                 try:
                     person_name += person.get_name(ss, type) + ' '
                 except Errors.NotFoundError:
                     continue
             if person_name:
-                data.append({'names': person_name,
-                             'name_src': str(
-                                 self.const.AuthoritativeSystem(ss))
-                             })
+                data.append({
+                    'names': person_name,
+                    'name_src': text_type(co.AuthoritativeSystem(ss)),
+                })
         if affiliations:
             data[0]['affiliation_1'] = affiliations[0]
             data[0]['source_system_1'] = sources[0]
@@ -428,10 +428,11 @@ class BofhdExtension(BofhdCommonMethods):
             data[0]['source_system_1'] = "<nowhere>"
             data[0]['last_seen_1'] = "<never>"
         for i in range(1, len(affiliations)):
-            data.append({'affiliation': affiliations[i],
-                         'source_system': sources[i],
-                         'last_seen': last_seen[i],
-                         })
+            data.append({
+                'affiliation': affiliations[i],
+                'source_system': sources[i],
+                'last_seen': last_seen[i],
+            })
         account = self.Account_class(self.db)
         account_ids = [int(r['account_id'])
                        for r in account.list_accounts_by_owner_id(
@@ -440,10 +441,11 @@ class BofhdExtension(BofhdCommonMethods):
                 operator.get_entity_id() in account_ids):
             # Show fnr
             for row in person.get_external_id(
-                    id_type=self.const.externalid_fodselsnr):
+                    id_type=co.externalid_fodselsnr):
                 data.append({'fnr': row['external_id'],
-                             'fnr_src': str(self.const.AuthoritativeSystem(
-                                            row['source_system']))})
+                             'fnr_src': text_type(
+                                 co.AuthoritativeSystem(
+                                     row['source_system']))})
         # Show contact info, like address and mobile number, and also external
         # ids from FS and SAP.
         # Can only be shown by those that can set passwords for one of the
@@ -458,16 +460,11 @@ class BofhdExtension(BofhdCommonMethods):
             except PermissionDenied:
                 pass
         if can_show_contact_info:
-            for source, kind in ((self.const.system_sap,
-                                  self.const.address_post),
-                                 (self.const.system_fs,
-                                  self.const.address_post),
-                                 (self.const.system_sap,
-                                  self.const.address_post_private),
-                                 (self.const.system_fs,
-                                  self.const.address_post_private)):
-                address = person.get_entity_address(source=source,
-                                                    type=kind)
+            for source, kind in ((co.system_sap, co.address_post),
+                                 (co.system_fs, co.address_post),
+                                 (co.system_sap, co.address_post_private),
+                                 (co.system_fs, co.address_post_private)):
+                address = person.get_entity_address(source=source, type=kind)
                 if address:
                     address = address[0]
                     break
@@ -486,77 +483,78 @@ class BofhdExtension(BofhdCommonMethods):
                              'address_city': address['city']})
                 address_country = ''
                 if address['country']:
-                    country_codes = dict((c['code'], c['country']) for c in
-                                         person.list_country_codes())
+                    country_codes = dict((c['code'], c['country'])
+                                         for c in person.list_country_codes())
                     if address['country'] in country_codes:
-                        address_country = str(
-                            country_codes[address['country']]
-                        )
-                data.append({'address_country': address_country,
-                             'address_source':
-                             str(self.const.AuthoritativeSystem(
-                                 address['source_system']))}
-                            )
+                        address_country = country_codes[address['country']]
+                data.append({
+                    'address_country': address_country,
+                    'address_source': text_type(
+                        co.AuthoritativeSystem(address['source_system'])),
+                })
             # External ids from FS and SAP
-            for extid in (self.const.externalid_sap_ansattnr,
-                          self.const.externalid_studentnr):
+            for extid in (co.externalid_sap_ansattnr,
+                          co.externalid_studentnr):
                 for row in person.get_external_id(id_type=extid):
-                    data.append({'extid': row['external_id'],
-                                 'extid_src': str(
-                                     self.const.AuthoritativeSystem(
-                                         row['source_system']))})
+                    data.append({
+                        'extid': row['external_id'],
+                        'extid_src': text_type(
+                            co.AuthoritativeSystem(row['source_system'])),
+                    })
 
             # Show telephone numbers
             for row in person.get_contact_info():
                 if (row['contact_type']
-                    not in (self.const.contact_phone,
-                            self.const.contact_mobile_phone,
-                            self.const.contact_phone_private,
-                            self.const.contact_private_mobile)):
+                    not in (co.contact_phone,
+                            co.contact_mobile_phone,
+                            co.contact_phone_private,
+                            co.contact_private_mobile)):
                     continue
 
                 # Get string values of row['source_system'] and
                 # row['contact_type']to avoid insanely long
                 # lines that breaks PEP-8 standards
-                source_system_string = str(self.const.AuthoritativeSystem(
-                                           row['source_system']))
-                contact_type_string = str(self.const.ContactInfo(
-                                          row['contact_type']))
+                source_system = co.AuthoritativeSystem(row['source_system'])
+                contact_type = co.ContactInfo(row['contact_type'])
 
                 # Skip phone, private phone and private mobile values from SAP
-                if (source_system_string == str(self.const.system_sap) and
-                    row['contact_type'] in (self.const.contact_phone_private,
-                                            self.const.contact_private_mobile,
-                                            self.const.contact_phone)):
+                if (source_system == co.system_sap and
+                    row['contact_type'] in (co.contact_phone_private,
+                                            co.contact_private_mobile,
+                                            co.contact_phone)):
                     continue
 
-                data.append({'contact': row['contact_value'],
-                             'contact_src': source_system_string,
-                             'contact_type': contact_type_string})
+                data.append({
+                    'contact': row['contact_value'],
+                    'contact_src': text_type(source_system),
+                    'contact_type': text_type(contact_type),
+                })
 
             # Office addresses
-            for row in person.get_contact_info(self.const.system_sap,
-                                               self.const.contact_office):
+            for row in person.get_contact_info(co.system_sap,
+                                               co.contact_office):
 
-                source_system_string = str(self.const.AuthoritativeSystem(
-                                           row['source_system']))
+                source_system = co.AuthoritativeSystem(row['source_system'])
 
                 # TODO: add office address here too?
-                data.append({'office_code': row['contact_value'],
-                             'office_room': row['contact_alias'],
-                             'office_source': source_system_string})
+                data.append({
+                    'office_code': row['contact_value'],
+                    'office_room': row['contact_alias'],
+                    'office_source': text_type(source_system),
+                })
 
         # Append entity notes to data
         self._append_entity_notes(data, operator, person.entity_id)
 
         # Add job title from SAP
         try:
-            employment = person.search_employment(
-                person_id=person.entity_id, main_employment=True).next()
+            employment = person.search_employment(person_id=person.entity_id,
+                                                  main_employment=True).next()
             data.append({
-                'employment_title': str(employment['description']),
-                'source_system': str(self.const.AuthoritativeSystem(
-                    employment['source_system']))})
+                'employment_title': employment['description'],
+                'source_system': text_type(
+                    co.AuthoritativeSystem(employment['source_system'])),
+            })
         except:
             pass
 
@@ -622,7 +620,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError("No matching fnr from FS")
         fodselsdato, pnum = fodselsnr.del_fnr(fnr[0]['external_id'])
         ret = []
-        db = Database.connect(user="I0201_cerebrum", service="FSUIA.uio.no",
+        db = database.connect(user="I0201_cerebrum", service="FSUIA.uio.no",
                               DB_driver='cx_Oracle')
         fs = FS(db)
 
@@ -633,9 +631,9 @@ class BofhdExtension(BofhdCommonMethods):
                 'studprogkode': row['studieprogramkode'],
                 'studierettstatkode': row['studierettstatkode'],
                 'status': row['studentstatkode'],
-                'dato_studierett_tildelt': DateTime.DateTimeFromTicks(
+                'dato_studierett_tildelt': self._ticks_to_date(
                     row['dato_studierett_tildelt']),
-                'dato_studierett_gyldig_til': DateTime.DateTimeFromTicks(
+                'dato_studierett_gyldig_til': self._ticks_to_date(
                     row['dato_studierett_gyldig_til']),
                 'privatist': row['status_privatist'],
             })
@@ -648,7 +646,7 @@ class BofhdExtension(BofhdCommonMethods):
             ret.append({
                 'ekskode': row['emnekode'],
                 'programmer': ",".join(programmer),
-                'dato': DateTime.DateTimeFromTicks(row['dato_opprettet']),
+                'dato': self._ticks_to_date(row['dato_opprettet']),
             })
 
         for row in fs.student.get_utdanningsplan(fodselsdato, pnum):
@@ -656,18 +654,16 @@ class BofhdExtension(BofhdCommonMethods):
                 'studieprogramkode': row['studieprogramkode'],
                 'terminkode_bekreft': row['terminkode_bekreft'],
                 'arstall_bekreft': row['arstall_bekreft'],
-                'dato_bekreftet': DateTime.DateTimeFromTicks(
-                    row['dato_bekreftet']),
+                'dato_bekreftet': self._ticks_to_date(row['dato_bekreftet']),
             })
 
         for row in fs.student.get_semreg(fodselsdato, pnum):
             ret.append({
                 'regformkode': row['regformkode'],
                 'betformkode': row['betformkode'],
-                'dato_betaling': DateTime.DateTimeFromTicks(
-                    row['dato_betaling']),
-                'dato_regform_endret':
-                DateTime.DateTimeFromTicks(row['dato_regform_endret']),
+                'dato_betaling': self._ticks_to_date(row['dato_betaling']),
+                'dato_regform_endret': self._ticks_to_date(
+                    row['dato_regform_endret']),
             })
 
         for row in fs.student.get_student_kull(fodselsdato, pnum):
@@ -723,7 +719,8 @@ class BofhdExtension(BofhdCommonMethods):
             person.write_db()
         except:
             raise CerebrumError("Could not delete address %s:%s for %s" %
-                                (source_system, addresstype, person_id))
+                                (text_type(ss), text_type(addresstype),
+                                 person_id))
         return "Address deleted"
 
     #
@@ -765,7 +762,7 @@ class BofhdExtension(BofhdCommonMethods):
                     status=self.const.home_status_not_created)
             else:
                 raise CerebrumError("User already has a home in spread %s,"
-                                    " use user move" % str(spread))
+                                    " use user move" % text_type(spread))
 
         else:
             account.add_spread(int(spread))
@@ -775,7 +772,8 @@ class BofhdExtension(BofhdCommonMethods):
                 status=self.const.home_status_not_created)
         account.set_home(int(spread), homedir_id)
         account.write_db()
-        return "Home made for %s in spread %s" % (accountname, str(spread))
+        return "Home made for %s in spread %s" % (accountname,
+                                                  text_type(spread))
 
     #
     # user info
@@ -823,8 +821,10 @@ class BofhdExtension(BofhdCommonMethods):
         for row in account.get_account_types(filter_expired=False):
             ou = self._get_ou(ou_id=row['ou_id'])
             affiliations.append(
-                "%s@%s" % (self.const.PersonAffiliation(row['affiliation']),
-                           self._format_ou_name(ou)))
+                "%s@%s" % (
+                    text_type(
+                        self.const.PersonAffiliation(row['affiliation'])),
+                    self._format_ou_name(ou)))
         tmp = {
             'disk_id': None,
             'home': None,
@@ -842,20 +842,20 @@ class BofhdExtension(BofhdCommonMethods):
                 if tmp['disk_id'] or tmp['home']:
                     tmp_home = account.resolve_homedir(disk_id=tmp['disk_id'],
                                                        home=tmp['home'])
-                hm.append("%s (%s)" % (tmp_home, str(spread)))
+                hm.append("%s (%s)" % (tmp_home, text_type(spread)))
             except Errors.NotFoundError:
                 pass
         home = ("\n" + (" " * 15)).join([x for x in hm])
         ret = [{
             'entity_id': account.entity_id,
             'username': account.account_name,
-            'spread': ",".join([str(self.const.Spread(a['spread']))
+            'spread': ",".join([text_type(self.const.Spread(a['spread']))
                                 for a in account.get_spread()]),
             'affiliations': (",\n" + (" " * 15)).join(affiliations),
             'expire': account.expire_date,
             'home': home,
             'owner_id': account.owner_id,
-            'owner_type': str(self.const.EntityType(account.owner_type))
+            'owner_type': text_type(self.const.EntityType(account.owner_type))
         }]
         if account.owner_type == self.const.entity_person:
             person = self._get_person('entity_id', account.owner_id)
@@ -879,17 +879,17 @@ class BofhdExtension(BofhdCommonMethods):
                 'dfg_posix_gid': group.posix_gid,
                 'dfg_name': group.group_name,
                 'gecos': account.gecos,
-                'shell': str(self.const.PosixShell(account.shell)),
+                'shell': text_type(self.const.PosixShell(account.shell)),
             })
 
         # Contact info
         for row in account.get_contact_info():
             ret.append({
-                'contact_type': str(self.const.ContactInfo(
-                    row['contact_type'])),
+                'contact_type': text_type(
+                    self.const.ContactInfo(row['contact_type'])),
                 'contact_value': row['contact_value'],
-                'contact_src': str(self.const.AuthoritativeSystem(
-                    row['source_system'])),
+                'contact_src': text_type(
+                    self.const.AuthoritativeSystem(row['source_system'])),
             })
 
         # TODO: Return more info about account
@@ -1075,7 +1075,7 @@ class BofhdExtension(BofhdCommonMethods):
                 for aff in person.get_affiliations():
                     ou = self._get_ou(ou_id=aff['ou_id'])
                     name = "%s@%s" % (
-                        self.const.PersonAffStatus(aff['status']),
+                        text_type(self.const.PersonAffStatus(aff['status'])),
                         self._format_ou_name(ou))
                     map.append((("%s", name),
                                 {'ou_id': int(aff['ou_id']),
@@ -1210,12 +1210,12 @@ class BofhdExtension(BofhdCommonMethods):
                         int(self.const.spread_uia_office_365),
                         int(self.const.spread_uia_forward),
                         int(self.const.spread_hia_email)]:
-                    raise CerebrumError(
-                        "Not an e-mail spread: {!r}!".format(email_spread))
+                    raise CerebrumError("Not an e-mail spread: %r" %
+                                        email_spread)
             try:
                 posix_user.add_spread(self.const.Spread(email_spread))
             except Errors.NotFoundError:
-                raise CerebrumError("No such spread {!r}".format(email_spread))
+                raise CerebrumError("No such spread %r" % email_spread)
             # And, to write the new password to the database, we have
             # to .write_db() one more time...
             posix_user.write_db()
@@ -1224,7 +1224,7 @@ class BofhdExtension(BofhdCommonMethods):
                 self._user_create_set_account_type(posix_user, owner_id,
                                                    ou_id, affiliation)
         except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: {!s}".format(m))
+            raise CerebrumError("Database error: %s" % m)
         operator.store_state(
             "new_account_passwd", {'account_id': int(posix_user.entity_id),
                                    'password': passwd})
@@ -1308,8 +1308,8 @@ class BofhdExtension(BofhdCommonMethods):
     def user_migrate_exchange(self, operator, uname, mdb):
         account = self._get_account(uname)
         if account.is_expired():
-            raise CerebrumError(
-                "Account {!s} has expired".format(account.account_name))
+            raise CerebrumError("Account %s has expired" %
+                                account.account_name)
         # Check given mdb
         mdb = mdb.strip()
         if mdb not in cereconf.EXCHANGE_HOMEMDB_VALID:
@@ -1319,7 +1319,7 @@ class BofhdExtension(BofhdCommonMethods):
         # Mark that account is being migrated
         account.populate_trait(self.const.trait_exchange_under_migration)
         account.write_db()
-        return "OK, mdb stored for user %s" % uname
+        return "OK, mdb stored for user %s" % account.account_name
 
     #
     # user migrate_exchange_finished
@@ -1332,14 +1332,14 @@ class BofhdExtension(BofhdCommonMethods):
     def user_migrate_exchange_finished(self, operator, uname):
         account = self._get_account(uname)
         if account.is_expired():
-            raise CerebrumError(
-                "Account {!r} has expired".format(account.account_name))
+            raise CerebrumError("Account %s has expired" %
+                                account.account_name)
         # Account migration is finished
         account.delete_trait(self.const.trait_exchange_under_migration)
         # Mark that account now is migrated to new exchange server
         account.populate_trait(self.const.trait_exchange_migrated)
         account.write_db()
-        return "OK, deleted trait for user %s" % uname
+        return "OK, deleted trait for user %s" % account.account_name
 
     #
     # group multi_remove
@@ -1354,7 +1354,7 @@ class BofhdExtension(BofhdCommonMethods):
     def group_multi_remove(self, operator, member_type, src_name, dest_group):
         """ Remove a person, account or group from a given group. """
         if member_type not in ('group', 'account', 'person'):
-            return 'Unknown member_type "%s"' % (member_type)
+            return 'Unknown member_type %r' % (member_type)
         return self._group_remove(operator, src_name, dest_group,
                                   member_type=member_type)
 

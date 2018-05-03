@@ -20,7 +20,11 @@
 
 import cereconf
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import LDIFutils
+from Cerebrum.modules.LDIFutils import (ldapconf,
+                                        ldif_outfile,
+                                        end_ldif_outfile,
+                                        entry_string,
+                                        container_entry_string)
 from Cerebrum.QuarantineHandler import QuarantineHandler
 
 
@@ -40,7 +44,7 @@ class RadiusLDIF(object):
         return auth
 
     def __init__(self):
-        self.radius_dn = LDIFutils.ldapconf('RADIUS', 'dn', None)
+        self.radius_dn = ldapconf('RADIUS', 'dn', None)
         self.db = Factory.get('Database')()
         self.const = Factory.get('Constants')(self.db)
         self.account = Factory.get('Account')(self.db)
@@ -59,12 +63,12 @@ class RadiusLDIF(object):
                 self.id2vlan_vpn[row['account_id']] = vlan_vpn
 
     def dump(self):
-        fd = LDIFutils.ldif_outfile('RADIUS')
-        fd.write(LDIFutils.container_entry_string('RADIUS'))
+        fd = ldif_outfile('RADIUS')
+        fd.write(container_entry_string('RADIUS'))
         noAuth = (None, None)
         for account_id, vlan_vpn in self.id2vlan_vpn.iteritems():
             info = self.auth[account_id]
-            uname = LDIFutils.iso2utf(str(info[0]))
+            uname = info[0]
             auth = info[1]
             ntAuth = self.md4_auth.get(account_id, noAuth)[1]
             if account_id in self.quarantines:
@@ -86,8 +90,8 @@ class RadiusLDIF(object):
                 entry['userPassword'] = ('{crypt}' + auth,)
             if ntAuth:
                 entry['ntPassword'] = (ntAuth,)
-            fd.write(LDIFutils.entry_string(dn, entry, False))
-        LDIFutils.end_ldif_outfile('RADIUS', fd)
+            fd.write(entry_string(dn, entry, False))
+        end_ldif_outfile('RADIUS', fd)
 
 
 def main():
@@ -95,6 +99,7 @@ def main():
     logger.info('Dumping RADIUS accounts...')
     RadiusLDIF().dump()
     logger.info('Done')
+
 
 if __name__ == '__main__':
     main()

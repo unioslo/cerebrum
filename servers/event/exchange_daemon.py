@@ -31,6 +31,9 @@ SIGHUP (any process):
 SIGUSR1 (main process)
     List current processes, pids and their state.
 """
+
+from __future__ import unicode_literals
+
 import argparse
 
 from multiprocessing import Queue
@@ -49,8 +52,8 @@ class Manager(utils.Manager):
 
 
 # Inject Queue implementations:
-Manager.register('queue', Queue)
-Manager.register('log_queue', Queue)
+Manager.register(str('queue'), Queue)
+Manager.register(str('log_queue'), Queue)
 
 
 def serve(config, num_workers, enable_listener, enable_collectors):

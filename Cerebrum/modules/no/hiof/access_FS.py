@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -17,6 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
 import time
 
 from Cerebrum.modules.no import access_FS
@@ -74,7 +75,7 @@ class HiOfStudent(access_FS.Student):
         return self.db.query(qry, locals())
 
     def list_eksamensmeldinger(self):  # GetAlleEksamener
-        """Hent ut alle eksamensmeldinger i nåværende sem."""
+        """Hent ut alle eksamensmeldinger i nÃ¥vÃ¦rende sem."""
 
         qry = """
         SELECT p.fodselsdato, p.personnr, vm.emnekode, vm.studieprogramkode
@@ -158,10 +159,10 @@ class HiOfStudent78(HiOfStudent, access_FS.Student78):
 
 @fsobject('undervisning', '<7.8')
 class HiOfUndervisning(access_FS.Undervisning):
-    # TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
+    # TBD: avskaffe UiO-spesifikke sÃ¸k for list_undervisningsenheter
     #      og list_studenter_underv_enhet.
-    #      Prøve å lage generell list_studenter_kull.
-    #      Prøve å fjerne behov for override-metoder her
+    #      PrÃ¸ve Ã¥ lage generell list_studenter_kull.
+    #      PrÃ¸ve Ã¥ fjerne behov for override-metoder her
 
     # We redefine this, as HiOf uses other dates for semesters
     def _get_termin_aar(self, only_current=0):
@@ -173,18 +174,18 @@ class HiOfUndervisning(access_FS.Undervisning):
         FS is working in terms and not with proper dates, so the query is
         generated differently depending on the current date:
 
-        - From 1st of January to 15th of February: This year's 'VÅR' is
-          returned. If L{only_current} is False, also last year's 'HØST' is
+        - From 1st of January to 15th of February: This year's 'VÃ…R' is
+          returned. If L{only_current} is False, also last year's 'HÃ˜ST' is
           included.
 
-        - From 15th of February to 31st of July: Only this year's 'VÅR' is
+        - From 15th of February to 31st of July: Only this year's 'VÃ…R' is
           returned.
 
         - From 1st of August to 15th of September:
-          This year's 'HØST' is returned.
-          If L{only_current} is False, also this year's 'VÅR' is included.
+          This year's 'HÃ˜ST' is returned.
+          If L{only_current} is False, also this year's 'VÃ…R' is included.
 
-        - From 15th of September to 31st of December: Only this year's 'HØST' is
+        - From 15th of September to 31st of December: Only this year's 'HÃ˜ST' is
           returned.
 
         @type only_current: bool
@@ -196,28 +197,28 @@ class HiOfUndervisning(access_FS.Undervisning):
         @rtype: string
         @return: An SQL formatted string that should be put in a larger query.
             Example:
-                (r.terminkode = 'HØST' and r.arstall = 2013)
+                (r.terminkode = 'HÃ˜ST' and r.arstall = 2013)
             where 'r' refers to 'fs.registerkort r'.
 
         """
         if self.mndnr <= 7:
             # Months January - July == Spring semester
-            current = "(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % self.year
+            current = "(r.terminkode = :spring AND r.arstall=%s)\n" % self.year
             if only_current or self.mndnr >= 3 or (self.mndnr == 2 and
                                                    self.dday > 15):
                 return current
-            return "(%s OR (r.terminkode = 'HØST' AND r.arstall=%d))\n" % (
+            return "(%s OR (r.terminkode = :autumn AND r.arstall=%d))\n" % (
                 current, self.year-1)
         # Months August - December == Autumn semester
-        current = "(r.terminkode = 'HØST' AND r.arstall=%d)\n" % self.year
+        current = "(r.terminkode = :autumn AND r.arstall=%d)\n" % self.year
         if only_current or self.mndnr >= 10 or (self.mndnr == 9 and
                                                 self.dday > 15):
             return current
-        return "(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" %\
+        return "(%s OR (r.terminkode = :spring AND r.arstall=%d))\n" %\
             (current, self.year)
 
     def _get_next_termin_aar(self):
-        """henter neste semesters terminkode og årstal."""
+        """henter neste semesters terminkode og Ã¥rstal."""
         if self.mndnr <= 7:
             next = "(r.terminkode LIKE 'H_ST' AND r.arstall=%s)\n" % self.year
         else:
@@ -227,9 +228,9 @@ class HiOfUndervisning(access_FS.Undervisning):
 
     def list_undervisningenheter(self, sem="current"):
         """Metoden som henter data om undervisningsenheter
-        i nåverende (current) eller neste (next) semester. Default
-        vil være nåværende semester. For hver undervisningsenhet
-        henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall
+        i nÃ¥verende (current) eller neste (next) semester. Default
+        vil vÃ¦re nÃ¥vÃ¦rende semester. For hver undervisningsenhet
+        henter vi institusjonsnr, emnekode, versjonskode, terminkode + Ã¥rstall
         og terminnr."""
         qry = """
         SELECT DISTINCT
@@ -244,7 +245,8 @@ class HiOfUndervisning(access_FS.Undervisning):
             qry += """%s""" % self._get_termin_aar(only_current=1)
         else:
             qry += """%s""" % self._get_next_termin_aar()
-        return self.db.query(qry)
+        return self.db.query(qry, {'autumn': 'HÃ˜ST',
+                                   'spring': 'VÃ…R'})
 
     def list_aktiviteter(self):
         """Hent alle undakt for dette og neste semestre.
@@ -268,7 +270,8 @@ class HiOfUndervisning(access_FS.Undervisning):
         """ % (self._get_termin_aar(only_current=1),
                self._get_next_termin_aar())
 
-        return self.db.query(query)
+        return self.db.query(query, {'autumn': 'HÃ˜ST',
+                                     'spring': 'VÃ…R'})
     # end list_aktiviteter
 
     def list_studenter_underv_enhet(self,
@@ -278,8 +281,8 @@ class HiOfUndervisning(access_FS.Undervisning):
                                     terminkode,
                                     arstall,
                                     terminnr):
-        """Finn fødselsnumrene til alle studenter på et gitt
-        undervisningsenhet. Skal brukes til å generere grupper for
+        """Finn fÃ¸dselsnumrene til alle studenter pÃ¥ et gitt
+        undervisningsenhet. Skal brukes til Ã¥ generere grupper for
         adgang til CF."""
         qry = """
         SELECT DISTINCT
@@ -302,10 +305,10 @@ class HiOfUndervisning(access_FS.Undervisning):
     # end list_studenter_underv_enhet
 
     def list_studenter_alle_undenh(self):
-        """Hent alle studenter på alle undenh.
+        """Hent alle studenter pÃ¥ alle undenh.
 
-        Dette er potensielt *veldig* mange. Spørringen er primært myntet på
-        CF-utplukk og bør således ta minst alle studenter dette og neste
+        Dette er potensielt *veldig* mange. SpÃ¸rringen er primÃ¦rt myntet pÃ¥
+        CF-utplukk og bÃ¸r sÃ¥ledes ta minst alle studenter dette og neste
         semester.
         """
 
@@ -316,15 +319,19 @@ class HiOfUndervisning(access_FS.Undervisning):
         FROM
           fs.undervisningsmelding
         WHERE
-          terminkode in ('VÅR', 'HØST') AND
+          terminkode in (:spring, :autumn) AND
           arstall >= :aar
         """
 
-        return self.db.query(qry, {"aar": self.year, }, fetchall=True)
+        return self.db.query(qry,
+                             {"aar": self.year,
+                              'autumn': 'HÃ˜ST',
+                              'spring': 'VÃ…R'},
+                              fetchall=True)
     # end list_studenter_underv_enhet
 
     def list_studenter_alle_kullklasser(self):
-        """Hent alle studenter fordelt på kullklasser.
+        """Hent alle studenter fordelt pÃ¥ kullklasser.
         """
 
         query = """
@@ -356,7 +363,7 @@ class HiOfUndervisning(access_FS.Undervisning):
     # end list_studenter_alle_kull
 
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
-        """Hent alle studentene som er oppført på et gitt kull."""
+        """Hent alle studentene som er oppfÃ¸rt pÃ¥ et gitt kull."""
 
         query = """
         SELECT DISTINCT
@@ -376,10 +383,10 @@ class HiOfUndervisning(access_FS.Undervisning):
                                      "arstall_kull": arstall})
 
     def list_studenter_alle_kull(self):
-        """Hent alle studenter fordelt på kull.
+        """Hent alle studenter fordelt pÃ¥ kull.
 
-        Dette er noe annet enn alle studenter fordelt på kullklasser. En
-        student kan gjerne være meldt opp i et kull, uten å være tilordnet en
+        Dette er noe annet enn alle studenter fordelt pÃ¥ kullklasser. En
+        student kan gjerne vÃ¦re meldt opp i et kull, uten Ã¥ vÃ¦re tilordnet en
         kullklasse (hos hiof er mesteparten av kullstudentene ikke med i en
         kullklasse).
         """
@@ -419,7 +426,7 @@ class HiOfStudieInfo(access_FS.StudieInfo):
     def list_studieprogrammer(self):  # GetStudieproginf
         """For hvert definerte studieprogram henter vi
         informasjon om utd_plan og eier samt studieprogkode. Vi burde
-        her ha en sjekk på om studieprogrammet er utgått, men datagrunnalget
+        her ha en sjekk pÃ¥ om studieprogrammet er utgÃ¥tt, men datagrunnalget
         er for svakt. ( WHERE status_utgatt = 'N')"""
         qry = """
         SELECT studieprogramkode, status_utdplan,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,6 +22,9 @@
 This script is used to set / remove user auto-freeze on users that are
 members of projects that have been frozen.
 """
+from __future__ import unicode_literals
+
+import six
 
 import cerebrum_path
 import cereconf
@@ -49,7 +52,7 @@ def auto_freeze_project_accounts(db,
           before a new one is added
         - no changes will be made to the account in all other cases
 
-    :type db: Cerebrum.Database
+    :type db: Cerebrum.database.Database
     :param db: The database connection-object
 
     :type account_ids: list
@@ -107,7 +110,7 @@ def remove_auto_freeze_from_project_accounts(db, account_ids):
     Removes quarantine with type auto_frozen from all
     accounts corresponding to the given `account_ids`
 
-    :type db: Cerebrum.Database db
+    :type db: Cerebrum.database.Database db
     :param db: The database connection-object
 
     :type account_ids: list
@@ -134,7 +137,7 @@ def update_user_freeze(db, dryrun):
     Sets / unsets auto-freeze quarantine for accounts belonging to
     projects with set / unset freeze quarantine
 
-    :type db: Cerebrum.Database db
+    :type db: Cerebrum.database.Database db
     :param db: The database connection-object
 
     :type dryrun: bool
@@ -200,7 +203,8 @@ def update_user_freeze(db, dryrun):
         else:
             db.commit()
     except Exception, e:
-        logger.critical('Unexpected exception: %s' % (str(e)), exc_info=True)
+        logger.critical('Unexpected exception: {e}'.format(six.text_type(e)),
+                        exc_info=True)
         db.rollback()
         raise
 
@@ -208,10 +212,8 @@ def update_user_freeze(db, dryrun):
 def main(args=None):
     """
     """
-    try:
-        import argparse
-    except ImportError:
-        from Cerebrum.extlib import argparse
+    import argparse
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '-d', '--dryrun',

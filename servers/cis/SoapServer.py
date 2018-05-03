@@ -19,8 +19,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This file provides a SOAP service that provides an API for Digeksd."""
+
+from __future__ import unicode_literals
+
 import sys
-import getopt
+import argparse
 from Cerebrum.Utils import dyn_import
 from Cerebrum.modules.cis import SoapListener, auth
 
@@ -31,7 +34,7 @@ def import_class(cls):
     :type cls: str
     :param cls: The class path, i.e. 'Cerebrum.modules.cheese/Stilton'
     """
-    module, classname = cls.split('/', 1)
+    module, classname = cls.split(str('/'), 1)
     mod = dyn_import(module)
     return getattr(mod, classname)
 
@@ -57,6 +60,7 @@ def _event_cleanup(ctx):
 
 class Service(object):
     """Utility class to allow run-time configuration."""
+
     def __init__(self, ServiceCls):
         """Adds listeners to the service-class loaded at run-time."""
 
@@ -80,89 +84,42 @@ class Service(object):
                 'method_call', auth.on_method_authentication)
 
 
-def usage(exitcode=0):
-    print """Usage: %s [-p <port number] [-l logfile] [--unencrypted]
-
-Starts up the webservice on a given port. Please note that config
-(cisconf) contains more settings for the service.
-
-  -p
-  --port num        Run on alternative port than defined in cisconf.PORT.
-
-  --interface ADDR  What interface the server should listen to. Overrides
-                    cisconf.INTERFACE. Default: 0.0.0.0
-
-  -l
-  --logfile:        Where to log. Overrides cisconf.LOG_FILE.
-
-  --service-name    The service configuration to load, e.g. 'digeks'
-
-  --unencrypted     Don't use HTTPS. All communications goes unencrypted, and
-                    should only be used for testing.
-
-  -h
-  --help            Show this and quit.
-    """
-    sys.exit(exitcode)
-
-
 if __name__ == '__main__':
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'p:l:hd',
-                                   ['port=', 'unencrypted', 'logfile=',
-                                    'help', 'interface=',
-                                    'service-name=', 'dry-run'])
-    except getopt.GetoptError, e:
-        print e
-        usage(1)
-
-    # Scan for the service name before parsing args.
-    # TODO: Make this pretty
-    service = None
-    for opt, val in opts:
-        if opt in ('--service-name',):
-            service = val
+    p = argparse.ArgumentParser(description='Starts up the webservice on a '
+                                'given port. Please note that config (cisconf)'
+                                ' contains more settings for the service.')
+    p.add_argument('-p', '--port', type=int, help='Run on alternative port '
+                   'than defined in cisconf.PORT')
+    p.add_argument('--interface', help='What interface the server should '
+                   'listen to. Overrides cisconf.INTERFACE. Default: 0.0.0.0')
+    p.add_argument('-l', '--logfile', help='Where to log. Overrides '
+                   'cisconf.LOG_FILE.')
+    p.add_argument('--service-name', help='The service configuration to load, '
+                   'e.g. «digeks»', required=True)
+    p.add_argument('--unencrypted', action='store_true',
+                   help="Don't use HTTPS. All communications goes unencrypted,"
+                   " and should only be used for testing.")
+    p.add_argument('-d', '--dry-run', action='store_true', help="Dry run")
+    opts = p.parse_args()
 
     # Load configuration before parsing args, since we want to preserve
     # overrides.
     try:
-        cisconf = dyn_import('cisconf.%s' % service)
-    except ImportError, e:
-        if e == 'No module named None':
-            print('Error: must specify service-name')
-            usage(2)
-        else:
-            print('Error: service-name configuration \'cisconf.%s\' not found'
-                  % service)
-            usage(3)
+        cisconf = dyn_import(str('cisconf.%s' % opts.service_name))
+    except ImportError as e:
+        print('Error: service-name configuration \'cisconf.%s\' not found'
+              % opts.service_name)
+        sys.exit(3)
 
-    use_encryption = True
-    port = getattr(cisconf, 'PORT', 0)
-    logfilename = getattr(cisconf, 'LOG_FILE', None)
+    port = getattr(cisconf, 'PORT', 0) if opts.port is None else opts.port
+    logfilename = (getattr(cisconf, 'LOG_FILE', None) if opts.logfile is None
+                   else opts.logfile)
     instance = getattr(cisconf, 'CEREBRUM_CLASS', None)
-    interface = getattr(cisconf, 'INTERFACE', None)
+    interface = (getattr(cisconf, 'INTERFACE', None) if opts.interface is None
+                 else opts.interface)
     log_prefix = getattr(cisconf, 'LOG_PREFIX', None)
     log_formatters = getattr(cisconf, 'LOG_FORMATTERS', None)
-    dryrun = getattr(cisconf, 'DRYRUN', False)
-
-    for opt, val in opts:
-        if opt in ('-l', '--logfile'):
-            logfilename = val
-        elif opt in ('-p', '--port'):
-            port = int(val)
-        elif opt in ('--unencrypted',):
-            use_encryption = False
-        elif opt in ('--interface',):
-            interface = val
-        elif opt in ('-h', '--help'):
-            usage()
-        elif opt in ('--service-name',):
-            pass
-        elif opt in ('--dry-run',):
-            dryrun = True
-        else:
-            print "Unknown argument: %s" % opt
-            usage(1)
+    dryrun = getattr(cisconf, 'DRYRUN', False) or opts.dry_run
 
     private_key_file = None
     certificate_file = None
@@ -172,9 +129,9 @@ if __name__ == '__main__':
     services = []
     # Get the service tier classes and give it to the server
     for key in getattr(cisconf, 'CLASS_CONFIG'):
-        srv_cls = import_class(key)
+        srv_cls = import_class(str(key))
         srv_cls.cere_class = import_class(
-            getattr(cisconf, 'CLASS_CONFIG').get(key))
+            str(getattr(cisconf, 'CLASS_CONFIG').get(key)))
         srv_cls.dryrun = dryrun
         Service(srv_cls)
         services.append(srv_cls)
@@ -186,7 +143,7 @@ if __name__ == '__main__':
     if interface:
         SoapListener.TwistedSoapStarter.interface = interface
 
-    if use_encryption:
+    if not opts.unencrypted:
         private_key_file = cisconf.SERVER_PRIVATE_KEY_FILE
         certificate_file = cisconf.SERVER_CERTIFICATE_FILE
         client_ca = cisconf.CERTIFICATE_AUTHORITIES

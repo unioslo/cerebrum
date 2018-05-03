@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002, 2003, 2004 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,21 +23,18 @@ dersom man skal ha kode for en spesifik FS-versjon.
 
 Disse klassene er ment brukt ved å instansiere klassen FS
 """
-
+from __future__ import unicode_literals
 import cereconf
 import time
 import xml.sax
 import collections
 import operator
 
-from Cerebrum import Database
+from Cerebrum import database as Database
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, dyn_import
 
 import phonenumbers
-
-
-compatibility_encoding = 'ISO-8859-1'
 
 
 # A tuple to hold the version number
@@ -326,13 +323,13 @@ class FSObject(object):
         t = time.localtime()[0:3]
         if t[1] <= 6:
             self.sem = 'V'
-            self.semester = u'VÅR'.encode(compatibility_encoding)
-            self.prev_semester = u'HØST'.encode(compatibility_encoding)
+            self.semester = 'VÅR'
+            self.prev_semester = 'HØST'
             self.prev_semester_year = t[0] - 1
         else:
             self.sem = 'H'
-            self.semester = u'HØST'.encode(compatibility_encoding)
-            self.prev_semester = u'VÅR'.encode(compatibility_encoding)
+            self.semester = 'HØST'
+            self.prev_semester = 'VÅR'
             self.prev_semester_year = t[0]
         self.year = t[0]
         self.mndnr = t[1]
@@ -380,19 +377,19 @@ class FSObject(object):
         """
         if self.mndnr <= 6:
             # Months January - June == Spring semester
-            current = u"(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % self.year
+            current = u"(r.terminkode = :spring AND r.arstall=%s)\n" % self.year
             if only_current or self.mndnr >= 3 or (self.mndnr == 2
                                                    and self.dday > 15):
-                return current.encode(compatibility_encoding)
-            return (u"(%s OR (r.terminkode = 'HØST' AND r.arstall=%d))\n" % (
-                current, self.year-1)).encode(compatibility_encoding)
+                return current
+            return (u"(%s OR (r.terminkode = :autumn AND r.arstall=%d))\n" % (
+                current, self.year-1))
         # Months July - December == Autumn semester
-        current = u"(r.terminkode = 'HØST' AND r.arstall=%d)\n" % self.year
+        current = u"(r.terminkode = :autumn AND r.arstall=%d)\n" % self.year
         if only_current or self.mndnr >= 10 or (self.mndnr == 9
                                                 and self.dday > 15):
-            return current.encode(compatibility_encoding)
-        return (u"(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" % (
-            current, self.year)).encode(compatibility_encoding)
+            return current
+        return (u"(%s OR (r.terminkode = :spring AND r.arstall=%d))\n" % (
+            current, self.year))
 
     def _get_next_termin_aar(self):
         """henter neste semesters terminkode og årstal."""
@@ -876,7 +873,8 @@ class Student(FSObject):
         WHERE %s AND
         NVL(r.status_ugyldig, 'N') = 'N'
         """ % self._get_termin_aar(only_current=1)
-        return self.db.query(qry)
+        return self.db.query(qry, {'autumn': 'HØST',
+                                   'spring': 'VÅR'})
 
     def get_semreg(self, fnr, pnr, only_valid=True):  # GetStudentSemReg
         """Hent data om semesterregistrering for student i nåværende semester.
@@ -913,7 +911,10 @@ class Student(FSObject):
                'termin': self._get_termin_aar(only_current=1),
                'is_alive': self._is_alive(),
                'sjekk_betaling': sjekk_betaling}
-        return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
+        return self.db.query(qry, {'fnr': fnr,
+                                   'pnr': pnr,
+                                   'autumn': 'HØST',
+                                   'spring': 'VÅR'})
 
     # TODO: Måten vi knytter vurdkombenhet mot vurdtidkode bør
     # sjekkes nærmere med Geir.
@@ -1032,7 +1033,8 @@ class Student(FSObject):
         WHERE (status_bet_ok = 'J' OR betformkode = 'FRITATT') AND
                NVL(r.status_ugyldig, 'N') = 'N' AND
         %s""" % self._get_termin_aar(only_current=1)
-        return self.db.query(qry)
+        return self.db.query(qry, {'autumn': 'HØST',
+                                   'spring': 'VÅR'})
     # end list_betalt_semesteravgift
 
     def get_emne_eksamensmeldinger(self, emnekode):  # GetEmneinformasjon
@@ -1398,17 +1400,18 @@ class Undervisning(FSObject):
           ue.institusjonsnr = e.institusjonsnr AND
           ue.emnekode       = e.emnekode AND
           ue.versjonskode   = e.versjonskode AND
-          ue.terminkode IN ('VÅR', 'HØST') AND
+          ue.terminkode IN (:spring, :autumn) AND
           ue.terminkode = t.terminkode AND
           (ue.arstall > :aar OR
            (ue.arstall = :aar2 AND
             EXISTS(SELECT 'x' FROM fs.arstermin tt
             WHERE tt.terminkode = :sem AND
-                  t.sorteringsnokkel >= tt.sorteringsnokkel)))"""
-                             .encode(compatibility_encoding),
+                  t.sorteringsnokkel >= tt.sorteringsnokkel)))""",
                              {'aar': year,
                               'aar2': year,  # db-driver bug work-around
-                              'sem': sem})
+                              'sem': sem,
+                              'autumn': 'HØST',
+                              'spring': 'VÅR'})
 
     def list_aktiviteter(self, start_aar=time.localtime()[0],
                          start_semester=None):
@@ -1426,15 +1429,17 @@ class Undervisning(FSObject):
           ua.undpartilopenr IS NOT NULL AND
           ua.disiplinkode IS NOT NULL AND
           ua.undformkode IS NOT NULL AND
-          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode IN (:spring, :autumn) AND
           ua.terminkode = t.terminkode AND
           ((ua.arstall = :aar AND
             EXISTS (SELECT 'x' FROM fs.arstermin tt
                     WHERE tt.terminkode = :semester AND
                           t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
-           ua.arstall > :aar)""".encode(compatibility_encoding),
+           ua.arstall > :aar)""",
                              {'aar': start_aar,
-                              'semester': start_semester})
+                              'semester': start_semester,
+                              'autumn': 'HØST',
+                              'spring': 'VÅR'})
 
     def get_undform_aktiviteter(self, Instnr, emnekode, versjon, termk,
                                 aar, termnr, undformkode):
@@ -1457,20 +1462,22 @@ class Undervisning(FSObject):
           ua.terminkode = :termk AND
           ua.terminnr = :termnr AND
           ua.undformkode = :undformkode AND
-          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode IN (:spring, :autumn) AND
           ua.terminkode = t.terminkode AND
           ((ua.arstall = :aar AND
             EXISTS (SELECT 'x' FROM fs.arstermin tt
                     WHERE tt.terminkode = :termk AND
                     t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
-           ua.arstall > :aar)""".encode(compatibility_encoding),
+           ua.arstall > :aar)""",
                              {"Instnr": Instnr,
                               "emnekode": emnekode,
                               "versjon": versjon,
                               "termk": termk,
                               "termnr": termnr,
                               "aar": aar,
-                              "undformkode": undformkode})
+                              "undformkode": undformkode,
+                              'autumn': 'HØST',
+                              'spring': 'VÅR'})
     # end get_undform_aktiviteter
 
     def list_undform_aktiviteter(self, undformkode):
@@ -1487,11 +1494,13 @@ class Undervisning(FSObject):
           fs.arstermin t
         WHERE
           ua.undformkode = :undformkode AND
-          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode IN (:spring, :autumn) AND
           ua.terminkode = t.terminkode AND
           (EXISTS (SELECT 'x' FROM fs.arstermin tt
                    WHERE t.sorteringsnokkel >= tt.sorteringsnokkel))
-          """.encode(compatibility_encoding), {"undformkode": undformkode})
+          """, {"undformkode": undformkode,
+                'autumn': 'HØST',
+                'spring': 'VÅR'})
 
     def list_studenter_underv_enhet(self, Instnr, emnekode,
                                     versjon, termk, aar, termnr):
@@ -1901,7 +1910,7 @@ class Alumni(FSObject):
                sps.studentstatkode = 'FULLFØRT'  AND
                sps.studierettstatkode IN ('AUTOMATISK', 'CANDMAG', 'DIVERSE',
                'OVERGANG', 'ORDOPPTAK')
-               """.encode(compatibility_encoding)
+               """
         return self.db.query(qry)
 
 
@@ -2002,7 +2011,7 @@ class FS(object):
             user = user or cereconf.FS_USER
             database = database or cereconf.FS_DATABASE_NAME
             DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
-            db = Database.connect(user=user, service=database,
+            db = database.connect(user=user, service=database,
                                   DB_driver=DB_driver)
         self.db = db
         self.fsversion = _get_fs_version(self.db)
@@ -2039,7 +2048,7 @@ class element_attribute_xml_parser(xml.sax.ContentHandler, object):
     to the class attribute in their parent class (i.e. subclasses
     should not do elements[key] = value)."""
 
-    def __init__(self, filename, callback, encoding='iso8859-1'):
+    def __init__(self, filename, callback, encoding='utf-8'):
         self._callback = callback
         self._encoding = encoding
         xml.sax.parse(filename, self)
@@ -2057,7 +2066,7 @@ class element_attribute_xml_parser(xml.sax.ContentHandler, object):
 
 class non_nested_xml_parser(element_attribute_xml_parser):
 
-    def __init__(self, filename, callback, encoding='iso8859-1'):
+    def __init__(self, filename, callback, encoding='utf-8'):
         self._in_element = None
         self._attrs = None
         super(non_nested_xml_parser, self).__init__(
@@ -2285,7 +2294,7 @@ class emne_xml_parser(non_nested_xml_parser):
 class deltaker_xml_parser(xml.sax.ContentHandler, object):
     "Parserklasse for å hente EVU kursdeltaker informasjon."
 
-    def __init__(self, filename, callback, encoding="iso8859-1"):
+    def __init__(self, filename, callback, encoding="utf-8"):
         self._callback = callback
         self._encoding = encoding
         self._in_person = False

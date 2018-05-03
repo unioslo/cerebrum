@@ -33,6 +33,9 @@ structure of the dictionary checks, please see:
 > Mon Jul 20 14:12:55 2015 +0200
 
 """
+
+from __future__ import unicode_literals
+
 import cerebrum_path
 import cereconf
 
@@ -41,16 +44,6 @@ import re
 import string
 
 from .checker import pwchecker, PasswordChecker, l33t_speak
-
-
-def unicodify(byte_str):
-    if isinstance(byte_str, str):
-        try:
-            byte_str = byte_str.decode('UTF-8')
-        except UnicodeDecodeError:
-            byte_str = byte_str.decode('ISO-8859-1')
-    # assuming that byte_str is unicode
-    return byte_str
 
 
 def additional_words():
@@ -83,8 +76,8 @@ def look(FH, key, dictn, fold):
         mid = int((max + min) / 2)
         FH.seek(mid * blksize, 0)
         if mid:
-            line = unicodify(FH.readline())  # probably a partial line
-        line = unicodify(FH.readline())
+            line = FH.readline()
+        line = FH.readline()
         line.strip()
         if dictn:
             line = re.sub(r'[^\w\s]', '', line)
@@ -99,7 +92,7 @@ def look(FH, key, dictn, fold):
     if min:
         FH.readline()
     while 1:
-        line = unicodify(FH.readline())
+        line = FH.readline()
         if len(line) == 0:
             break
         line = line.strip()
@@ -137,7 +130,7 @@ def is_word_in_dicts(dictionaries, words, dict_order=1, case_fold=1):
         with open(fname) as f:
             look(f, words[0], dict_order, case_fold)
             while (1):
-                line = unicodify(f.readline())
+                line = f.readline()
                 if len(line) == 0:
                     return False
                 line = line.rstrip()
@@ -224,7 +217,7 @@ def check_two_word_combinations(dictionaries, word):
                 look(f, two, 1, 1)
                 two = two[:-1] + chr(ord(two[-1])+1)
                 while 1:
-                    line = unicodify(f.readline())
+                    line = f.readline()
                     if not line:
                         break
                     line = line.rstrip().lower()
@@ -241,7 +234,7 @@ def check_two_word_combinations(dictionaries, word):
             with open(fname) as f:
                 for key in others.keys():
                     look(f, key, 1, 1)
-                    line = unicodify(f.readline()).rstrip()
+                    line = f.readline().rstrip()
                     line = re.sub('\t.*', '', line)
                     if (line == key or (len(word) == 8 and
                                         re.search(r'^%s' % key, line))):
@@ -267,7 +260,6 @@ class CheckPasswordDictionary(PasswordChecker):
 
     def check_password(self, password, account=None):
         """ Check password against a dictionary. """
-        password = unicodify(password)
         if check_dict(self.password_dictionaries, password[0:8]):
             return [_('Password cannot contain dictionary words')]
 

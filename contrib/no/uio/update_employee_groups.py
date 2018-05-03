@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -56,7 +56,6 @@ import cerebrum_path
 import cereconf
 
 import Cerebrum
-from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
@@ -365,11 +364,7 @@ def main():
     else:
         db.commit()
         logger.info("updates completed. all changes committed")
-# end main
 
-
-
-    
 
 if __name__ == "__main__":
     main()

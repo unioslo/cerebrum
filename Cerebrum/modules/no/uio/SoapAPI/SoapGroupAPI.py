@@ -19,12 +19,15 @@
 
 """Generalized SOAP interface for Cerebrums group functionality."""
 
+from __future__ import unicode_literals
+
 from Cerebrum.modules.cis import SoapListener, faults
-from rpclib.model.primitive import String, DateTime, Integer, Boolean
+from rpclib.model.primitive import Unicode, DateTime, Integer, Boolean
 from rpclib.model.complex import Array
 from rpclib.decorator import rpc
 
-from Cerebrum.modules.no.uio.SoapAPI.SoapGroupAPImodel import GroupInfo, GroupMember
+from Cerebrum.modules.no.uio.SoapAPI.SoapGroupAPImodel import (GroupInfo,
+                                                               GroupMember)
 
 
 NAMESPACE = 'GroupAPI'
@@ -47,39 +50,39 @@ class GroupAPIService(SoapListener.BasicSoapServer):
     # The hook for the site object
     site = None
 
-    @rpc(String, String, DateTime, String,
+    @rpc(Unicode, Unicode, DateTime, Unicode,
          _throws=faults.EndUserFault, _returns=Integer)
     def group_create(ctx, group_name, description,
                      expire_date=None, visibility=None):
         return ctx.udc[NAMESPACE].group_create(
             group_name, description, expire_date, visibility)
 
-    @rpc(String, String, String, String,
+    @rpc(Unicode, Unicode, Unicode, Unicode,
          _throws=faults.EndUserFault, _returns=Boolean)
     def group_add_member(ctx, group_id_type, group_id,
                          member_id_type, member_id):
         return ctx.udc[NAMESPACE].group_add_member(
             group_id_type, group_id, member_id_type, member_id)
 
-    @rpc(String, String, String, String,
+    @rpc(Unicode, Unicode, Unicode, Unicode,
          _throws=faults.EndUserFault, _returns=Boolean)
     def group_remove_member(ctx, group_id_type, group_id,
                             member_id_type, member_id):
         return ctx.udc[NAMESPACE].group_remove_member(
             group_id_type, group_id, member_id_type, member_id)
 
-    @rpc(String, String,
+    @rpc(Unicode, Unicode,
          _throws=faults.EndUserFault, _returns=GroupInfo)
     def group_info(ctx, group_id_type, group_id):
         return ctx.udc[NAMESPACE].group_info(
             group_id_type, group_id)
 
-    @rpc(String, String,
+    @rpc(Unicode, Unicode,
          _throws=faults.EndUserFault, _returns=Array(GroupMember))
     def group_list(ctx, group_id_type, group_id):
         return ctx.udc[NAMESPACE].group_list(group_id_type, group_id)
 
-    @rpc(String, String, DateTime, _throws=faults.EndUserFault)
+    @rpc(Unicode, Unicode, DateTime, _throws=faults.EndUserFault)
     def group_set_expire(ctx, group_id_type, group_id, expire_date=None):
         return ctx.udc[NAMESPACE].group_set_expire(group_id_type,
                                                    group_id,

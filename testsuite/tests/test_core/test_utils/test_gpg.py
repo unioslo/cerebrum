@@ -27,7 +27,23 @@ import unittest
 
 import cerebrum_path
 import cereconf
-from Cerebrum.utils.gpg import gpgme_encrypt, gpgme_decrypt
+from Cerebrum.utils.gpg import gpgme_encrypt, gpgme_decrypt, get_gpgme_context
+
+
+RECIPIENT_KEY_ID = '06B0A991A41F3955F1DFD524D04D25F75D4C1CC4'
+
+
+def can_test():
+    """
+    We can only test this functionality if the recipient key ID is available
+    to GPG.
+    """
+    context = get_gpgme_context()
+    try:
+        context.get_key(RECIPIENT_KEY_ID)
+    except Exception:
+        return False
+    return True
 
 
 class GnuPGPasswordTest(unittest.TestCase):
@@ -43,8 +59,9 @@ class GnuPGPasswordTest(unittest.TestCase):
         self.rnd_password_unicode = random_prefix + 'æøå'.decode('utf-8')
         self.rnd_password_str = self.rnd_password_unicode.encode('utf-8')
         # our test key
-        self.recipient_key_id = '06B0A991A41F3955F1DFD524D04D25F75D4C1CC4'
+        self.recipient_key_id = RECIPIENT_KEY_ID
 
+    @unittest.skipIf(not can_test(), "GPG incorrectly configured for testing")
     def test_gnupg_encrypt_decrypt(self):
         """
         Tests GnuPG encryption and decryption

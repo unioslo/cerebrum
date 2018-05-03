@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2002, 2003, 2004 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,132 +19,104 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Usage: generate_posix_ldif.py [options]
+"""Write user and group information to an LDIF file."""
 
-Write user and group information to an LDIF file (if enabled in
-cereconf), which can then be loaded into LDAP.
+from __future__ import unicode_literals
 
-  --user=<outfile>      | -u <outfile>  Write users to a LDIF-file
-  --filegroup=<outfile> | -f <outfile>  Write posix filegroups to a LDIF-file
-  --netgroup=<outfile>  | -n <outfile>  Write netgroup map to a LDIF-file
-  --posix  Write all of the above, plus optional top object and extra file,
-           to a file given in cereconf (unless the above options override).
-           Also disable ldapsync first.
+import argparse
+from six import text_type
 
-With none of the above options, do the same as --posix.
-
-  --user_spread=<value>      | -U <value>  (used by all components)
-  --filegroup_spread=<value> | -F <value>  (used by --filegroup component)
-  --netgroup_spread=<value>  | -N <value>  (used by --netgroup component)
-
-The spread options accept multiple spread-values (<value1>,<value2>,...)."""
-
-import sys
-import getopt
-import os.path
-import time
-
-import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.LDIFutils import *
+from Cerebrum.modules.LDIFutils import (ldif_outfile,
+                                        end_ldif_outfile,
+                                        container_entry_string)
 
-disablesync_cn = 'disablesync'
-
-def init_ldap_dump(fd):
-    fd.write("\n")
-    if cereconf.LDAP_POSIX.get('dn'):
-        fd.write(container_entry_string('POSIX'))
-
-
-def disable_ldapsync_mode():
-    try:
-        logger = Factory.get_logger("cronjob")
-    except IOError, e:
-        print >>sys.stderr, "get_logger: %s" % e
-        logger = None
-    ldap_servers = cereconf.LDAP.get('server')
-    if ldap_servers is None:
-        if logger:
-            logger.info("No active LDAP-sync servers configured")
-        return
-    try:
-        from Cerebrum.modules import LdapCall
-    except ImportError:
-        if logger:
-            logger.info("LDAP modules missing. Probably python-LDAP")
-    else:
-        s_list = LdapCall.ldap_connect()
-        LdapCall.add_disable_sync(s_list,disablesync_cn)
-        LdapCall.end_session(s_list)
-        log_dir = os.path.join(cereconf.LDAP['dump_dir'], "log")
-        if os.path.isdir(log_dir):
-            rotate_file = os.path.join(log_dir, "rotate_ldif.tmp")
-            if not os.path.isfile(rotate_file):
-                f = file(rotate_file,'w')
-                f.write(time.strftime("%d %b %Y %H:%M:%S", time.localtime()))
-                f.close()
+logger = Factory.get_logger("cronjob")
 
 
 def main():
-    logger = Factory.get_logger("cronjob")
-    
-    short2long_opts = (("u:", "U:", "f:", "F:", "n:", "N:"),
-                       ("user=",      "user_spread=",
-                        "filegroup=", "filegroup_spread=",
-                        "netgroup=",  "netgroup_spread="))
-    try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                                   "".join(short2long_opts[0]),
-                                   ("help", "posix") + short2long_opts[1])
-        opts = dict(opts)
-    except getopt.GetoptError, e:
-        usage(str(e))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '--user-file',
+        type=text_type,
+        dest='user_file',
+        metavar='PATH',
+        help='output file for users')
+    parser.add_argument(
+        '--user-spread',
+        type=text_type,
+        action='append',
+        dest='user_spread',
+        metavar='NAME',
+        help='selection spread(s) for users')
+    parser.add_argument(
+        '--filegroup-file',
+        type=text_type,
+        dest='filegroup_file',
+        metavar='PATH',
+        help='output file for file groups')
+    parser.add_argument(
+        '--filegroup-spread',
+        type=text_type,
+        action='append',
+        dest='filegroup_spread',
+        metavar='NAME',
+        help='selection spread(s) for file groups')
+    parser.add_argument(
+        '--netgroup-file',
+        type=text_type,
+        dest='netgroup_file',
+        metavar='PATH',
+        help='output file for net groups')
+    parser.add_argument(
+        '--netgroup-spread',
+        type=text_type,
+        action='append',
+        dest='netgroup_spread',
+        metavar='NAME',
+        help='selection spread(s) for net groups')
+    parser.add_argument(
+        '--all',
+        action='store_true',
+        dest='all',
+        help='write everything as configured in cereconf')
+    args = parser.parse_args()
 
-    if args:
-        usage("Invalid arguments: " + " ".join(args))
-    if "--help" in opts:
-        usage()
-    # Copy long options into short options
-    for short, longs in zip(*short2long_opts):
-        val = opts.get("--" + longs.replace("=", ""))
-        if val is not None:
-            opts["-" + short.replace(":", "")] = val
+    got_file = args.user_file or args.filegroup_file or args.netgroup_file
+    if args.all and got_file:
+        parser.error('Cannot specify --all with --*-file')
+    elif not args.all and not got_file:
+        parser.error('Need one of --all or --*-file')
 
-    got_file = filter(opts.has_key, ("-u", "-f", "-n"))
-    for opt in ("-U", "-F", "-N"):
-        if opts.has_key(opt):
-            opts[opt] = opts[opt].split(",")
-        else:
-            opts[opt] = None
-
-    do_all = "--posix" in opts or not got_file
     fd = None
-    if do_all:
+    if args.all:
         fd = ldif_outfile('POSIX')
-        disable_ldapsync_mode()
-        init_ldap_dump(fd)
+        fd.write("\n")
+        if cereconf.LDAP_POSIX.get('dn'):
+            fd.write(container_entry_string('POSIX'))
+
     db = Factory.get('Database')()
-    posldif = Factory.get('PosixLDIF')(db,logger,opts['-U'],opts['-F'],opts['-N'],fd)
-    for var, func, arg in \
-            (('LDAP_USER',      posldif.user_ldif,            "-u"),
-             ('LDAP_FILEGROUP', posldif.filegroup_ldif,       "-f"),
-             ('LDAP_NETGROUP',  posldif.netgroup_ldif,        "-n")):
-        if (do_all or arg in opts) and getattr(cereconf, var).get('dn'):
-            func(opts.get(arg))
-        elif arg in opts:
-            sys.exit("Option %s requires cereconf.%s['dn']." % (args[-1], var))
+    posixldif = Factory.get('PosixLDIF')(
+        db=db,
+        logger=logger,
+        u_sprd=args.user_spread,
+        g_sprd=args.filegroup_spread,
+        n_sprd=args.netgroup_spread,
+        fd=fd)
+
+    for var, func, filepath in (
+            ('LDAP_USER', posixldif.user_ldif, args.user_file),
+            ('LDAP_FILEGROUP', posixldif.filegroup_ldif, args.filegroup_file),
+            ('LDAP_NETGROUP', posixldif.netgroup_ldif, args.netgroup_file)):
+        if (args.all or filepath) and getattr(cereconf, var).get('dn'):
+            func(filepath)
+        elif filepath:
+            parser.error("Missing 'dn' in cereconf.{}".format(var))
+
     if fd:
         end_ldif_outfile('POSIX', fd)
 
 
-def usage(err=0):
-    if err:
-        print >>sys.stderr, err
-    print >>sys.stderr, __doc__
-    sys.exit(bool(err))
-
-
 if __name__ == '__main__':
         main()
-

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- encoding: iso-8859-1 -*-
+# -*- encoding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,6 +32,8 @@ stay genereic enough to be used outside of bofhd.
 """
 import sys
 import re
+import six
+
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import CerebrumError, NotFoundError
@@ -46,7 +48,7 @@ from Cerebrum.modules.virthome.VirtAccount import BaseVirtHomeAccount, FEDAccoun
 GROUP_AUTH_OPSETS = ('group-owner', 'group-moderator', )
 
 # TODO: Is this okay? Should we just have one class in stead? There's no real
-#       reason to keep two classes... 
+#       reason to keep two classes...
 #       They have been split up here in order to separate between methods that
 #       should be visible (imported) in other modules. All the methods in
 #       VirthomeUtils should only be used here. However, they DO need to be
@@ -63,7 +65,7 @@ class VirthomeBase:
         """ NOTE: This class does not commit any changes to the db. That must
         be done from the calling environment.
 
-        @type db: Cerebrum.Database
+        @type db: Cerebrum.database.Database
         @param db: A database connection.
         """
         self.db = db
@@ -128,7 +130,7 @@ class VirthomeBase:
 
     def group_invite_user(self, inviter, group, email, timeout=3):
         """ This method sets up an event that will allow a user to join a
-        group. 
+        group.
 
         @type inviter: self.account_class
         @param inviter: The account that is setting up the invitation
@@ -202,7 +204,7 @@ class VirthomeBase:
             group.remove_member(membership["member_id"])
 
         group.write_db()
-            
+
         # Clean up the permissions (granted ON the group and TO the group)
         self.vhutils.remove_auth_targets(group.entity_id)
         self.vhutils.remove_auth_roles(group.entity_id)
@@ -219,7 +221,7 @@ class VirthomeUtils:
         self.group_class = Factory.get('Group')
         self.account_class = Factory.get('Account')
 
-        # Or compile on each call to 
+        # Or compile on each call to
         self.url_whitelist = [re.compile(r) for r in cereconf.FORWARD_URL_WHITELIST]
 
 
@@ -234,14 +236,14 @@ class VirthomeUtils:
         @return: True if the group exists, otherwise False
         """
         group = self.group_class(self.db)
-        try: 
+        try:
             group.find_by_name(name)
             return True
-        except NotFoundError: 
+        except NotFoundError:
             pass
         return False
 
-    
+
     def list_group_members(self, group, indirect_members=False):
         """ This methid lists members of a group. It does NOT include operators
         or moderators, unless they are also members.
@@ -284,7 +286,7 @@ class VirthomeUtils:
 
         result.sort(lambda x, y: cmp(x['member_name'], y['member_name']))
         return result
-        
+
 
     def list_group_memberships(self, account, indirect_members=False, realm=None):
         """ This method lists groups that an account is member of.
@@ -300,7 +302,7 @@ class VirthomeUtils:
                       only return groups on the format '*@webid.uio.no'. No
                       filtering for empty string or None.
 
-        @rtype: list 
+        @rtype: list
         @return: A list with dictionaries, one dict per group membership.
                  Contain keys 'group_id', 'name', 'description', 'visibility',
                  'creator_id', 'created_at', 'expire_date'
@@ -309,7 +311,7 @@ class VirthomeUtils:
         assert hasattr(account, 'entity_id')
 
         result = list()
-        for group in gr.search(member_id=account.entity_id, 
+        for group in gr.search(member_id=account.entity_id,
                                indirect_members=indirect_members):
             if realm and not self.in_realm(group['name'], realm):
                 continue
@@ -328,7 +330,7 @@ class VirthomeUtils:
     def get_trait_val(self, entity, trait_const, val='strval'):
         """Get the trait value of type L{val} of L{entity} that is of type
         L{trait_const}.
-        
+
         @type entity: Cerebrum.Entity
         @param entity: The entity which trait is being looked up
 
@@ -368,7 +370,7 @@ class VirthomeUtils:
                 return url
 
         return None
-    
+
 
     # Changelog/event/invitation related methods
 
@@ -423,7 +425,7 @@ class VirthomeUtils:
 
 
     def assign_default_user_spreads(self, account):
-        """Assign all the default spreads for freshly created users.  
+        """Assign all the default spreads for freshly created users.
 
         @type account: Cerebrum.Account
         @param account: The account object that should receive default spreads
@@ -470,7 +472,7 @@ class VirthomeUtils:
                                   returned.
         @rtype: list [ BaseVirtHomeAccount, str ]
         @return: The newly created account, and the confirmation key needed to
-                 confirm the given email address. 
+                 confirm the given email address.
                  NOTE: If with_confirmation was False, the confirmation key
                  will be empty.
         """
@@ -512,7 +514,7 @@ class VirthomeUtils:
         @type email: str
         @param email: The FEDAccount owner's e-mail address.
 
-        @type expire_date: mx.DateTime.DateTime 
+        @type expire_date: mx.DateTime.DateTime
         @param expire_date: Expiration date for the FEDAccount we are about to
                             create.
 
@@ -547,15 +549,15 @@ class VirthomeUtils:
             aot.populate(entity_id, target_type)
             aot.write_db()
             return aot
-        
+
         assert len(op_targets) == 1 # This method will never create more than one
         assert op_targets[0]['attr'] is None # ... and never populates attr
 
         # Target exists, return it
         aot.find(op_targets[0]['op_target_id'])
         return aot
-    
-    
+
+
     def grant_group_auth(self, account, opset_name, group):
         """ Grants L{entity_id} access type L{opset_name} over group
         L{group_id}.
@@ -577,7 +579,7 @@ class VirthomeUtils:
         assert opset_name in GROUP_AUTH_OPSETS
         assert hasattr(account, 'entity_id')
         assert hasattr(group, 'entity_id')
-        
+
         ar = BofhdAuthRole(self.db)
         aos = BofhdAuthOpSet(self.db)
         aot = self.find_or_create_op_target(group.entity_id,
@@ -592,9 +594,9 @@ class VirthomeUtils:
         if len(roles) == 0:
             ar.grant_auth(account.entity_id, aos.op_set_id, aot.op_target_id)
             return True # Access granted
-        
+
         return False # Already had access
-    
+
 
     def revoke_group_auth(self, account, opset_name, group):
         """ Removes L{account_id} access type L{opset_name} over group
@@ -631,16 +633,16 @@ class VirthomeUtils:
 
         if len(roles) == 0:
             return False # No permissions to remove
-        
+
         ar.revoke_auth(account.entity_id, aos.op_set_id, aot.op_target_id)
-        
+
         # If that was the last permission for this op_target, kill op_target
         if len(list(ar.list(op_target_id=aot.op_target_id))) == 0:
             aot.delete()
 
         return True # Permissions removed
-    
-    
+
+
     def remove_auth_targets(self, entity_id, target_type=None):
         """ This method will remove authorization targets of type
         L{target_type} that points to the L{entity_id}. If L{target_type} is
@@ -665,8 +667,8 @@ class VirthomeUtils:
                 ar.revoke_auth(role['entity_id'], role['op_set_id'],
                                target['op_target_id'])
             aot.delete()
-    
-    
+
+
     def remove_auth_roles(self, entity_id):
         """ This method will remove all authorization roles that has been given
         to an entity. It will also remove any remaining authorization targets
@@ -728,7 +730,7 @@ class VirthomeUtils:
         @param group: A populated group object to list 'moderators' for.
 
         @rtype: list
-        @return: A list of dictionaries with keys: 
+        @return: A list of dictionaries with keys:
                  ['account_id', 'account_name', 'owner_name', 'email_address',
                   'group_id', 'group_name', 'description']
 
@@ -749,7 +751,7 @@ class VirthomeUtils:
             ac.find(entry['account_id'])
             entry['owner_name'] = ac.get_owner_name(self.co.human_full_name)
             entry['email_address'] = ac.get_email_address()
-            
+
         return tmp
 
 
@@ -767,8 +769,8 @@ class VirthomeUtils:
         @param opset_name: The permission to list groups for.
 
         @rtype: list
-        @return: A list of dictionaries with keys: 
-                 ['group_id', 'group_name', 'url', 'description', 
+        @return: A list of dictionaries with keys:
+                 ['group_id', 'group_name', 'url', 'description',
                   'account_id', 'account_name']
         """
         assert opset_name in GROUP_AUTH_OPSETS
@@ -785,7 +787,7 @@ class VirthomeUtils:
             gr.clear()
             gr.find(entry['group_id'])
             entry['url'] = gr.get_contact_info(self.co.virthome_group_url)
-        
+
         return tmp
 
 
@@ -807,19 +809,19 @@ class VirthomeUtils:
         @rtype: bool
         @return: True if the name is within the realm, false if not.
         """
-        assert isinstance(name, str), 'Invalid name'
+        assert isinstance(name, (str, six.text_type)), 'Invalid name'
         assert not self.illegal_realm(realm), 'Invalid realm'
 
         # We know the realm only contains :alnum: and periods. Should be safe to do:
         regex_realm = realm.replace('.', '\.')
         regex = re.compile('^(.+)@((.+\.)?%s)$' % regex_realm)
         # Groups: 1: <name>, 2: <matched realm> (3: <subrealm.>)
-        
+
         match = regex.match(name)
         if not match:
             return False
-        assert isinstance(match.group(1), str)
-        assert isinstance(match.group(2), str)
+        assert isinstance(match.group(1), (str, six.text_type))
+        assert isinstance(match.group(2), (str, six.text_type))
 
         if not strict:
             return not self.illegal_realm(match.group(2))
@@ -828,10 +830,10 @@ class VirthomeUtils:
 
     def illegal_realm(self, realm):
         """ Simple test to see if a realm is an acceptable realm name
-        
+
         @rtype: bool
         @return: If the given realm name is an illegal realm name
         """
-        assert isinstance(realm, str)
+        assert isinstance(realm, (str, six.text_type))
         legal = re.compile('^[0-9a-z]+(\.[0-9a-z]+)*$')
         return not bool(legal.match(realm))

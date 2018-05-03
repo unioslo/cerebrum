@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013, 2014 University of Oslo, Norway
+# Copyright 2013-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,12 +21,15 @@
 """Job for syncing Cerebrum data with TSD's Gateway (GW).
 
 The Gateway needs information about all projects, accounts, hosts, subnets and
-VLANs, to be able to let users in to the correct project. This information comes
-from Cerebrum. Some of the information is sent to the Gateway e.g through bofh
-commands and the import from Nettskjema, but not all information gets update
-that way. An example is quarantines that gets activated or deactivated.
-
+VLANs, to be able to let users in to the correct project.
+This information comes from Cerebrum. Some of the information is sent to the
+Gateway e.g through bofh commands and the import from Nettskjema, but not all
+information gets update that way.
+An example is quarantines that gets activated or deactivated.
 """
+from __future__ import unicode_literals
+
+import six
 
 import cerebrum_path
 import cereconf
@@ -44,10 +47,10 @@ logger = Factory.get_logger('cronjob')
 
 
 def print_config():
-    """ Print cerebrum_path and cereconf. """
+    """Print cerebrum_path and cereconf."""
     # Mostly to get rid of linter errors
-    print 'cererbum_path:', cerebrum_path
-    print 'cereconf:', cereconf
+    print('cererbum_path: {}'.format(cerebrum_path))
+    print('cereconf: {}'.format(cereconf))
 
 
 # Structure used to compare projects in Cerbrum and Gateway.
@@ -65,7 +68,6 @@ def print_config():
 
 
 class Processor:
-
     """The processor class, doing the sync with the gateway."""
 
     def __init__(self, gw, dryrun):
@@ -108,12 +110,12 @@ class Processor:
         logger.debug2("Found %d project IDs", len(self.ouid2pid))
 
     def process(self):
-        """ Sync Cerebrum and Gateway.
+        """
+        Sync Cerebrum and Gateway.
 
         Goes through all data from the Gateway, and compare it with Cerebrum.
         If the Gateway contains mismatches, it should be updated with master
         data from Cerebrum.
-
         """
         logger.info("Start processing projects")
         self.process_projects()
@@ -136,7 +138,6 @@ class Processor:
 
         NOTE: There's an expensive clear-find loop here that could be optimized
         by caching.
-
         """
         processed = set()
         # Update existing projects:
@@ -183,7 +184,6 @@ class Processor:
 
         :param dict proj:
             Contains the information about a project and all its elements.
-
         """
         logger.debug("Processing project %s: %s", pid, proj)
         self.ou.clear()
@@ -222,7 +222,7 @@ class Processor:
             when = quars[0]['start_date']  # the row with the lowest start_date
             logger.debug("Project %s has freeze-quarantines: %s",
                          pid,
-                         str(quars))
+                         six.text_type(quars))
             if proj['frozen']:
                 if proj['frozen'] != when:  # the freeze dates are different
                     self.gw.freeze_project(pid, when)  # set new freeze date
@@ -295,7 +295,6 @@ class Processor:
         :param dict ac2proj:
             A mapping from account_id to the ou_id of the project it belongs
             to.
-
         """
         username = gw_user['username']
         logger.debug2("Process user %s: %s" % (username, gw_user))
@@ -342,8 +341,9 @@ class Processor:
             # sort here in order to be able to show the same list in the log
             quars.sort(key=lambda v: v['start_date'])  # sort by start_date
             when = quars[0]['start_date']  # the row with the lowest start_date
-            logger.debug2("User %s has quarantines: %s" % (username,
-                                                           str(quars)))
+            logger.debug2('User {username} has quarantines: {quars}'.format(
+                username=username,
+                quars=six.text_type(quars)))
             if gw_user['frozen']:
                 if gw_user['frozen'] != when:  # the freeze dates are different
                     self.gw.freeze_user(pid, username, when)  # set new freeze
@@ -400,7 +400,6 @@ class Processor:
 
         :param dict gr2proj:
             A mapping from group_id to the ou_id of the project it belongs to.
-
         """
         groupname = gw_group['groupname']
         logger.debug2("Process group %s: %s" % (groupname, gw_group))
@@ -454,7 +453,6 @@ class Processor:
           4. Look up Cerebrum hosts and IPs
           5. Look up, compare and update hosts in gateway
           6. Look up, compare and update IPs in gateway
-
         """
         logger.debug("Processing DNS")
 
@@ -521,7 +519,6 @@ class Processor:
                 - VLAN
 
             Second element: all VLANs, as a set of VLAN numbers
-
         """
         subnets = dict()
         vlans = set()
@@ -566,7 +563,6 @@ class Processor:
             The list of registered VLANs from the GW.
         :param set vlans:
             A set of all registered VLANs in Cerebrum.
-
         """
         processed = set()
         for gw_vlan in gw_vlans:
@@ -608,7 +604,6 @@ class Processor:
             A mapping from each subnet's entity_id, to the entity_id of the
             project it belongs to. Subnets not affiliated with any project
             will not be given to the GW.
-
         """
         processed = set()
         for sub in gw_subnets:
@@ -664,7 +659,6 @@ class Processor:
         :param dict host2project:
             The hosts registered in Cerebrum. Keys are hostnames, values are
             the project IDs.
-
         """
         processed = set()
         for host in gw_hosts:
@@ -700,7 +694,6 @@ class Processor:
         :param dict host2ips:
             All IP addresses registered in Cerebrum. The keys are the hostname,
             and the values are sets with IP addresses.
-
         """
         processed = set()
         for p in gw_ips:
@@ -745,11 +738,8 @@ class Processor:
 
 
 def main():
-    """ Script invocation. """
-    try:
-        import argparse
-    except ImportError:
-        import Cerebrum.extlib.argparse as argparse
+    """Script invocation."""
+    import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(

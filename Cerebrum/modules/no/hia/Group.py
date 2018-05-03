@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2003-2015 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,9 +20,9 @@
 import re
 import cereconf
 
-from Cerebrum import Group
+from Cerebrum import Errors, Group
 from Cerebrum.Utils import Factory
-from Cerebrum.Database import Errors
+
 
 class GroupHiAMixin(Group.Group):
     def add_spread(self, spread):

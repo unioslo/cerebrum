@@ -1,9 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-# vim: encoding=iso-8859-1:fileencoding=iso-8859-1
-# vim: ts=4:sw=4:expandtab
-# 
-# Copyright 2012, 2013 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2012-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -36,183 +34,99 @@ will produce a file:
     ...
 
 """
+from __future__ import unicode_literals
 
 import sys
-import getopt
+import argparse
 import time
 
-import cerebrum_path
-import cereconf
+from six import text_type
+
 from Cerebrum.Utils import Factory
-from Cerebrum import Errors
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 
 
-# Get logger
 logger = Factory.get_logger('cronjob')
-
-# Database-setup
 db = Factory.get('Database')()
 pe = Factory.get('Person')(db)
 co = Factory.get('Constants')(db)
 
 
-def usage():
-    """Prints a usage string for the script."""
-
-    print """Usage:
-    %s [Options]
-
-    Generate a colon-separated file with employee ids and employee names.
-
-    Options:
-    -o, --output <file>            The file to print the report to. Defaults to 
-                                   stdout.
-
-    -s, --source_system <code>     The code name for the source system.
-    -t, --id_type <code>           The code name for the external ID type.
-    """ % sys.argv[0]
-
-
-def getdict_external_ids(source_system, id_type):
+def get_external_ids(source_system, id_type):
     """Fetches a list of people, their external ID and their name from a source
     system.
-    
-    @type  logger: CerebrumLogger
-    @param logger: Logger to use.
 
-    @type  source_sys: Subclass of Constants.AuthoritativeSystem
-    @param source_sys: The authorative system to list from.
+    :param AuthoritativeSystem source_sys:
+        The authorative system to list from.
 
-    @type  id_type: Subclass of Constants.EntityExternalId
-    @param id_type: The external ID type to list.
+    :param EntityExternalId id_type:
+        The external ID type to list.
 
-    @rtype:  list
-    @return: A list of dictionary objects with the keys:
+    :rtype: list
+    :returns: A list of dictionary objects with the keys:
                'entity_id' -> <int> Entity id of the person
                'ext_id'    -> <string> External id
                'name'      -> <string> Full name of the employee
     """
-
-    ext_ids = [] # Return list
-
-    persons = pe.list_external_ids(source_system=source_system, 
-                                     id_type=id_type, 
-                                     entity_type=co.entity_person)
-
-    # Name lookup dict
-    names = pe.getdict_persons_names(source_system=co.system_cached, 
+    ext_ids = []
+    persons = pe.list_external_ids(source_system=source_system,
+                                   id_type=id_type,
+                                   entity_type=co.entity_person)
+    names = pe.getdict_persons_names(source_system=co.system_cached,
                                      name_types=co.name_full)
-
     for person in persons:
         try:
             name = names[person['entity_id']][int(co.name_full)]
         except KeyError:
             logger.warn("No name for person with external id '%d'. \
-                         Excluded from list." % person['entity_id'])
+                         Excluded from list.", person['entity_id'])
             continue
-
-        # Each entry in the result list is a dictionary:
-        tmp = {
-                 'entity_id': person['entity_id'],
-                 'ext_id':    person['external_id'],
-                 'name':      name
-              }
-    
-        ext_ids.append(tmp)
-
-    return ext_ids
+        entry = {
+            'entity_id': person['entity_id'],
+            'ext_id': person['external_id'],
+            'name': name
+        }
+        ext_ids.append(entry)
+    return sorted(ext_ids, key=lambda x: x['ext_id'])
 
 
-def write_dump_file(output, id_names):
-    """Writes a list of persons IDs and names to a file object, as colon
-    separated data.
-    
-    @type  logger: CerebrumLogger
-    @param logger: Logger to use.
+def main():
+    parser = argparse.ArgumentParser(
+        description=('Generate a semicolon-separated file with employee IDs '
+                     'and employee names.'))
+    parser.add_argument(
+        '-o', '--output',
+        type=text_type,
+        help='output file (default: stdout)')
+    parser.add_argument(
+        '-s', '--source-system',
+        type=lambda x: co.human2constant(x, co.AuthoritativeSystem),
+        help='code for source system')
+    parser.add_argument(
+        '-t', '--id-type',
+        type=lambda x: co.human2constant(x, co.EntityExternalId),
+        help='code for external ID type')
+    args = parser.parse_args()
 
-    @type  output: file
-    @param output: Output file handle to write to
-
-    @type  id_names: list
-    @param id_names: List of dictionary objects, each dictionary must contain:
-                       'ext_id' -> <string> External id
-                       'name'   -> <string> Full name of the employee
-    """
-
-    if len(id_names) < 1:
-        logger.warn("No data to write")
-        return
-
-    for id_name in id_names:
-        output.write("%s\n" % ';'.join((id_name['ext_id'],
-                                        id_name['name'],
-                                        time.strftime('%m/%d/%Y %H:%M:%S'))))
-
-def main(argv=None):
-    """Main runtime as a function, for invoking the script from other scripts /
-    interactive python session.
-    
-    @type  argv: List of string arguments.
-    @param argv: Script args, see 'usage' for details. Defaults to 'sys.argv'
-    """
-
-    # Default opts
-    output = sys.stdout
-    source_system = None
-    id_type = None
-
-    ## Parse args
-    if not argv:
-        argv = sys.argv
-
-    try:
-        opts, args = getopt.getopt(argv[1:], 
-                                   "s:t:o:", 
-                                   ["source_system=", "id_type=", "output="])
-    except getopt.GetoptError, e:
-        logger.error(e)
-        usage()
-        return 1
-
-    for o, v in opts:
-        if o in ('-o', '--output'):
-            try:
-                output = open(v, 'w')
-            except IOError, e:
-                logger.error(e)
-                sys.exit(1)
-
-        elif o in ('-s', '--source_system'):
-            source_system = co.human2constant(v, co.AuthoritativeSystem)
-            if not source_system:
-                logger.warn("No source system matching '%s'" % v)
-
-        elif o in ('-t', '--id_type'):
-            id_type = co.human2constant(v, co.EntityExternalId)
-            if not id_type:
-                logger.warn("No external ID type matching '%s'" % v)
-
-    # Ensure that source system and external id type is set
-    if not source_system:
-        logger.error("No valid source system provided")
-        sys.exit(1)
-
-    if not id_type:
-        logger.error("No valid external ID type provided")
-        sys.exit(1)
+    if not args.source_system:
+        parser.error("No valid source system provided")
+    if not args.id_type:
+        parser.error("No valid external ID type provided")
 
     # Generate selected report
-    logger.info("Start dumping external id's")
-    external_ids = getdict_external_ids(source_system, id_type)
-    write_dump_file(output, external_ids)
-    logger.info("Done dumping external id's")
+    logger.info("Started dump to %s", args.output)
+    external_ids = get_external_ids(args.source_system, args.id_type)
+    if not external_ids:
+        logger.error('Found nothing to write to file')
+        sys.exit(1)
+    with AtomicFileWriter(args.output, encoding='latin1') as f:
+        for id_name in external_ids:
+            f.write("%s\n" % ';'.join(
+                (id_name['ext_id'],
+                 id_name['name'],
+                 time.strftime('%m/%d/%Y %H:%M:%S'))))
+    logger.info("Done")
 
-    # Close output if we explicitly opened a file for writing
-    if not output is sys.stdout:
-        output.close()
 
-
-# If started as a program
 if __name__ == "__main__":
-    sys.exit(main())
-
+    main()

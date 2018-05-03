@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,7 @@
 
 """Provide objects with database access methods."""
 
-from Cerebrum import Database
+from Cerebrum import database as Database
 from Cerebrum.Utils import Factory
 
 
@@ -71,4 +71,3 @@ class DatabaseAccessor(object):
         return self.__logger
     logger = property(_get_logger, None, None,
                       "Cerebrum logger object for use from library methods.")
-

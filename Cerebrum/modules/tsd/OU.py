@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,15 +26,20 @@ project ID stored as an external ID. When a project has finished, we will
 delete all details about the project, except the project's OU and its external
 ID and acronym, to avoid reuse of the project ID and name for later projects.
 """
+from __future__ import unicode_literals
+
 import re
 import itertools
+
+import six
+
 from mx import DateTime
 
 import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Database import DatabaseError
+from Cerebrum.database import DatabaseError
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import dns
@@ -45,7 +50,8 @@ from Cerebrum.modules.tsd import TSDUtils
 
 
 class TsdProjectMixin(OU):
-    u""" Adds the idea of an OU as a project.
+    """
+    Adds the idea of an OU as a project.
 
     In TSD, OUs are 'projects' that we use to bind entities together. This
     mixin adds:
@@ -63,7 +69,7 @@ class TsdProjectMixin(OU):
     """
 
     def get_next_free_project_id(self):
-        u""" Return a procjet_id for use with a new project. """
+        """Return a procjet_id for use with a new project."""
         for number in itertools.count():
             candidate = 'p%02d' % number
             if not list(
@@ -73,16 +79,17 @@ class TsdProjectMixin(OU):
                 return candidate
 
     def get_project_id(self):
-        u""" Get the project ID of this project. """
+        """Get the project ID of this project"""
         ret = self.get_external_id(id_type=self.const.externalid_project_id)
         if ret:
             return ret[0]['external_id']
         raise Errors.NotFoundError(
-            'Mandatory project ID not found for %s' % self.entity_id)
+            'Mandatory project ID not found for {entity}'.format(
+                entity=self.entity_id))
 
     @property
     def project_id(self):
-        u""" The project id of this project/ou. """
+        """ The project id of this project/ou."""
         try:
             return self.get_project_id()
         except Errors.NotFoundError:
@@ -101,12 +108,12 @@ class TsdProjectMixin(OU):
 
     @property
     def project_name(self):
-        u""" The project name for this project/ou. """
+        """The project name for this project/ou."""
         return self.get_project_name()
 
     @property
     def project_int(self):
-        u""" The project id as an int.
+        """The project id as an int.
 
         Example:
             p01 -> 1
@@ -115,7 +122,7 @@ class TsdProjectMixin(OU):
         return int(self.project_id[1:])
 
     def find_by_tsd_projectid(self, project_id):
-        u""" Finds Project OU by project id.
+        """Finds Project OU by project id.
 
         This is a L{find}-method, it will populate this entity with any project
         it finds.
@@ -127,10 +134,10 @@ class TsdProjectMixin(OU):
         return self.find_by_external_id(
             entity_type=self.const.entity_ou,
             id_type=self.const.externalid_project_id,
-            external_id=project_id)
+            external_id=project_id.lower())
 
     def find_by_tsd_projectname(self, project_name):
-        u""" Finds Project OU by project name.
+        """Finds Project OU by project name.
 
         This is a L{find}-method, it will populate this entity with any project
         it finds.
@@ -151,7 +158,7 @@ class TsdProjectMixin(OU):
         return self.find(matched[0]['entity_id'])
 
     def populate_external_id(self, source_system, id_type, external_id):
-        u"""Sets external id for project.
+        """Sets external id for project.
 
         This overrides the parent method to add uniqueness for project IDs.
 
@@ -161,13 +168,13 @@ class TsdProjectMixin(OU):
         if id_type == self.const.externalid_project_id:
             for row in self.list_external_ids(id_type=id_type,
                                               external_id=external_id):
-                raise Errors.CerebrumError(u"Project ID already in use")
+                raise Errors.CerebrumError("Project ID already in use")
 
         return super(TsdProjectMixin, self).populate_external_id(
             source_system, id_type, external_id)
 
     def search_tsd_projects(self, name=None, exact_match=True):
-        u"""Search method for finding projects by given input.
+        """Search method for finding projects by given input.
 
         :param str name: The project name.
         :param bool exact_match:
@@ -184,7 +191,7 @@ class TsdProjectMixin(OU):
             name=name, exact_match=exact_match)
 
     def add_name_with_language(self, name_variant, name_language, name):
-        u"""Adds name to project.
+        """Adds name to project.
 
         This overrides the parent method to add verification of names.
 
@@ -252,7 +259,7 @@ class TsdProjectMixin(OU):
         return True
 
     def create_project(self, project_name):
-        """ Create a new project in TSD.
+        """Create a new project in TSD.
 
         Note that this method calls `write_db`.
 
@@ -286,7 +293,7 @@ class TsdProjectMixin(OU):
 
 
 class OULockMixin(OU):
-    u""" Adds methods to lock OUs.
+    """Adds methods to lock OUs.
 
     This mixin uses EntityQuarantine to lock OUs. The following quarantine
     locks exists:
@@ -305,7 +312,7 @@ class OULockMixin(OU):
     """
 
     def is_approved(self):
-        u""" Check if this project has been approved by TSD-admins.
+        """Check if this project has been approved by TSD-admins.
 
         The approval is registered through a quarantine.
 
@@ -329,7 +336,7 @@ class OULockMixin(OU):
 
     @property
     def has_freeze_quarantine(self):
-        """ If this project is currently frozen.
+        """If this project is currently frozen.
 
         :return bool:
             True if the OU (Project) has freeze quarantine(s),
@@ -341,7 +348,7 @@ class OULockMixin(OU):
 
     @property
     def freeze_quarantine_start(self):
-        """ Start date of any freeze quarantine on the project.
+        """Start date of any freeze quarantine on the project.
 
         :rtype: mx.DateTime, NoneType
         :return:
@@ -359,7 +366,7 @@ class OULockMixin(OU):
 
 
 class OUAffiliateMixin(OU):
-    u""" Adds the ability to affiliate entities with OU.
+    """Adds the ability to affiliate entities with OU.
 
     A project affiliation is stored as an EntityTrait on the affiliated entity,
     with this OU as 'target'.
@@ -369,7 +376,7 @@ class OUAffiliateMixin(OU):
     """
 
     def _get_affiliate_trait(self, etype):
-        u""" Get trait used to affiliate an entity with this project.
+        """Get trait used to affiliate an entity with this project.
 
         :type etype:
             Constants.EntityType, int, str
@@ -397,7 +404,7 @@ class OUAffiliateMixin(OU):
                 (entity_type, etype))
 
     def get_affiliated_entities(self, entity_type):
-        u""" Gets entities that are affiliated with this project.
+        """Gets entities that are affiliated with this project.
 
         :type etype:
             Constants.EntityType, int, str
@@ -416,7 +423,7 @@ class OUAffiliateMixin(OU):
             yield row
 
     def is_affiliated_entity(self, entity):
-        u""" Check if entity is affiliated with project.
+        """Check if entity is affiliated with project.
 
         :param Entity entity:
             An entity to check
@@ -439,12 +446,11 @@ class OUAffiliateMixin(OU):
             return False
 
     def affiliate_entity(self, entity):
-        u""" Affiliate an entity with this project.
+        """Affiliate an entity with this project.
 
         :type entity: Group, DnsOwner, DnsSubnet, DnsSubnet6
         :param entity:
             An entity to affiliate with this project
-
         """
         trait_code = self._get_affiliate_trait(entity.entity_type)
         trait = EntityTrait(self._db)
@@ -456,7 +462,7 @@ class OUAffiliateMixin(OU):
 
 
 class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
-    u""" Create and affiliate entities with project.
+    """Create and affiliate entities with project.
 
     Project group
         A group that is affiliated with a project.
@@ -474,7 +480,7 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
     """
 
     def apply_spreads(self, entity, spreads):
-        u""" Find spreads and add to entity.
+        """Find spreads and add to entity.
 
         :param EntitySpread entity:
             A populated entity with spread-support.
@@ -489,18 +495,18 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
                 entity.add_spread(spread)
 
     def _project_entity_name(self, basename):
-        u""" Get real entity name from base name. """
+        """Get real entity name from base name."""
         return '-'.join((self.project_id, basename)).lower()
 
     def get_project_group(self, basename):
-        u""" Get a project group from its basename. """
+        """Get a project group from its basename."""
         gr = Factory.get('Group')(self._db)
         gr.find_by_name(self._project_entity_name(basename))
         return gr
 
     def create_project_group(self, creator_id, basename,
                              description=None):
-        u""" Create or update a project group.
+        """ Create or update a project group.
 
         :param int creator_id:
             The creator that we create this group on behalf of.
@@ -532,7 +538,7 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
         return gr
 
     def update_project_group_members(self, basename, selectors=()):
-        u""" Update group based on selector.
+        """Update group based on selector.
 
         :param str basename:
             The basename for the group to update.
@@ -597,7 +603,7 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
     def create_project_user(self, creator_id, basename,
                             fname=None, lname=None, gender=None, bdate=None,
                             shell='bash', affiliation=None):
-        u""" Create a personal account affiliated with this project.
+        """Create a personal account affiliated with this project.
 
         Will also create a person to own the account.
 
@@ -648,10 +654,12 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
         username = self._project_entity_name(basename)
         fname = names.get(fname) or fname or basename
         lname = names.get(lname) or lname or basename
-        gender = (self.const.human2constant(str(gender), self.const.Gender)
-                  or self.const.gender_unknown)
-        shell = (self.const.human2constant(str(shell), self.const.PosixShell)
-                 or self.const.posix_shell_bash)
+        gender = (self.const.human2constant(six.text_type(gender),
+                                            self.const.Gender) or
+                  self.const.gender_unknown)
+        shell = (self.const.human2constant(six.text_type(shell),
+                                           self.const.PosixShell) or
+                 self.const.posix_shell_bash)
         bdate = (DateTime.Parser.DateFromString(bdate, formats=('ymd1', ))
                  if bdate and not isinstance(bdate, DateTime.DateTimeType)
                  else bdate)
@@ -660,7 +668,7 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
         # TODO: Should this not be in Account.illegal_name?
         if username != username.lower():
             raise Errors.CerebrumError(
-                u"Account names cannot contain capital letters")
+                "Account names cannot contain capital letters")
 
         person = Factory.get('Person')(self._db)
         user = Factory.get('PosixUser')(self._db)
@@ -714,7 +722,7 @@ class OUTSDMixin(TsdDefaultEntityMixin,
                  OUAffiliateMixin,
                  OULockMixin,
                  EntityTrait):
-    u""" Mixin of OU for TSD. """
+    """Mixin of OU for TSD."""
 
     def setup_project(self, creator_id, vlan=None):
         """Set up an approved project properly.
@@ -755,7 +763,7 @@ class OUTSDMixin(TsdDefaultEntityMixin,
         self._setup_project_posix(creator_id)
 
     def _setup_project_users(self, creator_id):
-        u""" Create or update project users.
+        """Create or update project users.
 
         This will ensure that users given in `cereconf.TSD_PROJECT_USERS`
         exists and are tied to this project.
@@ -778,7 +786,7 @@ class OUTSDMixin(TsdDefaultEntityMixin,
             self.apply_spreads(user, settings.get('spreads', []))
 
     def _setup_project_groups(self, creator_id):
-        u""" Create or update project groups.
+        """Create or update project groups.
 
         This will ensure that groups given in `cereconf.TSD_PROJECT_GROUPS`
         exists and are tied to this project. It will also add members based on
@@ -978,7 +986,7 @@ class OUTSDMixin(TsdDefaultEntityMixin,
                                       fail_on_exists=False)
 
     def _setup_project_posix(self, creator_id):
-        u""" Upgrade non-posix entities.
+        """Upgrade non-posix entities.
 
         This makes all non-posix accounts tied to this project into posix
         accounts.
@@ -1073,14 +1081,14 @@ class OUTSDMixin(TsdDefaultEntityMixin,
 
     @property
     def ipv4_subnets(self):
-        u""" Generator that lists the IPv4 subnets for this project. """
+        """ Generator that lists the IPv4 subnets for this project."""
         return (row['entity_id'] for row
                 in self.get_affiliated_entities(
                     self.const.entity_dns_subnet))
 
     @property
     def ipv6_subnets(self):
-        u""" Generator that lists the IPv6 subnets for this project. """
+        """Generator that lists the IPv6 subnets for this project."""
         return (row['entity_id'] for row
                 in self.get_affiliated_entities(
                     self.const.entity_dns_ipv6_subnet))

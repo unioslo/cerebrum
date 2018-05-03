@@ -21,6 +21,10 @@
 
 """Group expansion functions for Exchange."""
 
+from __future__ import unicode_literals
+
+from six import text_type
+
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
@@ -148,7 +152,7 @@ def get_entity_name(db, entity_id):
         from cereconf import ENTITY_TYPE_NAMESPACE
         namespace = ent.const.ValueDomain(
             ENTITY_TYPE_NAMESPACE.get(
-                str(ent.const.EntityType(ent.entity_type)), None))
+                text_type(ent.const.EntityType(ent.entity_type)), None))
         return ent.get_name(namespace)
     except (AttributeError, TypeError, Errors.NotFoundError):
         return None

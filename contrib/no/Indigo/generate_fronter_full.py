@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2004, 2005 University of Oslo, Norway
 #
@@ -20,12 +20,15 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Ofk fronter export. """
 
+from __future__ import unicode_literals
+
 import sys
-import locale
 import os
 import time
 import re
 import argparse
+
+from six import text_type
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -154,7 +157,7 @@ class Fronter(object):
                    'OSTFAG', 'STOL', 'BORGRESS', 'OFKGS', 'OPLB')
 
         for s in schools:
-            tmp = {'title': s + ' Kontaktlærere',
+            tmp = {'title': s + ' KontaktlÃ¦rere',
                    'group_id': s + 'Students',
                    'parent_id': s + 'Groups',
                    'typeval': 'KONTAKTGRUPPER'}
@@ -200,21 +203,21 @@ class Fronter(object):
 
     def std_school_nodes(self):
         ret = []
-        schools = {'ASKI': 'Askim videregående skole',
-                   'BORG': 'Borg videregående skole',
-                   'FRED': 'Fredrik II videregående skole',
-                   'GLEM': 'Glemmen videregående skole',
-                   'GREA': 'Greåker videregående skole',
-                   'HALD': 'Halden videregående skole',
-                   'KALN': 'Kalnes videregående skole',
-                   'KIRK': 'Kirkeparken videregående skole',
-                   'MALA': 'Malakoff videregående skole',
-                   'MYSE': 'Mysen videregående skole',
-                   'OSTFAG': 'Østfold fagskole',
-                   'STOL': 'St. Olav videregående skole',
-                   'BORGRESS': 'Sarpsborg ressurs, Borg videregående skole',
-                   'OFKGS': 'Østfold fylkeskommunale grunnskole',
-                   'OPLB': 'Opplæring i bedrift'}
+        schools = {'ASKI': 'Askim videregÃ¥ende skole',
+                   'BORG': 'Borg videregÃ¥ende skole',
+                   'FRED': 'Fredrik II videregÃ¥ende skole',
+                   'GLEM': 'Glemmen videregÃ¥ende skole',
+                   'GREA': 'GreÃ¥ker videregÃ¥ende skole',
+                   'HALD': 'Halden videregÃ¥ende skole',
+                   'KALN': 'Kalnes videregÃ¥ende skole',
+                   'KIRK': 'Kirkeparken videregÃ¥ende skole',
+                   'MALA': 'Malakoff videregÃ¥ende skole',
+                   'MYSE': 'Mysen videregÃ¥ende skole',
+                   'OSTFAG': 'Ã˜stfold fagskole',
+                   'STOL': 'St. Olav videregÃ¥ende skole',
+                   'BORGRESS': 'Sarpsborg ressurs, Borg videregÃ¥ende skole',
+                   'OFKGS': 'Ã˜stfold fylkeskommunale grunnskole',
+                   'OPLB': 'OpplÃ¦ring i bedrift'}
 
         for s in schools.keys():
             tmp = {'title': schools[s],
@@ -284,7 +287,7 @@ class Fronter(object):
 class FronterXML(object):
     def __init__(self, fname, fronter, include_password=True):
         self.xml = XMLWriter(fname)
-        self.xml.startDocument(encoding='ISO-8859-1')
+        self.xml.startDocument(encoding='UTF-8')
         self.rootEl = 'enterprise'
         self.DataSource = 'OVGS-Cerebrum'
         self.fronter = fronter
@@ -295,7 +298,7 @@ class FronterXML(object):
         self.xml.startTag(self.rootEl)
         self.xml.startTag('properties')
         self.xml.dataElement('datasource', self.DataSource)
-        self.xml.dataElement('target', "ClassFronter/Østfold")
+        self.xml.dataElement('target', "ClassFronter/Ã˜stfold")
         self.xml.dataElement('datetime', time.strftime("%F %T %z"))
         self.xml.endTag('properties')
 
@@ -365,7 +368,7 @@ class FronterXML(object):
             self.xml.startTag('member')
             self.xml.startTag('sourcedid')
             self.xml.dataElement('source', self.DataSource)
-            self.xml.dataElement('id', str(fnr))
+            self.xml.dataElement('id', text_type(fnr))
             self.xml.endTag('sourcedid')
             # This is a person member (as opposed to a group).
             self.xml.dataElement('idtype', '1')
@@ -481,7 +484,7 @@ def get_new_users(fronter_obj):
     users = {}
     for user in list_users_for_fronter_export():
         # lagt inn denne testen fordi scriptet feilet uten, har en liten
-        # følelse av det burde løses på en annen måte
+        # fÃ¸lelse av det burde lÃ¸ses pÃ¥ en annen mÃ¥te
         if user['fullname'] is None:
             continue
         names = re.split('\s+', user['fullname'].strip())
@@ -623,9 +626,8 @@ def main():
     logger.debug("Export file: %r", args.fronter_file)
     logger.debug("Include passwords: %r", args.set_pwd)
 
-    # Håndter upper- og lowercasing av strenger som inneholder norske
+    # HÃ¥ndter upper- og lowercasing av strenger som inneholder norske
     # tegn.
-    locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
     logger.info("fetching person data...")
     elev_ans_grupper = fetch_elev_ans_groups()
 
@@ -773,7 +775,7 @@ def main():
                     m,
                     gname)
                 continue
-            subrole = "LÆRER"
+            subrole = "LÃ†RER"
             for row in person.get_affiliations():
                 if int(row['ou_id']) == int(ou.entity_id):
                     if row['affiliation'] == const.affiliation_elev:

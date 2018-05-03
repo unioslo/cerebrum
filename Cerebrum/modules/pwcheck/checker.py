@@ -120,9 +120,6 @@ def check_password(password, account=None, structured=False, checkers=None):
 
     for style, checks in checkers_dict.items():
         for check_name, check_args in checks:
-            if check_name not in _checkers:
-                print('Invalid password check', repr(check_name))
-
             for language in getattr(
                     cereconf, 'GETTEXT_LANGUAGE_IDS', ('en',)):
                 # load the language
@@ -138,21 +135,7 @@ def check_password(password, account=None, structured=False, checkers=None):
                                                      PasswordNotGoodEnough)
                     # only the first error message it sent when exceptions
                     # are raised
-                    err_msg = err[0]
-                    if isinstance(err_msg, str):
-                        # convert to unicode first in order to achieve
-                        # uniform input
-                        try:
-                            err_msg = err_msg.decode('utf-8')
-                        except UnicodeDecodeError:
-                            # can occur as a result of some weird clint input
-                            # just to be safe...
-                            err_msg = err_msg.decode('latin-1',
-                                                     errors='replace')
-                    # err. messages are always UTF-8 for
-                    # RigidPasswordNotGoodEnough and
-                    # PhrasePasswordNotGoodEnough
-                    raise ex_class(err_msg.encode('utf-8'))
+                    raise ex_class(err[0])
                 if err:
                     errors[(style, check_name)][language] = err
                 else:

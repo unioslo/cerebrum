@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
+#
 # Copyright 2010, 2011, 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -18,19 +18,19 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""The core functionality for SOAP services running in the CIS framework. CIS is
-based on the twisted framework and rpclib (now called spyne).
+"""The core functionality for SOAP services running in the CIS framework. CIS
+is based on the twisted framework and rpclib (now called spyne).
 
-This file contains the main parts that are needed for a basic setup of a new CIS
-service. The new service itself has to be created in its own file, and be given
-to a TwistedSoapStarter class. Other settings are available, e.g. to apply SSL
-encryption, authentication and authorization.
+This file contains the main parts that are needed for a basic setup of a new
+CIS service. The new service itself has to be created in its own file, and be
+given to a TwistedSoapStarter class. Other settings are available, e.g. to
+apply SSL encryption, authentication and authorization.
 
 The structure is:
 
 - The L{Server} is run, and sets up the webservice. It is normally located in
   servers/cis/.
-  
+
 - The L{Server} imports the proper L{Service} class and instantiates it. This
   contains the main functionality for the service, and could be defined in
   Cerebrum/modules/cis/ or be in a local instance' code directory.
@@ -41,11 +41,11 @@ The structure is:
 
 """
 
-import sys
+from __future__ import unicode_literals
+
 import socket
 import traceback
 import time
-import logging
 import re
 
 from os import path
@@ -58,39 +58,38 @@ import rpclib.service
 from rpclib.server.wsgi import WsgiApplication
 from rpclib.protocol.soap import Soap11
 from rpclib.interface.wsdl import Wsdl11
-from rpclib.model.fault import Fault
 from rpclib.model.complex import ComplexModel
-from rpclib.model.primitive import Mandatory, String
+from rpclib.model.primitive import Unicode
 
 from twisted.web.server import Site, Session
 from twisted.web.resource import Resource
 from twisted.internet import reactor
 from twisted.python import log, logfile, util
 from twisted.web.wsgi import WSGIResource
+from OpenSSL import SSL
+
+from Cerebrum import Errors
+from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.cis.faults import (EndUserFault, NotAuthorizedError,
+                                         CerebrumFault, UnknownFault)
 
 CRYPTO_AVAILABLE = True
 try:
     from twisted.internet import ssl
 except ImportError:
     CRYPTO_AVAILABLE = False
-from OpenSSL import SSL
-
-import cerebrum_path
-import cereconf
-from Cerebrum import Errors
-from Cerebrum.modules.bofhd.errors import PermissionDenied
-from Cerebrum.modules.cis.faults import *
-
 
 
 class BasicSoapServer(rpclib.service.ServiceBase):
-    """Base class for our SOAP services, with general setup useful for us.
+    """
+    Base class for our SOAP services, with general setup useful for us.
     Public methods should be defined in subclasses.
 
     """
     @classmethod
     def call_wrapper(cls, ctx):
-        """The wrapper for calling a public service method.
+        """
+        The wrapper for calling a public service method.
 
         Service classes can raise CerebrumRPCException, which should be
         returned to the client and considered to be shown to the end users.
@@ -118,6 +117,7 @@ class BasicSoapServer(rpclib.service.ServiceBase):
             log.msg(traceback.format_exc())
             raise UnknownFault()
 
+
 def _event_setup_basic(ctx):
     """Event that is executed at every call, which logs the transaction and
     initiates the User Defined Context.
@@ -130,7 +130,10 @@ def _event_setup_basic(ctx):
     if ctx.udc is None:
         # TBD: Should we have this as an object instead?
         ctx.udc = dict()
+
+
 BasicSoapServer.event_manager.add_listener('method_call', _event_setup_basic)
+
 
 def _event_unknown_exceptions(ctx):
     """Event called at the end of a transaction, checking for any unknown
@@ -159,15 +162,17 @@ def _event_unknown_exceptions(ctx):
         for faultstring in root.iter('faultstring'):
             faultstring.text = 'Unknown Error'
         ctx.out_string[0] = etree.tostring(root)
+
+
 BasicSoapServer.event_manager.add_listener('method_exception_string',
                                            _event_unknown_exceptions)
 
 
-###
-### Events that could be used by CIS servers
-###
-### See rpclib.service.ServiceBase.__doc__ for the event handlers
-###
+#
+# Events that could be used by CIS servers
+#
+# See rpclib.service.ServiceBase.__doc__ for the event handlers
+#
 
 def on_method_call_session(ctx):
     """Event for session handling. Add this to services to use sessions. Note
@@ -177,7 +182,7 @@ def on_method_call_session(ctx):
     """
     site = ctx.service_class.site
     # TODO: what if in_header is empty/None?
-    #if ctx.in_header is None or not ctx.in_header.session_id:
+    # if ctx.in_header is None or not ctx.in_header.session_id:
     #    raise Exception("No session ID given in header")
     sid = getattr(ctx.in_header, 'session_id', None)
 
@@ -192,6 +197,7 @@ def on_method_call_session(ctx):
     session.touch()
     log.msg("DEBUG: session ID: %s (given: %s)" % (session.uid, sid))
     ctx.udc['session'] = session
+
 
 def on_method_exit_session(ctx):
     """Event for session handling at exit. By calling this event, the current
@@ -211,30 +217,35 @@ def on_method_exit_session(ctx):
     else:
         ctx.out_header = [ctx.out_header, sh]
 
-###
-### Session support
-###
+#
+# Session support
+#
+
+
 class SessionHeader(ComplexModel):
     """A header for support of sessions. Can be used both by clients and
     servers. One could subclass this if more data is needed in client's
     header."""
-    __namespace__ = 'tns' # TODO: what is correct tns?
-    #__namespace__ = 'SoapListener.session' # TODO: what is correct tns?
-    session_id = String
+    __namespace__ = 'tns'  # TODO: what is correct tns?
+    # __namespace__ = 'SoapListener.session' # TODO: what is correct tns?
+    session_id = Unicode
+
 
 class SessionCacher(Session, dict):
     """The session class does nothing by itself, except for timing out. This is
     a simple class for using the session as a dict. It could be subclassed for
-    more functionality. 
-    
+    more functionality.
+
     To make use of this as your session, you have to set site.sessionFactory to
     this class."""
-    # Not sure if zope.interface.components should be used instead, but this was
-    # easier.
-    sessionTimeout = 60 # in seconds
+    # Not sure if zope.interface.components should be used instead, but this
+    # was easier.
+    sessionTimeout = 60  # in seconds
 
-    # TODO: create a __copy__ method to be able to copy data from an old session
-    # to a new one. This is needed for switching session ID when authenticating.
+    # TODO: create a __copy__ method to be able to copy data from an old
+    # session to a new one. This is needed for switching session ID when
+    # authenticating.
+
 
 class BasicSoapStarter(object):
     """Basic utility class for starting a soap server with the preferred
@@ -246,6 +257,7 @@ class BasicSoapStarter(object):
     def run(self):
         """Starts the soap server"""
         pass
+
 
 class TwistedSoapStarter(BasicSoapStarter):
     """Basic utility class for starting a soap server through Twisted. Could be
@@ -269,12 +281,12 @@ class TwistedSoapStarter(BasicSoapStarter):
     interface = '0.0.0.0'
 
     def __init__(self, applications, port, logfile=None, log_prefix=None,
-            log_formatters=None):
+                 log_formatters=None):
         """Setting up a standard SOAP server.
         """
         if logfile:
             self.setup_logging(logfile, log_prefix=log_prefix,
-                    log_formatters=log_formatters)
+                               log_formatters=log_formatters)
         super(TwistedSoapStarter, self).__init__()
         self.setup_services(applications)
         self.setup_twisted()
@@ -286,29 +298,6 @@ class TwistedSoapStarter(BasicSoapStarter):
         an rpclib service in the standard WSGI format."""
         if type(applications) not in (list, tuple, dict):
             applications = [applications]
-
-        # Set the encoding for SOAP data, converting it from unicode to some
-        # str encoding. We could instead use the Unicode classes, but Cerebrum
-        # doesn't support unicode natively quite yet.
-        String.Attributes.encoding = 'latin1'
-
-        # Ignore unencodable characters
-        # The following function does the same as String.from_string, except
-        # that it supplies 'ignore' as an argument to encode()
-        from rpclib.model import nillable_string
-
-        @classmethod
-        @nillable_string
-        def from_string(cls, value):
-            retval = value
-            if isinstance(value, unicode):
-                if cls.Attributes.encoding is None:
-                    raise Exception("You need to define an encoding to "
-                                    "convert the incoming unicode values to.")
-                else:
-                    retval = value.encode(cls.Attributes.encoding, 'ignore')
-            return retval
-        String.from_string = from_string
 
         self.service = rpclib.application.Application(
             applications,
@@ -327,8 +316,8 @@ class TwistedSoapStarter(BasicSoapStarter):
         self.site = Site(self.root)
 
     @staticmethod
-    def setup_logging(logfilename, rotatelength = 50 * 1024 * 1024,
-                      maxrotatedfiles = 10, log_prefix = None,
+    def setup_logging(logfilename, rotatelength=50 * 1024 * 1024,
+                      maxrotatedfiles=10, log_prefix=None,
                       log_formatters=None):
         """Setting up twisted's log to be used by Cerebrum. This could either
         be run manually before (or after) initiating the
@@ -337,17 +326,18 @@ class TwistedSoapStarter(BasicSoapStarter):
             TwistedCerebrumLogger.log_prefix = log_prefix
         if log_formatters:
             TwistedCerebrumLogger.log_formatters = log_formatters
-        logger = TwistedCerebrumLogger(logfile.LogFile.fromFullPath(logfilename,
-                        rotateLength = rotatelength,
-                        maxRotatedFiles = maxrotatedfiles,
-                        #defaultMode=None # the file mode at creation
-                   ))
+        logger = TwistedCerebrumLogger(logfile.LogFile.fromFullPath(
+            logfilename,
+            rotateLength=rotatelength,
+            maxRotatedFiles=maxrotatedfiles,
+            # defaultMode=None # the file mode at creation
+        ))
         log.startLoggingWithObserver(logger.emit)
 
         # Make python's standard logging to also use twisted's logger:
         # TODO: this should be tested for deadlocks before being put in
         # production:
-        #logging.basicConfig(level=logging.ERROR, stream=sys.stdout)
+        # logging.basicConfig(level=logging.ERROR, stream=sys.stdout)
 
     def setup_reactor(self, port):
         """Setting up the reactor, without encryption."""
@@ -388,28 +378,28 @@ class TLSTwistedSoapStarter(TwistedSoapStarter):
         # now, so we set it up twice, now just to get any warnings.
         # TODO: it would probably be better to be able to run setup_sslcontext
         # after super.__init__().
-        if kwargs.has_key('logfile'):
+        if 'logfile' in kwargs:
             self.setup_logging(kwargs['logfile'],
                                log_prefix=kwargs.get('log_prefix', None),
-                               log_formatters=kwargs.get('log_formatters',None))
+                               log_formatters=kwargs.get('log_formatters',
+                                                         None))
 
         if not CRYPTO_AVAILABLE:
             raise Exception('Could not import cryptostuff')
         if not (private_key_file and certificate_file):
             # TODO: raise exception instead?
             log.msg("ERROR: Encryption without certificate is not good")
-        self.setup_sslcontext(client_ca = client_ca,
-                              client_fingerprints = client_fingerprints,
-                              private_key_file = private_key_file, 
-                              certificate_file = certificate_file)
+        self.setup_sslcontext(client_ca=client_ca,
+                              client_fingerprints=client_fingerprints,
+                              private_key_file=private_key_file,
+                              certificate_file=certificate_file)
         super(TLSTwistedSoapStarter, self).__init__(**kwargs)
 
-    def setup_sslcontext(self, client_ca, client_fingerprints, private_key_file,
-                         certificate_file):
+    def setup_sslcontext(self, client_ca, client_fingerprints,
+                         private_key_file, certificate_file):
         """Setup the ssl context and its settings."""
         self.sslcontext = ssl.DefaultOpenSSLContextFactory(private_key_file,
                                                            certificate_file)
-                                                           #SSL.TLSv1_METHOD)
         if client_fingerprints:
             self.client_fingerprints = client_fingerprints
         if client_ca:
@@ -417,8 +407,8 @@ class TLSTwistedSoapStarter(TwistedSoapStarter):
                 log.msg('WARNING: No whitelist, accepting signed by CA')
             self.add_certificates(client_ca)
             self.sslcontext.getContext().set_verify(
-                    SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
-                    self.clientTLSVerify)
+                SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
+                self.clientTLSVerify)
         else:
             log.msg('INFO: No CA given, accepting all clients')
         # TODO: could self.sslcontext.getContext().set_verify_depth(<int>) be
@@ -443,18 +433,18 @@ class TLSTwistedSoapStarter(TwistedSoapStarter):
                                       contextFactory=self.sslcontext,
                                       interface=self.interface)
         url = "https://%s:%d/SOAP/" % (socket.gethostname(),
-                                      self.port.getHost().port)
+                                       self.port.getHost().port)
         log.msg("DEBUG: Server set up at %s" % url)
         log.msg("DEBUG: WSDL definition at %s?wsdl" % url)
 
     @classmethod
     def clientTLSVerify(cls, connection, x509, errnum, errdepth, ok=None):
-        """Callback for verifying a client's certificate. This is called every time
-        listenSSL gets an incoming connection, and is used for more validations,
-        logging and debug.
-        
-        Note that load_verify_locations is called at startup, which tells the server
-        what specific certificates we trust blindly. Connection by these
+        """Callback for verifying a client's certificate. This is called every
+        time listenSSL gets an incoming connection, and is used for more
+        validations, logging and debug.
+
+        Note that load_verify_locations is called at startup, which tells the
+        server what specific certificates we trust blindly. Connection by these
         certificates will therefore set ok to True.
 
         @param connection
@@ -490,7 +480,8 @@ class TLSTwistedSoapStarter(TwistedSoapStarter):
 
         """
         if not ok:
-            log.msg('WARNING: Invalid cert: errnum=%s, errdepth=%s (see `man verify` for info)' % (errnum, errdepth))
+            log.msg('WARNING: Invalid cert: errnum=%s, errdepth=%s '
+                    '(see `man verify` for info)' % (errnum, errdepth))
             try:
                 log.msg('  subject: %s' % x509.get_subject())
                 log.msg('  issuer:  %s' % x509.get_issuer())
@@ -520,7 +511,7 @@ class TLSTwistedSoapStarter(TwistedSoapStarter):
         # TODO: validate the hostname as well?
 
         # Log if a certificate is close to expiration. A weeks delay.
-        expire = x509.get_notAfter() # format: 'YYYYMMDDhhmmssZ'
+        expire = x509.get_notAfter()  # format: 'YYYYMMDDhhmmssZ'
         if expire and int(expire[:8]) < int(time.strftime('%Y%m%d')) - 30:
             log.msg('WARNING: Cert close to expire')
             log.msg('  subject: %s' % x509.get_subject())
@@ -530,10 +521,10 @@ class TLSTwistedSoapStarter(TwistedSoapStarter):
         return True
 
 
-### Hacks at Soaplib/Twisted
-### Below is collections of different hacks of the soaplib and twisted to fix
-### certain behaviour as we want. It should be put here to be able to locate any
-### changes when upgrading to newer versions of the packages.
+# Hacks at Soaplib/Twisted
+# Below is collections of different hacks of the soaplib and twisted to fix
+# certain behaviour as we want. It should be put here to be able to locate any
+# changes when upgrading to newer versions of the packages.
 
 # Modifying the logger to work with Cerebrum
 # Note that Twisted Core 11.1.0 and later supports log prefixes:
@@ -572,13 +563,15 @@ class TwistedCerebrumLogger(log.FileLogObserver):
         if text is None:
             return
 
-        if isinstance(self.log_formatters, (list,tuple)):
+        if isinstance(self.log_formatters, (list, tuple)):
             for pattern, replacement in self.log_formatters:
                 text = re.sub(pattern, replacement, text)
 
         timeStr = self.formatTime(eventDict['time'])
-        fmtDict = {'system': eventDict['system'], 'text': text.replace("\n", "\n\t")}
+        fmtDict = {'system': eventDict['system'],
+                   'text': text.replace("\n", "\n\t")}
         msgStr = log._safeFormat("[%(system)s] %(text)s\n", fmtDict)
 
-        util.untilConcludes(self.write, '%s %s %s' % (timeStr, self.log_prefix, msgStr))
+        util.untilConcludes(self.write, ('%s %s %s' %
+                                         (timeStr, self.log_prefix, msgStr)))
         util.untilConcludes(self.flush)  # Hoorj!

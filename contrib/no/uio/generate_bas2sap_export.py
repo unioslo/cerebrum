@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -137,8 +137,6 @@ def fetch_person_fields(person, const):
     # force latin-1
     values = [ansattnr, fullname, uname, mail, url, voip]
     for idx in range(len(values)):
-        if isinstance(values[idx], unicode):
-            values[idx] = values[idx].encode("latin-1")
         if not values[idx]:
             continue
         # The import routine can't cope with quotechars.
@@ -182,7 +180,7 @@ def generate_file(filename):
     :param filename:
       Output filename
     """
-    ostream = AtomicFileWriter(filename)
+    ostream = AtomicFileWriter(filename, mode='wb')
     writer = csv.writer(ostream,
                         delimiter=';',
                         quotechar='',
@@ -206,7 +204,12 @@ def generate_file(filename):
         person.find(person_id)
         fields = fetch_person_fields(person, const)
         if fields is not None:
-            writer.writerow(fields)
+            # csv module does not support unicode (str is called on all
+            # non-string variables), so we encode in UTF-8 before writing CSV
+            # rows
+            # PYTHON3 remove encoding
+            writer.writerow(
+                [x.encode('UTF-8') if isinstance(x, unicode) else x for x in fields])
         else:
             logger.info("ansattnr is missing for person id=%d", person_id)
     logger.debug("Output %d people", len(processed))

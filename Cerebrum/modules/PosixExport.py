@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2010-2012 University of Oslo, Norway
+# Copyright 2010-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,15 +19,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 import optparse
 import os
 import sys
 import mx
 from itertools import ifilter
 from operator import itemgetter
+from six import text_type
 
 import posixconf
-import cerebrum_path
 
 from Cerebrum.Entity import EntityName
 from Cerebrum.Utils import Factory, auto_super, latin1_to_iso646_60
@@ -36,12 +38,15 @@ from Cerebrum.utils.atomicfile import FileSizeChangeError
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.LDIFutils import (
-    ldapconf, LDIFWriter, iso2utf, map_constants, map_spreads, entry_string)
+    ldapconf, LDIFWriter, map_constants, map_spreads, entry_string)
 
 MAX_LINE_LENGTH = 1000
 
+
 class PosixData(object):
     """Just a class in which we can set attributes."""
+    pass
+
 
 class PosixExport(object):
     EMULATE_POSIX_LDIF = False
@@ -572,8 +577,8 @@ Examples:
         data = PosixData()
         data.account_id = int(row['account_id'])
         data.uname = self.e_id2name[data.account_id]
-        data.uid = str(row['posix_uid'])
-        data.gid = str(self.g_id2gid[row['gid']])
+        data.uid = text_type(row['posix_uid'])
+        data.gid = text_type(self.g_id2gid[row['gid']])
 
         if not row['shell']:
             self.logger.warn("User %s has no posix-shell!" % data.uname)
@@ -627,7 +632,7 @@ Examples:
 #                else:
 #                    break
         entry = {'objectClass':   ['top','account','posixAccount'],
-                 'cn':            (iso2utf(data.cn),),
+                 'cn':            (data.cn,),
                  'uid':           (data.uname,),
                  'uidNumber':     (data.uid,),
                  'gidNumber':     (data.gid,),
@@ -643,12 +648,12 @@ Examples:
         name = self.filegroups[group_id]
         entry = {'objectClass': ('top', 'posixGroup'),
                  'cn':          (name,),
-                 'gidNumber':   (str(posix_gid),),
+                 'gidNumber':   (text_type(posix_gid),),
                  'memberUid':   members}
         desc = self.group2desc(group_id)
         if desc:
             # latin1_to_iso646_60 later
-            entry['description'] = (iso2utf(desc),)
+            entry['description'] = (desc,)
         return ','.join(('cn=' + name, self.fgrp_dn)), entry
 
     def ldif_netgroup(self, is_hostg, group_id, group_members, direct_members):

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import collections
 from Cerebrum import Utils, Errors
 from Cerebrum import QuarantineHandler

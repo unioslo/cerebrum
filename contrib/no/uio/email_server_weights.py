@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2005 University of Oslo, Norway
 #
@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+from __future__ import unicode_literals
 
 """
 Updates the weight traits associated with the e-mail servers.  The
@@ -40,18 +42,15 @@ fullest server, the chance of being assigned more users will be twice
 that of the fullest server.
 """
 
-def usage(exitcode=64):
-    print "Usage: email_server_weights.py [--server-type TYPE] [--except]"
-    print __doc__
-    sys.exit(exitcode)
-
 import sys
-import getopt
+import argparse
 import re
 import cerebrum_path
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.Email import EmailQuota, EmailServer
+
+del cerebrum_path
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -60,39 +59,40 @@ db.cl_init(change_program="e_srv_weights")
 
 
 def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], '?h',
-                                   ['help', 'dryrun',
-                                    'server-type=', 'except='])
-    except getopt.GetoptError:
-        usage()
+    p = argparse.ArgumentParser()
+    p.add_argument('--dryrun', action='store_true',
+                   help='Dryrun')
+    p.add_argument('--server-type', action='store',
+                   help='Server type')
+    p.add_argument('--except', action='append',
+                   help='Except regex')
+    opts = p.parse_args()
 
-    server_type = except_re = dryrun = None
-    patterns = []
-    for opt, val in opts:
-        if opt in ('--help', '-h', '-?'):
-            usage(0)
-        elif opt in ('--except',):
-            try:
-                except_re = re.compile(val)
-            except re.error, e:
-                print "Invalid regular expression '%s': %s" % (val, e)
-                sys.exit(1)
-            patterns.append(val)
-        elif opt in ('--server-type',):
-            server_type = co.EmailServerType(val)
-            try:
-                int(server_type)
-            except Errors.NotFoundError:
-                print "Unknown server type:", val
-                sys.exit(1)
-        elif opt in ('--dryrun',):
-            dryrun = True
+    server_type = except_re = None
+
+    coding = sys.getfilesystemencoding()
+
+    if opts.server_type:
+        server_type = co.EmailServerType(opts.server_type.decode(coding))
+        try:
+            int(server_type)
+        except Errors.NotFoundError:
+            print("Unknown server type:", opts.server_type.decode(coding))
+            sys.exit(1)
+
+    patterns = [x.decode(coding) for x in getattr(opts, 'except')]
     if patterns:
+        for r in patterns:
+            try:
+                except_re = re.compile(r)
+            except re.error as e:
+                print("Invalid regular expression '%s': %s" % (r, e))
+                sys.exit(1)
+
         except_re = re.compile("(?:" + ")|(?:".join(patterns) + ")")
 
     process_servers(server_type, except_re)
-    if not dryrun:
+    if not opts.dryrun:
         db.commit()
 
 
@@ -139,4 +139,3 @@ def process_servers(server_type, except_re):
 
 if __name__ == '__main__':
     main()
-

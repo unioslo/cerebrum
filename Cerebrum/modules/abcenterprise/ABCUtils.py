@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -17,8 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import cerebrum_path
-import cereconf
+from __future__ import unicode_literals
 import abcconf
 
 from Cerebrum.Utils import dyn_import
@@ -29,14 +28,18 @@ from Cerebrum.extlib.doc_exception import ProgrammingError
 class ABCConfigError(DocstringException):
     """Error in config."""
 
+
 class ABCTypesError(DocstringException):
     """Error in arguments."""
+
 
 class ABCDataError(DocstringException):
     """We have errors or conflicts in our data."""
 
+
 class ABCNotSupportedError(DocstringException):
     """Function not supported."""
+
 
 class ABCFactory(object):
     def get(comp):
@@ -53,16 +56,18 @@ class ABCFactory(object):
                       'GroupParser': 'CLASS_GROUPPARSER',
                       'RelationParser': 'CLASS_RELATIONPARSER',
                       'Object2Cerebrum': 'CLASS_OBJ2CEREBRUM'}
-        
+
         try:
             conf_var = components[comp]
         except KeyError:
-            raise ValueError, "Unknown component %r" % comp
+            raise ValueError("Unknown component {!r}".format(comp))
         import_spec = getattr(abcconf, conf_var)
         if not isinstance(import_spec, (tuple, list)):
-            raise ValueError, \
-                  "Invalid import spec for component %s: %r" % (comp,
-                                                                import_spec)
+            raise ValueError(
+                  "Invalid import spec for component {}: {!r}".format(
+                      comp,
+                      import_spec)
+            )
         bases = []
         for c in import_spec:
             (mod_name, class_name) = c.split("/", 1)
@@ -82,10 +87,10 @@ class ABCFactory(object):
             # misconfiguration won't be used.
             for override in bases:
                 if issubclass(cls, override):
-                    raise RuntimeError, \
-                          ("Class %r should appear earlier in"
-                           " abcconf.%s, as it's a subclass of"
-                           " class %r." % (cls, conf_var, override))
+                    raise RuntimeError(
+                        "Class {!r} should appear earlier in"
+                        " abcconf.{}, as it's a subclass of"
+                        " class {!r}.".format(cls, conf_var, override))
             bases.append(cls)
         if len(bases) == 1:
             comp_class = bases[0]
@@ -104,30 +109,32 @@ class ABCFactory(object):
 class ABCTypes(object):
     def get_type(type, args):
         if not isinstance(args, tuple):
-            raise ProgrammingError, "'args' is not a tuple."
-        lenght = len(args)
+            raise ProgrammingError("'args' is not a tuple.")
+        length = len(args)
         for t, vals in (("addresstype", 2), ("contacttype", 2),
                         ("orgidtype", 1), ("orgnametype", 1),
                         ("ouidtype", 1), ("ounametype", 1),
                         ("personidtype", 1), ("groupidtype", 1),
                         ("relationtype", 3), ("tagtype", 2)):
             if type == t:
-                if not vals == lenght:
-                    raise ABCTypesError, "wrong length on list: '%s':'%d' should be '%d' - %s" % (t, lenght, vals, args)
+                if not vals == length:
+                    raise ABCTypesError("wrong length on list: '{}':'{}' "
+                                        "should be '{}' - {}".format(t,
+                                                                     length,
+                                                                     vals,
+                                                                     args))
                 lists = abcconf.TYPES[type]
                 for lst in lists:
                     if lst[:vals] == args:
                         if not len(lst[vals:]) == 1:
                             raise ABCConfigError
                         return lst[vals:][0]
-        raise ABCTypesError, "type '%s' not found: '%s'" % (type, args)
+        raise ABCTypesError("type '{}' not found: '{}'".format(type, args))
     get_type = staticmethod(get_type)
-
 
     def get_name_type(type):
         try:
             return abcconf.NAMETYPES[type]
         except KeyError:
-            raise ABCTypesError, "wrong name type: %s" % type
+            raise ABCTypesError("wrong name type: {}".format(type))
     get_name_type = staticmethod(get_name_type)
-

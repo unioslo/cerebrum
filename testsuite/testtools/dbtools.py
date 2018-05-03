@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """ Database utils
 
 This class contains database utils for Cerebrum tests.
@@ -21,25 +22,28 @@ from Cerebrum.Constants import Constants
 
 
 class DatabaseManager(object):
-
-    """ Tools for managing a database.
+    """
+    Tools for managing a database.
 
     This includes a 'python interface' for makedb, as well as methods for
     creating and dropping databases, running 'analyze' and 'vacuum' on
     postgres-databases, etc...
-
     """
-
     pass
 
 
 class DatabaseTools(object):
+    """
+    Tools to read and write to and from a database transaction.
+    """
 
-    """ Tools to read and write to and from a database transaction. """
-
-    def __init__(self, db_conn, pe_cls=None, ac_cls=None, gr_cls=None,
+    def __init__(self,
+                 db_conn,
+                 pe_cls=None,
+                 ac_cls=None,
+                 gr_cls=None,
                  co_cls=None,):
-        """ Initialize with a Cerebrum.Database object. """
+        """ Initialize with a Cerebrum.database. Database object."""
         self._db = db_conn
         self._db.commit = self._db.rollback
 
@@ -78,7 +82,7 @@ class DatabaseTools(object):
     # Cerebrum objects.
 
     def get_database_object(self):
-        """ Return a initialized, dynamic Cerebrum.Database object. """
+        """Return a initialized, dynamic Cerebrum.database.Database object."""
         return self._db
 
     def get_person_object(self):

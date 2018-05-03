@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
 import time
 
 from Cerebrum.modules.no import access_FS
@@ -67,7 +68,7 @@ class NMHStudent(access_FS.Student):
           sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'FULLFØRT',
                                   'OVERGANG', 'SLUTTET') AND
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
-          """.encode('ISO-8859-1') % (self._is_alive())
+          """ % (self._is_alive())
         return self.db.query(qry)
 
     def list_eksamensmeldinger(self):  # GetAlleEksamener
@@ -145,7 +146,7 @@ class NMHStudent78(NMHStudent, access_FS.Student78):
           sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'FULLFØRT',
                                   'OVERGANG', 'SLUTTET') AND
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
-          """.encode('ISO-8859-1') % (self._is_alive())
+          """ % (self._is_alive())
         return self.db.query(qry)
 
 
@@ -208,15 +209,17 @@ class NMHUndervisning(access_FS.Undervisning):
           ua.undpartilopenr IS NOT NULL AND
           ua.disiplinkode IS NOT NULL AND
           ua.undformkode IS NOT NULL AND
-          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode IN (:spring, :autumn) AND
           ua.terminkode = t.terminkode AND
           ((ua.arstall = :aar AND
             EXISTS (SELECT 'x' FROM fs.arstermin tt
                     WHERE tt.terminkode = :semester AND
                           t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
-           ua.arstall > :aar)""".encode('ISO-8859-1'),
+           ua.arstall > :aar)""",
                              {'aar': start_aar,
-                              'semester': start_semester})
+                              'semester': start_semester,
+                              'autumn': 'HØST',
+                              'spring': 'VÅR'})
 
     def list_studenter_underv_enhet(self,
                                     institusjonsnr,

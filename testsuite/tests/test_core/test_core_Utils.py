@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 """Testing of Utils.py's functionality."""
 
@@ -133,47 +133,6 @@ def this_module_test():
     assert Utils.this_module() == me
 
 
-def separate_entries_test():
-    """ Utils.separate_entries() filters as expected. """
-    rows = [MetaRow(('a', 'b', 'c'))(row) for row in ((1, 2, 3),
-                                                      (1, 2, 4),
-                                                      (1, 3, 4))]
-
-    result = Utils.separate_entries(rows, ('a', 1), ('b', 2), ('c', 3))
-    # Should keep rows[0], reject rows[1], rows[2]
-    assert rows[0] in result[0] and rows[1] in result[1]
-
-    test_cases = [{'predicate': (('a', 1), ('b', 2), ('c', 3)),
-                   'keep': 1, 'reject': 2},  # Matches 1st row
-                  {'predicate': (('a', 1),),
-                   'keep': 3, 'reject': 0},  # Matches no rows
-                  {'predicate': (('a', 2), ),
-                   'keep': 0, 'reject': 3},  # Matches all rows
-                  {'predicate': (('a', 1), ('c', 4)),
-                   'keep': 2, 'reject': 1}]  # Matches 1st, 3rd row
-
-    for test_case in test_cases:
-        result = Utils.separate_entries(rows, *(test_case['predicate']))
-        assert (len(result[0]) == test_case['keep'] and
-                len(result[1]) == test_case['reject'])
-
-
-def wrapped_separate_entries_test():
-    """ Utils.{keep,reject}_entries() filters as expected. """
-    rows = [MetaRow(('a', 'b', 'c'))(row) for row in ((1, 2, 3),
-                                                      (1, 2, 4),
-                                                      (1, 3, 4))]
-    predicate = (('a', 1), ('b', 2), ('c', 3))  # Matches only the first row
-
-    # keep_entries
-    assert rows[0] in Utils.keep_entries(rows, *predicate)
-    assert rows[1] not in Utils.keep_entries(rows, *predicate)
-
-    # reject_entries
-    assert rows[0] not in Utils.reject_entries(rows, *predicate)
-    assert rows[1] in Utils.reject_entries(rows, *predicate)
-
-
 def is_str_test():
     """ Utils.is_str accepts str, rejects unicode and others. """
     assert Utils.is_str('Hello world!')
@@ -277,10 +236,4 @@ def test_argument_to_sql_sequence():
 
 
 # TODO: How to test:
-# - SMSsender?
-# - sendmail?
-# - mail_template?
 # - read_password?
-# - make_temp_file
-# - make_temp_dir
-#

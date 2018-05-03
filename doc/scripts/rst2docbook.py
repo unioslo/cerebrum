@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 # Use our own docbook writer
 
 # Author: Ollie Rutherfurd

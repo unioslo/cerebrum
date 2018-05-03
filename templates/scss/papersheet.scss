@@ -1,0 +1,152 @@
+@import 'grid';
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+
+@media print {
+  @page {
+    margin: 0 auto;
+    //size: auto;
+  }
+  body {
+    //margin: 1.6cm;
+  }
+}
+
+@page {
+  margin: 0 auto;
+  //size: auto;
+}
+
+// Typography
+
+h1 {
+    font-size: 36px;
+    font-weight: 400;
+}
+
+body {
+    margin: 0mm auto;
+    width: 210mm;
+    height: 296mm;
+    background: #fff;
+    font-family: "Arial";
+}
+
+.sheet {
+    margin: 0 5mm 0mm 5mm;
+    page-break-after: always;
+    padding: 5mm 0mm 0mm 0mm;
+    background: white;
+    width: 210mm;
+    height: 296mm;
+    line-height: 1.25;
+    position: relative;
+}
+
+
+.header {
+    & .addresses {
+        &__recipient {
+            border: 1px solid black;
+            padding: 5px;
+            font-size: 13px;
+            min-height: 95px;
+        }
+
+        &__sender {
+            font-size: 10px;
+        }
+    }
+
+    &__serialno {
+        text-align: center;
+        padding-top: 80px;
+        font-size: 16px;
+    }
+
+    &__barcode {
+        text-align: right;
+
+        &__inner {
+            display: inline-block;
+
+            .huge-a {
+              text-align: center;
+              font-weight: bold;
+              font-size: 80px;
+              line-height: 0.75;
+            }
+
+            .barcode-image {
+              height: 45px;
+              width: 80px;
+              margin-left: -7px;
+            }
+        }
+    }
+
+
+    &__stamp {
+        text-align: right;
+        .stamp-image {
+            height: 95px;
+        }
+    }
+
+
+    &__postal-info {
+        text-align: right;
+
+        .franko-container {
+            display: inline-block;
+        }
+    }
+}
+
+
+.main {
+    font-size: 15px;
+
+    .logo {
+      margin: 40px 0;
+      height: 80px;
+    }
+
+    br {
+	    line-height: 1;
+    }
+
+    p {
+	    line-height: 1.25;
+    }
+
+    .password, .username {
+      font-family: "Courier New", Courier, monospace;
+    }
+    section {
+	    margin-top: 12px;
+    }
+    .text-small-margin {
+    	margin-top: 6px;
+    }
+    ul {
+      list-style-position: inside;
+    }
+
+    .signature {
+      padding-top: 24px;
+    }
+}
+
+.footer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  font-size: 13px;
+}

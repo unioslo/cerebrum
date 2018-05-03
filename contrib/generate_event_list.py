@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,10 +20,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Generates a JSON file with events."""
 
-import cereconf
-getattr(cereconf, 'linter', 'must be silent')
-
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import json
 
 logger = Factory.get_logger('cronjob')
 
@@ -34,7 +32,7 @@ def _parse_selection_criteria(db, criteria):
     I.e: the string spread:add@account,person will be converted to:
     (co.spread_add, [co.entity_account, co.entity_person])
 
-    :param Cerebrum.Database db: A Database object.
+    :param Cerebrum.database.Database db: A Database object.
     :param basestring criteria: The criteria to parse.
     :rtype: tuple(Cerebrum.Constants._ChangeTypeCode,
                   list(Cerebrum.Constants._EntityTypeCode,))
@@ -53,7 +51,7 @@ def _parse_selection_criteria(db, criteria):
 def _parse_code(db, constant):
     """Parse and error-check a constant.
 
-    :param Cerebrum.Database db: A Database object.
+    :param Cerebrum.database.Database db: A Database object.
     :param basestring constant: The string representation of the constant.
     :rtype: Cerebrum.Constant
     :return: The instantiated constant."""
@@ -78,16 +76,12 @@ def _parse_code(db, constant):
 def convert_events(db, events):
     """Convert an event to a dict.
 
-    :param Cerebrum.Database db: A database object.
+    :param Cerebrum.database.Database db: A database object.
     :param list events: A list of event rows.
     :rtype: list
     :return: A list of converted events."""
-    def _unpickle(msg):
-        import pickle
-        try:
-            cp = pickle.loads(msg.get('change_params'))
-        except (TypeError, EOFError):
-            cp = None
+    def _unpack(msg):
+        cp = json.loads(msg.get('change_params'))
         msg['change_params'] = cp
         return msg
 
@@ -102,7 +96,7 @@ def convert_events(db, events):
             return None
 
     def _convert(msg):
-        msg = _unpickle(dict(msg))
+        msg = _unpack(dict(msg))
         ct = _parse_code(db, msg.get('change_type_id'))
 
         # TODO: Restructure something, this is prone to break
@@ -120,7 +114,7 @@ def convert_events(db, events):
 def get_events(db, cl, criterias, key):
     """Get a list of events satisfying a criteria.
 
-    :param Cerebrum.Database db: A database object.
+    :param Cerebrum.database.Database db: A database object.
     :param Cerebrum.modules.CLHandler cl: A CLHandler object.
     :param dict criterias: The criteria to list changes by.
     :param basestring key: The key to acknowledge changes with.
@@ -167,21 +161,11 @@ def dump_json(filename, events):
 
     :param list(<Cerebrum.extlib.db_row.row>) events: List of events.
     :param basestring filename: File to write to. Prints to stdout if None."""
-    import json
-
-    class Encoder(json.JSONEncoder):
-        def default(self, obj):
-            from mx.DateTime import DateTimeType
-
-            if isinstance(obj, DateTimeType):
-                return str(obj)
-            return json.JSONEncoder.default(self, obj)
-
     if filename:
         with open(filename, 'w') as f:
-            json.dump(events, f, cls=Encoder, indent=4, sort_keys=True)
+            json.dump(events, f, indent=4, sort_keys=True)
     else:
-        print(json.dumps(events, cls=Encoder, indent=4, sort_keys=True))
+        print(json.dumps(events, indent=4, sort_keys=True))
 
 
 def main(args=None):

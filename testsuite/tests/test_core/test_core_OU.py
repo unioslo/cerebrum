@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """Basic tests for Cerebrum/OU.py."""
+from __future__ import unicode_literals
 
 import pytest
 import datasource

@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2003 University of Oslo, Norway
 #
@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import unicode_literals
 
 import xml.sax
 from time import localtime, strftime, time
@@ -26,7 +27,10 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.Constants import _SpreadCode
 
-class AutostudError(Exception): pass
+
+class AutostudError(Exception):
+    pass
+
 
 class LookupHelper(object):
     def __init__(self, db, logger, ou_perspective):
@@ -55,12 +59,12 @@ class LookupHelper(object):
         try:
             return self.spread_name2const[name]
         except KeyError:
-            self._add_error("bad spread: %s" % name)
+            self._add_error("bad spread: {}".format(name))
             return None
 
     def get_group(self, name):
         if self._group_cache.has_key(name):
-            return self._group_cache[name] 
+            return self._group_cache[name]
         group = Factory.get('Group')(self._db)
         group.clear()
         try:
@@ -68,8 +72,8 @@ class LookupHelper(object):
             self._group_cache[name] = int(group.entity_id)
         except (Errors.NotFoundError, ValueError):
             self._group_cache[name] = None
-            self._add_error("ukjent gruppe: %s" % name)
-        return self._group_cache[name] 
+            self._add_error("ukjent gruppe: {}".format(name))
+        return self._group_cache[name]
 
     def get_stedkode(self, name, institusjon):
         if self._sko_cache.has_key(name):
@@ -84,26 +88,26 @@ class LookupHelper(object):
             self._sko_cache[name] = int(ou.entity_id)
         except (Errors.NotFoundError, ValueError):
             self._sko_cache[name] = None
-            self._add_error("ukjent sko: %s" % name)
+            self._add_error("ukjent sko: {}".format(name))
         return self._sko_cache[name]
 
     def get_all_child_sko(self, sko):
         ret = []
         ou = Factory.get('OU')(self._db)
         ou.find(sko)
-        ret.append("%02i%02i%02i" % (
+        ret.append("{:02d}{:02d}{:02d}".format(
             ou.fakultet, ou.institutt, ou.avdeling))
         for row in ou.list_children(self._ou_perspective, recursive=True):
             ou.clear()
             ou.find(row['ou_id'])
-            ret.append("%02i%02i%02i" % (
+            ret.append("{:02d}{:02d}{:02d}".format(
                 ou.fakultet, ou.institutt, ou.avdeling))
         return ret
 
     def get_person_affiliations(self, fnr=None, person_id=None):
         # We only need to cache the last entry as input is sorted by fnr
         if self._cached_affiliations[0] is None or (
-            not (self._cached_affiliations[0] in (fnr, person_id))):
+                not (self._cached_affiliations[0] in (fnr, person_id))):
             person = Factory.get('Person')(self._db)
             if fnr is not None:
                 person.find_by_external_id(self.const.externalid_fodselsnr,
@@ -119,6 +123,5 @@ class LookupHelper(object):
             if fnr is None:
                 self._cached_affiliations = (fnr, ret)
             else:
-                self._cached_affiliations = (person_id, ret)                
+                self._cached_affiliations = (person_id, ret)
         return self._cached_affiliations[1]
-

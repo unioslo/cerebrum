@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2017 University of Oslo, Norway
+# Copyright 2016-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,6 +21,7 @@
 """Mixin for saving account passwords as GPG data."""
 
 import base64
+from six import text_type
 
 from Cerebrum.Account import Account
 from Cerebrum.modules.gpg.data import EntityGPGData
@@ -30,14 +31,7 @@ class AccountPasswordEncrypterMixin(Account, EntityGPGData):
     """Mixin for saving passwords as GPG data."""
     def set_password(self, plaintext):
         super(AccountPasswordEncrypterMixin, self).set_password(plaintext)
-        # perhaps move this at the top if nothing breaks
-        # (no latin1 garbage expexted)?!?
-        if isinstance(plaintext, str):
-            try:
-                plaintext = plaintext.decode('utf-8')
-            except:
-                plaintext = plaintext.decode('ISO-8859-1')
-        # assume unicode
+        assert isinstance(plaintext, text_type)
         plaintext = plaintext.encode('utf-8')
         self.remove_gpg_data_by_tag('password-base64')
         self.add_gpg_data('password-base64', base64.b64encode(plaintext))

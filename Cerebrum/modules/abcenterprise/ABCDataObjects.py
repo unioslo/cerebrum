@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -16,10 +16,14 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import unicode_literals
+from six import python_2_unicode_compatible
 
+
+@python_2_unicode_compatible
 class DataEntity(object):
     """Class for representing common traits of objects in a data source."""
-    
+
     def __init__(self):
         self._ids = dict()
         self._tags = dict()
@@ -29,16 +33,16 @@ class DataEntity(object):
 
     def __str__(self):
         addr = dict()
-        for a,v in self.iteraddress():
+        for a, v in self.iteraddress():
             addr[a] = v.__str__()
-        result = ("DataEntity: IDs: %s tags: %s names: %s address: %s contacts: %s" % 
-                  (list(self.iterids()),
-                   list(self.itertags()),
-                   list(self.iternames()),
-                   list(addr.iteritems()),
-                   list(self.itercontacts())))                                              
-        return result
-    
+        return ("DataEntity: IDs: {} tags: {} names: {} "
+                "address: {} contacts: {}").format(
+            (list(self.iterids()),
+             list(self.itertags()),
+             list(self.iternames()),
+             list(addr.items()),
+             list(self.itercontacts())))
+
     def add_id(self, kind, value):
         self._ids[kind] = value
 
@@ -57,19 +61,19 @@ class DataEntity(object):
         self._contacts[kind] = value
 
     def iterids(self):
-        return self._ids.iteritems()
+        return self._ids.items()
 
     def itertags(self):
-        return self._tags.iteritems()
+        return self._tags.items()
 
     def iternames(self):
-        return self._names.iteritems()
+        return self._names.items()
 
     def iteraddress(self):
-        return self._address.iteritems()
+        return self._address.items()
 
     def itercontacts(self):
-        return self._contacts.iteritems()
+        return self._contacts.items()
 
 
 class DataPerson(DataEntity):
@@ -81,13 +85,13 @@ class DataPerson(DataEntity):
         self.gender = None
 
     def __str__(self):
-        result = ("%s DataPerson: gender: %s birth: %s" % 
-                  (super(DataPerson, self).__str__(),
-                   self.gender, self.birth_date))
-        return result
+        return "{} DataPerson: gender: {} birth: {}".format(
+            super(DataPerson, self).__str__(),
+            self.gender, self.birth_date
+        )
 
 
-
+@python_2_unicode_compatible
 class DataOU(DataEntity):
     """Class for representing OUs."""
 
@@ -100,11 +104,14 @@ class DataOU(DataEntity):
         self.parent = None
 
     def __str__(self):
-        result = ("%s DataOU: trealm: %s parent: %s" % 
-                  (super(DataOU, self).__str__(),
-                   self.realm, self.parent))
+        result = ("{} DataOU: trealm: {} parent: {}".format(
+            super(DataOU, self).__str__(),
+            self.realm, self.parent)
+        )
         return result
 
+
+@python_2_unicode_compatible
 class DataGroup(DataEntity):
     """Class for representing Groups."""
 
@@ -113,12 +120,13 @@ class DataGroup(DataEntity):
         self.desc = None
 
     def __str__(self):
-        result = ("%s DataGroup: desc: %s" % 
-                  (super(DataGroup, self).__str__(),
-                   self.desc))
-        return result
+        return "{} DataGroup: desc: {}".format(
+            super(DataGroup, self).__str__(),
+            self.desc
+        )
 
 
+@python_2_unicode_compatible
 class DataRelation(DataEntity):
     """Class for representing Relations."""
 
@@ -129,12 +137,13 @@ class DataRelation(DataEntity):
         self.object = None
 
     def __str__(self):
-        result = ("%s DataRelation: type: %s subject: %s object: %s" % 
-                  (super(DataRelation, self).__str__(),
-                   self.type, self.subject, self.object))
-        return result
+        return "{} DataRelation: type: {} subject: {} object: {}".format(
+            super(DataRelation, self).__str__(),
+            self.type, self.subject, self.object
+        )
 
 
+@python_2_unicode_compatible
 class DataAddress(object):
     """Class for represening Addresses."""
 
@@ -146,9 +155,8 @@ class DataAddress(object):
         self.country = None
 
     def __str__(self):
-        result = ("pobox: %s, street: %s, postcode: %s, city: %s, country: %s" % 
-                  (self.pobox, self.street,
-                   self.postcode, self.city,
-                   self.country))
-        return result
-
+        return "pobox: {}, street: {}, postcode: {}, city: {}, country: {}".format(
+            self.pobox, self.street,
+            self.postcode, self.city,
+            self.country
+        )

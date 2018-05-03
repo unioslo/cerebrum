@@ -19,6 +19,7 @@
 
 import datetime
 import mx.DateTime
+import six
 
 import cerebrum_path
 
@@ -189,7 +190,7 @@ class PersonEmploymentMixin(object):
             where.append(argument_to_sql(ou_id, "ou_id", binds, int))
         if description is not None:
             where.append(argument_to_sql(description, "description",
-                                         binds, str))
+                                         binds, six.text_type))
         if source_system is not None:
             where.append(argument_to_sql(source_system, "source_system",
                                          binds, int))

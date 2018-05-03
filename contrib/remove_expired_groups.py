@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,21 +23,25 @@ This script is used to remove groups that have reached
 a defined number of days past expiration-date
 """
 
+from __future__ import unicode_literals
+
+from six import text_type
+
 import cerebrum_path
-import cereconf
 
 from Cerebrum.Utils import Factory
-from Cerebrum.Database import DatabaseError
+from Cerebrum.database import DatabaseError
 from mx.DateTime import now
 
 logger = Factory.get_logger('cronjob')
+del cerebrum_path
 
 
 def remove_expired_groups(db, days, pretend):
     """
     Removes groups that have reached number of `days' past expiration-date.
 
-    :param Cerebrum.Database db: The database connection
+    :param Cerebrum.database.Database db: The database connection
     :param int days: Amount of days after past expiration-date
     :param bool pretend: If True, do not actually remove from DB
     """
@@ -70,13 +74,13 @@ def remove_expired_groups(db, days, pretend):
                         'Expired group (%s - %s) removed' % (
                             group['name'],
                             group['description']))
-                except DatabaseError, e:
+                except DatabaseError as e:
                     logger.error(
                         'Database error: Could not delete expired group '
                         '(%s - %s): %s. Skipping' % (
                             group['name'],
                             group['description'],
-                            str(e)),
+                            text_type(e)),
                         exc_info=True)
                     db.rollback()
                     continue
@@ -87,8 +91,9 @@ def remove_expired_groups(db, days, pretend):
                         group['name'],
                         group['description'],
                         int(time_until_removal.days)))
-    except Exception, e:
-        logger.critical('Unexpected exception: %s' % (str(e)), exc_info=True)
+    except Exception as e:
+        logger.critical('Unexpected exception: %s' % (text_type(e)),
+                        exc_info=True)
         db.rollback()
         raise
     finally:

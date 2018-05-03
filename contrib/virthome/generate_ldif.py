@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-# Copyright 2007 University of Oslo, Norway
+# Copyright 2007-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,22 +26,18 @@ This script can generate both user- and group LDIF files.
 import getopt
 import sys
 
-import cerebrum_path
-import cereconf
-
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.LDIFutils import ldif_outfile
-from Cerebrum.modules.LDIFutils import container_entry_string
-from Cerebrum.modules.LDIFutils import entry_string
-from Cerebrum.modules.LDIFutils import end_ldif_outfile
+from Cerebrum.modules.LDIFutils import (ldif_outfile,
+                                        end_ldif_outfile,
+                                        container_entry_string,
+                                        entry_string)
 from Cerebrum.modules.virthome.LDIFHelper import LDIFHelper
 
-def generate_all(fname):
-    """Generate user + group LDIF to fname. 
+logger = Factory.get_logger("cronjob")
 
-    @type fname: str
-    @param fname: The file where the ldif data will be written
-    """
+
+def generate_all(fname):
+    """Write user + group LDIF to fname."""
     logger.debug("Generating ldif into %s", fname)
 
     out = ldif_outfile("ORG", fname)
@@ -65,7 +61,7 @@ def generate_all(fname):
         out.write(entry_string(dn, group, False))
     end_ldif_outfile("GROUP", out)
     logger.debug("Done with group ldif (all done)")
-# end generate_all
+
 
 def main(argv):
     opts, junk = getopt.getopt(argv[1:],
@@ -80,8 +76,7 @@ def main(argv):
 
     if filename:
         generate_all(filename)
-# end main
 
-logger = Factory.get_logger("cronjob")
+
 if __name__ == "__main__":
     main(sys.argv[:])

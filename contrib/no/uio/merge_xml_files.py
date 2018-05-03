@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import unicode_literals
 
 import cerebrum_path
 
@@ -40,13 +41,13 @@ class CollectParser(xml.sax.ContentHandler):
         self.level += 1
         if self.level > 1:
             tmp = {}
-            hash_key = "¦".join([attrs[x].encode('iso8859-1') for x in self.hash_keys])
+            hash_key = "Â¦".join([attrs[x] for x in self.hash_keys])
             if self.append_file and hash_key not in self.results:
                 return
             for k in attrs.keys():
                 if k not in self.hash_keys:
-                    tmp[k.encode('iso8859-1')] = attrs[k].encode('iso8859-1')
-            tmp['TagName'] = name.encode('iso8859-1')
+                    tmp[k] = attrs[k]
+            tmp['TagName'] = name
             self.results.setdefault(hash_key, []).append(tmp)
 
     def endElement(self, name):
@@ -81,9 +82,11 @@ preceeded by the file you wish to append it to (orelse the result will
 be empty).
 
 Example:
-merge_xml_files.py -d fodselsdato:personnr -f person_file.xml -f regkort.xml -t person -o out.dat
+merge_xml_files.py -d fodselsdato:personnr -f person_file.xml \
+-f regkort.xml -t person -o out.dat
 
-Note that memory usage may equal the total size of all XML files."""
+Note that memory usage may equal the total size of all XML files.
+"""
     sys.exit(exitcode)
 
 
@@ -112,7 +115,7 @@ def main():
             xml = XMLHelper()
             f.write(xml.xml_hdr + "<data>\n")
             for bx_key in big_xml.keys():
-                bx_delim = bx_key.split("¦")
+                bx_delim = bx_key.split("Â¦")
                 f.write("<%s %s>\n" % (
                     tag, " ".join(["%s=%s" % (delim[n],
                                               xml.escape_xml_attr(bx_delim[n]))
@@ -122,9 +125,10 @@ def main():
                     del(tmp_tag['TagName'])
 
                     f.write("  <%s %s/>\n" % (
-                        tmp, " ".join(["%s=%s" % (tk,
-                                                  xml.escape_xml_attr(tmp_tag[tk]))
-                                       for tk in tmp_tag.keys()])))
+                        tmp, " ".join(
+                            ["%s=%s" % (tk,
+                                        xml.escape_xml_attr(tmp_tag[tk]))
+                             for tk in tmp_tag.keys()])))
 
                 f.write("</%s>\n" % tag)
             f.write("</data>\n")

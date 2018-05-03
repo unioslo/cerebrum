@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2007-2016 University of Oslo, Norway
+# Copyright 2007-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-u""" HiOF bohfd module. """
+""" HiOF bohfd module. """
+from six import text_type
 
 import cereconf
 
@@ -127,7 +128,7 @@ class BofhdExtension(BofhdCommonMethods):
                            self.const.bofh_ad_attrs_remove,
                            account.entity_id,
                            None,
-                           state_data=str(spread))
+                           state_data=text_type(spread))
             return "OK, added remove AD attributes request for %s" % uname
         else:
             return "No AD attributes to remove for user %s" % uname
@@ -159,11 +160,10 @@ class BofhdExtension(BofhdCommonMethods):
         account = self._get_account(uname, idtype='name')
         ret = []
         for spread, attr_map in account.get_ad_attrs().iteritems():
-            spread_str = str(self._get_constant(self.const.Spread,
-                                                spread, 'spread'))
+            spread = self._get_constant(self.const.Spread, spread, 'spread')
             for attr_type, attr_val in attr_map.items():
                 ret.append({
-                    'spread': spread_str,
+                    'spread': text_type(spread),
                     'ad_attr': attr_type,
                     'ad_val': attr_val,
                 })
@@ -246,7 +246,7 @@ class BofhdExtension(BofhdCommonMethods):
                 for aff in person.get_affiliations():
                     ou = self._get_ou(ou_id=aff['ou_id'])
                     name = "%s@%s" % (
-                        self.const.PersonAffStatus(aff['status']),
+                        text_type(self.const.PersonAffStatus(aff['status'])),
                         self._format_ou_name(ou))
                     map.append(
                         (("%s", name),
@@ -346,12 +346,12 @@ class BofhdExtension(BofhdCommonMethods):
             try:
                 account.add_spread(self.const.Spread(spread))
             except Errors.NotFoundError:
-                raise CerebrumError("No such spread: %s" % spread)
+                raise CerebrumError("No such spread: %r" % spread)
         account.write_db()
         try:
             account._update_email_server(email_server)
         except Errors.NotFoundError:
-            raise CerebrumError("No such email server: %s" % email_server)
+            raise CerebrumError("No such email server: %r" % email_server)
         passwd = account.make_passwd(uname)
         account.set_password(passwd)
         try:
@@ -360,7 +360,7 @@ class BofhdExtension(BofhdCommonMethods):
                 ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
                 self._user_create_set_account_type(
                     account, person.entity_id, ou_id, affiliation)
-        except self.db.DatabaseError, m:
+        except self.db.DatabaseError as m:
             raise CerebrumError("Database error: %s" % m)
         operator.store_state(
             "new_account_passwd",

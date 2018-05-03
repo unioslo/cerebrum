@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2003 University of Oslo, Norway
 #
@@ -33,15 +33,19 @@
 # into a bigger script, perhaps with some plugin-like structure for
 # subscribing to certain event types.
 
+from __future__ import unicode_literals
+
 import os
 import sys
 import getopt
-import pickle
+
+from six import text_type
 
 import cereconf
 
 from Cerebrum.modules import CLHandler
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import json
 from Cerebrum import Errors
 from Cerebrum.Entity import EntityQuarantine
 from Cerebrum.modules import PosixGroup
@@ -161,8 +165,8 @@ class MakeUser(EvtHandler):
 
         return {'uname': posix_user.account_name,
                 'home': posix_user.get_posix_home(self.home_spread),
-                'uid': str(posix_user.posix_uid),
-                'gid': str(posix_group.posix_gid),
+                'uid': text_type(posix_user.posix_uid),
+                'gid': text_type(posix_group.posix_gid),
                 'gecos': posix_user.get_gecos(),
                 'host': host.name,
                 'home': home,
@@ -193,7 +197,7 @@ class MakeUser(EvtHandler):
         if DEBUG:
             args.append('--debug')
         cmd = SSH_CEREBELLUM + [" ".join(args), ]
-        logger.debug("Doing: %s", str(cmd))
+        logger.debug("Doing: %s", text_type(cmd))
         if debug_hostlist is None or info['host'] in debug_hostlist:
             errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
         else:
@@ -293,7 +297,7 @@ def process_changelog(evt_key, classes):
         ok = []
         for call_back in evt_id2call_back[int(evt.fields.change_type_id)]:
             if evt['change_params']:
-                params = pickle.loads(evt['change_params'])
+                params = json.loads(evt['change_params'])
             else:
                 params = {}
             logger.debug2("Callback %i -> %s", evt['change_id'], call_back)

@@ -29,12 +29,14 @@ on later.
 
 """
 
+from __future__ import unicode_literals
+
 import sys
 import getopt
 
 from twisted.python import log
 
-from rpclib.model.primitive import String
+from rpclib.model.primitive import Unicode
 from rpclib.model.complex import Array
 from rpclib.decorator import rpc
 
@@ -60,10 +62,11 @@ class PostmasterServer(SoapListener.BasicSoapServer):
     # The hock for the site object
     site = None
 
-    @rpc(Array(String), Array(String), Array(String), _returns=Array(String))
+    @rpc(Array(Unicode), Array(Unicode), Array(Unicode),
+         _returns=Array(Unicode))
     def get_addresses_by_affiliation(ctx, status=None, skos=None, source=None):
         """Get primary e-mail addresses for persons that match given
-        criterias."""
+        criteria."""
         if not source and not status:
             raise Errors.CerebrumRPCException('Input needed')
         return ctx.udc['postmaster'].get_addresses_by_affiliation(
@@ -195,11 +198,12 @@ if __name__ == '__main__':
             log_prefix=log_prefix,
             log_formatters=log_formatters)
     else:
-        server = SoapListener.TwistedSoapStarter(port=int(port),
-                                                 applications=PostmasterServer,
-                                                 logfile=logfilename,
-                                                 log_prefix=log_prefix,
-                                                 log_formatters=log_formatters)
+        server = SoapListener.TwistedSoapStarter(
+            port=int(port),
+            applications=PostmasterServer,
+            logfile=logfilename,
+            log_prefix=log_prefix,
+            log_formatters=log_formatters)
     # to make it global and reachable (wrong, I know)
     PostmasterServer.site = server.site
 

@@ -21,6 +21,8 @@
 """
 """
 
+from __future__ import unicode_literals
+
 from .checker import pwchecker, PasswordChecker
 
 

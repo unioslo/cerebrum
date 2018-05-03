@@ -24,7 +24,6 @@ Extends the functionality provided in the general AD-export module
 ADutilMixIn.py to work with the AD setup at the University of Oslo.
 """
 import copy
-import pickle
 from collections import defaultdict
 
 import cereconf
@@ -33,6 +32,7 @@ from Cerebrum import Utils
 from Cerebrum import QuarantineHandler
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules.no.uio import ADutils
+from Cerebrum.utils import json
 
 
 def is_blacklisted(name):
@@ -210,10 +210,8 @@ class ADFullUserSync(ADutils.ADuserUtil):
         for v in tmp_ret.values():
             names = pid2names.get(v['TEMPownerId'])
             if names:
-                firstName = unicode(names.get(int(self.co.name_first), ''),
-                                    'ISO-8859-1')
-                lastName = unicode(names.get(int(self.co.name_last), ''),
-                                   'ISO-8859-1')
+                firstName = names.get(int(self.co.name_first), '')
+                lastName = names.get(int(self.co.name_last), '')
                 v['givenName'] = firstName.strip()
                 v['sn'] = lastName.strip()
                 v['displayName'] = "%s %s" % (firstName, lastName)
@@ -240,8 +238,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
             if k in posixusers:
                 v['uidNumber'] = posixusers[k]['posix_uid'] or ''
                 v['gidNumber'] = groupid2gid[posixusers[k]['gid']] or ''
-                v['gecos'] = unicode(posixusers[k]['gecos'] or '',
-                                     'iso-8859-1')
+                v['gecos'] = posixusers[k]['gecos'] or ''
                 v['uid'] = [v['TEMPuname']]  # UID is a list/array in AD
                 v['mssfu30name'] = v['TEMPuname']
                 v['msSFU30NisDomain'] = 'uio'
@@ -441,7 +438,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
 
         @param uname: Username of new user
         @type uname: string
-        @rtype: unicode string
+        @rtype: string
         @return: password
         """
         # TODO: move passwords to auth-table and fetch from there
@@ -456,7 +453,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
                                      return_last_only=True)
         try:
             row = tmp.next()
-            params = pickle.loads(row["change_params"])
+            params = json.loads(row["change_params"])
             passwd = params["password"]
         except (StopIteration, AttributeError, KeyError, TypeError):
             passwd = self.ac.make_passwd(uname)
@@ -543,7 +540,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
                             Mchange = False
 
                             if (isinstance(adusrs[usr][attr],
-                                           (str, int, long, unicode))):
+                                           (basestring, int, long))):
                                 # Transform single-value to a list for comp
                                 val2list = []
                                 val2list.append(adusrs[usr][attr])
@@ -654,14 +651,14 @@ class ADFullUserSync(ADutils.ADuserUtil):
                 # if usr exists in ad change pwd, else password set when
                 # created
                 if self.ac.account_name in adusrs:
-                    pw = pickle.loads(ans['change_params'])['password']
+                    pw = json.loads(ans['change_params'])['password']
                     confirm = self.change_pwd(self.ac.account_name,
                                               pw, dry_run)
                 # but for now we dont get the password when user is created so
                 # we also check if user is a user with AD-spread and assume
                 # these are just created
                 elif self.ac.has_spread(self.co.Spread(spread)):
-                    pw = pickle.loads(ans['change_params'])['password']
+                    pw = json.loads(ans['change_params'])['password']
                     confirm = self.change_pwd(self.ac.account_name,
                                               pw, dry_run)
             else:
@@ -678,8 +675,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
         dn = self.server.findObject(uname)
         ret = self.run_cmd('bindObject', dry_run, dn)
         self.logger.debug("Binding %r", ret[0])
-        pwUnicode = unicode(pw, 'iso-8859-1')
-        ret = self.run_cmd('setPassword', dry_run, pwUnicode)
+        ret = self.run_cmd('setPassword', dry_run, pw)
         if ret[0]:
             self.logger.info('Changed password for %r in domain %r',
                              uname, self.ad_ldap)
@@ -765,10 +761,9 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
         spread_res = list(
             self.group.search(spread=int(self.co.Spread(spread))))
         for row in spread_res:
-            gname = unicode(row["name"],
-                            'ISO-8859-1') + cereconf.AD_GROUP_POSTFIX
+            gname = row["name"] + cereconf.AD_GROUP_POSTFIX
             grp_dict[gname] = {
-                'description': unicode(row["description"], 'ISO-8859-1'),
+                'description': row["description"],
                 'grp_id': row["group_id"],
                 'displayName': gname,
                 'displayNamePrintable': gname,
@@ -945,7 +940,7 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
                             Mchange = False
 
                             if (isinstance(ad_dict[grp][attr],
-                                           (str, int, long, unicode))):
+                                           (basestring, int, long))):
                                 # Transform single-value to a list for comp.
                                 val2list = []
                                 val2list.append(ad_dict[grp][attr])

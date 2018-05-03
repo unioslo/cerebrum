@@ -21,7 +21,7 @@
 category:metainfo;
 name=changelog;
 category:metainfo;
-version=1.3;
+version=1.4;
 category:drop;
 drop TABLE change_handler_data;
 category:drop;

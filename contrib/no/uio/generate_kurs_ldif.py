@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 """
 Generere LDAP tre med uioEduSection (Undervisningsaktivitet - gruppe,
 kollokvia...) eller uioEduOffering (Undervisningsenhet - emne) objekter.
@@ -8,16 +8,17 @@ URN som unikt identifiserer dette studie-elementet.
 
 ldap-person-dumpen vil generere eduCourseMember atributter med verdi
 role@eduCourseOffering, der eduCourseOffering er URN-en over, og
-role=Learner for studenter og Instructor for gruppe-lærer/foreleser.
+role=Learner for studenter og Instructor for gruppe-lÃ¦rer/foreleser.
 
 --aktivitetfile fname : xml fil med undervisningsaktiviteter
 --enhetfile fname : xml fil med undervisningsenheter
 --emnefile fname : xml fil med emner
 --ldiffile fname.ldif : trigger generering av ldif fil med angitt navn
---picklefile fname : brukes av person-ldif exporten til å sette eduCourseMember
+--picklefile fname : brukes av person-ldif exporten til Ã¥ sette eduCourseMember
 """
 
-import locale
+from __future__ import unicode_literals
+
 import getopt
 import os
 import sys
@@ -29,12 +30,11 @@ import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import make_timer
-from Cerebrum.modules.LDIFutils import ldapconf
-from Cerebrum.modules.LDIFutils import iso2utf
-from Cerebrum.modules.LDIFutils import entry_string
-from Cerebrum.modules.LDIFutils import ldif_outfile
-from Cerebrum.modules.LDIFutils import end_ldif_outfile
-from Cerebrum.modules.LDIFutils import container_entry_string
+from Cerebrum.modules.LDIFutils import (ldapconf,
+                                        entry_string,
+                                        ldif_outfile,
+                                        end_ldif_outfile,
+                                        container_entry_string)
 
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
 
@@ -43,43 +43,24 @@ db = Factory.get('Database')()
 ac = Factory.get('Account')(db)
 group = Factory.get('Group')(db)
 
-locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))  # norsk "Ø".lower()
 
-#
-# IVR 2008-07-14 Vortex group wanted more detailed information about FS roles
-# assigned to people. Specifically, they wanted to know about roles previously
-# captured by 'enhetsansvarlig'. Nowadays, that concept is more fine-grained,
-# and people get an extra entitlement per role per undenh/undakt in
-# LDAP. Vortex can lookup these roles in LDAP.
-interesting_fs_roles = (('student', 'Learner'),
-                        ('admin', 'Administrator'),
-                        ('dlo', 'DLO'),
-                        ('fagansvar', 'Fagansvarlig'),
-                        ('foreleser', 'Foreleser'),
-                        ('gjestefore', 'Gjesteforeleser'),
-                        ('gruppelære', 'Gruppelaerer'),
-                        ('hovedlære', 'Hovedlaerer'),
-                        ('it-ansvarl', 'IT-ansvarlig'),
-                        ('lærer', 'Laerer'),
-                        ('sensor', 'Sensor'),
-                        ('studiekons', 'Studiekonsulent'),)
+interesting_fs_roles = (
+    ('student', 'Learner'),
+    ('admin', 'Administrator'),
+    ('dlo', 'DLO'),
+    ('fagansvar', 'Fagansvarlig'),
+    ('foreleser', 'Foreleser'),
+    ('gjestefore', 'Gjesteforeleser'),
+    ('gruppelÃ¦re', 'Gruppelaerer'),
+    ('hovedlÃ¦re', 'Hovedlaerer'),
+    ('it-ansvarl', 'IT-ansvarlig'),
+    ('lÃ¦rer', 'Laerer'),
+    ('sensor', 'Sensor'),
+    ('studiekons', 'Studiekonsulent'),
+)
 
 
 class CerebrumGroupInfo(object):
-    # Fra generate_fronter_full.py:214
-    #             id_seq = (self.EMNE_PREFIX, enhet['institusjonsnr'],
-    #                       enhet['emnekode'], enhet['versjonskode'],
-    #                       enhet['terminkode'], enhet['arstall'],
-    #                       enhet['terminnr'])
-    #             enhet_id = ":".join([str(x) for x in id_seq]).lower()
-
-    # 1144:       enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
-    # 982:        aktstud = "uio.no:fs:%s:student:%s" % (enhet_id.lower(), aktkode.lower())
-
-    #     752523 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:aktivitetsansvar:2-2
-    #     752521 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:enhetsansvar
-    #     752522 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:student
-    #     752526 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:student:2-1
     PREFIX = "uio.no:fs:kurs:"
     id_key_seq = ('institusjonsnr', 'emnekode', 'versjonskode',
                   'terminkode', 'arstall', 'terminnr')
@@ -95,27 +76,20 @@ class CerebrumGroupInfo(object):
             self._emne_key2dta[tuple(emne_key)].append(
                 {'group_id': int(row['group_id']),
                  'emne_val': emne_val})
-            # for k, v in self._emne_key2dta.items():
-            #     logger.debug("Emne "+repr(k)+" -> "+repr(v))
         timer('... done initing CerebrumGroupInfo')
 
     def find_group_by_undervisningsenhet(
             self, institusjonsnr, emnekode, versjonskode, terminkode,
             arstall, terminnr, persontype):
         """Returnerer entity-id for aktuell gruppe.
-        persontype er en av ('enhetsansvar', 'student').  De øvrige
+        persontype er en av ('enhetsansvar', 'student').  De Ã¸vrige
         verdiene tilsvarer kolonner i FS
         """
         rows = self._emne_key2dta.get(
             (institusjonsnr, emnekode, versjonskode, terminkode,
              arstall, terminnr), [])
-        # logger.debug(
-        #     "nokkel: %s",
-        #     repr((institusjonsnr, emnekode, versjonskode, terminkode,
-        #           arstall, terminnr)))
-        # logger.debug("Leter i %s" % repr(rows))
         for dta in rows:
-            if(len(dta['emne_val']) == 1):
+            if len(dta['emne_val']) == 1:
                 if persontype == dta['emne_val'][0]:
                     return dta['group_id']
         return None
@@ -125,27 +99,17 @@ class CerebrumGroupInfo(object):
             arstall, terminnr, aktkode, persontype):
         """Returnerer entity-id for aktuell gruppe.
         persontype er en av ('aktivitetsansvar', 'student').  De
-        øvrige verdiene tilsvarer kolonner i FS
+        Ã¸vrige verdiene tilsvarer kolonner i FS
         """
         rows = self._emne_key2dta.get(
             (institusjonsnr, emnekode, versjonskode, terminkode,
              arstall, terminnr), [])
-        # logger.debug(
-        #     "nokkel: %s -- aktkode=%s",
-        #     repr((institusjonsnr, emnekode, versjonskode, terminkode,
-        #           arstall, terminnr)),
-        #     aktkode)
-        # logger.debug("Leter i %s" % repr(rows))
         for dta in rows:
-            if(len(dta['emne_val']) == 2):
+            if len(dta['emne_val']) == 2:
                 if (persontype, aktkode) == tuple(dta['emne_val']):
                     return dta['group_id']
         return None
 
-
-#  1. Lage et "Offerings & sections" tre med informasjon om de
-#  undervisningsenheter og undervisningsaktiviteter som er definert
-#  ved UiO.
 
 class StudinfoParsers(object):
     def __init__(self, emne_file, aktivitet_file, enhet_file):
@@ -158,7 +122,7 @@ class StudinfoParsers(object):
         for entry in self.undervisningsenheter:
             tmp = self.emnekode2info.get(entry['emnekode'])
             if not tmp:
-                logger.info("Enhet for ukjent emne: %s" % entry)
+                logger.info("Enhet for ukjent emne: %s", dict(entry))
             else:
                 tmp['emnenavn_bokmal'] = entry['emnenavn_bokmal']
         timer('... done initing StudinfoParsers')
@@ -177,7 +141,7 @@ class StudinfoParsers(object):
                 'studienivakode': entry['studienivakode'],
                 'institusjonsnr': entry['institusjonsnr'],
                 'versjonskode': entry['versjonskode']
-                }
+            }
 
         cfg = [(['data', 'emne'], got_emne)]
         GeneralXMLParser(cfg, fname)
@@ -242,26 +206,23 @@ def gen_undervisningsaktivitet(cgi, sip, out):
             entity_id = cgi.find_group_by_undervisningsaktivitet(*args)
             if entity_id is not None:
                 aktivitet_id["%i" % entity_id] = role
-#        if len(aktivitet_id) != 2:
-#            continue
         keys = aktivitet_id.keys()
         keys.sort()
         urn = 'urn:mace:uio.no:section:aktivitet-%s' % "_".join(keys)
-#        urn = 'urn:mace:uio.no:section:aktivitet-%s' % aktivitet_id
         out.write(entry_string("cn=ua-%i,%s" % (n, top_dn), {
-            'objectClass':               ("top", "uioEduSection"),
-            'uioEduCourseCode':          (iso2utf(entry['emnekode']),),
-            'uioEduCourseAdministrator': (iso2utf(emne['sko']),),
-            'uioEduCourseLevel':         (iso2utf(emne['studienivakode']),),
-            'uioEduCourseName':          (iso2utf(emne['emnenavn_bokmal']),),
-            'uioEduCourseSectionName':   (iso2utf(entry['aktivitetsnavn']),),
-            'uioEduCourseInstitution':   (iso2utf(emne['institusjonsnr']),),
-            'uioEduCourseVersion':       (iso2utf(emne['versjonskode']),),
-            'uioEduCourseSectionCode':   (iso2utf(entry['aktivitetkode']),),
-            'uioEduOfferingTermCode':    (iso2utf(entry['terminkode']),),
-            'uioEduOfferingYear':        (iso2utf(entry['arstall']),),
-            'uioEduOfferingTermNumber':  (iso2utf(entry['terminnr']),),
-            'uioEduCourseOffering':      (iso2utf(urn),)}))
+            'objectClass': ("top", "uioEduSection"),
+            'uioEduCourseCode': (entry['emnekode'],),
+            'uioEduCourseAdministrator': (emne['sko'],),
+            'uioEduCourseLevel': (emne['studienivakode'],),
+            'uioEduCourseName': (emne['emnenavn_bokmal'],),
+            'uioEduCourseSectionName': (entry['aktivitetsnavn'],),
+            'uioEduCourseInstitution': (emne['institusjonsnr'],),
+            'uioEduCourseVersion': (emne['versjonskode'],),
+            'uioEduCourseSectionCode': (entry['aktivitetkode'],),
+            'uioEduOfferingTermCode': (entry['terminkode'],),
+            'uioEduOfferingYear': (entry['arstall'],),
+            'uioEduOfferingTermNumber': (entry['terminnr'],),
+            'uioEduCourseOffering': (urn,)}))
         n += 1
         ret[urn] = aktivitet_id
     timer('... done gen_undervisningsaktivitet')
@@ -282,7 +243,7 @@ def gen_undervisningsenhet(cgi, sip, out):
     for entry in sip.undervisningsenheter:
         emne = sip.emnekode2info.get(entry['emnekode'])
         if not emne:
-            # warned erlier
+            # warned earlier
             continue
         aktivitet_id = {}
         for persontype, role in interesting_fs_roles:
@@ -292,23 +253,21 @@ def gen_undervisningsenhet(cgi, sip, out):
             entity_id = cgi.find_group_by_undervisningsenhet(*args)
             if entity_id is not None:
                 aktivitet_id["%i" % entity_id] = role
-#        if len(aktivitet_id) != 2:
-#            continue
         keys = aktivitet_id.keys()
         keys.sort()
         urn = 'urn:mace:uio.no:offering:enhet-%s' % "_".join(keys)
         out.write(entry_string("cn=ue-%i,%s" % (n, top_dn), {
-            'objectClass':               ("top", "uioEduOffering"),
-            'uioEduCourseCode':          (iso2utf(entry['emnekode']),),
-            'uioEduCourseAdministrator': (iso2utf(emne['sko']),),
-            'uioEduCourseLevel':         (iso2utf(emne['studienivakode']),),
-            'uioEduCourseName':          (iso2utf(emne['emnenavn_bokmal']),),
-            'uioEduCourseInstitution':   (iso2utf(emne['institusjonsnr']),),
-            'uioEduCourseVersion':       (iso2utf(emne['versjonskode']),),
-            'uioEduOfferingTermCode':    (iso2utf(entry['terminkode']),),
-            'uioEduOfferingYear':        (iso2utf(entry['arstall']),),
-            'uioEduOfferingTermNumber':  (iso2utf(entry['terminnr']),),
-            'uioEduCourseOffering':      (iso2utf(urn),)}))
+            'objectClass': ("top", "uioEduOffering"),
+            'uioEduCourseCode': (entry['emnekode'],),
+            'uioEduCourseAdministrator': (emne['sko'],),
+            'uioEduCourseLevel': (emne['studienivakode'],),
+            'uioEduCourseName': (emne['emnenavn_bokmal'],),
+            'uioEduCourseInstitution': (emne['institusjonsnr'],),
+            'uioEduCourseVersion': (emne['versjonskode'],),
+            'uioEduOfferingTermCode': (entry['terminkode'],),
+            'uioEduOfferingYear': (entry['arstall'],),
+            'uioEduOfferingTermNumber': (entry['terminnr'],),
+            'uioEduCourseOffering': (urn,)}))
         n += 1
         ret[urn] = aktivitet_id
     timer('... done gen_undervisningsenhet')
@@ -373,6 +332,7 @@ def main():
             emnefile and picklefile and ldiffile) or args:
         usage(1)
 
+    logger.info('Start')
     cgi = CerebrumGroupInfo()
     sip = StudinfoParsers(emnefile, aktivitetfile, enhetfile)
     destfile = ldif_outfile('KURS', ldiffile)
@@ -382,6 +342,7 @@ def main():
     end_ldif_outfile('KURS', destfile)
     owner_id2urn = gen_owner_id2urn(urn_dict)
     dump_pickle_file(picklefile, owner_id2urn)
+    logger.info('Done')
 
 
 def usage(exitcode=0):

@@ -150,11 +150,6 @@ class CerebrumUser(CerebrumEntity):
                         tmp.append(("smtp:" + alias_addr))
                 ad_attrs["proxyAddresses"] = tmp
 
-        # Convert str to unicode before comparing with AD
-        for attr_type, attr_val in ad_attrs.iteritems():
-            if type(attr_val) is str:
-                ad_attrs[attr_type] = unicode(attr_val, cereconf.ENCODING)
-
         self.ad_attrs.update(ad_attrs)
 
     def add_forward(self, forward_addr):
@@ -291,11 +286,6 @@ class CerebrumGroup(CerebrumEntity):
             "description": self.description or "N/A",
         })
 
-        # Convert str to unicode before comparing with AD
-        for attr_type, attr_val in ad_attrs.iteritems():
-            if type(attr_val) is str:
-                ad_attrs[attr_type] = unicode(attr_val, cereconf.ENCODING)
-
         self.ad_attrs.update(ad_attrs)
 
     def add_change(self, attr_type, value):
@@ -370,10 +360,5 @@ class CerebrumDistGroup(CerebrumGroup):
             "distinguishedName": "CN=%s,%s" % (self.gname, self.ou),
         })
         # TODO: add mail and proxyAddresses, etc
-
-        # Convert str to unicode before comparing with AD
-        for attr_type, attr_val in ad_attrs.iteritems():
-            if type(attr_val) is str:
-                ad_attrs[attr_type] = unicode(attr_val, cereconf.ENCODING)
 
         self.ad_attrs.update(ad_attrs)

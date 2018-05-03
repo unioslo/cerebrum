@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2003-2015 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,6 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 from collections import defaultdict
 
 from Cerebrum import Errors
@@ -25,7 +27,6 @@ from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.EmailLDAP import EmailLDAP
-from Cerebrum.modules.LDIFutils import iso2utf
 
 
 class EmailLDAPUiOMixin(EmailLDAP):
@@ -265,7 +266,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
             else:
                 insert = True
             if insert:
-                self.targ2vacation[t_id] = (iso2utf(row['vacation_text']),
+                self.targ2vacation[t_id] = (row['vacation_text'],
                                             row['start_date'],
                                             row['end_date'])
 
@@ -273,7 +274,8 @@ class EmailLDAPUiOMixin(EmailLDAP):
         """Fetches the subject ids (email target ids) that have unprocessed
         email_primary_address events for target system Exchange."""
         # fetch event ids
-        pending_events = [int(row['event_id']) for row in self._db.search_events(
+        pending_events = [int(row['event_id'])
+                          for row in self._db.search_events(
             type=(self.const.email_primary_address_mod,
                   self.const.email_primary_address_add,
                   self.const.email_primary_address_rem),

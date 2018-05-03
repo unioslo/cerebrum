@@ -43,7 +43,8 @@ import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, SMSSender
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.sms import SMSSender
 from Cerebrum.utils import argutils
 
 

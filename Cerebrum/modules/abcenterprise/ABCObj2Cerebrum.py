@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -17,16 +17,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import cerebrum_path
-import cereconf
+from __future__ import unicode_literals
 import abcconf
 
 from Cerebrum.Utils import Factory
-from Cerebrum.extlib.doc_exception import DocstringException
+from Cerebrum.modules.abcenterprise.ABCUtils import ABCNotSupportedError
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCDataError
-from Cerebrum.modules.abcenterprise.ABCUtils import ABCTypesError 
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCConfigError
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
+
 
 class ABCObj2Cerebrum(object):
     """Class for comunicationg with Cerebrum."""
@@ -37,8 +36,8 @@ class ABCObj2Cerebrum(object):
         self.sett = settings
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
-        self._o2c = ABCFactory.get('Object2Cerebrum')(abcconf.SOURCE['source_system'],
-                                                      logger)
+        self._o2c = ABCFactory.get('Object2Cerebrum')(
+            abcconf.SOURCE['source_system'], logger)
         self.logger = logger
 
     def _conv_cons(self, value):
@@ -50,7 +49,7 @@ class ABCObj2Cerebrum(object):
             return abcconf.CONSTANTS[value]
         except:
             raise ABCConfigError("constant mismatch '%s'" % value)
-        
+
     def _conv_const_entity(self, entity):
         """Convert temporary text constants to real Constants."""
         entity = self._process_tags(entity)
@@ -70,19 +69,21 @@ class ABCObj2Cerebrum(object):
         return entity
 
     def _process_tags(self, entity):
-        """Process known «tag» mechanis. Translate the tagtype into something
+        """Process known <tag> mechanics. Translate the tagtype into something
         Object2Cerebrum understands."""
         new_tags = dict()
         for i in entity._tags.keys():
             if i == "ADD_SPREAD":
                 for s in entity._tags[i]:
-                    if abcconf.TAG_REWRITE.has_key(s):
-                        new_tags.setdefault(i, []).append(abcconf.TAG_REWRITE[s])
+                    if s in abcconf.TAG_REWRITE:
+                        new_tags.setdefault(i, []).append(
+                            abcconf.TAG_REWRITE[s])
                     else:
-                        raise ABCConfigError, "missing TAG_REWRITE rule: %s" % s
-                
+                        raise ABCConfigError(
+                            "missing TAG_REWRITE rule: %s" % s)
+
             else:
-                raise ABCConfigError, "no known action for tag_type: %s" % i
+                raise ABCConfigError("no known action for tag_type: %s" % i)
         entity._tags = new_tags
         return entity
 
@@ -100,7 +101,7 @@ class ABCObj2Cerebrum(object):
         else:
             # unknown gender
             # raise ABCDataError, "gender unknown: %s" % person.gender
-            # TBD: what to do if no gender populated? 
+            # TBD: what to do if no gender populated?
             person.gender = self.co.gender_unknown
         return person
 
@@ -135,15 +136,15 @@ class ABCObj2Cerebrum(object):
             if id in abcconf.GROUP_NAMES:
                 group.name = group._ids[id]
         return group
-        
+
     def parse_settings(self):
         """Check variables in the imported <properties> tag.
         Verify that the file is an accepted file."""
-        
-        # Verify the XML-file 
-        if self.sett.variables['datasource'] != abcconf.SOURCE['datasource'] or \
-           self.sett.variables['target'] != abcconf.SOURCE['target']:
-            raise ABCConfigError, "datasource and/or target doesn't match." 
+
+        # Verify the XML-file
+        if (self.sett.variables['datasource'] != abcconf.SOURCE['datasource']
+                or self.sett.variables['target'] != abcconf.SOURCE['target']):
+            raise ABCConfigError("datasource and/or target doesn't match.")
 
     def parse_orgs(self, iterator):
         """Iterate over organizations. Org objects come with an
@@ -164,22 +165,26 @@ class ABCObj2Cerebrum(object):
                 if new_ou.parent is None:
                     ou_struct[e_id] = org_e_id
                 else:
-                    ou_struct[e_id] = (self._conv_cons(new_ou.parent[0]), new_ou.parent[1])
+                    ou_struct[e_id] = (self._conv_cons(new_ou.parent[0]),
+                                       new_ou.parent[1])
             for i in ou_struct.keys():
                 try:
-                    self._o2c.set_ou_parent(i, abcconf.OU_PERSPECTIVE, ou_struct[i])
-                except Exception, e:
+                    self._o2c.set_ou_parent(i,
+                                            abcconf.OU_PERSPECTIVE,
+                                            ou_struct[i])
+                except Exception as e:
                     self.logger.warning("Error(ou_parent): %s" % e)
-                
+
     def parse_persons(self, iterator):
         """Iterate over person objects."""
         for person in iterator:
             new_person = self._conv_const_person(person)
             try:
                 self._o2c.store_person(new_person)
-            except Exception, e:
-                self.logger.warning("Error(person): %s, %s" % (e, list(person.iterids())))
-                
+            except Exception as e:
+                self.logger.warning(
+                    "Error(person): %s, %s" % (e, list(person.iterids())))
+
     def parse_groups(self, iterator):
         """Iterate over group objects. Note that members follow in
         the <relation> part. There are no group names either, just
@@ -190,7 +195,8 @@ class ABCObj2Cerebrum(object):
             if new_group.name:
                 self._o2c.store_group(new_group)
             else:
-                self.logger.warning("Error(parse_groups): Group has no name '%s'" % group)
+                self.logger.warning(
+                    "Error(parse_groups): Group has no name '%s'" % group)
 
     # TODO: cleanup. and lots of it.
     def parse_relations(self, iterator):
@@ -207,30 +213,33 @@ class ABCObj2Cerebrum(object):
             if s == "org":
                 s = "ou"
             sub = None
-            try: 
+            try:
                 sub = rel.subject[0][1:]
                 if isinstance(sub[0], tuple):
-                    # Hack to ignore organizations for now. They are all under one.
+                    # Hack to ignore organizations for now. They are all under
+                    # one.
                     if len(sub) == 2:
                         sub = sub[1]
                     else:
                         sub = sub[0]
-                if abcconf.CONSTANTS.has_key(sub[0]):
+                if sub[0] in abcconf.CONSTANTS:
                     sub = [abcconf.CONSTANTS[sub[0]], sub[1]]
                 else:
-                    raise ABCDataError, "subject-type '%s' not found in CONSTANTS" % sub[0]
+                    raise ABCDataError(
+                        "subject-type '%s' not found in CONSTANTS" % sub[0])
                 # Optional rewrite rule.
                 rewrite = getattr(abcconf, "GROUP_REWRITE", None)
                 if s == "group" and rewrite:
                     sub[1] = rewrite(sub[1])
-            except Exception, e:
-                txt = "Error(relations) subject: s: %s, t: %s - %s" % (rel.subject,
-                                                                       rel.type, e)
+            except Exception as e:
+                txt = ("Error(relations) subject: s: "
+                       "%s, t: %s - %s" % (rel.subject, rel.type, e))
                 self.logger.warning(txt)
                 continue
             # TBD: object can be empty. deal with it.
-            if rel.object == None or len(rel.object) < 1:
-                self.logger.warning("Error(relations): No object in '%s'. Skipping." % rel)
+            if rel.object is None or len(rel.object) < 1:
+                self.logger.warning(
+                    "Error(relations): No object in '%s'. Skipping." % rel)
                 continue
             for obj in rel.object:
                 try:
@@ -241,36 +250,39 @@ class ABCObj2Cerebrum(object):
                     tmp = abcconf.RELATIONS[s][o][rel.type]
                     type = tmp[0]
                     rest = tmp[1:]
-                
+
                     ob = obj[1:]
                     if ob == []:
-                        raise ABCDataError, "no object: %s, %s" % (type, sub)
+                        raise ABCDataError("no object: %s, %s" % (type, sub))
                     if isinstance(ob[0], tuple):
                         if len(ob) == 2:
                             ob = ob[1]
                         else:
-                            ob = ob[0]                      
-                    if abcconf.CONSTANTS.has_key(ob[0]):
+                            ob = ob[0]
+                    if ob[0] in abcconf.CONSTANTS:
                         ob = (abcconf.CONSTANTS[ob[0]], ob[1])
                     else:
-                        raise ABCDataError, "object-type '%s' not found in CONSTANTS" % ob
+                        raise ABCDataError(
+                            "object-type '%s' not found in CONSTANTS" % ob)
 
                     if type == "memberof":
                         self._o2c.add_group_member(sub, o, ob)
                     elif type == "affiliation":
                         if len(rest) != 1:
-                            raise ABCDataError, "error in 'rest'"
+                            raise ABCDataError("error in 'rest'")
                         status = abcconf.AFF_STATUS[rest[0]]
-                        self._o2c.add_person_affiliation(sub, ob, rest[0], status)
+                        self._o2c.add_person_affiliation(sub,
+                                                         ob,
+                                                         rest[0],
+                                                         status)
                     else:
-                        raise ABCNotSupportedError, "'%s' is not supported." % type
-                    
-                except Exception, e:
-                    txt = "Error(relations): s: %s, t: %s, o: %s: %s" % (rel.subject,
-                                                                         rel.type,
-                                                                         obj, e)
-                    self.logger.warning(txt)
+                        raise ABCNotSupportedError(
+                            "'%s' is not supported." % type)
 
+                except Exception as e:
+                    txt = ("Error(relations): s: %s, t: %s, o: %s: %s" %
+                           (rel.subject, rel.type, obj, e))
+                    self.logger.warning(txt)
 
     def close(self):
         """Close whatever you need to close and finish your business."""
@@ -280,4 +292,3 @@ class ABCObj2Cerebrum(object):
         else:
             self._o2c.commit()
             self.logger.debug("commit()")
-

@@ -25,6 +25,8 @@ import copy
 import re
 import string
 
+import six
+
 import cereconf
 
 from Cerebrum import Errors
@@ -75,6 +77,13 @@ class UsernameGenerator(object):
         legal in a posix username.
         If as_gecos=1, it may also be used for the gecos field
         """
+        try:
+            # make sure that s contains only latin1 compatible characters
+            s = self._encode(s)
+        except UnicodeEncodeError:
+            raise ValueError(
+                '{encoding} incompatible characters detected'.format(
+                    encoding=self.encoding))
         key = bool(alt) + (bool(as_gecos) * 2)
         try:
             (tr, xlate_subst, xlate_match) = self._simplify_name_cache[key]
@@ -85,9 +94,10 @@ class UsernameGenerator(object):
             xlate_subst = re.compile(r'[^a-zA-Z0-9 -]').sub
 
             def xlate_match(match):
-                return xlate.get(match.group(), "")
+                return xlate.get(match.group(), '')
 
-            tr = dict(zip(map(chr, xrange(0200, 0400)), ('x',) * 0200))
+            tr = dict(zip(map(six.int2byte,
+                              xrange(0200, 0400)), ('x',) * 0200))
             tr.update(dict(zip(
                 self._encode(u'ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝàáâãäçèéêëìíîï'
                              u'ñòóôõöùúûüýÿ{[}]|¦\\¨­¯´'),
@@ -95,11 +105,12 @@ class UsernameGenerator(object):
                              u'ooooouuuuyyaAaAooO"--\''))))
             for ch in filter(lambda x: x in tr, xlate):
                 del tr[ch]
-            tr = string.maketrans("".join(tr.keys()), "".join(tr.values()))
+            tr = string.maketrans(''.join(tr.keys()), ''.join(tr.values()))
             if not as_gecos:
                 # lowercase the result
                 tr = tr.lower()
-                xlate = dict(zip(xlate.keys(), map(str.lower, xlate.values())))
+                xlate = dict(zip(xlate.keys(),
+                                 map(six.binary_type.lower, xlate.values())))
             self._simplify_name_cache[key] = (tr, xlate_subst, xlate_match)
 
         xlated = xlate_subst(xlate_match, s.translate(tr))
@@ -108,7 +119,10 @@ class UsernameGenerator(object):
         # one of them between words, and none leading or trailing.
         xlated = re.sub(r'\s+', " ", xlated)
         xlated = re.sub(r' ?-+ ?', "-", xlated).strip(" -")
-        return xlated
+        try:
+            return xlated.decode()
+        except UnicodeEncodeError:
+            raise ValueError('ASCII incompatible output produced')
 
     def suggest_unames(self,
                        domain,
@@ -281,7 +295,7 @@ class UsernameGenerator(object):
         If self.encoding is empty or None or if `u` is not unicode,
         u is returned.
         """
-        if not isinstance(u, unicode) or not self.encoding:
+        if not isinstance(u, six.text_type) or not self.encoding:
             return u
         return u.encode(self.encoding)
 

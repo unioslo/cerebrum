@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2015 University of Oslo, Norway
 #
@@ -22,6 +22,8 @@
 import time
 import select
 import traceback
+
+from six import text_type
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -388,7 +390,7 @@ class EventLogMixin(DBProducer):
     """ Implements serializing db-rows from mod_eventlog to EventItems. """
 
     def _row_to_event(self, db_row):
-        channel = str(self.co.TargetSystem(db_row['target_system']))
+        channel = text_type(self.co.TargetSystem(db_row['target_system']))
         identity = int(db_row['event_id'])
         event = dict(db_row)
         return EventItem(channel, identity, event)

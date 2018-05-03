@@ -19,6 +19,8 @@
 
 """ChangeLog constants for Exchange at UiA."""
 
+from __future__ import unicode_literals
+
 from Cerebrum.modules.CLConstants import CLConstants
 from Cerebrum.modules.CLConstants import _ChangeTypeCode
 

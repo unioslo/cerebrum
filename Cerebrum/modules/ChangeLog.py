@@ -19,28 +19,24 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ A changelog API that stores changes in the Database. """
-import pickle
 
 import Cerebrum.ChangeLog
 from Cerebrum.Utils import argument_to_sql
+import Cerebrum.utils.json as json
 
 
-__version__ = "1.3"
+__version__ = "1.4"
 
 
-def _pickle_change_params(encoding, cp):
-    """Utility function for converting unicode objects in pickled data."""
-    def encode(value):
-        if isinstance(value, unicode):
-            return value.encode(encoding)
-        else:
-            return value
+def _params_to_db(params, separators=(',', ':')):
+    """ Return None or json of params.
 
-    if isinstance(cp, dict):
-        return pickle.dumps(
-            dict(map(lambda (k, v): (k, encode(v)), cp.items())))
-    else:
-        return pickle.dumps(cp)
+    :param params: Params to json, mostly dicts or None
+    :param separators: See json.dumps. Default is the most compact style.
+    """
+    if params is None:
+        return None
+    return json.dumps(params, separators=separators)
 
 
 class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
@@ -54,25 +50,23 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
     def update_log_event(self, change_id, change_params):
         """ Update a logged change.
 
-        This method is typically used to update/replace the pickled parameters
+        This method is typically used to update/replace the json parameters
         that are stored in the changelog entry.
 
         :param int change_id:
             The change id
 
         :param change_params:
-            The parameters to pickle and store in the change entry. This can be
-            None (remove parameters), or any pickle-able object.
+            The parameters to store in the change entry. This can be
+            None (remove parameters), or any json-able object.
 
         """
-        if change_params is not None:
-            change_params = _pickle_change_params(self.encoding, change_params)
         self.execute("""
         UPDATE [:table schema=cerebrum name=change_log]
         SET change_params=:change_params
         WHERE change_id=:change_id""", {
             'change_id': int(change_id),
-            'change_params': change_params})
+            'change_params': _params_to_db(change_params)})
 
     def remove_log_event(self, change_id):
         """ Remove a logged change.
@@ -106,7 +100,7 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
             Destination entity?
 
         :param None,dict change_params:
-            None, or pickle-able object to store with the change entry.
+            None, or json-able object to store with the change entry.
 
         :param int change_by:
             The entity that performed the change, if any. Default: Value
@@ -133,18 +127,15 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
             **kw)
         if skip_change:
             return
-        del skip_change
-        del kw
-        if change_by is None and self.change_by is not None:
-            change_by = self.change_by
-        elif change_program is None and self.change_program is not None:
-            change_program = self.change_program
-        if change_by is None and change_program is None:
-            raise self.ProgrammingError("must set change_by or change_program")
-        change_type_id = int(change_type_id)
-        if change_params is not None:
-            change_params = _pickle_change_params(self.encoding, change_params)
-        self.messages.append(locals())  # ugh
+        self.messages.append(
+            dict(
+                subject_entity=subject_entity,
+                change_type_id=int(change_type_id),
+                destination_entity=destination_entity,
+                change_by=self.change_by if change_by is None else change_by,
+                change_program=(self.change_program if change_program is None
+                                else change_program),
+                change_params=_params_to_db(change_params)))
 
     def clear_log(self):
         """See write_log"""

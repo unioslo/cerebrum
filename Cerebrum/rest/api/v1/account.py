@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2017 University of Oslo, Norway
+# Copyright 2016-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,12 +19,15 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Account API. """
 
+from __future__ import unicode_literals
+
 from flask import make_response, request
 from flask_restplus import Namespace, Resource, abort
+from six import text_type
 
 import mx.DateTime
 
-from Cerebrum.rest.api import db, auth, fields, utils
+from Cerebrum.rest.api import db, auth, fields, utils, validator
 from Cerebrum.rest.api.v1 import group
 from Cerebrum.rest.api.v1 import models
 from Cerebrum.rest.api.v1 import emailaddress
@@ -50,7 +53,7 @@ def find_account(identifier):
             account = utils.get_account(identifier=identifier,
                                         idtype=idtype)
     except utils.EntityLookupError as e:
-        abort(404, message=str(e))
+        abort(404, message=e)
     return account
 
 
@@ -181,16 +184,14 @@ AccountHomeList = api.model('AccountHomeList', {
         description='Home directories'),
 })
 
-PasswordPayload = api.model('PasswordPayload', {
-    'password': fields.base.String(
-        description='Password',
-        required=True),
-})
-
-PasswordChangePayload = api.model('PasswordChangePayload', {
-    'password': fields.base.String(
-        description='Password, leave empty to generate one'),
-})
+password_parser = api.parser()
+password_parser.add_argument(
+    'password',
+    type=validator.String(),
+    required=True,
+    location='form',
+    help='Password',
+)
 
 PasswordChanged = api.model('PasswordChanged', {
     'password': fields.base.String(
@@ -293,7 +294,8 @@ class AccountQuarantineListResource(Resource):
 
     account_quarantines_filter = api.parser()
     account_quarantines_filter.add_argument(
-        'context', type=str,
+        'context',
+        type=validator.String(),
         help='Consider locked status based on context.')
 
     @api.marshal_with(AccountQuarantineList)
@@ -308,7 +310,7 @@ class AccountQuarantineListResource(Resource):
             try:
                 spreads = [int(db.const.Spread(args.context))]
             except Errors.NotFoundError:
-                abort(404, message=u'Unknown context {!r}'.format(
+                abort(404, message='Unknown context {!r}'.format(
                     args.context))
 
         ac = find_account(name)
@@ -503,22 +505,29 @@ class AccountListResource(Resource):
 
     account_search_filter = api.parser()
     account_search_filter.add_argument(
-        'name', type=str,
+        'name',
+        type=validator.String(),
         help='Filter by account name. Accepts * and ? as wildcards.')
     account_search_filter.add_argument(
-        'context', type=str, dest='spread',
+        'context',
+        type=validator.String(),
+        dest='spread',
         help='Filter by context. Accepts * and ? as wildcards.')
     account_search_filter.add_argument(
-        'owner_id', type=int,
+        'owner_id',
+        type=int,
         help='Filter by owner entity ID.')
     account_search_filter.add_argument(
-        'owner_type', type=str,
+        'owner_type',
+        type=validator.String(),
         help='Filter by owner entity type.')
     account_search_filter.add_argument(
-        'expire_start', type=str,
+        'expire_start',
+        type=validator.String(),
         help='Filter by expiration start date.')
     account_search_filter.add_argument(
-        'expire_stop', type=str,
+        'expire_stop',
+        type=validator.String(),
         help='Filter by expiration end date.')
 
     @api.marshal_with(AccountList)
@@ -536,7 +545,7 @@ class AccountListResource(Resource):
                 filters['owner_type'] = int(owner_type)
             except Errors.NotFoundError:
                 abort(404,
-                      message=u'Unknown entity type for owner_type={}'.format(
+                      message='Unknown entity type for owner_type={}'.format(
                           filters['owner_type']))
 
         ac = Factory.get('Account')(db.connection)
@@ -589,9 +598,9 @@ class AccountGroupListResource(Resource):
         for row in gr.search(**filters):
             group = dict(row)
             group.update({
-                'id': utils._db_decode(group['name']),
-                'name': utils._db_decode(group['name']),
-                'description': utils._db_decode(group['description'])
+                'id': group['name'],
+                'name': group['name'],
+                'description': group['description']
             })
             groups.append(group)
         return groups
@@ -656,138 +665,83 @@ class AccountHomeListResource(Resource):
         return {'homes': homes}
 
 
-@api.route('/<string:name>/password')
+@api.route('/<string:name>/password', endpoint='account-password')
 @api.doc(params={'name': 'account name'})
 class AccountPasswordResource(Resource):
     """Resource for account password change."""
 
+    new_password_parser = api.parser()
+    new_password_parser.add_argument(
+        'password',
+        type=validator.String(),
+        required=False,
+        location='form',
+        help='Password, leave empty to generate one',
+    )
+
     @db.autocommit
     @auth.require()
-    @api.expect(PasswordChangePayload)
+    @api.expect(new_password_parser)
     @api.response(200, 'Password changed', PasswordChanged)
     @api.response(400, 'Invalid password')
     def post(self, name):
         """Change the password for this account."""
         ac = find_account(name)
         data = request.get_json()
-        plaintext = data.get('password', None)
-        plaintext_unicode = None  # used for utf-8 conversion
-        if plaintext is None:
-            plaintext = ac.make_passwd(ac.account_name)
-        if isinstance(plaintext, str):
-            # plaintext can be either latin1 (ISO-8859-1) or UTF-8 str
-            # depending on the publisher and the weather...
-            # The following hack ensures that we end up with a latin1 string
-            # in order to please set_password.
-            # Hopefully Cerebrum will switch to unicode in the near future
-            try:
-                plaintext_unicode = plaintext.decode('utf-8')
-            except:  # probably latin1
-                plaintext_unicode = plaintext.decode('iso-8859-1')
-            try:
-                plaintext = plaintext_unicode.encode('iso-8859-1')
-            except UnicodeEncodeError:
-                abort(400, 'Bad password: Contains illegal characters')
-        elif isinstance(plaintext, unicode):
-            # in case it came from ac.make_passwd...
-            try:
-                plaintext_unicode = plaintext
-                plaintext = plaintext.encode('ISO-8859-1')
-            except UnicodeEncodeError:
-                abort(400, 'Bad password: Contains illegal characters')
+        password = data.get('password', None)
+        if password is None:
+            password = ac.make_passwd(ac.account_name)
+        assert isinstance(password, text_type)
         try:
-            check_password(plaintext,
-                           account=ac,
-                           structured=False)
-        except PasswordNotGoodEnough as err:
-            abort(400, 'Bad password: {}'.format(err))
-        ac.set_password(plaintext)
+            check_password(password, account=ac, structured=False)
+        except PasswordNotGoodEnough as e:
+            abort(400, 'Bad password: {}'.format(e))
+        ac.set_password(password)
         # Remove "weak password" quarantine
         for q in (db.const.quarantine_autopassord,
                   db.const.quarantine_svakt_passord):
             ac.delete_entity_quarantine(q)
         ac.write_db()
-        return {'password': plaintext_unicode.encode('utf-8')}
+        return {'password': password}
 
 
-@api.route('/<string:name>/password/verify')
+@api.route('/<string:name>/password/verify',
+           endpoint='account-password-verify')
 @api.doc(params={'name': 'account name'})
 class AccountPasswordVerifierResource(Resource):
     """Resource for account password verification."""
 
     @auth.require()
-    @api.expect(PasswordPayload)
+    @api.expect(password_parser)
     @api.response(200, 'Password verification', PasswordVerification)
     @api.response(400, 'Password missing or contains unsupported characters')
     def post(self, name):
         """Verify the password for this account."""
         ac = find_account(name)
         data = request.get_json()
-        plaintext = data.get('password', None)
-        if plaintext is None:
-            abort(400, 'No password specified')
-        if isinstance(plaintext, str):
-            # plaintext can be either latin1 (ISO-8859-1) or UTF-8 str
-            # depending on the publisher and the weather...
-            # The following hack ensures that we end up with a latin1 string
-            # in order to please set_password.
-            # Hopefully Cerebrum will switch to unicode in the near future
-            try:
-                plaintext = plaintext.decode('utf-8')
-            except:  # probably latin1
-                plaintext = plaintext.decode('iso-8859-1')
-            try:
-                # and back to latin1 again...
-                plaintext = plaintext.encode('iso-8859-1')
-            except UnicodeEncodeError:
-                abort(400, 'Bad password: Contains illegal characters')
-        elif isinstance(plaintext, unicode):
-            try:
-                plaintext = plaintext.encode('ISO-8859-1')
-            except UnicodeEncodeError:
-                abort(400, 'Bad password: Contains illegal characters')
-        verified = bool(ac.verify_auth(plaintext))
+        password = data.get('password', None)
+        assert isinstance(password, text_type)
+        verified = bool(ac.verify_auth(password))
         return {'verified': verified}
 
 
-@api.route('/<string:name>/password/check')
+@api.route('/<string:name>/password/check',
+           endpoint='account-password-check')
 @api.doc(params={'name': 'account name'})
 class AccountPasswordCheckerResource(Resource):
     """Resource for account password checking."""
 
     @auth.require()
-    @api.expect(PasswordPayload)
+    @api.expect(password_parser)
     @api.response(200, 'Password check result')
     @api.response(400, 'Password missing or contains unsupported characters')
     def post(self, name):
         """Check if a password is valid according to rules."""
         ac = find_account(name)
         data = request.get_json()
-        plaintext = data.get('password', None)
-        if plaintext is None:
-            abort(400, 'No password specified')
-        if isinstance(plaintext, str):
-            # plaintext can be either latin1 (ISO-8859-1) or UTF-8 str
-            # depending on the publisher and the weather...
-            # The following hack ensures that we end up with a latin1 string
-            # in order to please set_password.
-            # Hopefully Cerebrum will switch to unicode in the near future
-            try:
-                plaintext = plaintext.decode('utf-8')
-            except:  # probably latin1
-                plaintext = plaintext.decode('iso-8859-1')
-            try:
-                plaintext = plaintext.encode('iso-8859-1')
-            except UnicodeEncodeError:
-                abort(400, 'Bad password: Contains illegal characters')
-        elif isinstance(plaintext, unicode):
-            try:
-                plaintext = plaintext.encode('ISO-8859-1')
-            except UnicodeEncodeError:
-                abort(400, 'Bad password: Contains illegal characters')
-        return check_password(plaintext,
-                              account=ac,
-                              structured=True)
+        password = data.get('password', None)
+        assert isinstance(password, text_type)
+        return check_password(password, account=ac, structured=True)
 
 
 @api.route('/<string:name>/gpg/<string:tag>/<string:key_id>/latest', doc=False)

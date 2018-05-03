@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# coding: utf-8
+# -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,16 +28,8 @@ from Cerebrum.ChangeLog import ChangeLog
 from . import context
 
 
-_CLS_DB = Factory.get(b'Database')
-_CLS_CONST = Factory.get(b'Constants')
-ENCODING = 'utf-8'
-
-
-def _connect(encoding):
-    db = _CLS_DB(client_encoding=encoding)
-    if isinstance(db, ChangeLog):
-        db.cl_init()
-    return db
+_CLS_DB = Factory.get('Database')
+_CLS_CONST = Factory.get('Constants')
 
 
 class DatabaseContext(object):
@@ -63,9 +55,8 @@ class DatabaseContext(object):
     _db_conn = context.ContextValue('database')
     _const = context.ContextValue('constants')
 
-    def __init__(self, app=None, encoding=ENCODING):
+    def __init__(self, app=None):
         self.__change_program = None
-        self.encoding = encoding
         if app is not None:
             self.init_app(app)
 
@@ -79,7 +70,9 @@ class DatabaseContext(object):
     def connection(self):
         """ database connection. """
         if self._db_conn is None:
-            self._db_conn = _connect(self.encoding)
+            self._db_conn = _CLS_DB()
+            if isinstance(self._db_conn, ChangeLog):
+                self._db_conn.cl_init()
             self._update_changelog()
         return self._db_conn
 

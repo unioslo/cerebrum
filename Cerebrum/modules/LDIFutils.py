@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2004-2012 University of Oslo, Norway
 #
@@ -23,20 +23,18 @@
 
 Modify base64_attrs and needs_base64 to tune the output."""
 
+from __future__ import unicode_literals
 
+import binascii
 import re
 import string
 import os.path
-from binascii import \
-    b2a_hex as _str2hex, a2b_hex as _hex2str, b2a_base64 as _base64encode
-try:
-    set
-except NameError:
-    from sets import Set as set
+from six import text_type
+from base64 import b64encode
 
 import cereconf
 from Cerebrum import Errors as _Errors
-from Cerebrum.Utils import Factory, to_unicode, unicode2str
+from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
@@ -58,14 +56,11 @@ needs_base64 = needs_base64_readable
 _dummy = object()
 
 
-def ldapconf(tree, attr, default=_dummy, utf8=True, module=cereconf):
-    """Return module.LDAP_<tree>[<attr>] with default, translated to UTF-8.
+def ldapconf(tree, attr, default=_dummy, module=cereconf):
+    """Return module.LDAP_<tree>[<attr>] with default.
 
     Fetch module.LDAP_<tree>[<attr>], or LDAP[<attr>] if <tree> is None.
     If <default> is given, it is used if the setting is absent or None.
-    If <utf8>, the result is converted to UTF-8, recursing through tuples,
-    lists and dict values, but not dict keys.  If <utf8> is a type or list
-    of types, only values with or inside these types are converted.
     """
     var = tree is None and 'LDAP' or 'LDAP_' + tree
     val = getattr(module, var).get(attr, default)
@@ -74,28 +69,14 @@ def ldapconf(tree, attr, default=_dummy, utf8=True, module=cereconf):
                                       % (module.__name__, var, attr))
     if val is None and default is not _dummy:
         val = default
-    if utf8:
-        val = _deep_text2utf(val, utf8)
     return val
-
-
-def _deep_text2utf(obj, utf8):
-    if utf8 is True:
-        if isinstance(obj, str):
-            return iso2utf(obj)
-        if isinstance(obj, unicode):
-            return obj.encode('utf-8')
-    elif isinstance(obj, utf8):
-        return _deep_text2utf(obj, True)
-    if isinstance(obj, (tuple, list)):
-        return type(obj)([_deep_text2utf(x, utf8) for x in obj])
-    if isinstance(obj, dict):
-        return dict([(x, _deep_text2utf(obj[x], utf8)) for x in obj])
-    return obj
 
 
 # Match an escaped character in a DN; group 1 will match the character.
 dn_escaped_re = re.compile('\\\\([0-9a-fA-F]{2}|[<>,;+"#\\\\=\\s])')
+
+# Match a character which must be escaped in a DN.
+dn_escape_re = re.compile('\\A[\\s#]|["+,;<>\\\\=\0\r\n]|\\s\\Z')
 
 
 def unescape_match(match):
@@ -105,18 +86,14 @@ def unescape_match(match):
     escaped = match.group(1)
     if len(escaped) == 1:
         return escaped
-    else:
-        return _hex2str(escaped)
-
-# Match a character which must be escaped in a DN.
-dn_escape_re = re.compile('\\A[\\s#]|["+,;<>\\\\=\0\r\n]|\\s\\Z')
+    return binascii.a2b_hex(escaped)
 
 
 def hex_escape_match(match):
     """Return the '\\hex' representation of a match object for a character.
 
     Used e.g. with dn_escape_re.sub(hex_escape_match, <attr value>)."""
-    return '\\' + _str2hex(match.group())
+    return '\\' + binascii.b2a_hex([x.encode('utf-8') for x in match.group()])
 
 
 def entry_string(dn, attrs, add_rdn=True):
@@ -128,7 +105,6 @@ def entry_string(dn, attrs, add_rdn=True):
     If ADD_RDN, add the values in the rdn to the attributes if necessary.
     This feature is rudimentary:  Fails with \+ and \, in the DN.  Considers
     attr names case-sensitive, attr values as caseIgnore Directory Strings."""
-
     if add_rdn:
         attrs = attrs.copy()
         # DN = RDN or "RDN,parentDN".  RDN = "attr=rval+attr=rval+...".
@@ -152,7 +128,7 @@ def entry_string(dn, attrs, add_rdn=True):
 
     need_b64 = needs_base64
     if need_b64(dn):
-        result = ["dn:: ", _base64encode(dn)]
+        result = ["dn:: ", b64encode(dn.encode('utf-8')), "\n"]
     else:
         result = ["dn: ", dn, "\n"]
 
@@ -162,12 +138,13 @@ def entry_string(dn, attrs, add_rdn=True):
     for attr, vals in attrs:
         for val in _attrval2iter[type(vals)](vals):
             if attr in base64_attrs or need_b64(val):
-                extend((attr, ":: ", _base64encode(val)))
+                extend((attr, ":: ", b64encode(val.encode('utf-8')), "\n"))
             else:
                 extend((attr, ": ", val, "\n"))
 
     result.append("\n")
-    return unicode2str(u"".join(map(to_unicode, result)))
+    return "".join(result)
+
 
 # For entry_string() attrs: map {type: function producing sequence/iterator}
 _attrval_seqtypes = (tuple, list, set, frozenset, type(None))
@@ -177,6 +154,7 @@ _attrval2iter = {
     set: sorted,  # sorting but minimizes changes in the output file
     frozenset: sorted,
     str: (lambda *args: args),
+    unicode: (lambda *args: args),
     type(None): (lambda arg: ())}
 
 
@@ -189,7 +167,6 @@ def container_entry_string(tree_name, attrs={}, module=cereconf):
 
 
 class LDIFWriter(object):
-
     """Wrapper around ldif_outfile with a minimal but sane API."""
 
     def __init__(self, tree, filename, module=cereconf):
@@ -198,9 +175,9 @@ class LDIFWriter(object):
         self.f = ldif_outfile(tree, filename=filename, module=module)
         self.write, self.tree, self.module = self.f.write, tree, module
 
-    def getconf(self, attr, default=_dummy, utf8=True):
+    def getconf(self, attr, default=_dummy):
         """ldapconf() wrapper for this LDIF file's LDAP tree"""
-        return ldapconf(self.tree, attr, default, utf8, self.module)
+        return ldapconf(self.tree, attr, default, self.module)
 
     # def write(): This is (currently) implemented via an attribute.
 
@@ -316,13 +293,14 @@ def _decode_const(constname, value):
                 raise _Errors.PoliteException("Invalid %s: %r"
                                               % (constname, value))
 
+postal_escape_re = re.compile(r'[$\\]')
 
-# Match an 8-bit string
-_is_eightbit = re.compile('[\200-\377]').search
-
-_normalize_trans = string.maketrans(
-    string.ascii_uppercase + string.whitespace.replace(" ", ""),
-    string.ascii_lowercase + " " * (len(string.whitespace) - 1))
+# Uppercase -> lowercase, whitespace -> space
+_normalize_trans = {
+    ord(s): text_type(d) for s, d in zip(
+        string.ascii_uppercase + string.whitespace.replace(" ", ""),
+        string.ascii_lowercase + " " * (len(string.whitespace) - 1))
+}
 
 # Match multiple spaces
 _multi_space_re = re.compile('[%s]{2,}' % string.whitespace)
@@ -331,24 +309,15 @@ _multi_space_re = re.compile('[%s]{2,}' % string.whitespace)
 _space_re = re.compile('[%s]+' % string.whitespace)
 
 
-def iso2utf(s):
-    """Convert iso8859-1 to utf-8."""
-    if _is_eightbit(s):
-        return unicode(s, 'iso-8859-1').encode('utf-8')
-    return s
-
-
 def normalize_phone(phone):
     """Normalize phone/fax numbers for comparison of LDAP values."""
-    return phone.translate(_normalize_trans, " -")
+    return phone.translate(_normalize_trans).replace(' ', '').replace('-', '')
 
 
 def normalize_string(s):
     """Normalize strings for comparison of LDAP values."""
-    s = _multi_space_re.sub(' ', s.translate(_normalize_trans)).strip()
     # Note: _normalize_trans lowercases ASCII letters.
-    if _is_eightbit(s):
-        s = unicode(s, 'utf-8').lower().encode('utf-8')
+    s = _multi_space_re.sub(' ', s.translate(_normalize_trans)).strip()
     return s
 
 
@@ -376,24 +345,18 @@ verify_emailish = re.compile(r"[^@]+@[^@]+\.[^@]+").match
 
 
 class ldif_parser(object):
-
     """
     Use the python-ldap's ldif.LDIFParser(). Redirect handle routine
     to local routine. Input is file and following parameter are optionals:
     ignored_attr_types(=None), max_entries(=0), process_url_schemes(=None),
     line_sep(='\n').
     """
-
     def __init__(self, inputfile,
                  ignored_attr_types=None,
                  max_entries=0,
                  process_url_schemes=None,
                  line_sep='\n'):
-        try:
-            import ldif
-        except ImportError as e:
-            raise _Errors.PoliteException(
-                (str(e) + '\n' + "python-ldap module probably not installed."))
+        import ldif
         self._ldif = ldif.LDIFParser(
             inputfile, ignored_attr_types, max_entries,
             process_url_schemes, line_sep)

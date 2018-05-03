@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2016-2018 University of Oslo, Norway
@@ -19,21 +18,20 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains a command for sending passwords by SMS. """
-
 import cereconf
 
 from mx import DateTime
 
 from Cerebrum import Errors
-from Cerebrum.Utils import SMSSender
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func
 from Cerebrum.modules.bofhd.cmd_param import (
     AccountName, Command, FormatSuggestion, Mobile, SMSString, SimpleString)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import (
-    BofhdExtension as UiOBofhdExtension)
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import (BofhdExtension as
+                                                    UiOBofhdExtension)
+from Cerebrum.utils.sms import SMSSender
 
 uio_helpers = ['_get_cached_passwords']
 
@@ -149,8 +147,8 @@ class BofhdExtension(BofhdCommonMethods):
                           mobile)[0]['contact_value']
 
         except IndexError:
-            raise CerebrumError(
-                'No applicable phone number for {}'.format(account_name))
+            raise CerebrumError('No applicable phone number for %r' %
+                                account_name)
 
     #
     # user send_welcome_sms <accountname> [<mobile override>]
@@ -197,8 +195,7 @@ class BofhdExtension(BofhdCommonMethods):
                             self.const.contact_mobile_phone)]
             mobile = self._get_phone_number(account.owner_id, phone_types)
             if not mobile:
-                raise CerebrumError("No mobile phone number for '%s'" %
-                                    username)
+                raise CerebrumError("No mobile phone number for %r" % username)
         # Get primary e-mail address, if it exists
         mailaddr = ''
         try:
@@ -207,10 +204,12 @@ class BofhdExtension(BofhdCommonMethods):
             pass
         # NOTE: There's no need to supply the 'email' entry at the moment,
         # but contrib/no/send_welcome_sms.py does it as well
+        # TODO: The whole templating system is getting re-worked, ~tgk can deal
+        # with this...
         message = cereconf.AUTOADMIN_WELCOME_SMS % {"username": username,
                                                     "email": mailaddr}
         if not sms(mobile, message):
-            raise CerebrumError("Could not send SMS to %s" % mobile)
+            raise CerebrumError("Could not send SMS to %r" % mobile)
 
         # Set sent sms welcome sent-trait, so that it will be ignored by the
         # scheduled job for sending welcome-sms.
@@ -247,12 +246,13 @@ class BofhdExtension(BofhdCommonMethods):
                 filter(lambda e: e.get('operation') == 'user_passwd',
                        self._get_cached_passwords(operator)))[-1]
         except IndexError:
-            raise CerebrumError(
-                'No password for {} in session'.format(account_name))
+            raise CerebrumError('No password for %r in session' % account_name)
 
         mobile = self._select_sms_number(account_name)
 
         # Load and fill template for chosen language
+        # TODO: The whole templating system is getting re-worked, ~tgk can deal
+        # with this...
         try:
             from os import path
             with open(path.join(cereconf.TEMPLATE_DIR,
@@ -268,12 +268,11 @@ class BofhdExtension(BofhdCommonMethods):
         if getattr(cereconf, 'SMS_DISABLE', False):
             self.logger.info(
                 'SMS disabled in cereconf, would have '
-                'sent password to {}'.format(mobile))
+                'sent password to %r', mobile)
         else:
             sms = SMSSender(logger=self.logger)
-            if not sms(mobile, msg, confirm=True):
-                raise CerebrumError(
-                    'Unable to send message to {}'.format(mobile))
+            if not sms(mobile, msg):
+                raise CerebrumError('Unable to send message to %r' % mobile)
 
         return {'number': mobile}
 
@@ -300,10 +299,9 @@ class BofhdExtension(BofhdCommonMethods):
         if getattr(cereconf, 'SMS_DISABLE', False):
             self.logger.info(
                 'SMS disabled in cereconf, would have '
-                'sent message to {}'.format(mobile))
+                'sent message to %r', mobile)
         else:
             sms = SMSSender(logger=self.logger)
-            if not sms(mobile, message, confirm=True):
-                raise CerebrumError(
-                    'Unable to send message to {}'.format(mobile))
+            if not sms(mobile, message):
+                raise CerebrumError('Unable to send message to %r' % mobile)
         return {'number': mobile}

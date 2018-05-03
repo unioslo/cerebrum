@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2002-2016 University of Oslo, Norway
 #
@@ -24,7 +24,7 @@ from os.path import join as pj
 import sys
 import getopt
 import mx
-import pickle
+import json
 
 import cerebrum_path
 import cereconf
@@ -73,7 +73,7 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
     else:
         institusjon = cereconf.DEFAULT_INSTITUSJONSNR
     # fi
-    
+
     key = "-".join((str(institusjon), a_dict[kfak], a_dict[kinst], a_dict[kgr]))
     if not ou_cache.has_key(key):
         ou = Factory.get('OU')(db)
@@ -110,7 +110,7 @@ def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
             ou_adr_cache[ou_id] = None
             logger.warn("No address for %i" % ou_id)
     return ou_adr_cache[ou_id]
-    
+
 def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
     ret = {}
     ret['address_text'] = "\n".join([a_dict.get(f, None)
@@ -139,7 +139,7 @@ def _calc_address(person_info):
     # FS.STUDENT    *_semadr (2)
     # FS.FAGPERSON  *_arbeide (3)
     # FS.DELTAKER   *_job (4)
-    # FS.DELTAKER   *_hjem (5) 
+    # FS.DELTAKER   *_hjem (5)
     rules = [
         ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
         ('aktiv', ('_hjemsted', '_semadr', None)),
@@ -199,10 +199,10 @@ def filter_affiliations(affiliations):
     combination, while the db-schema only allows one.  Return a list
     where duplicates are removed, preserving the most important
     status.  """
-    
+
     affiliations.sort(lambda x,y: aff_status_pri_order.get(int(y[2]), 99) -
                       aff_status_pri_order.get(int(x[2]), 99))
-    
+
     ret = {}
     for ou, aff, aff_status in affiliations:
         ret[(ou, aff)] = aff_status
@@ -251,7 +251,7 @@ def register_cellphone(person, person_info):
 
         # No point in registering a number that's already there.
         if cell_phone in _fetch_cerebrum_contact():
-            return 
+            return
 
         person.populate_contact_info(co.system_fs)
         person.populate_contact_info(co.system_fs,
@@ -268,7 +268,7 @@ def process_person_callback(person_info):
     """Called when we have fetched all data on a person from the xml
     file.  Updates/inserts name, address and affiliation
     information."""
-    
+
     global no_name
     try:
         fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
@@ -281,7 +281,7 @@ def process_person_callback(person_info):
             # Seems to be a bug in time.mktime on some machines
             year = 1970
     except fodselsnr.InvalidFnrError:
-        logger.warn("Ugyldig fødselsnr: %s" % fnr)
+        logger.warn("Ugyldig fÃ¸dselsnr: %s" % fnr)
         return
 
     gender = co.gender_male
@@ -294,7 +294,7 @@ def process_person_callback(person_info):
     address_info = None
     aktiv_sted = []
 
-    # Iterate over all person_info entries and extract relevant data    
+    # Iterate over all person_info entries and extract relevant data
     if person_info.has_key('aktiv'):
         for row in person_info['aktiv']:
             if studieprog2sko[row['studieprogramkode']] is not None:
@@ -311,7 +311,7 @@ def process_person_callback(person_info):
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
             studentnr = p['studentnr_tildelt']
-    
+
         # Get affiliations
         if dta_type in ('fagperson',):
             _process_affiliation(co.affiliation_tilknyttet,
@@ -321,7 +321,7 @@ def process_person_callback(person_info):
         elif dta_type in ('aktiv', ):
  	  for row in x:
 	      # aktiv_sted is necessary in order to avoid different affiliation statuses
-	      # to a same 'stedkode' to be overwritten 
+	      # to a same 'stedkode' to be overwritten
               # e.i. if a person has both affiliations status 'evu' and
 	      # aktive to a single stedkode we want to register the status 'aktive'
 	      # in cerebrum
@@ -339,14 +339,14 @@ def process_person_callback(person_info):
                                  studieprog2sko[row['studieprogramkode']])
 
     if etternavn is None:
-        logger.debug("Ikke noe navn på %s" % fnr)
-        no_name += 1 
+        logger.debug("Ikke noe navn pÃ¥ %s" % fnr)
+        no_name += 1
         return
 
     # TODO: If the person already exist and has conflicting data from
     # another source-system, some mechanism is needed to determine the
     # superior setting.
-    
+
     new_person = Factory.get('Person')(db)
     if fnr2person_id.has_key(fnr):
         new_person.find(fnr2person_id[fnr])
@@ -388,7 +388,7 @@ def process_person_callback(person_info):
             key_a = "%s:%s:%s" % (new_person.entity_id,ou,int(aff))
             if old_aff.has_key(key_a):
                 old_aff[key_a] = False
-    
+
     register_cellphone(new_person, person_info)
 
     op2 = new_person.write_db()
@@ -401,7 +401,7 @@ def process_person_callback(person_info):
 
     register_fagomrade(new_person, person_info)
 
-    # Reservations    
+    # Reservations
     if gen_groups:
         should_add = False
         if person_info.has_key('nettpubl'):
@@ -456,7 +456,7 @@ def register_fagomrade(person, person_info):
         person.populate_trait(
             code=co.trait_fagomrade_fagfelt,
             date=mx.DateTime.now(),
-            strval=pickle.dumps(fagfelt))
+            strval=json.dumps(fagfelt))
 
     person.write_db()
 
@@ -515,7 +515,7 @@ def main():
         emne2sko[e['emnekode']] = \
             _get_sko(e, 'faknr_reglement', 'instituttnr_reglement',
                      'gruppenr_reglement')
-        
+
     # create fnr2person_id mapping, always using fnr from FS when set
     person = Factory.get('Person')(db)
     if include_delete:

@@ -2,7 +2,7 @@
 # coding: latin1
 # -*- coding: iso-8859-1 -*-
 # vim: set fileencoding=latin1 :
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -482,7 +482,7 @@ class Digeks(object):
         L{group_name}. If no group exists with that name, the group will be
         created and returned.
 
-        @type db: Cerebrum.Database.Database
+        @type db: Cerebrum.database.Database
         @param db: A Cerebrum database object.
         
         @type group_name: str
@@ -541,7 +541,7 @@ class Digeks(object):
         """ This method will simply set up the Entity L{owner_id} as a
         C{Group-owner} of group L{group_id}.
         
-        @type db: Cerebrum.Database.Database
+        @type db: Cerebrum.database.Database
         @param db: A Cerebrum database object.
         
         @type owner_id: int
@@ -852,7 +852,7 @@ class JUSDigeks(Digeks):
     def fetch_exam_data(self, subjects, year, timecode=None):
         """ Fetches digital exams from FS. 
 
-        @type db: Cerebrum.Database
+        @type db: Cerebrum.database.Database
         @param db: The database connection of an FS-object.
 
         @type subject: string

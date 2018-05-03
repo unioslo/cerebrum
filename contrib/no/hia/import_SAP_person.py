@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2004-2018 University of Oslo, Norway
 #
@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""This file is a DFØ-SAP extension of Cerebrum.
+"""This file is a DFÃ˜-SAP extension of Cerebrum.
 
 It contains code which imports SAP-specific person/employee information into
 Cerebrum.
@@ -36,6 +36,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import make_person_iterator
 from Cerebrum.modules.no import fodselsnr
 
+import io
 import argparse
 
 
@@ -53,7 +54,7 @@ def locate_person(sap_id, fnr):
     """
 
     person = Factory.get("Person")(database)
-    logger.debug("Locating person with SAP_id = «%s» and FNR = «%s»",
+    logger.debug(u"Locating person with SAP_id = Â«%sÂ» and FNR = Â«%sÂ»",
                  sap_id, fnr)
 
     person_id_from_sap = None
@@ -65,7 +66,7 @@ def locate_person(sap_id, fnr):
                                    sap_id, const.system_sap)
         person_id_from_sap = int(person.entity_id)
     except Errors.NotFoundError:
-        logger.debug("No person matches SAP id «%s»", sap_id)
+        logger.debug(u"No person matches SAP id Â«%sÂ»", sap_id)
 
     try:
         person.clear()
@@ -73,7 +74,7 @@ def locate_person(sap_id, fnr):
                                    fnr)
         person_id_from_fnr = int(person.entity_id)
     except Errors.NotFoundError:
-        logger.debug("No person matches FNR «%s»", fnr)
+        logger.debug(u"No person matches FNR Â«%sÂ»", fnr)
     except Errors.TooManyRowsError:
         logger.error("Multiple person match FNR <%s>", fnr)
         return True, None
@@ -123,7 +124,7 @@ def match_external_ids(person, sap_id, fnr):
 
     if (cerebrum_sap_id and cerebrum_sap_id != sap_id):
         logger.error("SAP id in Cerebrum != SAP id in datafile "
-                     "«%s» != «%s»", cerebrum_sap_id, sap_id)
+                     u"Â«%sÂ» != Â«%sÂ»", cerebrum_sap_id, sap_id)
         return False
 
     # A mismatch in fnr only means that Cerebrum's data has to be updated.
@@ -146,7 +147,7 @@ def match_external_ids(person, sap_id, fnr):
                 fnr)
             return False
         logger.info("FNR in Cerebrum != FNR in datafile. Updating "
-                    "«%s» -> «%s»", cerebrum_fnr, fnr)
+                    u"Â«%sÂ» -> Â«%sÂ»", cerebrum_fnr, fnr)
 
     return True
 
@@ -250,7 +251,7 @@ def populate_names(person, fields):
             continue
 
         person.populate_name(name_type, name_value)
-        logger.debug("Populated name type %s with «%s»", name_type, name_value)
+        logger.debug(u"Populated name type %s with Â«%sÂ»", name_type, name_value)
 
     person.populate_name(const.name_first, fields.sap_first_name)
 
@@ -292,7 +293,7 @@ def populate_communication(person, fields):
             continue
 
         person.populate_contact_info(const.system_sap, comm_type, comm_value)
-        logger.debug("Populated comm type %s with «%s»", comm_type, comm_value)
+        logger.debug(u"Populated comm type %s with Â«%sÂ»", comm_type, comm_value)
 
     # some communication types need extra care
     comm_types = ((const.contact_mobile_phone,
@@ -304,7 +305,7 @@ def populate_communication(person, fields):
             _remove_communication(person, comm_type)
             continue
         person.populate_contact_info(const.system_sap, comm_type, comm_value)
-        logger.debug("Populated comm type %s with «%s»", comm_type, comm_value)
+        logger.debug(u"Populated comm type %s with Â«%sÂ»", comm_type, comm_value)
 
 
 def _remove_office(person):
@@ -350,7 +351,7 @@ def populate_office(person, fields):
         try:
             country = int(const.Country(address['country_street']))
         except Errors.NotFoundError:
-            logger.warn("Could not find country code for «%s», "
+            logger.warn(u"Could not find country code for Â«%sÂ», "
                         "please define country in Constants.py",
                         address['country_street'])
         # TBD: should we return here if country is not correct, or is it okay
@@ -386,7 +387,7 @@ def populate_address(person, fields):
         try:
             country = int(const.Country(fields.sap_country))
         except Errors.NotFoundError:
-            logger.warn("Could not find country code for «%s», "
+            logger.warn(u"Could not find country code for Â«%sÂ», "
                         "please define country in Constants.py",
                         fields.sap_country)
 
@@ -449,45 +450,46 @@ def process_people(filename, use_fok):
     Each line in filename contains SAP information about one person.
     """
     processed_persons = set()
-    for p in make_person_iterator(
-            file(filename, "r"), use_fok, logger):
-        if not p.valid():
-            logger.info("Ignoring person sap_id=%s, fnr=%s (invalid entry)",
-                        p.sap_ansattnr, p.sap_fnr)
-            # TODO: remove some person data?
-            continue
+    with io.open(filename, 'r', encoding=('latin1')) as f:
+        for p in make_person_iterator(
+                f, use_fok, logger):
+            if not p.valid():
+                logger.info("Ignoring person sap_id=%s, fnr=%s (invalid entry)",
+                            p.sap_ansattnr, p.sap_fnr)
+                # TODO: remove some person data?
+                continue
 
-        if p.expired():
-            logger.info("Ignoring person sap_id=%s, fnr=%s (expired data)",
-                        p.sap_ansattnr, p.sap_fnr)
-            # TODO: remove some person data?
-            continue
+            if p.expired():
+                logger.info("Ignoring person sap_id=%s, fnr=%s (expired data)",
+                            p.sap_ansattnr, p.sap_fnr)
+                # TODO: remove some person data?
+                continue
 
-        # If the IDs are inconsistence with Cerebrum, skip the record
-        person = populate_external_ids(p)
-        if person is None:
-            logger.info(
-                "Ignoring person sap_id=%s, fnr=%s "
-                "(inconsistent IDs in Cerebrum)",
-                p.sap_ansattnr, p.sap_fnr)
-            continue
+            # If the IDs are inconsistence with Cerebrum, skip the record
+            person = populate_external_ids(p)
+            if person is None:
+                logger.info(
+                    "Ignoring person sap_id=%s, fnr=%s "
+                    "(inconsistent IDs in Cerebrum)",
+                    p.sap_ansattnr, p.sap_fnr)
+                continue
 
-        populate_names(person, p)
+            populate_names(person, p)
 
-        populate_communication(person, p)
+            populate_communication(person, p)
 
-        if hasattr(const, 'contact_office'):
-            populate_office(person, p)
+            if hasattr(const, 'contact_office'):
+                populate_office(person, p)
 
-        populate_address(person, p)
+            populate_address(person, p)
 
-        add_person_to_group(person, p)
+            add_person_to_group(person, p)
 
-        populate_personal_title(person, p)
+            populate_personal_title(person, p)
 
-        # Sync person object with the database
-        person.write_db()
-        processed_persons.add(person.entity_id)
+            # Sync person object with the database
+            person.write_db()
+            processed_persons.add(person.entity_id)
     return processed_persons
 
 
@@ -525,7 +527,7 @@ def main():
                         action='store_false',
                         default=True,
                         dest='use_fok',
-                        help='Do not use forretningsområdekode for checking '
+                        help='Do not use forretningsomrÃ¥dekode for checking '
                              'if a person should be imported. (default: use.)')
     parser.add_argument('-c', '--commit',
                         dest='commit',
