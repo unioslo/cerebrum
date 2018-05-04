@@ -386,15 +386,12 @@ class VirthomeUtils:
 
         @type params: obj
         @param params: An object containing other arbitrary information that
-                       relates to the L{event_type}. Will be serialized with
-                       'pickle', and saved in the changelog.
+                       relates to the L{event_type}.
 
         @rtype: str
         @return: The confirmation key, or ID, of the newly created event.
         """
         return self.db.log_pending_change(issuer_id, event_type, None,
-                                          # This will be pickle.dumps()-ed by
-                                          # the underlying API
                                           change_params=params,
                                           # From CIS, we don't have the
                                           # change_by parameter set up, should
