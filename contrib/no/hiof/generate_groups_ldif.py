@@ -49,7 +49,7 @@ ac = Factory.get('Account')(db)
 co = Factory.get('Constants')(db)
 group = Factory.get('Group')(db)
 
-mbr2grp = defaultdict(list)
+mbr2grp = defaultdict(set)
 top_dn = ldapconf('GROUP', 'dn')
 
 
@@ -62,17 +62,19 @@ def dump_ldif(file_handle):
             'objectClass': ("top", "hiofGroup"),
             'description': (row['description'],),
         }))
-    for mbr in group.search_members(spread=co.spread_ldap_group,
-                                    member_type=(co.entity_person,
-                                                 co.entity_account)):
-        if mbr['member_type'] == co.entity_person:
-            mbr2grp[int(mbr["member_id"])].append(group2dn[mbr['group_id']])
-        elif mbr['member_type'] == co.entity_account:
-            ac.clear()
-            ac.find(mbr['member_id'])
-            if ac.owner_type != co.entity_person:
-                continue
-            mbr2grp[int(ac.owner_id)].append(group2dn[mbr['group_id']])
+    for group_id, group_dn in group2dn.items():
+        for mbr in group.search_members(group_id=group_id,
+                                        indirect_members=True,
+                                        member_type=(co.entity_person,
+                                                     co.entity_account)):
+            if mbr['member_type'] == co.entity_person:
+                mbr2grp[int(mbr["member_id"])].add(group_dn)
+            elif mbr['member_type'] == co.entity_account:
+                ac.clear()
+                ac.find(mbr['member_id'])
+                if ac.owner_type != co.entity_person:
+                    continue
+                mbr2grp[int(ac.owner_id)].add(group_dn)
 
 
 def main():

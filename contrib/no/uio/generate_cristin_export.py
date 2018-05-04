@@ -509,7 +509,7 @@ def output_person(writer, person, ou_cache):
                                (person.NAME_FIRST, "fornavn")):
         name = person.get_name(attribute, None)
         if name:
-            name = name[0].value
+            name = name[0].value[:30]
         output_element(writer, name, element)
 
     title = person.get_name_with_lang(person.NAME_TITLE, "nb", "en")

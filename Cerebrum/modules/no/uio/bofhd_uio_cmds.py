@@ -4351,7 +4351,7 @@ class BofhdExtension(BofhdCommonMethods):
             ("Name:          %s\n"
              "Entity-id:     %i\n"
              "Birth:         %s\n"
-             "Spreads:       %s\n", ("name", "entity_id", "birth", "spreads")),
+             "Spreads:       %s", ("name", "entity_id", "birth", "spreads")),
             ("Affiliations:  %s [from %s]", ("affiliation_1",
                                              "source_system_1")),
             ("               %s [from %s]", ("affiliation", "source_system")),
@@ -6584,8 +6584,8 @@ class BofhdExtension(BofhdCommonMethods):
 
         # Add them spreads
         for s in cereconf.BOFHD_NEW_USER_SPREADS:
-            if not ac.has_spread(self.const.Spread(s)):
-                ac.add_spread(self.const.Spread(s))
+            if not pu.has_spread(self.const.Spread(s)):
+                pu.add_spread(self.const.Spread(s))
 
         # And remove them quarantines (except those defined in cereconf)
         for q in ac.get_entity_quarantine():
