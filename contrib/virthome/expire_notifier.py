@@ -26,7 +26,6 @@ from mx.DateTime import now
 from mx.DateTime import DateTimeDelta
 
 import getopt
-import pickle
 import smtplib
 import sys
 
@@ -35,6 +34,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.email import sendmail
+from Cerebrum.utils import json
 
 logger = Factory.get_logger("cronjob")
 
@@ -286,7 +286,7 @@ def typeset_change_log_row(row, database):
         row["tstamp"].strftime("%F %R"),
         entity,
         row["change_params"] is not None and
-        ", params=%s." % repr(pickle.loads(row["change_params"])) or ".")
+        ", params=%s." % repr(json.loads(row["change_params"])) or ".")
 
 
 def show_requests(ident, database):
