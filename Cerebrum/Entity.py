@@ -16,14 +16,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+"""
+"""
 from __future__ import unicode_literals
 
-"""
-
-"""
-
 import collections
+
 import six
 
 import cereconf
@@ -246,7 +244,7 @@ class Entity(DatabaseAccessor):
         based on the entity's type."""
         if id is not None:
             self.find(id)
-        entity_type = str(self.const.EntityType(self.entity_type))
+        entity_type = six.text_type(self.const.EntityType(self.entity_type))
         component = Factory.type_component_map.get(entity_type)
         if component is None:
             raise ValueError("No factory for type %s" % entity_type)
@@ -586,8 +584,8 @@ class EntityNameWithLanguage(Entity):
             # Why not a specific constant? Well, because
             # name_variant/name_language/name could all be a sequence or an
             # iterable. It should work regardless.
-            change_params = {'name_variant': str(name_variant),
-                             'name_language': str(name_language),
+            change_params = {'name_variant': six.text_type(name_variant),
+                             'name_language': six.text_type(name_language),
                              'name': name}
             self._db.log_change(self.entity_id, self.const.entity_name_del,
                                 None, change_params=change_params)
@@ -830,7 +828,7 @@ class EntityContactInfo(Entity):
           entity_id=:e_id AND
           source_system=:src AND
           contact_type=:c_type"""
-        if str(pref) != 'ALL':
+        if six.text_type(pref) != 'ALL':
             sql += """ AND contact_pref=:pref"""
         self._db.log_change(self.entity_id, self.const.entity_cinfo_del, None,
                             change_params={'type': int(contact_type),
@@ -874,8 +872,8 @@ class EntityContactInfo(Entity):
         for name, transform in (("entity_id", int),
                                 ("source_system", int),
                                 ("contact_type", int),
-                                ("contact_value", str),
-                                ("contact_alias", str)):
+                                ("contact_value", six.text_type),
+                                ("contact_alias", six.text_type)):
             if locals()[name] is not None:
                 where.append(argument_to_sql(locals()[name],
                                              "ec." + name,
