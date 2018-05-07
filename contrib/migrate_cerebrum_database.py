@@ -885,6 +885,9 @@ def fix_change_params(params):
         return fix_array(params)
     if hasattr(params, 'pydate'):
         return fix_mx(params)
+    # throw away any occurrences of <type 'type'>
+    if params is type:
+        return None
     return params
 
 
@@ -904,11 +907,20 @@ def fix_changerows(process, qin, qout, mn, mx):
     try:
         db = Utils.Factory.get('Database')()
         co = Utils.Factory.get('Constants')(db)
-        for cid, params, ct in db.query(
-                'SELECT change_id, change_params, change_type_id FROM '
-                '[:table schema=cerebrum name=change_log] '
-                'WHERE change_params IS NOT NULL AND change_id >= :mn '
-                'AND change_id <= :mx', dict(mn=mn, mx=mx)):
+        rows = db.query(
+            'SELECT change_id, change_params, change_type_id FROM '
+            '[:table schema=cerebrum name=change_log] '
+            'WHERE change_params IS NOT NULL AND change_id >= :mn '
+            'AND change_id <= :mx', dict(mn=mn, mx=mx))
+        num_rows = db.rowcount
+        print('process', process, 'got', num_rows, 'rows')
+        tenth = int(num_rows / 10)
+        n = 0
+        for cid, params, ct in rows:
+            n += 1
+            if n % tenth == 0:
+                print('process {} at {}%'.format(
+                    process, int(round(float(n) / num_rows * 100))))
             p = fix_change_params(loads(params.encode('ISO-8859-1')))
             ct = get_change_type(co, ct)
             orig = ct.format_params(p)
@@ -941,17 +953,32 @@ def migrate_to_changelog_1_4():
     assert_db_version("1.3", component='changelog')
     start = now()
 
-    last = db.query_1('SELECT max(change_id) FROM '
-                      '[:table schema=cerebrum name=change_log]')
     import multiprocessing
     try:
-        cpus = multiprocessing.cpu_count() * 2
+        workers = multiprocessing.cpu_count() * 4
     except NotImplementedError:
-        cpus = 4
-    n = int(last / cpus) + 1
+        workers = 4
+
+    print('Distributing work...')
+    ids = db.query('SELECT change_id FROM '
+                   '[:table schema=cerebrum name=change_log]'
+                   'WHERE change_params IS NOT NULL')
+    ids = map(lambda x: int(x[0]), ids)
+    ids.sort()
+
+    def chunks(iterable, n=1):
+        length = len(iterable)
+        for i in range(0, length, n):
+            yield iterable[i:min(i + n, length)]
+
+    tasks = []
+    per_thread = (len(ids) / workers) + 10
+    for chunk in chunks(ids, n=per_thread):
+        tasks.append((min(chunk), max(chunk)))
+
     qok = multiprocessing.Queue()
-    args = tuple((i, multiprocessing.Queue(), qok, n * i, n * (i + 1))
-                 for i in range(cpus))
+    args = tuple((i, multiprocessing.Queue(), qok, workset[0], workset[1])
+                 for i, workset in enumerate(tasks))
 
     pool = [multiprocessing.Process(target=fix_changerows,
                                     args=i) for i in args]
@@ -993,8 +1020,7 @@ def migrate_to_eventlog_1_1():
             'SELECT event_id, event_type, change_params FROM event_log '
             'WHERE change_params IS NOT NULL'):
         p = fix_change_params(cPickle.loads(params.encode('ISO-8859-1')))
-        print(_params_to_db(p))
-        ct = co.ChangeType(event_type)
+        ct = get_change_type(co, event_type)
         orig = ct.format_params(p)
         new = ct.format_params(_params_to_db(p))
         if orig != new:
