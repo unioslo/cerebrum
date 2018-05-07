@@ -27,7 +27,6 @@ although the help strings won't be particularily useful.
 
 from __future__ import unicode_literals
 
-import pickle
 import re
 
 from mx.DateTime import now, DateTimeDelta
@@ -60,6 +59,7 @@ from Cerebrum.modules.virthome.VirtAccount import FEDAccount
 from Cerebrum.modules.virthome.VirtAccount import VirtAccount
 from Cerebrum.modules.virthome.base import VirthomeBase, VirthomeUtils
 from Cerebrum.modules.virthome.bofhd_auth import BofhdVirtHomeAuth
+from Cerebrum.utils import json
 
 
 class BofhdVirthomeCommands(BofhdCommandBase):
@@ -198,7 +198,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             raise CerebrumError("No event associated with key %s" % magic_key)
 
         if event["change_params"]:
-            event["change_params"] = pickle.loads(event["change_params"])
+            event["change_params"] = json.loads(event["change_params"])
 
         if "change_type_id" in event:
             event["change_type"] = str(
