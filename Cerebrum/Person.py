@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2017 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,15 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+"""
+"""
 from __future__ import unicode_literals
-
-"""
-
-"""
 
 import collections
 import numbers
+
 import six
 
 import cereconf
@@ -162,7 +160,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                    :deceased_date, :desc)""",
                              {'e_type': int(self.const.entity_person),
                               'p_id': self.entity_id,
-                              'exp_id': 'exp-' + str(self.entity_id),
+                              'exp_id': 'exp-' + six.text_type(self.entity_id),
                               'b_date': self.birth_date,
                               'gender': int(self.gender),
                               'deceased_date': self.deceased_date,
@@ -177,7 +175,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 SET export_id=:exp_id, birth_date=:b_date, gender=:gender,
                     deceased_date=:deceased_date, description=:desc
                 WHERE person_id=:p_id""",
-                             {'exp_id': 'exp-' + str(self.entity_id),
+                             {'exp_id': 'exp-' + six.text_type(self.entity_id),
                               'b_date': self.birth_date,
                               'gender': int(self.gender),
                               'deceased_date': self.deceased_date,
@@ -542,8 +540,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
     def populate_name(self, variant, name):
         if (not self._pn_affect_source or
-                str(variant) not in ["%s" % v
-                                     for v in self._pn_affect_variants]):
+            six.text_type(variant) not in ["%s" % v
+                                           for v in self._pn_affect_variants]):
             raise ValueError("Improper API usage, must call affect_names()")
         self._name_info[variant] = name
 
@@ -618,7 +616,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             if val is not None:
                 if isinstance(val, (list, tuple, set)):
                     where.append("pas.%s IN (%s)" %
-                                 (t, ", ".join(map(str, map(int, val)))))
+                                 (t, ", ".join(map(
+                                     six.text_type, map(int, val)))))
                 else:
                     where.append("pas.%s = %d" % (t, val))
         if not include_deleted:
@@ -696,9 +695,9 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 return search(rule['*'], *rest)
             return None
 
-        source = str(self.const.AuthoritativeSystem(source))
+        source = six.text_type(self.const.AuthoritativeSystem(source))
         if not isinstance(afforrule, six.string_types):
-            afforrule = str(self.const.PersonAffiliation(afforrule))
+            afforrule = six.text_type(self.const.PersonAffiliation(afforrule))
         args = [cereconf.PERSON_AFFILIATION_PRECEDENCE_RULE, source, afforrule]
         if status is not None:
             if not isinstance(status, six.string_types):
@@ -728,8 +727,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                                                            precedence, old)
         else:
             # Assume some sequence
-            assert (isinstance(precedence, collections.Sequence)
-                    and len(precedence) in (2, 3))
+            assert (isinstance(precedence, collections.Sequence) and
+                    len(precedence) in (2, 3))
             if isinstance(precedence[0], six.string_types):
                 precedence = self.__get_affiliation_precedence_rule(
                     source, *precedence)
@@ -841,11 +840,11 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         change_params = {
             'ou_id': int(ou_id),
             'affiliation': int(affiliation),
-            'affiliationstr': str(affiliation),
+            'affiliationstr': six.text_type(affiliation),
             'source': int(source),
-            'sourcestr': str(source),
+            'sourcestr': six.text_type(source),
             'status': int(status),
-            'statusstr': str(status)
+            'statusstr': six.text_type(status)
         }
         # If needed, add to table 'person_affiliation'.
         try:
@@ -861,13 +860,14 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             INSERT INTO [:table schema=cerebrum name=person_affiliation]
               (person_id, ou_id, affiliation)
             VALUES (:p_id, :ou_id, :affiliation)""", binds)
-            self._db.log_change(self.entity_id,
-                                self.const.person_aff_add, None,
-                                change_params={
-                                    'ou_id': int(ou_id),
-                                    'affiliation': int(affiliation),
-                                    'affiliationstr': str(affiliation)
-                                })
+            self._db.log_change(
+                self.entity_id,
+                self.const.person_aff_add, None,
+                change_params={
+                    'ou_id': int(ou_id),
+                    'affiliation': int(affiliation),
+                    'affiliationstr': six.text_type(affiliation)
+                })
         try:
             cur_status, cur_precedence, cur_del = self.query_1("""
             SELECT status, precedence, deleted_date
@@ -902,7 +902,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             if cur_status != int(status) or cur_precedence != new_prec:
                 cur_status = self.const.PersonAffStatus(cur_status)
                 change_params['oldstatus'] = int(cur_status)
-                change_params['oldstatusstr'] = str(cur_status)
+                change_params['oldstatusstr'] = six.text_type(cur_status)
                 self._db.log_change(self.entity_id,
                                     self.const.person_aff_src_mod, None,
                                     change_params=change_params)
@@ -946,11 +946,11 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         change_params = {
             'ou_id': int(ou_id),
             'affiliation': int(affiliation),
-            'affiliationstr': str(affiliation),
+            'affiliationstr': six.text_type(affiliation),
             'source': int(source),
-            'sourcestr': str(source),
+            'sourcestr': six.text_type(source),
             'status': int(status),
-            'statusstr': str(self.const.PersonAffStatus(status))
+            'statusstr': six.text_type(self.const.PersonAffStatus(status))
         }
         self.execute("""
         UPDATE [:table schema=cerebrum name=person_affiliation_source]
@@ -988,11 +988,11 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         change_params = {
             'ou_id': int(ou_id),
             'affiliation': int(affiliation),
-            'affiliationstr': str(affiliation),
+            'affiliationstr': six.text_type(affiliation),
             'source': int(source),
-            'sourcestr': str(source),
+            'sourcestr': six.text_type(source),
             'status': int(status),
-            'statusstr': str(status)
+            'statusstr': six.text_type(status)
         }
         self._db.log_change(self.entity_id,
                             self.const.person_aff_src_del, None,
@@ -1011,13 +1011,14 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
               person_id=:p_id AND
               ou_id=:ou_id AND
               affiliation=:affiliation""", locals())
-            self._db.log_change(self.entity_id,
-                                self.const.person_aff_del, None,
-                                change_params={
-                                    'ou_id': int(ou_id),
-                                    'affiliation': int(affiliation),
-                                    'affiliationstr': str(affiliation)
-                                })
+            self._db.log_change(
+                self.entity_id,
+                self.const.person_aff_del, None,
+                change_params={
+                    'ou_id': int(ou_id),
+                    'affiliation': int(affiliation),
+                    'affiliationstr': six.text_type(affiliation)
+                })
 
     # Will remove all entries in person_affiliation_source for a given
     # source system. Typically to clean up authorative sources no longer
@@ -1032,7 +1033,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                             self.const.person_aff_src_del, None,
                             change_params={
                                 'source': int(source_system),
-                                'sourcestr': str(source_system)
+                                'sourcestr': six.text_type(source_system)
                             })
 
     def get_accounts(self, filter_expired=True):
@@ -1161,7 +1162,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         if name_types is None:
             name_types = self.const.name_full
         if isinstance(name_types, (list, tuple)):
-            selection = "IN (%s)" % ", ".join(map(str, map(int, name_types)))
+            selection = "IN (%s)" % ", ".join(
+                map(six.text_type, map(int, name_types)))
         else:
             selection = "= %d" % int(name_types)
         if source_system is not None:
@@ -1270,7 +1272,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         # the name attirbute is quite complex, since multiple filters interact
         if name is not None:
             if not case_sensitive:
-                name_pattern = prepare_string(name, str.lower)
+                name_pattern = prepare_string(name, six.text_type.lower)
                 column_name = "LOWER(pn.name)"
             else:
                 name_pattern = prepare_string(name, None)
@@ -1333,7 +1335,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         else:
             for v in name_variants:
                 vid = int(v)
-                vname = "%s_name" % str(v).lower()
+                vname = "%s_name" % six.text_type(v).lower()
                 selects.append("pn_%s.name AS %s" % (vid, vname))
                 tables.append(
                     "[:table schema=cerebrum name=person_name] pn_%s" %

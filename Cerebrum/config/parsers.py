@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """ Cerebrum config serializing module.
 
 This module contains classes that wraps libraries for reading and writing
@@ -17,6 +17,7 @@ write(data, filename)
     Serialize a data structure and write to file.
 """
 from __future__ import print_function
+
 import os
 from io import BytesIO
 

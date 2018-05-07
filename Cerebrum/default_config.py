@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,6 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Default Cerebrum installation settings.  Overrides go in cereconf.py."""
+from __future__ import unicode_literals
 
 from os.path import join as pj
 from sys import prefix
@@ -149,7 +150,7 @@ ENABLE_BOFHD_CRYPTO = 0
 # requires that accounts and groups have creator_ids/owner_ids.
 INITIAL_GROUPNAME = "bootstrap_group"
 INITIAL_ACCOUNTNAME = "bootstrap_account"
-INITIAL_ACCOUNTNAME_PASSWORD = u"change_on_install"
+INITIAL_ACCOUNTNAME_PASSWORD = 'change_on_install'
 
 # Specify the class this installation should use when working with
 # various entities.
