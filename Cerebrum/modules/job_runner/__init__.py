@@ -156,8 +156,9 @@ class JobRunner(object):
                         msg = "exit_code=%i" % os.WEXITSTATUS(ret[0])
                     else:
                         msg = "exit_status=%i" % ret[0]
-                    logger.error("%s for %s, check %s",
-                                 msg, job['name'], ret[1])
+                    logger.error(
+                        "{} for {}, check %s".format(msg, job['name']),
+                        ret[1])
                 self.job_queue.job_done(job['name'], job['pid'])
         return did_wait
 
