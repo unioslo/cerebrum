@@ -184,7 +184,10 @@ class NMHUndervisning(access_FS.Undervisning):
         else:
             qry += """(%s OR %s)""" % (self._get_termin_aar(only_current=1),
                                        self._get_next_termin_aar())
-        return self.db.query(qry)
+        params = {}
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def list_aktiviteter(self, start_aar=time.localtime()[0],
                          start_semester=None):

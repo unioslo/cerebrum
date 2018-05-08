@@ -172,7 +172,10 @@ class HiAStudent(access_FS.Student):
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
           %s """ % (self._is_alive(), self._is_alive(),
                     self._get_termin_aar(only_current=1))
-        return self.db.query(qry)
+        params = {}
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
 
 @fsobject('student', '>=7.8')
@@ -329,7 +332,10 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
           %s """ % (self._is_alive(), self._is_alive(),
                     self._get_termin_aar(only_current=1))
-        return self.db.query(qry)
+        params = {}
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
 
 @fsobject('undervisning', '<7.8')
@@ -353,7 +359,10 @@ class HiAUndervisning(access_FS.Undervisning):
             qry += """%s""" % self._get_termin_aar(only_current=1)
         else:
             qry += """%s""" % self._get_next_termin_aar()
-        return self.db.query(qry)
+        params = {}
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def list_studenter_underv_enhet(self, institusjonsnr, emnekode,
                                     versjonskode, terminkode,
