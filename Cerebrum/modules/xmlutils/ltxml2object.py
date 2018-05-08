@@ -20,19 +20,24 @@
 """
 This module implements an abstraction layer for LT-originated data.
 """
-
 from __future__ import unicode_literals
+
 from mx.DateTime import Date
-import time, sys
 
-import cerebrum_path, cereconf
-from Cerebrum.modules.xmlutils.xml2object import \
-     XMLDataGetter, XMLEntity2Object, DataOU, DataAddress, DataContact, \
-     HRDataPerson, DataEmployment, DataEntity, DataName, ensure_unicode
+import cereconf
+from Cerebrum.modules.xmlutils.xml2object import (
+    DataAddress,
+    DataContact,
+    DataEmployment,
+    # DataEntity,
+    DataName,
+    DataOU,
+    HRDataPerson,
+    XMLDataGetter,
+    XMLEntity2Object,
+    ensure_unicode,
+)
 import Cerebrum.modules.no.fodselsnr as fodselsnr
-
-
-
 
 
 class LTXMLDataGetter(XMLDataGetter):
@@ -40,32 +45,25 @@ class LTXMLDataGetter(XMLDataGetter):
 
     def iter_ou(self):
         return self._make_iterator("sted", XMLOU2Object)
-    # end iter_ou
-
 
     def iter_person(self):
         return self._make_iterator("person", XMLPerson2Object)
-    # end iter_person
-# end LTXMLDataGetter
-
 
 
 class XMLPerson2Object(XMLEntity2Object):
     """A converter class that maps ElementTree's Element to LT"""
 
     def _register_names(self, result, element):
-        attr2type = { "fornavn"   : result.NAME_FIRST,
-                      "etternavn" : result.NAME_LAST,
-                      "tittel_personlig" : result.NAME_TITLE }
+        attr2type = {
+            "fornavn": result.NAME_FIRST,
+            "etternavn": result.NAME_LAST,
+            "tittel_personlig": result.NAME_TITLE,
+        }
 
         for kind, value in element.items():
             if kind in attr2type:
                 result.add_name(DataName(attr2type[kind],
                                          ensure_unicode(value, self.encoding)))
-            # fi
-        # od
-    # end _register_names
-
 
     def _make_contact(self, elem, contact_prefs):
         """Derive contact information from LT data.
@@ -88,7 +86,7 @@ class XMLPerson2Object(XMLEntity2Object):
             comm_type = elem.get("kommtypekode")
             value = elem.get("kommnrverdi", elem.get("telefonnr", None))
             if (comm_type in ("ARBTLF", "EKSTRA TLF", "JOBBTLFUTL",) and
-                value):
+                    value):
                 result.append((DataContact.CONTACT_PHONE,
                                ensure_unicode(value, self.encoding)))
             if comm_type in ("FAX", "FAXUTLAND") and value:
@@ -107,8 +105,6 @@ class XMLPerson2Object(XMLEntity2Object):
         # od
 
         return tmp
-    # end _make_contact
-
 
     def _make_employment(self, elem):
         """Convert element to proper employment record."""
@@ -119,12 +115,18 @@ class XMLPerson2Object(XMLEntity2Object):
         category = None
         ou_id = None
         leave = []
-        tag2kind = { "bilag" : DataEmployment.BILAG,
-                     "tils"  : DataEmployment.HOVEDSTILLING,
-                     "gjest" : DataEmployment.GJEST }
-        xml2cat = { "ØVR" : DataEmployment.KATEGORI_OEVRIG,
-                    "VIT" : DataEmployment.KATEGORI_VITENSKAPLIG, }
-        make_sko = lambda f, i, g: tuple([int(elem.get(x)) for x in (f, i, g)])
+        tag2kind = {
+            "bilag": DataEmployment.BILAG,
+            "tils": DataEmployment.HOVEDSTILLING,
+            "gjest": DataEmployment.GJEST,
+        }
+        xml2cat = {
+            "ØVR": DataEmployment.KATEGORI_OEVRIG,
+            "VIT": DataEmployment.KATEGORI_VITENSKAPLIG,
+        }
+
+        def make_sko(f, i, g):
+            return tuple([int(elem.get(x)) for x in (f, i, g)])
 
         if elem.tag == "bilag":
             end_date = self._make_mxdate(elem.get("dato_oppgjor"))
@@ -153,7 +155,6 @@ class XMLPerson2Object(XMLEntity2Object):
             if elem.get("hovedkat"):
                 category = xml2cat[ensure_unicode(elem.get("hovedkat"),
                                                   self.encoding)]
-        # fi
 
         # Handle leave (permisjon).
         for child in elem:
@@ -163,19 +164,22 @@ class XMLPerson2Object(XMLEntity2Object):
                 tmp['start_date'] = self._make_mxdate(elem.get("dato_fra"))
                 tmp['end_date'] = self._make_mxdate(elem.get("dato_til"))
                 leave.append(tmp)
-            # fi
-        # od
 
-        return DataEmployment(kind = tag2kind[elem.tag],
-                              percentage = percentage,
-                              code = code, title = title,
-                              start = start_date, end = end_date, place = ou_id,
-                              category = category,
-                              leave = leave)
-    # end _make_employment
-
+        return DataEmployment(kind=tag2kind[elem.tag],
+                              percentage=percentage,
+                              code=code, title=title,
+                              start=start_date, end=end_date, place=ou_id,
+                              category=category,
+                              leave=leave)
 
     def next_object(self, element):
+
+        def get_value(element_value):
+            return ensure_unicode(element_value, self.encoding)
+
+        def extract(element_attr):
+            return get_value(element.get(element_attr, ""))
+
         result = HRDataPerson()
 
         # Pull out all names
@@ -197,13 +201,13 @@ class XMLPerson2Object(XMLEntity2Object):
             result.gender = result.GENDER_FEMALE
         # fi
         # Register address
-        extract = lambda y: ensure_unicode(element.get(y, ""), self.encoding)
+        # extract = lambda y: ensure_unicode(element.get(y, ""), self.encoding)
         result.address = DataAddress(
-            kind = DataAddress.ADDRESS_PRIVATE,
-            street = (extract("adresselinje1_privatadresse"),
-                      extract("adresselinje2_privatadresse")),
-            zip = extract("poststednr_privatadresse"),
-            city = extract("poststednavn_privatadresse"))
+            kind=DataAddress.ADDRESS_PRIVATE,
+            street=(extract("adresselinje1_privatadresse"),
+                    extract("adresselinje2_privatadresse")),
+            zip=extract("poststednr_privatadresse"),
+            city=extract("poststednavn_privatadresse"))
 
         # Contact information and jobs
         # FIXME: We do not have anything more intelligent for priorities
@@ -226,24 +230,21 @@ class XMLPerson2Object(XMLEntity2Object):
             to_reserve = False
             for resv in element.findall("res"):
                 if (resv.get("katalogkode") == "ELKAT" and
-                    resv.get("felttypekode") not in ("PRIVADR", "PRIVTLF") and
-                    resv.get("resnivakode") != "SAMTYKKE"):
+                        resv.get("felttypekode") not in
+                        ("PRIVADR", "PRIVTLF") and
+                        resv.get("resnivakode") != "SAMTYKKE"):
                     to_reserve = True
-                # fi
-            # od
         else:
             to_reserve = True
             for resv in element.findall("res"):
                 if (resv.get("katalogkode") == "ELKAT" and
-                    resv.get("felttypekode") not in ("PRIVADR", "PRIVTLF")):
+                        resv.get("felttypekode") not in
+                        ("PRIVADR", "PRIVTLF")):
                     to_reserve = resv.get("resnivakode") != "SAMTYKKE"
-                # fi
-            # od
-        # fi
         result.reserved = to_reserve
         if (element.get("fakultetnr_for_lonnsslip") and
-            element.get("instituttnr_for_lonnsslip") and
-            element.get("gruppenr_for_lonnsslip")):
+                element.get("instituttnr_for_lonnsslip") and
+                element.get("gruppenr_for_lonnsslip")):
             result.primary_ou = (cereconf.DEFAULT_INSTITUSJONSNR,
                                  extract("fakultetnr_for_lonnsslip"),
                                  extract("instituttnr_for_lonnsslip"),
@@ -251,14 +252,10 @@ class XMLPerson2Object(XMLEntity2Object):
 
         if not (result.get_name(result.NAME_FIRST) and
                 result.get_name(result.NAME_LAST)):
-            raise AssertionError, ("Missing name for %s" %
-                                   list(result.iterids()))
-        # fi
+            raise AssertionError("Missing name for %s" %
+                                 list(result.iterids()))
 
         return result
-    # end next
-# end XMLPerson2Object
-
 
 
 class XMLOU2Object(XMLEntity2Object):
@@ -276,32 +273,36 @@ class XMLOU2Object(XMLEntity2Object):
         # NB! A name that is not there *must* be represented as None. "" (empty
         # string) is NOT the same as no name.
         return None
-    # end _pull_name
-
-    def get_value(element_value):
-        return ensure_unicode(element_value, self.encoding)
 
     def _make_contact(self, element):
+
+        def get_value(element_value):
+            return ensure_unicode(element_value, self.encoding)
+
         comm_type = element.get("kommtypekode")
         if comm_type == "TLF" and element.get("telefonnr"):
             return (DataContact.CONTACT_PHONE,
-                    self.get_value(element.get("telefonnr")))
+                    get_value(element.get("telefonnr")))
         elif comm_type == "FAX" and element.get("telefonnr"):
             return (DataContact.CONTACT_FAX,
-                    self.get_value(element.get("telefonnr")))
+                    get_value(element.get("telefonnr")))
         elif comm_type == "EPOST" and element.get("kommnrverdi"):
             return (DataContact.CONTACT_EMAIL,
-                    self.get_value(element.get("kommnrverdi")))
+                    get_value(element.get("kommnrverdi")))
         elif comm_type == "URL" and element.get("kommnrverdi"):
             return (DataContact.CONTACT_URL,
-                    self.get_value(element.get("kommnrverdi")))
-        # fi
+                    get_value(element.get("kommnrverdi")))
 
         return None
-    # end _make_contact
-
 
     def next_object(self, element):
+
+        def get_value(element_value):
+            return ensure_unicode(element_value, self.encoding)
+
+        def extract(element_attr):
+            return get_value(element.get(element_attr, ""))
+
         result = DataOU()
 
         # A lot of data is buried in attributes
@@ -319,8 +320,7 @@ class XMLOU2Object(XMLEntity2Object):
         # Some weird ID
         if element.get("nsd_kode"):
             result.add_id(result.NO_NSD,
-                          self.get_value(element.get("nsd_kode")))
-        # fi
+                          get_value(element.get("nsd_kode")))
 
         # Activity period
         result.start_date = self._make_mxdate(element.get("dato_opprettet"))
@@ -328,7 +328,6 @@ class XMLOU2Object(XMLEntity2Object):
         # Accessibility for catalogues
         if element.get("opprettetmerke_for_oppf_i_kat"):
             result.publishable = True
-        # fi
 
         for name_kind, candidates, lang in ((result.NAME_LONG,
                                              ("stedlangnavn_bokmal",
@@ -348,9 +347,7 @@ class XMLOU2Object(XMLEntity2Object):
             value = self._pull_name(element, *candidates)
             if value:
                 result.add_name(DataName(name_kind, value, lang))
-        # od
 
-        extract = lambda y: get_value(element.get(y, ""))
         for (xmlkind, kind) in (("besok", DataAddress.ADDRESS_BESOK),
                                 ("intern", DataAddress.ADDRESS_POST)):
             zip = extract("poststednr_%s_adr" % xmlkind)
@@ -366,12 +363,11 @@ class XMLOU2Object(XMLEntity2Object):
                 street = (extract("adresselinje1_%s_adr" % xmlkind),
                           extract("adresselinje2_%s_adr" % xmlkind))
             result.add_address(
-                DataAddress(kind = kind,
-                            street = street,
-                            zip = zip,
-                            city = extract("poststednavn_%s_adr" % xmlkind),
-                            country = extract("landnavn_%s_adr" % xmlkind)))
-        # od
+                DataAddress(kind=kind,
+                            street=street,
+                            zip=zip,
+                            city=extract("poststednavn_%s_adr" % xmlkind),
+                            country=extract("landnavn_%s_adr" % xmlkind)))
 
         # FIXME: priority assignment is a bit random at the moment.
         priority = 0
@@ -383,9 +379,5 @@ class XMLOU2Object(XMLEntity2Object):
                                                self.get_value(value),
                                                priority))
                 priority += 1
-            # fi
-        # od
 
         return result
-    # end next_object
-# end XMLOU2Object
