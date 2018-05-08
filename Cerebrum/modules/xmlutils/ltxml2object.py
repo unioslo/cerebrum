@@ -376,7 +376,7 @@ class XMLOU2Object(XMLEntity2Object):
             if ct:
                 kind, value = ct
                 result.add_contact(DataContact(kind,
-                                               self.get_value(value),
+                                               get_value(value),
                                                priority))
                 priority += 1
 
