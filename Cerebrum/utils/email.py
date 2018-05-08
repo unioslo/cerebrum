@@ -87,7 +87,11 @@ def mail_template(recipient, template_file, sender=None, cc=None,
     if sender:
         substitute['SENDER'] = sender
     for key in substitute:
-        message = message.replace("${%s}" % key, substitute[key])
+        if isinstance(substitute[key], six.text_type):
+            message = message.replace("${%s}" % key, substitute[key].encode(
+                charset))
+        else:
+            message = message.replace("${%s}" % key, substitute[key])
 
     headers, body = message.split('\n\n', 1)
     msg = MIMEText(body, _charset=charset)
