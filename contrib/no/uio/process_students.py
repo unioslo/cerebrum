@@ -1186,7 +1186,7 @@ def make_letters(data_file=None, type=None, range=None):
                 # TODO: Improve this check, which is supposed to skip foreign
                 # addresses
                 logger.info("Not sending abroad: %s",
-                            dta[order_by][account_id]['uname'])
+                            dta[order_by][account_id]['username'])
                 continue
         printer = brev_profil.get('printer', cereconf.PRINT_PRINTER)
 
