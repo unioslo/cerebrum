@@ -1344,6 +1344,11 @@ class WinRMProtocol(object):
                              for s in out[t]).replace('\r', '')
             if out[t].startswith('\xef\xbb\xbf'):
                 out[t] = out[t][3:]
+
+            try:
+                out[t] = out[t].decode('utf-8')
+            except:
+                self.logger.error("unable to decode stuff from winrm", exc_info=True)
         return state, exitcode, out
 
     def wsman_send(self, shellid, commandid, data):
