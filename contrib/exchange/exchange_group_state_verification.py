@@ -45,6 +45,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.Utils import read_password
 from Cerebrum.modules.Email import EmailAddress
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
+from Cerebrum.utils.email import sendmail
 from Cerebrum.utils.ldaputils import decode_attrs
 
 logger = logging.getLogger(__name__)
