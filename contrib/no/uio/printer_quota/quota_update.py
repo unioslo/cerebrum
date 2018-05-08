@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2004-2018 University of Oslo, Norway
 #
@@ -21,12 +21,12 @@
 
 """Tildeler og oppdaterer kvoter iht. til retningslinjer-SFA.txt.
 
-Foreløbig kan denne kun kjøres som en større batch-jobb som oppdaterer alle
+ForelÃ¸big kan denne kun kjÃ¸res som en stÃ¸rre batch-jobb som oppdaterer alle
 personer.
 
 Noen definisjoner:
-- kopiavgift_fritak fritak fra å betale selve kopiavgiften
-- betaling_fritak fritak for å betale for den enkelte utskrift
+- kopiavgift_fritak fritak fra Ã¥ betale selve kopiavgiften
+- betaling_fritak fritak for Ã¥ betale for den enkelte utskrift
 
 """
 
@@ -63,8 +63,8 @@ processed_pids = {}
 utv_quota = 250
 utv_person = {}
 
-# term_init_mask brukes til å identifisere de kvotetildelinger som har
-# skjedde i dette semesteret.  Den definerer også tidspunktet da
+# term_init_mask brukes til Ã¥ identifisere de kvotetildelinger som har
+# skjedde i dette semesteret.  Den definerer ogsÃ¥ tidspunktet da
 # forrige-semesters gratis-kvote nulles, og ny initiell kvote
 # tildeles.
 
@@ -169,8 +169,8 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
 
 
 def recalc_quota_callback(person_info):
-    # Kun kvoteverdier styres av studconfig.xml.  De øvrige
-    # parameterene er for komplekse til å kunne uttrykkes der uten å
+    # Kun kvoteverdier styres av studconfig.xml.  De Ã¸vrige
+    # parameterene er for komplekse til Ã¥ kunne uttrykkes der uten Ã¥
     # introdusere nye tag'er.
     person_id = person_info.get('person_id', None)
     logger.set_indent(0)
@@ -217,7 +217,7 @@ def recalc_quota_callback(person_info):
         # A common situation, so we won't log it
         profile = None
     except Errors.NotFoundError as msg:
-        logger.warn("(person) not found error for %r: s", person_id, msg)
+        logger.warn("(person) not found error for %r: %s", person_id, msg)
         profile = None
     # Blokker de som ikke har betalt/ikke har kopiavgift-fritak
     if (
@@ -249,7 +249,7 @@ def recalc_quota_callback(person_info):
 
 
 def get_bet_fritak_utv_data(sysname, person_file):
-    """Finn pc-stuevakter/gruppelærere mfl. ved å parse SAP-dumpen."""
+    """Finn pc-stuevakter/gruppelÃ¦rere mfl. ved Ã¥ parse SAP-dumpen."""
     ret = {}
     sap_ansattnr2pid = {}
     roller_fritak = cereconf.PQUOTA_ROLLER_FRITAK
@@ -268,7 +268,7 @@ def get_bet_fritak_utv_data(sysname, person_file):
                     employment.code in roller_fritak
             ):
                 if sap_nr not in sap_ansattnr2pid:
-                    logger.warn( "Unknown person (%r) from %r", sap_nr, sysname)
+                    logger.warn("Unknown person (%r) from %r", sap_nr, sysname)
                     continue
                 ret[sap_ansattnr2pid[sap_nr]] = True
     return ret
@@ -335,7 +335,7 @@ def get_students():
 
 def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
                sysname, person_file):
-    """Finner alle personer som rammes av kvoteordningen ved å:
+    """Finner alle personer som rammes av kvoteordningen ved Ã¥:
 
     - finne alle som har en student-affiliation (0.1)
     - ta bort ansatte (1.2.1)
@@ -373,7 +373,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
     logger.debug("after removing non-account people: %i" % len(quota_victim))
 
     # Ansatte har fritak
-    # TODO: sparer litt ytelse ved å gjøre dette i get_students()
+    # TODO: sparer litt ytelse ved Ã¥ gjÃ¸re dette i get_students()
     for row in person.list_affiliations(
             affiliation=const.affiliation_ansatt,
             status=(const.affiliation_status_ansatt_bil,
@@ -402,7 +402,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
             del(quota_victim[int(row['person_id'])])
     logger.debug("removed tilknyttet people: %i" % len(quota_victim))
 
-    # Mappe fødselsnummer til person-id
+    # Mappe fÃ¸dselsnummer til person-id
     fnr2pid = {}
     for p in person.list_external_ids(source_system=const.system_fs,
                                       id_type=const.externalid_fodselsnr):
@@ -480,7 +480,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
         har_betalt[pid] = True
     logger.debug("%i personer har betalt kopiavgift" % len(har_betalt))
 
-    # Hent gratis-tildelinger hittil i år
+    # Hent gratis-tildelinger hittil i Ã¥r
     free_this_term = {}
     for row in ppq.get_history_payments(
         transaction_type=const.pqtt_quota_fill_free,
@@ -533,15 +533,15 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
     )
     logger.debug2("Victims: %r", quota_victims)
     # Start call-backs via autostud modulen med vanlig
-    # merged_persons.xml fil.  Vi har da mulighet til å styre kvoter
-    # via de vanlige select kriteriene.  Callback metoden må sjekke
+    # merged_persons.xml fil.  Vi har da mulighet til Ã¥ styre kvoter
+    # via de vanlige select kriteriene.  Callback metoden mÃ¥ sjekke
     # mot unntak.
 
-    logger.info("Starting callbacks from %", student_info_file)
+    logger.info("Starting callbacks from %r", student_info_file)
     autostud.start_student_callbacks(student_info_file,
                                      recalc_quota_callback)
 
-    # For de personer som ikke fikk autostud-callback må vi kalle
+    # For de personer som ikke fikk autostud-callback mÃ¥ vi kalle
     # quota_callback funksjonen selv.
     logger.info("process persons that didn't get callback")
     for p in quota_victims.keys():
@@ -566,8 +566,8 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
 #         handle_quota(person_id, p)
 #         has_processed[person_id] = True
 #
-#     # Alle account som kun har student-affiliations (denne er ment å
-#     # ramme de som tidligere har vært studenter, men som har en konto
+#     # Alle account som kun har student-affiliations (denne er ment Ã¥
+#     # ramme de som tidligere har vÃ¦rt studenter, men som har en konto
 #     # som ikke er sperret enda).
 #     for p in fooBar():
 #         person_id = find_person(p['dato'], p['pnr'])
