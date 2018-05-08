@@ -96,7 +96,7 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
                 {'has_blocked_quota': has_blocked_quota}
             )
             pq_logger.info("set has_blocked_quota=%r for %r",
-                           has_blocked_quota, person_id))
+                           has_blocked_quota, person_id)
     except Errors.NotFoundError:
         ppq_info = {'max_quota': None,
                     'weekly_quota': None}
@@ -127,7 +127,7 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
         if uq not in free_this_term.get(person_id, []):
             logger.debug("grant %s for %r", uq, person_id)
             pq_logger.info("set initial %s=%r for %r",
-                           uq, utv_quota, person_id))
+                           uq, utv_quota, person_id)
             pu.add_free_pages(person_id,
                               utv_quota,
                               '%s%s' % (term_init_prefix, uq),
@@ -154,7 +154,7 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
                                       pageunits_accum=pageunits_accum,
                                       update_program=update_program)
                     pq_logger.info("grant %s=%r for %r",
-                                   qid, q[quota_type], person_id))
+                                   qid, q[quota_type], person_id)
         if 'weekly' in q:
             new_weekly = (new_weekly or 0) + q['weekly']
         if 'max' in q:
@@ -180,7 +180,7 @@ def recalc_quota_callback(person_info):
                 int(person_info['fodselsdato']),
                 int(person_info['personnr'])
             ))
-        except InvalidFnrError:
+        except fodselsnr.InvalidFnrError:
             logger.warn('Invalid FNR detected')
         if fnr not in fnr2pid:
             logger.warn("fnr %r is an unknown person", fnr)
@@ -229,7 +229,7 @@ def recalc_quota_callback(person_info):
         logger.debug("block %r (bet=%r, fritak=%r)",
                      person_id,
                      har_betalt.get(person_id, False),
-                     kopiavgift_fritak.get(person_id, False)))
+                     kopiavgift_fritak.get(person_id, False))
         set_quota(person_id, has_quota=True, has_blocked_quota=True)
         logger.set_indent(0)
         return
@@ -622,7 +622,7 @@ def main():
 
 
 def usage(exitcode=0):
-    print """Usage: [options]
+    print r"""Usage: [options]
     -s | --student-info-file file:
     -e | --emne-info-file file:
     -C | --studconfig-file file:
@@ -635,11 +635,19 @@ def usage(exitcode=0):
     --ou-perspective perspective:
     -r | --recalc-pq: start quota recalculation
 
-contrib/no/uio/quota_update.py -s /cerebrum/dumps/FS/merged_persons_small.xml -e /cerebrum/dumps/FS/emner.xml -C contrib/no/uio/studconfig.xml -S /cerebrum/dumps/FS/studieprogrammer.xml -D /cerebrum/dumps/FS/drgrad.xml -P system_sap:/cerebrum/dumps/SAP/SAP2BAS/sap2bas_2007-7-16-301.xml -f /cerebrum/dumps/FS/fritak_kopi.xml -b /cerebrum/dumps/FS/betalt_papir.xml -r
+contrib/no/uio/quota_update.py \
+    -s /cerebrum/dumps/FS/merged_persons_small.xml \
+    -e /cerebrum/dumps/FS/emner.xml \
+    -C contrib/no/uio/studconfig.xml \
+    -S /cerebrum/dumps/FS/studieprogrammer.xml \
+    -D /cerebrum/dumps/FS/drgrad.xml \
+    -P system_sap:/cerebrum/dumps/SAP/SAP2BAS/sap2bas_2007-7-16-301.xml \
+    -f /cerebrum/dumps/FS/fritak_kopi.xml \
+    -b /cerebrum/dumps/FS/betalt_papir.xml \
+    -r
 """
-    # ./contrib/no/uio/import_from_FS.py --db-user ureg2000 --db-service FSPROD.uio.no --misc-tag drgrad --misc-func GetStudinfDrgrad --misc-file drgrad.xml
-    # ./contrib/no/uio/import_from_FS.py --db-user ureg2000 --db-service FSPROD.uio.no --misc-tag betfritak --misc-func GetStudFritattKopiavg --misc-file fritak_kopi.xml
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()
