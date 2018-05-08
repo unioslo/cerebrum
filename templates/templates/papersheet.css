@@ -72,7 +72,7 @@ body {
   width: 210mm;
   height: 296mm;
   background: #fff;
-  font-family: "Arial"; }
+  font-family: "Arial", sans-serif; }
 
 .sheet {
   margin: 0 5mm 0mm 5mm;
