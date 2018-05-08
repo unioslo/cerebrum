@@ -183,7 +183,7 @@ def main():
                               (opts.hostpolicies, process_hostpolicies),
                               (opts.relationships, process_relationships)):
         if filename:
-            stream = SimilarSizeWriter(filename, 'w', encoding='UTF-8')
+            stream = SimilarSizeWriter(filename, 'w', encoding='latin-1')
             stream.max_pct_change = 90
             process(stream)
             streams.append(stream)
