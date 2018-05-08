@@ -106,7 +106,7 @@ class ZoneUtils(object):
 
         all_lines = []
         if os.path.exists(fname):
-            with open(fname, 'r', encoding='UTF-8') as fin:
+            with io.open(fname, 'r', encoding='UTF-8') as fin:
                 for line in fin:
                     m = ZoneUtils.re_serial.search(line)
                     if m:
