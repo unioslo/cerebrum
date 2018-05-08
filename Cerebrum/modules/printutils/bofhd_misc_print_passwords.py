@@ -197,39 +197,28 @@ class BofhdExtension(BofhdCommonMethods):
         tmp_dir = tempfile.mkdtemp(dir=cereconf.JOB_RUNNER_LOG_DIR,
                                    prefix="bofh_spool_{}".format(time.time()))
         self.logger.debug(
-            "make_password_document: temp dir=%r template=%r", tmp_dir, tpl['file'])
+            "make_password_document: temp dir=%r template=%r",
+            tmp_dir, tpl['file'])
 
         mappings = self._get_mappings(account, password, tpl)
 
         # Barcode
         if tpl['type'] == 'letter':
             barcode_file_path = os.path.join(tmp_dir, mappings['barcode_file'])
-            try:
-                renderers.render_barcode(
-                    tpl_config, account.entity_id, barcode_file_path
-                )
-            except Exception as msg:
-                self.logger.error(
-                    "make_password_document: unable to make barcode ({})"
-                    .format(msg)
-                )
-                raise CerebrumError(msg)
+            renderers.render_barcode(
+                tpl_config, account.entity_id, barcode_file_path
+            )
 
         lang = tpl.get('lang')
         static_files = tpl.get('static_files', [])
         pdf_abspath = os.path.join(
             tmp_dir, 'output_{}.pdf'.format(account.entity_id)
         )
-        try:
-            pdf_file = renderers.html_template_to_pdf(
-                tpl_config, tmp_dir, tpl['file'], mappings,
-                lang, static_files, pdf_abspath
-            )
-            return pdf_file
-        except Exception as msg:
-            self.logger.error(
-                "make_password_letter: unable to make pdf ({})".format(msg))
-            raise CerebrumError(msg)
+        pdf_file = renderers.html_template_to_pdf(
+            tpl_config, tmp_dir, tpl['file'], mappings,
+            lang, static_files, pdf_abspath
+        )
+        return pdf_file
 
     @staticmethod
     def _confirm_msg(account, destination, tpl, print_user):
