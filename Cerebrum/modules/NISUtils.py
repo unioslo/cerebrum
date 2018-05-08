@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2003-2010 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,13 +19,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from __future__ import with_statement
+from __future__ import with_statement, unicode_literals
 
 import mx
 import sys
 from contextlib import closing
-
-import cerebrum_path
+from six import text_type
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -89,8 +88,8 @@ class Passwd(object):
 
     def join(self, fields, sep=':'):
         for f in fields:
-            if not isinstance(f, str):
-                raise ValueError, "Type of '%r' is not str." % f
+            if not isinstance(f, text_type):
+                raise ValueError, "Type of '%r' is not text." % f
             if f.find(sep) != -1:
                 raise ValueError, \
                     "Separator '%s' present in string '%s'" % (sep, f)
@@ -110,7 +109,7 @@ class Passwd(object):
             gecos = row['name']
         if gecos is None:
             gecos = uname
-        gecos = latin1_to_iso646_60(gecos)
+        gecos = text_type(latin1_to_iso646_60(gecos))
         shell = self.shells[int(row['shell'])]
         if row['quarantine_type'] is not None:
             now = mx.DateTime.now()
@@ -144,9 +143,9 @@ class Passwd(object):
             # TBD: Is this good enough?
             home = '/'
 
-        return [uname, passwd, str(row['posix_uid']),
-                str(posix_group.posix_gid), gecos,
-                str(home), shell]
+        return [uname, passwd, text_type(row['posix_uid']),
+                text_type(posix_group.posix_gid), gecos,
+                text_type(home), shell]
 
     def generate_passwd(self):
         """Data generating method. returns a list of lists which looks like
@@ -193,8 +192,9 @@ class Passwd(object):
         return user_lines
 
     def write_passwd(self, filename, shadow_file, e_o_f=False):
-        logger.debug("write_passwd: " + str((filename, shadow_file, self.spread)))
-        f = SimilarSizeWriter(filename, "w")
+        logger.debug("write_passwd: filename=%r, shadow_file=%r, spread=%r",
+                     filename, shadow_file, self.spread)
+        f = SimilarSizeWriter(filename, "w", encoding='latin-1')
         f.max_pct_change = 10
         if shadow_file:
             s = SimilarSizeWriter(shadow_file, "w")
@@ -259,7 +259,7 @@ class NISGroupUtil(object):
                 subject_entity=entity_id,
                 sdate=self._namecachedtime))
             return bool(events)
-        except:
+        except Exception:
             logger.debug("Checking change log failed: %s", sys.exc_value)
         return False
 
@@ -572,4 +572,3 @@ class HackUserNetGroupUIO(UserNetGroup):
             ret_non_groups.add(name)
 
         return ret_groups, ret_non_groups
-    # end _expand_groups
