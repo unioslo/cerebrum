@@ -21,13 +21,20 @@
 
 from __future__ import absolute_import, unicode_literals
 
+import os
+import sys
+from six import text_type
+
 from Cerebrum.config.configuration import (ConfigDescriptor,
                                            Configuration)
 from Cerebrum.config.settings import String, Iterable, Setting
 from Cerebrum.config import loader
-from six import text_type
 
 DEFAULT_TEMPLATES_CONFIG = 'templates'
+DEFAULT_TEMPLATE_FOLDERS = [
+    os.path.join(sys.prefix, 'etc', 'cerebrum', 'base-templates'),
+    os.path.join(sys.prefix, 'etc', 'cerebrum', 'templates'),
+]
 
 DEFAULT_RENDER_PDF_CMD = '/usr/bin/chromium-browser --headless --no-margins' \
                          '--disable-gpu --print-to-pdf={dest} file://{src}'
@@ -78,14 +85,13 @@ class TemplatesConfig(Configuration):
 
     template_folders = ConfigDescriptor(
         Iterable,
-        default=['/cerebrum/etc/base-templates',
-                 '/cerebrum/etc/templates'],
-        doc="Folders containing templates files")
+        default=DEFAULT_TEMPLATE_FOLDERS,
+        doc="Folders containing template files")
 
     render_pdf_cmd = ConfigDescriptor(
         String,
         default=DEFAULT_RENDER_PDF_CMD,
-        doc="Command for rendering PDF-files")
+        doc="Command for rendering PDF files")
 
     render_barcode_cmd = ConfigDescriptor(
         String,
