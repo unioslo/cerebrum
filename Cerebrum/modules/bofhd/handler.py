@@ -565,7 +565,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         entity_id = self.check_session_validity(session)
         self.db.cl_init(change_by=entity_id)
 
-        self.logger.debug(u'Run command: %s (%r) by %i', cmd, args, entity_id)
+        self.logger.info(u'Run command: %s (%r) by %i', cmd, args, entity_id)
         if cmd not in self.server.classmap:
             raise CerebrumError("Illegal command {!r}".format(cmd))
 
