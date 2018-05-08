@@ -170,7 +170,7 @@ def shorten_course_name(course):
 def convert_activitynumber(act):
     # support for TVI has not been added, it will probably not return
 
-    if act is 'grl':
+    if act == 'grl':
         return 'g'      # the filegroup for all the teachers
     elif act in range(200, 300):
         delim = 'p'     # activity for profession students
