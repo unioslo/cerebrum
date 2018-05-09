@@ -367,7 +367,8 @@ class VoipAddress(EntityAuthentication, EntityTrait):
             return True
 
         # They must be strings...
-        if not (isinstance(value, str) and isinstance(alias, str)):
+        if not (isinstance(value, (str, text_type)) and
+                isinstance(alias, (str, text_type))):
             return False
 
         # This is a UiO number -- 8 digits and 5 digits for the internal number.

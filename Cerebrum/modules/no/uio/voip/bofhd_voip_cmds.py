@@ -370,7 +370,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
         # account?
         try:
             account = Factory.get("Account")(self.db)
-            account.find_by_name(value)
+            account.find_by_name(text_type(value))
             if account.owner_type == self.const.entity_person:
                 return self._get_voip_person(account.owner_id)
         except Errors.NotFoundError:
@@ -1027,7 +1027,6 @@ class BofhdVoipCommands(BofhdCommonMethods):
             entity_ids = [
                 x["entity_id"] for x in self._get_contact_info(contact_value)]
             return owner.entity_id in entity_ids
-        # end owner_has_contact
 
         def next_priority(owner, priority=None):
             if priority is None:
@@ -1043,7 +1042,6 @@ class BofhdVoipCommands(BofhdCommonMethods):
             if priority <= 0:
                 raise CerebrumError("Priority must be larger than 0")
             return priority
-        # end next_priority
 
         self.ba.can_alter_number(operator.get_entity_id())
 
