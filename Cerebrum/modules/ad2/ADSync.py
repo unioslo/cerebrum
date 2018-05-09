@@ -181,11 +181,6 @@ class BaseSync(object):
         self._ent_extid = Entity.EntityExternalId(self.db)
         self._entity_trait = EntityTrait(self.db)
 
-        # TODO: A check here for telling us that the mutual authentication is
-        # not fully implemented yet. Should be removed when fixed.
-        if not CRYPTO:
-            self.logger.warn("Not using mutual authentication")
-
         # Where the sync configuration should go:
         self.config = dict()
         # Where the entities to work on should go. Keys should be entity_names:
