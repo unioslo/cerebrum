@@ -442,7 +442,7 @@ class WinRMProtocol(object):
 
         """
         xml = self._xml_render(xml)
-        url = self._http_url(address)
+        url = self._http_url(address).encode('utf-8')
         req = urllib2.Request(url, xml, self._http_headers)
         try:
             ret = self._opener.open(req)
