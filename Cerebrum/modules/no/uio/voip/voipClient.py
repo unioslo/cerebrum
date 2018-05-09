@@ -90,7 +90,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
         """
         if not mac_address:
             return None
-        addr = mac_address.translate(string.maketrans("", ""), " :")
+        addr = mac_address.replace(" ", "").replace(":", "")
         addr = addr.lower()
         if not all(x in "0123456789abcdef" for x in addr):
             raise CerebrumError("Wrong mac character in '%s'" % addr)

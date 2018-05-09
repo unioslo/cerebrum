@@ -323,7 +323,7 @@ class BofhdVoipCommands(BofhdCommonMethods):
         # of the identifier (which mac addresses definitely have)
         client = VoipClient(self.db)
         if (isinstance(designation, (int, long))
-                or isinstance(designation, str)
+                or isinstance(designation, text_type)
                 and designation.isdigit()):
             try:
                 client.find(int(designation))
