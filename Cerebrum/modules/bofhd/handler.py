@@ -193,7 +193,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             exc_type = type(e)
             raise exc_type(exc_to_text(e))
         except NotImplementedError as e:
-            self.logger.warn('NotImplemented', exc_info=1)
+            self.logger.error('NotImplemented', exc_info=1)
             raise CerebrumError('Not implemented: {!s}'.format(exc_to_text(e)))
         except TypeError as e:
             err = exc_to_text(e)
@@ -201,12 +201,12 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                     or err.find("takes at least") != -1
                     or err.find("takes at most") != -1):
                 raise CerebrumError(err)
-            self.logger.warn('Unexpected exception', exc_info=1)
+            self.logger.error('Unexpected exception', exc_info=1)
             raise UnknownError(type(e),
                                err,
                                msg='A server error has been logged.')
         except Exception as e:
-            self.logger.warn('Unexpected exception', exc_info=1)
+            self.logger.error('Unexpected exception', exc_info=1)
             raise UnknownError(type(e),
                                exc_to_text(e),
                                msg='A server error has been logged.')
