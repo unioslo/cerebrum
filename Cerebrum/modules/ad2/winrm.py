@@ -44,6 +44,7 @@ import random
 import re
 import socket
 import urllib2
+import warnings
 
 import six
 from lxml import etree
@@ -442,9 +443,6 @@ class WinRMProtocol(object):
         """
         xml = self._xml_render(xml)
         url = self._http_url(address)
-        # print 'url', repr(url)
-        # print 'headers', repr(self._http_headers)
-        # print 'body\n', xml
         req = urllib2.Request(url, xml, self._http_headers)
         try:
             ret = self._opener.open(req)
@@ -1596,8 +1594,8 @@ class WinRMClient(WinRMProtocol):
                 # closed. Works when used as it is now, but should be tested if
                 # we should send more commands before returning their output.
                 self.close(shellid)
-            except Exception, e:
-                self.logger.debug2("Closing shell failed: %s" % e)
+            except Exception as e:
+                self.logger.debug2("Closing shell failed: %r", e)
             self.connect()
             shellid = self.shellid
             # Retry:
@@ -1869,11 +1867,21 @@ class PowershellClient(WinRMClient):
         getting blocked from the server.
 
         """
-        #shellid = self.connect()
+
+        def _convert(v):
+            if isinstance(v, bytes):
+                v = v.decode('utf-8')
+                warnings.warn('PowershellClient got bytestring args',
+                              UnicodeWarning)
+                return v
+            else:
+                return six.text_type(v)
+
+        args = tuple((_convert(v) for v in args))
         # Later versions of powershell just hangs at newlines, so need to remove
         # them. TODO: This could create problems, we need to look at how we
         # generate powershell commands!
-        command = u' '.join(args).replace('\n', ' ')
+        command = u' '.join(args).replace(u'\n', u' ')
         # Options for powershell:
         # -NonInteractive   To avoid waiting for stdin and deadlocks if a
         #                   prompt is popping up.

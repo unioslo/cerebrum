@@ -463,8 +463,8 @@ class ADclient(PowershellClient):
             'ad_pasw': self.escape_to_string(self.ad_account_password)}
         #for a in args:
         #    print a
-        self.logger.debug4(u'Executing powershell command: %s',
-                           u' '.join(args).replace('\n', ' '))
+        self.logger.debug4(u'Executing powershell command: %r',
+                           args)
         return super(ADclient, self).execute(setup, *args, **kwargs)
 
     # Standard lines in powershell that we can't get rid of by powershell code.
