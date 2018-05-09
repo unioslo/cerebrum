@@ -152,9 +152,9 @@ def mangle(from_spread, to_spread, file,
                 continue
 
             ct = co.ChangeType('e_group', 'add')
-            db.log_change(gid,
+            db.log_change(ac.entity_id,
                           int(ct),
-                          ac.entity_id,
+                          gid,
                           change_params=None,
                           skip_change=True)
 

@@ -282,9 +282,8 @@ class OUGroup(VirtualGroup):
                           'ou_perspective': self.ou_perspective,
                           'member_type': self.member_type})
             for member in self.list_members(self.entity_id, indirect=False):
-                self._db.log_change(self.entity_id,
-                                    self.clconst.group_add,
-                                    member['member_id'])
+                self._db.log_change(member['member_id'], self.clconst.group_add,
+                                    self.entity_id)
         else:
             args = dict(zip(self.__updated,
                             [getattr(self, x) for x in self.__updated]))
@@ -1125,39 +1124,37 @@ class PersonOuGroup(Person):
             else:
                 return c, s, p
             for i in adds:
-                self._db.log_change(i, self.const.group_add, myid)
+                self._db.log_change(myid, self.const.group_add, i)
             for i in aadds:
-                self._db.log_change(i, self.const.group_add, ac)
+                self._db.log_change(ac, self.const.group_add, i)
             for i in rems:
-                self._db.log_change(i, self.const.group_rem, myid)
+                self._db.log_change(myid, self.const.group_rem, i)
             for i in arems:
-                self._db.log_change(i, self.const.group_rem, ac)
+                self._db.log_change(ac, self.const.group_rem, i)
         return c, s, p
 
     def __delete_affiliation(self, ou_id, affiliation, source, status):
-        """Register group_rem for deleted aff"""
+        """Register group_del for deleted aff"""
         myid = self.entity_id
         gr = Factory.get('Group')(self._db)
         for row in gr.list_ou_groups_for(
                 ou_id=ou_id, affiliation=affiliation, status=status,
                 source=source, indirect=False,
                 member_types=self.const.virtual_group_ou_person):
-            self._db.log_change(row['group_id'], self.const.group_rem, myid)
-
+            self._db.log_change(myid, self.const.group_del, row['group_id'])
         for row in gr.list_ou_groups_for(
                 ou_id=ou_id, affiliation=affiliation, status=status,
                 source=source, indirect=False,
                 member_types=self.const.virtual_group_ou_person):
-            self._db.log_change(row['group_id'], self.const.group_rem, myid)
+            self._db.log_change(myid, self.const.group_del, row['group_id'])
         try:
             myid = self.get_primary_account()
             for row in gr.list_ou_groups_for(
                     ou_id=ou_id, affiliation=affiliation, status=status,
                     source=source, indirect=False,
                     member_types=self.const.virtual_group_ou_primary):
-                self._db.log_change(row['group_id'],
-                                    self.const.group_rem,
-                                    myid)
+                self._db.log_change(myid, self.const.group_del,
+                                    row['group_id'])
         except:
             pass
 
@@ -1198,8 +1195,8 @@ class AccountOuGroup(Account):
                     member_types=self.const.virtual_group_ou_primary):
                 grids.add(gid['group_id'])
         for grid in grids:
-            self._db.log_change(grid, self.const.group_rem, old)
-            self._db.log_change(grid, self.const.group_add, new)
+            self._db.log_change(old, self.const.group_del, grid)
+            self._db.log_change(new, self.const.group_add, grid)
 
     def set_account_type(self, ou_id, affiliation, priority=None):
         """Add or update account type -> add group memberships?"""
@@ -1219,9 +1216,7 @@ class AccountOuGroup(Account):
                 ou_id=ou_id, affiliation=affiliation, indirect=False,
                 member_types=self.const.virtual_group_ou_accounts)
             for grp in new:
-                self._db.log_change(grp['group_id'],
-                                    self.const.group_add,
-                                    myid)
+                self._db.log_change(myid, self.const.group_add, grp['group_id'])
         elif oldprim != self.entity_id and pri < lst[0]['priority']:
             self.__new_primary_account(oldprim, self.entity_id)
         elif (oldprim == self.entity_id and ou_id == lst[0]['ou_id'] and
@@ -1248,7 +1243,7 @@ class AccountOuGroup(Account):
             ou_id=ou_id, affiliation=affiliation, indirect=False,
             member_types=self.const.virtual_group_ou_accounts)
         for grp in rem:
-            self._db.log_change(grp['group_id'], self.const.group_rem, myid)
+            self._db.log_change(myid, self.const.group_rem, grp['group_id'])
         return ret
 
     def del_ac_types(self):
@@ -1276,7 +1271,6 @@ class AccountOuGroup(Account):
                     indirect=False,
                     member_types=self.const.virtual_group_ou_accounts)
                 for grp in rem:
-                    self._db.log_change(grp['group_id'],
-                                        self.const.group_rem,
-                                        myid)
+                    self._db.log_change(myid, self.const.group_rem,
+                                        grp['group_id'])
         return ret
