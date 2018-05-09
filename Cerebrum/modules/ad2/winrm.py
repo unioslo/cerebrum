@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012-2016 University of Oslo, Norway
+# Copyright 2012-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,8 +20,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Client functionality for making use of Windows Remote Management (WinRM).
 
-WinRM is a protocol for communicating with Windows machines (servers) to get and
-set differents kinds of information. WinRM is Microsoft's version of WSMan,
+WinRM is a protocol for communicating with Windows machines (servers) to get
+and set differents kinds of information. WinRM is Microsoft's version of WSMan,
 which is based on SOAP and uses different WS-* standards.
 
 Our focus is to use WinRM to execute commands on the server side, which we then
@@ -34,39 +34,23 @@ For more information about the WinRM standard, see:
     http://msdn.microsoft.com/en-us/library/aa384426.aspx
     http://msdn.microsoft.com/en-us/library/cc251526(v=prot.10).aspx
 
-Encoding:
-
-Input to WinRM: All input that is sent to shells must be in Unicode. Other data
-for WinRM must either be in ASCII or Unicode. This is due to ElementTree only
-supporting Unicode and ASCII input.
-
-Output from WinRM: Output is encoded in UTF-8 or is Unicode where appropriate.
-XML messages are for instance only in UTF-8, since ElementTree is faster reading
-str than unicode, at least in python2.5.
-
 """
 
-import random
 import base64
+import io
+import json
+import logging
+import random
+import re
 import socket
 import urllib2
-import httplib
-import csv
-import json
-import re
 
-# TODO: remove the exception when ssl is up and running in production:
-try:
-    import ssl
-    CRYPTO = True
-except ImportError:
-    CRYPTO = False
-CRYPTO = False
-
+import six
 from lxml import etree
 
-import cerebrum_path
-from Cerebrum.Utils import to_unicode, unicode2str
+from Cerebrum.Utils import unicode2str
+
+logger = logging.getLogger(__name__)
 
 # The namespaces that might be used in the SOAP envelopes, for the server to be
 # happy. This is the namespaces that are used in Microsoft's documentation.
@@ -86,9 +70,6 @@ namespaces = {
     # Standard XML definition. Must be present to be able to use e.g. xml:lang:
     'xml':   "http://www.w3.org/XML/1998/namespace",
 }
-#if hasattr(etree, 'register_namespace'):
-#    for prefix, url in namespaces.iteritems():
-#        etree.register_namespace(prefix, url)
 
 """What WinRS action types that is available for the server."""
 action_types = {
@@ -234,12 +215,13 @@ class PowershellException(ExitCodeException):
         # Search for, and attempt to extract error-information from PowerShell
         # error-messages.
         if stderr:
-            m = re.search("(?P<first_error>[\w\s\-'.]+)[+\s]+CategoryInfo[\s:]+"
-                          "(?P<second_error>\w+):\s+\("
-                          "(?P<args>[\w\-:]+)\)\s+\["
-                          "(?P<command>[\w\s-]+)\].*",
-                          stderr,
-                          re.MULTILINE)
+            m = re.search(
+                "(?P<first_error>[\w\s\-'.]+)[+\s]+CategoryInfo[\s:]+"
+                "(?P<second_error>\w+):\s+\("
+                "(?P<args>[\w\-:]+)\)\s+\["
+                "(?P<command>[\w\s-]+)\].*",
+                stderr,
+                re.MULTILINE)
         else:
             m = None
         if msg is not None:
@@ -290,17 +272,17 @@ class WinRMProtocol(object):
     connection_timeout = 1800
 
     # Timeout in seconds for waiting for replies from the server. This is
-    # handled by the WinRM server, returning a Fault when this many seconds have
-    # passed.
-    request_timeout = 60*5  # 5 minutes
+    # handled by the WinRM server, returning a Fault when this many seconds
+    # have passed.
+    request_timeout = 60 * 5  # 5 minutes
 
     # How many seconds a Shell is set to last before the server automatically
     # deletes it. If set to low, a long fullsync might not succeed. Set too
-    # high, and you would not be able to reconnect before the timeout has passed
-    # if many of previous syncs have failed.
+    # high, and you would not be able to reconnect before the timeout has
+    # passed if many of previous syncs have failed.
     #
-    #   Lifetime: An optional quota setting that configures the maximum time, in
-    #   seconds, that the Remote Shell will stay open. The time interval is
+    #   Lifetime: An optional quota setting that configures the maximum time,
+    #   in seconds, that the Remote Shell will stay open. The time interval is
     #   measured beginning from the time that the service receives a wst:Create
     #   request for a Remote Shell.
     #                   - http://msdn.microsoft.com/en-us/library/cc251546.aspx
@@ -309,6 +291,15 @@ class WinRMProtocol(object):
 
     # The string that identifies this client in HTTP calls
     _useragent = 'Cerebrum WinRM client'
+
+    # Encoding
+    #
+    # The _winrm_encoding and _winrm_codepage must be configured to the same
+    # charset. See
+    # <http://msdn.microsoft.com/en-us/library/windows/desktop/dd317756%28v=vs.85%29.aspx>
+    # for mappings between codepage and encoding.
+    _winrm_encoding = 'utf-8'
+    _winrm_codepage = '65001'
 
     def __init__(self, host='localhost', port=None, encrypted=True,
                  logger=None, ca=None, client_key=None, client_cert=None,
@@ -333,8 +324,8 @@ class WinRMProtocol(object):
         @type ca: string
         @param ca:
             The absolute location of a file with the CA certificate that should
-            be signing the server certificate. TODO: should we accept the server
-            certificate itself as well?
+            be signing the server certificate. TODO: should we accept the
+            server certificate itself as well?
 
         @type client_key: string
         @param client_key:
@@ -393,10 +384,12 @@ class WinRMProtocol(object):
         self._http_headers = {
             'Host': '%s:%s' % (self.host, self.port),
             'Accept': '*/*',
-            'Content-Type': 'application/soap+xml; charset=utf-8',
+            'Content-Type': 'application/soap+xml; charset={}'.format(
+                self._winrm_encoding),
             'User-Agent': self._useragent}
         # Set up the XML parser to expect input in utf-8
-        self.xmlparser = etree.XMLParser(encoding='utf-8')
+        # TODO: Do we need this? The xml documents *should* contain encoding.
+        self.xmlparser = etree.XMLParser(encoding=self._winrm_encoding)
         self.logger.debug("WinRMProtocol: init done")
 
     def _http_url(self, sub=''):
@@ -422,10 +415,9 @@ class WinRMProtocol(object):
         instance with XML data to be sent. The returned object is an urllib2
         response instance. Interesting variables are ret.headers and ret.fp.
 
-        @type xml: ElementTree or string
+        @type xml: lxml.etree.ElementTree
         @param xml: The XML that should be sent to the server. Should be valid
-            SOAP data that the server could understand. If given as a string, it
-            must be encoded as UTF-8.
+            SOAP data that the server could understand.
 
         @type address: string
         @param address: The HTTP address to where the data should go on the
@@ -448,43 +440,32 @@ class WinRMProtocol(object):
         @raise socket.timeout: When the socket connection times out.
 
         """
-        if not isinstance(xml, basestring):
-            xml = etree.tostring(xml, encoding='utf-8')
-        # Add the XML header definition
-        xml = '<?xml version="1.0" encoding="UTF-8" ?>\n%s' % xml
-        req = urllib2.Request(self._http_url(address).encode('utf-8'),
-                              xml,
-                              self._http_headers)
+        xml = self._xml_render(xml)
+        req = urllib2.Request(
+            self._http_url(address).encode(self._winrm_encoding),
+            xml,
+            self._http_headers)
         try:
             ret = self._opener.open(req)
         except urllib2.HTTPError, e:
             if e.code == 401:  # Unauthorized
                 self.logger.debug("Server says 401 Unauthorized")
-                #if ("Negotiate" in e.hdrs.get('www-authenticate', '') and
-                #        "Basic" in e.hdrs.get('www-authenticate', '')):
-                #    print "Retry with Negotiate Basic?"
-
-                # TODO: Should we support authenticating through Kerberos? Or
-                #       should we only have a local user account for the AD
-                #       sync?
                 self.logger.warn("No known server auth method: %s" %
                                  e.hdrs.get('www-authenticate', None))
                 raise
             elif e.code == 500:
                 code, reason, detail = self._parse_fault(e)
-                #self.logger.debug2("Fault [%s]: %s" % (','.join(code),
-                #                                     '| '.join(reason)))
-                #self.logger.debug2("Fault detail: %s" % '\n'.join(detail))
                 raise WinRMServerException(code, reason, detail)
-            self.logger.warn("Server http error, code=%s: %s" % (e.code, e.msg))
-            self.logger.warn("Server headers: %s" % str(e.hdrs).replace('\r\n', ' | '))
+            self.logger.warn("Server http error, code=%r: %s", e.code, e.msg)
+            self.logger.warn("Server headers: %s",
+                             str(e.hdrs).replace('\r\n', ' | '))
             raise
-        except socket.timeout, e:
-            self.logger.warn("Socket timeout when connecting to %s: %s" %
-                             (self._http_url('wsman'), e))
+        except socket.timeout as e:
+            self.logger.warn("Socket timeout when connecting to %s: %s",
+                             self._http_url('wsman'), e)
             raise
-        except urllib2.URLError, e:
-            self.logger.warn("Connection error: %s" % (e.reason,))
+        except urllib2.URLError as e:
+            self.logger.warn("Connection error: %s", e.reason)
             raise
         return ret
 
@@ -504,14 +485,14 @@ class WinRMProtocol(object):
           contains more data, and could give you more help about fixing the
           fault:
 
-            - Code (int): Could be an internal Win32 error code or an application
-              specific code. Search for MS-ERREF to get a list of standard
-              codes.
+            - Code (int): Could be an internal Win32 error code or an
+              application specific code. Search for MS-ERREF to get a list of
+              standard codes.
 
             - Machine (string): The machine where the fault occured.
 
-            - Message (mixed content) [optional]: Different data that gives more
-              details about the fault.
+            - Message (mixed content) [optional]: Different data that gives
+              more details about the fault.
 
         Example on the format of a Fault response:
 
@@ -581,8 +562,8 @@ class WinRMProtocol(object):
     def _xml_duration(self, seconds=None, minutes=None, hours=None):
         """Return a duration in the defined XML Duration time format.
 
-        I've skipped days, months and years, but could be added if we need it in
-        the future.
+        I've skipped days, months and years, but could be added if we need it
+        in the future.
 
         In the documentation at http://www.w3.org/TR/xmlschema-2/#duration, it
         says:
@@ -630,8 +611,8 @@ class WinRMProtocol(object):
             </s:Envelope>
 
         As you can see, the XML specifications are put in the envelope. The
-        Header and Body should exist, but at least the Body could be empty (e.g.
-        <s:Body/>).
+        Header and Body should exist, but at least the Body could be empty
+        (e.g.  <s:Body/>).
 
         @type header: etree._Element
         @param header: An XML Element that should be tagged s:Header.
@@ -704,10 +685,10 @@ class WinRMProtocol(object):
 
     def _xml_header(self, action, resource='windows/shell/cmd', selectors=None):
         """Create an XML header for different request types. WinRM makes use of
-        a lot of different WS-* standards, e.g. WS-Addressing and WS-Management,
-        but most of the WSMan calls looks fortunately the same. The Header
-        returned from this method could therefore contain most of those
-        settings.
+        a lot of different WS-* standards, e.g. WS-Addressing and
+        WS-Management, but most of the WSMan calls looks fortunately the same.
+        The Header returned from this method could therefore contain most of
+        those settings.
 
         Some of the elements that are used:
 
@@ -724,13 +705,13 @@ class WinRMProtocol(object):
         - wsman:Locale: Specify language to use in replies and faults. Default:
           en-US.
 
-        - wsman:MaxEnvelopeSize: The max size of the reply message. If the reply
-          gets bigger than this, the message gets split up in different
+        - wsman:MaxEnvelopeSize: The max size of the reply message. If the
+          reply gets bigger than this, the message gets split up in different
           envelopes. Must be a multiple of 1024.
 
         - wsman:OperationTimeout: Set how long the request could run before it
-          gets timed out. This is only for the connection to the server, it does
-          not override the max lifetime for the user's shells.
+          gets timed out. This is only for the connection to the server, it
+          does not override the max lifetime for the user's shells.
 
         - wsman:OptionSet: Options for the environment on the server, e.g. if
           the user profile should be used or not, and how piping input should
@@ -763,7 +744,8 @@ class WinRMProtocol(object):
           <wsa:Action s:mustUnderstand="true">
             http://schemas.xmlsoap.org/ws/2004/09/transfer/Create
           </wsa:Action>
-          <wsman:MaxEnvelopeSize s:mustUnderstand="true">153600</wsman:MaxEnvelopeSize>
+          <wsman:MaxEnvelopeSize s:mustUnderstand="true">
+            153600</wsman:MaxEnvelopeSize>
           <wsa:MessageID>uuid:AF6A2E07-BA33-496E-8AFA-E77D241A2F2F</wsa:MessageID>
           <wsman:Locale xml:lang="en-US" s:mustUnderstand="false" />
           <!-- The OptionSet is not always used
@@ -787,9 +769,9 @@ class WinRMProtocol(object):
 
                 http://schemas.microsoft.com/wbem/wsman/1/
 
-            Examples of resources could be 'windows/shell/cmd' when working with
-            standard shells, 'config' at Get requests for getting the server
-            configuration and
+            Examples of resources could be 'windows/shell/cmd' when working
+            with standard shells, 'config' at Get requests for getting the
+            server configuration and
             'http://schemas.microsoft.com/wbem/wsman/1/config/plugin' for
             getting list of plugins.
 
@@ -810,14 +792,12 @@ class WinRMProtocol(object):
 
         if not resource.startswith('http'):
             resource = 'http://schemas.microsoft.com/wbem/wsman/1/%s' % resource
-                       #http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd
-
-        #print "Resource: %s" % (resource,)
+            # http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd
 
         uri = self._xml_element(
             'ResourceURI', 'wsman',
-            #text='http://schemas.microsoft.com/powershell/microsoft.powershell',
-            #text='http://schemas.microsoft.com/wbem/wsman/1/%s' % resource,
+            # text='http://schemas.microsoft.com/powershell/microsoft.powershell',
+            # text='http://schemas.microsoft.com/wbem/wsman/1/%s' % resource,
             text=resource,
             attribs={'s:mustUnderstand': 'true'})
         header.append(uri)
@@ -839,7 +819,8 @@ class WinRMProtocol(object):
                                         attribs={'xml:lang': 'en-US',
                                                  's:mustUnderstand': 'false'}))
         header.append(self._xml_element('OperationTimeout', 'wsman',
-                                        text=self._xml_duration(self.request_timeout)))
+                                        text=self._xml_duration(
+                                            self.request_timeout)))
 
         # Add Selector, if given. E.g. used for specifying ShellId.
         if selectors:
@@ -848,6 +829,14 @@ class WinRMProtocol(object):
                 selectorset.append(s)
             header.append(selectorset)
         return header
+
+    def _xml_render(self, root_element):
+        root = etree.ElementTree(root_element)
+        xml_buffer = io.BytesIO()
+        root.write(xml_buffer,
+                   encoding=self._winrm_encoding,
+                   xml_declaration=True)
+        return xml_buffer.getvalue()
 
     # Settings for the WinRM behaviour:
 
@@ -894,8 +883,8 @@ class WinRMProtocol(object):
 
         @type args: string or list of strings
         @param args: The code that should be sent to the WinRM server. It could
-            be a single command, a command with parameters or many commands that
-            should all be executed. All the strings are simply sent to the
+            be a single command, a command with parameters or many commands
+            that should all be executed. All the strings are simply sent to the
             server, so they need to be valid code.
 
             The input must be in Unicode.
@@ -920,12 +909,14 @@ class WinRMProtocol(object):
         skip_cmd_shell = 'FALSE'
         if self._winrs_skip_cmd_shell:
             skip_cmd_shell = 'TRUE'
-        options.append(self._xml_element('Option', 'wsman',
-                                         attribs={'Name': 'WINRS_CONSOLEMODE_STDIN'},
-                                         text=consolemode_stdin))
-        options.append(self._xml_element('Option', 'wsman',
-                                         attribs={'Name': 'WINRS_SKIP_CMD_SHELL'},
-                                         text=skip_cmd_shell))
+        options.append(
+            self._xml_element('Option', 'wsman',
+                              attribs={'Name': 'WINRS_CONSOLEMODE_STDIN'},
+                              text=consolemode_stdin))
+        options.append(
+            self._xml_element('Option', 'wsman',
+                              attribs={'Name': 'WINRS_SKIP_CMD_SHELL'},
+                               text=skip_cmd_shell))
         header.append(options)
 
         body = self._xml_element('Body', 's')
@@ -963,14 +954,16 @@ class WinRMProtocol(object):
 
         <s:Header>
           ...
-          <wsman:OptionSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <wsman:OptionSet
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
             <wsman:Option Name="WINRS_NOPROFILE">TRUE</wsman:Option>
             <wsman:Option Name="WINRS_CODEPAGE">437</wsman:Option>
           </wsman:OptionSet>
           ...
         </s:Header>
         <s:Body>
-          <rsp:Shell xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell">
+          <rsp:Shell
+              xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell">
             <rsp:Environment>
                 <rsp:Variable Name="test">1</rsp:Variable>
             </rsp:Environment>
@@ -994,18 +987,19 @@ class WinRMProtocol(object):
         """
         header = self._xml_header('create')
         # TODO: add support for environment variables as input
-        #env = self._xml_element('Environment', 'rsp')
-        #env.append(self._xml_element('Variable', 'rsp',
-        #                             attribs={'Name': 'Mode'},
-        #                             text="1000, 1000"))
-        #header.append(env)
+        # env = self._xml_element('Environment', 'rsp')
+        # env.append(self._xml_element('Variable', 'rsp',
+        #                              attribs={'Name': 'Mode'},
+        #                              text="1000, 1000"))
+        # header.append(env)
         options = self._xml_element('OptionSet', 'wsman')
-        # We don't need a profile for now, will only take longer execution time:
+        # We don't need a profile for now, will only take longer execution time
         options.append(self._xml_element('Option', 'wsman', text='TRUE',
                                          attribs={'Name': 'WINRS_NOPROFILE'}))
-        # The codepage sets what encoding to use for output. For more info, see:
+        # The codepage sets what encoding to use for output. For more info, see
         # http://msdn.microsoft.com/en-us/library/windows/desktop/dd317756%28v=vs.85%29.aspx
-        options.append(self._xml_element('Option', 'wsman', text='65001',
+        options.append(self._xml_element('Option', 'wsman',
+                                         text=self._winrm_codepage,
                                          attribs={'Name': 'WINRS_CODEPAGE'}))
         header.append(options)
 
@@ -1013,7 +1007,8 @@ class WinRMProtocol(object):
         shell = self._xml_element('Shell', 'rsp', nsmap={
             'rsp': 'http://schemas.microsoft.com/wbem/wsman/1/windows/shell'})
         shell.append(self._xml_element('Lifetime', 'rsp',
-                                       text=self._xml_duration(self.shell_lifetime)))
+                                       text=self._xml_duration(
+                                           self.shell_lifetime)))
         shell.append(self._xml_element('InputStreams', 'rsp', text='stdin'))
         shell.append(self._xml_element('OutputStreams', 'rsp',
                                        text='stdout stderr'))
@@ -1024,9 +1019,10 @@ class WinRMProtocol(object):
 
         # Find the ShellID:
         for event, elem in etree.iterparse(
-                ret.fp, tag='{http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd}Selector'):
-            self.logger.debug3('WSMAN Create done, returned ShellId %s' %
-                               str(elem.text))
+                ret.fp,
+                tag='{http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd}Selector'):
+            self.logger.debug3('WSMAN Create done, returned ShellId %s',
+                               elem.text)
             return elem.text
         raise Exception('Did not receive ShellId from server')
 
@@ -1036,16 +1032,17 @@ class WinRMProtocol(object):
 
         It is recommended to delete the shell when a job has finished, to free
         up usage on the server. Only a limited number of shells are available
-        per user, and old shells could stay idle for quite some time before they
-        get deleted, depending on the settings.
+        per user, and old shells could stay idle for quite some time before
+        they get deleted, depending on the settings.
 
         """
         selector = self._xml_element('Selector', 'wsman', text=shellid,
                                      attribs={'Name': 'ShellId'})
         self.logger.debug3('Calling WSMAN Delete for ShellId "%s"' %
                            str(shellid))
-        ret = self._http_call(self._xml_envelope(self._xml_header('delete',
-                                                        selectors=[selector])))
+        self._http_call(
+            self._xml_envelope(
+                self._xml_header('delete', selectors=[selector])))
         self.logger.debug3('WSMAN Delete done for ShellId "%s"' % str(shellid))
         # No need to parse the reply, exceptions are thrown by HTTP error codes
         # and raised by _http_call
@@ -1086,10 +1083,11 @@ class WinRMProtocol(object):
                 - text: The value of the selection.
 
         @rtype: string
-        @return: The Id of the EnumerateResponse. This should be used to get the
+        @return:
+            The Id of the EnumerateResponse. This should be used to get the
             output from the enumerate request through L{wsman_pull}. You might
-            want to do something else while waiting, as it might take a while to
-            process, depending on what you requested.
+            want to do something else while waiting, as it might take a while
+            to process, depending on what you requested.
 
         """
         sel = None
@@ -1100,21 +1098,23 @@ class WinRMProtocol(object):
                 del selector['text']
             sel = [self._xml_element('Selector', 'wsman', text=s_txt,
                                      attribs=selector)]
-        header = self._xml_header('enumerate', resource=resource, selectors=sel)
+        header = self._xml_header('enumerate',
+                                  resource=resource,
+                                  selectors=sel)
         body = self._xml_element('Body', 's')
         enum = self._xml_element('Enumerate', 'wsen')
-        #enum.append(self._xml_element(
-        #    'Expires', 'wsen', text='%s' % self._xml_duration(seconds=120)))
+        # enum.append(self._xml_element(
+        #     'Expires', 'wsen', text='%s' % self._xml_duration(seconds=120)))
         body.append(enum)
 
-        #print etree.tostring(self._xml_envelope(header, body), pretty_print=True)
-        self.logger.debug3('Calling WSMAN Enumerate for resource "%s"' %
-                           str(resource))
+        # print etree.tostring(self._xml_envelope(header, body), pretty_print=True)
+        self.logger.debug3('Calling WSMAN Enumerate for resource "%s"',
+                           resource)
         ret = self._http_call(self._xml_envelope(header, body))
         tag = '{%s}EnumerationContext' % namespaces['wsen']
         for event, elem in etree.iterparse(ret.fp, tag=tag):
-            self.logger.debug3('WSMAN Enumerate done for resource "%s"' %
-                               str(resource))
+            self.logger.debug3('WSMAN Enumerate done for resource "%s"',
+                               resource)
             return elem.text
         raise Exception("Unknown Enumeration response for resource='%s'" %
                         resource)
@@ -1232,15 +1232,16 @@ class WinRMProtocol(object):
                            str(resource))
         ret = self._http_call(self._xml_envelope(header, body))
         self.logger.debug3('WSMAN Pull done for resource "%s"' % str(resource))
-        for event, elem in etree.iterparse(ret.fp, tag=tag, encoding='utf-8'):
+        for event, elem in etree.iterparse(ret.fp, tag=tag,
+                                           encoding=self._winrm_encoding):
             return elem
 
     def wsman_receive(self, shellid, commandid=None, sequence=0):
         """Send a Recieve request to the server, to get a command's output.
 
-        WinRM's execution of commands works in the way that the command is first
-        called by a Command request, which only returns a CommandId, which we
-        should then use when sending a Receive request later.
+        WinRM's execution of commands works in the way that the command is
+        first called by a Command request, which only returns a CommandId,
+        which we should then use when sending a Receive request later.
 
         Note that this command only returns one page of output, you would need
         to loop over the method with a growing L{sequence} to get the rest of
@@ -1252,20 +1253,21 @@ class WinRMProtocol(object):
           <rsp:Receive
                xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"
                SequenceId="0">
-            <rsp:DesiredStream CommandId="77df7bb6-b5a0-4777-abd9-9823c0774074">
-                  stdout stderr
+            <rsp:DesiredStream
+                 CommandId="77df7bb6-b5a0-4777-abd9-9823c0774074">
+              stdout stderr
             </rsp:DesiredStream>
           </rsp:Receive>
         </s:Body>
 
         @type shellid: string
-        @param shellid: The ShellId that identifies what shell to get the output
-            from.
+        @param shellid:
+            The ShellId that identifies what shell to get the output from.
 
         @type commandid: string
         @param commandid: The CommanId for the command that has already been
-            given to the server. Only output from this command will be received.
-            Not needed for Custom Remote Shells.
+            given to the server. Only output from this command will be
+            received.  Not needed for Custom Remote Shells.
 
         @type sequence: int
         @param sequence: Specifies what "page" of the output that should be
@@ -1280,10 +1282,10 @@ class WinRMProtocol(object):
 
             The L{status} could be Done, Running or Pending. The return code
             might be None, if not given by the server. The out dict could
-            contain elements 'stdout' and 'stderr', depending on what the server
-            sends.
+            contain elements 'stdout' and 'stderr', depending on what the
+            server sends.
 
-            The elements in the dict are all UTF-8-encoded strings.
+            The elements in the dict are all unicode objects.
 
         """
         selector = self._xml_element('Selector', 'wsman', text=shellid,
@@ -1318,8 +1320,8 @@ class WinRMProtocol(object):
         # Find the ExitCode, if given in this round
         tag = "{%s}ExitCode" % namespaces['rsp']
         for code in root.iter(tag=tag):
-            # Casting the exitcode into an integer. It could that WinRM tries to
-            # use this differently in the future, which would then trigger
+            # Casting the exitcode into an integer. It could that WinRM tries
+            # to use this differently in the future, which would then trigger
             # exceptions here. Would then have to cast it later.
             exitcode = int(code.text)
 
@@ -1342,13 +1344,7 @@ class WinRMProtocol(object):
         for t in out:
             out[t] = ''.join(base64.decodestring(s)
                              for s in out[t]).replace('\r', '')
-            if out[t].startswith('\xef\xbb\xbf'):
-                out[t] = out[t][3:]
-
-            try:
-                out[t] = out[t].decode('utf-8')
-            except:
-                self.logger.error("unable to decode stuff from winrm", exc_info=True)
+            out[t] = out[t].decode(self._winrm_encoding)
         return state, exitcode, out
 
     def wsman_send(self, shellid, commandid, data):
@@ -1383,8 +1379,9 @@ class WinRMProtocol(object):
             data = unicode2str(data)
 
         # TODO: Might not want to log what is sent when done debugging:
-        self.logger.debug("In shell %s, for CmdID: %s: Sending stdin input: '%s'" %
-                          (shellid, commandid, data))
+        self.logger.debug(
+            "In shell %s, for CmdID: %s: Sending stdin input: '%s'",
+            shellid, commandid, data)
         # Need to add carriage return, to simulate Enter in Windows. A simple
         # newline (\n) would not work, carriage return (\r) is required:
         data = data.replace('\n', '\r\n')
@@ -1418,8 +1415,8 @@ class WinRMProtocol(object):
 
         The most used signal is Terminate. This should be sent for a command
         when the client has received all its output and exitcode. The server
-        then knows that it doesn't need the output from the command anymore, and
-        could remove it from its cache.
+        then knows that it doesn't need the output from the command anymore,
+        and could remove it from its cache.
 
         @type shellid: string
         @param shellid: The ShellId for the shell that the command is running
@@ -1450,8 +1447,9 @@ class WinRMProtocol(object):
                            'CommandId "%s"' % (str(shellid), str(commandid)))
         ret = self._http_call(self._xml_envelope(self._xml_header('signal',
                                                  selectors=[selector]), body))
-        self.logger.debug3('WSMAN Signal done for ShellId "%s", '
-                           'CommandId "%s"' % (str(shellid), str(commandid)))
+        self.logger.debug3(
+            'WSMAN Signal done for ShellId "%s", CommandId "%s"',
+            shellid, commandid)
         # TODO: What to check?
         # TODO: What to return?
         return ret
@@ -1521,12 +1519,13 @@ class WinRMClient(WinRMProtocol):
         return shellid
 
     def execute(self, *args, **kwargs):
-        """Send a command to the server and return a ShellId and a CommandId
-        that could be used to retrieve the output. This is for larger operations
-        which could take some time to process. For faster commands you could
-        rather use the easier method L{run} which returns the command's output
-        directly, with the downside of having to wait while the command is
-        executed.
+        """Send a command to the server and return a ShellId and a CommandId.
+
+        These IDs can be used to retrieve the output. This is for larger
+        operations which could take some time to process. For faster commands
+        you could rather use the easier method L{run} which returns the
+        command's output directly, with the downside of having to wait while
+        the command is executed.
 
         Note that you have to send a signal to the server yourself, when the
         output was received okay. This is automatically done if you get output
@@ -1549,8 +1548,8 @@ class WinRMClient(WinRMProtocol):
         @type *args: strings
         @param *args: Input should be the code that should be executed. Note
             that when using the default shell, cmd, you can only specify one
-            single command, which must be in the first argument, and the rest of
-            the arguments are considered parameters for that.
+            single command, which must be in the first argument, and the rest
+            of the arguments are considered parameters for that.
 
         @type stdin: string
         @param stdin: Data to send as input to the server.
@@ -1646,7 +1645,8 @@ class WinRMClient(WinRMProtocol):
             output should be retrieved from.
 
         @type signal: bool
-        @param signal: If we should send a end signal to the server when all the
+        @param signal:
+            If we should send a end signal to the server when all the
             output was received. This must be done, according to the
             specifications, after a process has finished, so that the server
             could free up the cache space and use it for the next command.
@@ -1655,14 +1655,16 @@ class WinRMClient(WinRMProtocol):
             it yourself later on.
 
         @type timeout_retries: int
-        @param timeout_retries: How many retry attempts should be made if the
+        @param timeout_retries:
+            How many retry attempts should be made if the
             server responds with a time out. Some methods take a long time to
             process, other cases there might be a deadlock, e.g. when waiting
-            for input from the client or other bugs, which we shouldn't wait for
-            forever.
+            for input from the client or other bugs, which we shouldn't wait
+            for forever.
 
         @rtype: iterator
-        @return: Iterating over output from the server. WinRM splits output into
+        @return:
+            Iterating over output from the server. WinRM splits output into
             different XML response messages if it's too much data. Small
             commands would normally only be sent in one response message, so
             this makes only sense for large output, to start processing the
@@ -1731,19 +1733,22 @@ class WinRMClient(WinRMProtocol):
             it yourself later on.
 
         @type timeout_retries: int
-        @param timeout_retries: How many retry attempts should be made if the
+        @param timeout_retries:
+            How many retry attempts should be made if the
             server responds with a time out. Some methods take a long time to
             process, other cases there might be a deadlock, e.g. when waiting
-            for input from the client or other bugs, which we shouldn't wait for
+            for input from the client or other bugs, which we shouldn't wait
+            for
             forever.
 
         @rtype: dict
-        @return: A dict with the command's output separated by output type, e.g.
+        @return:
+            A dict with the command's output separated by output type, e.g.
             'stdout', 'stderr' and 'pr'. The dict's values are single strings
             with all its output.
 
-        @raise ExitCodeException: If the exitcode from the output was other than
-            0.
+        @raise ExitCodeException:
+            If the exitcode from the output was other than 0.
 
         """
         out = dict()
@@ -2026,7 +2031,7 @@ class PowershellClient(WinRMClient):
                 other.setdefault('stdout', []).append(out[:startpos])
                 out = out[startpos:]
             # TODO: remove this when we could stop winrm from breaking lines
-            out = out.replace('\n', '')  # .encode('utf-8')
+            out = out.replace('\n', '')
             # TODO: find the XML endtag, output could be left after too.
             yield out
 
@@ -2139,6 +2144,12 @@ class PowershellClient(WinRMClient):
         # Start on the next line, after the type definition:
         out = out[out.find(line_delimiter):]
 
+        def _decode(value):
+            if isinstance(value, bytes):
+                value.decode(self._winrm_encoding)
+            else:
+                return six.text_type(value)
+
         # Go through each line:
         # TODO: We need to be able to escape delimiters too - in case it exists
         # inside the elements!
@@ -2155,12 +2166,12 @@ class PowershellClient(WinRMClient):
                 continue
 
             if len(header_names) != len(element):
-                self.logger.warn("Bad output? Line: %s" % (line,))
-                self.logger.warn("Bad output? Element: %s" % (element,))
-                self.logger.debug("Headers: %s" % (header_names,))
+                self.logger.warn("Bad output? Line: %r", line)
+                self.logger.warn("Bad output? Element: %r", element)
+                self.logger.debug("Headers: %r", header_names)
 
-            yield dict((header_names[i], unicode(element[i], 'utf-8'))
-                       for i in xrange(len(header_names)))
+            yield dict((header_names[i], _decode(element[i]))
+                       for i in range(len(header_names)))
 
     @staticmethod
     def split_csv_lines(input, delimiter=';', value_wrapper='"'):
@@ -2307,13 +2318,12 @@ class PowershellClient(WinRMClient):
         if out.endswith(';'):
             out = out[:-1]
         try:
-            r = json.loads(out, encoding='utf-8')
+            r = json.loads(out)
         except ValueError:
             # TODO: Add better debugging later
             raise
         return r
         # TODO: should we yield it iteratively, to save memory?
-
 
     @staticmethod
     def xml_obj2dict(obj):
@@ -2367,10 +2377,9 @@ class PowershellClient(WinRMClient):
         ret = dict()
         for ch in obj.iterchildren():
             if ch.tag != 'Property':
-                # TODO/TBD: Is this method used? no 'self'!
-                self.logger.warn('Unknown element %s for object' % (ch.tag,))
+                logger.warn('Unknown element %r for object', ch.tag)
                 # TODO/TBD: Is this method used? no 'elem'!
-                self.logger.debug(etree.tostring(elem))
+                logger.debug(etree.tostring(elem))
                 continue
             conv = conv_map.get(ch.get('Type'), None)
             if conv:
@@ -2382,8 +2391,8 @@ class PowershellClient(WinRMClient):
                 ovalue = ch.text
                 # TODO: if element has children, the values should be a dict
             if ch.get('Name') in ret:
-                self.logger.warn("XML: already set: %s = %s" % (
-                    ch.get('Name'), ret[ch.get('Name')]))
+                logger.warn("XML: already set: %s = %s",
+                            ch.get('Name'), ret[ch.get('Name')])
             ret[ch.get('Name')] = ovalue
         return ret
 
