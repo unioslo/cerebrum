@@ -1280,9 +1280,8 @@ class ConstantsBase(DatabaseAccessor):
 
         clist = list()
         for const_obj in self.__iterate_constants(wanted_class):
-            if str(const_obj).startswith(prefix_match):
+            if text(const_obj).startswith(prefix_match):
                 clist.append(const_obj)
-
         return clist
 
     def cache_constants(self):
