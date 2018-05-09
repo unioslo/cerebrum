@@ -298,7 +298,7 @@ class WinRMProtocol(object):
     # charset. See
     # <http://msdn.microsoft.com/en-us/library/windows/desktop/dd317756%28v=vs.85%29.aspx>
     # for mappings between codepage and encoding.
-    _winrm_encoding = 'utf-8'
+    _winrm_encoding = 'UTF-8'
     _winrm_codepage = '65001'
 
     def __init__(self, host='localhost', port=None, encrypted=True,
@@ -441,10 +441,11 @@ class WinRMProtocol(object):
 
         """
         xml = self._xml_render(xml)
-        req = urllib2.Request(
-            self._http_url(address).encode(self._winrm_encoding),
-            xml,
-            self._http_headers)
+        url = self._http_url(address)
+        # print 'url', repr(url)
+        # print 'headers', repr(self._http_headers)
+        # print 'body\n', xml
+        req = urllib2.Request(url, xml, self._http_headers)
         try:
             ret = self._opener.open(req)
         except urllib2.HTTPError, e:
@@ -2146,7 +2147,7 @@ class PowershellClient(WinRMClient):
 
         def _decode(value):
             if isinstance(value, bytes):
-                value.decode(self._winrm_encoding)
+                return value.decode(self._winrm_encoding)
             else:
                 return six.text_type(value)
 
