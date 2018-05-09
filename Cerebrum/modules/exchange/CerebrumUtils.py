@@ -24,6 +24,7 @@ This file consists mainly of badly refactored code."""
 
 from __future__ import unicode_literals
 
+import logging
 import pickle
 
 from six import text_type
@@ -38,6 +39,8 @@ from Cerebrum import Errors
 
 # TODO: Catch all possible errors here. Raise something useful, so
 # the integration won't crash, and can requeue the event (or something)
+
+logger = logging.getLogger(__name__)
 
 
 class CerebrumUtils(object):
@@ -467,9 +470,9 @@ class CerebrumUtils(object):
         try:
             return json.loads(params)
         except:
-            self.logger.warn("unable to json.loads change_params (%r)",
-                             params,
-                             exc_info=True)
+            logger.warn("unable to json.loads change_params (%r)",
+                        params,
+                        exc_info=True)
 
         # ... but *could* be a pickle-formatted latin1-string in a transitional
         # period
@@ -484,9 +487,9 @@ class CerebrumUtils(object):
                 pparams = params
             return pickle.loads(pparams)
         except:
-            self.logger.warn("unable to pickle.loads change_params (%r)",
-                             params,
-                             exc_info=True)
+            logger.warn("unable to pickle.loads change_params (%r)",
+                        params,
+                        exc_info=True)
 
         # TODO: This is odd behaviour -- we should probably not catch issues
         # with unserializing, but let it propagate up to the handler ...
