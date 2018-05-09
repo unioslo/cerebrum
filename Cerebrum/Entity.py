@@ -424,12 +424,20 @@ class EntityName(Entity):
 
     def find_by_name(self, name, domain):
         "Associate instance with the entity having NAME in DOMAIN."
-        entity_id = self.query_1("""
-        SELECT entity_id
-        FROM [:table schema=cerebrum name=entity_name]
-        WHERE value_domain=:domain AND entity_name=:name""",
-                                 {'domain': int(domain),
-                                  'name': name})
+        if not isinstance(name, basestring):
+            raise ValueError("invalid name {name!r}".format(name=name))
+
+        entity_id = self.query_1(
+            """
+            SELECT entity_id
+            FROM [:table schema=cerebrum name=entity_name]
+            WHERE value_domain=:domain AND entity_name=:name
+            """,
+            {
+                'domain': int(domain),
+                'name': six.text_type(name),
+            }
+        )
         # Populate all of self's class (and base class) attributes.
         self.find(entity_id)
 
