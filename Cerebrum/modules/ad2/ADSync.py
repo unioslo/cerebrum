@@ -66,7 +66,7 @@ from Cerebrum.utils.email import sendmail
 from Cerebrum.modules.ad2 import ADUtils, ConfigUtils
 from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.ConfigUtils import ConfigError
-from Cerebrum.modules.ad2.winrm import PowershellException, CRYPTO
+from Cerebrum.modules.ad2.winrm import PowershellException
 from Cerebrum.QuarantineHandler import QuarantineHandler
 
 
