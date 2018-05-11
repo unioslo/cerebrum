@@ -249,12 +249,12 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[], shell=False):
     return status
 
 
-def filtercmd(cmd, input):
+def filtercmd(cmd, input_data):
     """Send input on stdin to a command and collect the output from stdout.
 
     Keyword arguments:
     cmd -- arg list, where the first element is the full path to the command
-    input -- data to be sent on stdin to the executable
+    input_data -- data to be sent on stdin to the executable
 
     Returns the stdout that is returned from the command. May throw an IOError.
 
@@ -266,7 +266,9 @@ def filtercmd(cmd, input):
     """
 
     p = Popen(cmd, stdin=PIPE, stdout=PIPE, close_fds=False)
-    p.stdin.write(input)
+    if isinstance(input_data, six.text_type):
+        input_data = input_data.encode('utf-8')
+    p.stdin.write(input_data)
     p.stdin.close()
 
     output = p.stdout.read()
