@@ -235,7 +235,7 @@ def send_sms(phone, message, commit=False):
     if not commit:
         logger.debug('Dryrun mode, SMS not sent')
         return True
-    return sms(phone, message.encode('utf-8'))
+    return sms(phone, message)
 
 
 def skip_if_password_set(db, ac, trait):
