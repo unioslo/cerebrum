@@ -689,7 +689,7 @@ def update_person_roles(pe, client, remove_superfluous=False):
                 "skipping role %s", role)
             continue
 
-        args['ou_id'] = unicode(get_sko(ou_id=role['adm_enhet']))
+        args['ou_id'] = unicode(get_sko(role['adm_enhet']))
         args['job_title'] = role['rolletittel'] or None
         args['default_role'] = role['standard_role'] == 'T'
 
