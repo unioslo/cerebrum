@@ -800,7 +800,6 @@ admin_uio_helpers = [
     '_get_posix_account',
     '_get_shell',
     '_grant_auth',
-    '_is_yes',
     '_list_access',
     '_manipulate_access',
     '_person_create_externalid_helper',

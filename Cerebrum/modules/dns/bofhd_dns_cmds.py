@@ -327,12 +327,6 @@ class BofhdExtension(BofhdCommandBase):
             (group, {}, args),
             (HELP_DNS_GROUPS, HELP_DNS_CMDS, HELP_DNS_ARGS))
 
-    def _is_yes(self, val):
-        if (isinstance(val, basestring)
-                and val.lower() in ('y', 'yes', 'ja', 'j')):
-            return True
-        return False
-
     def _alloc_a_record(self, *args):
         return _compress_ipv4(self.mb_utils.alloc_arecord(*args))
 
