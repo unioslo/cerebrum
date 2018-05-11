@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2005-2008 University of Oslo, Norway
+# Copyright 2005-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -44,13 +44,17 @@ TODO:
 * Fix the documentation and provide a few more examples.
 """
 from __future__ import unicode_literals
+
 import copy
 import time
+
 from xml.etree.cElementTree import parse, iterparse, ElementTree
+
 from mx.DateTime import Date, DateTimeDelta
 
 import cereconf
 from Cerebrum import Utils
+
 
 def get_xml_file_encoding(file_name):
     """
@@ -253,8 +257,7 @@ class NameContainer(object):
 
 
 class DataEmployment(NameContainer):
-
-    """ Class for representing employment information. """
+    """Class for representing employment information."""
 
     # Employment types
     HOVEDSTILLING = "hovedstilling"
@@ -271,7 +274,7 @@ class DataEmployment(NameContainer):
 
     def __init__(self, kind, percentage, code, start, end, place, category,
                  leave=None, mg=None, mug=None):
-        """ Create a new Employment object.
+        """Create a new Employment object.
 
         :type kind: basestring
         :param kind: Employment type, one of the attributes of this class.
@@ -309,7 +312,6 @@ class DataEmployment(NameContainer):
 
         :type mug: int
         :param mug: (MUGType, medarbeiderundergruppe)
-
         """
         super(DataEmployment, self).__init__()
         # TBD: Subclass?
@@ -355,7 +357,6 @@ class DataEmployment(NameContainer):
     def has_leave(self, date=Date(*time.localtime()[:3])):
         """If the employment is on leave, e.g. working somewhere else
         temporarily.
-
         """
         for l in self.leave:
             if l['start_date'] <= date and (date <= l['end_date']):
@@ -517,13 +518,16 @@ class DataPerson(DataEntity):
         assert name.kind in (self.NAME_FIRST, self.NAME_LAST, self.NAME_MIDDLE,
                              self.NAME_TITLE)
 
-    def __str__(self):
+    def __unicode__(self):
         ret = "DataPerson: %s\n" % list(self.iterids())
         for kind, name in self.iternames():
             # ret += "%s: %s\n" % (kind, name.value)
-            ret += "| %s: %s\n" % (kind, map(str, name))
+            ret += "| %s: %s\n" % (kind, map(unicode, name))
         ret += "__\n"
         return ret
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8')
 
 
 class HRDataPerson(DataPerson):
