@@ -1037,9 +1037,9 @@ def main(inargs=None):
 
     _cache_id_types()
     fs_db = make_fs()
-    with AtomicFileWriter(args.filename,
-                          mode='w',
-                          encoding=XML_ENCODING) as stream:
+    with AtomicStreamRecoder(args.filename,
+                             mode='w',
+                             encoding=XML_ENCODING) as stream:
         xmlwriter = xmlprinter.xmlprinter(stream,
                                           indent_level=2,
                                           # human-friendly output
