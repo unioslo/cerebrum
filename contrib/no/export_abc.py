@@ -63,6 +63,7 @@ import cereconf
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
+import Cerebrum.utils.argutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
@@ -960,6 +961,7 @@ def main(inargs=None):
                         required=True)
     parser.add_argument('-i', '--institution',
                         dest='institution',
+                        type=Cerebrum.utils.argutils.UnicodeType(),
                         help='Name of institution to put in report',
                         required=True)
     parser.add_argument('-e', '--with-email',
