@@ -972,7 +972,7 @@ class AtomicStreamRecoder(AtomicFileWriter):
         if isinstance(data, bytes) and self.encoding:
             # will be re-encoded in the same encoding by 'write'
             data = data.decode(self.encoding)
-        return self.write(data)
+        return super(AtomicStreamRecoder, self).write(data)
 
 
 def main(inargs=None):
