@@ -544,8 +544,7 @@ def output_people(writer, perspective, source_system, spread):
 def output_xml(sink, tag, root_ou, perspective, source_system, spread):
     writer = xmlprinter.xmlprinter(sink,
                                    indent_level=2,
-                                   data_mode=True,
-                                   input_encoding=XML_ENCODING)
+                                   data_mode=True)
     global output_element
     output_element = (lambda *rest, **kw:
                       output_element_helper(writer, *rest, **kw))
