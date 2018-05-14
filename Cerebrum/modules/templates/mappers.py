@@ -81,5 +81,9 @@ def get_account_mappings(account, password):
 
 
 def get_group_mappings(group):
-    return {'group': group.group_name}
+    return {
+        'group': group.group_name,
+        'fullname': group.group_name,
+        'birthdate': ''
+    }
 
