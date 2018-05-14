@@ -336,7 +336,7 @@ def register_spread_groups_evu(row, group, evukurs_info, entity2name):
             entity2name.get(int(r["member_id"])) for r in
             group.search_members(group_id=group.entity_id,
                                  member_type=const.entity_account)
-            if int(row["member_id"]) in entity2name]
+            if int(r["member_id"]) in entity2name]
         if user_members:
             register_members(fronter_gname, user_members, const.entity_account)
         # fi
@@ -767,18 +767,20 @@ def main():
         if faknr not in fakulteter:
             fakulteter.append(faknr)
     access_FS.studieprog_xml_parser(os.path.join(fs_dir, 'studieprog.xml'),
-                                    finn_stprog_info) 
-    
+                                    finn_stprog_info)
+
     evukurs_info = {}
+
     def finn_evukurs_info(element, attrs):
         if element != "evukurs":
             return
 
-        name = "%s (%s)" % (attrs.get("etterutdkursnavnkort", ""),
-                            ", ".join(filter(None,
-                                        (attrs.get("etterutdkurskode"),
-                                         attrs.get("kurstidsangivelsekode"),
-                                         attrs.get("emnekode")))))
+        name = "%s (%s)" % (
+            attrs.get("etterutdkursnavnkort", ""),
+            ", ".join(filter(None,
+                             (attrs.get("etterutdkurskode"),
+                              attrs.get("kurstidsangivelsekode"),
+                              attrs.get("emnekode")))))
 
         eukk, ktak = (attrs["etterutdkurskode"].lower(),
                       attrs["kurstidsangivelsekode"].lower())
@@ -786,7 +788,7 @@ def main():
     # end finn_evukurs_info
     access_FS.evukurs_xml_parser(os.path.join(fs_dir, 'evu_kursinfo.xml'),
                                  finn_evukurs_info)
-    
+
     # Henter ut ansatte per fakultet
     ans_dict = get_ans_fak(fakulteter, acc2names)
     # Opprett de forskjellige stedkode-korridorene.
