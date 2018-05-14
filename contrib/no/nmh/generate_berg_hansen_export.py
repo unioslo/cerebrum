@@ -24,13 +24,70 @@ travel-portal.
 
 The output format: title, first name, last name, FEIDE id, e-mail address,
 telephone number, social security number (or equivalent)."""
+import argparse
+import csv
+import io
+import logging
+
+from six import text_type
 
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+import Cerebrum.utils.argutils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 
-logger = Factory.get_logger('cronjob')
+logger = logging.getLogger(__name__)
+
+
+# TODO: Replace with proper csv file writer
+CSV_ENCODING = 'latin1'
+
+
+# TODO: Make a csv util module and consolidate different implementations
+
+class CsvDialect(csv.excel):
+    """Specifying the CSV output dialect the script uses.
+
+    See the module `csv` for a description of the settings.
+
+    """
+    delimiter = ';'
+    lineterminator = '\n'
+
+
+class CsvUnicodeWriter:
+    """ Unicode-compatible CSV writer.
+
+    Adopted from https://docs.python.org/2/library/csv.html
+    """
+
+    def __init__(self, stream, fieldnames, dialect=csv.excel, **kwds):
+        self.queue = io.BytesIO()
+        self.writer = csv.DictWriter(self.queue, fieldnames, dialect=dialect,
+                                     **kwds)
+        self.stream = stream
+
+    def writeheader(self):
+        return self.writer.writeheader()
+
+    def writerow(self, row):
+        # Write utf-8 encoded output to queue
+        self.writer.writerow(dict((k, text_type(v).encode("utf-8"))
+                                  for k, v in row.items()))
+        data = self.queue.getvalue()
+
+        # Read formatted CSV data from queue, re-encode and write to stream
+        data = data.decode("utf-8")
+        self.stream.write(data)
+        self.queue.truncate(0)
+        self.queue.seek(0)
+
+    def writerows(self, rows):
+        for row in rows:
+            self.writerow(row)
 
 
 def _parse_codes(db, codes):
@@ -147,34 +204,40 @@ def get_person_info(db, person, ssn_type, source_system,
     }
 
 
-def write_file(filename, persons, skip_incomplete, skip_header=False):
+def write_file(filename, codec, persons, skip_incomplete, skip_header=False):
     """Exports info in `persons' and generates file export `filename'.
 
     :param bool skip_incomplete: Don't write persons without all fields.
     :param bool skip_header: Do not write field header. Default: write header.
     :param [dict()] persons: Person information to write.
-    :param basestring filename: The name of the file to write."""
-    from string import Template
-    f = AtomicFileWriter(filename)
+    :param basestring filename: The name of the file to write.
+    """
+    fields = ['title', 'firstname', 'lastname', 'feide_id', 'email_address',
+              'phone', 'ssn']
     i = 0
-    if not skip_header:
-        f.write(
-            'title;firstname;lastname;feide_id;'
-            'email_address;phone;ssn\n')
-    for person in persons:
-        if skip_incomplete and not all(person.values()):
-            continue
-        person = dict(map(lambda (x, y): (x, '' if y is None else y),
-                          person.iteritems()))
-        f.write(
-            Template('$title;$firstname;$lastname;$feide_id;'
-                     '$email_address;$phone;$ssn\n').substitute(person))
-        i += 1
-    f.close()
+    with AtomicFileWriter(filename,
+                          mode='w',
+                          encoding=codec.name) as stream:
+        writer = CsvUnicodeWriter(stream,
+                                  dialect=CsvDialect,
+                                  fieldnames=fields)
+
+        if not skip_header:
+            writer.writeheader()
+
+        for i, person in enumerate(persons, 1):
+            if skip_incomplete and not all(person.values()):
+                continue
+            person = dict(map(lambda (x, y): (x, '' if y is None else y),
+                              person.iteritems()))
+            writer.writerow(person)
     logger.info('Wrote %d users to file %s', i, filename)
 
 
-def main(args=None):
+DEFAULT_ENCODING = 'latin1'
+
+
+def main(inargs=None):
     """Main script runtime.
 
     This parses arguments, handles the database transaction and performes the
@@ -182,14 +245,20 @@ def main(args=None):
 
     :param list args: List of arguments used to configure
     """
-    import argparse
     parser = argparse.ArgumentParser(description=__doc__)
 
-    parser.add_argument('-f', '--file',
-                        dest='filename',
-                        required=True,
-                        metavar='filename',
-                        help='Write export data to <filename>')
+    parser.add_argument(
+        '-f', '--file',
+        dest='filename',
+        required=True,
+        metavar='<filename>',
+        help='Write export data to %(metavar)s')
+    parser.add_argument(
+        '-e', '--encoding',
+        dest='codec',
+        default=DEFAULT_ENCODING,
+        type=Cerebrum.utils.argutils.codec_type,
+        help="output file encoding, defaults to %(default)s")
 
     parser.add_argument('-a', '--affiliations',
                         nargs='*',
@@ -223,13 +292,16 @@ def main(args=None):
                         default=False,
                         help='Do not write field description in export-file')
 
-    args = parser.parse_args(args)
-
-    logger.info("START with args: %s" % str(args.__dict__))
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     db = Factory.get('Database')()
 
+    logger.info("START with args: %r", args)
+
     write_file(args.filename,
+               args.codec,
                (get_person_info(
                    db, pid,
                    _parse_codes(db, args.ssn_type),

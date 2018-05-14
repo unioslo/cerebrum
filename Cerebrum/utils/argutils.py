@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Utilities for use with argparse. """
 import argparse
+import codecs
 import locale
 import sys
 
@@ -104,6 +105,19 @@ def attr_type(obj, type_func=None, attr_func=None):
             raise argparse.ArgumentTypeError(
                 "invalid value in %r.%s: %r" % (obj, attr, real))
     return get
+
+
+def codec_type(encoding):
+    """ Argparse transform for encoding.
+
+    >>> argparse.ArgumentParser().add_argument(
+    ...    '--encoding', type=codec_type, default='utf-8'))
+
+    """
+    try:
+        return codecs.lookup(encoding)
+    except LookupError as e:
+        raise ValueError(str(e))
 
 
 def get_constant(db, parser, const_types, value, argument=None):
