@@ -1507,6 +1507,8 @@ class ADclient(PowershellClient):
                                                      ['Reset']))
         else:
             raise Exception('Invalid password-type')
+        if isinstance(cmd, bytes):
+            cmd = cmd.decode('utf-8')
         if self.dryrun:
             return True
         out = self.run(cmd)
