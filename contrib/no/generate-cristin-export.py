@@ -427,7 +427,7 @@ def output_employment(writer, employment, ou_cache):
             ("stillingskode", employment["employment_code"]),
             ("stillingsbetegnelse", employment["description"]),
             ("datoTil", employment["end_date"].strftime("%F")),
-            ("stillingsandel", employment["percentage"]),
+            ("stillingsandel", float(employment["percentage"])),
             ("datoFra", employment["start_date"].strftime("%F"))):
         output_element(element, value)
     writer.endElement("ansettelse")
