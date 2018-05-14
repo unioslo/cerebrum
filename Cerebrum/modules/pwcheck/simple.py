@@ -640,13 +640,13 @@ class CheckOwnerNameMixin(PasswordChecker):
         # variations like S*Krokodil, Sv-Krokodil, Schnappi-Krok and the like;
         # i.e. we want to force people NOT to use some trivial version of
         # their name.
-        name = unicode(name.lower(), 'latin-1')
+        name = name.lower()
         password = password.lower()
         name_chunks = [x for x in name.split() if len(x) > 0]
         pwd_chunks = [x for x in re.split(r"[^a-z]+", password) if len(x) > 0]
         pwd_l33t_chunks = [x for x in re.split(
             r"[^a-z]+",
-            password.translate(unicode(l33t_speak, 'ISO-8859-1')))
+            password.translate(l33t_speak))
             if len(x) > 0]
 
         # Now, matching_length counts the number of password alpha characters
