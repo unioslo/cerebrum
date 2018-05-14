@@ -172,7 +172,7 @@ def check_dict(dictionaries, baseword):
     else:
         if is_word_in_dicts(dictionaries, [re.sub(r'^[^a-z]+', '', baseword)]):
             return True
-    nshort = baseword.translate(unicode(l33t_speak, 'ISO-8859-1'))
+    nshort = baseword.translate(l33t_speak)
     if is_word_in_dicts(dictionaries, [nshort]):
         return True
     return False
@@ -204,7 +204,7 @@ def check_two_word_combinations(dictionaries, word):
         oneup = ''
         if m:
             oneup = m.group(1)
-        npass = cword.translate(unicode(l33t_speak, 'ISO-8859-1'))
+        npass = cword.translate(l33t_speak)
         npass = re.sub('/[\?\!\.]$', '', npass)
         if re.search(r'.+[A-Z].*[A-Z]', word):
             return None

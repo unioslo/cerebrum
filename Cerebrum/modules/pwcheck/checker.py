@@ -52,9 +52,8 @@ class PhrasePasswordNotGoodEnough(PasswordNotGoodEnough):
     pass
 
 
-# Translate strings from 'leet speak'. The value is a translation table
-# bytestring for `string.translate'
-l33t_speak = string.maketrans('4831!05$72', 'abeiiosstz')
+l33t_speak = dict((ord(a), ord(b))
+                  for a, b in zip(u'abeiiosstz', u'4831!05$72'))
 
 _checkers = {}
 
