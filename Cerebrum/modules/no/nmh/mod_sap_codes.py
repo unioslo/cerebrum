@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2003 University of Oslo, Norway
 #
@@ -23,6 +23,8 @@ This file provides code values to be used with NMH's SAP extension to
 Cerebrum -- mod_sap.
 """
 
+from __future__ import unicode_literals
+
 from Cerebrum import Constants
 from Cerebrum.modules.no.Constants import SAPLonnsTittelKode
 
@@ -34,8 +36,8 @@ class SAPConstants(Constants.Constants):
     # ----[ SAPLonnsTittelKode ]----------------------------------------
     sap_1007_hogskolelaerer_ovings = SAPLonnsTittelKode(
         "20001007",
-        "1007 Høgskolelærer/øvings",
-        "ØVR"
+        "1007 HÃ¸gskolelÃ¦rer/Ã¸vings",
+        "Ã˜VR"
     )
 
     sap_1009_universitetslektor = SAPLonnsTittelKode(
@@ -52,7 +54,7 @@ class SAPConstants(Constants.Constants):
 
     sap_1011_forsteamanuensis = SAPLonnsTittelKode(
         "20001011",
-        "1011 Førsteamanuensis",
+        "1011 FÃ¸rsteamanuensis",
         "VIT"
     )
     
@@ -70,86 +72,86 @@ class SAPConstants(Constants.Constants):
 
     sap_1062_direktor = SAPLonnsTittelKode(
         "20001062",
-        "1062 Direktør",
-        "ØVR"
+        "1062 DirektÃ¸r",
+        "Ã˜VR"
     )
 
     sap_1065_konsulent = SAPLonnsTittelKode(
         "20001065",
         "1065 Konsulent",
-        "ØVR"
+        "Ã˜VR"
     )
 
     sap_1068_fullmektig = SAPLonnsTittelKode(
         "20001068",
         "1068 Fullmektig",
-        "ØVR"
+        "Ã˜VR"
     )
 
     sap_1070_sekretaer = SAPLonnsTittelKode(
         "20001070",
-        "1070 Sekretær",
-        "ØVR"
+        "1070 SekretÃ¦r",
+        "Ã˜VR"
     )
 
     sap_1072_arkivleder = SAPLonnsTittelKode(
         "20001072",
         "1072 Arkivleder",
-        "ØVR"
+        "Ã˜VR"
     )
 
 
     sap_1077_hovedbibliotekar = SAPLonnsTittelKode(
         "20001077",
         "1077 Hovedbibliotekar",
-        "ØVR"
+        "Ã˜VR"
     )
 
     sap_1085_avdelingsingenior = SAPLonnsTittelKode(
         "20001085",
-        "1085 Avdelingsingeniør",
-        "ØVR"
+        "1085 AvdelingsingeniÃ¸r",
+        "Ã˜VR"
     )
 
     sap_1087_overingenior = SAPLonnsTittelKode(
         "20001087",
-        "1087 Overingeniør",
-        "ØVR"
+        "1087 OveringeniÃ¸r",
+        "Ã˜VR"
     )
     
     sap_1091_tekniker = SAPLonnsTittelKode(
         "20001091",
         "1091 Tekniker",
-        "ØVR"
+        "Ã˜VR"
     )
 
     sap_1113_prosjektleder = SAPLonnsTittelKode(
         "20001113",
         "1113 Prosjektleder",
-        "ØVR"
+        "Ã˜VR"
     )
 
     sap_1136_driftstekniker = SAPLonnsTittelKode(
         "20001136",
         "1136 Driftstekniker",
-        "ØVR"
+        "Ã˜VR"
     )        
 
     sap_1137_driftsleder = SAPLonnsTittelKode(
         "20001137",
         "1137 Driftsleder",
-        "ØVR"
+        "Ã˜VR"
     )
 
     sap_1181_senioringenior = SAPLonnsTittelKode(
         "20001181",
-        "1181 Senioringeniør",
-        "ØVR"
+        "1181 SenioringeniÃ¸r",
+        "Ã˜VR"
     )
 
     sap_1198_forstelektor = SAPLonnsTittelKode(
         "20001198",
-        "1198 Førstelektor",
+        "1198 FÃ¸rstelektor",
         "VIT"
     )
 
@@ -157,7 +159,7 @@ class SAPConstants(Constants.Constants):
     sap_1211_seksjonssjef = SAPLonnsTittelKode(
         "20001211",
         "1211 Seksjonssjef",
-        "ØVR"
+        "Ã˜VR"
     )
 
     sap_1352_post_doktor = SAPLonnsTittelKode(
@@ -168,50 +170,50 @@ class SAPConstants(Constants.Constants):
 
     sap_1362_laerling = SAPLonnsTittelKode(
         "20001362",
-        "1362 Lærling",
-        "ØVR"
+        "1362 LÃ¦rling",
+        "Ã˜VR"
     )
 
     sap_1364_seniorradgiver = SAPLonnsTittelKode(
         "20001364",
-        "1364 Seniorrådgiver",
-        "ØVR"
+        "1364 SeniorrÃ¥dgiver",
+        "Ã˜VR"
     )
     
     sap_1407_avdelingsleder = SAPLonnsTittelKode(
         "20001407",
         "1407 Avdelingsleder",
-        "ØVR"
+        "Ã˜VR"
     )
 
     sap_1408_forstekonsulent = SAPLonnsTittelKode(
         "20001408",
-        "1408 Førstekonsulent",
-        "ØVR"
+        "1408 FÃ¸rstekonsulent",
+        "Ã˜VR"
     )
 
     sap_1409_sekretaer = SAPLonnsTittelKode(
         "20001409",
-        "1409 Sekretær",
-        "ØVR"
+        "1409 SekretÃ¦r",
+        "Ã˜VR"
     )
 
     sap_1410_bibliotekar = SAPLonnsTittelKode(
         "20001410",
         "1410 Bibliotekar",
-        "ØVR"
+        "Ã˜VR"
     )
 
     sap_1434_radgiver = SAPLonnsTittelKode(
         "20001434",
-        "1434 Rådgiver",
-        "ØVR"
+        "1434 RÃ¥dgiver",
+        "Ã˜VR"
     )
 
     sap_1515_bibliotekar = SAPLonnsTittelKode(
         "20001515",
         "1515 Bibliotekar",
-        "ØVR"
+        "Ã˜VR"
     )
 
     sap_1532_dosent = SAPLonnsTittelKode(
@@ -236,12 +238,12 @@ class SAPConstants(Constants.Constants):
     sap_9999_dummy_stillingskode = SAPLonnsTittelKode(
         "20009999",
         "9999 Dummy stillingskode",
-        "ØVR"
+        "Ã˜VR"
     )
 
     # FIXME: Er dette riktig da?
     sap_0000_ekstern_stillingskode = SAPLonnsTittelKode(
         "00000000",
-        "0000 Inaktiv ansatt (diverse årsaker).",
-        "ØVR"
+        "0000 Inaktiv ansatt (diverse Ã¥rsaker).",
+        "Ã˜VR"
     )
