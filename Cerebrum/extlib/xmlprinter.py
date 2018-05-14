@@ -52,8 +52,6 @@ License, or (at your option) any later version.
 
 The idea for this module was taken from Perl's XML::Writer.
 """
-from __future__ import unicode_literals
-
 __version__  = "0.1.0"
 __revision__ = "$Id$"
 
