@@ -67,14 +67,21 @@
 {% endmacro %}
 
 {% macro name_birthdate() %}
-    <div class="col-6">
-        <br>
-        <p><b>{{ fullname }}</b></p>
-    </div>
-    <div class="col-6">
-        <br>
-        <p><b>{{ birthdate }}</b></p>
-    </div>
+    {% if birthdate is defined %}
+        <div class="col-6">
+            <br>
+            <p><b>{{ fullname }}</b></p>
+        </div>
+        <div class="col-6">
+            <br>
+            <p><b>{{ birthdate }}</b></p>
+        </div>
+    {% else %}
+        <div class="col-12">
+            <br>
+            <p><b>{{ fullname }}</b></p>
+        </div>
+    {% endif %}
 {% endmacro %}
 
 {% macro user_info(username_tag, password_tag, email_tag=None) %}
