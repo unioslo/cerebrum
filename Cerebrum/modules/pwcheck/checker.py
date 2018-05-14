@@ -53,7 +53,7 @@ class PhrasePasswordNotGoodEnough(PasswordNotGoodEnough):
 
 
 l33t_speak = dict((ord(a), ord(b))
-                  for a, b in zip(u'abeiiosstz', u'4831!05$72'))
+                  for a, b in zip(u'4831!05$72', u'abeiiosstz'))
 
 _checkers = {}
 
