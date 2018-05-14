@@ -18,13 +18,15 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 from __future__ import unicode_literals
+
+import io
 import sys
 import os
 import getopt
 
-import cerebrum_path
+import six
+
 import cereconf
 
 from Cerebrum import database
@@ -36,11 +38,15 @@ from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.modules.no.nmh.access_FS import FS
 
-xml = XMLHelper()
+
+XML_ENCODING = 'utf-8'
+
+xml = XMLHelper(encoding=XML_ENCODING)
 fs = None
 
 KiB = 1024
 MiB = KiB**2
+
 
 def _ext_cols(db_rows):
     # TBD: One might consider letting xmlify_dbrow handle this
@@ -49,15 +55,18 @@ def _ext_cols(db_rows):
         cols = list(db_rows[0].keys())
     return cols, db_rows
 
+
 def write_person_info(outfile):
-    f = SimilarSizeWriter(outfile)
+    f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
 
     # Aktive fagpersoner ved NMH
     cols, fagperson = _ext_cols(fs.undervisning.list_fagperson_semester())
     for p in fagperson:
-        f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'fagperson') + "\n")
+        f.write(xml.xmlify_dbrow(p,
+                                 xml.conv_colnames(cols),
+                                 'fagperson') + "\n")
     # Aktive ordinÃ¦re studenter ved NMH
     cols, student = _ext_cols(fs.student.list_aktiv())
     for a in student:
@@ -74,50 +83,54 @@ def write_person_info(outfile):
     f.write("</data>\n")
     f.close()
 
+
 def write_netpubl_info(outfile):
     """Lager fil med informasjon om status nettpublisering"""
-    f = SimilarSizeWriter(outfile, "w")
+    f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, nettpubl = _ext_cols(fs.person.list_status_nettpubl())
     for n in nettpubl:
-        f.write(xml.xmlify_dbrow(n, xml.conv_colnames(cols), 'nettpubl') + "\n")
+        f.write(xml.xmlify_dbrow(n,
+                                 xml.conv_colnames(cols),
+                                 'nettpubl') + "\n")
     f.write("</data>\n")
     f.close()
 
+
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
-    f = MinimumSizeWriter(outfile)
+    f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
     cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR))
     for o in ouer:
         sted = {}
         for fs_col, xml_attr in (
-            ('faknr', 'fakultetnr'),
-            ('instituttnr', 'instituttnr'),
-            ('gruppenr', 'gruppenr'),
-            ('stedakronym', 'akronym'),
-            ('stedakronym', 'forkstednavn'),
-            ('stednavn_bokmal', 'stednavn'),
-            ('stedkode_konv', 'stedkode_konv'),
-            ('faknr_org_under', 'fakultetnr_for_org_sted'),
-            ('instituttnr_org_under', 'instituttnr_for_org_sted'),
-            ('gruppenr_org_under', 'gruppenr_for_org_sted'),
-            ('adrlin1', 'adresselinje1_intern_adr'),
-            ('adrlin2', 'adresselinje2_intern_adr'),
-            ('postnr', 'poststednr_intern_adr'),
-            ('adrlin1_besok', 'adresselinje1_besok_adr'),
-            ('adrlin2_besok', 'adresselinje2_besok_adr'),
-            ('postnr_besok', 'poststednr_besok_adr')):
+                ('faknr', 'fakultetnr'),
+                ('instituttnr', 'instituttnr'),
+                ('gruppenr', 'gruppenr'),
+                ('stedakronym', 'akronym'),
+                ('stedakronym', 'forkstednavn'),
+                ('stednavn_bokmal', 'stednavn'),
+                ('stedkode_konv', 'stedkode_konv'),
+                ('faknr_org_under', 'fakultetnr_for_org_sted'),
+                ('instituttnr_org_under', 'instituttnr_for_org_sted'),
+                ('gruppenr_org_under', 'gruppenr_for_org_sted'),
+                ('adrlin1', 'adresselinje1_intern_adr'),
+                ('adrlin2', 'adresselinje2_intern_adr'),
+                ('postnr', 'poststednr_intern_adr'),
+                ('adrlin1_besok', 'adresselinje1_besok_adr'),
+                ('adrlin2_besok', 'adresselinje2_besok_adr'),
+                ('postnr_besok', 'poststednr_besok_adr')):
             if o[fs_col] is not None:
                 sted[xml_attr] = xml.escape_xml_attr(o[fs_col])
         komm = []
         for fs_col, typekode in (
-            ('telefonnr', 'EKSTRA TLF'),
-            ('faxnr', 'FAX'),
-            ('emailadresse','EMAIL'),
-            ('url', 'URL')):
+                ('telefonnr', 'EKSTRA TLF'),
+                ('faxnr', 'FAX'),
+                ('emailadresse', 'EMAIL'),
+                ('url', 'URL')):
             if o[fs_col]:               # Skip NULLs and empty strings
                 komm.append({'kommtypekode': xml.escape_xml_attr(typekode),
                              'kommnrverdi': xml.escape_xml_attr(o[fs_col])})
@@ -134,21 +147,25 @@ def write_ou_info(outfile):
     f.write("</data>\n")
     f.close()
 
+
 def write_evukurs_info(outfile):
     """Skriv data om alle EVU-kurs"""
-    f = MinimumSizeWriter(outfile)
+    f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.min_size = 1*KiB
     f.write(xml.xml_hdr + "<data>\n")
     cols, evukurs = _ext_cols(fs.evu.list_kurs())
     for ek in evukurs:
-        f.write(xml.xmlify_dbrow(ek, xml.conv_colnames(cols), "evukurs") + "\n")
+        f.write(xml.xmlify_dbrow(ek,
+                                 xml.conv_colnames(cols),
+                                 "evukurs") + "\n")
     f.write("</data>\n")
     f.close()
     # end write_evukurs_info
 
+
 def write_role_info(outfile):
     """Skriv data om alle registrerte roller"""
-    f = MinimumSizeWriter(outfile)
+    f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.min_size = KiB/4
     f.write(xml.xml_hdr + "<data>\n")
     cols, role = _ext_cols(fs.undervisning.list_alle_personroller())
@@ -157,34 +174,39 @@ def write_role_info(outfile):
     f.write("</data>\n")
     f.close()
 
+
 def write_undenh_metainfo(outfile):
     "Skriv metadata om undervisningsenheter for innevÃ¦rende+neste semester."
-    f = MinimumSizeWriter(outfile)
+    f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.min_size = 5*KiB
     f.write(xml.xml_hdr + "<undervenhet>\n")
     for semester in ('current', 'next'):
-        cols, undenh = _ext_cols(fs.undervisning.list_undervisningenheter(sem=semester))
+        cols, undenh = _ext_cols(
+            fs.undervisning.list_undervisningenheter(sem=semester))
         for u in undenh:
             f.write(xml.xmlify_dbrow(u, xml.conv_colnames(cols), 'undenhet')
                     + "\n")
     f.write("</undervenhet>\n")
     f.close()
 
+
 def write_undenh_student(outfile):
     """Skriv oversikt over personer oppmeldt til undervisningsenheter.
     Tar med data for alle undervisingsenheter i innevÃ¦rende+neste
     semester."""
-    f = MinimumSizeWriter(outfile)
+    f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.min_size = 5*KiB
     f.write(xml.xml_hdr + "<data>\n")
     for semester in ('current', 'next'):
-        cols, undenh = _ext_cols(fs.undervisning.list_undervisningenheter(sem=semester))
+        cols, undenh = _ext_cols(
+            fs.undervisning.list_undervisningenheter(sem=semester))
         for u in undenh:
             u_attr = {}
             for k in ('institusjonsnr', 'emnekode', 'versjonskode',
                       'terminnr', 'terminkode', 'arstall'):
                 u_attr[k] = u[k]
-            student_cols, student = _ext_cols(fs.undervisning.list_studenter_underv_enhet(**u_attr))
+            student_cols, student = _ext_cols(
+                fs.undervisning.list_studenter_underv_enhet(**u_attr))
             for s in student:
                 s_attr = u_attr.copy()
                 for k in ('fodselsdato', 'personnr'):
@@ -195,9 +217,10 @@ def write_undenh_student(outfile):
     f.write("</data>\n")
     f.close()
 
+
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
-    f = MinimumSizeWriter(outfile)
+    f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.min_size = 10*KiB
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.info.list_studieprogrammer())
@@ -207,42 +230,45 @@ def write_studprog_info(outfile):
     f.write("</data>\n")
     f.close()
 
+
 def write_emne_info(outfile):
     """Lager fil med informasjon om alle definerte emner"""
-    f=open(outfile, 'w')
+    f = io.open(outfile, mode='w', encoding=XML_ENCODING)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta =_ext_cols(fs.info.list_emner())
+    cols, dta = _ext_cols(fs.info.list_emner())
     for t in dta:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
     f.write("</data>\n")
 
 
 def write_fnrupdate_info(outfile):
-    """Lager fil med informasjon om alle fÃ¸dselsnummerendringer"""
-    stream = AtomicFileWriter(outfile, 'w')
+    """Lager fil med informasjon om alle fødselsnummerendringer"""
+    stream = AtomicFileWriter(outfile, mode='w', encoding=XML_ENCODING)
     writer = xmlprinter.xmlprinter(stream,
-                                   indent_level = 2,
+                                   indent_level=2,
                                    # Human-readable output
-                                   data_mode = True,
-                                   input_encoding = "utf-8")
-    writer.startDocument(encoding = "utf-8")
+                                   data_mode=True,
+                                   input_encoding="utf-8")
+    writer.startDocument(encoding=XML_ENCODING)
 
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
 
-    writer.startElement("data", {"source_system" : unicode(const.system_fs)})
+    writer.startElement("data",
+                        {"source_system": six.text_type(const.system_fs)})
 
     data = fs.person.list_fnr_endringer()
     for row in data:
         # Make the format resemble the corresponding FS output as close as
         # possible.
-        attributes = { "type" : str(const.externalid_fodselsnr),
-                       "new"  : "%06d%05d" % (row["fodselsdato_naverende"],
-                                              row["personnr_naverende"]),
-                       "old"  : "%06d%05d" % (row["fodselsdato_tidligere"],
-                                              row["personnr_tidligere"]),
-                       "date" : str(row["dato_foretatt"]),
-                     }
+        attributes = {
+            "type": six.text_type(const.externalid_fodselsnr),
+            "new": "%06d%05d" % (row["fodselsdato_naverende"],
+                                 row["personnr_naverende"]),
+            "old": "%06d%05d" % (row["fodselsdato_tidligere"],
+                                 row["personnr_tidligere"]),
+            "date": six.text_type(row["dato_foretatt"]),
+        }
 
         writer.emptyElement("external_id", attributes)
     # od
@@ -250,11 +276,11 @@ def write_fnrupdate_info(outfile):
     writer.endElement("data")
     writer.endDocument()
     stream.close()
-# end get_fnr_update_info
+
 
 def write_misc_info(outfile, tag, func_name):
     """Lager fil med data fra gitt funksjon i access_FS"""
-    f=open(outfile, 'w')
+    f = io.open(outfile, mode='w', encoding=XML_ENCODING)
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(eval("fs.%s" % func_name)())
     for t in dta:
@@ -262,10 +288,12 @@ def write_misc_info(outfile, tag, func_name):
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), tag) + "\n")
     f.write("</data>\n")
 
+
 def fix_float(row):
     for n in range(len(row)):
         if isinstance(row[n], float):
             row[n] = int(row[n])
+
 
 def usage(exitcode=0):
     print """Usage: [options]
@@ -301,12 +329,14 @@ def usage(exitcode=0):
     """
     sys.exit(exitcode)
 
+
 def assert_connected(user="CEREBRUM", service="FSNMH.uio.no"):
     global fs
     if fs is None:
-        DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
-        db = database.connect(user=user, service=service, DB_driver=DB_driver)
+        db_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
+        db = database.connect(user=user, service=service, DB_driver=db_driver)
         fs = FS(db)
+
 
 def set_filepath(datadir, file):
     """Return the string of path to a file. If the given file path is relative,
@@ -316,6 +346,7 @@ def set_filepath(datadir, file):
     if os.path.isabs(file):
         return file
     return os.path.join(datadir, file)
+
 
 def main():
     try:
@@ -402,6 +433,7 @@ def main():
             misc_tag = val
         elif o in ('--misc-file',):
             write_misc_info(set_filepath(val), misc_tag, misc_func)
+
 
 if __name__ == '__main__':
     main()
