@@ -70,7 +70,6 @@ uio_helpers = [
     '_group_count_memberships',
     '_group_remove',
     '_group_remove_entity',
-    '_is_yes',
     '_list_access',
     '_manipulate_access',
     '_person_affiliation_add_helper',

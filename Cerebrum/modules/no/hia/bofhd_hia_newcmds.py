@@ -95,7 +95,6 @@ uio_helpers = [
     '_group_count_memberships',
     '_group_remove',
     '_group_remove_entity',
-    '_is_yes',
     '_list_access',
     '_lookup_old_uid',
     '_manipulate_access',

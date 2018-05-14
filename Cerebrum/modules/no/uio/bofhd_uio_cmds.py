@@ -1414,7 +1414,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_exchange_create(self, operator,
                               groupname, displayname, description,
-                              from_existing=None):
+                              from_existing=False):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to group')
         existing_group = False
@@ -1439,7 +1439,7 @@ class BofhdExtension(BofhdCommonMethods):
             pass
         if not displayname:
             displayname = groupname
-        if existing_group and not self._is_yes(from_existing):
+        if existing_group and not self._get_boolean(from_existing):
             return ('You choose not to create Exchange group from the '
                     'existing group %s' % groupname)
         try:
@@ -1583,7 +1583,7 @@ class BofhdExtension(BofhdCommonMethods):
         YesNo(help_ref='yes_no_expire_group', default='No'),
         perm_filter='is_postmaster')
 
-    def group_exchange_remove(self, operator, groupname, expire_group=None):
+    def group_exchange_remove(self, operator, groupname, expire_group=False):
         # check for appropriate priviledge
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to group')
@@ -1596,7 +1596,7 @@ class BofhdExtension(BofhdCommonMethods):
             dl_group.demote_distribution()
         except Errors.NotFoundError:
             return "No Exchange group %s found" % groupname
-        if self._is_yes(expire_group):
+        if self._get_boolean(expire_group):
             # set expire in 90 dates for the remaining Cerebrum-group
             new_expire_date = DateTime.now() + DateTime.DateTimeDelta(90, 0, 0)
             dl_group.expire_date = new_expire_date
@@ -5599,7 +5599,7 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_create_sysadm')
 
     def user_create_sysadm(self, operator,
-                           accountname, stedkode=None, force=None):
+                           accountname, stedkode=None, force=False):
         """ Create a sysadm account with the given accountname.
 
         TBD, requirements?
@@ -5643,7 +5643,7 @@ class BofhdExtension(BofhdCommonMethods):
         person = self._get_person('account_name', user)
 
         # Need to force if person already has a sysadm account
-        if not self._is_yes(force):
+        if not self._get_boolean(force):
             ac = self.Account_class(self.db)
             suffix = '-{}'.format(suffix)
             existing = filter(lambda x: x['name'].endswith(suffix),
@@ -6933,11 +6933,6 @@ class BofhdExtension(BofhdCommonMethods):
             if raise_not_found:
                 raise CerebrumError("Unknown disk: %s" % path)
             return disk, None, path
-
-    def _is_yes(self, val):
-        if isinstance(val, str) and val.lower() in ('y', 'yes', 'ja', 'j'):
-            return True
-        return False
 
     # The next two functions require all affiliations to be in upper case,
     # and all affiliation statuses to be in lower case.  If this changes,

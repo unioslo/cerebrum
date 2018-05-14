@@ -234,6 +234,8 @@ class BofhdCommandBase(object):
         Convert a human-friendly representation of boolean to the proper Python
         object.
         """
+        if isinstance(onoff, bool):
+            return onoff
         yes = ('on', 'true', 'yes', 'y')
         no = ('off', 'false', 'no', 'n')
         if onoff.lower() in yes:
