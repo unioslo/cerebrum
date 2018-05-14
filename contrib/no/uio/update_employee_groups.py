@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2003-2018 University of Oslo, Norway
 #
@@ -29,7 +29,7 @@ Specifically,
    respective primary account (user) is subscribed to groups 'uio-tils' and
    'uio-ans'.
 
-2) for all people who have received 'bilagslønn' within the past 180 days,
+2) for all people who have received 'bilagslÃ¸nn' within the past 180 days,
    subscribe their respective primary account (user) to group 'uio-ans'. Such
    people are referred to as 'temporaries' in this script.
 
@@ -48,23 +48,21 @@ database.
 """
 
 import getopt
+import logging
 import sys
 import time
 from mx.DateTime import Date, DateTimeDeltaFromDays
 
-import cerebrum_path
-import cereconf
+# import cerebrum_path
+# import cereconf
 
-import Cerebrum
+# import Cerebrum
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 
 
-logger = None
-
-
-
+logger = logging.getLogger(__name__)
 
 
 def build_cache(db, groupname):
@@ -93,12 +91,11 @@ def build_cache(db, groupname):
         # TBD: sys.exit(1) ?
         return None, None
 
-
     const = Factory.get("Constants")()
     # FIXME: This is quite expensive
-    account2name = dict((x["entity_id"], x["entity_name"]) for x in 
+    account2name = dict((x["entity_id"], x["entity_name"]) for x in
                         db_group.list_names(const.account_namespace))
-    
+
     # account_name->account_id mapping
     result = dict()
     for row in db_group.search_members(group_id=db_group.entity_id,
@@ -112,14 +109,12 @@ def build_cache(db, groupname):
 
     logger.debug("Group %s has %d cached entries", groupname, len(result))
     return result, db_group
-# end build_cache
-
 
 
 def build_employee_cache(db, sysname, filename):
     """Build a mapping of primary account names for employees to their
        employment status.
- 
+
     Employment status in this case is a pair of booleans, that tell whether
     the person with that primary account has tilsettinger and bilag that we
     need.
@@ -190,8 +185,6 @@ def build_employee_cache(db, sysname, filename):
     logger.debug("employee_cache has %d uname->employment status mappings",
                  len(employee_cache))
     return employee_cache
-# end build_employee_cache
-
 
 
 def perform_update(db, sysname, filename):
@@ -221,7 +214,6 @@ def perform_update(db, sysname, filename):
       filename : basestring
         XML file name (source file)
     """
-    
     # Build cached mappings for uio-tils/uio-ans
     # account_name -> account_id
     tils_cache, tils_group = build_cache(db, "uio-tils")
@@ -252,8 +244,6 @@ def perform_update(db, sysname, filename):
     # Everything left in tils/bilag_cache at this point can be safely removed.
     remove_remaining(tils_cache, tils_group, db_const)
     remove_remaining(bilag_cache, bilag_group, db_const)
-# end perform_update
-
 
 
 def adjoin_member(uname, db_group, db_account, db_const):
@@ -281,8 +271,6 @@ def adjoin_member(uname, db_group, db_account, db_const):
         # already a member of db_group.
         logger.exception("adding account %s to %s failed",
                          uname, list(db_group.get_names()))
-# end adjoin_member
-
 
 
 def remove_remaining(cache, db_group, db_const):
@@ -303,13 +291,12 @@ def remove_remaining(cache, db_group, db_const):
         # this job.
         if db_group.has_member(account_id):
             db_group.remove_member(account_id)
-            logger.debug("removing account_id %d from %s",
+            logger.debug("removing account_id %r from %r",
                          account_id, list(db_group.get_names()))
         else:
-            logger.debug("%s not a member in group %s" % (account_id, db_group.entity_id))
+            logger.debug("%r not a member in group %r", account_id,
+                         db_group.entity_id)
             continue
-# end remove_remaining
-
 
 
 def usage():
@@ -318,29 +305,26 @@ def usage():
     print """
 %s [-d|--dryrun] [-h|--help] [-s|--source-spec sys:file]
 ... where
--d|--dryrun			Run this script without committing the changes
-                                to the database.
--h|--help			Display this message.
--s|--source-spec sys:file	Specify XML input file for this script, where
-                                sys  - system to use (e.g. system_lt)
-                                file - file with person info (e.g. person.xml)
+-d|--dryrun                Run this script without committing the changes
+                           to the database.
+-h|--help                  Display this message.
+-s|--source-spec sys:file  Specify XML input file for this script, where
+                           sys  - system to use (e.g. system_lt)
+                           file - file with person info (e.g. person.xml)
 """ % sys.argv[0]
-# end usage
-
 
 
 def main():
     """Start method for this script."""
+    Factory.get_logger("cronjob")
 
-    global logger
-    logger = Factory.get_logger("cronjob")
     logger.info("Performing uio-tils/uio-ans group updates")
 
     try:
         options, rest = getopt.getopt(sys.argv[1:],
                                       "dhs:", ["dryrun",
                                                "help",
-                                               "source-spec=",])
+                                               "source-spec="])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
@@ -368,4 +352,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
