@@ -4,22 +4,49 @@
 from __future__ import print_function, unicode_literals
 
 import argparse
-
+import logging
 from collections import namedtuple
 from functools import partial
-from xml.etree import ElementTree
 
+import jinja2
+
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+import Cerebrum.utils.argutils
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.Utils import Factory
 
-TEMPLATE = """
+logger = logging.getLogger(__name__)
+
+TEMPLATE = u"""
+<!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8" />
-        <title></title>
-    </head>
-    <body>
-    </body>
+  <head>
+    <meta charset="{{ encoding | default('utf-8') }}" />
+    <title>Names</title>
+  </head>
+  <body>
+    <table>
+      <tr>
+        <th>entity</th>
+        <th>name type</th>
+        <th>sys</th>
+        <th>name</th>
+        <th>sys</th>
+        <th>name</th>
+      </tr>
+      {% for item in data %}
+      <tr>
+        <td>{{ item['entity_id'] }}</td>
+        <td>{{ item['name_variant'] }}</td>
+        <td>{{ item['sys_a'] }}</td>
+        <td>{{ item['name_a'] }}</td>
+        <td>{{ item['sys_b'] }}</td>
+        <td>{{ item['name_b'] }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </body>
 </html>
 """.strip()
 
@@ -40,10 +67,10 @@ def get_names(db, system, variant, pid=None):
             row['person_id'],
             co.AuthoritativeSystem(row['source_system']),
             co.PersonName(row['name_variant']),
-            row['name'].decode(db.encoding, 'replace'))
+            row['name'])
 
 
-def compare_names(db, logger, args):
+def compare_names(db, args):
     """ Generates an XML report for missing names. """
     co = Factory.get(b'Constants')(db)
     pe = Factory.get(b'Person')(db)
@@ -65,55 +92,36 @@ def compare_names(db, logger, args):
             diff.setdefault(name.pid, []).append(
                 (name, to_check[name.pid][name.variant]))
 
-    logger.debug("Generating report ({:d} names)".format(len(diff)))
-    report = generate_report('Names', diff)
-    logger.debug("Done generating report")
-    return report
+    return diff
 
 
-def generate_report(title, data):
-    """ Generate a HTML document from a dict.
-
-    :param str title:
-        The report title.
-    :param dict data:
-        A dict that maps entity_id to a list of tuples. Each tuple contains two
-        mismatched names: {int: [ (Name, Name), ..., ], ... }
-
-    :return xml.etree.ElementTree.Element:
-        Returns a 'html' element with the report.
-    """
-    document = ElementTree.fromstring(TEMPLATE)
-    document.find('head/title').text = title
-    table = ElementTree.SubElement(document.find('body'), 'table')
-
-    def make_row(col, cols):
-        tr = ElementTree.Element('tr')
-        for c in cols:
-            if not isinstance(c, basestring):
-                c = str(c)
-            if not isinstance(c, unicode):
-                c = unicode(c)
-            cc = ElementTree.Element(col)
-            cc.text = c
-            tr.append(cc)
-        return tr
-
-    table.append(
-        make_row('th', ('entity', 'name type', 'sys', 'name', 'sys', 'name')))
-
-    for pid, diffs in data.iteritems():
+def format_rows(data):
+    for pid, diffs in data.items():
         for source, diff in diffs:
-            table.append(
-                make_row('td', (
-                    source.pid,
-                    source.variant,
-                    source.system,
-                    source.value,
-                    diff.system,
-                    diff.value)))
+            yield {
+                'entity': source.pid,
+                'name_variant': source.variant,
+                'sys_a': source.system,
+                'name_a': source.value,
+                'sys_b': diff.system,
+                'name_b': diff.value,
+            }
 
-    return document
+
+def write_html_report(stream, codec, data):
+    template_env = jinja2.Environment(trim_blocks=True, lstrip_blocks=True)
+    report = template_env.from_string(TEMPLATE)
+
+    stream.write(
+        report.render({
+            'encoding': codec.name,
+            'data': data,
+        })
+    )
+    stream.write(u'\n')
+
+
+DEFAULT_ENCODING = 'utf-8'
 
 
 def get_const(db, const_type, const_val):
@@ -136,14 +144,23 @@ def argparse_const(db, const_type, const_val):
         raise argparse.ArgumentTypeError(e)
 
 
-def main(args=None):
-    ENCODING = 'utf-8'
-    logger = Factory.get_logger('cronjob')
+def main(inargs=None):
     db = Factory.get(b'Database')()
     co = Factory.get(b'Constants')(db)
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-o', '--output', default='/tmp/report.html')
+    parser.add_argument(
+        '-o', '--output',
+        metavar='FILE',
+        default='/tmp/report.html',
+        help='output file for report, defaults to stdout')
+    parser.add_argument(
+        '-e', '--encoding',
+        dest='codec',
+        default=DEFAULT_ENCODING,
+        type=Cerebrum.utils.argutils.codec_type,
+        help="output file encoding, defaults to %(default)s")
+
     commands = parser.add_subparsers(help="available commands")
 
     # name
@@ -156,20 +173,23 @@ def main(args=None):
         'source_system',
         type=partial(argparse_const, db, co.AuthoritativeSystem))
 
-    args = parser.parse_args(args)
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
     command = args.func
     del args.func
 
     # Other commands?
     logger.info('Generating report ({!s})'.format(args.output))
-    af = AtomicFileWriter(args.output)
+    with AtomicFileWriter(args.output,
+                          mode='w',
+                          encoding=args.codec.name) as af:
 
-    report = command(db, logger, args)
-    report.find('head/meta[@charset]').set('charset', ENCODING)
-    af.write("<!DOCTYPE html>\n")
-    af.write(ElementTree.tostring(report, encoding=ENCODING))
+        report = command(db, args)
+        write_html_report(af, args.codec, format_rows(report))
 
-    af.close()
+    logger.info("report written to %r", args.output)
     logger.info('Done')
 
 
