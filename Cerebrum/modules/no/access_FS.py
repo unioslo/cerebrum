@@ -2048,9 +2048,8 @@ class element_attribute_xml_parser(xml.sax.ContentHandler, object):
     to the class attribute in their parent class (i.e. subclasses
     should not do elements[key] = value)."""
 
-    def __init__(self, filename, callback, encoding='utf-8'):
+    def __init__(self, filename, callback):
         self._callback = callback
-        self._encoding = encoding
         xml.sax.parse(filename, self)
 
     def startElement(self, name, attrs):
@@ -2060,17 +2059,16 @@ class element_attribute_xml_parser(xml.sax.ContentHandler, object):
         if self.elements[name]:
             data = {}
             for k, v in attrs.items():
-                data[k] = v.encode(self._encoding)
+                data[k] = v
             self._callback(name, data)
 
 
 class non_nested_xml_parser(element_attribute_xml_parser):
 
-    def __init__(self, filename, callback, encoding='utf-8'):
+    def __init__(self, filename, callback):
         self._in_element = None
         self._attrs = None
-        super(non_nested_xml_parser, self).__init__(
-            filename, callback, encoding)
+        super(non_nested_xml_parser, self).__init__(filename, callback)
 
     def startElement(self, name, attrs):
         if name not in self.elements:
@@ -2084,7 +2082,7 @@ class non_nested_xml_parser(element_attribute_xml_parser):
             self._in_element = name
             self._data = {}
             for k, v in attrs.items():
-                self._data[k] = v.encode(self._encoding)
+                self._data[k] = v
 
     def endElement(self, name):
         if name not in self.elements:
@@ -2294,9 +2292,8 @@ class emne_xml_parser(non_nested_xml_parser):
 class deltaker_xml_parser(xml.sax.ContentHandler, object):
     "Parserklasse for å hente EVU kursdeltaker informasjon."
 
-    def __init__(self, filename, callback, encoding="utf-8"):
+    def __init__(self, filename, callback):
         self._callback = callback
-        self._encoding = encoding
         self._in_person = False
         self._legal_elements = ("person", "evu", "aktiv", "tilbud",
                                 "data", "privatist_studieprogram", "eksamen",)
@@ -2311,7 +2308,7 @@ class deltaker_xml_parser(xml.sax.ContentHandler, object):
 
         tmp = dict()
         for k, v in attrs.items():
-            tmp[k] = v.encode(self._encoding)
+            tmp[k] = v
 
         if name == "person":
             assert not self._in_person, "Nested <person> element!"
