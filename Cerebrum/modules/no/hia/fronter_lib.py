@@ -19,11 +19,13 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from __future__ import unicode_literals
-import time
-import io
+
+# import io
 import six
+import time
 
 from Cerebrum.extlib import xmlprinter
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 
 # TODO: This file should not have UiO hardcoded data in it
 SYDRadmins = ['baardj', 'frankjs', 'jazz']
@@ -40,7 +42,11 @@ host_config = {
 }
 
 
+XML_ENCODING = "ISO-8859-1"
+
+
 class FronterUtils(object):
+
     def UE2RomID(prefix, aar, termk, instnr, sko, romtype,
                  emnekode, versjon, termnr):
         """Lag rom-ID for undervisningsenhet.
@@ -106,12 +112,37 @@ class Fronter(object):
     EMNE_PREFIX = 'KURS'
 
 
+class AtomicStreamRecoder(AtomicFileWriter):
+    """ file writer encoding hack.
+
+    xmlprinter.xmlprinter encodes data in the desired encoding before writing
+    to the stream, and AtomicFileWriter *requires* unicode-objects to be
+    written.
+
+    This hack turns AtomicFileWriter into a bytestring writer. Just make sure
+    the AtomicStreamRecoder is configured to use the same encoding as the
+    xmlprinter.
+
+    The *proper* fix would be to retire the xmlprinter module, and replace it
+    with something better.
+    """
+    def write(self, data):
+        if isinstance(data, bytes) and self.encoding:
+            # will be re-encoded in the same encoding by 'write'
+            data = data.decode(self.encoding)
+        return super(AtomicStreamRecoder, self).write(data)
+
+
 class XMLWriter(object):   # TODO: Move to separate file
     # TODO: should produce indented XML for easier readability
+
     def __init__(self, fname):
+        stream = AtomicStreamRecoder(fname, mode='w', encoding=XML_ENCODING)
         self.gen = xmlprinter.xmlprinter(
-            io.file(fname, 'wb'), indent_level=2, data_mode=1,
-            input_encoding='UTF-8')
+            stream,
+            # io.file(fname, 'wb'),
+            indent_level=2,
+            data_mode=1)
 
     def startTag(self, tag, attrs={}):
         a = {}
@@ -145,7 +176,7 @@ class FronterXML(object):
     def __init__(self, fname, cf_dir=None, debug_file=None, debug_level=None,
                  fronter=None, include_password=True):
         self.xml = XMLWriter(fname)
-        self.xml.startDocument(encoding='UTF-8')
+        self.xml.startDocument(encoding=XML_ENCODING)
         self.rootEl = 'enterprise'
         self.DataSource = 'cerebrum@hia.no'
         self.cf_dir = cf_dir
