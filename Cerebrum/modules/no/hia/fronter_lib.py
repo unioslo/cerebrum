@@ -21,6 +21,7 @@
 from __future__ import unicode_literals
 import time
 import io
+import six
 
 from Cerebrum.extlib import xmlprinter
 
@@ -85,7 +86,7 @@ class FronterUtils(object):
         # del av den returnerte kurs-ID-strengen, da vi risikerer å ha
         # termnr forskjellig fra 1 for kurs med kursid i semesteret
         # høst 2004.
-        rom_id = ":".join([str(x).lower() for x in
+        rom_id = ":".join([six.text_type(x).lower() for x in
                            (aar, termk, instnr, sko, romtype,
                             emnekode, versjon, termnr)])
         return ':'.join((prefix, rom_id))
