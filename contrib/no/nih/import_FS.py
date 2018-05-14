@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2002, 2003, 2011 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -56,8 +56,10 @@ co = Factory.get('Constants')(db)
 aff_status_pri_order = [int(x) for x in (  # Most significant first
     co.affiliation_status_student_aktiv,
     co.affiliation_status_student_evu)]
-aff_status_pri_order = dict([(aff_status_pri_order[i], i)
-                             for i in range(len(aff_status_pri_order))] )
+aff_status_pri_order = dict([
+    (aff_status_pri_order[i], i)
+    for i in range(len(aff_status_pri_order))
+])
 
 
 def _add_res(entity_id):
@@ -78,7 +80,6 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
         institusjon = a_dict[kinstitusjon]
     else:
         institusjon = cereconf.DEFAULT_INSTITUSJONSNR
-    # fi
 
     key = "-".join((str(institusjon), a_dict[kfak], a_dict[kinst], a_dict[kgr]))
     if key not in ou_cache:
@@ -118,7 +119,8 @@ def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
             ou_adr_cache[ou_id] = None
             logger.warn("No address for %i" % ou_id)
     return ou_adr_cache[ou_id]
-    
+
+
 def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
     ret = {}
     ret['address_text'] = "\n".join([a_dict.get(f, None)
@@ -130,7 +132,7 @@ def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
     ret['postal_number'] = postal_number
     city = a_dict.get(kline3.strip(), '')
     if city:
-        ret['city'] =  city
+        ret['city'] = city
     else:
         ret['city'] = None
     logger.debug('%s,  %s,  %s', ret['address_text'], postal_number, city)
@@ -144,6 +146,7 @@ def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
         return None
     return ret
 
+
 def _calc_address(person_info):
     """Evaluerer personens adresser iht. til flereadresser_spek.txt og
     returnerer en tuple (address_post, address_post_private,
@@ -152,10 +155,10 @@ def _calc_address(person_info):
     # FS.STUDENT    *_semadr (2)
     # FS.FAGPERSON  *_arbeide (3)
     # FS.DELTAKER   *_job (4)
-    # FS.DELTAKER   *_hjem (5) 
+    # FS.DELTAKER   *_hjem (5)
     rules = [
         ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
-        ('aktiv', ('_hjemsted', None, None)),        
+        ('aktiv', ('_hjemsted', None, None)),
         ('evu', ('_job', '_hjem', None)),
         ]
     adr_map = {
@@ -172,7 +175,8 @@ def _calc_address(person_info):
                   'postnr_hjem', 'adresseland_hjem'),
         '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
         }
-    logger.debug("Getting address for person %s%s" % (person_info['fodselsdato'], person_info['personnr']))
+    logger.debug("Getting address for person %s%s",
+                 person_info['fodselsdato'], person_info['personnr'])
     ret = [None, None, None]
     for key, addr_src in rules:
         if not person_info.has_key(key):
@@ -189,6 +193,7 @@ def _calc_address(person_info):
             else:
                 ret[i] = _ext_address_info(tmp, *addr_cols)
     return ret
+
 
 def register_cellphone(person, person_info):
     """Register person's cell phone number from person_info.
@@ -221,7 +226,6 @@ def register_cellphone(person, person_info):
                     phone = '+' + dct[phone_country] + phone
                 numbers.add(phone.strip().replace(' ', ''))
 
-
     if len(numbers) < 1:
         return
     if len(numbers) == 1:
@@ -232,7 +236,7 @@ def register_cellphone(person, person_info):
 
         # No point in registering a number that's already there.
         if cell_phone in _fetch_cerebrum_contact():
-            return 
+            return
 
         person.populate_contact_info(co.system_fs)
         person.populate_contact_info(co.system_fs,
@@ -243,24 +247,26 @@ def register_cellphone(person, person_info):
         return
 
     logger.warn("Person %s has several cell phone numbers. Ignoring them all", fnr)
-# end register_cellphone
+
 
 def _load_cere_aff():
     fs_aff = {}
     person = Factory.get("Person")(db)
     for row in person.list_affiliations(source_system=co.system_fs):
-        k = "%s:%s:%s" % (row['person_id'],row['ou_id'],row['affiliation'])
+        k = "%s:%s:%s" % (row['person_id'], row['ou_id'], row['affiliation'])
         fs_aff[str(k)] = True
     return(fs_aff)
 
+
 def rem_old_aff():
     person = Factory.get("Person")(db)
-    for k,v in old_aff.items():
+    for k, v in old_aff.items():
         if v:
-            ent_id,ou,affi = k.split(':')
+            ent_id, ou, affi = k.split(':')
             person.clear()
             person.find(int(ent_id))
             person.delete_affiliation(ou, affi, co.system_fs)
+
 
 def filter_affiliations(affiliations):
     """The affiliation list with cols (ou, affiliation, status) may
@@ -268,20 +274,18 @@ def filter_affiliations(affiliations):
     combination, while the db-schema only allows one.  Return a list
     where duplicates are removed, preserving the most important
     status.  """
-    
-    affiliations.sort(lambda x,y: aff_status_pri_order.get(int(y[2]), 99) -
+    affiliations.sort(lambda x, y: aff_status_pri_order.get(int(y[2]), 99) -
                       aff_status_pri_order.get(int(x[2]), 99))
-    
     ret = {}
     for ou, aff, aff_status in affiliations:
         ret[(ou, aff)] = aff_status
     return [(ou, aff, aff_status) for (ou, aff), aff_status in ret.items()]
 
+
 def process_person_callback(person_info):
     """Called when we have fetched all data on a person from the xml
     file.  Updates/inserts name, address and affiliation
     information."""
-    
     global no_name
     try:
         fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
@@ -289,12 +293,12 @@ def process_person_callback(person_info):
         fnr = fodselsnr.personnr_ok(fnr)
         logger.info("Process %s " % (fnr))
         (year, mon, day) = fodselsnr.fodt_dato(fnr)
-        if (year < 1970
-            and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
+        if (year < 1970 and
+                getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
             # Seems to be a bug in time.mktime on some machines
             year = 1970
     except fodselsnr.InvalidFnrError:
-        logger.warn("Ugyldig fødselsnr: %s" % fnr)
+        logger.warn("Ugyldig fÃ¸dselsnr: %r", fnr)
         return
 
     gender = co.gender_male
@@ -307,7 +311,7 @@ def process_person_callback(person_info):
     address_info = None
     aktiv_sted = []
 
-    # Iterate over all person_info entries and extract relevant data    
+    # Iterate over all person_info entries and extract relevant data
     if person_info.has_key('aktiv'):
         for row in person_info['aktiv']:
             if studieprog2sko[row['studieprogramkode']] is not None:
@@ -317,7 +321,7 @@ def process_person_callback(person_info):
     for dta_type in person_info.keys():
         x = person_info[dta_type]
         p = x[0]
-        if isinstance(p, str):
+        if isinstance(p, basestring):
             continue
         # Get name
         if dta_type in ('fagperson', 'evu', 'aktiv'):
@@ -333,18 +337,18 @@ def process_person_callback(person_info):
                                  affiliations, _get_sko(p, 'faknr',
                                  'instituttnr', 'gruppenr', 'institusjonsnr'))
         elif dta_type in ('aktiv', ):
- 	  for row in x:
-	      # aktiv_sted is necessary in order to avoid different affiliation statuses
-	      # to a same 'stedkode' to be overwritten 
-              # e.i. if a person has both affiliations status 'evu' and
-	      # aktive to a single stedkode we want to register the status 'aktive'
-	      # in cerebrum
-              if studieprog2sko[row['studieprogramkode']] is not None:
-                  aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
-		  _process_affiliation(co.affiliation_student,
-				       co.affiliation_status_student_aktiv, affiliations,
-				       studieprog2sko[row['studieprogramkode']])
-	elif dta_type in ('evu',):
+            for row in x:
+                # aktiv_sted is necessary in order to avoid different affiliation statuses
+                # to a same 'stedkode' to be overwritten
+                # e.i. if a person has both affiliations status 'evu' and
+                # aktive to a single stedkode we want to register the status 'aktive'
+                # in cerebrum
+                if studieprog2sko[row['studieprogramkode']] is not None:
+                    aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
+                    _process_affiliation(co.affiliation_student,
+                                         co.affiliation_status_student_aktiv, affiliations,
+                                         studieprog2sko[row['studieprogramkode']])
+        elif dta_type in ('evu',):
             subtype = co.affiliation_status_student_evu
             if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
                 subtype = co.affiliation_status_student_aktiv
@@ -353,14 +357,14 @@ def process_person_callback(person_info):
                                  studieprog2sko[row['studieprogramkode']])
 
     if etternavn is None:
-        logger.debug("Ikke noe navn på %s" % fnr)
-        no_name += 1 
+        logger.debug("Ikke noe navn pÃ¥ %s" % fnr)
+        no_name += 1
         return
 
     # TODO: If the person already exist and has conflicting data from
     # another source-system, some mechanism is needed to determine the
     # superior setting.
-    
+
     new_person = Factory.get('Person')(db)
     if fnr2person_id.has_key(fnr):
         new_person.find(fnr2person_id[fnr])
@@ -423,7 +427,7 @@ def process_person_callback(person_info):
         should_add = False
         for dta_type in person_info.keys():
             p = person_info[dta_type][0]
-            if isinstance(p, str):
+            if isinstance(p, basestring):
                 continue
             # Presence of 'fagperson' elements for a person should not
             # affect that person's reservation status.
@@ -518,7 +522,7 @@ def main():
     if include_delete:
         rem_old_aff()
     db.commit()
-    logger.info("Found %d persons without name." % no_name)
+    logger.info("Found %r persons without name.", no_name)
     logger.info("Completed")
 
 
