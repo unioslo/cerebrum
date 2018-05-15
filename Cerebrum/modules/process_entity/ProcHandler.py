@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-# Copyright 2006 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2006-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -358,7 +358,7 @@ class ProcHandler(object):
                 shdw_grp.write_db()
                 self.logger.info("prc_grp: Shadow group '%s' created." % shadow)
             change = False
-            if shdw_trait_str != None:
+            if shdw_trait_str is not None:
                 if not shdw_grp.get_trait(int(self._co.EntityTrait(shdw_trait_str))):
                     shdw_grp.populate_trait(int(self._co.EntityTrait(shdw_trait_str)),
                                             date=DateTime.now())
@@ -503,7 +503,7 @@ class ProcHandler(object):
     def _get_ou_acronym(self, ou):
         """Retrieve ou's acronym.
 
-        If none is present in Norwegian bokmål, return ''.
+        If none is present in Norwegian bokmÃ¥l, return ''.
         """
 
         return ou.get_name_with_language(name_variant=self._co.ou_name_acronym,

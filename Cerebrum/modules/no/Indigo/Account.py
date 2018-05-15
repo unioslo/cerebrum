@@ -136,21 +136,22 @@ class AccountOfkMixin(Account.Account):
         False if it doesn't.  If the method doesn't support
         verification, NotImplemented is returned.
         """
-        if method in (self.const.auth_type_md5_crypt,
-                      self.const.auth_type_md5_unsalt,
-                      self.const.auth_type_ha1_md5,
-                      self.const.auth_type_crypt3_des,
-                      self.const.auth_type_md4_nt,
-                      self.const.auth_type_ssha,
-                      self.const.auth_type_sha256_crypt,
-                      self.const.auth_type_sha512_crypt,
-                      self.const.auth_type_plaintext):
-            salt = cryptstring
-            if method == self.const.auth_type_ssha:
-                salt = base64.decodestring(cryptstring)[20:]
-            return (self.encrypt_password(method, plaintext, salt=salt) ==
-                    cryptstring)
-        raise ValueError("Unknown method " + repr(method))
+        if method not in (self.const.auth_type_md5_crypt,
+                          self.const.auth_type_md5_unsalt,
+                          self.const.auth_type_ha1_md5,
+                          self.const.auth_type_crypt3_des,
+                          self.const.auth_type_md4_nt,
+                          self.const.auth_type_ssha,
+                          self.const.auth_type_sha256_crypt,
+                          self.const.auth_type_sha512_crypt,
+                          self.const.auth_type_plaintext):
+            raise ValueError('Unknown method {method}'.format(method=method))
+        salt = cryptstring
+        if method == self.const.auth_type_ssha:
+            salt = base64.decodestring(str(cryptstring))[20:].decode()
+        return (self.encrypt_password(method,
+                                      plaintext,
+                                      salt=salt) == cryptstring)
 
     def _get_old_homeMDB(self):
         """
