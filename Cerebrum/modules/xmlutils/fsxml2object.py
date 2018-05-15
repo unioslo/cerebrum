@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007 University of Oslo, Norway
+# Copyright 2007-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,12 +25,14 @@ from mx.DateTime import Date
 import sys
 import time
 
-from Cerebrum.modules.xmlutils.xml2object import \
-     XMLDataGetter, XMLEntity2Object, DataOU, DataName, \
-     DataAddress, DataContact, XMLEntityIterator, ensure_unicode
-
-
-
+from Cerebrum.modules.xmlutils.xml2object import (XMLDataGetter,
+                                                  XMLEntity2Object,
+                                                  DataOU,
+                                                  DataName,
+                                                  DataAddress,
+                                                  DataContact,
+                                                  XMLEntityIterator,
+                                                  ensure_unicode)
 
 
 class FSOU(DataOU):
@@ -38,41 +40,27 @@ class FSOU(DataOU):
 
     # magic number + geographical code (forretningsområdekode), where
     # applicable. This magic key is registered in FS, rather than SAP.
-    NO_SAP_ID    = "sap-ou-id"
+    NO_SAP_ID = "sap-ou-id"
 
     def validate_id(self, kind, value):
         if kind in (self.NO_SAP_ID,):
             return
-
         super(FSOU, self).validate_id(kind, value)
-    # end validate_id
-# end SAPPerson
-
 
 
 class FSXMLDataGetter(XMLDataGetter):
     """An abstraction layer for FS XML files."""
-
     def iter_ou(self):
         return self._make_iterator("sted", XMLOU2Object)
-    # end iter_ou
-# end FSXMLDataGetter
-
 
 
 class XMLOU2Object(XMLEntity2Object):
     """An iterator over OU elements in XML files generated from FS."""
-
-
     def _pull_name(self, element, attribute_name):
-
         if element.get(attribute_name):
             value = ensure_unicode(element.get(attribute_name), self.encoding)
             return value
-
         return None
-    # end _pull_name
-
 
     def _make_contact(self, element):
         """Return a DataContact entry corresponding to a given XML element."""
@@ -91,25 +79,19 @@ class XMLOU2Object(XMLEntity2Object):
             return DataContact.CONTACT_PHONE, value
 
         return None, None
-    # end _make_contact
-
 
     def next_object(self, element):
         """Returns a DataEntity representation of the 'next' XML element."""
-
         result = FSOU()
-
         sko = tuple([int(element.get(x)) for x in ("fakultetnr",
                                                    "instituttnr",
                                                    "gruppenr")])
         result.add_id(result.NO_SKO, sko)
-
         # Parent ID - sko
         sko = tuple([int(element.get(x)) for x in ("fakultetnr_for_org_sted",
                                                    "instituttnr_for_org_sted",
                                                    "gruppenr_for_org_sted")])
         result.parent = (result.NO_SKO, sko)
-
         # stedkode_konv occationally contains SAP-OU-id for some
         # SAP-implementations. NB! This does not apply to UiO (as UiO's
         # implementation uses sko).
@@ -121,9 +103,10 @@ class XMLOU2Object(XMLEntity2Object):
         result.publishable = True
 
         # names
-        for name_kind, xmlname, lang in ((result.NAME_LONG, "stednavn", "nb"),
-                                         (result.NAME_SHORT, "forkstednavn", "nb"),
-                                         (result.NAME_ACRONYM, "akronym", "nb")):
+        for name_kind, xmlname, lang in (
+                (result.NAME_LONG, "stednavn", "nb"),
+                (result.NAME_SHORT, "forkstednavn", "nb"),
+                (result.NAME_ACRONYM, "akronym", "nb")):
             value = self._pull_name(element, xmlname)
             if value:
                 result.add_name(DataName(name_kind, value, lang))
@@ -140,7 +123,6 @@ class XMLOU2Object(XMLEntity2Object):
                                            zip=zipcode,
                                            city="",
                                            country=""))
-
         # contact information
         priority = 0
         for subelement in element.findall("komm"):
@@ -148,23 +130,17 @@ class XMLOU2Object(XMLEntity2Object):
             if kind and value:
                 result.add_contact(DataContact(kind, value, priority))
                 priority += 1
-
         # We require a sko from FS ...
         if not result.get_id(result.NO_SKO):
             self.logger.warn("OU %s is missing stedkode. Skipped",
-                             list(ou.iterids()))
+                             result)
             return None
-
         # ... and a name
         if not result.get_name(result.NAME_LONG):
             self.logger.warn("OU %s is missing name. Skipped",
-                             list(ou.iterids()))
+                             result)
             return None
-
         return result
-    # end next_object
-# end XMLOU2Object
-
 
 
 class EduDataGetter(XMLDataGetter):
@@ -174,10 +150,10 @@ class EduDataGetter(XMLDataGetter):
         # We are cheating here somewhat: _make_iterator() expects a class, not
         # a callable that returns one. However, a callable would do as well,
         # given how class is used in XMLDataGetter.
-        return self._make_iterator(element,
-                       lambda iterator, logger, encoding:
-                           EduKind2Object(iterator, logger, fields, encoding))
-
+        return self._make_iterator(
+            element,
+            lambda iterator, logger, encoding:
+                EduKind2Object(iterator, logger, fields, encoding))
 
     def iter_stprog(self, tag="studprog"):
         return self.__fix_iterator(tag,
@@ -206,6 +182,7 @@ class EduDataGetter(XMLDataGetter):
                                          "emnenavn_bokmal",
                                          "emnenavnfork",
                                          "lmsrommalkode",))
+
     def iter_undakt(self, tag="aktivitet"):
         return self.__fix_iterator(tag, ("institusjonsnr",
                                          "terminnr",
@@ -221,6 +198,7 @@ class EduDataGetter(XMLDataGetter):
                                          "instituttnr_kontroll",
                                          "gruppenr_kontroll",
                                          "lmsrommalkode",))
+
     def iter_evu(self, tag="evu"):
         return self.__fix_iterator(tag, ("kurstidsangivelsekode",
                                          "etterutdkurskode",
@@ -231,6 +209,7 @@ class EduDataGetter(XMLDataGetter):
                                          "gruppenr_adm_ansvar",
                                          "etterutdkursnavn",
                                          "lmsrommalkode",))
+
     def iter_kursakt(self, tag="kursakt"):
         return self.__fix_iterator(tag, ("kurstidsangivelsekode",
                                          "etterutdkurskode",
@@ -238,6 +217,7 @@ class EduDataGetter(XMLDataGetter):
                                          "status_eksport_lms",
                                          "aktivitetsnavn",
                                          "lmsrommalkode",))
+
     def iter_kull(self, tag="kull"):
         return self.__fix_iterator(tag, ("arstall",
                                          "studieprogramkode",
@@ -248,20 +228,19 @@ class EduDataGetter(XMLDataGetter):
                                          "gruppenr_studieansv",
                                          "studiekullnavn",
                                          "lmsrommalkode",))
-# end FSXMLDataGetter
-
 
 
 class EduGenericIterator(XMLEntityIterator):
     """A convenience class -- iterates over XML element attributes as dicts."""
     def __init__(self, filename, element):
         super(EduGenericIterator, self).__init__(filename, element)
-    # end __init__
 
     def __iter__(self):
         return self
-# end EduGenericIterator
 
+    def next(self):
+        element = super(EduGenericIterator, self).next()
+        return dict(element.items())
 
 
 class EduKind2Object(XMLEntity2Object):
@@ -272,4 +251,3 @@ class EduKind2Object(XMLEntity2Object):
 
     def next_object(self, subtree):
         return dict((x, subtree.get(x)) for x in self._required_attributes)
-# end EduKind2Object
