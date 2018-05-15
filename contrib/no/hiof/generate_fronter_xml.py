@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-
-# Copyright 2009-2010 University of Oslo, Norway
+#
+# Copyright 2009-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -51,15 +51,17 @@ The script works like this:
 from __future__ import unicode_literals
 
 import argparse
-import mx.DateTime
+import logging
 import re
 from collections import deque
 
-from six import python_2_unicode_compatible
+import mx.DateTime
+import six
 
-import cerebrum_path
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
@@ -73,16 +75,14 @@ from Cerebrum.modules.Email import EmailServer
 from Cerebrum import Errors
 
 
-del cerebrum_path
-
 STATUS_ADD = "1"
 STATUS_UPDATE = "2"
 STATUS_DELETE = "3"
-logger = None
+logger = logging.getLogger(__name__)
 uname_suffix = ''
 
 
-@python_2_unicode_compatible
+@six.python_2_unicode_compatible
 class CfPermission(object):
     """Permission handling.
 
@@ -112,7 +112,6 @@ class CfPermission(object):
         # the 'victim' of the permission assignment
         self._target = target
         assert self._access in self.access2symbol
-    # end __init__
 
     def access_type(self):
         return self._access
@@ -132,8 +131,6 @@ class CfPermission(object):
             self.is_recursive() and "recursive" or "non-recursive",
             self.holder(),
             self.target())
-    # end __str__
-# end cf_permission
 
 
 class CfTree(object):
@@ -148,7 +145,6 @@ class CfTree(object):
         self._db = db
 
         self._build_static_nodes()
-    # end __init__
 
     def _build_static_nodes(self):
         """Build the static part of OA/hiof's CF tree"""
@@ -175,11 +171,9 @@ class CfTree(object):
             "STRUCTURE:hiof.no:persongruppene",
             None)
         self._person_group_holder._parent = self._root
-    # end _build_static
 
     def get_cf_group(self, cf_id, default=None):
         return self._cf_id2node.get(cf_id, default)
-    # end get_cf_group
 
     def register_member_group(self, cfmg):
         assert isinstance(cfmg, CfMemberGroup)
@@ -190,7 +184,6 @@ class CfTree(object):
         assert isinstance(cfsg, CfStructureGroup)
         cf_group_id = cfsg.cf_id()
         self._cf_id2node[cf_group_id] = cfsg
-    # end register_structure_group
 
     def create_associated_siblings(self, cf_group):
         """Create sibling nodes stemming from a given node.
@@ -207,9 +200,8 @@ class CfTree(object):
             nn = CfStructureGroup(s_name, s_id, parent)
             self.register_structure_group(nn)
             parent.add_child(nn)
-            logger.debug("Created sibling %s from %s under parent %s",
-                         str(nn), str(cf_group), str(parent))
-    # end create_associated_siblings
+            logger.debug("Created sibling %r from %r under parent %r",
+                         nn, cf_group, parent)
 
     def create_associated_structures(self, cf_group, multisemester_map):
         """Given a cf_member/structure_group, create *ALL* the necessary
@@ -236,7 +228,7 @@ class CfTree(object):
             structure_id = cf_group.cf_parent_id()
 
         if structure_id is None:
-            logger.debug("No structure created for cf_group=%s", str(cf_group))
+            logger.debug("No structure created for cf_group=%r", cf_group)
             return None
         if self.get_cf_group(structure_id):
             self.get_cf_group(structure_id).add_child(cf_group)
@@ -263,7 +255,6 @@ class CfTree(object):
         # This will fix new_node's parent link as well.
         grandparent_node.add_child(new_node)
         return new_node
-    # end create_associated_structures
 
     def iterate_groups(self, group_type=None):
         """Create an iterator for the specific group type in the CF-tree.
@@ -275,7 +266,6 @@ class CfTree(object):
                 if (group_type is None or
                         isinstance(group, group_type)):
                     yield group
-    # end iterate_groups
 
     def iterate_groups_topologically(self, group_type=None):
         """Create an iterator for the specific group type(s) that outputs
@@ -302,12 +292,9 @@ class CfTree(object):
 
             for child_group in current.iterate_children(group_type):
                 work_queue.append(child_group)
-    # end iterate_groups_topologically
 
     def get_root(self):
         return self._root
-    # end get_root
-# end cf_tree
 
 
 class CfGroupInterface(object):
@@ -319,7 +306,6 @@ class CfGroupInterface(object):
 
     def __init__(self):
         self._parent = None
-    # end __init__
 
     @staticmethod
     def load_acronyms(db):
@@ -335,7 +321,6 @@ class CfGroupInterface(object):
             key = "%02d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
             result[key] = row["name"]
         CfGroupInterface._acronym2avdeling = result
-    # end load_acronyms
 
     def __eq__(self, other):
         return self.cf_id() == other.cf_id()
@@ -364,7 +349,6 @@ class CfGroupInterface(object):
     @staticmethod
     def kull_room_title(stprog, semester, year):
         return "Rom for kull %s %s %s" % (stprog, semester, year)
-    # end kull_room_title
 
     def cf_parent_title(self):
         """Figure out the title of the group where self is a member"""
@@ -403,7 +387,8 @@ class CfGroupInterface(object):
         elif "studieprogram" in parent_components:
             idx = parent_components.index("studieprogram")
             return "Studieprogram %s" % parent_components[idx+1].upper()
-        elif ("undenh" in parent_components) or ("undakt" in parent_components):
+        elif ("undenh" in parent_components or
+              "undakt" in parent_components):
             # group's description (cf_title()) has the right semester number
             # even for multisemester undenh/undakt, this structure will have
             # the right title.
@@ -429,7 +414,6 @@ class CfGroupInterface(object):
             return "Oslofjordalliansen"
 
         assert False, "This cannot happen: parent_id=%s" % parent_id
-    # end cf_parent_id
 
     def cf_yield_siblings(self):
         """Return sibling node information to create alongside self.
@@ -441,11 +425,9 @@ class CfGroupInterface(object):
         By default, no action is performed. This method returns a generator.
         """
         return ((cf_name, cf_id) for (cf_name, cf_id) in ())
-    # end cf_yield_siblings.
-# end cf_node_interface
 
 
-@python_2_unicode_compatible
+@six.python_2_unicode_compatible
 class CfStructureGroup(CfGroupInterface):
     """A group representing a structure (a room or a corridor) in CF.
 
@@ -468,7 +450,6 @@ class CfStructureGroup(CfGroupInterface):
         self._structure_children = dict()
         self._permissions = dict()
         self._group_type = self._calculate_group_type()
-    # end __init__
 
     def cf_typevalue(self):
         """Return a suitable text value for <typevalue> XML element.
@@ -503,7 +484,6 @@ class CfStructureGroup(CfGroupInterface):
             return "4"
 
         assert False, "This cannot happen"
-    # end cf_typevalue
 
     def cf_is_kull_fellesrom(self):
         """Is self fellesrom for a kull?"""
@@ -512,7 +492,6 @@ class CfStructureGroup(CfGroupInterface):
         return (self.cf_group_type() == "ROOM" and
                 "kull" in components and
                 "klasse" not in components)
-    # end cf_is_kullrom
 
     def cf_is_kull_corridor(self):
         """Is self a kull corridor?"""
@@ -520,7 +499,6 @@ class CfStructureGroup(CfGroupInterface):
         components = self.cf_id().split(":")
         return (self.cf_group_type() == "STRUCTURE" and
                 "kull" in components)
-    # end cf_is_kull_corridor
 
     def fixup_sibling_permissions(self):
         """Propagate permissions from kullklasse roles to fellesrom for kull.
@@ -552,16 +530,14 @@ class CfStructureGroup(CfGroupInterface):
 
         # let's go
         for holder in holders:
-            logger.debug("%s receives additional permissions from sibling %s",
-                         str(fellesrom), str(holder))
+            logger.debug("%r receives additional permissions from sibling %r",
+                         fellesrom, holder)
             fellesrom.register_permissions(holder)
-    # end fixup_sibling_permissions
 
     def cf_template(self):
         assert self.cf_group_type() in self.valid_types
         if self.cf_group_type() == "ROOM":
             return "Mal-rom OA 2"
-    # end cf_template
 
     def cf_id(self):
         return self._cf_id
@@ -627,7 +603,6 @@ class CfStructureGroup(CfGroupInterface):
             else:
                 assert False, "This cannot happen: self.id=%s" % self.cf_id()
             return ":".join(result)
-    # end cf_parent_id
 
     def _calculate_group_type(self):
         """Figure out what kind of structure group this is -- STRUCTURE
@@ -640,7 +615,6 @@ class CfStructureGroup(CfGroupInterface):
         components = self.cf_id().split(":")
         assert components[0] in self.valid_types
         return components[0]
-    # end _calculate_group_type
 
     def add_child(self, child):
         self._structure_children[child.cf_id()] = child
@@ -648,17 +622,14 @@ class CfStructureGroup(CfGroupInterface):
         # up later on. _parent slot is initialised to None.
         if child._parent != self:
             child._parent = self
-    # end add_child
 
     def iterate_children(self, child_type=None):
         for child in self._structure_children.itervalues():
             if child_type is None or isinstance(child, child_type):
                 yield child
-    # end iterate_children
 
     def iterate_permissions(self):
         return self._permissions.itervalues()
-    # end iterate_permissions
 
     def register_permissions(self, cf_group):
         assert isinstance(cf_group, CfMemberGroup)
@@ -666,8 +637,7 @@ class CfStructureGroup(CfGroupInterface):
         if permission is not None:
             self._permissions[cf_group.cf_id()] = permission
 
-        logger.debug("Registered permission %s", str(permission))
-    # end register_permissions
+        logger.debug("Registered permission %r", permission)
 
     def __str__(self):
         return ("CFSG id=%s (parent=%s), %d structure members, "
@@ -676,11 +646,9 @@ class CfStructureGroup(CfGroupInterface):
                     self._parent and self._parent.cf_id() or "No parent",
                     len(self._structure_children),
                     len(self._permissions)))
-    # end __str__
-# end cf_structure_group
 
 
-@python_2_unicode_compatible
+@six.python_2_unicode_compatible
 class CfMemberGroup(CfGroupInterface):
     """A group holding members of a Cerebrum group for CF.
 
@@ -712,7 +680,6 @@ class CfMemberGroup(CfGroupInterface):
                 group.entity_id,
                 group.group_name,
                 self._group_type)
-    # end __init__
 
     def cf_typevalue(self):
         """Return a suitable text value for <typevalue> XML element.
@@ -727,7 +694,6 @@ class CfMemberGroup(CfGroupInterface):
 
         # CfMemberGroup objects represent 'group' typevalues. Always.
         return "2"
-    # end cf_typevalue
 
     def cf_id(self):
         return self._cf_id
@@ -743,7 +709,6 @@ class CfMemberGroup(CfGroupInterface):
                                         "student-undakt",
                                         "student-kull",
                                         "student-kullklasse",)
-    # end cf_is_student_group
 
     def cf_parent_id(self):
         """Calculate which *structure* group this member group corresponds to.
@@ -777,7 +742,6 @@ class CfMemberGroup(CfGroupInterface):
         else:
             assert False, "This cannot happen: cf_member id=%s/type=%s" % (
                 self.cf_id(), member_group_type)
-    # end parent_cf_structure_id
 
     def cf_yield_siblings(self):
         if self.cf_group_type() != "kull":
@@ -793,7 +757,6 @@ class CfMemberGroup(CfGroupInterface):
 
         for cf_name, cf_id in ((k_title, k_id),):
             yield cf_name, cf_id
-    # end cf_yield_siblings
 
     def _role_code(self):
         """What kind of role code does self correspond to?
@@ -810,7 +773,6 @@ class CfMemberGroup(CfGroupInterface):
 
         assert False, \
             "Impossible: unknown role code for cd id=%s" % self.cf_id()
-    # end _role_code
 
     def get_cf_permission(self, structure_group):
         """Calculate permission for self on L{structure_group}.
@@ -886,14 +848,13 @@ class CfMemberGroup(CfGroupInterface):
             role_code = self._role_code()
             access_type = role_code2permission[role_code][self.cf_group_type()]
         else:
-            logger.debug("Weird group type for %s", str(self))
+            logger.debug("Weird group type for %r", self)
             assert False, "This cannot happen"
 
         perm_object = CfPermission(access_type, recursive,
                                    holder=self,
                                    target=structure_group)
         return perm_object
-    # end get_cf_permission
 
     def _calculate_group_type(self):
         """Figure out what kind of group this is."""
@@ -923,18 +884,14 @@ class CfMemberGroup(CfGroupInterface):
                 return "avdeling"
 
         assert False, "NOTREACHED"
-    # end _calculate_group_type
 
     def __str__(self):
         return "CFMG type=%s id=%s %d members" % (self.cf_group_type(),
                                                   self.cf_id(),
                                                   len(self._account_ids))
-    # end __str__
 
     def iterate_members(self):
         return iter(self._account_ids)
-    # end iterate_members
-# end CfMemberGroup
 
 
 class CfMembers(object):
@@ -949,7 +906,6 @@ class CfMembers(object):
     def __init__(self, db):
         self.db = db
         self.const = Factory.get("Constants")(db)
-    # end __init__
 
     def account2uname(self):
         """Construct a mapping from account_id to account_name.
@@ -960,7 +916,6 @@ class CfMembers(object):
         for row in account.list_names(self.const.account_namespace):
             result[row["entity_id"]] = row["entity_name"] + uname_suffix
         return result
-    # end account_mapping
 
     def email2mail_server(self, email):
 
@@ -975,7 +930,6 @@ class CfMembers(object):
             return es.name
         except Errors.NotFoundError:
             return ""
-    # end email2mail_server
 
     def person2address(self, person_id):
         person = Factory.get("Person")(self.db)
@@ -983,8 +937,8 @@ class CfMembers(object):
 
         def remap(x):
             if x is None:
-                return ""
-            return str(x).strip() and str(x).strip() or ""
+                return six.text_type()
+            return six.text_type(x).strip()
 
         for source_system in (self.const.system_sap,
                               self.const.system_fs):
@@ -1004,7 +958,6 @@ class CfMembers(object):
                     # supported yet (2009-08-18), and we are asked to
                     # use "street", although city-part should be in
                     # 'locality' if IMS Ent is followed
-    # end person2address
 
     def member_info(self):
         """Slurp in info about all members.
@@ -1086,8 +1039,6 @@ class CfMembers(object):
 
         logger.debug("Collected a total of %d user records", len(result))
         return result
-    # end member_info
-# end CfMembers
 
 
 def collect_cf_groups(db):
@@ -1100,7 +1051,6 @@ def collect_cf_groups(db):
                  group.list_traits(code=const.trait_cf_group))
     logger.debug("Collected %d CF groups from Cerebrum", len(result))
     return result
-# end collect_cf_groups
 
 
 def locate_db_group(db, group_id):
@@ -1110,7 +1060,6 @@ def locate_db_group(db, group_id):
     group = Factory.get("Group")(db)
     group.find(group_id)
     return group
-# end locate_db_group
 
 
 def build_cf_tree(db, db_groups, multisemester_map):
@@ -1130,7 +1079,7 @@ def build_cf_tree(db, db_groups, multisemester_map):
         db_group = locate_db_group(db, group_id)
         cf_member = CfMemberGroup(db_group)
         tree.register_member_group(cf_member)
-        logger.debug("Created CF group %s", str(cf_member))
+        logger.debug("Created CF group %r", cf_member)
 
         # Now that we have the group node, we create the corresponding
         # structure nodes (all of them).
@@ -1151,7 +1100,6 @@ def build_cf_tree(db, db_groups, multisemester_map):
 
     logger.debug("Built a CF tree")
     return tree
-# end build_cf_tree
 
 
 def open_xml_stream(filename):
@@ -1177,12 +1125,10 @@ def output_fixed_header(printer):
     printer.dataElement("datasource", "cerebrum@hiof.no")
     printer.dataElement("datetime", mx.DateTime.now().strftime("%Y-%m-%d"))
     printer.endElement("properties")
-# end output_fixed_header
 
 
 def output_source_element(printer):
     printer.dataElement("source", "cerebrum@hiof.no")
-# end output_source_element
 
 
 def output_id(id_data, printer):
@@ -1190,7 +1136,6 @@ def output_id(id_data, printer):
     output_source_element(printer)
     printer.dataElement("id", id_data)
     printer.endElement("sourcedid")
-# end output_person_id
 
 
 def output_person_auth(data, printer):
@@ -1199,7 +1144,6 @@ def output_person_auth(data, printer):
     # "5"                      means authentication via ldap
     printer.dataElement("userid", data["user"],
                         {"password": "ldap3:", "pwencryptiontype": "5", })
-# end output_person_auth
 
 
 def output_person_names(data, printer):
@@ -1212,7 +1156,6 @@ def output_person_names(data, printer):
         printer.dataElement("family", data["family"])
     printer.endElement("n")
     printer.endElement("name")
-# end output_person_names
 
 
 def output_email_info(data, printer):
@@ -1240,7 +1183,6 @@ def output_email_info(data, printer):
                           "is_primary": "1",
                           "mailserver": data["imap-server"]})
     printer.endElement("extension")
-# end output_email_info
 
 
 def output_person_address(data, printer):
@@ -1258,7 +1200,6 @@ def output_person_address(data, printer):
         if value:
             printer.dataElement(key, value)
     printer.endElement("adr")
-# end person2address
 
 
 def output_person_phone(data, printer):
@@ -1267,7 +1208,6 @@ def output_person_phone(data, printer):
 
     # 3 means mobile phone in the IMS specification
     printer.dataElement("tel", data["mobile"], {"teltype": "3"})
-# end output_person_phone
 
 
 def output_person_element(data, printer):
@@ -1283,7 +1223,6 @@ def output_person_element(data, printer):
     output_person_address(data, printer)
     output_person_phone(data, printer)
     printer.endElement("person")
-# end output_person_element
 
 
 def output_people(db, tree, printer):
@@ -1310,7 +1249,6 @@ def output_people(db, tree, printer):
             continue
 
         output_person_element(xml_data, printer)
-# end output_people
 
 
 def output_group_element(cf_group, printer, member_group_owner):
@@ -1339,7 +1277,6 @@ def output_group_element(cf_group, printer, member_group_owner):
     printer.emptyElement("label")
     printer.endElement("relationship")
     printer.endElement("group")
-# end output_group_element
 
 
 def output_member_groups(db, tree, printer):
@@ -1352,7 +1289,6 @@ def output_member_groups(db, tree, printer):
     member_owner = tree._person_group_holder.cf_id()
     for cf_group in tree.iterate_groups_topologically():
         output_group_element(cf_group, printer, member_owner)
-# end output_member_groups
 
 
 def output_user_membership(group, members, printer):
@@ -1383,7 +1319,6 @@ def output_user_membership(group, members, printer):
         printer.endElement("member")
 
     printer.endElement("membership")
-# end output_user_membership
 
 
 def output_user_memberships(db, tree, printer):
@@ -1396,7 +1331,6 @@ def output_user_memberships(db, tree, printer):
             continue
 
         output_user_membership(group, members, printer)
-# end output_user_memberships
 
 
 def output_viewcontacts(target, permission_holders, printer):
@@ -1419,7 +1353,6 @@ def output_viewcontacts(target, permission_holders, printer):
         printer.endElement("role")
         printer.endElement("member")
     printer.endElement("membership")
-# end output_viewcontacts
 
 
 def process_viewcontacts_permissions(cf_group, local_permissions,
@@ -1501,7 +1434,6 @@ def process_viewcontacts_permissions(cf_group, local_permissions,
         logger.debug("%s is an inherited permission group and %s local groups"
                      "have viewContact on it",
                      g.cf_id(), len(local_nonstudents))
-# end process_viewcontacts_permissions
 
 
 def output_node_permissions(cf_group, local_permissions,
@@ -1541,7 +1473,6 @@ def output_node_permissions(cf_group, local_permissions,
         printer.endElement("member")
 
     printer.endElement("membership")
-# end output_node_permissions
 
 
 def process_node_permissions(node, inherited_permissions, printer):
@@ -1579,7 +1510,6 @@ def process_node_permissions(node, inherited_permissions, printer):
     children_permissions = inherited_permissions + node_recursive_permissions
     for child in children:
         process_node_permissions(child, children_permissions, printer)
-# end output_node_permissions
 
 
 def output_permissions(tree, printer):
@@ -1592,7 +1522,6 @@ def output_permissions(tree, printer):
 
     root = tree.get_root()
     process_node_permissions(root, tuple(), printer)
-# end output_permissions
 
 
 def generate_xml_file(filename, db, tree):
@@ -1617,7 +1546,6 @@ def generate_xml_file(filename, db, tree):
     printer.endElement("enterprise")
     printer.endDocument()
     printer.fp.close()
-# end generate_xml_file
 
 
 def build_multisemester_mapping(undenh_file, undakt_file):
@@ -1705,14 +1633,9 @@ def build_multisemester_mapping(undenh_file, undakt_file):
 
             logger.debug("Connecting %s to %s", key, result[key])
     return result
-# end build_multisemester_mapping
 
 
-def main():
-
-    global logger
-    logger = Factory.get_logger("cronjob")
-
+def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-x', '--xml-file', dest='xml_file',
                         help='XML-file to be generated',
@@ -1726,7 +1649,10 @@ def main():
     parser.add_argument('-u', '--uname-suffix', dest='uname_suffix',
                         help='Username suffix to be added (default: None)',
                         default='')
-    args = parser.parse_args()
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     global uname_suffix
     uname_suffix = args.uname_suffix
@@ -1737,7 +1663,6 @@ def main():
                                                     args.undakt_file)
     tree = build_cf_tree(db, groups, multisemester_map)
     generate_xml_file(args.xml_file, db, tree)
-# end main
 
 
 if __name__ == "__main__":
