@@ -200,7 +200,7 @@ class CfTree(object):
             nn = CfStructureGroup(s_name, s_id, parent)
             self.register_structure_group(nn)
             parent.add_child(nn)
-            logger.debug("Created sibling %r from %r under parent %r",
+            logger.debug("Created sibling %s from %s under parent %s",
                          nn, cf_group, parent)
 
     def create_associated_structures(self, cf_group, multisemester_map):
@@ -228,7 +228,7 @@ class CfTree(object):
             structure_id = cf_group.cf_parent_id()
 
         if structure_id is None:
-            logger.debug("No structure created for cf_group=%r", cf_group)
+            logger.debug("No structure created for cf_group=%s", cf_group)
             return None
         if self.get_cf_group(structure_id):
             self.get_cf_group(structure_id).add_child(cf_group)
@@ -530,7 +530,7 @@ class CfStructureGroup(CfGroupInterface):
 
         # let's go
         for holder in holders:
-            logger.debug("%r receives additional permissions from sibling %r",
+            logger.debug("%s receives additional permissions from sibling %s",
                          fellesrom, holder)
             fellesrom.register_permissions(holder)
 
@@ -637,7 +637,7 @@ class CfStructureGroup(CfGroupInterface):
         if permission is not None:
             self._permissions[cf_group.cf_id()] = permission
 
-        logger.debug("Registered permission %r", permission)
+        logger.debug("Registered permission %s", permission)
 
     def __str__(self):
         return ("CFSG id=%s (parent=%s), %d structure members, "
@@ -848,7 +848,7 @@ class CfMemberGroup(CfGroupInterface):
             role_code = self._role_code()
             access_type = role_code2permission[role_code][self.cf_group_type()]
         else:
-            logger.debug("Weird group type for %r", self)
+            logger.debug("Weird group type for %s", self)
             assert False, "This cannot happen"
 
         perm_object = CfPermission(access_type, recursive,
@@ -1079,7 +1079,7 @@ def build_cf_tree(db, db_groups, multisemester_map):
         db_group = locate_db_group(db, group_id)
         cf_member = CfMemberGroup(db_group)
         tree.register_member_group(cf_member)
-        logger.debug("Created CF group %r", cf_member)
+        logger.debug("Created CF group %s", cf_member)
 
         # Now that we have the group node, we create the corresponding
         # structure nodes (all of them).
