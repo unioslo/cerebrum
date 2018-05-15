@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2003-2005 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,14 +16,15 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
+import base64
 import random
 import string
 import time
-import base64
+
+import six
 
 import cereconf
+
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
@@ -128,7 +129,7 @@ class AccountOfkMixin(Account.Account):
             pwd.append(string.ascii_letters[idx])
             count += 1
         random.shuffle(pwd)
-        return string.join(pwd, '')
+        return six.text_type(string.join(pwd, ''))
 
     def verify_password(self, method, plaintext, cryptstring):
         """Returns True if the plaintext matches the cryptstring,
@@ -186,7 +187,7 @@ class AccountOfkMixin(Account.Account):
         If the account has previously had a HomeMDB, this is reused, but only
         as long the MDB value is valid today, see
         L{cereconf.EXCHANGE_HOMEMDB_VALID}. Otherwise a random HomeMDB is
-        selected. We don't care about the weight of the MDBs, ØFK wants
+        selected. We don't care about the weight of the MDBs, Ã˜FK wants
         everyone to be equally assigned.
 
         @rtype: string
@@ -228,7 +229,7 @@ class AccountOfkMixin(Account.Account):
                 # This if-test assumes that the cereconf.EMAIL_DEFAULT_DOMAIN
                 # cannot be considered as a primary domain if another
                 # valid domain is found for an account. The behaviour is wrong
-                # for ØFK as quite av few of the accounts should have primary
+                # for Ã˜FK as quite av few of the accounts should have primary
                 # addresses in default domain while they have other domains
                 # Jazz
                 #
