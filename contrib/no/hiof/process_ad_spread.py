@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2007-2009 University of Oslo, Norway
+# Copyright 2007-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -48,8 +48,10 @@ Usage: process_AD.py [options]
 
 import getopt
 import sys
-import cerebrum_path
+import six
+
 import cereconf
+
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hiof import ADMappingRules
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
@@ -63,7 +65,7 @@ person = Factory.get('Person')(db)
 logger = None
 
 entity_id2uname = {}
-user_diff_attrs = {} # Users which new and old AD attrs differ
+user_diff_attrs = {}  # Users which new and old AD attrs differ
 
 
 class StudieInfo(object):
@@ -76,7 +78,7 @@ class StudieInfo(object):
         # parse XML-filen medmindre vi trenger å slå opp i den
         self.stdnr2stproginfo = None
         self.studieprog2sko = None
-        
+
     def get_persons_studieprogrammer(self, stdnr):
         if self.stdnr2stproginfo is None:
             self.stdnr2stproginfo = self._parse_studinfo()
@@ -90,6 +92,7 @@ class StudieInfo(object):
     def _parse_studinfo(self):
         logger.debug("Parsing %s" % self._person_fname)
         stdnr2stproginfo = {}
+
         def got_aktiv(dta, elem_stack):
             entry = elem_stack[-1][-1]
             stdnr = entry['studentnr_tildelt']
@@ -102,6 +105,7 @@ class StudieInfo(object):
     def _parse_studieprog(self):
         logger.debug("Parsing %s" % self._stprog_fname)
         stprog2sko = {}
+
         def got_aktiv(dta, elem_stack):
             entry = elem_stack[-1][-1]
             sko = "%02i%02i%02i" % (int(entry['faknr_studieansv']),
@@ -112,6 +116,7 @@ class StudieInfo(object):
         cfg = [(['data', 'studprog'], got_aktiv)]
         GeneralXMLParser(cfg, self._stprog_fname)
         return stprog2sko
+
 
 class Job(object):
     """
@@ -142,7 +147,7 @@ class Job(object):
             self.rules = ADMappingRules.Adm()
         elif self.spread == co.spread_ad_account_stud:
             self.rules = ADMappingRules.Student()
-    
+
     def process_ad_attrs(self):
         """
         Check account's AD attributes in AD domain given by spread.
@@ -185,15 +190,16 @@ class Job(object):
             else:
                 self.populate_ad_attrs(new_attrs)
                 ac.write_db()
-                logger.info("AD attributes %s populated for account %s (id:%d)",
-                            new_attrs, ac.account_name, entity_id)
+                logger.info(
+                    "AD attributes %s populated for account %s (id:%d)",
+                    new_attrs, ac.account_name, entity_id)
 
     def calc_ad_attrs(self):
         """
         Calculate and return AD attributes for an account.
 
         @rtype: dict
-        @return: {attr_type : attr_value, ...}        
+        @return: {attr_type : attr_value, ...}
         """
         # Non-personal accounts have their own rules
         if int(ac.owner_type) == int(co.entity_group):
@@ -209,8 +215,9 @@ class Job(object):
                 ac.account_name, ac.entity_id))
         sko = self._get_ou_sko(affs[0]['ou_id'])
         cn = self.rules.getDN(ac.account_name, sko)
-        ret['ad_account_ou'] = cn[cn.find(",")+1:]
-        ret['ad_profile_path'] = self.rules.getProfilePath(ac.account_name, sko)
+        ret['ad_account_ou'] = cn[cn.find(",") + 1:]
+        ret['ad_profile_path'] = self.rules.getProfilePath(
+            ac.account_name, sko)
         ret['ad_homedir'] = self.rules.getHome(ac.account_name, sko)
         return ret
 
@@ -220,7 +227,7 @@ class Job(object):
         account.
 
         @rtype: dict
-        @return: {attr_type : attr_value, ...}        
+        @return: {attr_type : attr_value, ...}
         """
         ret = {}
         ret['ad_account_ou'] = cereconf.AD_DEFAULT_OU
@@ -233,7 +240,7 @@ class Job(object):
         Calculate and return AD attributes for a student account.
 
         @rtype: dict
-        @return: {attr_type : attr_value, ...}        
+        @return: {attr_type : attr_value, ...}
         """
         person.clear()
         person.find(ac.owner_id)
@@ -253,9 +260,11 @@ class Job(object):
         if not stprogs:
             raise Job.CalcError("No studieprogram for %s" % fnr)
         # Velger foreløbig det første studieprogrammet i listen...
-        sko = self.student_info.get_studprog_sko(stprogs[0]['studieprogramkode'])
+        sko = self.student_info.get_studprog_sko(
+            stprogs[0]['studieprogramkode'])
         if not sko:
-            raise Job.CalcError("Ukjent sko for %s" % stprogs[0]['studieprogramkode'])
+            raise Job.CalcError(
+                "Ukjent sko for %s" % stprogs[0]['studieprogramkode'])
         try:
             kkode = stprogs[0]['klassekode']
         except KeyError:
@@ -263,11 +272,12 @@ class Job(object):
         studinfo = "".join((stprogs[0]['arstall_kull'][-2:],
                             stprogs[0]['terminkode_kull'][0],
                             stprogs[0]['studieprogramkode'],
-                            kkode)).lower()                           
+                            kkode)).lower()
         ret = {}
         cn = self.rules.getDN(ac.account_name, sko, studinfo)
-        ret['ad_account_ou'] = cn[cn.find(",")+1:]
-        ret['ad_profile_path'] = self.rules.getProfilePath(ac.account_name, sko)
+        ret['ad_account_ou'] = cn[cn.find(",") + 1:]
+        ret['ad_profile_path'] = self.rules.getProfilePath(
+            ac.account_name, sko)
         ret['ad_homedir'] = self.rules.getHome(ac.account_name, sko)
         return ret
 
@@ -278,7 +288,7 @@ class Job(object):
 
     def compare_attrs(self, old_attrs, new_attrs, entity_id):
         """
-        Compare old and new AD attributes. 
+        Compare old and new AD attributes.
 
         @param old_attrs: attr type -> attr value mapping
         @type  old_attrs: dict
@@ -293,13 +303,14 @@ class Job(object):
 
         spread = int(self.spread)
         for k in new_attrs.keys():
-            if not (old_attrs.get(k, None) and attr_eq(new_attrs[k], old_attrs[k])):
+            if (not (old_attrs.get(k, None) and
+                     attr_eq(new_attrs[k], old_attrs[k]))):
                 # New AD attrs are not equal the old ones
                 # Where attr differs, store as a 2d mapping:
                 # user <-> {spread <-> [(new attr, old attr)]}
-                if not entity_id in user_diff_attrs:
+                if entity_id not in user_diff_attrs:
                     user_diff_attrs[entity_id] = {}
-                if not spread in user_diff_attrs[entity_id]:
+                if spread not in user_diff_attrs[entity_id]:
                     user_diff_attrs[entity_id][spread] = []
                 user_diff_attrs[entity_id][spread].append(
                     (new_attrs[k], old_attrs.get(k, None)))
@@ -318,33 +329,10 @@ class Job(object):
             # spread. Those must not be deleted
             existing_attrs = ac.get_ad_attrs_by_type(attr_type)
             # Update spread -> ad val mapping with new value
-            existing_attrs[int(self.spread)] = str(attr_val)
+            existing_attrs[int(self.spread)] = six.text_type(attr_val)
             ac.populate_ad_attrs(attr_type, existing_attrs)
 
-    def write_diff_output(self, out_file):
-        """
-        Write data from user_diff_attrs to file. The dict contains old
-        and new ad attribute values for accounts where they differ.
 
-        @param out_file: file name
-        @type  out_file: str
-        """
-        try:
-            f = file(out_file, 'w')
-            f.write("brukernavn;domene;ny verdi;gammel verdi\n")
-            f.write("---------------------------------------\n")
-            for e_id, attr_map in user_diff_attrs.items():
-                for spread, attrs in attr_map.items():
-                    for new_val, old_val in attrs:
-                        f.write("%s;%s;%s;%s\n" % (entity_id2uname[e_id],
-                                                   self.rules.DOMAIN_NAME,
-                                                   new_val, old_val))
-            logger.info("Wrote user_diff_ad_attrs to file %s" % out_file)
-        except IOError:
-            logger.warning("Couldn't open file %s" % out_file)
-        else:
-            f.close()
-    
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'hda:s:p:o:', [
@@ -358,7 +346,6 @@ def main():
     person_file = None
     stprog_file = None
     spread_str = None
-    out_file = None
     for opt, val in opts:
         if opt in ('-h', '--help'):
             usage()
@@ -367,11 +354,9 @@ def main():
         elif opt in ('-a', '--ad-spread'):
             spread_str = val
         elif opt in ('-s', '--studie-prog'):
-            stprog_file  = val
+            stprog_file = val
         elif opt in ('-p', '--person-file'):
             person_file = val
-        elif opt in ('-o', '--out-file'):
-            out_file = val
 
     if not spread_str:
         usage(1)
@@ -381,11 +366,8 @@ def main():
     j = Job(spread_str, si)
     # Process ad attributes for accounts with this spread
     j.process_ad_attrs()
-    # Write to file where ad_attrs differ
-    if out_file:
-        j.write_diff_output(out_file)
 
-    # Committ changes?
+    # Commit changes?
     if dryrun:
         logger.info("Rolling back all changes")
         db.rollback()
@@ -393,9 +375,11 @@ def main():
         logger.info("Committing all changes")
         db.commit()
 
+
 def usage(exitcode=0):
     print __doc__
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()
