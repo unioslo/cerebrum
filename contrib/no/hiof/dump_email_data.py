@@ -20,7 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Generate a dump of email addresses. """
 import argparse
-import codecs
 import logging
 import os
 import sys
@@ -31,14 +30,10 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import codec_type
 from Cerebrum.modules import Email
 
 logger = logging.getLogger(__name__)
-
-def get_valid_email_addrs(et):
-    addrs = [(r['local_part'], r['domain'])       
-             for r in et.get_addresses()]
-    return ["%s@%s" % a for a in addrs]
 
 # TODO: This script should probably use the csv module
 
@@ -115,28 +110,6 @@ def generate_email_data(db):
         except Errors.NotFoundError:
             logger.warn("No email target for %s", account_name)
             continue
-        # fetch all valid adresses for account
-        valid_addrs = get_valid_email_addrs(et)
-        if not et.email_server_id:
-            logger.warn("No server registered for %s", account.account_name)
-            email_server = "N/A"
-        else:
-            email_server = et.email_server_id
-        if email_server != "N/A":
-            es.clear()    
-            es.find(et.email_server_id)
-            email_server = es.name
-        valid = "valid:"
-        for a in valid_addrs:
-            valid = valid + a + ':'
-        all_email_data[account.account_name] = 'default:' + primary + ':' + valid + email_server
-    return all_email_data
-    
-def usage():
-    print """Usage: dump_email_data.py
-    -f, --file    : File to write.
-    """
-    sys.exit(0)
 
         valid_addrs = list(get_valid_email_addrs(et))
         email_server_name = get_server_name(et.email_server_id)
@@ -151,17 +124,6 @@ def usage():
 
     logger.debug('Done fetching email data')
 
-
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
-
-    dryrun = False
-    for opt, val in opts:
-        if opt in ('-f', '--file'):
-            outfile = val
 
 DEFAULT_ENCODING = 'utf-8'
 DEFAULT_OUTFILE = os.path.join(sys.prefix, 'var', 'cache', 'MAIL',
@@ -194,9 +156,6 @@ def main(inargs=None):
     logger.debug("args: %r", args)
 
     db = Factory.get('Database')()
-    constants = Factory.get('Constants')(db)
-    account = Factory.get('Account')(db)
-    person = Factory.get('Person')(db)
 
     write_email_file(
         args.output,
@@ -213,4 +172,3 @@ def main(inargs=None):
 
 if __name__ == '__main__':
     main()
-
