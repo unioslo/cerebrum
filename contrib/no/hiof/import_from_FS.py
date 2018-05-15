@@ -37,7 +37,7 @@ from Cerebrum.modules.no.access_FS import make_fs
 XML_ENCODING = 'utf-8'
 
 logger = Factory.get_logger("cronjob")
-xml = XMLHelper()
+xml = XMLHelper(encoding=XML_ENCODING)
 fs = None
 
 KiB = 1024
@@ -213,10 +213,32 @@ def write_emne_info(outfile):
     f.write("</data>\n")
 
 
+class AtomicStreamRecoder(AtomicFileWriter):
+    """ file writer encoding hack.
+
+    xmlprinter.xmlprinter encodes data in the desired encoding before writing
+    to the stream, and AtomicFileWriter *requires* unicode-objects to be
+    written.
+
+    This hack turns AtomicFileWriter into a bytestring writer. Just make sure
+    the AtomicStreamRecoder is configured to use the same encoding as the
+    xmlprinter.
+
+    The *proper* fix would be to retire the xmlprinter module, and replace it
+    with something better.
+    """
+
+    def write(self, data):
+        if isinstance(data, bytes) and self.encoding:
+            # will be re-encoded in the same encoding by 'write'
+            data = data.decode(self.encoding)
+        return super(AtomicStreamRecoder, self).write(data)
+
+
 def write_fnrupdate_info(outfile):
     """Lager fil med informasjon om alle fødselsnummerendringer"""
     logger.info("Writing fnrupdate info to '%s'" % outfile)
-    stream = AtomicFileWriter(outfile, mode='w', encoding=XML_ENCODING)
+    stream = AtomicStreamRecoder(outfile, mode='w', encoding=XML_ENCODING)
     writer = xmlprinter.xmlprinter(stream,
                                    indent_level=2,
                                    data_mode=True)
