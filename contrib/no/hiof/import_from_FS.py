@@ -252,7 +252,9 @@ def write_misc_info(outfile, tag, func_name):
     logger.info("Writing misc info to '%s'" % outfile)
     f = io.open(outfile, mode='w', encoding=XML_ENCODING)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = _ext_cols(getattr(fs, func_name)())
+    func = reduce(
+        lambda obj, attr: getattr(obj, attr), func_name.split('.'), fs)
+    cols, dta = _ext_cols(func())
     for t in dta:
         fix_float(t)
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), tag) + "\n")
