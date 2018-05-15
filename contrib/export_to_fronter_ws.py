@@ -51,7 +51,7 @@ def export(filename, key, host):
                'Accept': '*/*'}
     try:
         conn.request('POST',
-                     '/es/?authkey=%s' % key,
+                     '/es/?authkey=%s' % str(key),  # 'key' should be ASCII
                      'POSTFILE\n%s\n%s' % (filename, data), headers)
     except socket.error, err:
         logger.error('Error during request: %s' % err[1])
