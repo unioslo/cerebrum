@@ -37,14 +37,16 @@ from Cerebrum.utils.atomicfile import SimilarSizeWriter
 logger = logging.getLogger(__name__)
 
 
-class CsvDialect(csv.excel):
+class KvernfileDialect(csv.excel):
     """Specifying the CSV output dialect the script uses.
 
     See the module `csv` for a description of the settings.
-
     """
     delimiter = '$'
     lineterminator = '\n'
+
+    # TODO: Agree on escaping/quoting with ofk -- as we currently don't produce
+    # an actual parseable CSV file...
 
 
 class CsvUnicodeWriter:
@@ -218,12 +220,16 @@ class PersonLookup(object):
 def write_csv_export(stream, iterator):
     fields = ['ext_id', 'username', 'password',
               'email', 'ou', 'firstname', 'lastname', ]
-    writer = CsvUnicodeWriter(stream,
-                              dialect=CsvDialect,
-                              fieldnames=fields)
+    # writer = CsvUnicodeWriter(stream,
+    #                           dialect=KvernfileDialect,
+    #                           fieldnames=fields)
+    delim = six.text_type(KvernfileDialect.delimiter)
+    linesep = six.text_type(KvernfileDialect.lineterminator)
     count = 0
     for count, user in enumerate(iterator, 1):
-        writer.writerow(user)
+        line = delim.join((user[field] for field in fields))
+        stream.write(line + linesep)
+        # writer.writerow(user)
     logger.info("Wrote %d users", count)
 
 
